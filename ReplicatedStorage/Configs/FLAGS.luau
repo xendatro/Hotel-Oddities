@@ -1,0 +1,3 @@
+return {
+	Enemies = true,
+}
