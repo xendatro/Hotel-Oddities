@@ -1,31 +1,33 @@
 --- Tuning for every enemy type. Keys match the ModuleScript names under `ServerStorage.Classes.Enemies`;
 --- `Model` names the template under `ReplicatedStorage.Enemies`.
+--- Everything past `WalkSpeed` is optional because an ambient enemy has none of it: the Ghost moves
+--- itself, hunts nobody and hurts nobody, so it carries only `Model`, `WalkSpeed` and its own block.
 export type EnemyConfig = {
 	Model: string,
 
 	-- Locomotion
 	WalkSpeed: number,
-	ChaseSpeed: number,
-	RepathInterval: number, -- minimum time between moving-target path updates
-	RepathDistance: number, -- studs the goal must drift before its path is replaced
-	AgentParams: { [string]: any },
+	ChaseSpeed: number?,
+	RepathInterval: number?, -- minimum time between moving-target path updates
+	RepathDistance: number?, -- studs the goal must drift before its path is replaced
+	AgentParams: { [string]: any }?,
 
 	-- Idle / wander
-	IdleTimeMin: number,
-	IdleTimeMax: number,
-	IdleNextState: string, -- state `Idle` hands off to once its timer elapses
-	WanderRadius: number, -- studs around the spawn point a wander target may fall in
+	IdleTimeMin: number?,
+	IdleTimeMax: number?,
+	IdleNextState: string?, -- state `Idle` hands off to once its timer elapses
+	WanderRadius: number?, -- studs around the spawn point a wander target may fall in
 
 	-- Perception
-	DetectionRange: number, -- studs this enemy can acquire a target from
-	GiveUpRange: number, -- studs beyond which an acquired target stops being valid
-	FieldOfView: number, -- degrees of the enemy's own view cone; 360 sees all around
-	RespectsSafeRooms: boolean, -- when true, players inside a `Room` part are untargetable
+	DetectionRange: number?, -- studs this enemy can acquire a target from
+	GiveUpRange: number?, -- studs beyond which an acquired target stops being valid
+	FieldOfView: number?, -- degrees of the enemy's own view cone; 360 sees all around
+	RespectsSafeRooms: boolean?, -- when true, players inside a `Room` part are untargetable
 
 	-- Combat
-	Damage: number,
-	AttackRange: number,
-	AttackCooldown: number,
+	Damage: number?,
+	AttackRange: number?,
+	AttackCooldown: number?,
 
 	-- Chaser-specific
 	LoseInterestTime: number?, -- seconds spent lingering at a lost target's last position
@@ -45,6 +47,11 @@ export type EnemyConfig = {
 	GlanceAngle: number?, -- degrees it turns to look around while idle
 	GlanceInterval: number?, -- seconds between those glances
 	IdleJumpChance: number?, -- odds of a pointless hop per glance
+
+	-- Ghost-specific. How it looks while it drifts is not here: that is rendered on every client
+	-- and is tuned in `ReplicatedStorage.Configs.GhostConfig`.
+	DriftSpeed: number?, -- studs/s it travels at; the same going up, down or through a wall
+	MinGoalDistance: number?, -- studs a new goal should clear, so it does not hover in one corner
 }
 
 local ROOM_COST = { Room = math.huge } -- makes tagged safe rooms impassable to pathfinding
@@ -158,6 +165,16 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		GlanceAngle = 22,
 		GlanceInterval = 0.9,
 		IdleJumpChance = 0.15,
+	},
+
+	-- Ambient only. It never acquires, chases or attacks, so it has no perception or combat tuning
+	-- at all -- what it does is drift between `GhostArea` volumes and never stop.
+	Ghost = {
+		Model = "Ghost",
+
+		WalkSpeed = 0, -- its root is anchored; nothing about it moves through the humanoid
+		DriftSpeed = 7, -- slower than a walk, so it always looks like it is being carried
+		MinGoalDistance = 30,
 	},
 }
 
