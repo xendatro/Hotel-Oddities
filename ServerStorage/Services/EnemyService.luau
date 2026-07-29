@@ -1,11 +1,8 @@
-local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
-
-local ENEMY_SPAWN_TAG = "EnemySpawn"
 
 local EnemyService = {}
 local ActiveEnemies = {}
@@ -63,21 +60,6 @@ end
 function EnemyService:DespawnAll()
 	for _, enemy in table.clone(ActiveEnemies) do
 		enemy:Despawn()
-	end
-end
-
-if FLAGS.Enemies and FLAGS.EnemyTestSpawn then
-	local spawnPart = CollectionService:GetTagged(ENEMY_SPAWN_TAG)[1] :: BasePart
-	local spawnCFrame = spawnPart.CFrame * CFrame.new(0, spawnPart.Size.Y / 2, 0)
-	local enemyIds = {}
-
-	for enemyId in EnemyConfigs do
-		table.insert(enemyIds, enemyId)
-	end
-	table.sort(enemyIds)
-
-	for _, enemyId in enemyIds do
-		EnemyService:Spawn(enemyId, spawnCFrame)
 	end
 end
 
