@@ -13,7 +13,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
-local NpcAnimator = require(ServerStorage.Classes.NpcAnimator)
+local NpcAnimator = require(ReplicatedStorage.Classes.NpcAnimator)
 local RoomService = require(ServerStorage.Services.RoomService)
 
 local WAYPOINT_TIMEOUT_SCALE = 2 -- multiple of the ideal travel time before a waypoint is abandoned
@@ -146,6 +146,16 @@ end
 
 function NPC:StopMoving()
 	self.Humanoid:MoveTo(self.RootPart.Position)
+end
+
+--- Hands simulation of this rig to `player`, or back to the server with nil. An enemy whose movement
+--- is driven by one client has to be owned by that client, or every frame of it arrives late.
+function NPC:SetNetworkOwner(player: Player?)
+	for _, descendant in self.Model:GetDescendants() do
+		if descendant:IsA("BasePart") and descendant:CanSetNetworkOwnership() then
+			descendant:SetNetworkOwner(player)
+		end
+	end
 end
 
 --- Turns to face a point without moving. Yaw only.
