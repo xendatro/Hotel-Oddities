@@ -1,0 +1,128 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local AudioService = require(ReplicatedStorage.Services.AudioService)
+local TagService = require(ReplicatedStorage.Services.TagService)
+
+local Prompts = ReplicatedStorage.Props.Prompts
+
+local LocalPlayer = Players.LocalPlayer
+local Controls = require(LocalPlayer.PlayerScripts:WaitForChild("PlayerModule")):GetControls()
+
+local COOLDOWN = 5
+local APPROACH_TIMEOUT = 1.5
+local SURFACE_HEIGHT = 3.5
+
+--- @class Hole
+--- One end of a dug hole pair. Crawling in surfaces the player at the twin sharing its `ID`.
+--- Every hole in the world goes on cooldown after any crawl, so a player cannot immediately dive
+--- back through the exit they just came out of.
+local Hole = {}
+Hole.__index = Hole
+
+-- Every live Hole, so one crawl can put them all on cooldown together.
+local Active: { [any]: true } = {}
+
+local function beginCooldown()
+	for hole in Active do
+		hole.Prompt.Enabled = false
+	end
+
+	task.delay(COOLDOWN, function()
+		for hole in Active do
+			hole.Prompt.Enabled = true
+		end
+	end)
+end
+
+local function setUpConnections(self)
+	self.Connections = {}
+
+	self.Connections.Triggered = self.Prompt.Triggered:Connect(function()
+		self:Crawl()
+	end)
+end
+
+function Hole.new(hole: Model)
+	local self = setmetatable({}, Hole)
+
+	self.Hole = hole
+	self.Prompt = Prompts.CrawlPrompt:Clone()
+	self.Prompt.Parent = hole.PrimaryPart
+
+	setUpConnections(self)
+	Active[self] = true
+
+	return self
+end
+
+-- The other end of this pair, or nil if it has already expired.
+function Hole:_findTwin(): Model?
+	return TagService:GetTaggedOfPredicate("Hole", function(other: Instance)
+		return other ~= self.Hole and other:GetAttribute("ID") == self.Hole:GetAttribute("ID")
+	end)[1]
+end
+
+function Hole:Crawl()
+	local twin = self:_findTwin()
+	if not twin then return end
+
+	local character = LocalPlayer.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 then return end
+
+	beginCooldown()
+	Controls:Disable()
+
+	-- Walk them onto the hole first, but never hang on it -- a blocked path times out and the
+	-- crawl plays from wherever they got to.
+	humanoid:MoveTo(self.Hole:GetPivot().Position)
+	local arrived = false
+	task.spawn(function()
+		humanoid.MoveToFinished:Wait()
+		arrived = true
+	end)
+	task.delay(APPROACH_TIMEOUT, function()
+		arrived = true
+	end)
+	repeat RunService.Heartbeat:Wait() until arrived
+
+	character.PrimaryPart.Anchored = true
+
+	local track = humanoid.Animator:LoadAnimation(self.Hole.Animations.Crawl)
+	track:Play()
+	task.delay(0.3, function()
+		AudioService:Play3DSound("HoleIn", character.PrimaryPart, false, "SFX")
+	end)
+
+	track:GetMarkerReachedSignal("Change"):Wait()
+	character:PivotTo(CFrame.new(twin:GetPivot().Position + Vector3.new(0, SURFACE_HEIGHT, 0)))
+
+	task.delay(0.2, function()
+		local vfx = twin:FindFirstChild("VFXPart")
+		if not vfx then return end
+		for _, instance in vfx:GetDescendants() do
+			if instance:IsA("ParticleEmitter") then
+				instance:Emit(instance:GetAttribute("EmitCount"))
+			end
+		end
+	end)
+
+	track:GetMarkerReachedSignal("Unanchor"):Wait()
+	AudioService:Play3DSound("HoleOut", character.PrimaryPart, false, "SFX")
+	character.PrimaryPart.Anchored = false
+	Controls:Enable()
+
+	track.Ended:Wait()
+end
+
+function Hole:Destroy()
+	Active[self] = nil
+	for _, connection in self.Connections do
+		connection:Disconnect()
+	end
+	self.Prompt:Destroy()
+end
+
+return Hole

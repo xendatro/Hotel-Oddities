@@ -17,7 +17,9 @@ type Tags = {
 
 local Tags: Tags = {}
 
-function TagService:Listen(tag: string, apply: (instance: Instance) -> any, unapply: (instance: Instance, data: any) -> nil, ancestor: Instance): nil
+--- Wires a class to a tag. A nil `ancestor` means GLOBAL scope -- needed for tools, which move
+--- between a player's Backpack and their Character and so have no single ancestor to scope to.
+function TagService:Listen(tag: string, apply: (instance: Instance) -> any, unapply: (instance: Instance, data: any) -> nil, ancestor: Instance?): nil
 	if Tags[tag] then
 		warn("Attempted to listen to active tag")
 		return
@@ -49,7 +51,7 @@ function TagService:Listen(tag: string, apply: (instance: Instance) -> any, unap
 	
 	local function applyFunction(instance)
 		if Tags[tag].Instances[instance] then return end
-		if not instance:IsDescendantOf(ancestor) then return end
+		if ancestor and not instance:IsDescendantOf(ancestor) then return end
 		if not instance:HasTag(tag) then return end
 		
 		Tags[tag].Instances[instance] = true
@@ -65,12 +67,15 @@ function TagService:Listen(tag: string, apply: (instance: Instance) -> any, unap
 	
 	Tags[tag].TagConnections.InstanceAdded = CollectionService:GetInstanceAddedSignal(tag):Connect(applyFunction)
 
-	Tags[tag].TagConnections.DescendantAdded = ancestor.DescendantAdded:Connect(applyFunction)
-	
 	Tags[tag].TagConnections.InstanceRemoved = CollectionService:GetInstanceRemovedSignal(tag):Connect(unapplyFunction)
-	
-	Tags[tag].TagConnections.DescendantRemoving = ancestor.DescendantRemoving:Connect(unapplyFunction)
-	
+
+	-- Only a scoped listen needs these: they catch already-tagged instances reparented into the
+	-- ancestor. A global listen is fully covered by the added signal plus the sweep below.
+	if ancestor then
+		Tags[tag].TagConnections.DescendantAdded = ancestor.DescendantAdded:Connect(applyFunction)
+		Tags[tag].TagConnections.DescendantRemoving = ancestor.DescendantRemoving:Connect(unapplyFunction)
+	end
+
 	for _, instance in CollectionService:GetTagged(tag) do
 		applyFunction(instance)
 	end
@@ -95,6 +100,25 @@ end
 
 function TagService:GetApplied(tag: string, instance: Instance)
 	return Tags[tag].Data[instance]
+end
+
+--- Every instance carrying `tag` that satisfies `predicate`. Unlike GetAllApplied this reads
+--- CollectionService directly, so it sees tagged instances nothing has Listened to.
+function TagService:GetTaggedOfPredicate(tag: string, predicate: (instance: Instance) -> boolean): {Instance}
+	local t = {}
+	for _, instance in CollectionService:GetTagged(tag) do
+		if predicate(instance) then
+			table.insert(t, instance)
+		end
+	end
+	return t
+end
+
+--- Every instance carrying `tag` that lives under `ancestor`.
+function TagService:GetTaggedOfAncestor(ancestor: Instance, tag: string): {Instance}
+	return TagService:GetTaggedOfPredicate(tag, function(instance: Instance)
+		return instance:IsDescendantOf(ancestor)
+	end)
 end
 
 function TagService:GetListenedTags()
