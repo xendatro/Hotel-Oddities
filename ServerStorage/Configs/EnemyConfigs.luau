@@ -33,6 +33,13 @@ export type EnemyConfig = {
 	LoseInterestTime: number?, -- seconds spent lingering at a lost target's last position
 	SearchLookInterval: number?,
 
+	-- Deaf-specific
+	InvestigateRange: number?, -- distance from the latest noise that counts as reaching it
+	SearchTime: number?, -- seconds spent listening at the last sound before wandering again
+	HearingAccurateRange: number?, -- noises inside this distance are localized exactly
+	HearingErrorMaxDistance: number?, -- distance at which localization error reaches its maximum
+	HearingErrorMax: number?, -- studs an estimate is offset at or beyond that distance
+
 	-- Perception of being seen. Setting this at all is what marks an enemy as caring: `NPC:Start`
 	-- reads it to decide whether this model should accept client view reports.
 	ObservationRange: number?,
@@ -127,6 +134,39 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 		LoseInterestTime = 5,
 		SearchLookInterval = 1,
+	},
+
+	Deaf = {
+		Model = "Deaf",
+
+		WalkSpeed = 8,
+		ChaseSpeed = 13,
+		RepathInterval = 0.25,
+		RepathDistance = 4,
+		AgentParams = {
+			AgentRadius = 2.5,
+			AgentHeight = 6,
+			AgentCanJump = true,
+			WaypointSpacing = 4,
+			Costs = ROOM_COST,
+		},
+
+		IdleTimeMin = 2,
+		IdleTimeMax = 5,
+		IdleNextState = "Wander",
+		WanderRadius = 70,
+
+		GiveUpRange = 100,
+		RespectsSafeRooms = true,
+
+		Damage = math.huge,
+		AttackCooldown = 1.5,
+
+		InvestigateRange = 2.5,
+		SearchTime = 4,
+		HearingAccurateRange = 12,
+		HearingErrorMaxDistance = 45,
+		HearingErrorMax = 10,
 	},
 
 	WeepingAngel = {
