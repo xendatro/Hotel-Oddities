@@ -10,25 +10,27 @@
 --- looking where you are going. It follows close because of that rather than in spite of it -- when you
 --- do turn round, it is already an arm's length away.
 ---
---- Looked at by anybody, it breaks and runs, and it does not run to the next room. `HideSpotService`
---- hands it the furthest standable spot in the tagged maze that nobody can see, and it sprints the
---- whole way there -- so being spotted costs it the position it spent a minute earning, and buys you
---- however long it takes something to cross a maze twice. Held in view without a break for the whole of
---- `FleeTime` it gives up on the building entirely and leaves, so a room that will not take its eyes
---- off it is rid of it.
+--- Looked at by anybody, it breaks and runs toward the furthest hidden point `HideSpotService` can
+--- offer. The run only has to carry it beyond everybody's sight: the moment nobody can see it, it
+--- leaves entirely. Holding it in view for all of `FleeTime` also forces it out.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
 
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local HideSpotService = require(ServerStorage.Services.HideSpotService)
 local NPC = require(ServerStorage.Classes.NPC)
 
+local FaceStalker = ReplicatedStorage
+	:WaitForChild("Communication")
+	:WaitForChild("Enemies")
+	:WaitForChild("FaceStalker") :: RemoteEvent
+
 local PERCEPTION_INTERVAL = 0.25
 local HOLD_INTERVAL = 0.1 -- seconds between checks while it stands on a target's back
 local FOLLOW_HYSTERESIS = 2 -- extra studs a target must open up before a held follow starts moving again
 local RETRY_INTERVAL = 0.25 -- seconds before trying for cover again when a retreat did not come off
-local HIDE_ATTEMPTS = 6 -- retreats it will try in one flee before settling for wherever it ended up
 local SPRINT_POLL = 0.05 -- seconds between movement checks on a long run
 local SPRINT_REACHED_DISTANCE = 2 -- studs of a waypoint that counts as having got there
 local SPRINT_PROGRESS = 0.5 -- studs of gain on a waypoint that counts as making ground
@@ -37,6 +39,14 @@ local MOVE_REFRESH = 4 -- seconds between re-issued goals; `Humanoid:MoveTo` giv
 local LOOK_AROUND_DISTANCE = 10 -- studs out in front the search glances are aimed
 
 local Stalker = NPC.extend("Stalker")
+
+local function releaseCamera(npc: any)
+	local target = npc.RevealTarget
+	npc.RevealTarget = nil
+	if target and target.Parent == Players then
+		FaceStalker:FireClient(target, nil)
+	end
+end
 
 local function randomRange(minimum: number, maximum: number): number
 	return minimum + math.random() * (maximum - minimum)
@@ -177,8 +187,34 @@ local function stalk(_changeState: StateMachine.ChangeState, npc: any, target: P
 	end
 
 	if ending == "Seen" then return "Flee", npc end
-	if ending == "Strike" then return "Chase", npc, target end
+	if ending == "Strike" then return "Reveal", npc, target end
 	return "Idle", npc
+end
+
+--- Its patience runs out with an introduction, not an off-screen hit: hold still, turn the target's
+--- camera around, let them understand what has been behind them, and only then begin the charge.
+local function reveal(_changeState: StateMachine.ChangeState, npc: any, target: Player)
+	local config = npc.Config
+	npc.RevealTarget = target
+	npc.Target = target
+	npc:SetSpeed(0)
+	npc:StopMoving()
+
+	local position = npc:GetTargetPosition(target)
+	if not position then
+		releaseCamera(npc)
+		return "Idle", npc
+	end
+
+	npc:FaceTowards(position)
+	FaceStalker:FireClient(target, npc.Model, config.RevealTurnTime)
+	task.wait(config.RevealTurnTime + config.RevealHoldTime)
+
+	if not npc:GetTargetPosition(target) then
+		releaseCamera(npc)
+		return "Idle", npc
+	end
+	return "Chase", npc, target
 end
 
 --- Out of patience. Runs `target` down at a speed the follow gave no hint of, and being looked at stops
@@ -226,32 +262,25 @@ local function attack(_changeState: StateMachine.ChangeState, npc: any, target: 
 	end
 
 	npc:Attack(target)
+	npc.RevealTarget = nil -- the client releases on death; the server no longer owns a camera lock
 	task.wait(npc.Config.AttackCooldown)
 	return "Idle", npc
 end
 
---- Caught. Sprints for the furthest place in the maze nobody can see, and keeps at it until it gets
---- somewhere: arriving to find itself still watched is a reason to pick again rather than to settle.
+--- Caught. Sprints toward hidden ground until it actually leaves every player's view, then disappears.
+--- If everybody somehow holds sight for `FleeTime`, it gives up and disappears in front of them.
 local function flee(_changeState: StateMachine.ChangeState, npc: any)
 	local config = npc.Config
 	npc.Target = nil
 	npc.Animator:Resume()
 	npc:SetSpeed(config.FleeSpeed)
 
-	-- What ends this is time spent *being watched*, not time spent running. Crossing a maze takes as
-	-- long as it takes, and a stalker that has been out of sight for ten seconds of the trip has already
-	-- done the thing it set out to do -- it should not be punished for the distance it asked for.
-	local lastUnseenAt = os.clock()
-	local function keepGoing(): boolean
-		if not npc:IsObserved() then
-			lastUnseenAt = os.clock()
-			return true
-		end
-		return os.clock() - lastUnseenAt < config.FleeTime
+	local despawnAt = os.clock() + config.FleeTime
+	local function shouldDespawn(): boolean
+		return not npc:IsObserved() or os.clock() >= despawnAt
 	end
 
-	local attemptsLeft = HIDE_ATTEMPTS
-	while keepGoing() do
+	while not shouldDespawn() do
 		-- The agent radius goes along because an unreachable hiding place does not read as a bad choice,
 		-- it reads as a bug: the navmesh holds walkable ground a full radius off every wall, so a spot
 		-- tucked any tighter than that is one nothing can be routed to.
@@ -259,12 +288,8 @@ local function flee(_changeState: StateMachine.ChangeState, npc: any)
 		if spot then
 			local from = npc.RootPart.Position
 			local result = npc:_sprintTo(spot, function()
-				return not keepGoing()
+				return shouldDespawn()
 			end)
-
-			if result == "Reached" and not npc:IsObserved() then
-				return "Lurk", npc
-			end
 
 			-- The whole enemy hangs off this run working, and there is no way to tell from watching it
 			-- whether a retreat that ended early ran out of map, out of navmesh or out of patience.
@@ -277,21 +302,11 @@ local function flee(_changeState: StateMachine.ChangeState, npc: any)
 			end
 		end
 
-		-- Nothing came of that: no tagged floor to run onto, nowhere on it both standable and unseen, no
-		-- path to what it picked, or it arrived and is still being watched. It keeps trying while anybody
-		-- has eyes on it, but it will not stand in the open retrying forever -- once nobody is looking,
-		-- being out of sight where it happens to be beats a retreat that does not exist.
-		attemptsLeft -= 1
-		if attemptsLeft <= 0 and not npc:IsObserved() then
-			return "Lurk", npc
-		end
-		-- Unconditionally, and not only when there was nowhere to go: `Pursue` returns without yielding
-		-- when the goal is already underfoot, and this loop must not be able to spin on that.
+		-- No path, or it reached that point while somebody could still see it. Try another while watched.
+		if shouldDespawn() then break end
 		task.wait(RETRY_INTERVAL)
 	end
 
-	-- Watched every second of a full `FleeTime`. There is no version of this where it goes back to
-	-- working on somebody who has not taken their eyes off it, so it leaves.
 	return "Despawn", npc
 end
 
@@ -299,6 +314,7 @@ end
 --- is not either patient or violent. Turning up nothing, it goes quiet and starts again on whoever is
 --- nearest.
 local function search(_changeState: StateMachine.ChangeState, npc: any, lastKnown: Vector3)
+	releaseCamera(npc)
 	npc.Target = nil
 	npc.Animator:Resume()
 	npc:SetSpeed(npc.Config.WalkSpeed)
@@ -315,19 +331,15 @@ local function search(_changeState: StateMachine.ChangeState, npc: any, lastKnow
 	return "Idle", npc
 end
 
---- Out of sight and staying there a while, so that looking at it buys real time rather than the same
---- follow back from a new angle. Found again while it waits, perception puts it straight back to
---- running.
-local function lurk(_changeState: StateMachine.ChangeState, npc: any)
-	npc.Target = nil
-	npc:SetSpeed(0)
-	npc:StopMoving()
-	task.wait(randomRange(npc.Config.LurkTimeMin, npc.Config.LurkTimeMax))
-	return "Idle", npc
+local function stunned(changeState: StateMachine.ChangeState, npc: any, duration: number)
+	releaseCamera(npc)
+	return NPC.SharedStates.Stunned(changeState, npc, duration)
 end
 
 function Stalker.new(model: Model, config)
-	return NPC.new(model, config, Stalker)
+	local self = NPC.new(model, config, Stalker)
+	self.RevealTarget = nil
+	return self
 end
 
 function Stalker:Start()
@@ -338,6 +350,11 @@ function Stalker:Start()
 	NPC.Start(self)
 end
 
+function Stalker:Despawn()
+	releaseCamera(self)
+	NPC.Despawn(self)
+end
+
 function Stalker:BuildStateMachine(): StateMachine.StateMachine
 	local npc = self
 
@@ -346,21 +363,21 @@ function Stalker:BuildStateMachine(): StateMachine.StateMachine
 		Wander = NPC.SharedStates.Wander,
 		Despawn = NPC.SharedStates.Despawn,
 		Stalk = stalk,
+		Reveal = reveal,
 		Chase = chase,
 		Attack = attack,
 		Search = search,
 		Flee = flee,
-		Lurk = lurk,
-		Stunned = NPC.SharedStates.Stunned,
+		Stunned = stunned,
 	}, {
 		-- Picking somebody happens between jobs and never interrupts one.
 		Perception = { "Idle", "Wander", "Search" },
 		-- Being looked at outranks anything it does quietly. `Stalk` is left out on purpose: it watches
 		-- for this itself, so that breaking off a follow is the follow's own business. `Chase` and
 		-- `Attack` are left out because by then nobody's eyes matter any more.
-		Seen = { "Idle", "Wander", "Search", "Lurk" },
+		Seen = { "Idle", "Wander", "Search" },
 		-- A trap or a paper ball lands whatever it is doing.
-		Impact = { "Idle", "Wander", "Search", "Lurk", "Stalk", "Flee", "Chase", "Attack" },
+		Impact = { "Idle", "Wander", "Search", "Stalk", "Reveal", "Flee", "Chase", "Attack" },
 	}, {
 		Perception = function()
 			while true do

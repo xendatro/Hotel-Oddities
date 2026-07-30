@@ -87,9 +87,9 @@ export type EnemyConfig = {
 	FollowSlack: number?, -- studs short of that it will settle for before it stops closing
 	StrikeTimeMin: number?, -- seconds of going unlooked-at before it stops following and charges
 	StrikeTimeMax: number?,
+	RevealTurnTime: number?, -- seconds spent forcing the target's camera around to face it
+	RevealHoldTime: number?, -- beat held on it before the charge begins
 	FleeTime: number?, -- seconds of being watched without a break before it gives up and leaves
-	LurkTimeMin: number?, -- seconds it waits out of sight before starting again
-	LurkTimeMax: number?,
 
 	-- Temporary `/spawn` command
 	CommandSpawnDistance: number?, -- optional override for how far away a hand-spawn lands
@@ -291,10 +291,10 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		-- gone a while without checking to earn it.
 		StrikeTimeMin = 25,
 		StrikeTimeMax = 40,
+		RevealTurnTime = 0.35,
+		RevealHoldTime = 0.4,
 
 		FleeTime = 15, -- seconds of unbroken watching, not of running: see `Stalker.flee`
-		LurkTimeMin = 10,
-		LurkTimeMax = 20,
 
 		CommandSpawnDistance = 14, -- twice the follow distance, so a hand-spawn has to close in first
 		CommandSpawnBehind = true, -- in front of the caller it would be seen and flee before it began
