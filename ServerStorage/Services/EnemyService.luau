@@ -29,7 +29,10 @@ local function setServerOwnership(model: Model)
 	end
 end
 
-function EnemyService:Spawn(enemyId: string, spawnCFrame: CFrame)
+--- Puts one `enemyId` in the world at `spawnCFrame`. Anything after those is handed to that class's
+--- constructor, for an enemy whose spawner knows something it cannot work out for itself -- a Watcher
+--- is placed on a corner that had to be found before there was a model to place.
+function EnemyService:Spawn(enemyId: string, spawnCFrame: CFrame, ...: any)
 	if not FLAGS.Enemies then return nil end
 
 	local config = EnemyConfigs[enemyId]
@@ -40,7 +43,7 @@ function EnemyService:Spawn(enemyId: string, spawnCFrame: CFrame)
 	model.Parent = getActiveFolder()
 	setServerOwnership(model)
 
-	local enemy = enemyClass.new(model, config)
+	local enemy = enemyClass.new(model, config, ...)
 	table.insert(ActiveEnemies, enemy)
 	model.Destroying:Connect(function()
 		local index = table.find(ActiveEnemies, enemy)

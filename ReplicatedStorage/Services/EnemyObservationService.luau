@@ -6,8 +6,9 @@ local RunService = game:GetService("RunService")
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 
 local REPORT_INTERVAL = 0.05
-local ENEMY_TAG = "Enemy"
-local WEEPING_ANGEL_MODEL = "Weeping Angel"
+-- Carried by the enemies that react to being seen, and only those: the report costs a raycast per
+-- visible part, so an enemy that would ignore the answer is not worth asking about.
+local OBSERVABLE_TAG = "Observable"
 
 local EnemyObservationService = {}
 
@@ -103,15 +104,16 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 	local camera = workspace.CurrentCamera
 	if camera then
 		local observed = {}
-		for _, model in CollectionService:GetTagged(ENEMY_TAG) do
-			if model:IsA("Model")
-				and model.Name == WEEPING_ANGEL_MODEL
-				and isObserved(camera, character, model)
-			then
+		for _, model in CollectionService:GetTagged(OBSERVABLE_TAG) do
+			if model:IsA("Model") and isObserved(camera, character, model) then
 				table.insert(observed, model)
 			end
 		end
-		UpdateView:FireServer(observed)
+		-- Where this report was taken from, so the server can work out what else this player would see
+		-- without having to guess at a camera it cannot reach. An enemy choosing somewhere to hide is
+		-- asking exactly that question, and answering it off the character's own head is how you get a
+		-- thing that hides behind furniture the camera is looking straight over.
+		UpdateView:FireServer(observed, camera.CFrame.Position)
 	end
 end)
 

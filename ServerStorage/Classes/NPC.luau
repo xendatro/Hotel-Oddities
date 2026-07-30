@@ -31,6 +31,7 @@ local WANDER_ATTEMPTS = 6
 
 local ENEMY_TAG = "Enemy" -- carried by every live enemy model, so tools can raycast for them
 local IGNORE_TAG = "Ignore" -- on a character: enemies cannot target or see them (the spell book)
+local OBSERVABLE_TAG = "Observable" -- this enemy reacts to being seen, so clients should report it
 
 local NPC = {}
 NPC.__index = NPC
@@ -115,6 +116,12 @@ function NPC:Start()
 
 	ByModel[self.Model] = self
 	self.Model:AddTag(ENEMY_TAG)
+	-- Having an observation range at all is what declares that this enemy cares about being looked
+	-- at. The tag is what makes a client's view report about this model legal, so an enemy that would
+	-- ignore the answer never costs anybody the raycasts to produce it.
+	if self.Config.ObservationRange then
+		self.Model:AddTag(OBSERVABLE_TAG)
+	end
 
 	self.HomePosition = self.RootPart.Position
 	self.Humanoid.WalkSpeed = self.Config.WalkSpeed
@@ -130,6 +137,7 @@ function NPC:Despawn()
 
 	ByModel[self.Model] = nil
 	self.Model:RemoveTag(ENEMY_TAG)
+	self.Model:RemoveTag(OBSERVABLE_TAG)
 
 	task.defer(function()
 		self.StateMachine:Stop()
@@ -177,9 +185,10 @@ function NPC:ComputePath(destination: Vector3): Path?
 	return path
 end
 
--- Removes intermediate waypoints from straight stretches so the Humanoid does not brake every few
--- studs. Corners and special actions remain explicit movement goals.
-local function getMovementWaypoints(path: Path)
+--- Removes intermediate waypoints from straight stretches so the Humanoid does not brake every few
+--- studs. Corners and special actions remain explicit movement goals. Public because a subclass that
+--- walks a path itself, rather than through `WalkTo` or `Pursue`, still wants this done to it.
+function NPC:GetMovementWaypoints(path: Path)
 	local waypoints = path:GetWaypoints()
 	if #waypoints <= 2 then return waypoints end
 
@@ -204,10 +213,18 @@ local function getMovementWaypoints(path: Path)
 	return simplified
 end
 
+--- Distance from the root to where it will stand after reaching a path waypoint. Pathfinding returns
+--- floor positions, while a humanoid's root settles `HipHeight` plus half its own height above them.
+function NPC:GetWaypointDistance(position: Vector3): number
+	local rootHeight = self.Humanoid.HipHeight + self.RootPart.Size.Y / 2
+	local rootPosition = position + Vector3.yAxis * rootHeight
+	return (rootPosition - self.RootPart.Position).Magnitude
+end
+
 -- Walks the waypoints of `path`, polling `shouldAbandon` between each. Returns "Reached" once the
 -- last waypoint lands, "Abandoned" if the caller bailed out, or "Blocked" if a waypoint timed out.
 function NPC:_walkPath(path: Path, shouldAbandon: (() -> boolean)?): string
-	local waypoints = getMovementWaypoints(path)
+	local waypoints = self:GetMovementWaypoints(path)
 	for index = 2, #waypoints do
 		if shouldAbandon and shouldAbandon() then return "Abandoned" end
 
@@ -216,12 +233,12 @@ function NPC:_walkPath(path: Path, shouldAbandon: (() -> boolean)?): string
 			self.Humanoid.Jump = true
 		end
 
-		local distance = (waypoint.Position - self.RootPart.Position).Magnitude
+		local distance = self:GetWaypointDistance(waypoint.Position)
 		local timeout = distance / math.max(self.Humanoid.WalkSpeed, 1) * WAYPOINT_TIMEOUT_SCALE + WAYPOINT_TIMEOUT_PADDING
 		local expiresAt = os.clock() + timeout
 
 		self.Humanoid:MoveTo(waypoint.Position)
-		while (waypoint.Position - self.RootPart.Position).Magnitude > WAYPOINT_REACHED_DISTANCE do
+		while self:GetWaypointDistance(waypoint.Position) > WAYPOINT_REACHED_DISTANCE do
 			if shouldAbandon and shouldAbandon() then return "Abandoned" end
 			if os.clock() >= expiresAt then return "Blocked" end
 			task.wait(MOVEMENT_POLL_INTERVAL)
