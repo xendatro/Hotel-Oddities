@@ -12,10 +12,12 @@ local MAX_REPORT_AGE = 0.2
 -- to be looking from across the building is claiming to see places it has no business seeing.
 local MAX_CAMERA_DISTANCE = 40
 local HEAD_OFFSET = 1.5 -- studs from an R15 root up to roughly where that character's head sits
+local UNIT_TOLERANCE = 0.01 -- slack on a reported look direction's length before it stops being one
 
 type Observation = {
 	Models: { [Model]: boolean },
 	Eye: Vector3?, -- where they reported looking from, when the claim was plausible
+	Look: Vector3?, -- and which way, as a unit vector
 	ReceivedAt: number,
 }
 
@@ -28,7 +30,7 @@ local EnemyObservationService = {}
 local Observations: { [Player]: Observation } = {}
 local LastReports: { [Player]: number } = {}
 
-UpdateView.OnServerEvent:Connect(function(player: Player, reportedModels: any, reportedEye: any)
+UpdateView.OnServerEvent:Connect(function(player: Player, reportedModels: any, reportedEye: any, reportedLook: any)
 	if type(reportedModels) ~= "table" then return end
 
 	local character = player.Character
@@ -64,18 +66,50 @@ UpdateView.OnServerEvent:Connect(function(player: Player, reportedModels: any, r
 		eye = reportedEye
 	end
 
+	local look = nil :: Vector3?
+	if typeof(reportedLook) == "Vector3" and math.abs(reportedLook.Magnitude - 1) <= UNIT_TOLERANCE then
+		look = reportedLook
+	end
+
 	Observations[player] = {
 		Models = models,
 		Eye = eye,
+		Look = look,
 		ReceivedAt = now,
 	}
 end)
 
-function EnemyObservationService:IsObservedBy(player: Player, model: Model): boolean
+-- This player's latest report, while it is recent enough to still describe where they are looking.
+local function getFresh(player: Player): Observation?
 	local observation = Observations[player]
-	return observation ~= nil
-		and os.clock() - observation.ReceivedAt <= MAX_REPORT_AGE
-		and observation.Models[model] == true
+	if observation and os.clock() - observation.ReceivedAt <= MAX_REPORT_AGE then
+		return observation
+	end
+	return nil
+end
+
+function EnemyObservationService:IsObservedBy(player: Player, model: Model): boolean
+	local observation = getFresh(player)
+	return observation ~= nil and observation.Models[model] == true
+end
+
+--- Degrees between the middle of `player`'s screen and `model`, or nil while they are not looking at
+--- it at all. Zero is dead center. Distance is not considered: this is where the thing sits in their
+--- view, not how big it looms in it.
+---
+--- A report that names the model but gives no usable camera to have seen it from counts as dead
+--- center, so a client that strips its own camera out of the report is answering for the worst case
+--- rather than escaping the question.
+function EnemyObservationService:GetViewAngle(player: Player, model: Model): number?
+	local observation = getFresh(player)
+	if not observation or not observation.Models[model] then return nil end
+
+	local eye, look = observation.Eye, observation.Look
+	if not (eye and look) then return 0 end
+
+	local offset = model:GetBoundingBox().Position - eye
+	if offset.Magnitude < 1e-3 then return 0 end
+	return math.deg(math.acos(math.clamp(offset.Unit:Dot(look), -1, 1)))
 end
 
 --- Where every living player is looking from. A reported camera is used while it is fresh, and the top
@@ -90,8 +124,8 @@ function EnemyObservationService:GetEyes(): { Vector3 }
 		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		if not (humanoid and root and humanoid.Health > 0) then continue end
 
-		local observation = Observations[player]
-		if observation and observation.Eye and os.clock() - observation.ReceivedAt <= MAX_REPORT_AGE then
+		local observation = getFresh(player)
+		if observation and observation.Eye then
 			table.insert(eyes, observation.Eye)
 		else
 			table.insert(eyes, root.Position + Vector3.new(0, HEAD_OFFSET, 0))

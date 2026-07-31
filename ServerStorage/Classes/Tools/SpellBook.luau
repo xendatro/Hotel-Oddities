@@ -1,0 +1,147 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local ServerStorage = game:GetService("ServerStorage")
+
+local ServerTool = require(ServerStorage.Classes.ServerTool)
+
+local Other = ReplicatedStorage.Props.Other
+
+local IGNORE_TAG = "Ignore" -- read by NPC:IsValidTarget / NPC:CanSee
+
+--- @class SpellBook
+--- A one-shot vanish. Reading it roots the caster for the length of the cast, and for that whole
+--- window their character carries `Ignore`, which every enemy's perception refuses to target -- so
+--- the cast is both the cost and the escape.
+---
+--- Everything the cast changes about the world (walk speed, the tag, two cloned effect models) is
+--- undone in `OnCleanup`, which the chassis runs whether the cast finished, threw, timed out on a
+--- missing animation marker, or the caster died halfway through. The previous version undid all of
+--- it on the last line of the routine instead, so any of those endings left the player rooted and
+--- permanently untargetable.
+local SpellBook = ServerTool.extend("SpellBook")
+
+function SpellBook.new(tool: Tool)
+	return ServerTool.new(tool, SpellBook)
+end
+
+function SpellBook:OnActivated()
+	local humanoid = self.Humanoid
+	local character = self.Character
+	if not humanoid or not character then return end
+
+	local animations = self.Tool:FindFirstChild("Animations")
+	local animation = animations and animations:FindFirstChild("Book")
+	if not animation then
+		warn("SpellBook: no Book animation on the tool")
+		return
+	end
+
+	character:AddTag(IGNORE_TAG)
+	self.CastCharacter = character
+	self.CastSpeed = humanoid.WalkSpeed
+	humanoid.WalkSpeed = 0
+
+	local track = humanoid.Animator:LoadAnimation(animation)
+	self.CastTrack = track
+	track:Play()
+	self:PlaySound(self.Config.Sound, self.Tool:FindFirstChild("Handle"))
+
+	self:_startEffects()
+
+	-- Bounded: a missing or unreachable `BookEnd` marker ends the cast rather than hanging it.
+	self:WaitForMarker(track, "BookEnd", self.Config.MaxCastTime)
+
+	-- Only charge for a cast the caster actually lived through.
+	if self:IsAlive() then
+		self:Consume(1)
+	end
+end
+
+-- The book's particles ride the mesh; a second model carries the effect on the caster. Both are
+-- tracked on self so cleanup can find them no matter how the cast ends.
+function SpellBook:_startEffects()
+	local effects = Other:FindFirstChild("BookEffects")
+	local dummy = Other:FindFirstChild("VFXDummy")
+
+	if effects then
+		self.Effects = effects:Clone()
+		self.FollowActive = true
+
+		task.spawn(function()
+			task.wait(self.Config.EffectDelay)
+			if not self.FollowActive or not self.Effects then return end
+
+			self.Effects.Parent = workspace
+			for _, effect in self.Effects.Attachment:GetChildren() do
+				effect.Enabled = true
+			end
+
+			-- Ends on its own when the flag clears, so nothing has to cancel this thread. Cancelling
+			-- a thread that already returned is itself an error, which the old version risked.
+			while self.FollowActive do
+				local mesh = self.Tool:FindFirstChild("Meshes/Unrigged")
+				if mesh and self.Effects then
+					self.Effects:PivotTo(mesh.CFrame)
+				end
+				RunService.Heartbeat:Wait()
+			end
+		end)
+	end
+
+	if dummy then
+		self.Reader = dummy:Clone()
+
+		task.spawn(function()
+			task.wait(self.Config.ReaderDelay)
+			local character = self.CastCharacter
+			if not self.Reader or not character or not character.PrimaryPart then return end
+
+			self.Reader.Parent = workspace
+			self.Reader:PivotTo(character:GetPivot())
+
+			local motor = Instance.new("Motor6D")
+			motor.Part0 = character.PrimaryPart
+			motor.Part1 = self.Reader.PrimaryPart
+			motor.Parent = self.Reader.PrimaryPart
+		end)
+	end
+end
+
+function SpellBook:OnCleanup()
+	self.FollowActive = false
+
+	if self.CastTrack then
+		self.CastTrack:Stop()
+		self.CastTrack = nil
+	end
+
+	if self.Effects then
+		self.Effects:Destroy()
+		self.Effects = nil
+	end
+	if self.Reader then
+		self.Reader:Destroy()
+		self.Reader = nil
+	end
+
+	local character = self.CastCharacter
+	if character then
+		character:RemoveTag(IGNORE_TAG)
+
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if humanoid and humanoid.Health > 0 and self.CastSpeed then
+			humanoid.WalkSpeed = self.CastSpeed
+		end
+	end
+
+	self.CastCharacter = nil
+	self.CastSpeed = nil
+end
+
+--- The tool can be destroyed mid-cast -- spent, dropped, or lost on death -- so teardown has to
+--- undo the same state the cast does.
+function SpellBook:OnDestroy()
+	self:OnCleanup()
+end
+
+return SpellBook

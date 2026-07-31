@@ -5,14 +5,14 @@ local ServerStorage = game:GetService("ServerStorage")
 local AudioService = require(ReplicatedStorage.Services.AudioService)
 local NPC = require(ServerStorage.Classes.NPC)
 local StunService = require(ServerStorage.Services.StunService)
+local ToolConfigs = require(ReplicatedStorage.Configs.ToolConfigs)
 
-local STUN_DURATION = 5
-local DESPAWN_DELAY = 5 -- how long the sprung trap lingers before cleaning itself up
+local CONFIG = ToolConfigs.Trap
 
 --- @class TrapObject
---- An armed bear trap sitting in the world. It watches its own parts for contact rather than
---- waiting to be told it was stepped on, so it works against any enemy without the enemies
---- needing to know traps exist. Springing is one-shot: it snaps shut, stuns, and clears itself.
+--- An armed bear trap sitting in the world -- what the Trap tool leaves behind. It watches its own
+--- parts for contact rather than waiting to be told it was stepped on, so it works against any
+--- enemy without enemies needing to know traps exist. Springing is one-shot.
 local TrapObject = {}
 TrapObject.__index = TrapObject
 
@@ -34,10 +34,10 @@ function TrapObject.new(trap: Model)
 	self.Trap = trap
 	self.Trap:SetAttribute("Closed", false)
 
-	local humanoid = self.Trap:FindFirstChild("Humanoid")
-	local animation = self.Trap:FindFirstChild("Animations")
-	if humanoid and animation then
-		self.Track = humanoid.Animator:LoadAnimation(animation.Trap)
+	local humanoid = trap:FindFirstChild("Humanoid")
+	local animations = trap:FindFirstChild("Animations")
+	if humanoid and animations and animations:FindFirstChild("Trap") then
+		self.Track = humanoid.Animator:LoadAnimation(animations.Trap)
 	end
 
 	setUpConnections(self)
@@ -52,22 +52,42 @@ function TrapObject:Spring(model: Instance?)
 	if not NPC.FromModel(model) then return end
 
 	self.Trap:SetAttribute("Closed", true)
-	StunService:Stun(model, STUN_DURATION)
+	StunService:Stun(model, CONFIG.StunDuration)
 
 	if self.Track then
 		self.Track:Play()
-		self.Track:GetMarkerReachedSignal("Finished"):Wait()
+
+		-- Bounded. A bare `GetMarkerReachedSignal("Finished"):Wait()` never returns if the marker is
+		-- missing from the animation, which would leave the trap sprung but never cleaned up.
+		local thread = coroutine.running()
+		local resolved = false
+		local function finish()
+			if resolved then return end
+			resolved = true
+			task.spawn(thread)
+		end
+
+		local reached = self.Track:GetMarkerReachedSignal("Finished"):Connect(finish)
+		local ended = self.Track.Ended:Connect(finish)
+		task.delay(CONFIG.DespawnDelay, finish)
+		coroutine.yield()
+
+		reached:Disconnect()
+		ended:Disconnect()
 		self.Track:AdjustSpeed(0)
 	end
 
-	AudioService:Play3DSound("TrapClose", self.Trap.PrimaryPart, false, "SFX")
-	Debris:AddItem(self.Trap, DESPAWN_DELAY)
+	if self.Trap.PrimaryPart then
+		AudioService:Play3DSound(CONFIG.CloseSound, self.Trap.PrimaryPart, false, "SFX")
+	end
+	Debris:AddItem(self.Trap, CONFIG.DespawnDelay)
 end
 
 function TrapObject:Destroy()
 	for _, connection in self.Connections do
 		connection:Disconnect()
 	end
+	self.Connections = {}
 end
 
 return TrapObject

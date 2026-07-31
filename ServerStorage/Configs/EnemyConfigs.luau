@@ -81,6 +81,24 @@ export type EnemyConfig = {
 	LightRange: number?, -- studs around it in which tagged light models are disabled
 	DespawnRange: number?, -- studs at which a nearby player makes it disappear
 
+	-- Eyes-specific. Damage is a rate rather than a hit: what costs you is how long you look and how
+	-- squarely, so both of these are per second of looking.
+	CenterDamage: number?, -- damage per second while it sits dead center on somebody's screen
+	EdgeDamage: number?, -- and per second while it is merely on screen, past `FalloffAngle`
+	FalloffAngle: number?, -- degrees off center at which the rate has fallen all the way to `EdgeDamage`
+	FalloffExponent: number?, -- above 1 concentrates the damage into the middle of the screen
+	Lifetime: number?, -- seconds it stays in the world before leaving of its own accord
+
+	-- Rush-specific
+	SpawnPlayerDistance: number?, -- minimum distance from every player at which a route may begin
+	SpawnDelay: number?, -- warning time before the model enters the map
+	KillRange: number?, -- distance from its swept movement path at which an exposed player dies
+	WarningTime: number?, -- how far ahead of its arrival each route light begins flickering
+	FlickerDuration: number?,
+	FlickerInterval: number?,
+	LightRouteRange: number?, -- lights this far from its route receive the warning
+	RouteHeight: number?, -- studs above a tagged hallway floor's center
+
 	-- Stalker-specific
 	FleeSpeed: number?, -- studs/s it retreats at once somebody has looked at it
 	FollowDistance: number?, -- studs behind a target's back it keeps station at
@@ -361,6 +379,59 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		DespawnRange = 96,
 		CommandSpawnDistance = 128,
 	},
+
+	-- Ambient only, and the only enemy that hurts you without doing anything. It has no locomotion,
+	-- perception or combat tuning because it never moves, never picks anybody and never attacks: it
+	-- stands where it was put and charges rent on being looked at.
+	Eyes = {
+		Model = "Eyes",
+
+		WalkSpeed = 0, -- unused; Eyes has no Humanoid to walk with
+
+		-- Down a corridor rather than across the map. Far enough that it can be the thing you squint at
+		-- to work out what it is, which is the mistake it is selling.
+		ObservationRange = 150,
+		RespectsSafeRooms = true,
+
+		-- Staring straight at it kills a full-health player in about three seconds, and glancing at it
+		-- costs a few points. The gap between those two numbers is the whole enemy: it has to be cheap
+		-- to notice and ruinous to study.
+		CenterDamage = 35,
+		EdgeDamage = 3,
+		-- 25 degrees is roughly a third of the way out to the edge of a default camera, so the punishing
+		-- band is about the middle of the screen rather than the whole of it. Squared on top of that, so
+		-- half a screen's worth of turning away sheds three quarters of the rate -- looking off it has to
+		-- pay immediately, or the answer to it is to sprint past with your eyes shut rather than to look
+		-- somewhere else.
+		FalloffAngle = 25,
+		FalloffExponent = 2,
+
+		Lifetime = 60,
+	},
+
+	-- A fast, non-Humanoid corridor hazard. `RushService` derives its whole route from the parts
+	-- tagged `MazeFloor` before it appears, which lets every light warning be scheduled against an
+	-- exact arrival time.
+	Rush = {
+		Model = "Rush",
+
+		WalkSpeed = 70,
+		SpawnPlayerDistance = 100,
+		SpawnDelay = 4,
+		KillRange = 12,
+		WarningTime = 15,
+		FlickerDuration = 2,
+		FlickerInterval = 0.12,
+		LightRouteRange = 40,
+		RouteHeight = 3,
+	},
 }
+
+-- The vent-delivered enemy is mechanically a Chaser with its own authored model. A shallow clone is
+-- sufficient because enemy configs are immutable; sharing the nested agent parameters keeps the two
+-- variants on exactly the same pathfinding and safe-room rules.
+local ceilingDwellerConfig = table.clone(EnemyConfigs.Chaser)
+ceilingDwellerConfig.Model = "Ceiling Dweller"
+EnemyConfigs.CeilingDweller = ceilingDwellerConfig
 
 return EnemyConfigs

@@ -2,7 +2,7 @@
 --- every enemy on the tagged spawn whether or not anybody wanted them there.
 ---
 --- Chat commands, all of which answer in the server output rather than in chat:
----   /spawn <enemy>  -- one of that enemy in front of you, facing you
+---   /spawn <enemy>  -- one of that enemy, using any placement rules specific to it
 ---   /spawn all      -- one of each
 ---   /despawn        -- clear every live enemy
 ---   /enemies        -- what is alive, and what can be spawned
@@ -16,6 +16,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyService = require(ServerStorage.Services.EnemyService)
+local RushService = require(ServerStorage.Services.RushService)
 local WatcherService = require(ServerStorage.Services.WatcherService)
 
 local DEFAULT_SPAWN_DISTANCE = 20 -- studs in front of the caller: far enough to watch it approach
@@ -59,10 +60,15 @@ local function spawnCFrame(player: Player, distance: number): CFrame?
 	return CFrame.lookAt(Vector3.new(spot.X, origin.Y, spot.Z), origin)
 end
 
--- Spawns one of `enemyId` for this caller, reporting whether it managed it. A Watcher goes through
--- its own service: in front of the caller is the one place it cannot work, so it has to be placed on
--- a corner that gets found first, and there is not always one to find.
+-- Spawns one of `enemyId` for this caller, reporting whether it managed it. Rush plans a remote
+-- hallway route and warning first. A Watcher goes through its own corner-placement service.
 local function spawnOne(player: Player, enemyId: string): boolean
+	if enemyId == "Rush" then
+		if RushService:Spawn() then return true end
+		warn(`[enemies] no warned MazeFloor route starts at least {EnemyConfigs.Rush.SpawnPlayerDistance} studs from every player`)
+		return false
+	end
+
 	if enemyId == "Watcher" then
 		-- Any direction, not just ahead: a hand-spawn is meant to be walked over to and looked at.
 		if WatcherService:SpawnNear(player, true) then return true end
@@ -110,8 +116,9 @@ end
 
 function Commands.despawn()
 	local count = #EnemyService:GetActive()
+	local pendingRushes = RushService:CancelPending()
 	EnemyService:DespawnAll()
-	warn(`[enemies] despawned {count}`)
+	warn(`[enemies] despawned {count}; cancelled {pendingRushes} pending Rush warnings`)
 end
 
 function Commands.enemies()

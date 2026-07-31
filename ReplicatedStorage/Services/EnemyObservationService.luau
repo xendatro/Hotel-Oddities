@@ -109,11 +109,13 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 				table.insert(observed, model)
 			end
 		end
-		-- Where this report was taken from, so the server can work out what else this player would see
-		-- without having to guess at a camera it cannot reach. An enemy choosing somewhere to hide is
-		-- asking exactly that question, and answering it off the character's own head is how you get a
-		-- thing that hides behind furniture the camera is looking straight over.
-		UpdateView:FireServer(observed, camera.CFrame.Position)
+		-- Where this report was taken from and which way it was pointing, so the server can work out
+		-- what else this player would see without having to guess at a camera it cannot reach. An enemy
+		-- choosing somewhere to hide is asking exactly that question, and answering it off the
+		-- character's own head is how you get a thing that hides behind furniture the camera is looking
+		-- straight over. The direction is what turns "on screen" into "how far off the middle of the
+		-- screen", which is the whole of what an Eyes does with this.
+		UpdateView:FireServer(observed, camera.CFrame.Position, camera.CFrame.LookVector)
 	end
 end)
 
