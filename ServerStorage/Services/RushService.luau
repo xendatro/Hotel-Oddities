@@ -10,6 +10,8 @@ local LightService = require(ServerStorage.Services.LightService)
 
 local ROUTE_ATTEMPTS = 20
 local DIRECTION_TIE_EPSILON = 0.05
+local SEARCH_BUDGET = 4000
+local CONTINUING_BONUS = 4
 
 type RouteNode = HallwayGraphService.RouteNode
 
@@ -38,76 +40,71 @@ local function hasUnvisitedExit(node: RouteNode, visited: { [RouteNode]: boolean
 	return false
 end
 
-local function chooseNext(
+--- Every way on from `current` Rush has not already crossed, best first: a branch that continues
+--- outranks one that stops here, and among equals the straightest continuation of the leg being
+--- travelled wins. Directions too close to call are ordered at random.
+local function orderedExits(
 	previous: RouteNode?,
 	current: RouteNode,
 	visited: { [RouteNode]: boolean }
-): RouteNode?
+): { RouteNode }
 	local options = {}
+	local ranks = {}
+
 	for neighbor in current.Neighbors do
-		if not visited[neighbor] then
-			table.insert(options, neighbor)
-		end
-	end
-	if #options == 0 then return nil end
+		if visited[neighbor] then continue end
 
-	-- A branch that continues gets priority over an immediate dead end. Rush only commits to a dead
-	-- end once every available direction ends there.
-	local continuing = {}
-	for _, option in options do
-		if hasUnvisitedExit(option, visited) then
-			table.insert(continuing, option)
+		local score = if hasUnvisitedExit(neighbor, visited) then CONTINUING_BONUS else 0
+		if previous then
+			local incoming = horizontal(current.Position - previous.Position).Unit
+			local outgoing = horizontal(neighbor.Position - current.Position).Unit
+			score += incoming:Dot(outgoing)
 		end
-	end
-	if #continuing > 0 then
-		options = continuing
+
+		table.insert(options, neighbor)
+		ranks[neighbor] = math.round(score / DIRECTION_TIE_EPSILON) + math.random()
 	end
 
-	if not previous then
-		return options[math.random(1, #options)]
-	end
-
-	local incoming = horizontal(current.Position - previous.Position).Unit
-	local bestDot = -math.huge
-	local straightest = {}
-	for _, option in options do
-		local outgoing = horizontal(option.Position - current.Position).Unit
-		local dot = incoming:Dot(outgoing)
-		if dot > bestDot + DIRECTION_TIE_EPSILON then
-			bestDot = dot
-			straightest = { option }
-		elseif math.abs(dot - bestDot) <= DIRECTION_TIE_EPSILON then
-			table.insert(straightest, option)
-		end
-	end
-	return straightest[math.random(1, #straightest)]
+	table.sort(options, function(first: RouteNode, second: RouteNode)
+		return ranks[first] > ranks[second]
+	end)
+	return options
 end
 
-local function planRoute(): { Vector3 }?
-	local candidates = {}
-	for _, node in HallwayGraphService:Build() do
-		if next(node.Neighbors)
-			and HallwayGraphService:IsFarFromPlayers(node.Position, Config.SpawnPlayerDistance) then
-			table.insert(candidates, node)
+--- The route Rush travels from `start`, or nil if no dead end is reachable from there.
+---
+--- Rush is only allowed to stop where the corridor does, so the route is searched rather than walked:
+--- a leg that traps the walk among nodes it has already crossed is taken back out again and the next
+--- direction tried instead. The first path that reaches a node with one exit becomes the route.
+local function planRoute(start: RouteNode): { Vector3 }?
+	local visited: { [RouteNode]: boolean } = { [start] = true }
+	local path = { start }
+	local steps = 0
+
+	local function extend(previous: RouteNode?, current: RouteNode): boolean
+		if steps >= SEARCH_BUDGET then return false end
+		steps += 1
+
+		for _, option in orderedExits(previous, current, visited) do
+			visited[option] = true
+			table.insert(path, option)
+			if HallwayGraphService:CountExits(option) == 1 or extend(current, option) then
+				return true
+			end
+
+			table.remove(path)
+			visited[option] = nil
 		end
-	end
-	if #candidates == 0 then return nil end
-
-	local previous = nil :: RouteNode?
-	local current = candidates[math.random(1, #candidates)]
-	local visited = { [current] = true }
-	local route = { routePosition(current) }
-
-	while true do
-		local nextNode = chooseNext(previous, current, visited)
-		if not nextNode then break end
-
-		previous, current = current, nextNode
-		visited[current] = true
-		table.insert(route, routePosition(current))
+		return false
 	end
 
-	return if #route >= 2 then route else nil
+	if not extend(nil, start) then return nil end
+
+	local route = {}
+	for _, node in path do
+		table.insert(route, routePosition(node))
+	end
+	return route
 end
 
 local function distanceToRoute(position: Vector3, route: { Vector3 }): (number, number)
@@ -162,16 +159,30 @@ end
 
 --- Plans one route, starts its light warnings now, and places Rush after the shortened spawn delay.
 function RushService:Spawn(): boolean
+	local starts = {}
+	for _, node in HallwayGraphService:Build() do
+		if next(node.Neighbors)
+			and HallwayGraphService:IsFarFromPlayers(node.Position, Config.SpawnPlayerDistance) then
+			table.insert(starts, node)
+		end
+	end
+	if #starts == 0 then return false end
+
 	local route, token
 	for _ = 1, ROUTE_ATTEMPTS do
-		route = planRoute()
-		if not route then return false end
+		local candidate = planRoute(starts[math.random(1, #starts)])
+		if not candidate then continue end
 
-		token = { Cancelled = false }
-		if scheduleWarnings(route, token) > 0 then break end
-		route, token = nil, nil
+		local candidateToken = { Cancelled = false }
+		if scheduleWarnings(candidate, candidateToken) > 0 then
+			route, token = candidate, candidateToken
+			break
+		end
 	end
-	if not route or not token then return false end
+	if not route or not token then
+		warn("[Rush] found no lit route ending at a dead end")
+		return false
+	end
 
 	table.insert(PendingTokens, token)
 	task.delay(Config.SpawnDelay, function()

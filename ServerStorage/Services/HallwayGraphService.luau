@@ -1,6 +1,12 @@
 --- Builds the corridor graph the anchored hallway enemies travel along. Every part tagged
---- `MazeFloor` is one straight hallway; the nodes are its two ends plus every point another hallway
---- meets it, and an edge is a stretch of floor between two of those with nothing in between.
+--- `MazeFloor` is one straight hallway; the nodes are every point another hallway meets it plus its
+--- own two ends, and an edge is a stretch of floor between two of those with nothing in between.
+---
+--- An end only counts where the hallway genuinely stops. Floors are authored butted together, so at a
+--- corner or a tee each hallway's end lies across the opening of the other, a half-width past where
+--- they cross. Such an end is the inside of a junction rather than a place the corridor stops, and it
+--- becomes the crossing node instead of a stub of its own -- otherwise every corner offers a turn
+--- into the wall that no player can see, and looks to an enemy like a dead end to stop at.
 ---
 --- Nodes sit at the height of the floor part's own center, with no allowance for how tall anything
 --- standing on them is. Each enemy adds its own vertical offset when it turns a node into a place to
@@ -30,6 +36,8 @@ type Hallway = {
 	HalfLength: number,
 	HalfWidth: number,
 	Nodes: { RouteNode },
+	-- How far along this hallway each of its crossings reaches, for the nodes that are crossings.
+	JunctionReach: { [RouteNode]: number },
 }
 
 local HallwayGraphService = {}
@@ -46,6 +54,23 @@ local function addNode(hallway: Hallway, node: RouteNode)
 	if not table.find(hallway.Nodes, node) then
 		table.insert(hallway.Nodes, node)
 	end
+end
+
+--- Records a node that is where another hallway crosses this one, along with how much of this hallway
+--- the crossing occupies: the width of the corridor passing through.
+local function addJunction(hallway: Hallway, node: RouteNode, reach: number)
+	addNode(hallway, node)
+	hallway.JunctionReach[node] = math.max(hallway.JunctionReach[node] or 0, reach)
+end
+
+--- The crossing a hallway end falls inside, if any. The corridor carries on across the opening there,
+--- so that end is not an end at all.
+local function junctionAt(hallway: Hallway, position: Vector3): RouteNode?
+	for _, node in hallway.Nodes do
+		local reach = hallway.JunctionReach[node]
+		if reach and (node.Position - position).Magnitude <= reach then return node end
+	end
+	return nil
 end
 
 local function getOrCreateNode(nodes: { RouteNode }, position: Vector3): RouteNode
@@ -97,8 +122,8 @@ local function addPerpendicularIntersection(first: Hallway, second: Hallway, nod
 	-- keeps both approach legs perfectly straight.
 	local intersection = first.Center + first.Direction * firstDistance
 	local node = getOrCreateNode(nodes, intersection)
-	addNode(first, node)
-	addNode(second, node)
+	addJunction(first, node, second.HalfWidth + CONNECTION_EPSILON)
+	addJunction(second, node, first.HalfWidth + CONNECTION_EPSILON)
 end
 
 local function addParallelIntersection(first: Hallway, second: Hallway, nodes: { RouteNode })
@@ -132,24 +157,21 @@ end
 --- Every node in the map's corridor graph, built fresh from the tags as they stand right now.
 function HallwayGraphService:Build(): { RouteNode }
 	local nodes = {}
-	local hallways = {}
+	local hallways: { Hallway } = {}
 
 	for _, instance in TagService:GetTaggedOfPredicate(HALLWAY_TAG, function(tagged: Instance)
 		return tagged:IsA("BasePart")
 	end) do
 		local part = instance :: BasePart
-		local direction = horizontal(part.CFrame.RightVector).Unit
 		local hallway: Hallway = {
 			Center = part.Position,
-			Direction = direction,
+			Direction = horizontal(part.CFrame.RightVector).Unit,
 			HalfLength = part.Size.X / 2,
 			HalfWidth = part.Size.Z / 2,
 			Nodes = {},
+			JunctionReach = {},
 		}
 		table.insert(hallways, hallway)
-
-		addNode(hallway, getOrCreateNode(nodes, hallway.Center - direction * hallway.HalfLength))
-		addNode(hallway, getOrCreateNode(nodes, hallway.Center + direction * hallway.HalfLength))
 	end
 
 	for firstIndex = 1, #hallways - 1 do
@@ -158,6 +180,15 @@ function HallwayGraphService:Build(): { RouteNode }
 			local second = hallways[secondIndex]
 			addPerpendicularIntersection(first, second, nodes)
 			addParallelIntersection(first, second, nodes)
+		end
+	end
+
+	for _, hallway in hallways do
+		for _, sign in { -1, 1 } do
+			local tip = hallway.Center + hallway.Direction * hallway.HalfLength * sign
+			if not junctionAt(hallway, tip) then
+				addNode(hallway, getOrCreateNode(nodes, tip))
+			end
 		end
 	end
 
