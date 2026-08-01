@@ -1,39 +1,20 @@
 --- Plans command-spawned Rush routes and their light warnings. Automatic enemy scheduling does not
 --- belong here; when that system arrives it can call Spawn through the same public boundary.
 
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyService = require(ServerStorage.Services.EnemyService)
+local HallwayGraphService = require(ServerStorage.Services.HallwayGraphService)
 local LightService = require(ServerStorage.Services.LightService)
-local TagService = require(ReplicatedStorage.Services.TagService)
 
-local HALLWAY_TAG = "MazeFloor"
-local PARALLEL_EPSILON = 1e-3
-local CONNECTION_EPSILON = 0.5
-local NODE_MERGE_DISTANCE = 4
-local VERTICAL_CONNECTION_DISTANCE = 4
-local MINIMUM_EDGE = 1
 local ROUTE_ATTEMPTS = 20
 local DIRECTION_TIE_EPSILON = 0.05
 
+type RouteNode = HallwayGraphService.RouteNode
+
 type WarningToken = {
 	Cancelled: boolean,
-}
-
-type RouteNode = {
-	Position: Vector3,
-	Neighbors: { [RouteNode]: boolean },
-}
-
-type Hallway = {
-	Center: Vector3,
-	Direction: Vector3,
-	HalfLength: number,
-	HalfWidth: number,
-	Nodes: { RouteNode },
 }
 
 local RushService = {}
@@ -44,157 +25,10 @@ local function horizontal(vector: Vector3): Vector3
 	return Vector3.new(vector.X, 0, vector.Z)
 end
 
-local function cross2d(first: Vector3, second: Vector3): number
-	return first.X * second.Z - first.Z * second.X
-end
-
-local function addNode(hallway: Hallway, node: RouteNode)
-	if not table.find(hallway.Nodes, node) then
-		table.insert(hallway.Nodes, node)
-	end
-end
-
-local function getOrCreateNode(nodes: { RouteNode }, position: Vector3): RouteNode
-	for _, node in nodes do
-		if (node.Position - position).Magnitude <= NODE_MERGE_DISTANCE then
-			return node
-		end
-	end
-
-	local node = {
-		Position = position,
-		Neighbors = {},
-	}
-	table.insert(nodes, node)
-	return node
-end
-
-local function connect(first: RouteNode, second: RouteNode)
-	if first == second then return end
-	first.Neighbors[second] = true
-	second.Neighbors[first] = true
-end
-
-local function addPerpendicularIntersection(first: Hallway, second: Hallway, nodes: { RouteNode })
-	if math.abs(first.Center.Y - second.Center.Y) > VERTICAL_CONNECTION_DISTANCE then return end
-
-	local determinant = cross2d(first.Direction, second.Direction)
-	if math.abs(determinant) <= PARALLEL_EPSILON then return end
-
-	local difference = second.Center - first.Center
-	local firstDistance = cross2d(difference, second.Direction) / determinant
-	local secondDistance = cross2d(difference, first.Direction) / determinant
-	if math.abs(firstDistance) > first.HalfLength + second.HalfWidth + CONNECTION_EPSILON
-		or math.abs(secondDistance) > second.HalfLength + first.HalfWidth + CONNECTION_EPSILON then
-		return
-	end
-
-	local firstPoint = first.Center
-		+ first.Direction * math.clamp(firstDistance, -first.HalfLength, first.HalfLength)
-	local secondPoint = second.Center
-		+ second.Direction * math.clamp(secondDistance, -second.HalfLength, second.HalfLength)
-	if horizontal(firstPoint - secondPoint).Magnitude
-		> first.HalfWidth + second.HalfWidth + CONNECTION_EPSILON then
-		return
-	end
-
-	-- Use the true centerline crossing rather than the middle of the overlapping floor corners.
-	-- It may sit just beyond one floor's nominal end, but remains inside the other floor's width and
-	-- keeps both approach legs perfectly straight.
-	local intersection = first.Center + first.Direction * firstDistance
-	local node = getOrCreateNode(nodes, intersection)
-	addNode(first, node)
-	addNode(second, node)
-end
-
-local function addParallelIntersection(first: Hallway, second: Hallway, nodes: { RouteNode })
-	if math.abs(first.Center.Y - second.Center.Y) > VERTICAL_CONNECTION_DISTANCE then return end
-	if math.abs(cross2d(first.Direction, second.Direction)) > PARALLEL_EPSILON then return end
-
-	local perpendicular = Vector3.new(-first.Direction.Z, 0, first.Direction.X)
-	if math.abs((second.Center - first.Center):Dot(perpendicular)) > CONNECTION_EPSILON then return end
-
-	local firstEnds = {
-		first.Center - first.Direction * first.HalfLength,
-		first.Center + first.Direction * first.HalfLength,
-	}
-	local secondEnds = {
-		second.Center - second.Direction * second.HalfLength,
-		second.Center + second.Direction * second.HalfLength,
-	}
-	for _, firstPoint in firstEnds do
-		for _, secondPoint in secondEnds do
-			if horizontal(firstPoint - secondPoint).Magnitude
-				<= first.HalfWidth + second.HalfWidth + CONNECTION_EPSILON then
-				local node = getOrCreateNode(nodes, firstPoint:Lerp(secondPoint, 0.5))
-				addNode(first, node)
-				addNode(second, node)
-				return
-			end
-		end
-	end
-end
-
-local function buildGraph(): { RouteNode }
-	local nodes = {}
-	local hallways = {}
-
-	for _, instance in TagService:GetTaggedOfPredicate(HALLWAY_TAG, function(tagged: Instance)
-		return tagged:IsA("BasePart")
-	end) do
-		local part = instance :: BasePart
-		local direction = horizontal(part.CFrame.RightVector).Unit
-		local center = part.Position + Vector3.yAxis * Config.RouteHeight
-		local hallway: Hallway = {
-			Center = center,
-			Direction = direction,
-			HalfLength = part.Size.X / 2,
-			HalfWidth = part.Size.Z / 2,
-			Nodes = {},
-		}
-		table.insert(hallways, hallway)
-
-		addNode(hallway, getOrCreateNode(nodes, center - direction * hallway.HalfLength))
-		addNode(hallway, getOrCreateNode(nodes, center + direction * hallway.HalfLength))
-	end
-
-	for firstIndex = 1, #hallways - 1 do
-		for secondIndex = firstIndex + 1, #hallways do
-			local first = hallways[firstIndex]
-			local second = hallways[secondIndex]
-			addPerpendicularIntersection(first, second, nodes)
-			addParallelIntersection(first, second, nodes)
-		end
-	end
-
-	for _, hallway in hallways do
-		table.sort(hallway.Nodes, function(first: RouteNode, second: RouteNode)
-			return (first.Position - hallway.Center):Dot(hallway.Direction)
-				< (second.Position - hallway.Center):Dot(hallway.Direction)
-		end)
-		for index = 2, #hallway.Nodes do
-			local previous = hallway.Nodes[index - 1]
-			local current = hallway.Nodes[index]
-			if horizontal(current.Position - previous.Position).Magnitude >= MINIMUM_EDGE then
-				connect(previous, current)
-			end
-		end
-	end
-
-	return nodes
-end
-
-local function isFarFromPlayers(position: Vector3): boolean
-	for _, player in Players:GetPlayers() do
-		local character = player.Character
-		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		if root and humanoid and humanoid.Health > 0
-			and (root.Position - position).Magnitude < Config.SpawnPlayerDistance then
-			return false
-		end
-	end
-	return true
+-- Where Rush travels through a corridor node: above the floor rather than inside it. The graph puts
+-- its nodes at the floor part's own center and leaves the height to whatever is standing on them.
+local function routePosition(node: RouteNode): Vector3
+	return node.Position + Vector3.yAxis * Config.RouteHeight
 end
 
 local function hasUnvisitedExit(node: RouteNode, visited: { [RouteNode]: boolean }): boolean
@@ -251,8 +85,9 @@ end
 
 local function planRoute(): { Vector3 }?
 	local candidates = {}
-	for _, node in buildGraph() do
-		if next(node.Neighbors) and isFarFromPlayers(node.Position) then
+	for _, node in HallwayGraphService:Build() do
+		if next(node.Neighbors)
+			and HallwayGraphService:IsFarFromPlayers(node.Position, Config.SpawnPlayerDistance) then
 			table.insert(candidates, node)
 		end
 	end
@@ -261,7 +96,7 @@ local function planRoute(): { Vector3 }?
 	local previous = nil :: RouteNode?
 	local current = candidates[math.random(1, #candidates)]
 	local visited = { [current] = true }
-	local route = { current.Position }
+	local route = { routePosition(current) }
 
 	while true do
 		local nextNode = chooseNext(previous, current, visited)
@@ -269,7 +104,7 @@ local function planRoute(): { Vector3 }?
 
 		previous, current = current, nextNode
 		visited[current] = true
-		table.insert(route, current.Position)
+		table.insert(route, routePosition(current))
 	end
 
 	return if #route >= 2 then route else nil
@@ -308,10 +143,11 @@ local function scheduleWarnings(route: { Vector3 }, token: WarningToken): number
 		if distance > Config.LightRouteRange then continue end
 
 		warningCount += 1
-		local delay = math.max(0, Config.SpawnDelay + travel / Config.WalkSpeed - Config.WarningTime)
+		local arrival = Config.SpawnDelay + travel / Config.WalkSpeed
+		local delay = math.max(0, arrival - Config.WarningTime)
 		task.delay(delay, function()
 			if token.Cancelled then return end
-			LightService:Flicker(light, Config.FlickerDuration, Config.FlickerInterval)
+			LightService:WarnRed(light, arrival - delay)
 		end)
 	end
 	return warningCount
@@ -343,7 +179,7 @@ function RushService:Spawn(): boolean
 		if token.Cancelled then return end
 
 		local origin = route[1]
-		if not isFarFromPlayers(origin) then
+		if not HallwayGraphService:IsFarFromPlayers(origin, Config.SpawnPlayerDistance) then
 			token.Cancelled = true
 			warn("[Rush] cancelled because a player approached its planned spawn")
 			return

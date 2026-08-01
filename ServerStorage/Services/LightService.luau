@@ -8,13 +8,13 @@ type LightState = {
 	Enabled: boolean,
 }
 
-type FlickerLightState = {
-	Brightness: number,
+type RedLightState = {
+	Color: Color3,
 }
 
-type FlickerState = {
+type RedState = {
 	ExpiresAt: number,
-	Lights: { [Light]: FlickerLightState },
+	Lights: { [Light]: RedLightState },
 }
 
 type PartState = {
@@ -39,8 +39,8 @@ export type LightClaim = {
 
 local LightService = {}
 local DisabledModels: { [Model]: DisabledState } = {}
-local FlickeringModels: { [Model]: FlickerState } = {}
-local Randomizer = Random.new()
+local RedModels: { [Model]: RedState } = {}
+local RED_COLOR = Color3.fromRGB(255, 0, 0)
 
 local function disable(model: Model)
 	local state = DisabledModels[model]
@@ -138,71 +138,44 @@ function LightService:GetModels(): { Model }
 	return models
 end
 
-local function setFlickerScale(state: FlickerState, scale: number)
-	for light, lightState in state.Lights do
-		light.Brightness = lightState.Brightness * scale
-	end
-end
+--- Turns every light in one floor-light model red for `duration`, restoring its original color
+--- afterward. A concurrent warning extends the existing red effect.
+function LightService:WarnRed(model: Model, duration: number)
+	if duration <= 0 then return end
 
-local function transitionFlicker(state: FlickerState, fromScale: number, toScale: number, duration: number)
-	local available = state.ExpiresAt - os.clock()
-	if available <= 0 then return end
-	duration = math.min(duration, available)
-
-	local startedAt = os.clock()
-	repeat
-		task.wait()
-		local alpha = math.min((os.clock() - startedAt) / duration, 1)
-		setFlickerScale(state, fromScale + (toScale - fromScale) * alpha)
-	until alpha >= 1
-end
-
---- Gives one floor-light model irregular voltage-like dips instead of a fixed on/off pulse. It only
---- varies brightness, so an active DisableNear claim remains authoritative, and restores every
---- source's exact brightness when the effect ends. A concurrent call extends the existing flicker.
-function LightService:Flicker(model: Model, duration: number, interval: number)
-	local existing = FlickeringModels[model]
+	local existing = RedModels[model]
 	if existing then
 		existing.ExpiresAt = math.max(existing.ExpiresAt, os.clock() + duration)
 		return
 	end
 
-	local state: FlickerState = {
+	local state: RedState = {
 		ExpiresAt = os.clock() + duration,
 		Lights = {},
 	}
-	FlickeringModels[model] = state
+	RedModels[model] = state
 	for _, descendant in model:GetDescendants() do
 		if descendant:IsA("Light") then
 			state.Lights[descendant] = {
-				Brightness = descendant.Brightness,
+				Color = descendant.Color,
 			}
+			descendant.Color = RED_COLOR
 		end
 	end
 
-	local scale = 1
-	while os.clock() < state.ExpiresAt do
-		local roll = Randomizer:NextNumber()
-		local dipScale = if roll < 0.12
-			then Randomizer:NextNumber(0.03, 0.15)
-			elseif roll < 0.5
-			then Randomizer:NextNumber(0.2, 0.55)
-			else Randomizer:NextNumber(0.6, 0.9)
+	task.spawn(function()
+		while true do
+			local remaining = state.ExpiresAt - os.clock()
+			if remaining <= 0 then break end
+			task.wait(remaining)
+		end
 
-		transitionFlicker(state, scale, dipScale, Randomizer:NextNumber(0.025, 0.075))
-		scale = dipScale
-		task.wait(math.min(Randomizer:NextNumber(0.015, 0.065), math.max(state.ExpiresAt - os.clock(), 0)))
-
-		local recoveryScale = Randomizer:NextNumber(0.92, 1.06)
-		transitionFlicker(state, scale, recoveryScale, Randomizer:NextNumber(0.04, 0.14))
-		scale = recoveryScale
-		task.wait(math.min(Randomizer:NextNumber(interval * 0.3, interval * 1.6), math.max(state.ExpiresAt - os.clock(), 0)))
-	end
-
-	for light, lightState in state.Lights do
-		light.Brightness = lightState.Brightness
-	end
-	FlickeringModels[model] = nil
+		if RedModels[model] ~= state then return end
+		for light, lightState in state.Lights do
+			light.Color = lightState.Color
+		end
+		RedModels[model] = nil
+	end)
 end
 
 return LightService

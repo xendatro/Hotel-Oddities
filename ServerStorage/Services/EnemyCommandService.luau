@@ -17,6 +17,7 @@ local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyService = require(ServerStorage.Services.EnemyService)
 local RushService = require(ServerStorage.Services.RushService)
+local SistersService = require(ServerStorage.Services.SistersService)
 local WatcherService = require(ServerStorage.Services.WatcherService)
 
 local DEFAULT_SPAWN_DISTANCE = 20 -- studs in front of the caller: far enough to watch it approach
@@ -61,11 +62,18 @@ local function spawnCFrame(player: Player, distance: number): CFrame?
 end
 
 -- Spawns one of `enemyId` for this caller, reporting whether it managed it. Rush plans a remote
--- hallway route and warning first. A Watcher goes through its own corner-placement service.
+-- hallway route and warning first, and the Sisters a remote corridor to walk out of. A Watcher goes
+-- through its own corner-placement service.
 local function spawnOne(player: Player, enemyId: string): boolean
 	if enemyId == "Rush" then
 		if RushService:Spawn() then return true end
 		warn(`[enemies] no warned MazeFloor route starts at least {EnemyConfigs.Rush.SpawnPlayerDistance} studs from every player`)
+		return false
+	end
+
+	if enemyId == "Sisters" then
+		if SistersService:Spawn() then return true end
+		warn(`[enemies] no MazeFloor corridor at least {EnemyConfigs.Sisters.SpawnPlayerDistance} studs from every player to walk the Sisters out of`)
 		return false
 	end
 
