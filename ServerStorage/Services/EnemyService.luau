@@ -44,6 +44,10 @@ function EnemyService:Spawn(enemyId: string, spawnCFrame: CFrame, ...: any)
 	setServerOwnership(model)
 
 	local enemy = enemyClass.new(model, config, ...)
+	-- Every enemy carries the id it was spawned under, which is what a death is reported as. A class
+	-- cannot work this out for itself: `CeilingDweller` is a `Chaser` with another model on it, and
+	-- the pair of Sisters is one enemy with two rigs.
+	enemy.EnemyId = enemyId
 	table.insert(ActiveEnemies, enemy)
 	model.Destroying:Connect(function()
 		local index = table.find(ActiveEnemies, enemy)

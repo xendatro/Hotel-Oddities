@@ -33,7 +33,7 @@ export type EnemyConfig = {
 	LoseInterestTime: number?, -- seconds spent lingering at a lost target's last position
 	SearchLookInterval: number?,
 
-	-- Deaf-specific
+	-- Blind-specific
 	InvestigateRange: number?, -- distance from the latest noise that counts as reaching it
 	SearchTime: number?, -- seconds spent listening at the last sound before wandering again
 	HearingAccurateRange: number?, -- noises inside this distance are localized exactly
@@ -164,8 +164,8 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		SearchLookInterval = 1,
 	},
 
-	Deaf = {
-		Model = "Deaf",
+	Blind = {
+		Model = "Blind",
 
 		WalkSpeed = 8,
 		ChaseSpeed = 13,

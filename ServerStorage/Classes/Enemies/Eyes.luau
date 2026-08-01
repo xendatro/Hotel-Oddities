@@ -20,6 +20,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
+local DeathService = require(ServerStorage.Services.DeathService)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local RoomService = require(ServerStorage.Services.RoomService)
 
@@ -74,6 +75,7 @@ function Eyes:_burnWatchers(deltaTime: number)
 		if not angle then continue end
 
 		local humanoid = (player.Character :: Model):FindFirstChildOfClass("Humanoid") :: Humanoid
+		DeathService:RecordCause(player, self.EnemyId)
 		humanoid:TakeDamage(damageRate(self.Config, angle) * deltaTime)
 	end
 end

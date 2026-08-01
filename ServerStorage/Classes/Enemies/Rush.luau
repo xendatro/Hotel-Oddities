@@ -7,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
+local DeathService = require(ServerStorage.Services.DeathService)
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local RoomService = require(ServerStorage.Services.RoomService)
 
@@ -59,6 +60,7 @@ function Rush:_killAlong(origin: Vector3, destination: Vector3)
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 		if root and humanoid and humanoid.Health > 0
 			and distanceToSegment(root.Position, origin, destination) <= self.Config.KillRange then
+			DeathService:RecordCause(player, self.EnemyId)
 			humanoid.Health = 0
 		end
 	end

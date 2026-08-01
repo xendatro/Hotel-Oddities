@@ -1,4 +1,4 @@
---- @class Deaf
+--- @class Blind
 --- Has no visual perception at all. It wanders until a noise reaches it, approaches its best estimate
 --- of where that noise came from, and waits there listening when the trail goes quiet. Corners do not
 --- muffle sound; walls only matter because it still has to path around them. Contact is fatal, even
@@ -14,7 +14,7 @@ local NPC = require(ServerStorage.Classes.NPC)
 
 local PERCEPTION_INTERVAL = 0.1
 
-local Deaf = NPC.extend("Deaf")
+local Blind = NPC.extend("Blind")
 
 local function getTouchingPlayer(npc: any): Player?
 	for _, player in Players:GetPlayers() do
@@ -97,8 +97,8 @@ local function search(_changeState: StateMachine.ChangeState, npc: any, lastKnow
 	return "Idle", npc
 end
 
-function Deaf.new(model: Model, config)
-	local self = NPC.new(model, config, Deaf)
+function Blind.new(model: Model, config)
+	local self = NPC.new(model, config, Blind)
 	self.HeardNoise = nil
 	self.HeardPosition = nil
 	self.HeardSource = nil
@@ -106,7 +106,7 @@ function Deaf.new(model: Model, config)
 	return self
 end
 
-function Deaf:BuildStateMachine(): StateMachine.StateMachine
+function Blind:BuildStateMachine(): StateMachine.StateMachine
 	local npc = self
 
 	return StateMachine.new({
@@ -151,4 +151,4 @@ function Deaf:BuildStateMachine(): StateMachine.StateMachine
 	}, "Idle", self)
 end
 
-return Deaf
+return Blind

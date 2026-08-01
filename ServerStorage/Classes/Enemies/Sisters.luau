@@ -35,6 +35,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local NpcAnimator = require(ReplicatedStorage.Classes.NpcAnimator)
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
+local DeathService = require(ServerStorage.Services.DeathService)
 local HallwayGraphService = require(ServerStorage.Services.HallwayGraphService)
 local RoomService = require(ServerStorage.Services.RoomService)
 
@@ -290,6 +291,7 @@ function Sisters:_sweep()
 			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 			if root and humanoid and humanoid.Health > 0
 				and distanceToSegment(root.Position, origin, position) <= self.Config.KillRange then
+				DeathService:RecordCause(player, self.EnemyId)
 				humanoid.Health = 0
 			end
 		end

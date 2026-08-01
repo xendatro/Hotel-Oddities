@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
+local DeathService = require(ServerStorage.Services.DeathService)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local NpcAnimator = require(ReplicatedStorage.Classes.NpcAnimator)
@@ -467,6 +468,7 @@ function NPC:Attack(player: Player)
 	if not root then return end
 
 	local humanoid = (root.Parent :: Model):FindFirstChildOfClass("Humanoid") :: Humanoid
+	DeathService:RecordCause(player, self.EnemyId)
 	if self.Config.Damage == math.huge then
 		humanoid.Health = 0
 	else
