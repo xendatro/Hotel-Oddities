@@ -356,6 +356,7 @@ function Mimic:BuildStateMachine(): StateMachine.StateMachine
 	return StateMachine.new({
 		Idle = loiter,
 		Wander = NPC.SharedStates.Wander,
+		Patrol = NPC.SharedStates.Patrol,
 		Despawn = NPC.SharedStates.Despawn,
 		Stalk = stalk,
 		Chase = chase,
@@ -364,9 +365,9 @@ function Mimic:BuildStateMachine(): StateMachine.StateMachine
 		Stunned = stunned,
 	}, {
 		-- Spotting someone starts the act, but nothing interrupts the act except the act ending.
-		Perception = { "Idle", "Wander", "Search" },
+		Perception = { "Idle", "Wander", "Patrol", "Search" },
 		-- A trap or a paper ball lands whatever it is doing, including mid-performance.
-		Impact = { "Idle", "Wander", "Search", "Stalk", "Chase", "Attack" },
+		Impact = { "Idle", "Wander", "Patrol", "Search", "Stalk", "Chase", "Attack" },
 	}, {
 		Perception = function()
 			while true do

@@ -35,7 +35,10 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local NpcAnimator = require(ReplicatedStorage.Classes.NpcAnimator)
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
+local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
+local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local DeathService = require(ServerStorage.Services.DeathService)
+local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local HallwayGraphService = require(ServerStorage.Services.HallwayGraphService)
 local RoomService = require(ServerStorage.Services.RoomService)
 
@@ -45,6 +48,7 @@ local COLLISION_GROUP = "Sisters"
 local MINIMUM_LEG = 1e-3
 local DIRECTION_TIE_EPSILON = 0.05
 local PROGRESS_EPSILON = 0.5 -- studs of ground that count as having got somewhere
+local SIGHT_INTERVAL = 0.5 -- seconds between sight checks; these are raycasts, not a per-frame job
 local SLOWEST_TRIM = 0.4 -- of `WalkSpeed`: the trim slows a sister down, it never stops her walking
 
 type RouteNode = HallwayGraphService.RouteNode
@@ -144,6 +148,13 @@ function Sisters.new(model: Model, config, startNode: RouteNode, firstNode: Rout
 	self.StalledSince = 0
 	self.LastPositions = {} :: { Vector3 } -- where each sister was last frame, for the kill sweep
 
+	-- Whether anybody has laid eyes on them yet, and how long it has been since anybody last did.
+	-- Both feed the one chance they get to simply not turn up; see `_shouldForget`.
+	self.HasBeenSeen = false
+	self.UnseenSince = nil :: number?
+	self.ForgetRolled = false
+	self.NextSightCheck = 0
+
 	self.Active = false
 	self.StateMachine = StateMachine.new({
 		Walk = function()
@@ -190,6 +201,9 @@ function Sisters:ChooseNext(node: RouteNode, previous: RouteNode?): RouteNode?
 		if incoming then
 			score += incoming:Dot(horizontal(option.Position - node.Position).Unit)
 		end
+		-- A lean towards the worse corridors, weighted well under straightness so it colours where
+		-- they end up over a long walk rather than steering them corner by corner.
+		score += DangerMapService:GetDanger(option.Position) * DangerConfig.RouteDangerWeight
 
 		if score > bestScore + DIRECTION_TIE_EPSILON then
 			bestScore = score
@@ -328,12 +342,80 @@ function Sisters:_step(deltaTime: number): boolean
 	return true
 end
 
---- Corner after corner, for as long as they are in the map. They have no despawn of their own: the
---- pair leaves when something outside them clears the enemies, and not before.
+--- Whether anybody can currently see either of them. Real reported camera positions rather than a
+--- guess at where a head is, for the same reason hiding uses them: in first person the camera sits
+--- inside the head, and a pair hidden from where a body is standing is not necessarily hidden from
+--- the eye that counts.
+function Sisters:_isSeen(): boolean
+	local filter = { table.unpack(self.Models) }
+	for _, player in Players:GetPlayers() do
+		if player.Character then
+			table.insert(filter, player.Character)
+		end
+	end
+
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = filter
+	params.RespectCanCollide = true
+
+	for _, eye in EnemyObservationService:GetEyes() do
+		for _, model in self.Models do
+			local target = (model.HumanoidRootPart :: BasePart).Position
+			local offset = target - eye
+			if offset.Magnitude < MINIMUM_LEG or workspace:Raycast(eye, offset, params) == nil then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+--- Sometimes they just never come round the corner.
+---
+--- You see them down the hall, you turn off, and then there is a stretch where the only question in
+--- your head is whether they are still following -- and once in a while the answer is that they are
+--- simply gone. That only works if the other four times out of five they do arrive, so this rolls
+--- once per break in sight rather than continuously, and only after `ForgetDelay` of being unseen,
+--- which is the moment the question is actually live. Rolling every frame would make vanishing a
+--- certainty; rolling the instant sight breaks would answer a question nobody had asked yet.
+---
+--- It also requires them to have been seen at all. Deleting a pair nobody ever registered is not an
+--- effect, it is housekeeping -- and the director's own sweep already does that.
+function Sisters:_shouldForget(now: number): boolean
+	if now < self.NextSightCheck then return false end
+	self.NextSightCheck = now + SIGHT_INTERVAL
+
+	if self:_isSeen() then
+		self.HasBeenSeen = true
+		self.UnseenSince = nil
+		self.ForgetRolled = false
+		return false
+	end
+
+	if not self.HasBeenSeen or self.ForgetRolled then return false end
+
+	if not self.UnseenSince then
+		self.UnseenSince = now
+		return false
+	end
+	if now - self.UnseenSince < (self.Config.ForgetDelay or math.huge) then return false end
+
+	self.ForgetRolled = true
+	return math.random() < (self.Config.ForgetChance or 0)
+end
+
+--- Corner after corner, for as long as they are in the map -- or until they quietly decide not to be.
 function Sisters:Patrol()
 	while self.Active do
 		local deltaTime = RunService.Heartbeat:Wait()
 		if not self.Active then return end
+
+		if self:_shouldForget(os.clock()) then
+			self:Despawn()
+			return
+		end
+
 		if not self:_step(deltaTime) then return end
 	end
 end

@@ -13,6 +13,7 @@
 --- be, because what that offset should be is a fact about that enemy's model rather than about the
 --- map -- `Rush` rides above the floor, a rig stands on it.
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -41,6 +42,11 @@ type Hallway = {
 }
 
 local HallwayGraphService = {}
+
+-- The graph as last built. Every patrolling enemy walks this, so rebuilding it per query -- which is
+-- a pass over every pair of hallways -- is not affordable any more. The tag signals below drop it,
+-- which is the only thing that can change the answer while a round is running.
+local Cached: { RouteNode }? = nil
 
 local function horizontal(vector: Vector3): Vector3
 	return Vector3.new(vector.X, 0, vector.Z)
@@ -209,6 +215,35 @@ function HallwayGraphService:Build(): { RouteNode }
 	return nodes
 end
 
+--- The corridor graph, built once and kept. Callers must treat the nodes as read-only: everything
+--- that walks the map shares these tables, so a route that mutated one would rewrite the hotel for
+--- everything else. Use `Build` where a private copy is genuinely wanted.
+function HallwayGraphService:Get(): { RouteNode }
+	if not Cached then
+		Cached = self:Build()
+	end
+	return Cached :: { RouteNode }
+end
+
+--- Throws the cached graph away. The tag signals do this for you; call it by hand only after moving
+--- floor parts around without retagging them.
+function HallwayGraphService:Invalidate()
+	Cached = nil
+end
+
+--- The graph node nearest `position`, or nil while the map has no tagged floors at all. What
+--- something standing anywhere in the hotel uses to work out where it is on the corridor network.
+function HallwayGraphService:FindNearestNode(position: Vector3): RouteNode?
+	local nearest, nearestDistance = nil, math.huge
+	for _, node in self:Get() do
+		local distance = (node.Position - position).Magnitude
+		if distance < nearestDistance then
+			nearest, nearestDistance = node, distance
+		end
+	end
+	return nearest
+end
+
 --- How many ways out `node` has. One is a dead end: walking into it means walking back out again.
 function HallwayGraphService:CountExits(node: RouteNode): number
 	local count = 0
@@ -232,5 +267,13 @@ function HallwayGraphService:IsFarFromPlayers(position: Vector3, distance: numbe
 	end
 	return true
 end
+
+CollectionService:GetInstanceAddedSignal(HALLWAY_TAG):Connect(function()
+	HallwayGraphService:Invalidate()
+end)
+
+CollectionService:GetInstanceRemovedSignal(HALLWAY_TAG):Connect(function()
+	HallwayGraphService:Invalidate()
+end)
 
 return HallwayGraphService

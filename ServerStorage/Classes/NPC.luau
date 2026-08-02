@@ -11,9 +11,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
+local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
+local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local DeathService = require(ServerStorage.Services.DeathService)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
+local HallwayGraphService = require(ServerStorage.Services.HallwayGraphService)
 local NpcAnimator = require(ReplicatedStorage.Classes.NpcAnimator)
 local RoomService = require(ServerStorage.Services.RoomService)
 
@@ -29,6 +32,10 @@ local DIRECT_PURSUIT_UPDATE_DISTANCE = 1
 local DIRECT_PURSUIT_OVERSHOOT = 4
 local MAX_BLOCKED_ATTEMPTS = 3 -- consecutive stalled paths before a pursuit gives up
 local WANDER_ATTEMPTS = 6
+
+local PATROL_NODE_HEIGHT = 3 -- studs above a corridor node the walk goal is put, clear of the slab
+local PATROL_BLOCKED_WAIT = 0.4 -- seconds before a patrol that could not path anywhere tries again
+local PATROL_TIE_JITTER = 0.05 -- so two equally good corners are not always resolved the same way
 
 local ENEMY_TAG = "Enemy" -- carried by every live enemy model, so tools can raycast for them
 local IGNORE_TAG = "Ignore" -- on a character: enemies cannot target or see them (the spell book)
@@ -52,6 +59,10 @@ local function getAliveRoot(player: Player): BasePart?
 	local root = character:FindFirstChild("HumanoidRootPart")
 	if not humanoid or not root or humanoid.Health <= 0 then return nil end
 	return root :: BasePart
+end
+
+local function horizontal(vector: Vector3): Vector3
+	return Vector3.new(vector.X, 0, vector.Z)
 end
 
 -- Whether `point` falls inside a horizontal cone of `fieldOfView` degrees opening along `lookVector`.
@@ -89,6 +100,7 @@ function NPC.new(model: Model, config: EnemyConfigs.EnemyConfig, class: any?)
 	self.Animator = NpcAnimator.new(model)
 	self.HomePosition = model:GetPivot().Position
 	self.Target = nil :: Player?
+	self.AcquireAfter = nil :: number? -- set by the director; see `CanAcquire`
 	self.Active = false
 	self.StateMachine = self:BuildStateMachine()
 
@@ -100,6 +112,7 @@ function NPC:BuildStateMachine(): StateMachine.StateMachine
 	return StateMachine.new({
 		Idle = NPC.SharedStates.Idle,
 		Wander = NPC.SharedStates.Wander,
+		Patrol = NPC.SharedStates.Patrol,
 		Despawn = NPC.SharedStates.Despawn,
 	}, {}, {}, "Idle", self)
 end
@@ -430,8 +443,21 @@ function NPC:IsObserved(): boolean
 	return false
 end
 
+--- Whether this NPC is allowed to pick a target yet. Freshly spawned enemies are blind for a moment:
+--- the director keeps a spawn away from everybody and out of sight, but geometry conspires -- a
+--- corridor bends back, somebody walks while the placement is being drawn -- and this is what makes
+--- "nothing ever starts a chase on the frame it appears" true rather than merely likely.
+---
+--- Acquisition only. An enemy already chasing somebody is not affected, because losing a target
+--- halfway through a chase is a different thing entirely.
+function NPC:CanAcquire(): boolean
+	return self.AcquireAfter == nil or os.clock() >= self.AcquireAfter
+end
+
 -- Nearest player satisfying `predicate`, if any.
 function NPC:_findNearest(predicate: (Player) -> boolean): Player?
+	if not self:CanAcquire() then return nil end
+
 	local nearest, nearestDistance = nil, math.huge
 	local origin = self.RootPart.Position
 
@@ -499,6 +525,101 @@ function NPC.SharedStates.Wander(_changeState: StateMachine.ChangeState, npc: an
 	end
 
 	return "Idle", npc
+end
+
+--- Which way to go on at a junction. Three things decide it, and they are deliberately on comparable
+--- scales so none of them ever simply wins:
+---
+---  * **Straightness.** Carrying on down the corridor you are already in beats turning, which is what
+---    makes a patrol read as walking somewhere rather than milling about.
+---  * **Danger.** A thumb on the scale towards the worse half of the hotel. Without this, free-roaming
+---    patrols even out across the whole map within a few minutes and the danger field stops
+---    describing where anything actually is. With it, they drift out of the quiet wings on their own
+---    -- which is also what keeps the entrance calm without anything having to enforce that.
+---  * **Where it has just been.** Slightly more than the whole straightness range, so the corridor it
+---    came out of loses to any other option. This is the difference between something that patrols a
+---    hotel and something that paces one junction forever.
+local function chooseNextNode(previous: any, current: any, recent: { any }): any
+	local best, bestScore = nil, -math.huge
+
+	for neighbor in current.Neighbors do
+		local score = DangerMapService:GetDanger(neighbor.Position) * DangerConfig.PatrolDangerWeight
+		score += math.random() * PATROL_TIE_JITTER
+
+		if previous then
+			local incoming = horizontal(current.Position - previous.Position)
+			local outgoing = horizontal(neighbor.Position - current.Position)
+			if incoming.Magnitude > 1e-3 and outgoing.Magnitude > 1e-3 then
+				score += incoming.Unit:Dot(outgoing.Unit)
+			end
+		end
+
+		-- `recent` runs oldest first, so a later index is a fresher memory and costs more.
+		local recency = table.find(recent, neighbor)
+		if recency then
+			score -= DangerConfig.PatrolLoopPenalty * (recency / #recent)
+		end
+
+		if score > bestScore then
+			best, bestScore = neighbor, score
+		end
+	end
+
+	return best
+end
+
+--- Walks the corridor graph, corner to corner, indefinitely.
+---
+--- This is what an enemy does when it has nothing better to do, and it replaces strolling around the
+--- point it spawned at. That version never left its own bubble and stopped dead between trips, which
+--- reads as a prop idling rather than as something looking for you. Patrolling covers the hotel,
+--- keeps moving, and means the corridor you are about to walk into may already have something in it.
+---
+--- It never resolves on its own -- the machine's evaluators are what pull an enemy out of here, so
+--- every reason table that lists `Idle` must list `Patrol` alongside it, or perception can never
+--- interrupt a patrol.
+function NPC.SharedStates.Patrol(changeState: StateMachine.ChangeState, npc: any)
+	npc.Target = nil
+	npc.Animator:Resume()
+	npc:SetSpeed(npc.Config.WalkSpeed)
+
+	local current = HallwayGraphService:FindNearestNode(npc.RootPart.Position)
+	if not current then
+		-- No tagged corridors at all. Falling back keeps an untagged or half-built map playable
+		-- instead of leaving every enemy standing still wondering where the hallways went.
+		return NPC.SharedStates.Wander(changeState, npc)
+	end
+
+	local previous = nil :: any
+	local recent = { current }
+
+	while true do
+		-- One frame, unconditionally. A path to a node it is effectively already standing on comes
+		-- back with nothing to walk and returns without yielding, and a loop that can complete an
+		-- iteration without yielding is a loop that can lock the server.
+		task.wait()
+
+		local nextNode = chooseNextNode(previous, current, recent)
+		if not nextNode then return "Idle", npc end
+
+		if npc:WalkTo(nextNode.Position + Vector3.yAxis * PATROL_NODE_HEIGHT) then
+			previous, current = current, nextNode
+			table.insert(recent, current)
+			while #recent > DangerConfig.PatrolMemory do
+				table.remove(recent, 1)
+			end
+		else
+			-- Blocked, or shoved somewhere else entirely. Where it thinks it is on the graph is no
+			-- longer reliable, so it re-reads that from the world and starts the trail again.
+			task.wait(PATROL_BLOCKED_WAIT)
+			local reacquired = HallwayGraphService:FindNearestNode(npc.RootPart.Position)
+			if not reacquired then return "Idle", npc end
+
+			previous, current = nil, reacquired
+			table.clear(recent)
+			table.insert(recent, current)
+		end
+	end
 end
 
 --- Held in place for `duration` seconds, then dropped back to Idle. What the bear trap and the

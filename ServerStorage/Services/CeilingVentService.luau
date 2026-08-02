@@ -15,8 +15,11 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 local TweenService = game:GetService("TweenService")
 
+local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local TagService = require(ReplicatedStorage.Services.TagService)
+local DangerMapService = require(ServerStorage.Services.DangerMapService)
+local EnemyDirectorService = require(ServerStorage.Services.EnemyDirectorService)
 local EnemyService = require(ServerStorage.Services.EnemyService)
 
 local CEILING_VENT_TAG = "CeilingVent"
@@ -29,6 +32,17 @@ local DEFAULT_TRIGGER_RADIUS = 14
 local DEFAULT_TRIGGER_HEIGHT = 20
 local DEFAULT_TRIGGER_CHANCE = 0.35
 local DEFAULT_RETRY_INTERVAL = 0.75
+
+-- What a vent's authored `TriggerChance` is multiplied by, from the calmest ground to the worst. The
+-- floor is not zero on purpose: vents are placed by hand rather than by the danger map, so some of
+-- them will land in quiet pockets, and a vent that never opens is a prop rather than an ambush. At
+-- 0.2 a cold one is a rare surprise instead of scenery.
+--
+-- Note what this knob actually does. Because the roll repeats every `RetryInterval` while somebody is
+-- underneath, lowering the per-roll chance does not make a vent safe -- it makes it survivable to
+-- walk under. That is the right shape: walking through may or may not wake it, lingering still gets
+-- you, and danger decides how long lingering is.
+local MINIMUM_DANGER_SCALE = 0.2
 
 local OPEN_ANGLE = math.rad(-45)
 local DOOR_MOVE_TIME = 0.45
@@ -256,6 +270,21 @@ local function reset(state: VentState)
 	end)
 end
 
+--- This vent's real odds per roll: what it was authored with, scaled by how bad the ground it hangs
+--- over is, and zeroed while the director cannot afford what would come out of it.
+---
+--- The budget check is what stops the vents making a nonsense of the population. A Dweller is one of
+--- the most expensive things in the game -- it commits from about ten studs instead of sixty, so
+--- there is no room close enough to run to -- and a vent that fires regardless of what is already
+--- hunting you could drop one on top of a Stalker and a Chaser without anything having agreed to it.
+local function triggerChance(state: VentState): number
+	if not EnemyDirectorService:CanAfford(ENEMY_ID) then return 0 end
+
+	local danger = DangerMapService:GetDanger(state.SpawnPosition)
+	local scale = MINIMUM_DANGER_SCALE + (1 - MINIMUM_DANGER_SCALE) * danger
+	return state.TriggerChance * scale
+end
+
 local function trigger(state: VentState, player: Player)
 	if state.Triggered or not state.Alive then return end
 	state.Triggered = true
@@ -276,6 +305,10 @@ local function trigger(state: VentState, player: Player)
 		end
 
 		state.Enemy = EnemyService:Spawn(ENEMY_ID, spawnCFrame, player, floorPosition, floorNormal)
+		-- Counted against the Pursuit budget so a Dweller crowds out other spawns for as long as it is
+		-- about, but registered as self-managed: the vent owns its own teardown and reset, and the
+		-- director's distance sweep must not reach in and take it out from under that.
+		EnemyDirectorService:Adopt(state.Enemy, ENEMY_ID, true)
 		state.ReadyToReset = true
 	end)
 end
@@ -347,7 +380,7 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 			if nextRollAt and now < nextRollAt then continue end
 			state.NextRollAt[player] = now + state.RetryInterval
 
-			if math.random() < state.TriggerChance then
+			if math.random() < triggerChance(state) then
 				trigger(state, player)
 				break
 			end

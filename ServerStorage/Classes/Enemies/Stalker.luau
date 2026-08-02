@@ -361,6 +361,7 @@ function Stalker:BuildStateMachine(): StateMachine.StateMachine
 	return StateMachine.new({
 		Idle = NPC.SharedStates.Idle,
 		Wander = NPC.SharedStates.Wander,
+		Patrol = NPC.SharedStates.Patrol,
 		Despawn = NPC.SharedStates.Despawn,
 		Stalk = stalk,
 		Reveal = reveal,
@@ -371,13 +372,13 @@ function Stalker:BuildStateMachine(): StateMachine.StateMachine
 		Stunned = stunned,
 	}, {
 		-- Picking somebody happens between jobs and never interrupts one.
-		Perception = { "Idle", "Wander", "Search" },
+		Perception = { "Idle", "Wander", "Patrol", "Search" },
 		-- Being looked at outranks anything it does quietly. `Stalk` is left out on purpose: it watches
 		-- for this itself, so that breaking off a follow is the follow's own business. `Chase` and
 		-- `Attack` are left out because by then nobody's eyes matter any more.
-		Seen = { "Idle", "Wander", "Search" },
+		Seen = { "Idle", "Wander", "Patrol", "Search" },
 		-- A trap or a paper ball lands whatever it is doing.
-		Impact = { "Idle", "Wander", "Search", "Stalk", "Reveal", "Flee", "Chase", "Attack" },
+		Impact = { "Idle", "Wander", "Patrol", "Search", "Stalk", "Reveal", "Flee", "Chase", "Attack" },
 	}, {
 		Perception = function()
 			while true do

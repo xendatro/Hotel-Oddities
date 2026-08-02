@@ -1,8 +1,10 @@
---- Plans command-spawned Rush routes and their light warnings. Automatic enemy scheduling does not
---- belong here; when that system arrives it can call Spawn through the same public boundary.
+--- Plans Rush routes and their light warnings, for the director and for the chat command alike.
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
+local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
+local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyService = require(ServerStorage.Services.EnemyService)
 local HallwayGraphService = require(ServerStorage.Services.HallwayGraphService)
@@ -60,6 +62,10 @@ local function orderedExits(
 			local outgoing = horizontal(neighbor.Position - current.Position).Unit
 			score += incoming:Dot(outgoing)
 		end
+		-- A preference for the worse half of the hotel, not a requirement to reach it. Weighted well
+		-- under the straightness term on purpose: turned up, Rush visibly doubles back towards a hot
+		-- pocket, which reads as broken rather than as menacing.
+		score += DangerMapService:GetDanger(neighbor.Position) * DangerConfig.RouteDangerWeight
 
 		table.insert(options, neighbor)
 		ranks[neighbor] = math.round(score / DIRECTION_TIE_EPSILON) + math.random()
@@ -157,32 +163,62 @@ local function removePending(token: WarningToken)
 	end
 end
 
---- Plans one route, starts its light warnings now, and places Rush after the shortened spawn delay.
-function RushService:Spawn(): boolean
+--- One eligible starting node, drawn towards the dangerous end of the hotel. Which corridor Rush
+--- comes screaming out of is felt far more than any turn it takes later, so this is where the danger
+--- map earns most of its influence over this enemy.
+local function drawStart(): RouteNode?
 	local starts = {}
-	for _, node in HallwayGraphService:Build() do
+	local cumulative = {}
+	local total = 0
+
+	for _, node in HallwayGraphService:Get() do
 		if next(node.Neighbors)
 			and HallwayGraphService:IsFarFromPlayers(node.Position, Config.SpawnPlayerDistance) then
+			-- Never zero, so a hotel whose corridors are all fairly safe still gets a Rush somewhere
+			-- rather than none at all.
+			total += 0.1 + DangerMapService:GetDanger(node.Position) ^ (Config.DangerBias or 1)
 			table.insert(starts, node)
+			table.insert(cumulative, total)
 		end
 	end
-	if #starts == 0 then return false end
+	if #starts == 0 or total <= 0 then return nil end
 
+	local roll = math.random() * total
+	for index, ceiling in cumulative do
+		if roll <= ceiling then
+			return starts[index]
+		end
+	end
+	return starts[#starts]
+end
+
+--- Plans one route, starts its light warnings now, and places Rush after the shortened spawn delay.
+--- `onSpawned` is called with the enemy if and when it actually reaches the world, which is the only
+--- way a caller can get hold of something that does not exist for another few seconds.
+---
+--- Lights no longer decide whether a route is legal. They used to: a candidate was rejected unless at
+--- least one light sat near enough to warn, which quietly made unlit corridors ineligible and cost a
+--- good deal of route variety. Lights are a consequence of Rush, not a constraint on it -- the
+--- telegraph belongs in sound.
+function RushService:Spawn(onSpawned: ((any) -> ())?): boolean
 	local route, token
 	for _ = 1, ROUTE_ATTEMPTS do
-		local candidate = planRoute(starts[math.random(1, #starts)])
-		if not candidate then continue end
+		local start = drawStart()
+		if not start then return false end
 
-		local candidateToken = { Cancelled = false }
-		if scheduleWarnings(candidate, candidateToken) > 0 then
-			route, token = candidate, candidateToken
+		local candidate = planRoute(start)
+		if candidate then
+			route = candidate
+			token = { Cancelled = false }
 			break
 		end
 	end
 	if not route or not token then
-		warn("[Rush] found no lit route ending at a dead end")
+		warn("[Rush] found no route ending at a dead end")
 		return false
 	end
+
+	scheduleWarnings(route, token)
 
 	table.insert(PendingTokens, token)
 	task.delay(Config.SpawnDelay, function()
@@ -200,6 +236,10 @@ function RushService:Spawn(): boolean
 		local rush = EnemyService:Spawn("Rush", CFrame.lookAt(origin, destination), route, token)
 		if not rush then
 			token.Cancelled = true
+			return
+		end
+		if onSpawned then
+			onSpawned(rush)
 		end
 	end)
 	return true

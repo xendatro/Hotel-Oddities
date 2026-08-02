@@ -108,6 +108,8 @@ export type EnemyConfig = {
 	StuckTime: number?, -- seconds of getting nowhere down a leg before they give up and take a corner
 	LoopMemory: number?, -- corners for which a node stays worth avoiding after they leave it
 	LoopPenalty: number?, -- how strongly it is avoided at its freshest, against a straightness score of 1
+	ForgetChance: number?, -- odds they simply never round the corner, rolled once per break in sight
+	ForgetDelay: number?, -- seconds out of everybody's sight before that roll happens
 
 	-- Stalker-specific
 	FleeSpeed: number?, -- studs/s it retreats at once somebody has looked at it
@@ -118,6 +120,16 @@ export type EnemyConfig = {
 	RevealTurnTime: number?, -- seconds spent forcing the target's camera around to face it
 	RevealHoldTime: number?, -- beat held on it before the charge begins
 	FleeTime: number?, -- seconds of being watched without a break before it gives up and leaves
+
+	-- Director. What `EnemyDirectorService` needs to decide whether to put one of these in the world.
+	-- An enemy with no `SpawnWeight` is never rolled: the Ghost has its own areas, and the
+	-- CeilingDweller comes out of an authored vent rather than off the floor.
+	Budget: string?, -- "Pursuit" for anything that comes after you, "Presence" for anything that does not
+	Cost: number?, -- what one of these spends out of that budget
+	SpawnWeight: number?, -- how often it is rolled at all, against every other enemy in its budget
+	DangerBias: number?, -- how strongly it prefers dangerous ground; 0 is anywhere, 3+ is only the worst of it
+	MaxAlive: number?, -- hard cap regardless of what the budget could afford
+	SpawnGrace: number?, -- seconds after appearing during which it cannot acquire anybody
 
 	-- Temporary `/spawn` command
 	CommandSpawnDistance: number?, -- optional override for how far away a hand-spawn lands
@@ -146,10 +158,12 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 			Costs = ROOM_COST,
 		},
 
-		IdleTimeMin = 2,
-		IdleTimeMax = 5,
-		IdleNextState = "Wander",
-		WanderRadius = 70,
+		-- A beat between one job and the next, not a rest. Idle used to be several seconds of standing
+		-- still and it read as a prop waiting to be triggered; the walking is `Patrol` now.
+		IdleTimeMin = 1,
+		IdleTimeMax = 2.5,
+		IdleNextState = "Patrol",
+		WanderRadius = 70, -- only reached where a map has no tagged corridors to patrol
 
 		DetectionRange = 60,
 		GiveUpRange = 110,
@@ -162,6 +176,16 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 		LoseInterestTime = 5,
 		SearchLookInterval = 1,
+
+		-- The bread and butter. Twenty seconds of runway between acquisition and contact, and doors
+		-- are common enough that fleeing one is a real decision rather than a formality, so this is
+		-- the enemy the hotel can afford to keep putting in front of you.
+		Budget = "Pursuit",
+		Cost = 3,
+		SpawnWeight = 10,
+		DangerBias = 1, -- linear: turns up in quiet corridors sometimes, in bad ones often
+		MaxAlive = 2,
+		SpawnGrace = 2,
 	},
 
 	Blind = {
@@ -179,9 +203,9 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 			Costs = ROOM_COST,
 		},
 
-		IdleTimeMin = 2,
-		IdleTimeMax = 5,
-		IdleNextState = "Wander",
+		IdleTimeMin = 1,
+		IdleTimeMax = 2.5,
+		IdleNextState = "Patrol",
 		WanderRadius = 70,
 
 		GiveUpRange = 100,
@@ -195,6 +219,16 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		HearingAccurateRange = 12,
 		HearingErrorMaxDistance = 45,
 		HearingErrorMax = 10,
+
+		-- Cheap because it cannot catch anybody: 13 against a player's 16 means walking away from it
+		-- always works. What it costs you is the right to make noise, which is a different kind of
+		-- pressure entirely and one the hotel can carry a lot of.
+		Budget = "Pursuit",
+		Cost = 1,
+		SpawnWeight = 8,
+		DangerBias = 1,
+		MaxAlive = 2,
+		SpawnGrace = 2,
 	},
 
 	WeepingAngel = {
@@ -227,6 +261,16 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		AttackCooldown = 1.5,
 
 		ObservationRange = 200,
+
+		-- Deliberately left out of the patrol rewrite: this one is a statue that waits, not something
+		-- milling about, and its perception evaluator drives it straight out of `Idle` the moment
+		-- anybody is inside its 250-stud reach. It is almost never idle in practice anyway.
+		Budget = "Pursuit",
+		Cost = 4,
+		SpawnWeight = 2,
+		DangerBias = 3.5, -- essentially only the worst regions of the hotel
+		MaxAlive = 1,
+		SpawnGrace = 2,
 	},
 
 	Mimic = {
@@ -244,10 +288,13 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 			Costs = ROOM_COST,
 		},
 
+		-- Its loiter is the act rather than a pause -- glancing about, the odd pointless hop -- so this
+		-- one keeps its length. What follows it is a patrol now, which suits the disguise better than
+		-- circling a spawn point ever did: a lost player walks corridors.
 		IdleTimeMin = 2,
 		IdleTimeMax = 6,
-		IdleNextState = "Wander",
-		WanderRadius = 90, -- it roams wide, like a player who is lost rather than a guard on a post
+		IdleNextState = "Patrol",
+		WanderRadius = 90,
 
 		DetectionRange = 70,
 		GiveUpRange = 120,
@@ -272,6 +319,17 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		GlanceAngle = 22,
 		GlanceInterval = 0.9,
 		IdleJumpChance = 0.15,
+
+		-- An ambush rather than a chase: it commits from `StrikeRange` at a speed you cannot answer,
+		-- so there is no runway and nothing to do about it once it drops the act. All the skill was
+		-- in reading it earlier, which means its spawn rate is very nearly its kill rate. Expensive
+		-- and rare on purpose.
+		Budget = "Pursuit",
+		Cost = 4,
+		SpawnWeight = 4,
+		DangerBias = 2,
+		MaxAlive = 1,
+		SpawnGrace = 3,
 	},
 
 	Stalker = {
@@ -292,7 +350,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 		IdleTimeMin = 1,
 		IdleTimeMax = 2.5, -- it is only ever idle between one attempt and the next
-		IdleNextState = "Wander",
+		IdleNextState = "Patrol",
 		WanderRadius = 60,
 
 		DetectionRange = 90,
@@ -324,6 +382,17 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 		FleeTime = 15, -- seconds of unbroken watching, not of running: see `Stalker.flee`
 
+		-- The most expensive thing in the game, because being stalked *is* the encounter rather than
+		-- a component of one. At cost 5 it crowds out nearly everything else, which is correct: a
+		-- Stalker and a Chaser at the same time is two unrelated problems, and the answer to this one
+		-- -- turn around and look -- stops working the moment you have a reason to be looking forward.
+		Budget = "Pursuit",
+		Cost = 5,
+		SpawnWeight = 4,
+		DangerBias = 2.5,
+		MaxAlive = 1,
+		SpawnGrace = 3,
+
 		CommandSpawnDistance = 14, -- twice the follow distance, so a hand-spawn has to close in first
 		CommandSpawnBehind = true, -- in front of the caller it would be seen and flee before it began
 	},
@@ -336,6 +405,9 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		WalkSpeed = 0, -- its root is anchored; nothing about it moves through the humanoid
 		DriftSpeed = 7, -- slower than a walk, so it always looks like it is being carried
 		MinGoalDistance = 30,
+
+		-- No `SpawnWeight`, so the director never rolls one. Its placement is the authored
+		-- `GhostArea` volumes rather than anywhere on the floor, and that service already owns it.
 	},
 
 	-- Ambient only. It never targets, chases or attacks: it hides beside a corner, leans out, and
@@ -377,6 +449,15 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		PeekCountMax = 6,
 		PeekTilt = 10,
 		RetryInterval = 1.5,
+
+		-- Presence, and the one enemy the director does not place on the floor: a Watcher only works
+		-- close and behind, so `WatcherService` keeps positioning it relative to a player and danger
+		-- only decides how often one turns up.
+		Budget = "Presence",
+		Cost = 1,
+		SpawnWeight = 8,
+		DangerBias = 2,
+		MaxAlive = 2,
 	},
 
 	-- Ambient only. It is a single anchored part with no Humanoid and disappears before a player
@@ -388,6 +469,15 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		LightRange = CreepConfig.LightRange,
 		DespawnRange = 96,
 		CommandSpawnDistance = 128,
+
+		-- Cheap, common, and strongly drawn to the worst of the map, which is the combination that
+		-- makes the danger field visible without anything having to announce it: hot regions put out
+		-- their own lights. It costs a player nothing but nerve, so the hotel can be full of them.
+		Budget = "Presence",
+		Cost = 1,
+		SpawnWeight = 10,
+		DangerBias = 3,
+		MaxAlive = 3,
 	},
 
 	-- Ambient only, and the only enemy that hurts you without doing anything. It has no locomotion,
@@ -417,6 +507,19 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		FalloffExponent = 2,
 
 		Lifetime = 60,
+
+		-- Presence rather than Pursuit despite being lethal, because the line that matters for
+		-- rationing is whether a thing comes after you. This one never moves, never picks anybody,
+		-- and stops costing you the instant you look away -- so a Chaser and an Eyes at once is one
+		-- problem plus a hazard you can decline, where two Chasers is genuinely twice the pressure.
+		-- Easily the most dangerous thing in its budget though, so it pays the most and is capped at
+		-- one. Note what it does when it lands near a Creep: a glowing thing in a corridor whose
+		-- lights just went out is a thing everybody looks at.
+		Budget = "Presence",
+		Cost = 3,
+		SpawnWeight = 5,
+		DangerBias = 3,
+		MaxAlive = 1,
 	},
 
 	-- A fast, non-Humanoid corridor hazard. `RushService` derives its whole route from the parts
@@ -432,6 +535,15 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		WarningTime = 15,
 		LightRouteRange = 40,
 		RouteHeight = 3,
+
+		-- Cheaper than it looks. Fifteen seconds of warning and doors roughly every thirty seconds of
+		-- walking make this survivable by anybody who understands what the red lights mean, and it
+		-- clears its own route rather than staying in the world -- so what it spends, it gives back.
+		Budget = "Pursuit",
+		Cost = 3,
+		SpawnWeight = 3,
+		DangerBias = 3,
+		MaxAlive = 1,
 	},
 
 	-- The other end of the same idea as Rush: two R15 rigs walking the same corridor graph, with none
@@ -470,6 +582,22 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		-- wanders the hotel and a pair pacing the same four corridors forever.
 		LoopMemory = 12,
 		LoopPenalty = 1.2,
+
+		-- The cheapest thing in the Pursuit budget. At a walk speed of 5 against a player's 16 they
+		-- can be outpaced, walked around at a distance and left behind entirely -- being caught by
+		-- these is a mistake rather than a lost race, so the hotel can keep a pair about at all times.
+		Budget = "Pursuit",
+		Cost = 2,
+		SpawnWeight = 2,
+		DangerBias = 3,
+		MaxAlive = 1,
+
+		-- Seen, then not seen, and then -- occasionally -- never arriving. Rolled once each time they
+		-- drop out of everybody's sight and stay out of it for `ForgetDelay`, which is the moment the
+		-- question "are they still coming?" is actually live. One in five, because the other four
+		-- times they do come round the corner and that is what makes the fifth land.
+		ForgetChance = 0.2,
+		ForgetDelay = 5,
 	},
 }
 
@@ -478,6 +606,17 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 -- variants on exactly the same pathfinding and safe-room rules.
 local ceilingDwellerConfig = table.clone(EnemyConfigs.Chaser)
 ceilingDwellerConfig.Model = "Ceiling Dweller"
+
+-- It shares the Chaser's behaviour and none of its economics. Dropping out of an authored vent means
+-- it commits from about ten studs rather than sixty, so where a Chaser gives you twenty seconds of
+-- runway this gives you three -- there is no room to reach that is close enough. It costs more, only
+-- one is ever about, and crucially it carries no `SpawnWeight`: the director never rolls one, because
+-- `CeilingVentService` is what puts it in the world and the vents are placed by hand.
+ceilingDwellerConfig.Cost = 4
+ceilingDwellerConfig.MaxAlive = 1
+ceilingDwellerConfig.SpawnWeight = nil
+ceilingDwellerConfig.DangerBias = nil
+
 EnemyConfigs.CeilingDweller = ceilingDwellerConfig
 
 return EnemyConfigs

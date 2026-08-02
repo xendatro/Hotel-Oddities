@@ -67,7 +67,7 @@ end
 local function spawnOne(player: Player, enemyId: string): boolean
 	if enemyId == "Rush" then
 		if RushService:Spawn() then return true end
-		warn(`[enemies] no warned MazeFloor route starts at least {EnemyConfigs.Rush.SpawnPlayerDistance} studs from every player`)
+		warn(`[enemies] no MazeFloor route starts at least {EnemyConfigs.Rush.SpawnPlayerDistance} studs from every player`)
 		return false
 	end
 

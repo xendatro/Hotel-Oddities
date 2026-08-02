@@ -87,6 +87,7 @@ function Chaser:BuildStateMachine(): StateMachine.StateMachine
 	return StateMachine.new({
 		Idle = NPC.SharedStates.Idle,
 		Wander = NPC.SharedStates.Wander,
+		Patrol = NPC.SharedStates.Patrol,
 		Despawn = NPC.SharedStates.Despawn,
 		Chase = chase,
 		Attack = attack,
@@ -94,9 +95,9 @@ function Chaser:BuildStateMachine(): StateMachine.StateMachine
 		Stunned = NPC.SharedStates.Stunned,
 	}, {
 		-- Spotting a player pulls the chaser off anything idle, but never out of a swing.
-		Perception = { "Idle", "Wander", "Search" },
+		Perception = { "Idle", "Wander", "Patrol", "Search" },
 		-- A trap or a paper ball lands whatever it is doing, but cannot re-stun a stunned chaser.
-		Impact = { "Idle", "Wander", "Search", "Chase", "Attack" },
+		Impact = { "Idle", "Wander", "Patrol", "Search", "Chase", "Attack" },
 	}, {
 		Perception = function()
 			while true do

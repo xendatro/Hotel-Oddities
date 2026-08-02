@@ -112,6 +112,7 @@ function Blind:BuildStateMachine(): StateMachine.StateMachine
 	return StateMachine.new({
 		Idle = NPC.SharedStates.Idle,
 		Wander = NPC.SharedStates.Wander,
+		Patrol = NPC.SharedStates.Patrol,
 		Despawn = NPC.SharedStates.Despawn,
 		Investigate = investigate,
 		Attack = attack,
@@ -120,9 +121,9 @@ function Blind:BuildStateMachine(): StateMachine.StateMachine
 	}, {
 		-- A sound only pulls it away from quiet work. During an investigation, the evaluator updates
 		-- `HeardPosition` in place so `Pursue` can repath without restarting the whole state every step.
-		Noise = { "Idle", "Wander", "Search" },
-		Contact = { "Idle", "Wander", "Investigate", "Search" },
-		Impact = { "Idle", "Wander", "Investigate", "Attack", "Search" },
+		Noise = { "Idle", "Wander", "Patrol", "Search" },
+		Contact = { "Idle", "Wander", "Patrol", "Investigate", "Search" },
+		Impact = { "Idle", "Wander", "Patrol", "Investigate", "Attack", "Search" },
 	}, {
 		Hearing = function()
 			local lastSequence = 0
