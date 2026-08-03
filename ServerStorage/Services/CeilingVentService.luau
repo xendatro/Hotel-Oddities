@@ -18,6 +18,7 @@ local TweenService = game:GetService("TweenService")
 local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local TagService = require(ReplicatedStorage.Services.TagService)
+local Vanished = require(ReplicatedStorage.Modules.Vanished)
 local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local EnemyDirectorService = require(ServerStorage.Services.EnemyDirectorService)
 local EnemyService = require(ServerStorage.Services.EnemyService)
@@ -370,7 +371,10 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 		local now = os.clock()
 		for _, player in Players:GetPlayers() do
 			local root = getAliveRoot(player)
-			local isNearby = root ~= nil and isUnderVent(state, root)
+			-- A vent is one of the things that gets to decline: what is in it has not committed to
+			-- anything yet, and dropping on somebody nothing in the hotel can find would be the vanish
+			-- summoning the ambush it is meant to be an escape from.
+			local isNearby = root ~= nil and not Vanished.Is(player.Character) and isUnderVent(state, root)
 			if not isNearby then
 				state.NextRollAt[player] = nil
 				continue

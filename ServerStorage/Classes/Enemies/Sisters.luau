@@ -41,6 +41,7 @@ local EnemyObservationService = require(ServerStorage.Services.EnemyObservationS
 local EnemyService = require(ServerStorage.Services.EnemyService)
 local HallwayGraphService = require(ServerStorage.Services.HallwayGraphService)
 local RoomService = require(ServerStorage.Services.RoomService)
+local Vanished = require(ReplicatedStorage.Modules.Vanished)
 
 local ENEMY_TAG = "Enemy"
 local SISTERS_TAG = "Sisters"
@@ -292,6 +293,9 @@ function Sisters:_sweep()
 
 		for _, player in Players:GetPlayers() do
 			if RoomService:IsInRoom(player) then continue end
+			-- Same as a room: they walk the line they were going to walk anyway, and somebody the
+			-- hotel cannot find is not standing in it.
+			if Vanished.Is(player.Character) then continue end
 
 			local character = player.Character
 			local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?

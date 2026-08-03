@@ -19,6 +19,7 @@ local EnemyObservationService = require(ServerStorage.Services.EnemyObservationS
 local HallwayGraphService = require(ServerStorage.Services.HallwayGraphService)
 local NpcAnimator = require(ReplicatedStorage.Classes.NpcAnimator)
 local RoomService = require(ServerStorage.Services.RoomService)
+local Vanished = require(ReplicatedStorage.Modules.Vanished)
 
 local WAYPOINT_REACHED_DISTANCE = 2
 local WAYPOINT_PROGRESS = 0.5 -- studs of gain on a waypoint that counts as making ground
@@ -41,7 +42,6 @@ local PATROL_BLOCKED_MEMORY = 12 -- seconds a corner it could not reach stays un
 local PATROL_BLOCKED_PENALTY = 8 -- and what it costs: more than every other term put together
 
 local ENEMY_TAG = "Enemy" -- carried by every live enemy model, so tools can raycast for them
-local IGNORE_TAG = "Ignore" -- on a character: enemies cannot target or see them (the spell book)
 local OBSERVABLE_TAG = "Observable" -- this enemy reacts to being seen, so clients should report it
 
 local NPC = {}
@@ -395,7 +395,7 @@ end
 function NPC:IsValidTarget(player: Player): boolean
 	local root = getAliveRoot(player)
 	if not root then return false end
-	if (root.Parent :: Model):HasTag(IGNORE_TAG) then return false end
+	if Vanished.Is(root.Parent) then return false end
 	if self.Config.RespectsSafeRooms and RoomService:IsInRoom(player) then return false end
 	return (root.Position - self.RootPart.Position).Magnitude <= self.Config.GiveUpRange
 end
@@ -439,7 +439,7 @@ end
 function NPC:CanSee(player: Player): boolean
 	local root = getAliveRoot(player)
 	if not root then return false end
-	if (root.Parent :: Model):HasTag(IGNORE_TAG) then return false end
+	if Vanished.Is(root.Parent) then return false end
 	if self.Config.RespectsSafeRooms and RoomService:IsInRoom(player) then return false end
 
 	local origin = self.RootPart.Position
@@ -522,6 +522,11 @@ end
 function NPC:Attack(player: Player)
 	local root = getAliveRoot(player)
 	if not root then return end
+	-- Checked here as well as in perception, and not as a formality. Everything that reaches this
+	-- line decided to attack at some earlier moment -- a lunge is committed to before it lands -- so
+	-- perception refusing to *acquire* a vanished player says nothing about one who vanished while
+	-- something was already swinging at them. This is where the promise actually holds.
+	if Vanished.Is(root.Parent) then return end
 
 	local humanoid = (root.Parent :: Model):FindFirstChildOfClass("Humanoid") :: Humanoid
 	DeathService:RecordCause(player, self.EnemyId)

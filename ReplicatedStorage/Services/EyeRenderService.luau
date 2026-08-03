@@ -22,9 +22,9 @@ local Bob = require(ReplicatedStorage.Modules.Bob)
 local EyeConfig = require(ReplicatedStorage.Configs.EyeConfig)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local TagService = require(ReplicatedStorage.Services.TagService)
+local Vanished = require(ReplicatedStorage.Modules.Vanished)
 
 local EYE_TAG = "Eye"
-local IGNORE_TAG = "Ignore" -- on your character: nothing in the hotel can see you (the spell book)
 local MINIMUM_DIRECTION = 1e-3
 local RENDER_BIND_NAME = "EyeRender"
 
@@ -68,7 +68,7 @@ RunService:BindToRenderStep(RENDER_BIND_NAME, Enum.RenderPriority.Camera.Value +
 	-- looking away, and it keeps floating -- an Eye that lost you is still an Eye. What the book buys
 	-- is that it stops following, in the one place a player can stand and watch it stop.
 	local character = localPlayer.Character
-	local tracking = not (character and character:HasTag(IGNORE_TAG))
+	local tracking = not Vanished.Is(character)
 
 	local clock = os.clock()
 	local cameraPosition = camera.CFrame.Position

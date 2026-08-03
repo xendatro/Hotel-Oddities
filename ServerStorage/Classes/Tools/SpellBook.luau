@@ -3,15 +3,15 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local ServerTool = require(ServerStorage.Classes.ServerTool)
+local Vanished = require(ReplicatedStorage.Modules.Vanished)
 
 local Other = ReplicatedStorage.Props.Other
 
-local IGNORE_TAG = "Ignore" -- read by NPC:IsValidTarget / NPC:CanSee
-
 --- @class SpellBook
 --- A one-shot vanish. Reading it roots the caster for the length of the cast, and for that whole
---- window their character carries `Ignore`, which every enemy's perception refuses to target -- so
---- the cast is both the cost and the escape.
+--- window their character is `Vanished`: no enemy's perception will target them, and nothing in the
+--- hotel can hurt them, down to the things that sweep a corridor without looking at anybody. So the
+--- cast is both the cost and the escape.
 ---
 --- Everything the cast changes about the world (walk speed, the tag, two cloned effect models) is
 --- undone in `OnCleanup`, which the chassis runs whether the cast finished, threw, timed out on a
@@ -36,7 +36,7 @@ function SpellBook:OnActivated()
 		return
 	end
 
-	character:AddTag(IGNORE_TAG)
+	character:AddTag(Vanished.Tag)
 	self.CastCharacter = character
 	self.CastSpeed = humanoid.WalkSpeed
 	humanoid.WalkSpeed = 0
@@ -126,7 +126,7 @@ function SpellBook:OnCleanup()
 
 	local character = self.CastCharacter
 	if character then
-		character:RemoveTag(IGNORE_TAG)
+		character:RemoveTag(Vanished.Tag)
 
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		if humanoid and humanoid.Health > 0 and self.CastSpeed then

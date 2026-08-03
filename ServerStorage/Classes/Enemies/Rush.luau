@@ -10,6 +10,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local DeathService = require(ServerStorage.Services.DeathService)
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local RoomService = require(ServerStorage.Services.RoomService)
+local Vanished = require(ReplicatedStorage.Modules.Vanished)
 
 local ENEMY_TAG = "Enemy"
 local RUSH_TAG = "Rush"
@@ -54,6 +55,9 @@ end
 function Rush:_killAlong(origin: Vector3, destination: Vector3)
 	for _, player in Players:GetPlayers() do
 		if RoomService:IsInRoom(player) then continue end
+		-- It has no perception to spare anybody with, so this is the only place a Rush can honour a
+		-- vanish: it sweeps the corridor exactly as it would have, and whoever is not there is not hit.
+		if Vanished.Is(player.Character) then continue end
 
 		local character = player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?

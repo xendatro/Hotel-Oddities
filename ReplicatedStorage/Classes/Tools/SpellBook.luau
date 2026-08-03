@@ -3,8 +3,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ClientTool = require(ReplicatedStorage.Classes.ClientTool)
 
 --- @class SpellBook (client)
---- The spell book's local half. The cast itself is the server's business -- the `Ignore` tag, the
---- rooting, the spend -- and this side exists to make the cast legible to the person performing it.
+--- The spell book's local half. The cast itself is the server's business -- the vanish, the rooting,
+--- the spend -- and this side exists to make the cast legible to the person performing it.
 ---
 --- In first person the caster cannot see their own arms, so a two-second reading animation reads as
 --- two seconds of being frozen for no visible reason. Holding the limb reveal open for exactly as

@@ -29,11 +29,11 @@ local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local DeathService = require(ServerStorage.Services.DeathService)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local RoomService = require(ServerStorage.Services.RoomService)
+local Vanished = require(ReplicatedStorage.Modules.Vanished)
 
 local ENEMY_TAG = "Enemy"
 local EYE_TAG = "Eye" -- what each client's renderer watches for, to turn it towards that camera
 local OBSERVABLE_TAG = "Observable" -- makes a client's view report about this model legal
-local IGNORE_TAG = "Ignore" -- on a character: enemies cannot target or see them (the spell book)
 local DAMAGE_INTERVAL = 0.05 -- seconds between damage ticks; the report itself refreshes at 0.05
 
 local Eye = {}
@@ -54,7 +54,7 @@ local function getVulnerable(player: Player, config): Model?
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid") :: Humanoid?
 	if not (character and humanoid and humanoid.Health > 0) then return nil end
-	if character:HasTag(IGNORE_TAG) then return nil end
+	if Vanished.Is(character) then return nil end
 	if config.RespectsSafeRooms and RoomService:IsInRoom(player) then return nil end
 	return character
 end
