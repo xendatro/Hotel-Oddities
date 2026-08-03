@@ -17,6 +17,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local Aim = require(ReplicatedStorage.Modules.Aim)
 local Bob = require(ReplicatedStorage.Modules.Bob)
 local EyeConfig = require(ReplicatedStorage.Configs.EyeConfig)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
@@ -79,11 +80,9 @@ RunService:BindToRenderStep(RENDER_BIND_NAME, Enum.RenderPriority.Camera.Value +
 
 		if tracking and distance > MINIMUM_DIRECTION and distance < EyeConfig.TrackRange then
 			-- The mesh's pupil sits on the model's own LookVector, so aiming it is the whole of this.
-			local goal = CFrame.lookAt(position, cameraPosition).Rotation
+			local goal = Aim.Toward(position, cameraPosition)
 			rotation = if render.Aimed
-				-- Framerate independent: the same fraction of the angle left per second of real time
-				-- rather than per frame, so it does not turn faster on a better machine.
-				then rotation:Lerp(goal, 1 - math.exp(-EyeConfig.TurnRate * deltaTime))
+				then Aim.Ease(rotation, goal, EyeConfig.TurnRate, deltaTime)
 				-- The first aim is instant, and unseen. An Eye spawns out of everybody's sight and
 				-- facing away from whoever it was drawn for, so easing from that would spend its
 				-- first second sweeping around from wherever the server happened to leave it.

@@ -29,6 +29,7 @@ function Creep.new(model: Model, config)
 	self.RootPart = model:FindFirstChildWhichIsA("BasePart", true) :: BasePart
 	self.Active = false
 	self.LightClaim = nil
+	self.Destroying = nil
 	self.StateMachine = StateMachine.new({
 		Ambient = ambient,
 	}, {}, {
@@ -59,6 +60,16 @@ function Creep:Start()
 	self.Model:AddTag(ENEMY_TAG)
 	self.Model:AddTag(CREEP_TAG)
 	self.LightClaim = LightService:DisableNear(self.RootPart.Position, self.Config.LightRange)
+
+	-- A Creep is the one enemy holding something that outlives it: a stretch of hallway it has turned
+	-- off. Going through `Despawn` hands that back, but anything that destroys the model without
+	-- asking -- and the model outliving its object is exactly what `EnemyService` watches for -- would
+	-- otherwise leave those lamps dark for the rest of the round with nothing left alive to claim them.
+	-- Releasing twice is a no-op, so this costs the ordinary path nothing.
+	self.Destroying = self.Model.Destroying:Connect(function()
+		LightService:Release(self.LightClaim)
+	end)
+
 	self.StateMachine:Start()
 end
 
@@ -68,6 +79,10 @@ function Creep:Despawn()
 
 	self.Model:RemoveTag(ENEMY_TAG)
 	self.Model:RemoveTag(CREEP_TAG)
+	if self.Destroying then
+		self.Destroying:Disconnect()
+		self.Destroying = nil
+	end
 	LightService:Release(self.LightClaim)
 
 	task.defer(function()
