@@ -91,11 +91,22 @@ return {
 	--- destination. Turn it up and patrols visibly beeline for the same few corridors and then pace
 	--- them, which looks less like territory and more like a bug.
 	PatrolDangerWeight = 0.6,
-	--- Corners a patroller remembers, and what revisiting one costs it. Slightly more than the whole
-	--- straightness range, so the corridor it just came out of loses to any other option -- which is
-	--- the difference between something that patrols a hotel and something that paces one junction.
-	PatrolMemory = 10,
-	PatrolLoopPenalty = 1.2,
+
+	--- Corridors a patroller remembers walking, and what walking one again costs it.
+	---
+	--- Corridors, not corners. Remembering places it has *been* cannot break a loop, because at a
+	--- T-junction on a lap it has already done, neither the turn nor the way straight on has been
+	--- visited more recently than the other -- the memory has nothing to say and straightness decides,
+	--- every time, for ever. Remembering the stretches it has *walked* is what tells those two apart:
+	--- carrying straight on repeats a corridor, turning off does not.
+	---
+	--- The penalty is well clear of the straightness range on purpose. Straightness is worth a full
+	--- point and danger at most `PatrolDangerWeight`, so anything smaller than about 1.6 cannot
+	--- actually turn a patrol off a corridor it is already committed to, and the whole term does
+	--- nothing. Too large and it refuses to reuse a corridor even when that is the only sensible way
+	--- across the hotel, and coverage falls again -- 3.0 is measurably worse than 2.0 for this reason.
+	PatrolEdgeMemory = 50, -- corridor crossings remembered
+	PatrolEdgePenalty = 2,
 
 	--- Same idea for the two corridor enemies that plan a whole route up front.
 	RouteDangerWeight = 0.5,

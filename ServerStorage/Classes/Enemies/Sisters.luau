@@ -28,7 +28,6 @@
 --- which is most of the point of them.
 
 local Players = game:GetService("Players")
-local PhysicsService = game:GetService("PhysicsService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
@@ -39,12 +38,12 @@ local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
 local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local DeathService = require(ServerStorage.Services.DeathService)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
+local EnemyService = require(ServerStorage.Services.EnemyService)
 local HallwayGraphService = require(ServerStorage.Services.HallwayGraphService)
 local RoomService = require(ServerStorage.Services.RoomService)
 
 local ENEMY_TAG = "Enemy"
 local SISTERS_TAG = "Sisters"
-local COLLISION_GROUP = "Sisters"
 local MINIMUM_LEG = 1e-3
 local DIRECTION_TIE_EPSILON = 0.05
 local PROGRESS_EPSILON = 0.5 -- studs of ground that count as having got somewhere
@@ -76,23 +75,17 @@ local function walkPosition(node: RouteNode, config): Vector3
 	return node.Position + Vector3.yAxis * config.RouteHeight
 end
 
--- The sisters pass through each other and nothing else. They walk `SideSpacing` apart down corridors
--- narrow enough to close that up on a corner, and two Humanoids shouldering one another out of line
--- is the one drift steering them cannot answer.
-local function ensureCollisionGroup()
-	if PhysicsService:IsCollisionGroupRegistered(COLLISION_GROUP) then return end
-
-	PhysicsService:RegisterCollisionGroup(COLLISION_GROUP)
-	PhysicsService:CollisionGroupSetCollidable(COLLISION_GROUP, COLLISION_GROUP, false)
-end
-
 -- Hands the rig to its own Humanoid, which is what walks it, turns it and animates it. Server
--- ownership keeps both sisters simulated where their path is being swept.
+-- ownership keeps both sisters simulated where their path is being swept. The collision group is the
+-- one every enemy shares: the pair walk `SideSpacing` apart down corridors narrow enough to close
+-- that up on a corner, and two Humanoids shouldering one another out of line is the one drift
+-- steering them cannot answer -- but a sister wedged against a passing Chaser is the same failure,
+-- so the group that fixes it is not theirs to own.
 local function prepare(model: Model)
 	for _, descendant in model:GetDescendants() do
 		if descendant:IsA("BasePart") then
 			descendant.Anchored = false
-			descendant.CollisionGroup = COLLISION_GROUP
+			descendant.CollisionGroup = EnemyService.CollisionGroup
 			if descendant:CanSetNetworkOwnership() then
 				descendant:SetNetworkOwner(nil)
 			end
@@ -424,7 +417,7 @@ function Sisters:Start()
 	if self.Active then return end
 	self.Active = true
 
-	ensureCollisionGroup()
+	EnemyService:EnsureCollisionGroup()
 	local twin = self.Model:Clone()
 	twin.Parent = self.Model.Parent
 	table.insert(self.Models, twin)

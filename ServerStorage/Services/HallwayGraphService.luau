@@ -79,6 +79,20 @@ local function junctionAt(hallway: Hallway, position: Vector3): RouteNode?
 	return nil
 end
 
+--- Where a hallway's end node goes, for the ends that are genuinely ends. Not on the outer face of
+--- the floor: that point is the last one on the walkable surface, and a pathfinding agent with a
+--- radius cannot stand on it, so asking for a route there is asking for the one goal in the corridor
+--- that may have no answer. It sits back by half the corridor's own width instead -- where something
+--- about as wide as the hallway comes to rest against the end wall -- which is a fact about the map
+--- rather than about any particular agent's dimensions.
+---
+--- Clamped so that a stub wider than it is long keeps a hallway of its own rather than folding both
+--- ends into a single point somewhere past its middle.
+local function endNodePosition(hallway: Hallway, sign: number): Vector3
+	local inset = math.min(hallway.HalfWidth, math.max(hallway.HalfLength - MINIMUM_EDGE, 0))
+	return hallway.Center + hallway.Direction * (hallway.HalfLength - inset) * sign
+end
+
 local function getOrCreateNode(nodes: { RouteNode }, position: Vector3): RouteNode
 	for _, node in nodes do
 		if (node.Position - position).Magnitude <= NODE_MERGE_DISTANCE then
@@ -191,9 +205,11 @@ function HallwayGraphService:Build(): { RouteNode }
 
 	for _, hallway in hallways do
 		for _, sign in { -1, 1 } do
+			-- Tested at the true tip -- whether the corridor stops here is a question about where the
+			-- floor actually ends -- but placed short of it once the answer is yes.
 			local tip = hallway.Center + hallway.Direction * hallway.HalfLength * sign
 			if not junctionAt(hallway, tip) then
-				addNode(hallway, getOrCreateNode(nodes, tip))
+				addNode(hallway, getOrCreateNode(nodes, endNodePosition(hallway, sign)))
 			end
 		end
 	end

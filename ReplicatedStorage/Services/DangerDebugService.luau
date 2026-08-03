@@ -7,7 +7,8 @@
 --- numbers over for the population to be rebuilt against. That means seed-shopping is instant: roll,
 --- look, roll again, and only commit to the one whose bad wings sit somewhere interesting.
 ---
---- Toggle the panel with F4.
+--- Toggle the panel with F4. While it is open the cursor is released from first person, so the
+--- sliders and buttons can actually be used; closing it gives the camera the mouse back.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -32,6 +33,11 @@ local MARKER_HEIGHT = 0.6 -- studs above the floor, clear of z-fighting with it
 
 local PANEL_WIDTH = 300
 local ROW_HEIGHT = 34
+local READOUT_INTERVAL = 0.1 -- seconds between samples of the field under the player
+
+local TAG_WAIT_TIMEOUT = 20 -- seconds to wait for the map's tags before building against nothing
+local TAG_POLL_INTERVAL = 0.25
+local TAG_SETTLE_POLLS = 4 -- unchanged counts in a row that mean the map has finished arriving
 
 local DangerDebugService = {}
 
@@ -182,8 +188,11 @@ local function buildSlider(
 	track.BorderSizePixel = 0
 	track.Parent = row
 
+	-- Clamped, because a value outside the slider's range is a real possibility -- `DangerConfig` is
+	-- hand-edited and nothing reconciles it against these bounds -- and an unclamped fill does not
+	-- merely look wrong, it draws a bar several times the width of the screen across everything.
 	local fill = Instance.new("Frame")
-	fill.Size = UDim2.fromScale((initial - minimum) / (maximum - minimum), 1)
+	fill.Size = UDim2.fromScale(math.clamp((initial - minimum) / (maximum - minimum), 0, 1), 1)
 	fill.BackgroundColor3 = Color3.fromRGB(190, 90, 90)
 	fill.BorderSizePixel = 0
 	fill.Parent = track
@@ -195,7 +204,7 @@ local function buildSlider(
 		local raw = minimum + (maximum - minimum) * alpha
 		local value = if step > 0 then math.round(raw / step) * step else raw
 
-		fill.Size = UDim2.fromScale((value - minimum) / (maximum - minimum), 1)
+		fill.Size = UDim2.fromScale(math.clamp((value - minimum) / (maximum - minimum), 0, 1), 1)
 		caption.Text = `{label}: {string.format(if step >= 1 then "%d" else "%.2f", value)}`
 		apply(value)
 	end
@@ -226,6 +235,15 @@ end
 
 local function buildButton(parent: Instance, order: number, text: string, activated: () -> ()): TextButton
 	local button = Instance.new("TextButton")
+	-- The game is played in first person, which pins the cursor to the middle of the screen and leaves
+	-- every control in this panel impossible to click or drag. A *visible* modal button overrides that
+	-- lock for exactly as long as it is on screen, so opening the panel frees the mouse and closing it
+	-- hands the camera straight back -- no state to restore and nothing to get stuck holding.
+	--
+	-- Every button rather than one nominated for the job: one is enough to free the cursor, but "one
+	-- specific button must exist or the whole panel silently stops working" is not a property worth
+	-- leaving in a file whose header says to delete parts of it.
+	button.Modal = true
 	button.Size = UDim2.new(1, 0, 0, 26)
 	button.LayoutOrder = order
 	button.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
@@ -243,7 +261,9 @@ local function build()
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "DangerDebug"
 	gui.ResetOnSpawn = false
-	gui.IgnoreGuiInset = true
+	-- Respecting the inset rather than ignoring it: the panel is pinned to the top-left, which is
+	-- exactly where Roblox puts its own topbar, and ignoring it filed the title away underneath.
+	gui.IgnoreGuiInset = false
 	gui.Enabled = false
 	gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
@@ -277,58 +297,99 @@ local function build()
 	title.Text = `danger map -- extent {math.floor(Extent)} studs`
 	title.Parent = panel
 
+	-- What the field says where you are standing, live. The sliders describe the shape of the hotel's
+	-- danger in the abstract; this is the single number every other system actually reads, and having
+	-- it under the crosshair while walking is the difference between tuning the map and guessing at
+	-- it. Both factors are broken out because a reading of zero has two completely different causes --
+	-- a cold pocket in the noise, or standing inside the entrance's safe radius -- and the gate term
+	-- is the only thing that tells them apart.
+	local readout = Instance.new("TextLabel")
+	readout.Size = UDim2.new(1, 0, 0, 30)
+	readout.LayoutOrder = 1
+	readout.BackgroundTransparency = 1
+	readout.Font = Enum.Font.Code
+	readout.TextSize = 12
+	readout.TextColor3 = Color3.new(1, 1, 1)
+	readout.TextXAlignment = Enum.TextXAlignment.Left
+	readout.TextYAlignment = Enum.TextYAlignment.Top
+	readout.Text = "here: --"
+	readout.Parent = panel
+
+	task.spawn(function()
+		while readout.Parent do
+			task.wait(READOUT_INTERVAL)
+			if not gui.Enabled then continue end
+
+			local character = LocalPlayer.Character
+			local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+			if not root then
+				readout.Text = "here: no character"
+				continue
+			end
+
+			local position = root.Position
+			local gate = DangerField.SampleGate(position, Settings)
+			local field = DangerField.SampleField(position, Settings)
+			readout.Text = string.format("here: %.2f\ngate %.2f  field %.2f  floor %d",
+				gate * field, gate, field, DangerField.GetFloorIndex(position, Settings))
+			readout.TextColor3 = dangerColor(gate * field)
+		end
+	end)
+
 	-- Whole studs, because the seed is a number you shop for rather than interpolate through: every
 	-- step is a completely different hotel and there is no sense in which 4.5 sits between 4 and 5.
-	buildSlider(panel, 1, "Seed", 1, 200, Settings.Seed, 1, function(value)
+	-- The range has to actually contain whatever `DangerConfig` was left on, or the slider opens
+	-- already unable to represent the seed the game is running.
+	buildSlider(panel, 2, "Seed", 1, math.max(2000, Settings.Seed), Settings.Seed, 1, function(value)
 		Settings.Seed = value
 		requestRedraw()
 	end)
 
-	buildSlider(panel, 2, "FeatureScale", Extent * 0.04, Extent * 0.5, Settings.FeatureScale, 1, function(value)
+	buildSlider(panel, 3, "FeatureScale", Extent * 0.04, Extent * 0.5, Settings.FeatureScale, 1, function(value)
 		Settings.FeatureScale = value
 		requestRedraw()
 	end)
 
-	buildSlider(panel, 3, "Contrast", 1, 4, Settings.Contrast, 0.1, function(value)
+	buildSlider(panel, 4, "Contrast", 1, 4, Settings.Contrast, 0.1, function(value)
 		Settings.Contrast = value
 		requestRedraw()
 	end)
 
-	buildSlider(panel, 4, "NoiseGain", 0.5, 3, Settings.NoiseGain, 0.05, function(value)
+	buildSlider(panel, 5, "NoiseGain", 0.5, 3, Settings.NoiseGain, 0.05, function(value)
 		Settings.NoiseGain = value
 		requestRedraw()
 	end)
 
-	buildSlider(panel, 5, "SafeRadius", 0, Extent * 0.3, Settings.SafeRadius, 1, function(value)
+	buildSlider(panel, 6, "SafeRadius", 0, Extent * 0.3, Settings.SafeRadius, 1, function(value)
 		Settings.SafeRadius = value
 		requestRedraw()
 	end)
 
-	buildSlider(panel, 6, "RampLength", 1, Extent * 0.6, Settings.RampLength, 1, function(value)
+	buildSlider(panel, 7, "RampLength", 1, Extent * 0.6, Settings.RampLength, 1, function(value)
 		Settings.RampLength = value
 		requestRedraw()
 	end)
 
-	buildSlider(panel, 7, "Octaves", 1, 4, Settings.Octaves, 1, function(value)
+	buildSlider(panel, 8, "Octaves", 1, 4, Settings.Octaves, 1, function(value)
 		Settings.Octaves = value
 		requestRedraw()
 	end)
 
 	local heatmapButton
-	heatmapButton = buildButton(panel, 8, "heatmap: off", function()
+	heatmapButton = buildButton(panel, 9, "heatmap: off", function()
 		HeatmapOn = not HeatmapOn
 		heatmapButton.Text = `heatmap: {if HeatmapOn then "on" else "off"}`
 		drawHeatmap()
 	end)
 
 	local gateButton
-	gateButton = buildButton(panel, 9, "showing: gated field", function()
+	gateButton = buildButton(panel, 10, "showing: gated field", function()
 		GateOn = not GateOn
 		gateButton.Text = `showing: {if GateOn then "gated field" else "raw noise"}`
 		drawHeatmap()
 	end)
 
-	buildButton(panel, 10, "apply to server", function()
+	buildButton(panel, 11, "apply to server", function()
 		if not SetConfig then
 			warn("[danger] no Communication/Danger/SetConfig remote yet; sliders are local only")
 			return
@@ -347,7 +408,7 @@ local function build()
 		})
 	end)
 
-	buildButton(panel, 11, "reload map from tags", function()
+	buildButton(panel, 12, "reload map from tags", function()
 		rebuildSettings()
 		title.Text = `danger map -- extent {math.floor(Extent)} studs`
 		drawHeatmap()
@@ -355,7 +416,7 @@ local function build()
 
 	local hint = Instance.new("TextLabel")
 	hint.Size = UDim2.new(1, 0, 0, 60)
-	hint.LayoutOrder = 12
+	hint.LayoutOrder = 13
 	hint.BackgroundTransparency = 1
 	hint.Font = Enum.Font.Code
 	hint.TextSize = 11
@@ -374,8 +435,40 @@ local function build()
 	end)
 end
 
-rebuildSettings()
-build()
+-- Held back until the map has actually been tagged. The client bootstrap requires every service in
+-- one synchronous loop and only tags the world *after* that loop finishes, so at module scope there
+-- is not a single `MazeFloor` in the game yet. Measuring then gives the empty-list extent of one
+-- stud, every fraction in `DangerConfig` resolves against it -- a feature scale of a sixth of a stud,
+-- a safe radius of a twentieth of one -- and the sliders are built around ranges that describe
+-- nothing. The heatmap then bakes across a list of no floors and draws nothing at all, which from
+-- the outside is indistinguishable from the panel being missing entirely.
+--
+-- Waiting for the count to settle rather than merely to become non-zero. The floors stream in, so the
+-- first tagged part arrives well before the last: measuring on the first one gave an extent of 459
+-- studs against a true 723, and every fraction resolved against it was wrong by that ratio -- which is
+-- worse than the empty case, because it looks entirely plausible.
+--
+-- Building anyway on timeout rather than giving up: a panel with a wrong extent can still be fixed
+-- from its own "reload map from tags" button, and one that never appeared cannot.
+task.spawn(function()
+	local deadline = os.clock() + TAG_WAIT_TIMEOUT
+	local previous, settled = -1, 0
+
+	while os.clock() < deadline do
+		local count = #getFloors()
+		if count > 0 and count == previous then
+			settled += 1
+			if settled >= TAG_SETTLE_POLLS then break end
+		else
+			settled = 0
+		end
+		previous = count
+		task.wait(TAG_POLL_INTERVAL)
+	end
+
+	rebuildSettings()
+	build()
+end)
 
 task.spawn(function()
 	SetConfig = ReplicatedStorage

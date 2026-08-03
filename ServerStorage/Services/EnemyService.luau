@@ -1,3 +1,4 @@
+local PhysicsService = game:GetService("PhysicsService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
@@ -6,6 +7,24 @@ local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 
 local EnemyService = {}
 local ActiveEnemies = {}
+
+--- Every enemy rig in the world sits in this group, and the group does not collide with itself.
+--- Enemies are solid to players and to the hotel exactly as before; they are transparent only to one
+--- another. Two Humanoids that meet in a corridor otherwise shoulder each other out of line and both
+--- stall against a wall, which no amount of re-pathing can answer -- the path is fine, the rig simply
+--- cannot walk it. Nothing about damage runs through physics: contact is an `OverlapParams` query
+--- against the player's own parts, so passing through a fellow enemy costs an enemy no lethality.
+EnemyService.CollisionGroup = "Enemies"
+
+--- Registers the group if it is not already there. Idempotent, and safe to call from anywhere that
+--- puts a rig in the world without going through `Spawn` -- the second sister is cloned after her
+--- pair has already spawned.
+function EnemyService:EnsureCollisionGroup()
+	if PhysicsService:IsCollisionGroupRegistered(self.CollisionGroup) then return end
+
+	PhysicsService:RegisterCollisionGroup(self.CollisionGroup)
+	PhysicsService:CollisionGroupSetCollidable(self.CollisionGroup, self.CollisionGroup, false)
+end
 
 local activeFolder: Folder?
 
@@ -21,10 +40,15 @@ local function getActiveFolder(): Folder
 	return activeFolder
 end
 
-local function setServerOwnership(model: Model)
+--- Puts a freshly parented rig into the state every enemy starts in: simulated by the server, and in
+--- the enemy collision group so it cannot get wedged against another one.
+local function prepare(model: Model)
 	for _, descendant in model:GetDescendants() do
-		if descendant:IsA("BasePart") and descendant:CanSetNetworkOwnership() then
-			descendant:SetNetworkOwner(nil)
+		if descendant:IsA("BasePart") then
+			descendant.CollisionGroup = EnemyService.CollisionGroup
+			if descendant:CanSetNetworkOwnership() then
+				descendant:SetNetworkOwner(nil)
+			end
 		end
 	end
 end
@@ -41,7 +65,8 @@ function EnemyService:Spawn(enemyId: string, spawnCFrame: CFrame, ...: any)
 
 	model:PivotTo(spawnCFrame)
 	model.Parent = getActiveFolder()
-	setServerOwnership(model)
+	EnemyService:EnsureCollisionGroup()
+	prepare(model)
 
 	local enemy = enemyClass.new(model, config, ...)
 	-- Every enemy carries the id it was spawned under, which is what a death is reported as. A class

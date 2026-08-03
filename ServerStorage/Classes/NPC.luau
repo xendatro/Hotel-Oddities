@@ -20,9 +20,10 @@ local HallwayGraphService = require(ServerStorage.Services.HallwayGraphService)
 local NpcAnimator = require(ReplicatedStorage.Classes.NpcAnimator)
 local RoomService = require(ServerStorage.Services.RoomService)
 
-local WAYPOINT_TIMEOUT_SCALE = 2 -- multiple of the ideal travel time before a waypoint is abandoned
-local WAYPOINT_TIMEOUT_PADDING = 0.75
 local WAYPOINT_REACHED_DISTANCE = 2
+local WAYPOINT_PROGRESS = 0.5 -- studs of gain on a waypoint that counts as making ground
+local WAYPOINT_STALL_GRACE = 1.5 -- seconds of making none before a leg is called blocked
+local MOVE_REFRESH_INTERVAL = 4 -- seconds between re-issued goals; `Humanoid:MoveTo` gives up after eight
 local STRAIGHT_PATH_DOT_THRESHOLD = 0.98
 local MOVEMENT_POLL_INTERVAL = 0.05
 local CONTACT_PADDING = 0.25
@@ -36,6 +37,8 @@ local WANDER_ATTEMPTS = 6
 local PATROL_NODE_HEIGHT = 3 -- studs above a corridor node the walk goal is put, clear of the slab
 local PATROL_BLOCKED_WAIT = 0.4 -- seconds before a patrol that could not path anywhere tries again
 local PATROL_TIE_JITTER = 0.05 -- so two equally good corners are not always resolved the same way
+local PATROL_BLOCKED_MEMORY = 12 -- seconds a corner it could not reach stays unattractive
+local PATROL_BLOCKED_PENALTY = 8 -- and what it costs: more than every other term put together
 
 local ENEMY_TAG = "Enemy" -- carried by every live enemy model, so tools can raycast for them
 local IGNORE_TAG = "Ignore" -- on a character: enemies cannot target or see them (the spell book)
@@ -236,7 +239,14 @@ function NPC:GetWaypointDistance(position: Vector3): number
 end
 
 -- Walks the waypoints of `path`, polling `shouldAbandon` between each. Returns "Reached" once the
--- last waypoint lands, "Abandoned" if the caller bailed out, or "Blocked" if a waypoint timed out.
+-- last waypoint lands, "Abandoned" if the caller bailed out, or "Blocked" if it stopped making ground.
+--
+-- Two things about `Humanoid:MoveTo` shape this loop. It gives up on its own after eight seconds, so
+-- a goal has to be re-issued or the rig simply stops mid-corridor -- and since `GetMovementWaypoints`
+-- collapses a straight stretch into a single waypoint however long it is, legs that take longer than
+-- that are ordinary rather than exceptional. And there is no honest clock to judge the rest by: the
+-- ideal travel time says nothing about a leg spent walking around a player who is in the doorway. So
+-- a leg ends when it stops closing on its goal, not when it runs long.
 function NPC:_walkPath(path: Path, shouldAbandon: (() -> boolean)?): string
 	local waypoints = self:GetMovementWaypoints(path)
 	for index = 2, #waypoints do
@@ -247,14 +257,26 @@ function NPC:_walkPath(path: Path, shouldAbandon: (() -> boolean)?): string
 			self.Humanoid.Jump = true
 		end
 
-		local distance = self:GetWaypointDistance(waypoint.Position)
-		local timeout = distance / math.max(self.Humanoid.WalkSpeed, 1) * WAYPOINT_TIMEOUT_SCALE + WAYPOINT_TIMEOUT_PADDING
-		local expiresAt = os.clock() + timeout
-
 		self.Humanoid:MoveTo(waypoint.Position)
-		while self:GetWaypointDistance(waypoint.Position) > WAYPOINT_REACHED_DISTANCE do
+		local closest = self:GetWaypointDistance(waypoint.Position)
+		local progressedAt = os.clock()
+		local refreshAt = os.clock() + MOVE_REFRESH_INTERVAL
+
+		while true do
+			local distance = self:GetWaypointDistance(waypoint.Position)
+			if distance <= WAYPOINT_REACHED_DISTANCE then break end
 			if shouldAbandon and shouldAbandon() then return "Abandoned" end
-			if os.clock() >= expiresAt then return "Blocked" end
+
+			if distance < closest - WAYPOINT_PROGRESS then
+				closest, progressedAt = distance, os.clock()
+			elseif os.clock() - progressedAt >= WAYPOINT_STALL_GRACE then
+				return "Blocked"
+			end
+
+			if os.clock() >= refreshAt then
+				refreshAt = os.clock() + MOVE_REFRESH_INTERVAL
+				self.Humanoid:MoveTo(waypoint.Position)
+			end
 			task.wait(MOVEMENT_POLL_INTERVAL)
 		end
 	end
@@ -284,6 +306,7 @@ function NPC:Pursue(
 ): string
 	local blockedAttempts = 0
 	local directGoal = nil :: Vector3?
+	local directRefreshAt = 0
 
 	while true do
 		local goal = getGoal()
@@ -294,8 +317,15 @@ function NPC:Pursue(
 		if distance <= arriveDistance then return "Reached" end
 		if distance <= DIRECT_PURSUIT_DISTANCE and canMoveDirectly and canMoveDirectly() then
 			blockedAttempts = 0
-			if not directGoal or (goal - directGoal).Magnitude >= DIRECT_PURSUIT_UPDATE_DISTANCE then
+			-- Re-issued on a clock as well as on drift, because a goal that has stopped moving is
+			-- exactly the case that never trips the drift check: a player standing still somewhere
+			-- this cannot quite reach would otherwise be charged at once and then watched from a
+			-- standstill, `Humanoid:MoveTo` having quietly given up eight seconds in.
+			if not directGoal
+				or (goal - directGoal).Magnitude >= DIRECT_PURSUIT_UPDATE_DISTANCE
+				or os.clock() >= directRefreshAt then
 				directGoal = goal
+				directRefreshAt = os.clock() + MOVE_REFRESH_INTERVAL
 				local direction = goal - self.RootPart.Position
 				local movementGoal = if direction.Magnitude > 1e-3
 					then goal + direction.Unit * DIRECT_PURSUIT_OVERSHOOT
@@ -527,8 +557,8 @@ function NPC.SharedStates.Wander(_changeState: StateMachine.ChangeState, npc: an
 	return "Idle", npc
 end
 
---- Which way to go on at a junction. Three things decide it, and they are deliberately on comparable
---- scales so none of them ever simply wins:
+--- Which way to go on at a junction. Four things decide it, and the first three are deliberately on
+--- comparable scales so none of them ever simply wins:
 ---
 ---  * **Straightness.** Carrying on down the corridor you are already in beats turning, which is what
 ---    makes a patrol read as walking somewhere rather than milling about.
@@ -536,11 +566,26 @@ end
 ---    patrols even out across the whole map within a few minutes and the danger field stops
 ---    describing where anything actually is. With it, they drift out of the quiet wings on their own
 ---    -- which is also what keeps the entrance calm without anything having to enforce that.
----  * **Where it has just been.** Slightly more than the whole straightness range, so the corridor it
----    came out of loses to any other option. This is the difference between something that patrols a
----    hotel and something that paces one junction forever.
-local function chooseNextNode(previous: any, current: any, recent: { any }): any
+---  * **Which corridors it has already walked.** Not which corners it has stood on -- that distinction
+---    is the whole of why patrols used to lap the same ring of hallways for ever. Coming back around a
+---    loop to a junction it has been through before, the way straight on and the turn are both equally
+---    unvisited *as places*, so a memory of places has nothing to say and straightness wins by a full
+---    point, every lap, for ever. As corridors they are not equal at all: straight on repeats one it
+---    has just walked and the turn does not. Weighted well above the straightness range, or it could
+---    never actually turn a patrol off the corridor it is committed to.
+---  * **What it has just failed to reach.** Off that scale on purpose. A corner nothing can path to is
+---    not a worse choice than the others, it is not a choice, and the alternative is retrying it every
+---    four tenths of a second for the rest of the round. It stays a penalty rather than an exclusion
+---    so that a junction whose every exit is blocked still picks one and moves instead of giving up.
+local function chooseNextNode(
+	previous: any,
+	current: any,
+	walked: { [any]: { [any]: number } },
+	step: number,
+	blocked: { [any]: number }
+): any
 	local best, bestScore = nil, -math.huge
+	local now = os.clock()
 
 	for neighbor in current.Neighbors do
 		local score = DangerMapService:GetDanger(neighbor.Position) * DangerConfig.PatrolDangerWeight
@@ -554,10 +599,24 @@ local function chooseNextNode(previous: any, current: any, recent: { any }): any
 			end
 		end
 
-		-- `recent` runs oldest first, so a later index is a fresher memory and costs more.
-		local recency = table.find(recent, neighbor)
-		if recency then
-			score -= DangerConfig.PatrolLoopPenalty * (recency / #recent)
+		-- Fades out linearly rather than expiring all at once, so a corridor becomes gradually worth
+		-- reusing instead of being untouchable and then abruptly free.
+		local fromHere = walked[current]
+		local lastWalked = fromHere and fromHere[neighbor]
+		if lastWalked then
+			local age = step - lastWalked
+			if age < DangerConfig.PatrolEdgeMemory then
+				score -= DangerConfig.PatrolEdgePenalty * (1 - age / DangerConfig.PatrolEdgeMemory)
+			end
+		end
+
+		local blockedUntil = blocked[neighbor]
+		if blockedUntil then
+			if now >= blockedUntil then
+				blocked[neighbor] = nil
+			else
+				score -= PATROL_BLOCKED_PENALTY
+			end
 		end
 
 		if score > bestScore then
@@ -566,6 +625,16 @@ local function chooseNextNode(previous: any, current: any, recent: { any }): any
 	end
 
 	return best
+end
+
+-- Records that the corridor between two corners has just been walked. Held both ways round: a
+-- corridor is the same corridor whichever end you come at it from, and a patrol that only recognised
+-- the direction it first took would happily walk the same stretch back and forth for ever.
+local function markWalked(walked: { [any]: { [any]: number } }, from: any, to: any, step: number)
+	walked[from] = walked[from] or {}
+	walked[to] = walked[to] or {}
+	walked[from][to] = step
+	walked[to][from] = step
 end
 
 --- Walks the corridor graph, corner to corner, indefinitely.
@@ -591,33 +660,48 @@ function NPC.SharedStates.Patrol(changeState: StateMachine.ChangeState, npc: any
 	end
 
 	local previous = nil :: any
-	local recent = { current }
+	local walked: { [any]: { [any]: number } } = {}
+	local blocked: { [any]: number } = {}
+	local step = 0
 
 	while true do
 		-- One frame, unconditionally. A path to a node it is effectively already standing on comes
 		-- back with nothing to walk and returns without yielding, and a loop that can complete an
 		-- iteration without yielding is a loop that can lock the server.
 		task.wait()
+		step += 1
 
-		local nextNode = chooseNextNode(previous, current, recent)
+		local nextNode = chooseNextNode(previous, current, walked, step, blocked)
 		if not nextNode then return "Idle", npc end
 
 		if npc:WalkTo(nextNode.Position + Vector3.yAxis * PATROL_NODE_HEIGHT) then
+			markWalked(walked, current, nextNode, step)
 			previous, current = current, nextNode
-			table.insert(recent, current)
-			while #recent > DangerConfig.PatrolMemory do
-				table.remove(recent, 1)
-			end
 		else
-			-- Blocked, or shoved somewhere else entirely. Where it thinks it is on the graph is no
-			-- longer reliable, so it re-reads that from the world and starts the trail again.
+			-- Blocked, shoved somewhere else, or aimed at a corner nothing can path to. Which of those
+			-- it was is not knowable from here, so treat it as all three: the corner goes out of favour
+			-- for a while, and where it thinks it is on the graph gets re-read from the world.
+			--
+			-- What does *not* get thrown away is what it has walked. Clearing that used to feel like the
+			-- honest thing to do -- the position was wrong, so the history must be suspect too -- but the
+			-- history is the only reason a patrol goes anywhere new, and a failed leg leaves an enemy
+			-- somewhere it has genuinely just been rather than somewhere unknown. Wiping it hands the
+			-- next choice to the danger field alone, and the danger field is a fixed function of
+			-- position: it returns the same answer every time and walks the thing straight back the
+			-- way it came. One awkward corner then reads as an enemy pacing its spawn forever.
+			blocked[nextNode] = os.clock() + PATROL_BLOCKED_MEMORY
 			task.wait(PATROL_BLOCKED_WAIT)
+
 			local reacquired = HallwayGraphService:FindNearestNode(npc.RootPart.Position)
 			if not reacquired then return "Idle", npc end
 
-			previous, current = nil, reacquired
-			table.clear(recent)
-			table.insert(recent, current)
+			-- Drifting to a different corner still crossed whatever lies between the two, so that counts
+			-- as walked. Otherwise a stretch an enemy repeatedly half-completes stays permanently fresh
+			-- and it keeps being drawn back onto it.
+			if reacquired ~= current then
+				markWalked(walked, current, reacquired, step)
+				previous, current = current, reacquired
+			end
 		end
 	end
 end
