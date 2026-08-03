@@ -5,7 +5,7 @@
 ---
 --- A record rather than a kill callback, because the killing blow and the death are not the same
 --- event: an enemy sets `Health = 0` and `Humanoid.Died` follows on its own. Recording also survives
---- damage that only nearly kills -- `Eyes` bills by the second -- which is what `CauseMemory` is for.
+--- damage that only nearly kills -- `Eye` bills by the second -- which is what `CauseMemory` is for.
 --- Past that window a record stops being credible and the death reads as the hotel's own.
 
 local Players = game:GetService("Players")
@@ -32,7 +32,7 @@ local Records: { [Player]: Record } = {}
 function DeathService:RecordCause(player: Player, causeId: string?)
 	if not causeId then return end
 
-	-- Refreshed in place where the cause has not changed: `Eyes` bills its watchers twenty times a
+	-- Refreshed in place where the cause has not changed: `Eye` bills its watchers twenty times a
 	-- second, and none of that should be a fresh table.
 	local record = Records[player]
 	if record and record.CauseId == causeId then

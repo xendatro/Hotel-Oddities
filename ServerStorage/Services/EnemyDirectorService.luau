@@ -19,8 +19,8 @@
 ---    having to think about it.
 ---
 --- Two budgets that never compete. **Pursuit** is everything that comes after you. **Presence** is
---- everything that does not -- Creep, Watcher and Eyes. Eyes is lethal and still lives in Presence,
---- because the line that matters when rationing is whether a thing hunts you: a Chaser and an Eyes at
+--- everything that does not -- Creep, Watcher and Eye. Eye is lethal and still lives in Presence,
+--- because the line that matters when rationing is whether a thing hunts you: a Chaser and an Eye at
 --- once is one problem plus a hazard you can decline, where two Chasers is genuinely twice as hard.
 --- Splitting them is what lets downtime mean "nothing is hunting" instead of "the hotel is empty".
 ---

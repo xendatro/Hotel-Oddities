@@ -17,7 +17,7 @@ export type Cause = {
 }
 
 return {
-	--- Seconds a recorded cause stays credible. Only `Eyes` deals damage a player can survive, so
+	--- Seconds a recorded cause stays credible. Only `Eye` deals damage a player can survive, so
 	--- this is what stops a glance at it half a hallway ago from taking the blame for a later fall.
 	CauseMemory = 8,
 
@@ -58,8 +58,8 @@ return {
 			Hint = "It walks a few steps behind you at your exact speed. Look over your shoulder -- being seen makes it run.",
 		},
 
-		Eyes = {
-			Name = "Eyes",
+		Eye = {
+			Name = "Eye",
 			Hint = "It charges you for looking. Dead center on your screen kills in three seconds. Keep it at the edge and walk.",
 		},
 

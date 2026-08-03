@@ -114,7 +114,7 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 		-- choosing somewhere to hide is asking exactly that question, and answering it off the
 		-- character's own head is how you get a thing that hides behind furniture the camera is looking
 		-- straight over. The direction is what turns "on screen" into "how far off the middle of the
-		-- screen", which is the whole of what an Eyes does with this.
+		-- screen", which is the whole of what an Eye does with this.
 		UpdateView:FireServer(observed, camera.CFrame.Position, camera.CFrame.LookVector)
 	end
 end)

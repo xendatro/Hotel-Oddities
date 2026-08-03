@@ -81,8 +81,9 @@ export type EnemyConfig = {
 	LightRange: number?, -- studs around it in which tagged light models are disabled
 	DespawnRange: number?, -- studs at which a nearby player makes it disappear
 
-	-- Eyes-specific. Damage is a rate rather than a hit: what costs you is how long you look and how
-	-- squarely, so both of these are per second of looking.
+	-- Eye-specific. Damage is a rate rather than a hit: what costs you is how long you look and how
+	-- squarely, so both of these are per second of looking. Where it points is not here at all: that
+	-- is drawn per viewer on their own client, from `ReplicatedStorage.Configs.EyeConfig`.
 	CenterDamage: number?, -- damage per second while it sits dead center on somebody's screen
 	EdgeDamage: number?, -- and per second while it is merely on screen, past `FalloffAngle`
 	FalloffAngle: number?, -- degrees off center at which the rate has fallen all the way to `EdgeDamage`
@@ -483,10 +484,10 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 	-- Ambient only, and the only enemy that hurts you without doing anything. It has no locomotion,
 	-- perception or combat tuning because it never moves, never picks anybody and never attacks: it
 	-- stands where it was put and charges rent on being looked at.
-	Eyes = {
-		Model = "Eyes",
+	Eye = {
+		Model = "Eye",
 
-		WalkSpeed = 0, -- unused; Eyes has no Humanoid to walk with
+		WalkSpeed = 0, -- unused; Eye has no Humanoid to walk with
 
 		-- Down a corridor rather than across the map. Far enough that it can be the thing you squint at
 		-- to work out what it is, which is the mistake it is selling.
@@ -510,7 +511,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 		-- Presence rather than Pursuit despite being lethal, because the line that matters for
 		-- rationing is whether a thing comes after you. This one never moves, never picks anybody,
-		-- and stops costing you the instant you look away -- so a Chaser and an Eyes at once is one
+		-- and stops costing you the instant you look away -- so a Chaser and an Eye at once is one
 		-- problem plus a hazard you can decline, where two Chasers is genuinely twice the pressure.
 		-- Easily the most dangerous thing in its budget though, so it pays the most and is capped at
 		-- one. Note what it does when it lands near a Creep: a glowing thing in a corridor whose

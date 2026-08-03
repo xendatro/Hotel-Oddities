@@ -10,9 +10,9 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Bob = require(ReplicatedStorage.Modules.Bob)
 local GhostConfig = require(ReplicatedStorage.Configs.GhostConfig)
 
-local TAU = math.pi * 2
 local MINIMUM_HEADING = 1e-3
 
 --- One straight trip: where it set off from, where it is bound, and when it left by server time.
@@ -52,10 +52,10 @@ function GhostMotion.Evaluate(leg: Leg, now: number): CFrame
 	return rotation + leg.Origin.Position:Lerp(leg.Target.Position, travel)
 end
 
---- The purely visual rise and fall to add on top of a position. `phase` is per ghost per client, so
---- no two in the same hall breathe in step.
+--- The purely visual rise and fall to add on top of a position, at the ghost's own height and
+--- period. `phase` is per ghost per client, so no two in the same hall breathe in step.
 function GhostMotion.Bob(clock: number, phase: number): Vector3
-	return Vector3.yAxis * math.sin(clock * TAU / GhostConfig.BobPeriod + phase) * GhostConfig.BobHeight
+	return Bob.Offset(clock, phase, GhostConfig.BobHeight, GhostConfig.BobPeriod)
 end
 
 --- Puts `leg` on the model for every client to read. Server only.

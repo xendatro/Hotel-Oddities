@@ -11,12 +11,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
+local Bob = require(ReplicatedStorage.Modules.Bob)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local GhostMotion = require(ReplicatedStorage.Modules.GhostMotion)
 local TagService = require(ReplicatedStorage.Services.TagService)
 
 local GHOST_TAG = "Ghost"
-local TAU = math.pi * 2
 local GHOST_TRANSPARENCY = 0.5
 local HIDDEN_TRANSPARENCY = 1
 local MINIMUM_DIRECTION = 1e-3
@@ -188,7 +188,7 @@ local function track(model: Model): Render
 		VisualHead = nil,
 		VisualNeck = nil,
 		Leg = GhostMotion.Read(model),
-		Phase = math.random() * TAU,
+		Phase = Bob.NewPhase(),
 		Connection = nil,
 		TransparencyConnection = nil,
 		VisualTransparencyConnection = nil,
