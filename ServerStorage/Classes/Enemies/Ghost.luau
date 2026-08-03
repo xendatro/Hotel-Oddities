@@ -1,11 +1,12 @@
 --- @class Ghost
 --- Ambient scenery that happens to be shaped like a person. It never targets, chases or damages
---- anybody -- it only drifts, forever, between random points inside the parts tagged `GhostArea`.
+--- anybody -- it only drifts, forever, between random points over the hotel's floors, at the one
+--- height above them that `GhostAreaService` hands it.
 ---
 --- Its rig is anchored at the `HumanoidRootPart`, so none of the inherited humanoid locomotion
 --- applies: it travels in a straight line from wherever it is to wherever it is going, through walls
 --- and through the air alike, and picks a new goal the instant it lands on one. The only pause it
---- ever takes is while no `GhostArea` exists to aim at.
+--- ever takes is while the map has no floor in it to drift over.
 ---
 --- This half owns the truth. It picks each goal, publishes the leg, and moves the root along it
 --- every heartbeat, so every server-side question about where a ghost is -- a raycast, a range
@@ -25,14 +26,13 @@ local NPC = require(ServerStorage.Classes.NPC)
 
 local GHOST_TAG = "Ghost" -- what the client renderer watches for
 local GOAL_ATTEMPTS = 8 -- tries at a goal far enough away before it settles for a close one
-local NO_AREA_RETRY = 1 -- seconds before looking again once nothing is tagged `GhostArea`
+local NO_FLOOR_RETRY = 1 -- seconds before looking again once nothing is tagged `MazeFloor`
 local MINIMUM_TRIP = 1e-3 -- studs below which a leg is not worth travelling
 
 local Ghost = NPC.extend("Ghost")
 
---- Somewhere new to drift to: a random point in a random area, preferring one at least
---- `Config.MinGoalDistance` away so it does not shuffle around in one corner. Nil only while no
---- area is tagged at all.
+--- Somewhere new to drift to, preferring a point at least `Config.MinGoalDistance` away so it does
+--- not shuffle around in one corner. Nil only while the map offers nowhere at all.
 function Ghost:_pickGoal(): Vector3?
 	local fallback = nil :: Vector3?
 
@@ -71,7 +71,7 @@ end
 local function drift(_changeState: StateMachine.ChangeState, npc: any)
 	local goal = npc:_pickGoal()
 	if not goal then
-		task.wait(NO_AREA_RETRY)
+		task.wait(NO_FLOOR_RETRY)
 		return "Drift", npc
 	end
 

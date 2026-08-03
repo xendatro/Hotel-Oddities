@@ -99,7 +99,7 @@ local TickAccumulator = 0
 local DespawnAccumulator = 0
 
 --- Every enemy the director is allowed to roll, grouped by budget. Built once: an enemy without a
---- `SpawnWeight` has opted out, which is how the Ghost (its own areas) and the CeilingDweller (an
+--- `SpawnWeight` has opted out, which is how the Ghost (its own placement) and the CeilingDweller (an
 --- authored vent) stay out of this without needing to be named here.
 local Roster: { [string]: { string } } = { Pursuit = {}, Presence = {} }
 for enemyId, config in EnemyConfigs do

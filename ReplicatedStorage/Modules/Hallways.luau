@@ -45,14 +45,23 @@ local function toHallway(part: BasePart): Hallway
 	}
 end
 
+--- Every hallway in the map, in no particular order: the whole corridor network as flat records, for
+--- a caller whose question is about all of them rather than about one position.
+function Hallways.All(): { Hallway }
+	local hallways = {}
+	for _, instance in CollectionService:GetTagged(HALLWAY_TAG) do
+		if instance:IsA("BasePart") and instance:IsDescendantOf(workspace) then
+			table.insert(hallways, toHallway(instance :: BasePart))
+		end
+	end
+	return hallways
+end
+
 --- The hallway `position` is standing in, or nil where it is in a room, a doorway or anywhere else
 --- off the corridor network. Containment rather than nearest: a caller that lands just outside every
 --- corridor wants to know that, not to be handed the corridor through the wall.
 function Hallways.At(position: Vector3): Hallway?
-	for _, instance in CollectionService:GetTagged(HALLWAY_TAG) do
-		if not (instance:IsA("BasePart") and instance:IsDescendantOf(workspace)) then continue end
-
-		local hallway = toHallway(instance :: BasePart)
+	for _, hallway in Hallways.All() do
 		local height = position.Y - hallway.FloorY
 		if height > HEIGHT_WINDOW or height < -BELOW_WINDOW then continue end
 
@@ -64,6 +73,33 @@ function Hallways.At(position: Vector3): Hallway?
 		end
 	end
 	return nil
+end
+
+--- The point on `hallway`'s walkable surface closest to `position`: inside the corridor, that is
+--- `position` dropped onto the floor; outside it, the nearest point along the floor's edge.
+function Hallways.ClosestPoint(hallway: Hallway, position: Vector3): Vector3
+	local surface = Vector3.new(hallway.Center.X, hallway.FloorY, hallway.Center.Z)
+	local offset = position - surface
+	local along = math.clamp(offset:Dot(hallway.Axis), -hallway.HalfLength, hallway.HalfLength)
+	local across = math.clamp(offset:Dot(hallway.Across), -hallway.HalfWidth, hallway.HalfWidth)
+	return surface + hallway.Axis * along + hallway.Across * across
+end
+
+--- The hallway whose floor `position` is nearest to, which for a position inside one is that one.
+--- Nearest rather than containment, and so the counterpart to `At`: a caller floating over a wall or
+--- out past the edge of the building still gets the corridor it belongs to. Nil only while nothing
+--- is tagged at all.
+function Hallways.Nearest(position: Vector3): Hallway?
+	local nearest = nil :: Hallway?
+	local best = math.huge
+
+	for _, hallway in Hallways.All() do
+		local distance = (position - Hallways.ClosestPoint(hallway, position)).Magnitude
+		if distance < best then
+			nearest, best = hallway, distance
+		end
+	end
+	return nearest
 end
 
 --- How far `position` is along `hallway` from its middle, signed along the axis.

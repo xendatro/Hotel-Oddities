@@ -76,6 +76,8 @@ export type EnemyConfig = {
 	-- and is tuned in `ReplicatedStorage.Configs.GhostConfig`.
 	DriftSpeed: number?, -- studs/s it travels at; the same going up, down or through a wall
 	MinGoalDistance: number?, -- studs a new goal should clear, so it does not hover in one corner
+	HoverHeight: number?, -- studs over the nearest tagged floor every point it drifts to sits at
+	DriftMargin: number?, -- studs past a corridor's edges it may drift, which is how it gets outside
 
 	-- Creep-specific
 	LightRange: number?, -- studs around it in which tagged light models are disabled
@@ -123,8 +125,8 @@ export type EnemyConfig = {
 	FleeTime: number?, -- seconds of being watched without a break before it gives up and leaves
 
 	-- Director. What `EnemyDirectorService` needs to decide whether to put one of these in the world.
-	-- An enemy with no `SpawnWeight` is never rolled: the Ghost has its own areas, and the
-	-- CeilingDweller comes out of an authored vent rather than off the floor.
+	-- An enemy with no `SpawnWeight` is never rolled: the Ghost places itself over the whole map, and
+	-- the CeilingDweller comes out of an authored vent rather than off the floor.
 	Budget: string?, -- "Pursuit" for anything that comes after you, "Presence" for anything that does not
 	Cost: number?, -- what one of these spends out of that budget
 	SpawnWeight: number?, -- how often it is rolled at all, against every other enemy in its budget
@@ -399,7 +401,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 	},
 
 	-- Ambient only. It never acquires, chases or attacks, so it has no perception or combat tuning
-	-- at all -- what it does is drift between `GhostArea` volumes and never stop.
+	-- at all -- what it does is drift over the hotel's floors and never stop.
 	Ghost = {
 		Model = "Ghost",
 
@@ -407,8 +409,15 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		DriftSpeed = 7, -- slower than a walk, so it always looks like it is being carried
 		MinGoalDistance = 30,
 
-		-- No `SpawnWeight`, so the director never rolls one. Its placement is the authored
-		-- `GhostArea` volumes rather than anywhere on the floor, and that service already owns it.
+		-- Head height and then some: high enough that it reads as floating rather than walking, low
+		-- enough that a corridor's ceiling is still over it and you have to look up to lose it.
+		HoverHeight = 5.5,
+		-- Far enough out that it can drift clear of a window or an outside wall and be seen from
+		-- indoors, short enough that it is always back over the building a moment later.
+		DriftMargin = 10,
+
+		-- No `SpawnWeight`, so the director never rolls one: where it is put has nothing to do with
+		-- how dangerous the ground is, and `GhostAreaService` already owns that question.
 	},
 
 	-- Ambient only. It never targets, chases or attacks: it hides beside a corner, leans out, and
