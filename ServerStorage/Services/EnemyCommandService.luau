@@ -14,9 +14,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
+local ChaosService = require(ServerStorage.Services.ChaosService)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyService = require(ServerStorage.Services.EnemyService)
-local RushService = require(ServerStorage.Services.RushService)
 local SistersService = require(ServerStorage.Services.SistersService)
 local WatcherService = require(ServerStorage.Services.WatcherService)
 
@@ -61,13 +61,13 @@ local function spawnCFrame(player: Player, distance: number): CFrame?
 	return CFrame.lookAt(Vector3.new(spot.X, origin.Y, spot.Z), origin)
 end
 
--- Spawns one of `enemyId` for this caller, reporting whether it managed it. Rush plans a remote
+-- Spawns one of `enemyId` for this caller, reporting whether it managed it. Chaos plans a remote
 -- hallway route and warning first, and the Sisters a remote corridor to walk out of. A Watcher goes
 -- through its own corner-placement service.
 local function spawnOne(player: Player, enemyId: string): boolean
-	if enemyId == "Rush" then
-		if RushService:Spawn() then return true end
-		warn(`[enemies] no MazeFloor route starts at least {EnemyConfigs.Rush.SpawnPlayerDistance} studs from every player`)
+	if enemyId == "Chaos" then
+		if ChaosService:Spawn() then return true end
+		warn(`[enemies] no MazeFloor route starts at least {EnemyConfigs.Chaos.SpawnPlayerDistance} studs from every player`)
 		return false
 	end
 
@@ -124,9 +124,9 @@ end
 
 function Commands.despawn()
 	local count = #EnemyService:GetActive()
-	local pendingRushes = RushService:CancelPending()
+	local pendingChaos = ChaosService:CancelPending()
 	EnemyService:DespawnAll()
-	warn(`[enemies] despawned {count}; cancelled {pendingRushes} pending Rush warnings`)
+	warn(`[enemies] despawned {count}; cancelled {pendingChaos} pending Chaos warnings`)
 end
 
 function Commands.enemies()

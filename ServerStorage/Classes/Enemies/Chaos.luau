@@ -1,4 +1,4 @@
---- @class Rush
+--- @class Chaos
 --- A fast, anchored enemy with no Humanoid. Its route and warning schedule are decided before it
 --- enters the map; once spawned it only has to sweep along that route and kill exposed players.
 
@@ -13,12 +13,12 @@ local RoomService = require(ServerStorage.Services.RoomService)
 local Vanished = require(ReplicatedStorage.Modules.Vanished)
 
 local ENEMY_TAG = "Enemy"
-local RUSH_TAG = "Rush"
+local CHAOS_TAG = "Chaos"
 local MINIMUM_LEG = 1e-3
 
-local Rush = {}
-Rush.__index = Rush
-Rush.ClassName = "Rush"
+local Chaos = {}
+Chaos.__index = Chaos
+Chaos.ClassName = "Chaos"
 
 local function distanceToSegment(point: Vector3, origin: Vector3, destination: Vector3): number
 	local offset = destination - origin
@@ -29,12 +29,27 @@ local function distanceToSegment(point: Vector3, origin: Vector3, destination: V
 	return (point - origin:Lerp(destination, alpha)).Magnitude
 end
 
-function Rush.new(model: Model, config, route: { Vector3 }, warningToken)
-	local self = setmetatable({}, Rush)
+--- Stops every emitter on the model and returns how long what is already in the air has left to live.
+--- Disabling an emitter only stops new particles, so destroying the model in the same breath cuts the
+--- trail off mid-flight; this is the wait that lets it burn out instead. Read off the emitters rather
+--- than hardcoded, so retiming the effect in Studio retimes the despawn with it.
+local function stopParticles(model: Model): number
+	local linger = 0
+	for _, descendant in model:GetDescendants() do
+		if descendant:IsA("ParticleEmitter") then
+			descendant.Enabled = false
+			linger = math.max(linger, descendant.Lifetime.Max)
+		end
+	end
+	return linger
+end
+
+function Chaos.new(model: Model, config, route: { Vector3 }, warningToken)
+	local self = setmetatable({}, Chaos)
 
 	self.Model = model
 	self.Config = config
-	self.RootPart = model.Rush :: BasePart
+	self.RootPart = model.Chaos :: BasePart
 	self.Route = route
 	self.WarningToken = warningToken
 	self.Active = false
@@ -52,10 +67,10 @@ function Rush.new(model: Model, config, route: { Vector3 }, warningToken)
 	return self
 end
 
-function Rush:_killAlong(origin: Vector3, destination: Vector3)
+function Chaos:_killAlong(origin: Vector3, destination: Vector3)
 	for _, player in Players:GetPlayers() do
 		if RoomService:IsInRoom(player) then continue end
-		-- It has no perception to spare anybody with, so this is the only place a Rush can honour a
+		-- It has no perception to spare anybody with, so this is the only place a Chaos can honour a
 		-- vanish: it sweeps the corridor exactly as it would have, and whoever is not there is not hit.
 		if Vanished.Is(player.Character) then continue end
 
@@ -70,7 +85,7 @@ function Rush:_killAlong(origin: Vector3, destination: Vector3)
 	end
 end
 
-function Rush:TravelRoute()
+function Chaos:TravelRoute()
 	for index = 2, #self.Route do
 		if not self.Active then return end
 
@@ -95,28 +110,33 @@ function Rush:TravelRoute()
 	end
 end
 
-function Rush:Start()
+function Chaos:Start()
 	if self.Active then return end
 	self.Active = true
 
 	self.RootPart.Anchored = true
 	self.Model:AddTag(ENEMY_TAG)
-	self.Model:AddTag(RUSH_TAG)
+	self.Model:AddTag(CHAOS_TAG)
 	self.StateMachine:Start()
 end
 
-function Rush:Despawn()
+function Chaos:Despawn()
 	if not self.Active then return end
 	self.Active = false
 	self.WarningToken.Cancelled = true
 
 	self.Model:RemoveTag(ENEMY_TAG)
-	self.Model:RemoveTag(RUSH_TAG)
+	self.Model:RemoveTag(CHAOS_TAG)
+
+	local linger = stopParticles(self.Model)
 
 	task.defer(function()
 		self.StateMachine:Stop()
+		-- Nothing is left to kill anybody by now: both tags are off, `Active` is false, and the model
+		-- is only still in the world so the trail it already threw can finish where it was thrown.
+		task.wait(linger)
 		self.Model:Destroy()
 	end)
 end
 
-return Rush
+return Chaos

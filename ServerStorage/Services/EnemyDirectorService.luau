@@ -35,11 +35,11 @@ local CollectionService = game:GetService("CollectionService")
 
 local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
+local ChaosService = require(ServerStorage.Services.ChaosService)
 local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local EnemyService = require(ServerStorage.Services.EnemyService)
-local RushService = require(ServerStorage.Services.RushService)
 local SistersService = require(ServerStorage.Services.SistersService)
 local WatcherService = require(ServerStorage.Services.WatcherService)
 
@@ -88,7 +88,7 @@ end
 local Config = DangerConfig.Director
 
 local Population: { Managed } = {}
--- Rush announces itself several seconds before it exists, so the budget it will spend has to be held
+-- Chaos announces itself several seconds before it exists, so the budget it will spend has to be held
 -- from the moment the decision is made. Without this the director would happily commit to three of
 -- them inside one spawn delay and only notice when they all turned up.
 local Reservations: { Reservation } = {}
@@ -372,9 +372,9 @@ end
 local function spawnFor(enemyId: string, anchor: Player): boolean
 	local config = EnemyConfigs[enemyId]
 
-	if enemyId == "Rush" then
+	if enemyId == "Chaos" then
 		-- It exists only after its warning has run, so the budget is held from now and handed over
-		-- when the model actually appears. A Rush that gets cancelled lets its reservation lapse.
+		-- when the model actually appears. A Chaos that gets cancelled lets its reservation lapse.
 		local reservation: Reservation = {
 			EnemyId = enemyId,
 			Config = config,
@@ -383,9 +383,9 @@ local function spawnFor(enemyId: string, anchor: Player): boolean
 		}
 		table.insert(Reservations, reservation)
 
-		local scheduled = RushService:Spawn(function(rush: any)
+		local scheduled = ChaosService:Spawn(function(chaos: any)
 			reservation.Filled = true
-			register(rush, enemyId, config)
+			register(chaos, enemyId, config)
 		end)
 		if not scheduled then
 			reservation.Filled = true -- nothing is coming; give the budget straight back

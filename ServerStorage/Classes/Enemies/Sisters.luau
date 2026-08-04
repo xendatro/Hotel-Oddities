@@ -1,11 +1,11 @@
 --- @class Sisters
---- Two of them, abreast, walking the middle of the corridor. Mechanically they are a slow Rush,
+--- Two of them, abreast, walking the middle of the corridor. Mechanically they are a slow Chaos,
 --- killing anybody caught out in the open along the line they sweep. Everything else about them is
---- the opposite. Rush is an event you are warned about and survive by being anywhere else; the
+--- the opposite. Chaos is an event you are warned about and survive by being anywhere else; the
 --- Sisters announce nothing, touch no lights, and never leave. You get all the time in the world to
 --- see them coming, and the only thing that costs you is standing in a corridor when they arrive.
 ---
---- They are never handed a route. Rush knows its whole path before it spawns because its light
+--- They are never handed a route. Chaos knows its whole path before it spawns because its light
 --- warnings have to be scheduled against an arrival time; the Sisters have no warnings to schedule
 --- and no end to plan towards, so they pick each corner one ahead of the one they are walking:
 --- straight on where they can, never into a dead end, and biased away from the corridors they have

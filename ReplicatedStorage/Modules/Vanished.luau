@@ -6,7 +6,7 @@
 --- enemy at all. Those are separate promises and the second is the one that has to hold everywhere.
 --- Perception is the polite half -- a Chaser turning away because it can no longer find you -- but
 --- the things with no perception to speak of still sweep a corridor and still kill whoever is
---- standing in it, and a vanish that a Rush walks straight through is not a vanish.
+--- standing in it, and a vanish that a Chaos walks straight through is not a vanish.
 ---
 --- Shared, because the client draws this too: an `Eye` stops following a reader mid-cast, which is
 --- the only moment a player can watch the hotel lose them.

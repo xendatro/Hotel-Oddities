@@ -63,8 +63,8 @@ return {
 			Hint = "It charges you for looking. Dead center on your screen kills in three seconds. Keep it at the edge and walk.",
 		},
 
-		Rush = {
-			Name = "Rush",
+		Chaos = {
+			Name = "Chaos",
 			Hint = "The corridor lights turn red before it arrives. That is your cue to get off the hallway and into a room.",
 		},
 

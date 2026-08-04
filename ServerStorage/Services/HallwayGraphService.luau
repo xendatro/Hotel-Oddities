@@ -11,7 +11,7 @@
 --- Nodes sit at the height of the floor part's own center, with no allowance for how tall anything
 --- standing on them is. Each enemy adds its own vertical offset when it turns a node into a place to
 --- be, because what that offset should be is a fact about that enemy's model rather than about the
---- map -- `Rush` rides above the floor, a rig stands on it.
+--- map -- `Chaos` rides above the floor, a rig stands on it.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")

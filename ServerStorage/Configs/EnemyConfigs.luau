@@ -92,12 +92,12 @@ export type EnemyConfig = {
 	FalloffExponent: number?, -- above 1 concentrates the damage into the middle of the screen
 	Lifetime: number?, -- seconds it stays in the world before leaving of its own accord
 
-	-- Shared by the anchored corridor enemies that travel the `MazeFloor` graph, Rush and Sisters
+	-- Shared by the anchored corridor enemies that travel the `MazeFloor` graph, Chaos and Sisters
 	SpawnPlayerDistance: number?, -- minimum distance from every player at which a route may begin
 	KillRange: number?, -- distance from its swept movement path at which an exposed player dies
 	RouteHeight: number?, -- studs above a tagged hallway floor part's center it travels at
 
-	-- Rush-specific
+	-- Chaos-specific
 	SpawnDelay: number?, -- warning time before the model enters the map
 	WarningTime: number?, -- how far ahead of its arrival each route light turns red
 	LightRouteRange: number?, -- lights this far from its route receive the warning
@@ -532,11 +532,11 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		MaxAlive = 1,
 	},
 
-	-- A fast, non-Humanoid corridor hazard. `RushService` derives its whole route from the parts
+	-- A fast, non-Humanoid corridor hazard. `ChaosService` derives its whole route from the parts
 	-- tagged `MazeFloor` before it appears, which lets every light warning be scheduled against an
 	-- exact arrival time.
-	Rush = {
-		Model = "Rush",
+	Chaos = {
+		Model = "Chaos",
 
 		WalkSpeed = 70,
 		SpawnPlayerDistance = 100,
@@ -556,7 +556,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		MaxAlive = 1,
 	},
 
-	-- The other end of the same idea as Rush: two R15 rigs walking the same corridor graph, with none
+	-- The other end of the same idea as Chaos: two R15 rigs walking the same corridor graph, with none
 	-- of the warning and none of the hurry. They touch no lights and never despawn, so what makes them
 	-- survivable is only ever how long you have to see them and how near a door you were.
 	Sisters = {
@@ -565,7 +565,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		-- Well under a player's 16: they can be outrun, walked around at a distance, and left behind
 		-- entirely. Being caught by these is a mistake rather than a loss of a race.
 		WalkSpeed = 5,
-		SpawnPlayerDistance = 150, -- further out than Rush: unannounced, they have to be met at a distance
+		SpawnPlayerDistance = 150, -- further out than Chaos: unannounced, they have to be met at a distance
 		KillRange = 12, -- covers `SideSpacing` and then some, so between them is not a gap to stand in
 		RouteHeight = 0.5, -- feet on the floor: these are rigs standing on it, not a part flying over it
 
