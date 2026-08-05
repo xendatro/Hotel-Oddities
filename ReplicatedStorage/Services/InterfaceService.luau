@@ -6,6 +6,8 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
+local PresetConfig = require(ReplicatedStorage.Frameworks.xenterface.Config.PresetConfig)
+
 local InterfaceService = {}
 
 if not RunService:IsClient() then
@@ -13,11 +15,9 @@ if not RunService:IsClient() then
 end
 
 local PAGE_GROUP = "Main"
-local CLOSE_TIME = 0.43
-local EFFECT_TIME = 0.3
-local OPEN_BLUR = 18
-local OPEN_FOV_OFFSET = 8
-local MIN_OPEN_FOV = 45
+local PAGE_PRESET = PresetConfig.HotelPage
+local EFFECT_PRESET = PresetConfig.HotelEffects
+local CLOSE_TIME = PAGE_PRESET.CloseTime
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -67,9 +67,7 @@ end
 local function wireMotion(
 	button: GuiButton,
 	visual: GuiObject,
-	hoverScale: number,
-	pressScale: number,
-	hoverTilt: number
+	motionPreset
 )
 	if wiredButtons[button] then return end
 	wiredButtons[button] = true
@@ -87,11 +85,11 @@ local function wireMotion(
 		local targetScale = 1
 		local targetRotation = baseRotation
 		if state.Pressed then
-			targetScale = pressScale
-			targetRotation = baseRotation - hoverTilt * 0.5
+			targetScale = motionPreset.PressScale
+			targetRotation = baseRotation - motionPreset.HoverTilt * 0.5
 		elseif state.Hovered then
-			targetScale = hoverScale
-			targetRotation = baseRotation + hoverTilt
+			targetScale = motionPreset.HoverScale
+			targetRotation = baseRotation + motionPreset.HoverTilt
 		end
 
 		if state.ScaleTween then state.ScaleTween:Cancel() end
@@ -113,29 +111,40 @@ local function wireMotion(
 
 	button.MouseEnter:Connect(function()
 		state.Hovered = true
-		pose(0.16, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+		pose(motionPreset.HoverTime, motionPreset.HoverStyle, motionPreset.HoverDirection)
 	end)
 
 	button.MouseLeave:Connect(function()
 		state.Hovered = false
 		state.Pressed = false
-		pose(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+		pose(motionPreset.ReleaseTime, motionPreset.ReleaseStyle, motionPreset.ReleaseDirection)
 	end)
 
 	button.MouseButton1Down:Connect(function()
 		state.Pressed = true
-		pose(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		pose(motionPreset.PressTime, motionPreset.PressStyle, motionPreset.PressDirection)
 	end)
 
 	button.MouseButton1Up:Connect(function()
 		state.Pressed = false
-		pose(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+		pose(motionPreset.ReleaseTime, motionPreset.ReleaseStyle, motionPreset.ReleaseDirection)
 	end)
+end
+
+local function getMotionPreset(instance: Instance, fallbackName: string)
+	local presetName = instance:GetAttribute("MotionPreset")
+	if type(presetName) ~= "string" then
+		presetName = fallbackName
+	end
+
+	local preset = PresetConfig[presetName]
+	assert(preset, `Unknown interface motion preset '{presetName}' on {instance:GetFullName()}`)
+	return preset
 end
 
 local function wireSideButton(instance: Instance)
 	if not instance:IsA("GuiButton") or not instance:IsDescendantOf(playerGui) then return end
-	wireMotion(instance, instance, 1.08, 0.9, -2)
+	wireMotion(instance, instance, getMotionPreset(instance, "HotelSideButton"))
 end
 
 local function wireCloseButton(instance: Instance)
@@ -145,7 +154,7 @@ local function wireCloseButton(instance: Instance)
 	if instance:GetAttribute("ScaleParent") == true and instance.Parent:IsA("GuiObject") then
 		visual = instance.Parent
 	end
-	wireMotion(instance, visual, 1.1, 0.86, 3)
+	wireMotion(instance, visual, getMotionPreset(instance, "HotelCloseButton"))
 
 	instance.Activated:Connect(function()
 		controller:Fire("", instance)
@@ -176,8 +185,8 @@ local function tweenEffects(open: boolean)
 
 	blurTween = TweenService:Create(
 		blur,
-		TweenInfo.new(EFFECT_TIME, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-		{ Size = open and OPEN_BLUR or 0 }
+		TweenInfo.new(EFFECT_PRESET.Time, EFFECT_PRESET.Style, EFFECT_PRESET.Direction),
+		{ Size = open and EFFECT_PRESET.Blur or 0 }
 	)
 	blurTween:Play()
 
@@ -188,11 +197,11 @@ local function tweenEffects(open: boolean)
 	end
 
 	local targetFov = open
-		and math.max(MIN_OPEN_FOV, (baseFov or camera.FieldOfView) - OPEN_FOV_OFFSET)
+		and math.max(EFFECT_PRESET.MinimumFieldOfView, (baseFov or camera.FieldOfView) - EFFECT_PRESET.FieldOfViewOffset)
 		or (baseFov or camera.FieldOfView)
 	fovTween = TweenService:Create(
 		camera,
-		TweenInfo.new(EFFECT_TIME, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+		TweenInfo.new(EFFECT_PRESET.Time, EFFECT_PRESET.Style, EFFECT_PRESET.Direction),
 		{ FieldOfView = targetFov }
 	)
 	fovTween:Play()
@@ -211,8 +220,8 @@ workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
 	if fovTween then fovTween:Cancel() end
 	fovTween = TweenService:Create(
 		camera,
-		TweenInfo.new(EFFECT_TIME, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-		{ FieldOfView = math.max(MIN_OPEN_FOV, camera.FieldOfView - OPEN_FOV_OFFSET) }
+		TweenInfo.new(EFFECT_PRESET.Time, EFFECT_PRESET.Style, EFFECT_PRESET.Direction),
+		{ FieldOfView = math.max(EFFECT_PRESET.MinimumFieldOfView, camera.FieldOfView - EFFECT_PRESET.FieldOfViewOffset) }
 	)
 	fovTween:Play()
 end)
