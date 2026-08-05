@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
 local FriendAvatar = require(ReplicatedStorage.Modules.FriendAvatar)
 local IndexConfig = require(ReplicatedStorage.Configs.IndexConfig)
@@ -20,6 +21,13 @@ local IndexConfig = require(ReplicatedStorage.Configs.IndexConfig)
 --- that does not have to rebuild a single viewport. A page layout would have needed the grid split
 --- across a frame per page and the rigs re-cloned or re-parented on every flip, for the same result.
 ---
+--- Every card is a `Template` *holder* frame with the card button inside it. The layout only ever
+--- sees the holder, which is what lets the card grow, lift and tilt on hover without the grid
+--- putting it straight back -- and it means visibility is set on the holder while every animated
+--- property belongs to the button. The page arrows are arranged the same way, because a
+--- `UIListLayout` positions each arrow from the other's size and scaling one in place shoved its
+--- neighbour along the row.
+---
 --- Discovery is already the thing that decides what a card says, even though every entry is handed
 --- out at the moment: `IndexConfig.DiscoveredByDefault` fills the set at startup and
 --- `SetDiscovered` / `SetDiscoveredSet` replace it. When there is somewhere to persist discovery
@@ -33,12 +41,34 @@ end
 local HEADSHOT = IndexConfig.Headshot
 local LOCKED = IndexConfig.Locked
 local PER_PAGE = IndexConfig.EntriesPerPage
+local CARD = IndexConfig.Animation.Card
+local BUTTON = IndexConfig.Animation.Button
+local PAGE = IndexConfig.Animation.Page
+local INFO = IndexConfig.Animation.Info
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
+--- One entry's card. `Holder` is what the grid lays out and what paging shows and hides; `Button` is
+--- what everything else touches, because it is the only part of a card free to move.
+type Card = {
+	Id: string,
+	Holder: Frame,
+	Button: ImageButton,
+	Label: TextLabel,
+	Marker: ImageLabel,
+	--- The marker's authored size, kept because the pop animation scales it from nothing. Reading it
+	--- back off the instance would sample a pop still in flight and shrink the marker a little more
+	--- with every click.
+	MarkerSize: UDim2,
+	Viewport: ViewportFrame,
+	Hovered: boolean,
+	Pressed: boolean,
+	Tween: Tween?,
+}
+
 --- Every entry's card, keyed by entry id. Built once, then only repainted.
-local Cards: { [string]: ImageButton } = {}
+local Cards: { [string]: Card } = {}
 --- Which entries the player has met. Absent is undiscovered; there is no third state.
 local Discovered: { [string]: boolean } = {}
 --- Entry ids in the order they are currently listed, which is authored order minus anything
@@ -67,10 +97,11 @@ if not design then
 end
 
 local cardsFrame = design:WaitForChild("Cards") :: Frame
-local cardTemplate = cardsFrame:WaitForChild("Template") :: ImageButton
+local cardTemplate = cardsFrame:WaitForChild("Template") :: Frame
 local pagination = design:WaitForChild("Pagination") :: Frame
-local prevButton = pagination:WaitForChild("Prev") :: ImageButton
-local nextButton = pagination:WaitForChild("Next") :: ImageButton
+local prevButton = pagination:WaitForChild("Prev"):WaitForChild("Button") :: ImageButton
+local nextButton = pagination:WaitForChild("Next"):WaitForChild("Button") :: ImageButton
+local closeButton = design:FindFirstChild("CloseButton") :: ImageButton?
 local infoPanel = design:WaitForChild("InfoPanel") :: Frame
 local infoName = infoPanel:WaitForChild("Name") :: TextLabel
 local infoDescription = infoPanel:WaitForChild("Description") :: TextLabel
@@ -298,6 +329,141 @@ local function buildHeadshot(viewport: ViewportFrame, entry: IndexConfig.Entry)
 	end)
 end
 
+--- Animation ------------------------------------------------------------------------------------
+
+--- Moves a card to the one pose its current state calls for. A press beats a hover and a hover beats
+--- a selection, so there is only ever one target and nothing to sequence -- every path through here
+--- cancels whatever was running and tweens from wherever that left the card, which is what stops a
+--- pointer swept across the grid from leaving cards stuck half-raised behind it.
+local function poseCard(card: Card, override: TweenInfo?)
+	local scale, lift, tilt = 1, 0, 0
+	local duration, style, direction = CARD.SettleTime, CARD.Style, CARD.Direction
+
+	if card.Pressed then
+		scale, lift, tilt = CARD.PressScale, 0, CARD.PressTilt
+		duration, style, direction = CARD.PressTime, CARD.PressStyle, CARD.PressDirection
+	elseif card.Hovered then
+		scale, lift, tilt = CARD.HoverScale, CARD.HoverLift, CARD.HoverTilt
+		duration = CARD.HoverTime
+	elseif card.Id == selectedId then
+		scale, lift, tilt = CARD.SelectedScale, CARD.SelectedLift, CARD.SelectedTilt
+	end
+
+	if card.Tween then
+		card.Tween:Cancel()
+	end
+
+	local tween = TweenService:Create(card.Button, override or TweenInfo.new(duration, style, direction), {
+		Size = UDim2.fromScale(scale, scale),
+		Position = UDim2.fromScale(0.5, 0.5 - lift),
+		Rotation = tilt,
+	})
+	card.Tween = tween
+	tween:Play()
+end
+
+--- Bumped by every deal, so the tail of an interrupted one cannot land on the page that replaced it.
+local pageGeneration = 0
+
+--- Deals the cards of a page out rather than having them appear already there. Each one starts a
+--- little small and a little low and is sent to its resting pose a beat after the one before it.
+local function dealPage(ids: { string })
+	pageGeneration += 1
+	local generation = pageGeneration
+
+	for offset, id in ids do
+		local card = Cards[id]
+		if not card then continue end
+
+		if card.Tween then
+			card.Tween:Cancel()
+		end
+		card.Button.Size = UDim2.fromScale(PAGE.EnterScale, PAGE.EnterScale)
+		card.Button.Position = UDim2.fromScale(0.5, 0.5 + PAGE.EnterDrop)
+		card.Button.Rotation = 0
+
+		task.delay((offset - 1) * PAGE.Stagger, function()
+			if pageGeneration ~= generation then return end
+			poseCard(card, TweenInfo.new(PAGE.EnterTime, CARD.Style, CARD.Direction))
+		end)
+	end
+end
+
+--- A page arrow or the close button. These sit at whatever size they were authored at rather than
+--- filling a holder, so `Base` is what a scale is applied to -- the arrows fill theirs and the close
+--- button does not, and both have to grow about their own centre either way.
+type Chrome = {
+	Button: ImageButton,
+	Base: UDim2,
+	Hovered: boolean,
+	Pressed: boolean,
+	Enabled: boolean,
+	Tween: Tween?,
+}
+
+local function poseChrome(chrome: Chrome)
+	local scale = 1
+	local duration = BUTTON.SettleTime
+
+	if not chrome.Enabled then
+		scale = BUTTON.DisabledScale
+	elseif chrome.Pressed then
+		scale, duration = BUTTON.PressScale, BUTTON.PressTime
+	elseif chrome.Hovered then
+		scale, duration = BUTTON.HoverScale, BUTTON.HoverTime
+	end
+
+	if chrome.Tween then
+		chrome.Tween:Cancel()
+	end
+
+	local base = chrome.Base
+	local tween = TweenService:Create(chrome.Button, TweenInfo.new(duration, BUTTON.Style, BUTTON.Direction), {
+		Size = UDim2.new(
+			base.X.Scale * scale,
+			base.X.Offset * scale,
+			base.Y.Scale * scale,
+			base.Y.Offset * scale
+		),
+	})
+	chrome.Tween = tween
+	tween:Play()
+end
+
+--- Set by `build`. `applyPage` runs before them at startup and has to tolerate that.
+local prevChrome: Chrome? = nil
+local nextChrome: Chrome? = nil
+
+local function wireChrome(button: ImageButton): Chrome
+	local chrome: Chrome = {
+		Button = button,
+		Base = button.Size,
+		Hovered = false,
+		Pressed = false,
+		Enabled = true,
+	}
+
+	button.MouseEnter:Connect(function()
+		chrome.Hovered = true
+		poseChrome(chrome)
+	end)
+	button.MouseLeave:Connect(function()
+		chrome.Hovered = false
+		chrome.Pressed = false
+		poseChrome(chrome)
+	end)
+	button.MouseButton1Down:Connect(function()
+		chrome.Pressed = true
+		poseChrome(chrome)
+	end)
+	button.MouseButton1Up:Connect(function()
+		chrome.Pressed = false
+		poseChrome(chrome)
+	end)
+
+	return chrome
+end
+
 --- Painting --------------------------------------------------------------------------------------
 
 --- Whether the player has met this enemy. Everything user-facing goes through here rather than
@@ -311,19 +477,62 @@ local function paintCard(entry: IndexConfig.Entry)
 	if not card then return end
 
 	local discovered = IndexUIService:IsDiscovered(entry.Id)
-	local nameLabel = card:FindFirstChild("Name") :: TextLabel
-	local viewport = card:FindFirstChild("Headshot") :: ViewportFrame
 
 	-- Raised, because the cards are labels on a board rather than sentences.
-	nameLabel.Text = discovered and string.upper(entry.Name) or LOCKED.Name
-	viewport.ImageColor3 = discovered and HEADSHOT.Tint or LOCKED.Tint
-	viewport.Visible = discovered or LOCKED.ShowSilhouette
+	card.Label.Text = discovered and string.upper(entry.Name) or LOCKED.Name
+	card.Viewport.ImageColor3 = discovered and HEADSHOT.Tint or LOCKED.Tint
+	card.Viewport.Visible = discovered or LOCKED.ShowSilhouette
 end
 
-local function paintInfo()
+local infoNameBase = infoName.Position
+local infoDescriptionBase = infoDescription.Position
+local infoTweens: { Tween } = {}
+
+--- Brings the panel's contents back in from just below, faded. Called on a change of selection and
+--- not on a repaint, so unlocking something does not re-run the panel it is already showing.
+local function playInfoTransition()
+	for _, tween in infoTweens do
+		tween:Cancel()
+	end
+	table.clear(infoTweens)
+
+	infoName.TextTransparency = 1
+	infoDescription.TextTransparency = 1
+	infoHeadshot.ImageTransparency = 1
+	infoName.Position = infoNameBase + UDim2.fromScale(0, INFO.Rise)
+	infoDescription.Position = infoDescriptionBase + UDim2.fromScale(0, INFO.Rise)
+
+	local info = TweenInfo.new(INFO.FadeTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	infoTweens = {
+		TweenService:Create(infoName, info, { TextTransparency = 0, Position = infoNameBase }),
+		TweenService:Create(infoDescription, info, { TextTransparency = 0, Position = infoDescriptionBase }),
+		TweenService:Create(infoHeadshot, info, { ImageTransparency = 0 }),
+	}
+	for _, tween in infoTweens do
+		tween:Play()
+	end
+end
+
+--- Puts the panel back where it belongs with nothing in flight, for a repaint that is not a change
+--- of selection. Without this a repaint landing mid-transition would leave the text half faded.
+local function settleInfo()
+	for _, tween in infoTweens do
+		tween:Cancel()
+	end
+	table.clear(infoTweens)
+
+	infoName.TextTransparency = 0
+	infoDescription.TextTransparency = 0
+	infoHeadshot.ImageTransparency = 0
+	infoName.Position = infoNameBase
+	infoDescription.Position = infoDescriptionBase
+end
+
+local function paintInfo(animate: boolean?)
 	local entry = selectedId and EntriesById[selectedId]
 
 	if not entry then
+		settleInfo()
 		infoName.Text = IndexConfig.Empty.Name
 		infoDescription.Text = IndexConfig.Empty.Description
 		infoHeadshot.Visible = false
@@ -337,6 +546,12 @@ local function paintInfo()
 	infoHeadshot.Visible = discovered or LOCKED.ShowSilhouette
 
 	buildHeadshot(infoHeadshot, entry)
+
+	if animate then
+		playInfoTransition()
+	else
+		settleInfo()
+	end
 end
 
 --- Paging ----------------------------------------------------------------------------------------
@@ -345,28 +560,51 @@ local function pageCount(): number
 	return math.max(1, math.ceil(#Listed / PER_PAGE))
 end
 
+--- The entry ids showing on the current page, in the order they are laid out.
+local function currentSlice(): { string }
+	local first = (currentPage - 1) * PER_PAGE
+	local slice = {}
+	for index = first + 1, math.min(first + PER_PAGE, #Listed) do
+		table.insert(slice, Listed[index])
+	end
+	return slice
+end
+
 --- Shows the current page's slice of `Listed` and hides everything else, then dims whichever arrows
 --- have nowhere to go. Both are dim when there is only one page, which is the state the index sits
 --- in until enough entries exist to fill a second.
+---
+--- Dealing is not done here. This runs on every selection too, and a card being clicked should not
+--- send its whole page back through an entrance.
 local function applyPage()
 	local pages = pageCount()
 	currentPage = math.clamp(currentPage, 1, pages)
 
-	local first = (currentPage - 1) * PER_PAGE
-
-	for id, card in Cards do
-		card.Visible = false
-		-- A card whose entry is selected keeps its marker even while it is off-page; hiding the card
-		-- hides the marker with it, and flipping back should not have lost the selection.
-		local marker = card:FindFirstChild("Selected") :: ImageLabel
-		marker.Visible = id == selectedId
+	local showing: { [string]: boolean } = {}
+	for _, id in currentSlice() do
+		showing[id] = true
 	end
 
-	for index = first + 1, math.min(first + PER_PAGE, #Listed) do
-		local card = Cards[Listed[index]]
-		if card then
-			card.Visible = true
+	for id, card in Cards do
+		card.Holder.Visible = showing[id] == true
+
+		-- A card whose entry is selected keeps its marker even while it is off-page; hiding the card
+		-- hides the marker with it, and flipping back should not have lost the selection.
+		local selected = id == selectedId
+		if selected and not card.Marker.Visible then
+			-- Popped in rather than switched on, so the marker reads as being stamped onto the card.
+			card.Marker.Size = UDim2.new(0, 0, 0, 0)
+			card.Marker.Visible = true
+			TweenService:Create(
+				card.Marker,
+				TweenInfo.new(CARD.HoverTime, CARD.Style, CARD.Direction),
+				{ Size = card.MarkerSize }
+			):Play()
+		elseif not selected then
+			card.Marker.Visible = false
 		end
+
+		poseCard(card)
 	end
 
 	local colors = IndexConfig.Pagination
@@ -377,6 +615,15 @@ local function applyPage()
 	nextButton.ImageColor3 = canGoForward and colors.Enabled or colors.Disabled
 	prevButton.Interactable = canGoBack
 	nextButton.Interactable = canGoForward
+
+	if prevChrome then
+		prevChrome.Enabled = canGoBack
+		poseChrome(prevChrome)
+	end
+	if nextChrome then
+		nextChrome.Enabled = canGoForward
+		poseChrome(nextChrome)
+	end
 end
 
 --- Rebuilds the listing from the discovery set and repaints everything that reads off it. Cheap:
@@ -400,7 +647,8 @@ function IndexUIService:Refresh()
 	end
 
 	applyPage()
-	paintInfo()
+	dealPage(currentSlice())
+	paintInfo(false)
 end
 
 function IndexUIService:SetPage(page: number)
@@ -409,6 +657,7 @@ function IndexUIService:SetPage(page: number)
 
 	currentPage = target
 	applyPage()
+	dealPage(currentSlice())
 end
 
 function IndexUIService:GetPage(): number
@@ -434,7 +683,7 @@ function IndexUIService:Select(id: string?)
 
 	selectedId = id
 	applyPage()
-	paintInfo()
+	paintInfo(true)
 end
 
 function IndexUIService:GetSelected(): string?
@@ -501,25 +750,64 @@ local function buildModalBlocker()
 	blocker.Parent = gui
 end
 
+local function buildCard(index: number, entry: IndexConfig.Entry)
+	local holder = cardTemplate:Clone()
+	holder.Name = entry.Id
+	holder.LayoutOrder = index -- authored order, which the grid sorts on
+	holder.Visible = false -- `applyPage` decides; an invisible holder is skipped by the grid
+	holder.Parent = cardsFrame
+
+	local button = holder:FindFirstChild("Card") :: ImageButton
+	local marker = button:FindFirstChild("Selected") :: ImageLabel
+	local card: Card = {
+		Id = entry.Id,
+		Holder = holder,
+		Button = button,
+		Label = button:FindFirstChild("Name") :: TextLabel,
+		Marker = marker,
+		MarkerSize = marker.Size,
+		Viewport = button:FindFirstChild("Headshot") :: ViewportFrame,
+		Hovered = false,
+		Pressed = false,
+	}
+	Cards[entry.Id] = card
+
+	buildHeadshot(card.Viewport, entry)
+
+	button.Activated:Connect(function()
+		IndexUIService:Select(entry.Id)
+	end)
+
+	-- A pointer leaving clears the press as well as the hover: releasing off the card never fires
+	-- `MouseButton1Up` on it, and without this the card would stay squashed until it was pressed again.
+	button.MouseEnter:Connect(function()
+		card.Hovered = true
+		poseCard(card)
+	end)
+	button.MouseLeave:Connect(function()
+		card.Hovered = false
+		card.Pressed = false
+		poseCard(card)
+	end)
+	button.MouseButton1Down:Connect(function()
+		card.Pressed = true
+		poseCard(card)
+	end)
+	button.MouseButton1Up:Connect(function()
+		card.Pressed = false
+		poseCard(card)
+	end)
+end
+
 local function build()
 	buildModalBlocker()
 
 	for index, entry in Entries do
-		local card = cardTemplate:Clone()
-		card.Name = entry.Id
-		card.LayoutOrder = index -- authored order, which the grid sorts on
-		card.Visible = false -- `applyPage` decides; an invisible card is skipped by the grid
-		card.Parent = cardsFrame
-
-		Cards[entry.Id] = card
-
-		local viewport = card:FindFirstChild("Headshot") :: ViewportFrame
-		buildHeadshot(viewport, entry)
-
-		card.Activated:Connect(function()
-			IndexUIService:Select(entry.Id)
-		end)
+		buildCard(index, entry)
 	end
+
+	prevChrome = wireChrome(prevButton)
+	nextChrome = wireChrome(nextButton)
 
 	prevButton.Activated:Connect(function()
 		IndexUIService:PreviousPage()
@@ -528,6 +816,22 @@ local function build()
 	nextButton.Activated:Connect(function()
 		IndexUIService:NextPage()
 	end)
+
+	-- Animated but not wired to anything. Opening and closing the index is still somebody else's to
+	-- own; this only gives the button the same weight under a pointer as everything else on the board.
+	if closeButton then
+		wireChrome(closeButton)
+	end
+
+	-- Nothing here opens the window. It only notices that something else did, so the board is dealt
+	-- out on the way in rather than already sitting there finished.
+	if PAGE.ReplayOnOpen and gui then
+		gui:GetPropertyChangedSignal("Enabled"):Connect(function()
+			if gui.Enabled then
+				dealPage(currentSlice())
+			end
+		end)
+	end
 end
 
 if IndexConfig.DiscoveredByDefault then

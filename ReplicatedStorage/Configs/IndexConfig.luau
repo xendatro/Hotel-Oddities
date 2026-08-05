@@ -96,6 +96,75 @@ return {
 		Disabled = Color3.fromRGB(150, 148, 155),
 	},
 
+	--- How the board answers being used.
+	---
+	--- Every card now sits inside a holder frame of its own. The `UIGridLayout` lays out the holder
+	--- and never the card, so a card is free to grow past its cell, lift out of it and tilt without
+	--- the layout snapping it back on the next frame -- which it did, and which is why the holders
+	--- exist. Scales and lifts below are fractions of that holder. The page arrows have the same
+	--- arrangement for the same reason: they sit in a `UIListLayout`, which positions each of them
+	--- from the other's size, so scaling one in place shoved the other along the row.
+	---
+	--- Nothing animates on its own. Every value here is a rest state and a time to reach it, so a
+	--- board nobody is touching is doing no work at all.
+	Animation = {
+		Card = {
+			HoverScale = 1.08,
+			HoverLift = 0.05, -- fraction of the cell's height the card rises by
+			HoverTilt = 2.5, -- degrees. These are photographs pinned to a board, not buttons.
+
+			PressScale = 0.95,
+			PressTilt = 0, -- a press squares the card up again, which reads as it being pushed flat
+
+			-- A selected card holds a smaller version of the same pose, leaning the other way: enough
+			-- to be found at a glance across the grid, not enough to compete with whatever is hovered.
+			SelectedScale = 1.04,
+			SelectedLift = 0.02,
+			SelectedTilt = -1.5,
+
+			HoverTime = 0.18,
+			PressTime = 0.07,
+			SettleTime = 0.26, -- coming back to rest, slower than going out to it
+
+			Style = Enum.EasingStyle.Back, -- overshoots slightly, which is what makes it feel physical
+			Direction = Enum.EasingDirection.Out,
+			PressStyle = Enum.EasingStyle.Quad, -- no overshoot on the way down; a press should be flat
+			PressDirection = Enum.EasingDirection.Out,
+		},
+
+		--- The page arrows and the close button, which are chrome rather than content and so move less.
+		Button = {
+			HoverScale = 1.15,
+			PressScale = 0.9,
+			DisabledScale = 0.92, -- an arrow with nowhere to go sits back as well as dim
+
+			HoverTime = 0.14,
+			PressTime = 0.06,
+			SettleTime = 0.2,
+
+			Style = Enum.EasingStyle.Back,
+			Direction = Enum.EasingDirection.Out,
+		},
+
+		--- Cards arriving on a page, dealt out rather than appearing all at once.
+		Page = {
+			EnterScale = 0.86,
+			EnterDrop = 0.06, -- starts this far under its resting place, as a fraction of the cell
+			EnterTime = 0.34,
+			Stagger = 0.035, -- seconds between one card starting and the next
+			--- Run it again each time `IndexGui.Enabled` goes true. Nothing here opens or closes the
+			--- window -- this only notices that it happened, so the board is dealt out rather than
+			--- already sitting there whenever it is shown.
+			ReplayOnOpen = true,
+		},
+
+		--- The info panel swapping from one entry to the next.
+		Info = {
+			FadeTime = 0.22,
+			Rise = 0.02, -- fraction of the panel's height the text comes up from
+		},
+	},
+
 	--- Defaults for every headshot camera; an entry overrides what it needs in its own `Headshot`.
 	Headshot = {
 		FieldOfView = 40, -- narrow, so the framing reads as a portrait lens rather than a fisheye
