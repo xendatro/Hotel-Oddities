@@ -386,7 +386,7 @@ end
 
 function NPC:HasLineOfSightToPlayer(player: Player): boolean
 	local root = getAliveRoot(player)
-	return root ~= nil and self:HasLineOfSight(root)
+	return root ~= nil and not Vanished.Is(root.Parent) and self:HasLineOfSight(root)
 end
 
 --- Whether a player is worth pursuing at all: alive, out of a safe room, and still in range.
@@ -411,6 +411,7 @@ end
 function NPC:IsTouchingPlayer(player: Player): boolean
 	local root = getAliveRoot(player)
 	if not root then return false end
+	if Vanished.Is(root.Parent) then return false end
 	if (self.RootPart.Position - root.Position).Magnitude <= CONTACT_ROOT_DISTANCE then return true end
 
 	local params = OverlapParams.new()
