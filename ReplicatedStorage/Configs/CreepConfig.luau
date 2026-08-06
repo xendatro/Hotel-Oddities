@@ -27,6 +27,10 @@ return {
 	--- other end of the map. What is wanted is a wall exactly as tall as the corridor it is in.
 	BackdropCeilingSearch = 60, -- studs above the floor it looks for a ceiling, or failing that a wall top
 	BackdropHeightOverlap = 1.5, -- studs past whatever it found, so the top is not a visible seam
+	--- Under this, the measurement is thrown away and the fallback used. No corridor in the hotel is
+	--- shin high, so a measurement that says one is has found a skirting board or a step rather than
+	--- the top of anything, and building the wall to it puts a black kerb across the hallway.
+	BackdropMinimumHeight = 8,
 	BackdropHeight = 24, -- fallback where there is nothing above it at all to measure against
 	BackdropThickness = 1,
 

@@ -48,10 +48,19 @@ PresetConfig.FrameHoverScale = {
 -- Hotel Oddities interface presets. Page uses Xenterface's standard Active/Inactive
 -- sequences. Motion presets are read by InterfaceService because hover and press
 -- are separate states from a tab's selected state.
+-- Open rewinds the close: the page swings up from below, overshoots, then settles.
+-- Close inhales (a small swell and tilt back) before it whips away, and it drives
+-- Scale all the way to 0 so the page is already gone by the time Visible flips off.
+-- Each step's delay is slightly shorter than its own tween so the next step takes
+-- over while the previous one is still moving - no dead stops between steps.
 PresetConfig.HotelPage = {
-	Active = "v-t scale-0.72 rot--4 pos-0.5-0.58 0 scale-1.035 rot-1 pos-0.5-0.495 t-0.28 quart out 0.28 i t-0.18 back out",
-	Inactive = "scale-1.02 rot--1 pos-0.5-0.495 t-0.08 quad out 0.08 scale-0.28 rot-5 pos-0.5-0.67 t-0.32 quart in 0.35 v-f",
-	CloseTime = 0.43,
+	Active = "v-t scale-0.55 rot-8 pos-0.5-0.585"
+		.. " 0 scale-1.05 rot--2 pos-0.5-0.492 t-0.3 quint out"
+		.. " 0.24 scale-1 rot-0 pos-c t-0.2 back out",
+	Inactive = "scale-1.06 rot--3 pos-0.5-0.478 t-0.14 quad out"
+		.. " 0.1 scale-0 rot-10 pos-0.5-0.6 t-0.28 cubic in"
+		.. " 0.28 v-f",
+	CloseTime = 0.38,
 }
 
 PresetConfig.HotelSideButton = {

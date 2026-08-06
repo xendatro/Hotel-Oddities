@@ -29,6 +29,19 @@ local MINIMUM_DIRECTION = 1e-3
 --- viewer standing level with it has no "behind" to speak of, and without this the wall would flip
 --- from one side to the other while they shuffled about.
 local SIDE_DEADZONE = 4
+--- Where the height probes go looking for the top of the corridor: across it, and up and down its
+--- length from the Creep. Several of them, and the tallest hit wins.
+---
+--- A hotel corridor is not a bare box, and one probe is a coin toss in it. Skirting boards and picture
+--- rails stand proud of the wall they are nailed to, and the floor is authored wider than the walls
+--- standing on it, so a single ray dropped beside a wall misses the wall and lands on trim, or on the
+--- floor it started over -- which between them is most of the places a Creep can stand in this hotel.
+--- The wall then comes out ankle high and is a black kerb laid across the hallway rather than
+--- something the corridor appears to stop at. Nothing hung on a wall reaches higher than the wall does
+--- and nothing hangs on every wall at once, which is what makes the tallest of a handful of probes the
+--- corridor and everything fixed to it lose.
+local WIDTH_PROBES = { -2, -1, 0.5 } -- studs from the corridor's edge, negative being inside it
+local LENGTH_PROBES = { 0, 8, -8 } -- and how far along it from the Creep, kept inside its ends
 
 local CreepRenderService = {}
 
@@ -70,29 +83,49 @@ end
 ---
 --- Measured once, from where the Creep is standing. A corridor is one height for its whole length in
 --- this hotel, and a Creep is a few seconds of a player's evening -- there is nothing here worth two
---- raycasts a frame.
+--- dozen raycasts a frame.
 local function measureHeight(hallway: Hallways.Hallway, position: Vector3, ignore: { Instance }): number
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = ignore
 	params.RespectCanCollide = true
 
-	local floor = Vector3.new(position.X, hallway.FloorY, position.Z)
 	local search = CreepConfig.BackdropCeilingSearch
-	local ceiling = workspace:Raycast(floor + Vector3.yAxis, Vector3.yAxis * search, params)
-	if ceiling then
-		return ceiling.Position.Y - hallway.FloorY + CreepConfig.BackdropHeightOverlap
+	local tallest = 0
+
+	local function consider(result: RaycastResult?)
+		local height = if result then result.Position.Y - hallway.FloorY else 0
+		if height > tallest then
+			tallest = height
+		end
 	end
 
-	-- Open above: come down onto the corridor's own side wall instead, just inside its width, and
-	-- match that. A wall the height of the walls beside it has nothing to show against.
-	local edge = floor + hallway.Across * (hallway.HalfWidth - 1) + Vector3.yAxis * search
-	local wall = workspace:Raycast(edge, Vector3.yAxis * -search * 2, params)
-	if wall and wall.Position.Y > hallway.FloorY then
-		return wall.Position.Y - hallway.FloorY + CreepConfig.BackdropHeightOverlap
+	-- Straight up for a ceiling where there is one ...
+	local floor = Vector3.new(position.X, hallway.FloorY, position.Z)
+	consider(workspace:Raycast(floor + Vector3.yAxis, Vector3.yAxis * search, params))
+
+	-- ... and down onto the corridor's own side walls, which is the answer where it is open above and
+	-- the correction where that ceiling ray came down on a picture rail. Kept inside the hallway's own
+	-- ends, so a Creep standing near a junction measures its corridor and not the one crossing it.
+	local creepAlong = Hallways.Along(hallway, position)
+	for _, side in { 1, -1 } do
+		for _, width in WIDTH_PROBES do
+			for _, length in LENGTH_PROBES do
+				local along = math.clamp(creepAlong + length, -hallway.HalfLength, hallway.HalfLength)
+				local edge = Hallways.PointAt(hallway, along)
+					+ hallway.Across * side * (hallway.HalfWidth + width)
+					+ Vector3.yAxis * search
+				consider(workspace:Raycast(edge, Vector3.yAxis * -search * 2, params))
+			end
+		end
 	end
 
-	return CreepConfig.BackdropHeight
+	-- Everything the probes found was ankle height or nothing at all: whatever this is, it is not the
+	-- corridor, and a wall built to it would be a doorstep. Cover the hallway instead.
+	if tallest < CreepConfig.BackdropMinimumHeight then
+		return CreepConfig.BackdropHeight
+	end
+	return tallest + CreepConfig.BackdropHeightOverlap
 end
 
 local function track(model: Model): Render
