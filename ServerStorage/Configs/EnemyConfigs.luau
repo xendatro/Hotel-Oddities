@@ -38,7 +38,7 @@ export type EnemyConfig = {
 	SearchTime: number?, -- seconds spent listening at the last sound before wandering again
 	HearingAccurateRange: number?, -- noises inside this distance are localized exactly
 	HearingErrorMaxDistance: number?, -- distance at which localization error reaches its maximum
-	HearingErrorMax: number?, -- studs an estimate is offset at or beyond that distance
+	HearingErrorMax: number?, -- largest random offset at or beyond that distance, in studs
 
 	-- Perception of being seen. Setting this at all is what marks an enemy as caring: `NPC:Start`
 	-- reads it to decide whether this model should accept client view reports.
