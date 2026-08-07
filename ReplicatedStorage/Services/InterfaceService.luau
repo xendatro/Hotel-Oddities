@@ -295,4 +295,31 @@ UserInputService.InputBegan:Connect(function(input: InputObject, processed: bool
 	setMouseUnlocked(not mouseUnlocked)
 end)
 
+--- Opening a page from code ------------------------------------------------------------------------
+
+--- Opens one of `pageNames` as though its side button had been pressed, so the page arrives through
+--- the same controller, the same animation and the same blur as every other way in. Nothing else
+--- should be setting `ScreenGui.Enabled` by hand -- a page switched on behind the controller's back
+--- is one the controller still believes is closed, and the next press of anything closes it without
+--- animating.
+---
+--- Exists for the index, which the game opens on the player's behalf after a death has taught them
+--- something. Everything else here is driven by a button the player pressed.
+function InterfaceService:Open(pageId: string)
+	if not pageGuis[pageId] then
+		warn(("[InterfaceService] No page named %q to open."):format(pageId))
+		return
+	end
+	controller:Fire(pageId)
+end
+
+function InterfaceService:Close()
+	controller:Fire("")
+end
+
+--- The page currently open, or an empty string while none is.
+function InterfaceService:GetActive(): string
+	return controller.Active
+end
+
 return InterfaceService

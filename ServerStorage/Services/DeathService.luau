@@ -10,8 +10,10 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
 
 local DeathConfig = require(ReplicatedStorage.Configs.DeathConfig)
+local EnemyDiscoveryService = require(ServerStorage.Services.EnemyDiscoveryService)
 
 local Show = ReplicatedStorage
 	:WaitForChild("Communication")
@@ -54,7 +56,16 @@ local function watchCharacter(player: Player, character: Model)
 
 	local humanoid = character:WaitForChild("Humanoid") :: Humanoid
 	humanoid.Died:Once(function()
-		Show:FireClient(player, DeathService:GetCause(player))
+		local cause = DeathService:GetCause(player)
+		Show:FireClient(player, cause)
+
+		-- Dying to something teaches you more about it than any amount of looking, and it is the only
+		-- way to learn anything at all about the two that ambush you. Granted from here rather than
+		-- from whatever landed the blow because this is where a death is already attributed, and the
+		-- attribution is the hard part -- see `GetCause` for why it is a memory rather than a callback.
+		-- Nothing happens for a death nothing claimed: falling down a lift shaft is the hotel's own.
+		EnemyDiscoveryService:GrantDeath(player, cause)
+
 		Records[player] = nil
 	end)
 end

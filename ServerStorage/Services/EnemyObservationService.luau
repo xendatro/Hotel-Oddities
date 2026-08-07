@@ -112,6 +112,30 @@ function EnemyObservationService:GetViewAngle(player: Player, model: Model): num
 	return math.deg(math.acos(math.clamp(offset.Unit:Dot(look), -1, 1)))
 end
 
+--- Where one player is looking from and which way, or nil for a player with no character.
+---
+--- Falls back to the top of their character and the way it faces when no fresh report is in hand,
+--- for the same reason `GetEyes` does: a client that stops reporting should be treated as seeing
+--- from where the server already knew it was, not as blind. Callers that need to know the difference
+--- do not exist yet -- everything asking this wants the best available answer.
+---
+--- Note what the fallback costs and what it does not. Every client fires `UpdateView` on a timer
+--- whether or not it can see anything, so a fresh report is the normal case; and the camera in it
+--- has already been checked against `MAX_CAMERA_DISTANCE` by the time it is stored, so a player
+--- cannot claim to be looking from across the building.
+function EnemyObservationService:GetView(player: Player): (Vector3?, Vector3?)
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then return nil, nil end
+
+	local observation = getFresh(player)
+	if observation and observation.Eye and observation.Look then
+		return observation.Eye, observation.Look
+	end
+
+	return root.Position + Vector3.new(0, HEAD_OFFSET, 0), root.CFrame.LookVector
+end
+
 --- Where every living player is looking from. A reported camera is used while it is fresh, and the top
 --- of the character otherwise -- so a client that reports nothing, or reports somewhere it could not
 --- possibly be, is treated as seeing from where the server already knew it was rather than as blind.

@@ -14,6 +14,12 @@
 --- strategy off rather than a record of what you have met. They are placeholders for now. They are
 --- also drawn into a small `TextScaled` label, so two short sentences is about the ceiling before
 --- the text shrinks past reading.
+---
+--- A description is also what discovery is spent on. Entries are not on or off: each carries a
+--- progress from 0 to 1, and the words of its description are uncovered a few at a time as that
+--- climbs -- so write them as a handful of independent observations rather than as one sentence
+--- whose second half is meaningless without its first. Half of a description is a state a player
+--- will spend real time looking at, and it should still say something.
 
 --- One part of a stand-in. Built at the origin, in studs, and framed as a whole.
 export type StandinPart = {
@@ -63,19 +69,107 @@ return {
 	--- same folder out of `ReplicatedStorage`, and the two should never drift apart.
 	TemplateFolder = "Enemies",
 
-	--- Every entry starts discovered while the index is being built out. Flip this to false once
-	--- there is somewhere to persist discovery from, and the runtime API on `IndexUIService`
-	--- (`SetDiscovered` / `SetDiscoveredSet`) becomes the only thing that unlocks an entry.
-	DiscoveredByDefault = true,
+	--- Progress every entry starts at for a player with nothing saved. Zero in the shipped game;
+	--- raise it to see the partly-redacted states without having to earn them.
+	StartProgress = 0,
 
-	--- What an entry the player has not met yet looks like. Undiscovered entries keep their slot in
-	--- the grid rather than being skipped: a gap where something will go is the point of a bestiary,
-	--- and a list that reshuffles as it fills makes the pages meaningless.
+	--- What an entry at zero progress looks like. Undiscovered entries keep their slot in the grid
+	--- rather than being skipped: a gap where something will go is the point of a bestiary, and a
+	--- list that reshuffles as it fills makes the pages meaningless.
 	Locked = {
-		Name = "???",
+		Name = "UNDISCOVERED",
 		Description = "You have not met this one yet.",
 		ShowSilhouette = true, -- render the model anyway, tinted flat; false hides the viewport
-		Tint = Color3.fromRGB(28, 26, 32),
+		--- The headshot viewport, taken to black outright. `ImageColor3` multiplies the rendered shot,
+		--- so anything above zero leaves the enemy's real colours showing through as a dim version of
+		--- itself -- which reads as a badly-lit photograph of the thing rather than as a silhouette.
+		--- Black is the whole point: an undiscovered entry gives away a shape and nothing else.
+		Tint = Color3.fromRGB(0, 0, 0),
+		--- The card itself -- the photograph it is all pinned to. Dimmed rather than blacked out,
+		--- because this is the thing the player has to find and click on: a card as dark as its own
+		--- viewport reads as a hole in the board rather than as an entry waiting to be filled. Grey
+		--- rather than tinted, so the paper looks unlit instead of coloured.
+		CardTint = Color3.fromRGB(108, 104, 118),
+	},
+
+	--- How knowing more about an enemy is shown.
+	---
+	--- Discovery is a fraction rather than a flag: an entry is somewhere between never having been
+	--- seen and fully written up, and the description fills in as that number climbs. Which words go
+	--- first is fixed per entry by `Modules.Redaction`, so an entry always reads the same way at the
+	--- same progress and can only ever gain words -- see that module for why both of those matter.
+	---
+	--- What earns the progress is not here. That is the server's business and lives in
+	--- `ServerStorage.Configs.DiscoveryConfig`; this file only decides how the result is drawn.
+	Discovery = {
+		--- Above this, an entry is discovered: its real name on the card, its portrait lit, and as much
+		--- of its description as has been earned. At or below it the entry is drawn as `Locked` --
+		--- UNDISCOVERED, no description, black viewport.
+		---
+		--- This is the *only* threshold the board draws. Brightness used to be walked up with progress,
+		--- which made the grid a row of half-lit photographs whose dimness said nothing the description
+		--- underneath was not already saying, and left an entry a player had genuinely met still
+		--- looking like one they had not. Meeting something is a thing that either has or has not
+		--- happened, so it is drawn as one.
+		NamedAbove = 0,
+
+		--- Colour of the blocks covering a word not yet learned. Close enough to the panel that it
+		--- reads as damage to the page rather than as a second body of text.
+		HiddenColor = Color3.fromRGB(64, 60, 72),
+
+		--- Colour a word is drawn in for the beat after it arrives, before it cools to the body colour.
+		--- Only ever seen during a reveal.
+		NewColor = Color3.fromRGB(255, 236, 150),
+
+		--- Blocks drawn per character of a covered word. Below one because a full block is far wider
+		--- than an average letter, and the description is `TextScaled` -- see `Modules.Redaction` for
+		--- the whole of why. Raise it towards 1 for a heavier redaction, at the cost of the paragraph
+		--- visibly resizing as it fills.
+		BlockRatio = 0.55,
+
+		--- The animation played when a death has just taught the player something.
+		---
+		--- Each newly-earned word runs its own little sequence rather than the panel running one big
+		--- one: its blocks brighten to `ChargeColor`, break into the word itself at the peak of that,
+		--- and then cool from `NewColor` down to the body colour over `SettleTime`. Words are started
+		--- `WordInterval` apart and are *not* waited on, so several are always somewhere in that
+		--- sequence at once and the paragraph reads as a page coming back rather than as a queue being
+		--- worked through one item at a time.
+		Reveal = {
+			--- Held after the death screen has finished and torn itself down, before the index is
+			--- opened. Nothing is drawn during it -- the point is a clear beat of the world back, so
+			--- the board arriving reads as a second thing happening rather than as part of the death.
+			--- Without this the index opens under a screen that is still typing its hint and fading,
+			--- and the two animations cover each other.
+			AfterDeathDelay = 1,
+			--- Ceiling on waiting for that screen, in case something leaves it up. The reveal is worth
+			--- showing late; it is not worth never showing.
+			DeathScreenTimeout = 20,
+
+			OpenDelay = 0.8, -- beat after the index opens before the first word starts charging
+			WordInterval = 0.19, -- between one word starting and the next
+
+			--- How long a word's blocks spend brightening before they break into letters. This is the
+			--- part that makes a word landing feel like something happening to the page rather than a
+			--- character swap: the redaction lights up first, so the eye is already on it.
+			ChargeTime = 0.16,
+			ChargeColor = Color3.fromRGB(255, 255, 255),
+
+			--- How long the word then takes to cool from `NewColor` to the body colour, and how much of
+			--- that is spent dropping out of `ChargeColor` into `NewColor`. The flash is short and the
+			--- cool is eased, so a word snaps to warm and then lingers there before letting go.
+			SettleTime = 0.85,
+			FlashFraction = 0.18,
+
+			--- Held after the last word has finished cooling, before the panel is handed back to the
+			--- ordinary paint. Long enough that the reveal has an end rather than just stopping.
+			SettleDelay = 0.4,
+
+			--- Cap on how long the words take to *start*. A death that fills a long description would
+			--- otherwise hold the player in a menu for an unreasonable stretch; past this the interval
+			--- is compressed to fit. Each word still gets its full charge and cool.
+			MaxDuration = 4,
+		},
 	},
 
 	--- Shown in the info panel when nothing is selected at all -- only reachable if every entry is

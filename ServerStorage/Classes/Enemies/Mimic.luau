@@ -24,6 +24,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local MimicConfig = require(ReplicatedStorage.Configs.MimicConfig)
 local MimicMotion = require(ReplicatedStorage.Modules.MimicMotion)
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
+local EnemyDiscoveryService = require(ServerStorage.Services.EnemyDiscoveryService)
 local NPC = require(ServerStorage.Classes.NPC)
 
 local PERCEPTION_INTERVAL = 0.25
@@ -158,6 +159,13 @@ local function chase(_changeState: StateMachine.ChangeState, npc: any, target: P
 	npc.Animator:Resume()
 	npc:StopMirroring()
 	npc:SetSpeed(npc.Config.ChaseSpeed)
+
+	-- The only moment a player can be said to have met a Mimic. Everything before this looked like
+	-- another guest, which is why `DiscoveryConfig` gives this one no sighting rule at all: unlocking
+	-- its card for having looked at it would print the word "Mimic" in the index before the disguise
+	-- had ever worked on anybody. It is discovered by dropping the act, or by killing you, and by
+	-- nothing else.
+	EnemyDiscoveryService:GrantEvent(target, npc.EnemyId)
 
 	local lastKnown = npc.RootPart.Position
 	local result = npc:Pursue(function()

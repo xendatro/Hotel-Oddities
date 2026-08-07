@@ -8,6 +8,7 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local DeathService = require(ServerStorage.Services.DeathService)
+local EnemyDiscoveryService = require(ServerStorage.Services.EnemyDiscoveryService)
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local RoomService = require(ServerStorage.Services.RoomService)
 local Vanished = require(ReplicatedStorage.Modules.Vanished)
@@ -15,6 +16,10 @@ local Vanished = require(ReplicatedStorage.Modules.Vanished)
 local ENEMY_TAG = "Enemy"
 local CHAOS_TAG = "Chaos"
 local MINIMUM_LEG = 1e-3
+--- Multiple of `KillRange` within which a player who was not caught still counts as having met it.
+--- Three, so the band that discovers a Chaos without killing anybody is about two corridor widths --
+--- close enough that it went past you, wide enough that it does not require having nearly died.
+local NEAR_MISS_SCALE = 3
 
 local Chaos = {}
 Chaos.__index = Chaos
@@ -77,10 +82,19 @@ function Chaos:_killAlong(origin: Vector3, destination: Vector3)
 		local character = player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		if root and humanoid and humanoid.Health > 0
-			and distanceToSegment(root.Position, origin, destination) <= self.Config.KillRange then
+		if not (root and humanoid and humanoid.Health > 0) then continue end
+
+		local distance = distanceToSegment(root.Position, origin, destination)
+		if distance <= self.Config.KillRange then
 			DeathService:RecordCause(player, self.EnemyId)
 			humanoid.Health = 0
+		elseif distance <= self.Config.KillRange * NEAR_MISS_SCALE then
+			-- Close enough to have been the thing that nearly killed them. A Chaos travels at seventy
+			-- studs a second, so there is no looking at one -- the encounter is being in the corridor
+			-- it came down and not being where it went, which is why this is what discovers it rather
+			-- than a sighting rule. Survivors learn it; anybody who took the warning and left the
+			-- corridor entirely does not, which is the correct trade for having played it safe.
+			EnemyDiscoveryService:GrantEvent(player, self.EnemyId)
 		end
 	end
 end

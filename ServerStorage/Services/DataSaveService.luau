@@ -9,8 +9,13 @@ local PROFILE_STORE_NAME = "PlayerData"
 local PROFILE_TEMPLATE = {
 	Gems = 0,
 	OwnedSwords = {},
-	CurrentSword = "Default"
-	-- Template will be expanded later
+	CurrentSword = "Default",
+
+	--- How much of each enemy's index entry the player has earned, keyed by the same enemy id
+	--- `EnemyConfigs` and `IndexConfig` use, valued 0 to 1. Owned by `EnemyDiscoveryService`, which
+	--- is the only thing that should read or write it. Empty for a new player: every entry starts
+	--- undiscovered, and nothing is stored at zero -- a save file only carries what has been met.
+	DiscoveredEnemies = {},
 }
 
 local ProfileStore = ProfileService.GetProfileStore(PROFILE_STORE_NAME, PROFILE_TEMPLATE)

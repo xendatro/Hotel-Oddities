@@ -19,6 +19,7 @@ local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
 
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
+local EnemyDiscoveryService = require(ServerStorage.Services.EnemyDiscoveryService)
 local HideSpotService = require(ServerStorage.Services.HideSpotService)
 local NPC = require(ServerStorage.Classes.NPC)
 
@@ -208,6 +209,13 @@ local function reveal(_changeState: StateMachine.ChangeState, npc: any, target: 
 
 	npc:FaceTowards(position)
 	FaceStalker:FireClient(target, npc.Model, config.RevealTurnTime)
+
+	-- Their camera is being turned onto it as this runs, so this is the first and only time a player
+	-- gets a proper look at the thing that has been following them -- and the reason it carries no
+	-- sighting rule. Catching it over your shoulder sends it fleeing before anybody could study it;
+	-- what teaches you what it is, is it deciding to show you.
+	EnemyDiscoveryService:GrantEvent(target, npc.EnemyId)
+
 	task.wait(config.RevealTurnTime + config.RevealHoldTime)
 
 	if not npc:GetTargetPosition(target) then

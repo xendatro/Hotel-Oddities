@@ -398,6 +398,17 @@ function DeathScreenService:Show(causeId: string?)
 	RunService:BindToRenderStep(RENDER_JOB, Enum.RenderPriority.Last.Value, render)
 end
 
+--- Whether the screen is still on top of everything -- including the stretch where it is holding a
+--- finished hint, and the fade out. False only once `teardown` has run and the world is plainly
+--- visible again.
+---
+--- Exists so anything the game puts in front of the player after a death can wait its turn. The
+--- index does: it opens itself to show what dying just taught you, and doing that under a death
+--- screen that is still typing means both animations play at once and neither is readable.
+function DeathScreenService:IsVisible(): boolean
+	return Visible
+end
+
 --- Starts the screen fading out, holding it first until it has finished typing the hint and been sat
 --- with for `ReadTime`. Respawning is what calls this, and a respawn is not a reason to stop saying
 --- something the player has not finished reading.
