@@ -41,6 +41,20 @@ for toolName, config in ToolConfigs do
 		TagService:Listen(config.Tag, function(tool: Tool)
 			local instance = class.new(tool)
 			Instances[tool] = instance
+
+			-- A tagged Tool can be rebuilt after Roblox has already moved it into the Character and
+			-- fired Equipped. Recover that missed event once normal event delivery has had a chance.
+			task.delay(0.05, function()
+				if Instances[tool] ~= instance or instance.Character then return end
+				local character = tool.Parent
+				local humanoid = character and character:IsA("Model")
+					and character:FindFirstChildOfClass("Humanoid")
+				if not humanoid then return end
+
+				instance.Character = character
+				instance.Humanoid = humanoid
+				instance:OnEquipped()
+			end)
 			return instance
 		end, function(tool: Instance, instance: any)
 			Instances[tool] = nil

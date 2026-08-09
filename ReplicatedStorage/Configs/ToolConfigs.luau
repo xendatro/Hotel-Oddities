@@ -126,4 +126,19 @@ return {
 		DrinkSound = "DrinkSound",
 		Visual = "Fire",
 	},
+
+	Visor = {
+		Tag = "Visor",
+		--- Passive while equipped: `Eye` skips damage on anyone holding this out.
+		--- The child of the tool holding the worn visor; cloned onto the head instead of held.
+		FaceAccessory = "Accessory",
+		--- Local pose of the visor's FaceFrontAttachment.
+		FaceAttachment = CFrame.new(0, -0.2, -0.45),
+		LightingSaturation = -0.18,
+		LightingBrightness = 0.05,
+		LightingContrast = 0.04,
+		LightingTint = Color3.fromRGB(190, 220, 255),
+		LightingInTime = 0.3,
+		LightingOutTime = 0.45,
+	},
 }

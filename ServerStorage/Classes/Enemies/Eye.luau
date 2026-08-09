@@ -3,7 +3,7 @@
 --- looking. It never moves, never targets and never closes the distance. It stands where it was put
 --- and burns anybody with it on screen -- hardest when it is dead center, tapering to a nag out at
 --- the edges. Walking past it is free if you keep your eyes down the corridor; stopping to work out
---- what it is costs you most of your health.
+--- what it is costs you most of your health. An equipped Visor blanks the charge entirely.
 ---
 --- It has no Humanoid and no rig. Its state machine switches between its normal stare and a brief
 --- paper-ball stun, while an evaluator counts down its `Lifetime` independently.
@@ -55,13 +55,21 @@ local function damageRate(config, angle: number): number
 	return config.EdgeDamage + (config.CenterDamage - config.EdgeDamage) * nearness
 end
 
+-- Whether `character` is currently wearing a Visor. Equipped tools live under the character, so a
+-- Visor still in the backpack does nothing -- you have to put it on.
+local function hasVisor(character: Model): boolean
+	local visor = character:FindFirstChild("Visor")
+	return visor ~= nil and visor:IsA("Tool")
+end
+
 -- The living character `player` can be hurt through, or nil while they are dead, hidden by the spell
--- book, or standing in a safe room.
+-- book, wearing a Visor, or standing in a safe room.
 local function getVulnerable(player: Player, config): Model?
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid") :: Humanoid?
 	if not (character and humanoid and humanoid.Health > 0) then return nil end
 	if Vanished.Is(character) then return nil end
+	if hasVisor(character) then return nil end
 	if config.RespectsSafeRooms and RoomService:IsInRoom(player) then return nil end
 	return character
 end

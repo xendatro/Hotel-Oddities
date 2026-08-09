@@ -58,9 +58,15 @@ function TagService:Listen(tag: string, apply: (instance: Instance) -> any, unap
 		Tags[tag].Data[instance] = apply(instance)
 		
 		Tags[tag].InstanceConnections[instance] = instance.AncestryChanged:Connect(function(instance: Instance)
-			if instance.Parent == nil then
-				unapplyFunction(instance)
-			end
+			if instance.Parent ~= nil then return end
+
+			-- Roblox briefly clears a Tool's parent while moving it between a Backpack and Character.
+			-- Check again next tick so that move does not tear down its class between equip events.
+			task.defer(function()
+				if instance.Parent == nil then
+					unapplyFunction(instance)
+				end
+			end)
 		end)
 	end
 	

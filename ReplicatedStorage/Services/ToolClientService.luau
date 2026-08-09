@@ -36,6 +36,21 @@ for toolName, config in ToolConfigs do
 
 			local instance = class.new(tool)
 			Instances[tool] = instance
+
+			-- Moving between Backpack and Character can rebuild a tagged tool after Equipped fired.
+			-- Recover its current state without racing the normal event path.
+			task.delay(0.05, function()
+				if Instances[tool] ~= instance or instance.Character then return end
+				local character = tool.Parent
+				local humanoid = character and character:IsA("Model")
+					and character:FindFirstChildOfClass("Humanoid")
+				if not humanoid then return end
+
+				instance.Character = character
+				instance.Humanoid = humanoid
+				instance.Mouse = player:GetMouse()
+				instance:OnEquipped()
+			end)
 			return instance
 		end, function(tool: Instance, instance: any)
 			Instances[tool] = nil
