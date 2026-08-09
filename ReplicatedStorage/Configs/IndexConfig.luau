@@ -78,6 +78,8 @@ return {
 	--- list that reshuffles as it fills makes the pages meaningless.
 	Locked = {
 		Name = "UNDISCOVERED",
+		CardName = "???",
+		CardTextColor = Color3.fromRGB(202, 202, 202),
 		Description = "You have not met this one yet.",
 		ShowSilhouette = true, -- render the model anyway, tinted flat; false hides the viewport
 		--- The headshot viewport, taken to black outright. `ImageColor3` multiplies the rendered shot,

@@ -80,6 +80,7 @@ type Card = {
 	Holder: Frame,
 	Button: ImageButton,
 	Label: TextLabel,
+	LabelColor: Color3,
 	Marker: ImageLabel,
 	--- The marker's authored size, kept because the pop animation scales it from nothing. Reading it
 	--- back off the instance would sample a pop still in flight and shrink the marker a little more
@@ -558,7 +559,8 @@ local function paintCard(entry: IndexConfig.Entry)
 	local discovered = IndexUIService:IsDiscovered(entry.Id)
 
 	-- Raised, because the cards are labels on a board rather than sentences.
-	card.Label.Text = discovered and string.upper(entry.Name) or LOCKED.Name
+	card.Label.Text = discovered and string.upper(entry.Name) or LOCKED.CardName
+	card.Label.TextColor3 = discovered and card.LabelColor or LOCKED.CardTextColor
 
 	-- `ImageColor3` multiplies the shot the viewport renders, so `Locked.Tint` being flat black is
 	-- what makes an undiscovered enemy a silhouette rather than a dim photograph of itself.
@@ -1040,11 +1042,13 @@ local function buildCard(index: number, entry: IndexConfig.Entry)
 
 	local button = holder:FindFirstChild("Card") :: ImageButton
 	local marker = button:FindFirstChild("Selected") :: ImageLabel
+	local label = button:FindFirstChild("Name") :: TextLabel
 	local card: Card = {
 		Id = entry.Id,
 		Holder = holder,
 		Button = button,
-		Label = button:FindFirstChild("Name") :: TextLabel,
+		Label = label,
+		LabelColor = label.TextColor3,
 		Marker = marker,
 		MarkerSize = marker.Size,
 		Viewport = button:FindFirstChild("Headshot") :: ViewportFrame,
