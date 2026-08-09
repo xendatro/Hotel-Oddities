@@ -16,7 +16,7 @@ InventorySlot.__index = InventorySlot
 export type InventorySlot = typeof(setmetatable({} :: {
 	Index: number,
 	Frame: ImageButton,
-	Icon: ImageLabel,
+	Icon: ViewportFrame,
 	Label: TextLabel,
 	Quantity: TextLabel,
 	Number: TextLabel?,
@@ -35,6 +35,52 @@ local function stroke(parent: Instance)
 	uiStroke.Color = COLORS.Stroke
 	uiStroke.Thickness = 1
 	uiStroke.Parent = parent
+end
+
+local function clearViewport(viewport: ViewportFrame)
+	viewport:ClearAllChildren()
+	viewport.CurrentCamera = nil
+end
+
+-- Draws the real tool model instead of relying on a separate icon asset. The copy lives only in a
+-- WorldModel, with scripts, sounds and live effects stripped so an inventory preview stays inert.
+local function renderTool(viewport: ViewportFrame, toolName: string)
+	clearViewport(viewport)
+
+	local template = ReplicatedStorage.Tools:FindFirstChild(toolName)
+	if not template or not template:IsA("Tool") then return end
+
+	local world = Instance.new("WorldModel")
+	world.Name = "Preview"
+	world.Parent = viewport
+
+	local clone = template:Clone()
+	for _, descendant in clone:GetDescendants() do
+		if descendant:IsA("LuaSourceContainer") or descendant:IsA("Sound") then
+			descendant:Destroy()
+		elseif descendant:IsA("BasePart") then
+			descendant.Anchored = true
+			descendant.CanCollide = false
+			descendant.CanTouch = false
+			descendant.CanQuery = false
+		elseif descendant:IsA("ParticleEmitter") or descendant:IsA("Fire") or descendant:IsA("Light") then
+			descendant.Enabled = false
+		end
+	end
+	clone.Parent = world
+
+	local boundsCFrame, boundsSize = world:GetBoundingBox()
+	if boundsSize.Magnitude < 1e-3 then return end
+
+	local camera = Instance.new("Camera")
+	camera.Name = "Camera"
+	camera.FieldOfView = 35
+	camera.Parent = viewport
+	viewport.CurrentCamera = camera
+
+	local direction = Vector3.new(1, 0.65, 1).Unit
+	local distance = math.max(boundsSize.Magnitude * 1.15, 2)
+	camera.CFrame = CFrame.lookAt(boundsCFrame.Position + direction * distance, boundsCFrame.Position)
 end
 
 --- Builds an empty slot.
@@ -60,14 +106,15 @@ function InventorySlot.new(index: number, showNumber: boolean): InventorySlot
 	stroke(frame)
 	self.Frame = frame
 
-	local icon = Instance.new("ImageLabel")
+	local icon = Instance.new("ViewportFrame")
 	icon.Name = "Icon"
 	icon.BackgroundTransparency = 1
 	icon.Size = UDim2.fromScale(0.7, 0.7)
 	icon.Position = UDim2.fromScale(0.5, 0.45)
 	icon.AnchorPoint = Vector2.new(0.5, 0.5)
-	icon.Image = InventoryConfig.PlaceholderIcon
-	icon.ScaleType = Enum.ScaleType.Fit
+	icon.Ambient = Color3.fromRGB(190, 190, 190)
+	icon.LightColor = Color3.fromRGB(255, 248, 232)
+	icon.LightDirection = Vector3.new(-1, -1, -1)
 	icon.Parent = frame
 	self.Icon = icon
 
@@ -121,18 +168,23 @@ end
 --- Fills the slot in. Passing a quantity of 1 or less clears the count rather than leaving a stale
 --- one behind -- the specific thing FFM's version never did, so a spent stack kept reading "x3".
 function InventorySlot:SetTool(toolName: string, quantity: number, icon: string?)
+	local changed = self.ToolName ~= toolName
 	self.ToolName = toolName
+	self.Frame.Visible = true
 
-	self.Icon.Image = icon or InventoryConfig.PlaceholderIcon
-	self.Label.Text = icon and "" or toolName
+	if changed then
+		renderTool(self.Icon, toolName)
+	end
+	self.Label.Text = ""
 	self.Quantity.Text = quantity > 1 and `x{quantity}` or ""
 end
 
 --- Empties the slot, clearing every label with it.
 function InventorySlot:SetEmpty()
 	self.ToolName = nil
+	self.Frame.Visible = false
 
-	self.Icon.Image = InventoryConfig.PlaceholderIcon
+	clearViewport(self.Icon)
 	self.Label.Text = ""
 	self.Quantity.Text = ""
 	self:SetEquipped(false)

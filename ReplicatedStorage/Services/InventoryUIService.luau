@@ -59,6 +59,7 @@ local function build()
 
 	local hotbarLayout = Instance.new("UIListLayout")
 	hotbarLayout.FillDirection = Enum.FillDirection.Horizontal
+	hotbarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	hotbarLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	hotbarLayout.Padding = UDim.new(0, padding)
 	hotbarLayout.Parent = hotbar
