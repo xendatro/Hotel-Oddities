@@ -21,6 +21,11 @@ return {
 	--- this is what stops a glance at it half a hallway ago from taking the blame for a later fall.
 	CauseMemory = 8,
 
+	Revive = {
+		--- How long a revived character is protected from enemies, in seconds.
+		ForceFieldDuration = 25,
+	},
+
 	--- Used for a death nothing claimed: falling, a hole, or an enemy with no entry below.
 	Unknown = {
 		Name = "The Hotel",

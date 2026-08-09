@@ -1,37 +1,30 @@
 local DevProductService = {}
 
-local MarketplaceService = game:GetService("MarketplaceService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
+local MarketplaceService = require(ReplicatedStorage.Services.MarketplaceService)
 local DevProductConfigs = require(ServerStorage.Configs.DevProductConfigs)
 
--- Process receipt callback
-local function processReceipt(receiptInfo)
-	local player = game:GetService("Players"):GetPlayerByUserId(receiptInfo.PlayerId)
-	
-	if not player then
-		return Enum.ProductPurchaseDecision.NotProcessedYet
-	end
-	
-	local productId = receiptInfo.ProductId
-	local handler = DevProductConfigs[productId]
-	
-	if handler then
-		local success, result = pcall(handler, player)
-		
-		if success then
-			return Enum.ProductPurchaseDecision.PurchaseGranted
-		else
-			warn("Error processing product " .. productId .. ": " .. tostring(result))
+-- Every product shares the receipt router in ReplicatedStorage.Services.MarketplaceService. Roblox
+-- only allows one ProcessReceipt callback, so assigning the native callback here would silently
+-- replace products registered by other services.
+for productId, handler in DevProductConfigs do
+	MarketplaceService:CreateReceipt(productId, function(receiptInfo)
+		local player = Players:GetPlayerByUserId(receiptInfo.PlayerId)
+		if not player then
 			return Enum.ProductPurchaseDecision.NotProcessedYet
 		end
-	else
-		warn("No handler found for product ID: " .. productId)
-		return Enum.ProductPurchaseDecision.NotProcessedYet
-	end
-end
 
--- Connect to ProcessReceipt
-MarketplaceService.ProcessReceipt = processReceipt
+		local success, result = pcall(handler, player)
+		if not success then
+			warn(`Error processing product {productId}: {result}`)
+			return Enum.ProductPurchaseDecision.NotProcessedYet
+		end
+
+		return Enum.ProductPurchaseDecision.PurchaseGranted
+	end)
+end
 
 return DevProductService

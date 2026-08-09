@@ -14,6 +14,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local DeathConfig = require(ReplicatedStorage.Configs.DeathConfig)
 local EnemyDiscoveryService = require(ServerStorage.Services.EnemyDiscoveryService)
+local ReviveService = require(ServerStorage.Services.ReviveService)
 
 local Show = ReplicatedStorage
 	:WaitForChild("Communication")
@@ -57,6 +58,7 @@ local function watchCharacter(player: Player, character: Model)
 	local humanoid = character:WaitForChild("Humanoid") :: Humanoid
 	humanoid.Died:Once(function()
 		local cause = DeathService:GetCause(player)
+		ReviveService:Offer(player, character)
 		Show:FireClient(player, cause)
 
 		-- Dying to something teaches you more about it than any amount of looking, and it is the only
