@@ -1,5 +1,5 @@
-local Debris = game:GetService("Debris")
 local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local TagService = require(ReplicatedStorage.Services.TagService)
@@ -8,6 +8,8 @@ local ToolConfigs = require(ReplicatedStorage.Configs.ToolConfigs)
 local Other = ReplicatedStorage.Props.Other
 
 local MAZE_FLOOR_TAG = "MazeFloor"
+local HOLE_TAG = "Hole"
+local CREATOR_ATTRIBUTE = "CreatorUserId"
 local HOLE_LIFETIME = 30
 local MAX_HOLE_PAIRS = 5
 
@@ -17,7 +19,24 @@ local MAX_HOLE_PAIRS = 5
 --- the oldest is culled once the world holds too many.
 local HoleService = {}
 
-local Pairs: { { Model } } = {}
+type HolePair = {
+	Models: { Model },
+	Owner: Player?,
+}
+
+local Pairs: { HolePair } = {}
+
+local function destroyPair(pair: HolePair)
+	for _, hole in pair.Models do
+		hole:Destroy()
+	end
+end
+
+local function removePair(pair: HolePair)
+	local index = table.find(Pairs, pair)
+	if index then table.remove(Pairs, index) end
+	destroyPair(pair)
+end
 
 -- Every tagged maze-floor part. Kept as a function because streamed/authored map pieces may change.
 local function getMazeFloors(): { BasePart }
@@ -49,7 +68,7 @@ local function pickExit(): Vector3?
 end
 
 --- Cuts an entry/exit pair, returning whether it succeeded.
-function HoleService:CreateHolePair(entryPosition: Vector3): boolean
+function HoleService:CreateHolePair(entryPosition: Vector3, owner: Player?): boolean
 	local exitPosition = pickExit()
 	if not exitPosition then return false end
 
@@ -68,25 +87,50 @@ function HoleService:CreateHolePair(entryPosition: Vector3): boolean
 
 	entry:SetAttribute("ID", id)
 	exit:SetAttribute("ID", id)
+	entry:SetAttribute(CREATOR_ATTRIBUTE, if owner then owner.UserId else nil)
+	exit:SetAttribute(CREATOR_ATTRIBUTE, if owner then owner.UserId else nil)
 	entry:PivotTo(CFrame.new(entryPosition) * orientation)
 	exit:PivotTo(CFrame.new(exitPosition) * orientation)
 	entry.Parent = workspace
 	exit.Parent = workspace
 
-	Debris:AddItem(entry, HOLE_LIFETIME)
-	Debris:AddItem(exit, HOLE_LIFETIME)
+	local pair: HolePair = {
+		Models = { entry, exit },
+		Owner = owner,
+	}
+	table.insert(Pairs, pair)
+	task.delay(HOLE_LIFETIME, function()
+		removePair(pair)
+	end)
 
-	table.insert(Pairs, { entry, exit })
 	while #Pairs > MAX_HOLE_PAIRS do
 		local oldest = table.remove(Pairs, 1)
 		if oldest then
-			for _, hole in oldest do
-				hole:Destroy()
-			end
+			destroyPair(oldest)
 		end
 	end
 
 	return true
+end
+
+--- Removes every live hole pair dug by `player`. Public so round teardown and tests can use the
+--- same path as PlayerRemoving rather than duplicating ownership rules.
+function HoleService:RemoveForPlayer(player: Player)
+	for index = #Pairs, 1, -1 do
+		local pair = Pairs[index]
+		if pair.Owner == player or (pair.Owner and pair.Owner.UserId == player.UserId) then
+			table.remove(Pairs, index)
+			destroyPair(pair)
+		end
+	end
+
+	-- The attribute is the durable fallback if a pair was created before this service could retain
+	-- its owner record, or another system restored a tagged hole model into the world.
+	for _, hole in TagService:GetTaggedOfAncestor(workspace, HOLE_TAG) do
+		if hole:GetAttribute(CREATOR_ATTRIBUTE) == player.UserId then
+			hole:Destroy()
+		end
+	end
 end
 
 ReplicatedStorage.Communication.Hole.Create.OnServerInvoke = function(player: Player, entryPosition: any)
@@ -109,7 +153,11 @@ ReplicatedStorage.Communication.Hole.Create.OnServerInvoke = function(player: Pl
 	local ground = workspace:Raycast(root.Position, Vector3.new(0, -ToolConfigs.Shovel.DigDepth, 0), params)
 	if not ground then return false end
 
-	return HoleService:CreateHolePair(ground.Position + Vector3.new(0, 0.5, 0))
+	return HoleService:CreateHolePair(ground.Position + Vector3.new(0, 0.5, 0), player)
 end
+
+Players.PlayerRemoving:Connect(function(player: Player)
+	HoleService:RemoveForPlayer(player)
+end)
 
 return HoleService
