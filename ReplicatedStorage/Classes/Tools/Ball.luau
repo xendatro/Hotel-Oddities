@@ -87,20 +87,23 @@ function Ball:OnActivated()
 	self:WaitForTrack(self.ThrowTrack, 5)
 end
 
---- Flies a cloned ball to the enemy's head, then reports the hit for the server to validate.
+--- Flies a cloned ball to the enemy, then reports the hit for the server to validate. Rigged enemies
+--- aim at their head; prop enemies such as the Eye fall back to the model pivot.
 function Ball:_throw(origin: CFrame, enemy: Model)
 	local template = Other:FindFirstChild("Ball")
-	local head = enemy:FindFirstChild("Head")
-	if not template or not head then return end
+	local head = enemy:FindFirstChild("Head") :: BasePart?
+	if not template then return end
 
 	task.spawn(function()
 		local clone = template:Clone()
 		clone.Parent = workspace
 
-		local duration = (head.CFrame.Position - origin.Position).Magnitude / self.Config.FlightSpeed
+		local target = if head then head.CFrame else enemy:GetPivot()
+		local duration = (target.Position - origin.Position).Magnitude / self.Config.FlightSpeed
 		for step = 1, self.Config.FlightSteps do
 			if not enemy.Parent then break end
-			clone.CFrame = origin:Lerp(head.CFrame, step / self.Config.FlightSteps)
+			target = if head and head.Parent then head.CFrame else enemy:GetPivot()
+			clone.CFrame = origin:Lerp(target, step / self.Config.FlightSteps)
 			task.wait(duration / self.Config.FlightSteps)
 		end
 

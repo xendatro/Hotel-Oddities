@@ -25,6 +25,7 @@ local TagService = require(ReplicatedStorage.Services.TagService)
 local Vanished = require(ReplicatedStorage.Modules.Vanished)
 
 local EYE_TAG = "Eye"
+local STUNNED_ATTRIBUTE = "Stunned"
 local MINIMUM_DIRECTION = 1e-3
 local RENDER_BIND_NAME = "EyeRender"
 
@@ -78,7 +79,13 @@ RunService:BindToRenderStep(RENDER_BIND_NAME, Enum.RenderPriority.Camera.Value +
 		local rotation = model:GetPivot().Rotation
 		local distance = (cameraPosition - position).Magnitude
 
-		if tracking and distance > MINIMUM_DIRECTION and distance < EyeConfig.TrackRange then
+		if model:GetAttribute(STUNNED_ATTRIBUTE) then
+			-- Looking straight down needs an explicit forward-compatible up vector: the usual Y-up is
+			-- parallel to this direction and leaves roll undefined.
+			local goal = CFrame.lookAt(position, position - Vector3.yAxis, Vector3.zAxis).Rotation
+			rotation = Aim.Ease(rotation, goal, EyeConfig.StunTurnRate, deltaTime)
+			render.Aimed = true
+		elseif tracking and distance > MINIMUM_DIRECTION and distance < EyeConfig.TrackRange then
 			-- The mesh's pupil sits on the model's own LookVector, so aiming it is the whole of this.
 			local goal = Aim.Toward(position, cameraPosition)
 			rotation = if render.Aimed

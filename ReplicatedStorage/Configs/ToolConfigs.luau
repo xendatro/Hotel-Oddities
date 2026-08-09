@@ -15,6 +15,11 @@ export type ToolConfig = {
 }
 
 return {
+	Flashlight = {
+		Tag = "Flashlight",
+		Cooldown = 0.15,
+	},
+
 	Bandage = {
 		Tag = "Bandage",
 		Sound = "Bandage",
@@ -71,5 +76,26 @@ return {
 		HoleGrowTime = 2,
 		--- How far the reported dig site may be from the player before the server refuses it.
 		MaxDigDistance = 10,
+	},
+
+	Soda = {
+		Tag = "Soda",
+		--- A clear escape boost without quite matching the faster chase enemies.
+		WalkSpeed = 22,
+		Duration = 8,
+		FovBoost = 8,
+		UseDelay = 0.1,
+	},
+
+	["Energy Drink"] = {
+		Tag = "Energy Drink",
+		--- Shorter and much faster than Soda: the emergency overdrive option.
+		WalkSpeed = 28,
+		Duration = 6,
+		FovBoost = 14,
+		UseDelay = 0.35,
+		OpenSound = "OpenSound",
+		DrinkSound = "DrinkSound",
+		Visual = "Fire",
 	},
 }

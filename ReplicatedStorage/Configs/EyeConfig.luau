@@ -12,6 +12,9 @@ return {
 	--- of a doorway does not give you a second of a blank white sphere: about a tenth of a second to
 	--- cover most of a turn. A first sighting skips this entirely -- see `EyeRenderService`.
 	TurnRate = 12,
+	--- A hit makes the Eye break eye contact and pitch straight at the floor. Quicker than its normal
+	--- tracking turn so the paper ball reads as an immediate interruption rather than a new target.
+	StunTurnRate = 20,
 
 	--- The idle float, through `Modules.Bob`. Small and slow on purpose: enough that it never quite
 	--- reads as a prop somebody left in the corridor, not so much that it looks like it is coming for

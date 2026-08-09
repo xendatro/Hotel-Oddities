@@ -49,6 +49,7 @@ function InventorySlot.new(index: number, showNumber: boolean): InventorySlot
 
 	local frame = Instance.new("ImageButton")
 	frame.Name = `Slot{index}`
+	frame.Size = UDim2.fromOffset(InventoryConfig.SlotSize, InventoryConfig.SlotSize)
 	frame.BackgroundColor3 = COLORS.Slot
 	frame.BackgroundTransparency = TRANSPARENCY.Slot
 	frame.BorderSizePixel = 0

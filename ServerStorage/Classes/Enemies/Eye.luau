@@ -5,10 +5,8 @@
 --- the edges. Walking past it is free if you keep your eyes down the corridor; stopping to work out
 --- what it is costs you most of your health.
 ---
---- It has no Humanoid and no rig. There is nothing for a state machine to drive because there is
---- nothing to drive, so the machine here is one perpetual state that does the burning and one
---- evaluator counting down its `Lifetime` -- it leaves on a clock rather than on anything a player
---- does, since nothing a player does can affect it.
+--- It has no Humanoid and no rig. Its state machine switches between its normal stare and a brief
+--- paper-ball stun, while an evaluator counts down its `Lifetime` independently.
 ---
 --- Which way it is pointing is not decided here, and not decided once: every client turns it to stare
 --- back at its own camera and floats it gently where it stands, in
@@ -34,11 +32,20 @@ local Vanished = require(ReplicatedStorage.Modules.Vanished)
 local ENEMY_TAG = "Enemy"
 local EYE_TAG = "Eye" -- what each client's renderer watches for, to turn it towards that camera
 local OBSERVABLE_TAG = "Observable" -- makes a client's view report about this model legal
+local STUNNED_ATTRIBUTE = "Stunned" -- replicated presentation state; clients point the Eye down
 local DAMAGE_INTERVAL = 0.05 -- seconds between damage ticks; the report itself refreshes at 0.05
 
 local Eye = {}
 Eye.__index = Eye
 Eye.ClassName = "Eye"
+
+-- Eye is not an NPC (it has no rig), so it keeps its own small model lookup for tools that can
+-- affect it. At present that is only the paper ball; traps still resolve rigged NPCs only.
+local ByModel: { [Model]: any } = {}
+
+function Eye.FromModel(model: Instance?): any?
+	return model and ByModel[model] or nil
+end
 
 -- Damage per second earned by having it `angle` degrees off the middle of your screen. Full rate at
 -- dead center, falling to `EdgeDamage` by `FalloffAngle` and staying there however wide it gets --
@@ -96,6 +103,15 @@ local function stare(_changeState: StateMachine.ChangeState, eye: any)
 	end
 end
 
+-- A paper-ball hit blanks the stare for a short time. Lifetime remains an evaluator, so stunning an
+-- Eye never extends how long it stays in the hotel.
+local function stunned(_changeState: StateMachine.ChangeState, eye: any, duration: number)
+	eye.Model:SetAttribute(STUNNED_ATTRIBUTE, true)
+	task.wait(duration)
+	eye.Model:SetAttribute(STUNNED_ATTRIBUTE, nil)
+	return "Stare", eye
+end
+
 function Eye.new(model: Model, config)
 	local self = setmetatable({}, Eye)
 
@@ -104,7 +120,10 @@ function Eye.new(model: Model, config)
 	self.Active = false
 	self.StateMachine = StateMachine.new({
 		Stare = stare,
-	}, {}, {
+		Stunned = stunned,
+	}, {
+		Impact = { "Stare" },
+	}, {
 		Lifetime = function()
 			task.wait(self.Config.Lifetime)
 			self:Despawn()
@@ -131,12 +150,14 @@ function Eye:Start()
 	self.Model:AddTag(ENEMY_TAG)
 	self.Model:AddTag(EYE_TAG)
 	self.Model:AddTag(OBSERVABLE_TAG)
+	ByModel[self.Model] = self
 	self.StateMachine:Start()
 end
 
 function Eye:Despawn()
 	if not self.Active then return end
 	self.Active = false
+	ByModel[self.Model] = nil
 
 	self.Model:RemoveTag(ENEMY_TAG)
 	self.Model:RemoveTag(EYE_TAG)

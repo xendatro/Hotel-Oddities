@@ -16,6 +16,20 @@ local CONFIG = ToolConfigs.Trap
 local TrapObject = {}
 TrapObject.__index = TrapObject
 
+-- Touched parts are not guaranteed to sit directly under the enemy model. Resolve upward until the
+-- live NPC is found; this matters for nested parts in models such as the Ceiling Dweller. Eye has
+-- no NPC entry, which deliberately keeps it immune to traps.
+local function findNpcModel(instance: Instance?): Model?
+	local current = instance
+	while current and current ~= workspace do
+		if current:IsA("Model") and NPC.FromModel(current) then
+			return current
+		end
+		current = current.Parent
+	end
+	return nil
+end
+
 local function setUpConnections(self)
 	self.Connections = {}
 
@@ -49,10 +63,11 @@ end
 --- over their own traps safely.
 function TrapObject:Spring(model: Instance?)
 	if self.Trap:GetAttribute("Closed") then return end
-	if not NPC.FromModel(model) then return end
+	local npcModel = findNpcModel(model)
+	if not npcModel then return end
 
 	self.Trap:SetAttribute("Closed", true)
-	StunService:Stun(model, CONFIG.StunDuration)
+	StunService:Stun(npcModel, CONFIG.StunDuration)
 
 	if self.Track then
 		self.Track:Play()

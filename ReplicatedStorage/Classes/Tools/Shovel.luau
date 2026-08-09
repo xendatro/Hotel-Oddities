@@ -2,9 +2,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local ClientTool = require(ReplicatedStorage.Classes.ClientTool)
+local TagService = require(ReplicatedStorage.Services.TagService)
 
 local Create = ReplicatedStorage.Communication.Hole.Create
 local Other = ReplicatedStorage.Props.Other
+local MAZE_FLOOR_TAG = "MazeFloor"
 
 --- @class Shovel
 --- Digs an escape hole. The player is rooted for the dig while a widening placeholder opens under
@@ -71,11 +73,15 @@ function Shovel:OnActivated()
 	end
 
 	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { character }
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = TagService:GetTaggedOfAncestor(workspace, MAZE_FLOOR_TAG)
+	if #params.FilterDescendantsInstances == 0 then
+		warn(`Shovel: no parts tagged "{MAZE_FLOOR_TAG}" -- there is nowhere to dig`)
+		return
+	end
 
 	local ground = workspace:Raycast(character:GetPivot().Position, Vector3.new(0, -self.Config.DigDepth, 0), params)
-	if not ground then return end -- midair: nothing to dig into
+	if not ground then return end -- only MazeFloor can be dug
 
 	local entry = ground.Position + Vector3.new(0, 0.5, 0)
 	self:PlaySound(self.Config.Sound, character.PrimaryPart)
