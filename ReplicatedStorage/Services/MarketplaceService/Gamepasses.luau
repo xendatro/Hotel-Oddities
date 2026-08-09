@@ -1,3 +1,3 @@
 return {
-	
+	Pathfinder = 0,
 }

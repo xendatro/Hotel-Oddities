@@ -149,6 +149,12 @@ function MarketplaceService:PromptGamePassPurchase(player: Player, gamePassId: n
 end
 
 function MarketplaceService:UserOwnsGamePass(player: Player|number, gamePassId: number): boolean
+	-- A pass with no id yet is a placeholder in the config, not a pass anyone can own. Answering
+	-- anything but false here would hand every player whatever it gates.
+	if typeof(gamePassId) ~= "number" or gamePassId <= 0 then
+		return false
+	end
+
 	if typeof(player) == "number" then
 		if Players:GetPlayerByUserId(player) then
 			player = Players:GetPlayerByUserId(player)
@@ -357,6 +363,8 @@ local function initPlayerCache(player)
 	if not CACHE[player] then CACHE[player] = {} end
 	if MarketplaceIds.Passes then
 		for _, passId in pairs(MarketplaceIds.Passes) do
+			-- A pass that has no id yet is a placeholder, not something to ask Roblox about ten times.
+			if typeof(passId) ~= "number" or passId <= 0 then continue end
 			task.spawn(function()
 				MarketplaceService:UserOwnsGamePass(player, passId)
 			end)

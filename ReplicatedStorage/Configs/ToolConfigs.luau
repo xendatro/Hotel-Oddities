@@ -78,6 +78,35 @@ return {
 		MaxDigDistance = 10,
 	},
 
+	Pathfinder = {
+		Tag = "Pathfinder",
+		Cooldown = 0.35,
+		--- Markers standing at once, and the size of a plain stack -- one number, because the two
+		--- versions of the tool run out against it differently. The plain one spends a use per
+		--- placement and empties before the cap is ever reached; the gamepass one spends nothing, so
+		--- its 21st placement recycles the oldest marker instead.
+		MaxInWorld = 20,
+		--- Charges on one Pathfinder, and the denominator the on-screen counter reads against. These
+		--- are NOT stack quantity: one Pathfinder is one device carrying this many markers, so it is
+		--- granted like any other single item and only leaves the inventory once it is empty.
+		Uses = 20,
+		--- Shown beside the count while the tool is equipped.
+		Caption = "MARKERS",
+		--- Refuses to place within this many studs of an existing marker; the nearby one flares
+		--- instead. Stops a double tap from burning two on the same square of carpet.
+		MinSpacing = 8,
+		--- How far below the player to look for a floor before refusing to place in midair.
+		SnapDistance = 12,
+		--- Newest marker is drawn in NewColor and the trail fades back toward OldColor behind it.
+		NewColor = Color3.fromRGB(120, 235, 255),
+		OldColor = Color3.fromRGB(64, 104, 142),
+		PadSize = 2.4,
+		--- How far off the numbered dot stays drawn, in studs.
+		LabelDistance = 140,
+		PlaceTime = 0.18,
+		RemoveTime = 0.15,
+	},
+
 	Soda = {
 		Tag = "Soda",
 		--- A clear escape boost without quite matching the faster chase enemies.
