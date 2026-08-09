@@ -98,11 +98,10 @@ return {
 		--- How far below the player to look for a floor before refusing to place in midair.
 		SnapDistance = 12,
 		--- Newest marker is drawn in NewColor and the trail fades back toward OldColor behind it.
+		--- Everything else about how one looks belongs to the `PathfinderMarker` prop in
+		--- ReplicatedStorage.Props.Other, including its size and how far off its dot stays drawn.
 		NewColor = Color3.fromRGB(120, 235, 255),
 		OldColor = Color3.fromRGB(64, 104, 142),
-		PadSize = 2.4,
-		--- How far off the numbered dot stays drawn, in studs.
-		LabelDistance = 140,
 		PlaceTime = 0.18,
 		RemoveTime = 0.15,
 	},

@@ -1,118 +1,55 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
+local Other = ReplicatedStorage.Props.Other
+
 --- @class PathfinderMarker
---- One trail marker: a glowing floor pad with an arrow pointing the way its owner was facing, and a
---- numbered dot floating over it.
+--- One trail marker: the `PathfinderMarker` prop, planted facing the way its owner was going, with
+--- its numbered dot set to the placement it is.
 ---
---- Built entirely from parts in code, and created only on the client that placed it -- nothing here
---- replicates, so a marker is a note the player leaves for themselves and nobody else's world
---- contains it. The dot is deliberately NOT drawn on top of geometry: a marker down the corridor is
---- something you have to be able to see to use.
+--- Cloned only on the client that placed it and never replicated, so a marker is a note the player
+--- leaves for themselves and nobody else's world contains it. The dot is deliberately not drawn on
+--- top of geometry: a marker down the corridor is something you have to be able to see to use.
+---
+--- Everything about how one looks lives on the prop. This class owns only what changes per marker:
+--- which number it carries, how far down the trail it is, and its way in and out.
 local PathfinderMarker = {}
 PathfinderMarker.__index = PathfinderMarker
-
-local ARROW_LIFT = 0.06
-
--- name, size, offset, yaw. Forward is -Z, so the two blades meet in a point ahead of the stem.
-local ARROW = {
-	{ "BladeLeft", Vector3.new(1.25, 0.06, 0.3), Vector3.new(-0.44, ARROW_LIFT, -0.36), math.rad(45) },
-	{ "BladeRight", Vector3.new(1.25, 0.06, 0.3), Vector3.new(0.44, ARROW_LIFT, -0.36), math.rad(-45) },
-	{ "Stem", Vector3.new(0.3, 0.06, 1.1), Vector3.new(0, ARROW_LIFT, 0.35), 0 },
-}
-
-local function newPart(name: string, size: Vector3, cframe: CFrame, parent: Instance): Part
-	local part = Instance.new("Part")
-	part.Name = name
-	part.Size = size
-	part.CFrame = cframe
-	part.Anchored = true
-	part.CanCollide = false
-	part.CanTouch = false
-	part.CanQuery = false -- so no aim, dig or enemy raycast ever hits a marker
-	part.CastShadow = false
-	part.Locked = true
-	part.Material = Enum.Material.Neon
-	part.Parent = parent
-	return part
-end
-
-local function buildLabel(adornee: BasePart, index: number, config): (BillboardGui, TextLabel)
-	local billboard = Instance.new("BillboardGui")
-	billboard.Name = "Label"
-	billboard.Adornee = adornee
-	-- Sized in studs rather than pixels so the dot recedes with the marker it belongs to. At a fixed
-	-- pixel size the far end of a trail piles into an unreadable stack of overlapping numbers.
-	billboard.Size = UDim2.fromScale(1, 1)
-	-- Screen space, not world space: the pad it hangs off is a cylinder lying on its side, and a
-	-- world-space offset is rotated by the adornee, which throws the dot out sideways.
-	billboard.StudsOffset = Vector3.new(0, 1.5, 0)
-	billboard.MaxDistance = config.LabelDistance
-	billboard.LightInfluence = 0
-	billboard.Parent = adornee
-
-	local dot = Instance.new("Frame")
-	dot.Name = "Dot"
-	dot.Size = UDim2.fromScale(1, 1)
-	dot.BackgroundTransparency = 0.25
-	dot.BorderSizePixel = 0
-	dot.Parent = billboard
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0.5, 0)
-	corner.Parent = dot
-
-	local number = Instance.new("TextLabel")
-	number.Name = "Number"
-	number.Size = UDim2.fromScale(1, 1)
-	number.BackgroundTransparency = 1
-	number.Font = Enum.Font.GothamBold
-	number.Text = tostring(index)
-	number.TextScaled = true
-	number.TextColor3 = Color3.fromRGB(12, 14, 18)
-	number.Parent = dot
-
-	local padding = Instance.new("UIPadding")
-	padding.PaddingTop = UDim.new(0.2, 0)
-	padding.PaddingBottom = UDim.new(0.2, 0)
-	padding.Parent = number
-
-	return billboard, dot
-end
 
 --- @param cframe CFrame -- on the floor, facing the way the arrow should point
 --- @param index number -- the placement's running number, shown on the dot
 function PathfinderMarker.new(cframe: CFrame, index: number, config, parent: Instance)
+	local template = Other:FindFirstChild("PathfinderMarker")
+	if not template then
+		warn("PathfinderMarker: no PathfinderMarker model in ReplicatedStorage.Props.Other")
+		return nil
+	end
+
 	local self = setmetatable({}, PathfinderMarker)
 
 	self.Config = config
 	self.Position = cframe.Position
 	self.Index = index
 
-	local model = Instance.new("Model")
+	local model = template:Clone()
 	model.Name = `Marker{index}`
+	model:PivotTo(cframe)
 
-	-- A cylinder's flat faces point along its X axis, so it lies down a quarter turn from upright.
-	local pad = newPart(
-		"Pad",
-		Vector3.new(0.08, config.PadSize, config.PadSize),
-		cframe * CFrame.Angles(0, 0, math.pi / 2),
-		model
-	)
-	pad.Shape = Enum.PartType.Cylinder
-	pad.Transparency = 0.7
-
+	local pad = model:FindFirstChild("Pad") :: BasePart
 	self.Pad = pad
+	self.PadTransparency = pad.Transparency -- the prop's own resting look, restored after a pulse
+	self.Dot = pad.Label.Dot
+	self.Dot.Number.Text = tostring(index)
+
+	-- Everything solid that is not the pad is arrow, so extra parts added to the prop later shade
+	-- and fade along with the rest of it.
 	self.Blades = {}
-	for _, entry in ARROW do
-		local name, size, offset, yaw = entry[1], entry[2], entry[3], entry[4]
-		local blade = newPart(name, size, cframe * CFrame.new(offset) * CFrame.Angles(0, yaw, 0), model)
-		table.insert(self.Blades, blade)
+	for _, part in model:GetChildren() do
+		if part:IsA("BasePart") and part ~= pad then
+			table.insert(self.Blades, part)
+		end
 	end
 
-	local _, dot = buildLabel(pad, index, config)
-	self.Dot = dot
-
-	model.PrimaryPart = pad
 	model.Parent = parent
 	self.Model = model
 
@@ -168,11 +105,11 @@ function PathfinderMarker:Pulse()
 		self.PulseTween:Cancel()
 	end
 
-	self.Pad.Transparency = 0.7
+	self.Pad.Transparency = self.PadTransparency
 	self.PulseTween = TweenService:Create(
 		self.Pad,
 		TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 1, true),
-		{ Transparency = 0.15 }
+		{ Transparency = math.max(self.PadTransparency - 0.55, 0) }
 	)
 	self.PulseTween:Play()
 end

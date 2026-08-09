@@ -146,6 +146,28 @@ function Pathfinder:OnActivated()
 
 	local position = ground.Position + Vector3.new(0, 0.05, 0)
 
+	-- Planted before anything is spent, so a marker that cannot be built -- a missing prop -- costs
+	-- the player nothing.
+	local marker = PathfinderMarker.new(
+		CFrame.lookAt(position, position + look),
+		Placed + 1,
+		self.Config,
+		markerFolder()
+	)
+	if not marker then return end
+
+	Placed += 1
+	table.insert(Markers, marker)
+
+	while #Markers > self.Config.MaxInWorld do
+		local oldest = table.remove(Markers, 1)
+		if oldest then
+			oldest:Destroy()
+		end
+	end
+
+	reshade()
+
 	-- Reported even when this player believes they own the pass: the server re-checks and is the one
 	-- that decides whether a charge is actually spent.
 	self:Fire("Placed")
@@ -156,23 +178,6 @@ function Pathfinder:OnActivated()
 		self.Predicted = self:GetUses() - 1
 		self:_updateCounter()
 	end
-
-	Placed += 1
-	table.insert(Markers, PathfinderMarker.new(
-		CFrame.lookAt(position, position + look),
-		Placed,
-		self.Config,
-		markerFolder()
-	))
-
-	while #Markers > self.Config.MaxInWorld do
-		local oldest = table.remove(Markers, 1)
-		if oldest then
-			oldest:Destroy()
-		end
-	end
-
-	reshade()
 end
 
 return Pathfinder
