@@ -1,5 +1,6 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local InventoryService = require(ServerStorage.Services.InventoryService)
@@ -53,7 +54,7 @@ local function parseAmount(argument: string): (string, number)
 end
 
 function ToolCommandService:Execute(sender: Player, argument: string?): boolean
-	if not ALLOWED_USER_IDS[sender.UserId] then
+	if not RunService:IsStudio() and not ALLOWED_USER_IDS[sender.UserId] then
 		warn(`[give] {sender.Name} ({sender.UserId}) is not allowed to use /give`)
 		return false
 	end

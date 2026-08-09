@@ -141,4 +141,8 @@ return {
 		LightingInTime = 0.3,
 		LightingOutTime = 0.45,
 	},
+
+	["Player Locator"] = {
+		Tag = "Player Locator",
+	},
 }

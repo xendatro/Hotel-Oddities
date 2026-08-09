@@ -20,6 +20,12 @@ local player = Players.LocalPlayer
 -- [Tool instance] = the class instance driving it.
 local Instances: { [Tool]: any } = {}
 
+local function belongsToPlayer(tool: Tool): boolean
+	if tool:IsDescendantOf(player) then return true end
+	local character = tool:FindFirstAncestorOfClass("Model")
+	return character ~= nil and Players:GetPlayerFromCharacter(character) == player
+end
+
 --- The live client half driving `tool`, if it has one.
 function ToolClientService:FromTool(tool: Instance?): any?
 	return tool and Instances[tool] or nil
@@ -32,14 +38,14 @@ for toolName, config in ToolConfigs do
 
 		TagService:Listen(config.Tag, function(tool: Tool)
 			-- Other players' tools replicate into their characters too; only drive our own.
-			if not tool:IsDescendantOf(player) then return nil end
+			if not belongsToPlayer(tool) then return nil end
 
 			local instance = class.new(tool)
 			Instances[tool] = instance
 
 			-- Moving between Backpack and Character can rebuild a tagged tool after Equipped fired.
 			-- Recover its current state without racing the normal event path.
-			task.delay(0.05, function()
+			local function recoverEquipped()
 				if Instances[tool] ~= instance or instance.Character then return end
 				local character = tool.Parent
 				local humanoid = character and character:IsA("Model")
@@ -50,7 +56,10 @@ for toolName, config in ToolConfigs do
 				instance.Humanoid = humanoid
 				instance.Mouse = player:GetMouse()
 				instance:OnEquipped()
-			end)
+			end
+
+			recoverEquipped()
+			task.delay(0.05, recoverEquipped)
 			return instance
 		end, function(tool: Instance, instance: any)
 			Instances[tool] = nil
