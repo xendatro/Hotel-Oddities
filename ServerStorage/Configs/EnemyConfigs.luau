@@ -113,6 +113,8 @@ export type EnemyConfig = {
 	LoopPenalty: number?, -- how strongly it is avoided at its freshest, against a straightness score of 1
 	ForgetChance: number?, -- odds they simply never round the corner, rolled once per break in sight
 	ForgetDelay: number?, -- seconds out of everybody's sight before that roll happens
+	LightFlickerRange: number?, -- studs around them in which tagged light models flicker
+	LightFlickerDuration: number?, -- seconds each flicker effect lasts
 
 	-- Stalker-specific
 	FleeSpeed: number?, -- studs/s it retreats at once somebody has looked at it
@@ -608,6 +610,9 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		-- times they do come round the corner and that is what makes the fifth land.
 		ForgetChance = 0.2,
 		ForgetDelay = 5,
+
+		LightFlickerRange = 15,
+		LightFlickerDuration = 0.15,
 	},
 }
 

@@ -40,6 +40,7 @@ local DeathService = require(ServerStorage.Services.DeathService)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local EnemyService = require(ServerStorage.Services.EnemyService)
 local HallwayGraphService = require(ServerStorage.Services.HallwayGraphService)
+local LightService = require(ServerStorage.Services.LightService)
 local RoomService = require(ServerStorage.Services.RoomService)
 local Vanished = require(ReplicatedStorage.Modules.Vanished)
 
@@ -286,6 +287,7 @@ end
 -- Kills every exposed player either sister walked over since the last frame. A player in a room is
 -- safe however close they came: the whole answer to the Sisters is to be off the corridor.
 function Sisters:_sweep()
+	local center = self:GetCenter()
 	for index, model in self.Models do
 		local position = (model.HumanoidRootPart :: BasePart).Position
 		local origin = self.LastPositions[index]
@@ -307,6 +309,8 @@ function Sisters:_sweep()
 			end
 		end
 	end
+
+	LightService:FlickerNear(center, self.Config.LightFlickerRange, self.Config.LightFlickerDuration)
 end
 
 -- One frame of walking. False once there is nowhere left to walk to.

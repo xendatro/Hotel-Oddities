@@ -31,6 +31,13 @@ type RedState = {
 	Lights: { [Light]: RedLightState },
 }
 
+type FlickerState = {
+	ExpiresAt: number,
+	Lights: { [Light]: LightState },
+	Parts: { BasePart },
+	Particles: { [ParticleEmitter]: ParticleState },
+}
+
 type ParticleState = {
 	Enabled: boolean,
 }
@@ -50,6 +57,7 @@ export type LightClaim = {
 local LightService = {}
 local DisabledModels: { [Model]: DisabledState } = {}
 local RedModels: { [Model]: RedState } = {}
+local FlickerModels: { [Model]: FlickerState } = {}
 local RED_COLOR = Color3.fromRGB(255, 0, 0)
 
 local function disable(model: Model)
@@ -188,6 +196,97 @@ function LightService:WarnRed(model: Model, duration: number)
 		end
 		RedModels[model] = nil
 	end)
+end
+
+--- Flickers every light in models near `position` within `radius` for `duration`. Lights turn on and off
+--- randomly, creating an unsettling effect.
+function LightService:FlickerNear(position: Vector3, radius: number, duration: number)
+	if duration <= 0 then return end
+
+	local models = {}
+	for _, instance in TagService:GetTaggedOfPredicate(FLOOR_1_LIGHT_TAG, function(tagged: Instance)
+		return tagged:IsA("Model")
+	end) do
+		local model = instance :: Model
+		if (model:GetPivot().Position - position).Magnitude <= radius then
+			table.insert(models, model)
+		end
+	end
+
+	for _, model in models do
+		local existing = FlickerModels[model]
+		if existing then
+			existing.ExpiresAt = math.max(existing.ExpiresAt, os.clock() + duration)
+			continue
+		end
+
+		local state: FlickerState = {
+			ExpiresAt = os.clock() + duration,
+			Lights = {},
+			Parts = {},
+			Particles = {},
+		}
+		FlickerModels[model] = state
+
+		for _, descendant in model:GetDescendants() do
+			if descendant:IsA("Light") then
+				state.Lights[descendant] = {
+					Enabled = descendant.Enabled,
+				}
+			elseif descendant:IsA("BasePart")
+				and (descendant.Material == Enum.Material.Neon or descendant:HasTag(NEON_OFF_TAG))
+			then
+				table.insert(state.Parts, descendant)
+			elseif descendant:IsA("ParticleEmitter") then
+				state.Particles[descendant] = {
+					Enabled = descendant.Enabled,
+				}
+			end
+		end
+
+		task.spawn(function()
+			while true do
+				local remaining = state.ExpiresAt - os.clock()
+				if remaining <= 0 then break end
+
+				if math.random() < 0.5 then
+					for light in state.Lights do
+						light.Enabled = false
+					end
+					for _, part in state.Parts do
+						part.Material = Enum.Material.SmoothPlastic
+					end
+					for emitter in state.Particles do
+						emitter.Enabled = false
+					end
+				else
+					for light, lightState in state.Lights do
+						light.Enabled = lightState.Enabled
+					end
+					for _, part in state.Parts do
+						part.Material = Enum.Material.Neon
+					end
+					for emitter, particleState in state.Particles do
+						emitter.Enabled = particleState.Enabled
+					end
+				end
+
+				task.wait(0.1 + math.random() * 0.1)
+			end
+
+			if FlickerModels[model] ~= state then return end
+			for light, lightState in state.Lights do
+				light.Enabled = lightState.Enabled
+			end
+			for _, part in state.Parts do
+				part.Material = Enum.Material.Neon
+			end
+			for emitter, particleState in state.Particles do
+				emitter.Enabled = particleState.Enabled
+			end
+			FlickerModels[model] = nil
+		end)
+	end
 end
 
 return LightService
