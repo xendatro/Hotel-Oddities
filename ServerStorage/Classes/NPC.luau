@@ -100,7 +100,7 @@ function NPC.new(model: Model, config: EnemyConfigs.EnemyConfig, class: any?)
 	self.Config = config
 	self.Humanoid = model.Humanoid :: Humanoid
 	self.RootPart = model.HumanoidRootPart :: BasePart
-	self.Animator = NpcAnimator.new(model)
+	self.Animator = NpcAnimator.new(model, config.Animations)
 	self.HomePosition = model:GetPivot().Position
 	self.Target = nil :: Player?
 	self.AcquireAfter = nil :: number? -- set by the director; see `CanAcquire`
@@ -528,6 +528,10 @@ function NPC:Attack(player: Player)
 	-- perception refusing to *acquire* a vanished player says nothing about one who vanished while
 	-- something was already swinging at them. This is where the promise actually holds.
 	if Vanished.Is(root.Parent) then return end
+
+	-- Ahead of the damage rather than after it, so the swing is on screen for the frame that kills:
+	-- everything that gets here is lethal by default, and a clip started afterwards plays to a corpse.
+	self.Animator:PlayAttack()
 
 	local humanoid = (root.Parent :: Model):FindFirstChildOfClass("Humanoid") :: Humanoid
 	DeathService:RecordCause(player, self.EnemyId)

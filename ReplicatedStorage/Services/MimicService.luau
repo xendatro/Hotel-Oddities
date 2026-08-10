@@ -15,6 +15,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local AnimationConfig = require(ReplicatedStorage.Configs.AnimationConfig)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local MimicConfig = require(ReplicatedStorage.Configs.MimicConfig)
 local MimicMotion = require(ReplicatedStorage.Modules.MimicMotion)
@@ -148,7 +149,9 @@ Mirror.OnClientEvent:Connect(function(model: Model?)
 	release()
 	local humanoid = model:WaitForChild("Humanoid") :: Humanoid
 	local rootPart = model:WaitForChild("HumanoidRootPart") :: BasePart
-	local animator = NpcAnimator.new(model)
+	-- The set is read here rather than sent with the handoff: `EnemyConfigs` is server-only, but what a
+	-- Mimic animates with is authored shared, so this side can look its own up by name.
+	local animator = NpcAnimator.new(model, AnimationConfig.Sets.Mimic)
 	animator:Start()
 
 	job = {

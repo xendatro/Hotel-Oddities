@@ -440,7 +440,7 @@ function Sisters:Start()
 
 		local humanoid = model.Humanoid :: Humanoid
 		humanoid.WalkSpeed = self.Config.WalkSpeed
-		local animator = NpcAnimator.new(model)
+		local animator = NpcAnimator.new(model, self.Config.Animations)
 		animator:Start()
 		table.insert(self.Animators, animator)
 

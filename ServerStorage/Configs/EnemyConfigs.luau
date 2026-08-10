@@ -2,8 +2,15 @@
 --- `Model` names the template under `ReplicatedStorage.Enemies`.
 --- Everything past `WalkSpeed` is optional because an ambient enemy has none of it: the Ghost moves
 --- itself, hunts nobody and hurts nobody, so it carries only `Model`, `WalkSpeed` and its own block.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local AnimationConfig = require(ReplicatedStorage.Configs.AnimationConfig)
+local CreepConfig = require(ReplicatedStorage.Configs.CreepConfig)
+
 export type EnemyConfig = {
 	Model: string,
+	Animations: AnimationConfig.AnimationSet?, -- clips replacing the rig's own; see `AnimationConfig`
 
 	-- Locomotion
 	WalkSpeed: number,
@@ -141,15 +148,12 @@ export type EnemyConfig = {
 	CommandSpawnBehind: boolean?, -- put it behind the caller instead of in front, facing their back
 }
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-local CreepConfig = require(ReplicatedStorage.Configs.CreepConfig)
-
 local ROOM_COST = { Room = math.huge } -- makes tagged safe rooms impassable to pathfinding
 
 local EnemyConfigs: { [string]: EnemyConfig } = {
 	Chaser = {
 		Model = "Chaser",
+		Animations = AnimationConfig.Sets.Chaser,
 
 		WalkSpeed = 10,
 		ChaseSpeed = 19,
@@ -163,10 +167,13 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 			Costs = ROOM_COST,
 		},
 
-		-- A beat between one job and the next, not a rest. Idle used to be several seconds of standing
-		-- still and it read as a prop waiting to be triggered; the walking is `Patrol` now.
-		IdleTimeMin = 1,
-		IdleTimeMax = 2.5,
+		-- No beat at all between one job and the next. Idle was several seconds of standing still, then
+		-- a moment of it, and it turns out there is no length at which a Chaser standing in a corridor
+		-- doing nothing does not read as a prop waiting to be triggered -- so it passes straight through
+		-- and back onto its patrol. The state still exists, because everything that finishes has to
+		-- return somewhere and perception has to have something to interrupt; it simply never lasts.
+		IdleTimeMin = 0,
+		IdleTimeMax = 0,
 		IdleNextState = "Patrol",
 		WanderRadius = 70, -- only reached where a map has no tagged corridors to patrol
 
@@ -195,6 +202,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 	Blind = {
 		Model = "Blind",
+		Animations = AnimationConfig.Sets.Blind,
 
 		WalkSpeed = 8,
 		ChaseSpeed = 13,
@@ -280,6 +288,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 	Mimic = {
 		Model = "Mimic",
+		Animations = AnimationConfig.Sets.Mimic,
 
 		WalkSpeed = 16, -- exactly a player's walk speed; anything else reads as fake at a glance
 		ChaseSpeed = 23, -- once the act is over it stops pretending it has to obey player limits
@@ -339,6 +348,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 	Stalker = {
 		Model = "Stalker",
+		Animations = AnimationConfig.Sets.Stalker,
 
 		WalkSpeed = 16, -- exactly a player's, so walking away from it is not a plan
 		ChaseSpeed = 24, -- the charge. It has been holding this back the whole time.
@@ -406,6 +416,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 	-- at all -- what it does is drift over the hotel's floors and never stop.
 	Ghost = {
 		Model = "Ghost",
+		Animations = AnimationConfig.Sets.Ghost,
 
 		WalkSpeed = 0, -- its root is anchored; nothing about it moves through the humanoid
 		DriftSpeed = 7, -- slower than a walk, so it always looks like it is being carried
@@ -427,6 +438,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 	-- it is placed, one corner at a time, by `PeekSpotService`.
 	Watcher = {
 		Model = "Watcher",
+		Animations = AnimationConfig.Sets.Watcher,
 
 		WalkSpeed = 0, -- its root is anchored and moved by hand; nothing goes through the humanoid
 
@@ -621,6 +633,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 -- variants on exactly the same pathfinding and safe-room rules.
 local ceilingDwellerConfig = table.clone(EnemyConfigs.Chaser)
 ceilingDwellerConfig.Model = "Ceiling Dweller"
+ceilingDwellerConfig.Animations = AnimationConfig.Sets.CeilingDweller
 
 -- It shares the Chaser's behaviour and none of its economics. Dropping out of an authored vent means
 -- it commits from about ten studs rather than sixty, so where a Chaser gives you twenty seconds of

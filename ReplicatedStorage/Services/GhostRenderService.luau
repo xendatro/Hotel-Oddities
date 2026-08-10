@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
+local AnimationConfig = require(ReplicatedStorage.Configs.AnimationConfig)
 local Bob = require(ReplicatedStorage.Modules.Bob)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local GhostMotion = require(ReplicatedStorage.Modules.GhostMotion)
@@ -139,6 +140,18 @@ local function createVisual(model: Model): Model?
 	if humanoid then
 		humanoid.EvaluateStateMachine = false
 		humanoid.AutoRotate = false
+
+		-- Animated here rather than left to the server's animator, which is driving the rig this stands
+		-- in front of -- and that rig is invisible from the moment this one exists. Nothing on this
+		-- machine's copy moves on its own: the humanoid is anchored, never walks and has had its state
+		-- machine turned off, so the clip is simply played and left running for as long as the ghost is.
+		local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
+		local animation = Instance.new("Animation")
+		animation.AnimationId = `rbxassetid://{AnimationConfig.Sets.Ghost.Idle}`
+		local track = animator:LoadAnimation(animation)
+		track.Priority = Enum.AnimationPriority.Core
+		track.Looped = true
+		track:Play()
 	end
 
 	local animate = visual:FindFirstChild("Animate")
