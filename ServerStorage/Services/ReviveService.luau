@@ -1,5 +1,13 @@
---- Offers and grants the revive developer product. A death is kept in memory until its matching
---- purchase arrives: where it happened and the item stacks the player held at that moment.
+--- What a revive IS, and the self-serve product that sells one. A death is kept in memory until
+--- something spends it: where it happened and what the player was carrying at that moment.
+---
+--- Two products can spend the same death -- the player's own `Revive` and a friend's `ReviveFriend`,
+--- which lives in `FriendReviveService` and calls `:Grant` here. Granting is public for exactly that
+--- reason; the receipt below only covers the player buying their own way back.
+---
+--- Note a revive is not resurrection. Respawning is automatic and fast, so by the time a prompt has
+--- been answered the player is usually already alive somewhere else -- what is actually being sold
+--- is the trip back to where they fell, with their inventory and a few seconds of immunity.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -7,47 +15,28 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local DeathConfig = require(ReplicatedStorage.Configs.DeathConfig)
 local MarketplaceService = require(ReplicatedStorage.Services.MarketplaceService)
-local InventoryService = require(ServerStorage.Services.InventoryService)
+local LoadoutService = require(ServerStorage.Services.LoadoutService)
 
 local REVIVE_PRODUCT_ID = MarketplaceService.Products.Revive
 local FORCE_FIELD_DURATION = DeathConfig.Revive.ForceFieldDuration
 local CHARACTER_LOAD_TIMEOUT = 10
 
-type ItemSnapshot = { [string]: number }
 type DeathSnapshot = {
 	Location: CFrame,
-	Items: ItemSnapshot,
+	Items: LoadoutService.Snapshot,
 }
 
 local ReviveService = {}
 local PendingDeaths: { [Player]: DeathSnapshot } = {}
 
-local function captureItems(player: Player): ItemSnapshot
-	local items = {}
-	for name, tool in InventoryService:GetAll(player) do
-		items[name] = tool:GetAttribute("quantity") or 1
-	end
-	return items
-end
-
-local function getLivingCharacter(player: Player): Model?
-	local character = player.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	local root = character and character:FindFirstChild("HumanoidRootPart")
-	if humanoid and humanoid.Health > 0 and root and root:IsA("BasePart") then
-		return character
-	end
-	return nil
-end
-
 local function loadLivingCharacter(player: Player): Model
-	local character = getLivingCharacter(player)
+	local character = LoadoutService:GetLivingCharacter(player)
 	if character then return character end
 
 	player:LoadCharacter()
 	local deadline = os.clock() + CHARACTER_LOAD_TIMEOUT
 	repeat
-		character = getLivingCharacter(player)
+		character = LoadoutService:GetLivingCharacter(player)
 		if character then return character end
 		task.wait()
 	until os.clock() >= deadline or player.Parent ~= Players
@@ -55,26 +44,32 @@ local function loadLivingCharacter(player: Player): Model
 	error(`ReviveService: failed to load a character for {player.Name}`)
 end
 
--- Restore at least the quantity held at death. This does not delete items earned after an automatic
--- respawn while the purchase prompt was still open.
-local function restoreItems(player: Player, snapshot: ItemSnapshot)
-	local backpack = player:FindFirstChildOfClass("Backpack")
-		or player:WaitForChild("Backpack", CHARACTER_LOAD_TIMEOUT)
-	if not backpack or not backpack:IsA("Backpack") then
-		error(`ReviveService: failed to load a backpack for {player.Name}`)
-	end
+--- Saves everything needed to fulfill a revive, then opens the product prompt on that player.
+function ReviveService:Offer(player: Player, character: Model)
+	local root = character:FindFirstChild("HumanoidRootPart")
+	local location = if root and root:IsA("BasePart") then root.CFrame else character:GetPivot()
 
-	for name, quantityAtDeath in snapshot do
-		local current = InventoryService:Get(player, name)
-		local currentQuantity = if current then current:GetAttribute("quantity") or 1 else 0
-		local missing = quantityAtDeath - currentQuantity
-		if missing > 0 then
-			InventoryService:Add(player, name, missing)
-		end
-	end
+	PendingDeaths[player] = {
+		Location = location,
+		Items = LoadoutService:Capture(player),
+	}
+
+	MarketplaceService:PromptProductPurchase(player, REVIVE_PRODUCT_ID)
 end
 
-local function grantRevive(player: Player, snapshot: DeathSnapshot?)
+--- Whether `player` has a death nobody has spent yet. What a friend's card is really offering to
+--- buy, and false once anything has already paid for it.
+function ReviveService:HasPendingDeath(player: Player): boolean
+	return PendingDeaths[player] ~= nil
+end
+
+--- Puts `player` back on their feet and spends their pending death: full health, a force field, and
+--- back where they fell with what they were carrying. Safe to call on a player who is already alive
+--- somewhere else, which after a three second respawn is the normal case.
+function ReviveService:Grant(player: Player)
+	local snapshot = PendingDeaths[player]
+	PendingDeaths[player] = nil
+
 	local character = loadLivingCharacter(player)
 
 	local forceField = Instance.new("ForceField")
@@ -87,7 +82,9 @@ local function grantRevive(player: Player, snapshot: DeathSnapshot?)
 
 	if snapshot then
 		character:PivotTo(snapshot.Location)
-		restoreItems(player, snapshot.Items)
+		if not LoadoutService:IsEmpty(snapshot.Items) then
+			LoadoutService:Restore(player, snapshot.Items)
+		end
 	end
 
 	task.delay(FORCE_FIELD_DURATION, function()
@@ -95,19 +92,6 @@ local function grantRevive(player: Player, snapshot: DeathSnapshot?)
 			forceField:Destroy()
 		end
 	end)
-end
-
---- Saves everything needed to fulfill a revive, then opens the product prompt on that player.
-function ReviveService:Offer(player: Player, character: Model)
-	local root = character:FindFirstChild("HumanoidRootPart")
-	local location = if root and root:IsA("BasePart") then root.CFrame else character:GetPivot()
-
-	PendingDeaths[player] = {
-		Location = location,
-		Items = captureItems(player),
-	}
-
-	MarketplaceService:PromptProductPurchase(player, REVIVE_PRODUCT_ID)
 end
 
 assert(
@@ -121,10 +105,7 @@ MarketplaceService:CreateReceipt(REVIVE_PRODUCT_ID, function(receiptInfo)
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 
-	local snapshot = PendingDeaths[player]
-	grantRevive(player, snapshot)
-	PendingDeaths[player] = nil
-
+	ReviveService:Grant(player)
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end)
 

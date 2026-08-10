@@ -1,8 +1,7 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local ServerTool = require(ServerStorage.Classes.ServerTool)
-local MarketplaceService = require(ReplicatedStorage.Services.MarketplaceService)
+local PerkService = require(ServerStorage.Services.PerkService)
 
 --- @class Pathfinder
 --- Owns how many markers are left. The markers themselves are the client's -- they exist only for
@@ -31,9 +30,10 @@ function Pathfinder.new(tool: Tool)
 end
 
 function Pathfinder:_spend(player: Player)
-	if MarketplaceService:UserOwnsGamePass(player, MarketplaceService.Gamepasses.Pathfinder) then
-		return
-	end
+	-- A cached lookup, not a web call. This runs inside a placement the player has already seen
+	-- happen on their own screen, and yielding here would decide whether a marker was free several
+	-- hundred milliseconds after it was planted.
+	if PerkService:Owns(player, "Pathfinder") then return end
 
 	local remaining = (self.Tool:GetAttribute("uses") or self.Config.Uses) - 1
 	if remaining > 0 then

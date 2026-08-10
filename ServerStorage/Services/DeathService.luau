@@ -14,6 +14,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local DeathConfig = require(ReplicatedStorage.Configs.DeathConfig)
 local EnemyDiscoveryService = require(ServerStorage.Services.EnemyDiscoveryService)
+local FriendReviveService = require(ServerStorage.Services.FriendReviveService)
 local ReviveService = require(ServerStorage.Services.ReviveService)
 
 local Show = ReplicatedStorage
@@ -58,7 +59,10 @@ local function watchCharacter(player: Player, character: Model)
 	local humanoid = character:WaitForChild("Humanoid") :: Humanoid
 	humanoid.Died:Once(function()
 		local cause = DeathService:GetCause(player)
+		-- Two offers off one death: the player's own prompt, and a card in front of every friend of
+		-- theirs in the server. Both spend the same pending death, whichever is answered first.
 		ReviveService:Offer(player, character)
+		FriendReviveService:Offer(player)
 		Show:FireClient(player, cause)
 
 		-- Dying to something teaches you more about it than any amount of looking, and it is the only

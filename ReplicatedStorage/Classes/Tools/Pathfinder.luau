@@ -4,7 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ClientTool = require(ReplicatedStorage.Classes.ClientTool)
 local PathfinderMarker = require(ReplicatedStorage.Classes.PathfinderMarker)
 local ToolCounter = require(ReplicatedStorage.Classes.ToolCounter)
-local MarketplaceService = require(ReplicatedStorage.Services.MarketplaceService)
+local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
 
 --- @class Pathfinder
 --- Drops a marker at the player's feet pointing the way they were facing, so a corridor they have
@@ -36,8 +36,12 @@ local function markerFolder(): Folder
 	return folder
 end
 
+-- Published by `PerkService`, which is the only thing that asks Roblox about the pass. Reading it is
+-- a local lookup, so the counter can be right on the first frame the tool is equipped.
+local UNLIMITED_ATTRIBUTE = PerkConfig.AttributePrefix .. "Pathfinder"
+
 local function ownsUnlimited(): boolean
-	return MarketplaceService:UserOwnsGamePass(Players.LocalPlayer, MarketplaceService.Gamepasses.Pathfinder) == true
+	return Players.LocalPlayer:GetAttribute(UNLIMITED_ATTRIBUTE) == true
 end
 
 local function reshade()
@@ -49,17 +53,8 @@ end
 
 function Pathfinder.new(tool: Tool)
 	local self = ClientTool.new(tool, Pathfinder)
-	self:_refreshPass()
+	self.Unlimited = ownsUnlimited()
 	return self
-end
-
--- Asking the server can yield, so it never happens inline with a placement. Re-asked on every equip
--- so a pass bought mid-round takes effect without a rejoin.
-function Pathfinder:_refreshPass()
-	task.spawn(function()
-		self.Unlimited = ownsUnlimited()
-		self:_updateCounter()
-	end)
 end
 
 --- Charges left on the device. The server owns this; the client only reads it.
@@ -79,10 +74,17 @@ function Pathfinder:_updateCounter()
 end
 
 function Pathfinder:OnEquipped()
-	self:_refreshPass()
+	self.Unlimited = ownsUnlimited()
 
 	self.Counter = ToolCounter.new(self.Config.Caption)
 	self:_updateCounter()
+
+	-- Covers both the pass resolving a moment after the player joined and one bought mid-round: the
+	-- counter swaps between a number and an infinity without the tool being put away first.
+	self.PassChanged = Players.LocalPlayer:GetAttributeChangedSignal(UNLIMITED_ATTRIBUTE):Connect(function()
+		self.Unlimited = ownsUnlimited()
+		self:_updateCounter()
+	end)
 
 	self.UsesChanged = self.Tool:GetAttributeChangedSignal("uses"):Connect(function()
 		self.Predicted = nil -- the real number landed; stop guessing
@@ -104,6 +106,10 @@ function Pathfinder:_closeCounter()
 	if self.UsesChanged then
 		self.UsesChanged:Disconnect()
 		self.UsesChanged = nil
+	end
+	if self.PassChanged then
+		self.PassChanged:Disconnect()
+		self.PassChanged = nil
 	end
 	if self.Counter then
 		self.Counter:Destroy()

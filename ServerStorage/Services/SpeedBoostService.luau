@@ -23,6 +23,10 @@ type State = {
 }
 
 local States: { [Player]: State } = {}
+--- Persistent per-player scaling on top of whatever a drink resolves to, owned by `PerkService`.
+--- Absent means 1; nothing here is a boost of its own, so a player with only a multiplier has no
+--- `State` and costs nothing to keep.
+local Multipliers: { [Player]: number } = {}
 local nextToken = 0
 
 local function clearAttributes(player: Player)
@@ -79,7 +83,11 @@ local function refresh(player: Player)
 	if not state then return end
 
 	local name, source = getEffective(state)
-	local desired = source and math.max(state.BaseSpeed, source.Speed) or state.BaseSpeed
+	-- The multiplier scales the drink, not the result: `BaseSpeed` was already written scaled by
+	-- whoever owns the player's ordinary speed, and scaling it twice here would compound on itself
+	-- every time a boost started.
+	local boosted = source and source.Speed * (Multipliers[player] or 1)
+	local desired = boosted and math.max(state.BaseSpeed, boosted) or state.BaseSpeed
 
 	if not state.Suppressed then
 		writeSpeed(state, desired)
@@ -149,6 +157,19 @@ local function createState(player: Player, character: Model, humanoid: Humanoid)
 	return state
 end
 
+--- Scales everything a drink boosts `player` to for the rest of their session. Not a boost in its
+--- own right and never touches their ordinary walk speed -- the caller owns that, and doubling a
+--- base speed here as well would mean two writers fighting over one number.
+function SpeedBoostService:SetMultiplier(player: Player, multiplier: number)
+	Multipliers[player] = if multiplier == 1 then nil else multiplier
+	refresh(player)
+end
+
+--- What a drink on `player` is currently scaled by. 1 for everybody without a multiplier.
+function SpeedBoostService:GetMultiplier(player: Player): number
+	return Multipliers[player] or 1
+end
+
 --- Applies or refreshes one named drink. Different drinks coexist, but only the fastest one is
 --- active; if Energy Drink ends while Soda still has time left, Soda takes over cleanly.
 function SpeedBoostService:Apply(
@@ -212,6 +233,7 @@ end
 
 Players.PlayerRemoving:Connect(function(player)
 	disconnectState(player, false)
+	Multipliers[player] = nil
 end)
 
 return SpeedBoostService
