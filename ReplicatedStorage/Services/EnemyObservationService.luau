@@ -24,51 +24,50 @@ local UpdateView = ReplicatedStorage
 local localPlayer = Players.LocalPlayer
 local accumulator = REPORT_INTERVAL
 
-local function intersectsViewport(camera: Camera, part: BasePart): boolean
-	local halfSize = part.Size / 2
+--- The camera's view volume, reduced to what a sphere has to be tested against. Rebuilt per report
+--- rather than per part, since it only moves when the viewport resizes or something animates the FOV.
+type Frustum = {
+	TanX: number, -- tangent of the half horizontal angle, and of the vertical one
+	TanY: number,
+	SideX: number, -- and the lengths that turn each side plane's equation into a distance
+	SideY: number,
+}
+
+local function buildFrustum(camera: Camera): Frustum?
 	local viewportSize = camera.ViewportSize
-	local minX, minY = math.huge, math.huge
-	local maxX, maxY = -math.huge, -math.huge
-	local hasPointInFront = false
+	if viewportSize.Y <= 0 then return nil end -- a frame or two at startup, before there is a screen
 
-	for x = -1, 1, 2 do
-		for y = -1, 1, 2 do
-			for z = -1, 1, 2 do
-				local corner = part.CFrame:PointToWorldSpace(Vector3.new(
-					halfSize.X * x,
-					halfSize.Y * y,
-					halfSize.Z * z
-				))
-				local screenPoint = camera:WorldToViewportPoint(corner)
-				if screenPoint.Z > 0 then
-					hasPointInFront = true
-					minX = math.min(minX, screenPoint.X)
-					minY = math.min(minY, screenPoint.Y)
-					maxX = math.max(maxX, screenPoint.X)
-					maxY = math.max(maxY, screenPoint.Y)
-				end
-			end
-		end
-	end
-
-	return hasPointInFront
-		and maxX >= 0
-		and maxY >= 0
-		and minX <= viewportSize.X
-		and minY <= viewportSize.Y
+	local tanY = math.tan(math.rad(camera.FieldOfView / 2)) -- `FieldOfView` is the vertical one
+	local tanX = tanY * viewportSize.X / viewportSize.Y
+	return {
+		TanX = tanX,
+		TanY = tanY,
+		SideX = math.sqrt(1 + tanX * tanX),
+		SideY = math.sqrt(1 + tanY * tanY),
+	}
 end
 
-local function isObserved(camera: Camera, character: Model, model: Model): boolean
-	local boundsCFrame = model:GetBoundingBox()
-	local offset = boundsCFrame.Position - camera.CFrame.Position
-	local horizontalOffset = Vector3.new(offset.X, 0, offset.Z)
-	local lookVector = camera.CFrame.LookVector
-	local horizontalLook = Vector3.new(lookVector.X, 0, lookVector.Z)
-	if horizontalOffset.Magnitude < 1e-3
-		or horizontalLook.Magnitude < 1e-3
-		or horizontalOffset.Unit:Dot(horizontalLook.Unit) <= 0
-	then
-		return false
+--- Whether a sphere overlaps what the camera can see, against the near plane and all four sides.
+---
+--- Done in camera space rather than by projecting corners to the screen, because projection cannot
+--- describe a thing that spans the camera plane: half its corners land behind the eye, where the
+--- perspective divide is by a negative depth and the coordinates come back mirrored and enormous.
+--- Discard those and the rest of the object is wherever the arithmetic left it -- which is how a rig
+--- pressed against your shoulder reads as filling the screen while you look the other way, and how a
+--- Weeping Angel ends up frozen by somebody facing away from it. A sphere has no such case: it is
+--- either within reach of each plane or it is not, including when it swallows the camera whole.
+local function intersectsFrustum(camera: Camera, frustum: Frustum, center: Vector3, radius: number): boolean
+	local point = camera.CFrame:PointToObjectSpace(center) -- -Z is forward, so depth is `-point.Z`
+	if point.Z > radius then return false end
+	if math.abs(point.X) + frustum.TanX * point.Z > radius * frustum.SideX then return false end
+	if math.abs(point.Y) + frustum.TanY * point.Z > radius * frustum.SideY then return false end
+	return true
+end
+
+local function isObserved(camera: Camera, frustum: Frustum, character: Model, model: Model): boolean
+	local boundsCFrame, boundsSize = model:GetBoundingBox()
+	if not intersectsFrustum(camera, frustum, boundsCFrame.Position, boundsSize.Magnitude / 2) then
+		return false -- nothing of it is on screen, so no part of it can be either
 	end
 
 	local params = RaycastParams.new()
@@ -78,7 +77,9 @@ local function isObserved(camera: Camera, character: Model, model: Model): boole
 
 	local origin = camera.CFrame.Position
 	for _, descendant in model:GetDescendants() do
-		if descendant:IsA("BasePart") and intersectsViewport(camera, descendant) then
+		if descendant:IsA("BasePart")
+			and intersectsFrustum(camera, frustum, descendant.Position, descendant.Size.Magnitude / 2)
+		then
 			local direction = descendant.Position - origin
 			if direction.Magnitude < 1e-3 then
 				return true
@@ -102,10 +103,11 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 	accumulator = 0
 
 	local camera = workspace.CurrentCamera
-	if camera then
+	local frustum = camera and buildFrustum(camera)
+	if camera and frustum then
 		local observed = {}
 		for _, model in CollectionService:GetTagged(OBSERVABLE_TAG) do
-			if model:IsA("Model") and isObserved(camera, character, model) then
+			if model:IsA("Model") and isObserved(camera, frustum, character, model) then
 				table.insert(observed, model)
 			end
 		end

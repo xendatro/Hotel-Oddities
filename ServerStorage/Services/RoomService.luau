@@ -7,44 +7,103 @@ local TagService = require(ReplicatedStorage.Services.TagService)
 local ROOM_TAG = "Room"
 local ROOM_LABEL = "Room" -- pathfinding label; enemy agents price this at math.huge
 local POLL_INTERVAL = 0.1
+local BLOCKER_FOLDER = "RoomBlockers"
+-- Studs trimmed off every face of a room's bounds before anybody counts as inside it. The box reaches
+-- the outer face of the walls, and the far side of a wall is not the room.
+local WALL_INSET = 1
+-- ...but never more than this much of an axis, so a cupboard does not inset itself out of existence.
+local MAX_INSET_FRACTION = 0.25
 
---- Owns the `Room` tag: the safe zones players duck into to break an enemy's interest. Rooms are
---- plain block parts in workspace; occupancy is polled rather than driven by touch events so it
---- stays correct for non-collidable volumes and teleports alike.
+--- Owns the `Room` tag: the safe zones players duck into to break an enemy's interest. Rooms are the
+--- room models themselves, and occupancy is the model's own bounding box rather than a separate
+--- volume placed alongside it -- one less thing to keep in sync, and a room nobody remembered to put
+--- a marker in is a room enemies walk straight into.
+---
+--- Occupancy is polled rather than driven by touch events so it stays correct for teleports and for
+--- volumes nothing can touch.
 local RoomService = {}
 
-local PlayerRooms: { [Player]: BasePart } = {}
+type Room = {
+	Model: Model,
+	CFrame: CFrame, -- of the bounding box, which is oriented, so containment is done in its space
+	HalfSize: Vector3, -- already inset, so the test is three comparisons
+	Blocker: BasePart,
+}
+
+local PlayerRooms: { [Player]: Model } = {}
 local Accumulator = 0
 
-local function isInside(point: Vector3, part: BasePart): boolean
-	local offset = part.CFrame:PointToObjectSpace(point)
-	local half = part.Size / 2
+local Blockers = Instance.new("Folder")
+Blockers.Name = BLOCKER_FOLDER
+Blockers.Parent = workspace
+
+local function insetHalfSize(size: Vector3): Vector3
+	local half = size / 2
+	return Vector3.new(
+		half.X - math.min(WALL_INSET, half.X * MAX_INSET_FRACTION),
+		half.Y - math.min(WALL_INSET, half.Y * MAX_INSET_FRACTION),
+		half.Z - math.min(WALL_INSET, half.Z * MAX_INSET_FRACTION)
+	)
+end
+
+local function isInside(point: Vector3, room: Room): boolean
+	local offset = room.CFrame:PointToObjectSpace(point)
+	local half = room.HalfSize
 	return math.abs(offset.X) <= half.X and math.abs(offset.Y) <= half.Y and math.abs(offset.Z) <= half.Z
 end
 
--- Every room doubles as a pathfinding blocker so enemies never route a path through a safe zone.
-TagService:Listen(ROOM_TAG, function(part: BasePart)
+--- Every room doubles as a pathfinding blocker so enemies never route a path through a safe zone.
+---
+--- A `PathfindingModifier` only labels the single part it hangs on, and a room is a model, so the
+--- volume it needs is built here instead of being placed by hand: one invisible box matching the
+--- model's bounds. That is exactly the safe-zone part this used to ask a mapper to keep in sync with
+--- the room it belonged to, minus the asking. It lives outside the model so that re-reading the
+--- model's bounds never measures the blocker as part of the room.
+---
+--- Bounds are measured once, when the tag is applied. A room is built and then stands still; a model
+--- that is still being assembled when it is tagged measures whatever exists at that moment.
+TagService:Listen(ROOM_TAG, function(model: Model): Room
+	local boundsCFrame, boundsSize = model:GetBoundingBox()
+
+	local blocker = Instance.new("Part")
+	blocker.Name = `{model.Name}Blocker`
+	blocker.Anchored = true
+	blocker.CanCollide = false
+	blocker.CanQuery = false -- sight is measured through rooms; this is for pathfinding and nothing else
+	blocker.CanTouch = false
+	blocker.CastShadow = false
+	blocker.Transparency = 1
+	blocker.Size = boundsSize
+	blocker.CFrame = boundsCFrame
+
 	local modifier = Instance.new("PathfindingModifier")
 	modifier.Name = "RoomBlocker"
 	modifier.Label = ROOM_LABEL
 	modifier.PassThrough = false
-	modifier.Parent = part
-	return modifier
-end, function(_part: Instance, modifier: PathfindingModifier)
-	modifier:Destroy()
+	modifier.Parent = blocker
+	blocker.Parent = Blockers
+
+	return {
+		Model = model,
+		CFrame = boundsCFrame,
+		HalfSize = insetHalfSize(boundsSize),
+		Blocker = blocker,
+	}
+end, function(_model: Instance, room: Room)
+	room.Blocker:Destroy()
 end, workspace)
 
---- Every part currently tagged as a room.
-function RoomService:GetRooms(): { BasePart }
+--- Every model currently tagged as a room.
+function RoomService:GetRooms(): { Model }
 	local rooms = {}
-	for part in TagService:GetAllApplied(ROOM_TAG) do
-		table.insert(rooms, part)
+	for model in TagService:GetAllApplied(ROOM_TAG) do
+		table.insert(rooms, model :: Model)
 	end
 	return rooms
 end
 
 --- The room a player is standing in, or nil if they are out in the open.
-function RoomService:GetRoom(player: Player): BasePart?
+function RoomService:GetRoom(player: Player): Model?
 	return PlayerRooms[player]
 end
 
@@ -64,9 +123,9 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		local occupied = nil
 		if root then
-			for part in rooms do
-				if isInside(root.Position, part) then
-					occupied = part
+			for _, room in rooms do
+				if isInside(root.Position, room) then
+					occupied = room.Model
 					break
 				end
 			end

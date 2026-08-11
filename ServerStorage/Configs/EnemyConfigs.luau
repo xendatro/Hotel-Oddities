@@ -50,6 +50,7 @@ export type EnemyConfig = {
 	-- Perception of being seen. Setting this at all is what marks an enemy as caring: `NPC:Start`
 	-- reads it to decide whether this model should accept client view reports.
 	ObservationRange: number?,
+	ObservationHold: number?, -- seconds a sighting keeps counting for after it ends; see `NPC:IsObserved`
 
 	-- Watcher-specific
 	MinPeekDistance: number?, -- studs from the player a corner must be to be worth using
@@ -261,8 +262,8 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 		IdleTimeMin = 0.5,
 		IdleTimeMax = 1.5,
-		IdleNextState = "Idle", -- the angel never wanders; acquisition drives it out of Idle
-		WanderRadius = 40,
+		IdleNextState = "Patrol",
+		WanderRadius = 40, -- only reached through Patrol's fallback, on a map with no tagged corridors
 
 		DetectionRange = 250, -- it always knows where you are
 		GiveUpRange = 250,
@@ -274,10 +275,14 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		AttackCooldown = 1.5,
 
 		ObservationRange = 200,
+		-- Long enough to cover a dropped report and the polling either side of it, short enough that
+		-- looking away and it moving still feel like the same moment. This one is the whole promise --
+		-- it does not move while seen -- so it errs towards holding still.
+		ObservationHold = 0.35,
 
-		-- Deliberately left out of the patrol rewrite: this one is a statue that waits, not something
-		-- milling about, and its perception evaluator drives it straight out of `Idle` the moment
-		-- anybody is inside its 250-stud reach. It is almost never idle in practice anyway.
+		-- It patrols like everything else, though its 250-stud reach means it is nearly always chasing
+		-- instead. The patrol is what it does while every player is shut behind a safe room door --
+		-- without it, that is an angel you find standing exactly where you left it.
 		Budget = "Pursuit",
 		Cost = 4,
 		SpawnWeight = 2,

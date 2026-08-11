@@ -1,6 +1,12 @@
 --- @class WeepingAngel
 --- A hunter that always knows where nearby players are, but cannot move or finish an attack while
 --- any living player can see it. Freezing pauses its current animation track on the exact pose.
+---
+--- With nobody in reach it walks the corridors like anything else. Standing still would be the purer
+--- reading of a statue, but its reach is most of the hotel, so the only time it applies is when every
+--- player is behind a safe room door -- and an angel that waits that out on the spot is one you find
+--- exactly where you left it. Patrolling means the room it is standing in when you come back out is
+--- not the room it was standing in when you went in.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
@@ -8,16 +14,21 @@ local ServerStorage = game:GetService("ServerStorage")
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local NPC = require(ServerStorage.Classes.NPC)
 
-local PERCEPTION_INTERVAL = 0.1
+-- Matched to the rate clients report what they can see at, so noticing a look costs at most one
+-- report rather than a report and a poll on top of it. Everything this evaluator calls is cheap while
+-- reports are arriving; the raycast only appears once a client has gone quiet.
+local PERCEPTION_INTERVAL = 0.05
 
 local WeepingAngel = NPC.extend("WeepingAngel")
 
+-- A beat standing still, then back on patrol. Where an attack's cooldown and a stun both land.
 local function idle(_changeState: StateMachine.ChangeState, npc: any)
 	npc.Target = nil
 	npc.Animator:Resume()
 	npc:SetSpeed(0)
 	npc:StopMoving()
-	coroutine.yield()
+	task.wait(math.random() * (npc.Config.IdleTimeMax - npc.Config.IdleTimeMin) + npc.Config.IdleTimeMin)
+	return npc.Config.IdleNextState, npc
 end
 
 local function frozen(_changeState: StateMachine.ChangeState, npc: any)
@@ -80,17 +91,21 @@ function WeepingAngel:BuildStateMachine(): StateMachine.StateMachine
 
 	return StateMachine.new({
 		Idle = idle,
+		Patrol = NPC.SharedStates.Patrol,
 		Frozen = frozen,
 		Chase = chase,
 		Attack = attack,
 		Despawn = NPC.SharedStates.Despawn,
 		Stunned = NPC.SharedStates.Stunned,
 	}, {
-		Observed = { "Idle", "Chase", "Attack" },
+		Observed = { "Idle", "Patrol", "Chase", "Attack" },
 		Released = { "Frozen" },
+		-- Acquiring somebody only ever interrupts what it does with nobody about. Everything else
+		-- either already has a target or has been taken off the board.
+		Perception = { "Idle", "Patrol" },
 		-- A trap or a paper ball lands whatever it is doing, except while it is frozen under
 		-- observation -- being watched already holds it still, and outranks being hit.
-		Impact = { "Idle", "Chase", "Attack" },
+		Impact = { "Idle", "Patrol", "Chase", "Attack" },
 	}, {
 		Perception = function()
 			while true do
@@ -103,22 +118,19 @@ function WeepingAngel:BuildStateMachine(): StateMachine.StateMachine
 					continue
 				end
 
+				local target = npc:GetNearestTarget()
 				if npc.StateMachine.State == "Frozen" then
-					local target = npc:GetNearestTarget()
 					if target then
 						npc.StateMachine:SetState("Chase", "Released", npc, target)
 					else
-						npc.StateMachine:SetState("Idle", "Released", npc)
+						npc.StateMachine:SetState("Patrol", "Released", npc)
 					end
-				elseif npc.StateMachine.State == "Idle" then
-					local target = npc:GetNearestTarget()
-					if target then
-						npc.StateMachine:SetState("Chase", "root", npc, target)
-					end
+				elseif target then
+					npc.StateMachine:SetState("Chase", "Perception", npc, target)
 				end
 			end
 		end,
-	}, "Idle", self)
+	}, "Patrol", self)
 end
 
 return WeepingAngel

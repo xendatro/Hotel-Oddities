@@ -33,6 +33,10 @@ local DIRECT_PURSUIT_UPDATE_DISTANCE = 1
 local DIRECT_PURSUIT_OVERSHOOT = 4
 local MAX_BLOCKED_ATTEMPTS = 3 -- consecutive stalled paths before a pursuit gives up
 local WANDER_ATTEMPTS = 6
+-- Degrees of the cone the server falls back to when a client stops reporting what it can see. A shade
+-- wider than the default camera, because the cost of being generous is an enemy that waits a moment
+-- longer, and the cost of being stingy is one that moves while you are looking at it.
+local FALLBACK_FIELD_OF_VIEW = 100
 
 local PATROL_NODE_HEIGHT = 3 -- studs above a corridor node the walk goal is put, clear of the slab
 local PATROL_BLOCKED_WAIT = 0.4 -- seconds before a patrol that could not path anywhere tries again
@@ -103,6 +107,8 @@ function NPC.new(model: Model, config: EnemyConfigs.EnemyConfig, class: any?)
 	self.HomePosition = model:GetPivot().Position
 	self.Target = nil :: Player?
 	self.AcquireAfter = nil :: number? -- set by the director; see `CanAcquire`
+	self._observedUntil = nil :: number? -- see `IsObserved`
+	self._patrol = nil :: any -- corridors walked so far, kept across interruptions; see `SharedStates.Patrol`
 	self.Active = false
 	self.StateMachine = self:BuildStateMachine()
 
@@ -427,8 +433,31 @@ function NPC:CanSee(player: Player): boolean
 	return self:HasLineOfSight(root)
 end
 
+-- Whether this NPC sits in front of `player` and in clear sight of them, judged from what the server
+-- knows on its own. The stand-in for a client report that never arrived.
+function NPC:_isFacedBy(player: Player, point: Vector3): boolean
+	local eye, look = EnemyObservationService:GetView(player)
+	if not (eye and look) then return false end
+	if not isWithinCone(eye, look, point, FALLBACK_FIELD_OF_VIEW) then return false end
+
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { player.Character }
+	params.RespectCanCollide = true
+
+	local result = workspace:Raycast(eye, point - eye, params)
+	return result == nil or result.Instance:IsDescendantOf(self.Model)
+end
+
 --- Whether a player's client reports any visible portion of this NPC on screen. Reports identify
 --- server-created enemy models and expire quickly; range remains server-authoritative.
+---
+--- A client that has gone quiet is not a blind one. Reports expire in a fifth of a second, which a
+--- frame hitch or a bad moment on the wire clears easily, and every one of those would otherwise read
+--- as permission for something that must not move while watched to move on somebody staring straight
+--- at it. So silence falls back to the server's own answer rather than to "no". The game is first
+--- person, which is what makes that answer worth having: the character's facing is a fair stand-in
+--- for where the camera points, and `GetView` already hands back exactly that when no report is in.
 function NPC:IsObservedBy(player: Player): boolean
 	local root = getAliveRoot(player)
 	if not root then return false end
@@ -437,17 +466,26 @@ function NPC:IsObservedBy(player: Player): boolean
 	local destination = boundsCFrame.Position
 	local radius = boundsSize.Magnitude / 2
 	if (destination - root.Position).Magnitude - radius > (self.Config.ObservationRange :: number) then return false end
-	return EnemyObservationService:IsObservedBy(player, self.Model)
+	if EnemyObservationService:IsObservedBy(player, self.Model) then return true end
+	if EnemyObservationService:IsReporting(player) then return false end
+	return self:_isFacedBy(player, destination)
 end
 
 --- Whether any player is looking at this NPC.
+---
+--- `Config.ObservationHold` keeps that true for a moment after the last sighting. Getting the answer
+--- here is a chain of intervals -- the client samples at 20Hz, the packet flies, an evaluator polls --
+--- and any link can drop a beat, so a single late report otherwise reads as "nobody is watching any
+--- more". With the hold it takes a continuous gap to let go, which is the reading that matches what
+--- the player is actually doing.
 function NPC:IsObserved(): boolean
 	for _, player in Players:GetPlayers() do
 		if self:IsObservedBy(player) then
+			self._observedUntil = os.clock() + (self.Config.ObservationHold or 0)
 			return true
 		end
 	end
-	return false
+	return self._observedUntil ~= nil and os.clock() < self._observedUntil
 end
 
 --- Whether this NPC is allowed to pick a target yet. Freshly spawned enemies are blind for a moment:
@@ -640,6 +678,13 @@ end
 --- It never resolves on its own -- the machine's evaluators are what pull an enemy out of here, so
 --- every reason table that lists `Idle` must list `Patrol` alongside it, or perception can never
 --- interrupt a patrol.
+---
+--- What it has walked outlives any one visit. A patrol is interrupted constantly -- a chase, a trap,
+--- a Weeping Angel freezing every time somebody glances down the corridor -- and starting fresh each
+--- time hands the next choice to the danger field alone, which is a fixed function of position and
+--- returns the same answer every time. That walks it straight back the way it came, so an enemy that
+--- is interrupted often paces instead of patrolling. Where it thinks it is *does* get re-read from
+--- the world on every entry, because after a chase it is nowhere near where it left off.
 function NPC.SharedStates.Patrol(changeState: StateMachine.ChangeState, npc: any)
 	npc.Target = nil
 	npc.Animator:Resume()
@@ -652,10 +697,16 @@ function NPC.SharedStates.Patrol(changeState: StateMachine.ChangeState, npc: any
 		return NPC.SharedStates.Wander(changeState, npc)
 	end
 
+	local memory = npc._patrol
+	if not memory then
+		memory = { Walked = {}, Blocked = {}, Step = 0 }
+		npc._patrol = memory
+	end
+
 	local previous = nil :: any
-	local walked: { [any]: { [any]: number } } = {}
-	local blocked: { [any]: number } = {}
-	local step = 0
+	local walked: { [any]: { [any]: number } } = memory.Walked
+	local blocked: { [any]: number } = memory.Blocked
+	local step = memory.Step
 
 	while true do
 		-- One frame, unconditionally. A path to a node it is effectively already standing on comes
@@ -663,6 +714,7 @@ function NPC.SharedStates.Patrol(changeState: StateMachine.ChangeState, npc: any
 		-- iteration without yielding is a loop that can lock the server.
 		task.wait()
 		step += 1
+		memory.Step = step
 
 		local nextNode = chooseNextNode(previous, current, walked, step, blocked)
 		if not nextNode then return "Idle", npc end

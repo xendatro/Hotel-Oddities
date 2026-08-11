@@ -93,6 +93,17 @@ function EnemyObservationService:IsObservedBy(player: Player, model: Model): boo
 	return observation ~= nil and observation.Models[model] == true
 end
 
+--- Whether this player's client is currently keeping the server up to date on what it can see.
+---
+--- False after a frame hitch, a jittery connection, or anything else that lets a report age out, and
+--- the distinction matters to callers that must not read silence as blindness. `IsObservedBy` cannot
+--- make that call for them -- a stale report names no models at all, so it is indistinguishable from
+--- an honest "I can see nothing" -- so a caller that would act on the difference asks here first and
+--- answers the question itself.
+function EnemyObservationService:IsReporting(player: Player): boolean
+	return getFresh(player) ~= nil
+end
+
 --- Degrees between the middle of `player`'s screen and `model`, or nil while they are not looking at
 --- it at all. Zero is dead center. Distance is not considered: this is where the thing sits in their
 --- view, not how big it looms in it.
