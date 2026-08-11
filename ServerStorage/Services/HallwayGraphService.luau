@@ -179,15 +179,16 @@ function HallwayGraphService:Build(): { RouteNode }
 	local nodes = {}
 	local hallways: { Hallway } = {}
 
-	for _, instance in TagService:GetTaggedOfPredicate(HALLWAY_TAG, function(tagged: Instance)
-		return tagged:IsA("BasePart")
-	end) do
+	for _, instance in TagService:GetTaggedOfAncestor(workspace, HALLWAY_TAG) do
+		if not instance:IsA("BasePart") then continue end
+
 		local part = instance :: BasePart
+		local runsAlongX = part.Size.X >= part.Size.Z
 		local hallway: Hallway = {
 			Center = part.Position,
-			Direction = horizontal(part.CFrame.RightVector).Unit,
-			HalfLength = part.Size.X / 2,
-			HalfWidth = part.Size.Z / 2,
+			Direction = horizontal(if runsAlongX then part.CFrame.RightVector else part.CFrame.LookVector).Unit,
+			HalfLength = (if runsAlongX then part.Size.X else part.Size.Z) / 2,
+			HalfWidth = (if runsAlongX then part.Size.Z else part.Size.X) / 2,
 			Nodes = {},
 			JunctionReach = {},
 		}

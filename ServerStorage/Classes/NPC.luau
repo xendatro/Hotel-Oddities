@@ -25,7 +25,6 @@ local WAYPOINT_REACHED_DISTANCE = 2
 local WAYPOINT_PROGRESS = 0.5 -- studs of gain on a waypoint that counts as making ground
 local WAYPOINT_STALL_GRACE = 1.5 -- seconds of making none before a leg is called blocked
 local MOVE_REFRESH_INTERVAL = 4 -- seconds between re-issued goals; `Humanoid:MoveTo` gives up after eight
-local STRAIGHT_PATH_DOT_THRESHOLD = 0.98
 local MOVEMENT_POLL_INTERVAL = 0.05
 local CONTACT_PADDING = 0.25
 local CONTACT_ROOT_DISTANCE = 2.25
@@ -202,32 +201,11 @@ function NPC:ComputePath(destination: Vector3): Path?
 	return path
 end
 
---- Removes intermediate waypoints from straight stretches so the Humanoid does not brake every few
---- studs. Corners and special actions remain explicit movement goals. Public because a subclass that
---- walks a path itself, rather than through `WalkTo` or `Pursue`, still wants this done to it.
+--- Preserves the pathfinder's complete route. Skipping waypoints based only on their angle can turn
+--- a gradual route around a wall into a single movement goal through it. The movement loop advances
+--- before reaching each waypoint, so following the complete route does not make the Humanoid stop.
 function NPC:GetMovementWaypoints(path: Path)
-	local waypoints = path:GetWaypoints()
-	if #waypoints <= 2 then return waypoints end
-
-	local simplified = { waypoints[1] }
-	for index = 2, #waypoints - 1 do
-		local previous = simplified[#simplified]
-		local current = waypoints[index]
-		local nextWaypoint = waypoints[index + 1]
-		local incoming = current.Position - previous.Position
-		local outgoing = nextWaypoint.Position - current.Position
-		local isStraight = current.Action == Enum.PathWaypointAction.Walk
-			and nextWaypoint.Action == Enum.PathWaypointAction.Walk
-			and incoming.Magnitude > 1e-3
-			and outgoing.Magnitude > 1e-3
-			and incoming.Unit:Dot(outgoing.Unit) >= STRAIGHT_PATH_DOT_THRESHOLD
-
-		if not isStraight then
-			table.insert(simplified, current)
-		end
-	end
-	table.insert(simplified, waypoints[#waypoints])
-	return simplified
+	return path:GetWaypoints()
 end
 
 --- Distance from the root to where it will stand after reaching a path waypoint. Pathfinding returns
@@ -242,11 +220,9 @@ end
 -- last waypoint lands, "Abandoned" if the caller bailed out, or "Blocked" if it stopped making ground.
 --
 -- Two things about `Humanoid:MoveTo` shape this loop. It gives up on its own after eight seconds, so
--- a goal has to be re-issued or the rig simply stops mid-corridor -- and since `GetMovementWaypoints`
--- collapses a straight stretch into a single waypoint however long it is, legs that take longer than
--- that are ordinary rather than exceptional. And there is no honest clock to judge the rest by: the
--- ideal travel time says nothing about a leg spent walking around a player who is in the doorway. So
--- a leg ends when it stops closing on its goal, not when it runs long.
+-- a goal has to be re-issued or the rig simply stops mid-corridor. And there is no honest clock to
+-- judge the rest by: ideal travel time says nothing about a leg spent walking around a player who is
+-- in the doorway. So a leg ends when it stops closing on its goal, not when it runs long.
 function NPC:_walkPath(path: Path, shouldAbandon: (() -> boolean)?): string
 	local waypoints = self:GetMovementWaypoints(path)
 	for index = 2, #waypoints do
@@ -567,8 +543,8 @@ function NPC.SharedStates.Wander(_changeState: StateMachine.ChangeState, npc: an
 	return "Idle", npc
 end
 
---- Which way to go on at a junction. Four things decide it, and the first three are deliberately on
---- comparable scales so none of them ever simply wins:
+--- Which way to go on at a junction. First it may deliberately turn around; otherwise four things
+--- decide it, and the first three are deliberately on comparable scales so none simply wins:
 ---
 ---  * **Straightness.** Carrying on down the corridor you are already in beats turning, which is what
 ---    makes a patrol read as walking somewhere rather than milling about.
@@ -596,6 +572,13 @@ local function chooseNextNode(
 ): any
 	local best, bestScore = nil, -math.huge
 	local now = os.clock()
+	if previous and current.Neighbors[previous] then
+		local hasAlternative = false
+		for neighbor in current.Neighbors do
+			if neighbor ~= previous then hasAlternative = true break end
+		end
+		if hasAlternative and math.random() < DangerConfig.PatrolTurnAroundChance then return previous end
+	end
 
 	for neighbor in current.Neighbors do
 		local score = DangerMapService:GetDanger(neighbor.Position) * DangerConfig.PatrolDangerWeight

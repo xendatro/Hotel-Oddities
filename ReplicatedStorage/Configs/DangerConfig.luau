@@ -91,6 +91,7 @@ return {
 	--- destination. Turn it up and patrols visibly beeline for the same few corridors and then pace
 	--- them, which looks less like territory and more like a bug.
 	PatrolDangerWeight = 0.6,
+	PatrolTurnAroundChance = 0.2, -- at a junction, deliberately head back the way it came
 
 	--- Corridors a patroller remembers walking, and what walking one again costs it.
 	---
