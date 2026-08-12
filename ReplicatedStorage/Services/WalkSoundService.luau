@@ -8,10 +8,11 @@ if not RunService:IsClient() then
 	return WalkSoundService
 end
 
-local sourceSound = ReplicatedStorage:WaitForChild("Sounds"):WaitForChild("Walk") :: Sound
+local AudioService = require(ReplicatedStorage.Services.AudioService)
+
 type CharacterState = {
 	Connection: RBXScriptConnection,
-	Sound: Sound,
+	Player: AudioPlayer,
 }
 
 local characterStates: {[Model]: CharacterState} = {}
@@ -21,8 +22,7 @@ local function stopCharacter(character: Model)
 	if not state then return end
 
 	state.Connection:Disconnect()
-	state.Sound:Stop()
-	state.Sound:Destroy()
+	AudioService:StopSound(state.Player)
 	characterStates[character] = nil
 end
 
@@ -33,26 +33,26 @@ local function watchCharacter(player: Player, character: Model)
 	local rootPart = character:WaitForChild("HumanoidRootPart") :: BasePart
 	if player.Character ~= character or character.Parent == nil then return end
 
-	local defaultWalkSound = rootPart:WaitForChild("Running") :: Sound
+	-- Roblox's own footsteps, an AudioPlayer since character sounds moved to the new audio API.
+	local defaultWalkSound = rootPart:WaitForChild("Running") :: AudioPlayer
 	defaultWalkSound.Volume = 0
 
-	local sound = sourceSound:Clone()
-	sound.Parent = rootPart
+	local player = AudioService:Create3DSound("Walk", rootPart, true, "SFX")
 
 	local function update(speed: number)
 		if speed > 0 then
-			if not sound.IsPlaying then
-				sound:Play()
+			if not player.IsPlaying then
+				player:Play()
 			end
 		else
-			sound:Stop()
+			player:Stop()
 		end
 	end
 
 	local connection = humanoid.Running:Connect(update)
 	characterStates[character] = {
 		Connection = connection,
-		Sound = sound,
+		Player = player,
 	}
 	update(humanoid.MoveDirection.Magnitude * humanoid.WalkSpeed)
 end

@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local AmbienceConfig = require(ReplicatedStorage.Configs.AmbienceConfig)
+local AudioService = require(ReplicatedStorage.Services.AudioService)
 local HallwayGraph = require(ReplicatedStorage.Modules.HallwayGraph)
 
 local AmbienceService = {}
@@ -13,27 +14,29 @@ if not RunService:IsClient() then
 end
 
 local AMBIENCE_FOLDER = ReplicatedStorage:WaitForChild("Sounds"):WaitForChild("Ambience")
-local OUTPUT_FOLDER = workspace:WaitForChild("Sounds")
 local ENEMY_TAG = "Enemy"
 
-type PlayingSound = {
-	Sound: Sound,
-	BaseVolume: number,
-}
+-- The bed ducks as an enemy closes in. A fader of its own between the players and the speakers
+-- means the ducking is one number, independent of whatever volume each clip was authored at and of
+-- the Ambience bus underneath it.
+local Duck = Instance.new("AudioFader")
+Duck.Name = "AmbienceDuck"
+Duck.Parent = workspace:WaitForChild("Sounds")
+AudioService:Wire(Duck, AudioService:GetOutput())
 
 local sources = {}
 for _, child in AMBIENCE_FOLDER:GetChildren() do
-	if child:IsA("Sound") then
+	if child:IsA("AudioPlayer") then
 		table.insert(sources, child)
 	end
 end
 
-local playing: PlayingSound?
+local playing: AudioPlayer?
 local sourceIndex = 0
 local volumeMultiplier = 1
 local accumulator = math.huge
 
-local function getNextSource(): Sound?
+local function getNextSource(): AudioPlayer?
 	if #sources == 0 then return nil end
 
 	local nextIndex = sourceIndex + 1
@@ -48,22 +51,15 @@ local function playNext()
 	local source = getNextSource()
 	if not source then return end
 
-	local sound = source:Clone()
-	sound.Looped = false
-	sound.Volume = source.Volume * volumeMultiplier
-	sound.Parent = OUTPUT_FOLDER
-	playing = {
-		Sound = sound,
-		BaseVolume = source.Volume,
-	}
+	local player = AudioService:Play2D(source, false, "Ambience", nil, Duck)
+	playing = player
 
-	sound.Ended:Connect(function()
-		if playing and playing.Sound == sound then
+	player.Ended:Connect(function()
+		if playing == player then
 			playing = nil
 			playNext()
 		end
 	end)
-	sound:Play()
 end
 
 local function getAliveRoot(): BasePart?
@@ -100,10 +96,7 @@ local function updateVolume(deltaTime: number)
 	local fadeTime = math.max(AmbienceConfig.FadeTime, 0.01)
 	local alpha = math.clamp(deltaTime / fadeTime, 0, 1)
 	volumeMultiplier += (targetMultiplier - volumeMultiplier) * alpha
-
-	if playing then
-		playing.Sound.Volume = playing.BaseVolume * volumeMultiplier
-	end
+	Duck.Volume = volumeMultiplier
 end
 
 RunService.Heartbeat:Connect(function(deltaTime: number)

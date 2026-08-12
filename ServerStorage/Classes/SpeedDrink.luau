@@ -28,12 +28,14 @@ end
 -- drink sound off on the same frame it starts.
 local function playEmbeddedSound(tool: Tool, name: string?, parent: BasePart?)
 	local source = findDescendant(tool, name)
-	if not source or not source:IsA("Sound") or not parent then return end
+	if not source or not source:IsA("AudioEmitter") or not parent then return end
 
-	local sound = source:Clone()
-	sound.Parent = parent
-	sound:Play()
-	Debris:AddItem(sound, math.max(sound.TimeLength + 1, 5))
+	local emitter = source:Clone()
+	emitter.Parent = parent
+
+	local player = emitter.Player :: AudioPlayer
+	player:Play()
+	Debris:AddItem(emitter, math.max(player.TimeLength + 1, 5))
 end
 
 function SpeedDrink:OnActivated()

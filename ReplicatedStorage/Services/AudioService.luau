@@ -1,163 +1,185 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local SoundsFolder = workspace:WaitForChild("Sounds")
 
+local Templates = ReplicatedStorage:WaitForChild("Sounds")
+local Buses = workspace:WaitForChild("Sounds")
+
+--- @class AudioService
+--- Plays audio through the new audio API, so every sound is acoustically simulated: occluded by
+--- walls, diffracted around corners, and reverberated by the room it is in.
+---
+--- A 3D template in `ReplicatedStorage.Sounds` is an `AudioEmitter` holding an `AudioPlayer` named
+--- `Player` and the `Wire` between them. Playing one clones the emitter and parents it to a part,
+--- exactly where the old `Sound` went. From there the engine's own camera `AudioListener` picks it
+--- up, so nothing has to build a listener. A 2D template is a bare `AudioPlayer`, with no emitter to
+--- place it in the world; it wires straight to the speakers instead.
 local AudioService = {}
 
-local START_TIME_ATTRIBUTE = "StartTime"
-local END_TIME_ATTRIBUTE = "EndTime"
+local Output: AudioDeviceOutput? = nil
 
-local function getNumberAttribute(instance: Instance, name: string): number?
-	local value = instance:GetAttribute(name)
-	return typeof(value) == "number" and value or nil
+--- The bus faders under `workspace.Sounds` are volume stores rather than wired mixer nodes. A 3D
+--- sound reaches the ear through its own emitter and the shared listener, so there is no node
+--- downstream of the player that belongs to one bus alone. Bus volume is folded into each player
+--- and kept in step while it plays.
+local function bindBus(player: AudioPlayer, bus: AudioFader): RBXScriptConnection
+	local baseVolume = player.Volume
+	player.Volume = baseVolume * bus.Volume
+	return bus:GetPropertyChangedSignal("Volume"):Connect(function()
+		player.Volume = baseVolume * bus.Volume
+	end)
 end
 
---- Returns the effective start and end positions, in seconds, for a sound. Optional numeric
---- `StartTime` and `EndTime` attributes override the natural clip bounds.
-function AudioService:GetPlaybackBounds(sound: Sound): (number, number)
-	local startTime = math.max(getNumberAttribute(sound, START_TIME_ATTRIBUTE) or 0, 0)
-	local endTime = getNumberAttribute(sound, END_TIME_ATTRIBUTE) or sound.TimeLength
-	return startTime, math.max(endTime, startTime)
-end
+local function bindLifetime(root: Instance, player: AudioPlayer, connection: RBXScriptConnection)
+	root.Destroying:Once(function()
+		connection:Disconnect()
+	end)
 
-local function bindPlaybackEnd(sound: Sound, endTime: number?)
-	local finished = false
-	local heartbeatConnection: RBXScriptConnection?
-
-	local function finish()
-		if finished then return end
-		finished = true
-		if heartbeatConnection then
-			heartbeatConnection:Disconnect()
-		end
-		sound:Destroy()
-	end
-
-	sound.Ended:Connect(finish)
-	if endTime ~= nil then
-		heartbeatConnection = RunService.Heartbeat:Connect(function()
-			if not sound.Parent then
-				finish()
-			elseif sound.TimePosition >= endTime then
-				sound:Stop()
-				finish()
-			end
+	if not player.Looping then
+		player.Ended:Once(function()
+			root:Destroy()
 		end)
 	end
 end
 
---[[
-Plays a 2D sound (non-spatial) by cloning a Sound object from this ModuleScript's children.
+local function applySettings(player: AudioPlayer, emitter: AudioEmitter?, settings: {[string]: any}?)
+	if not settings then return end
 
-Parameters:
-- name (string): The name of the Sound instance under this ModuleScript.
-- looped (boolean): Whether the sound should loop.
-- soundGroup (string): Name of a SoundGroup in workspace.Sounds to assign the sound to.
-- settings (table, optional): A dictionary of properties to assign to the sound instance (like Volume, PlaybackSpeed, TimePosition, etc.).
-
-Returns:
-- Sound: The playing Sound instance (for further manipulation).
-]]
-function AudioService:Play2DSound(name: string, looped: boolean, soundGroup: string, settings: {[string]: any}?)
-	local sourceSound = ReplicatedStorage:WaitForChild("Sounds"):FindFirstChild(name)
-	if not sourceSound or not sourceSound:IsA("Sound") then
-		warn(`Sound "{name}" not found as child of AudioService.`)
-		return
-	end
-
-	local newAudio = sourceSound:Clone()
-	newAudio.Looped = looped
-	newAudio.Parent = SoundsFolder:FindFirstChild(soundGroup)
-
-
-	local group = SoundsFolder:FindFirstChild(soundGroup)
-	if group and group:IsA("SoundGroup") then
-		newAudio.SoundGroup = group
-	else
-		warn(`SoundGroup "{soundGroup}" not found in SoundsFolder.`)
-	end
-
-	-- Apply optional settings
-	if settings then
-		for prop, value in pairs(settings) do
+	for property, value in settings do
+		local applied = pcall(function()
+			player[property] = value
+		end)
+		if not applied and emitter then
 			pcall(function()
-				newAudio[prop] = value
+				emitter[property] = value
 			end)
 		end
 	end
+end
 
-	newAudio.PlaybackRegionsEnabled = false
-	local startTime = AudioService:GetPlaybackBounds(newAudio)
-	newAudio.TimePosition = startTime
-	bindPlaybackEnd(newAudio, getNumberAttribute(newAudio, END_TIME_ATTRIBUTE))
-	newAudio:Play()
+--- The client's speakers. 3D audio reaches them through the engine's camera listener, so only 2D
+--- playback wires itself here.
+function AudioService:GetOutput(): AudioDeviceOutput
+	if not Output then
+		local output = Instance.new("AudioDeviceOutput")
+		output.Name = "Output"
+		output.Parent = Buses
+		Output = output
+	end
+	return Output :: AudioDeviceOutput
+end
 
-	return newAudio
+function AudioService:GetBus(name: string): AudioFader
+	return Buses[name]
+end
+
+--- Carries audio from one node to the next. The wire lives under its source so destroying the
+--- source takes the connection with it.
+function AudioService:Wire(source: Instance, target: Instance): Wire
+	local wire = Instance.new("Wire")
+	wire.SourceInstance = source
+	wire.TargetInstance = target
+	wire.Parent = source
+	return wire
+end
+
+--- Returns the effective start and end positions, in seconds, for a player. These come from
+--- `PlaybackRegion`, which the engine already honours: playback starts at the minimum and `Ended`
+--- fires at the maximum.
+function AudioService:GetPlaybackBounds(player: AudioPlayer): (number, number)
+	local region = player.PlaybackRegion
+	local length = player.TimeLength
+	local finish = if length > 0 then math.min(region.Max, length) else region.Max
+	return region.Min, math.max(finish, region.Min)
 end
 
 --[[
-Plays a 3D spatial sound at the given BasePart by cloning a Sound from ReplicatedStorage.Sounds.
+Builds a 3D sound at `parent` without starting it, by cloning an AudioEmitter template from
+ReplicatedStorage.Sounds. Use this when playback has to be driven later; `Play3DSound` is the
+one-shot form.
 
-Parameters:
-- name (string): The name of the Sound instance under this ModuleScript.
-- parent (BasePart): The part where the sound will play.
-- looped (boolean): Whether the sound should loop.
-- soundGroup (string): Name of a SoundGroup in workspace.Sounds to assign the sound to.
-- settings (table, optional): A dictionary of properties to assign to the sound instance.
-
-Returns:
-- Sound: The playing Sound instance.
+Returns the AudioPlayer inside the emitter. The emitter is destroyed for you once a non-looping
+sound ends; a looping one is yours to stop with `StopSound`.
 ]]
-function AudioService:Play3DSound(name: string, parent: BasePart, looped: boolean, soundGroup: string, settings: {[string]: any}?)
-	local sourceSound = ReplicatedStorage:WaitForChild("Sounds"):FindFirstChild(name)
-	if not sourceSound or not sourceSound:IsA("Sound") then
-		warn(`Sound "{name}" not found as child of AudioService.`)
-		return
-	end
+function AudioService:Create3DSound(
+	name: string,
+	parent: BasePart,
+	looped: boolean,
+	soundGroup: string,
+	settings: {[string]: any}?
+): AudioPlayer
+	local emitter = (Templates[name] :: AudioEmitter):Clone()
+	local player = emitter.Player :: AudioPlayer
+	player.Looping = looped
+	applySettings(player, emitter, settings)
 
-	local newAudio = sourceSound:Clone()
-	newAudio.Looped = looped
-	newAudio.Parent = parent
+	emitter.Parent = parent
+	bindLifetime(emitter, player, bindBus(player, self:GetBus(soundGroup)))
+	return player
+end
 
-	local group = SoundsFolder:FindFirstChild(soundGroup)
-	if group and group:IsA("SoundGroup") then
-		newAudio.SoundGroup = group
+--- Plays a 3D spatial sound at `parent`. See `Create3DSound` for the returned object's lifetime.
+function AudioService:Play3DSound(
+	name: string,
+	parent: BasePart,
+	looped: boolean,
+	soundGroup: string,
+	settings: {[string]: any}?
+): AudioPlayer
+	local player = self:Create3DSound(name, parent, looped, soundGroup, settings)
+	player:Play()
+	return player
+end
+
+--[[
+Plays a template with no position, straight into the speakers. Client only -- 2D audio ends at a
+device the server does not have.
+
+`target` defaults to the output, and is there for callers that need a node of their own in the
+chain, such as a fader they intend to duck.
+]]
+function AudioService:Play2D(
+	template: Instance,
+	looped: boolean,
+	soundGroup: string,
+	settings: {[string]: any}?,
+	target: Instance?
+): AudioPlayer
+	local source = if template:IsA("AudioPlayer") then template else template.Player :: AudioPlayer
+	local player = source:Clone()
+	player.Looping = looped
+	applySettings(player, nil, settings)
+
+	player.Parent = Buses
+	self:Wire(player, target or self:GetOutput())
+	bindLifetime(player, player, bindBus(player, self:GetBus(soundGroup)))
+	player:Play()
+	return player
+end
+
+--- Plays a 2D sound by template name. Client only.
+function AudioService:Play2DSound(
+	name: string,
+	looped: boolean,
+	soundGroup: string,
+	settings: {[string]: any}?
+): AudioPlayer
+	return self:Play2D(Templates[name], looped, soundGroup, settings)
+end
+
+--- Stops a sound this service started and removes the graph it was playing through.
+function AudioService:StopSound(player: AudioPlayer)
+	player:Stop()
+
+	local root = player.Parent
+	if root and root:IsA("AudioEmitter") then
+		root:Destroy()
 	else
-		warn(`SoundGroup "{soundGroup}" not found in SoundsFolder.`)
+		player:Destroy()
 	end
-
-	-- Apply optional settings
-	if settings then
-		for prop, value in pairs(settings) do
-			pcall(function()
-				newAudio[prop] = value
-			end)
-		end
-	end
-
-	newAudio.PlaybackRegionsEnabled = false
-	local startTime = AudioService:GetPlaybackBounds(newAudio)
-	newAudio.TimePosition = startTime
-	bindPlaybackEnd(newAudio, getNumberAttribute(newAudio, END_TIME_ATTRIBUTE))
-	newAudio:Play()
-
-	return newAudio
 end
 
---[[
-Changes the volume of a SoundGroup in workspace.Sounds.
-
-Parameters:
-- soundGroupName (string): Name of the SoundGroup.
-- newVolume (number): New volume value to assign.
-]]
+--- Changes the volume of a bus in workspace.Sounds, including for sounds already playing on it.
 function AudioService:AdjustSoundGroup(soundGroupName: string, newVolume: number)
-	local soundGroup = SoundsFolder:FindFirstChild(soundGroupName)
-	if soundGroup and soundGroup:IsA("SoundGroup") then
-		soundGroup.Volume = newVolume
-	else
-		warn(`SoundGroup "{soundGroupName}" not found in SoundsFolder.`)
-	end
+	self:GetBus(soundGroupName).Volume = newVolume
 end
 
 return AudioService

@@ -56,7 +56,7 @@ local function renderTool(viewport: ViewportFrame, toolName: string)
 
 	local clone = template:Clone()
 	for _, descendant in clone:GetDescendants() do
-		if descendant:IsA("LuaSourceContainer") or descendant:IsA("Sound") then
+		if descendant:IsA("LuaSourceContainer") or descendant:IsA("AudioEmitter") then
 			descendant:Destroy()
 		elseif descendant:IsA("BasePart") then
 			descendant.Anchored = true

@@ -27,9 +27,9 @@ function Flashlight:OnActivated()
 	self:SetEnabled(not self.Enabled)
 
 	local handle = self.Tool:FindFirstChild("Handle")
-	local sound = handle and handle:FindFirstChildWhichIsA("Sound")
-	if sound then
-		sound:Play()
+	local emitter = handle and handle:FindFirstChildWhichIsA("AudioEmitter")
+	if emitter then
+		(emitter.Player :: AudioPlayer):Play()
 	end
 end
 

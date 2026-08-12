@@ -35,7 +35,8 @@ function DoorPart.new(part: BasePart)
 	self.Velocity = 0
 	self.Sign = 1
 	self.Target = 0
-	self.AnimationSound = nil
+	self.AnimationPlayer = nil
+	self.AnimationEnded = false
 	self.AnimationStartAngle = 0
 	self.AnimationStartPosition = 0
 
@@ -65,27 +66,32 @@ function DoorPart:SetOpen(open: boolean, from: Vector3?)
 	self.Target = open and OPEN_ANGLE * self.Sign or 0
 
 	if wasOpen ~= open then
-		local sound = AudioService:Play3DSound(open and "DoorOpen" or "DoorClose", self.Part, false, "SFX")
-		self.AnimationSound = sound
+		local player = AudioService:Play3DSound(open and "DoorOpen" or "DoorClose", self.Part, false, "SFX")
+		self.AnimationPlayer = player
+		self.AnimationEnded = false
 		self.AnimationStartAngle = self.Angle
-		if sound then
-			self.AnimationStartPosition = AudioService:GetPlaybackBounds(sound)
-		end
+		self.AnimationStartPosition = AudioService:GetPlaybackBounds(player)
+
+		player.Ended:Once(function()
+			if self.AnimationPlayer == player then
+				self.AnimationEnded = true
+			end
+		end)
 	end
 end
 
 function DoorPart:Step(deltaTime: number)
-	local animationSound = self.AnimationSound
-	if animationSound then
-		local _, endPosition = AudioService:GetPlaybackBounds(animationSound)
+	local animationPlayer = self.AnimationPlayer
+	if animationPlayer then
+		local _, endPosition = AudioService:GetPlaybackBounds(animationPlayer)
 		local progress
-		if not animationSound.Parent then
+		if self.AnimationEnded then
 			progress = 1
 		elseif endPosition <= self.AnimationStartPosition then
 			return
 		else
 			progress = math.clamp(
-				(animationSound.TimePosition - self.AnimationStartPosition)
+				(animationPlayer.TimePosition - self.AnimationStartPosition)
 					/ (endPosition - self.AnimationStartPosition),
 				0,
 				1
@@ -98,7 +104,7 @@ function DoorPart:Step(deltaTime: number)
 		self:_Apply()
 
 		if progress >= 1 then
-			self.AnimationSound = nil
+			self.AnimationPlayer = nil
 			self.Angle = self.Target
 			self:_Apply()
 		end
