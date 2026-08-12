@@ -3,10 +3,11 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local CameraBobConfig = require(ReplicatedStorage.Configs.CameraBobConfig)
 
-local CameraBobService = {}
+local FirstPersonCameraService = {}
 
 local RENDER_JOB = "CameraBob"
 local TAU = math.pi * 2
@@ -77,5 +78,7 @@ if localPlayer.Character then
 end
 
 RunService:BindToRenderStep(RENDER_JOB, Enum.RenderPriority.Camera.Value + 2, render)
+UserInputService.MouseIconEnabled = false
+localPlayer.PlayerGui:WaitForChild("Cursor").Enabled = true
 
-return CameraBobService
+return FirstPersonCameraService
