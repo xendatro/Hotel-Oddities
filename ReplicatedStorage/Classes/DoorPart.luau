@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DoorConfig = require(ReplicatedStorage.Configs.DoorConfig)
+local AudioService = require(ReplicatedStorage.Services.AudioService)
 
 --- @class DoorPart
 --- One swinging slab: a `DoorPart`-tagged part inside a `Door` model. Only the slab moves, never the
@@ -34,6 +35,9 @@ function DoorPart.new(part: BasePart)
 	self.Velocity = 0
 	self.Sign = 1
 	self.Target = 0
+	self.AnimationSound = nil
+	self.AnimationStartAngle = 0
+	self.AnimationStartPosition = 0
 
 	return self
 end
@@ -53,13 +57,54 @@ end
 --- @param open boolean -- whether someone is close enough to hold it open
 --- @param from Vector3? -- the nearest such player, used to choose a side
 function DoorPart:SetOpen(open: boolean, from: Vector3?)
-	if open and not self:IsOpen() and from and math.abs(self.Angle) <= DoorConfig.ResideAngle then
+	local wasOpen = self:IsOpen()
+
+	if open and not wasOpen and from and math.abs(self.Angle) <= DoorConfig.ResideAngle then
 		self.Sign = self:_swingSign(from)
 	end
 	self.Target = open and OPEN_ANGLE * self.Sign or 0
+
+	if wasOpen ~= open then
+		local sound = AudioService:Play3DSound(open and "DoorOpen" or "DoorClose", self.Part, false, "SFX")
+		self.AnimationSound = sound
+		self.AnimationStartAngle = self.Angle
+		if sound then
+			self.AnimationStartPosition = AudioService:GetPlaybackBounds(sound)
+		end
+	end
 end
 
 function DoorPart:Step(deltaTime: number)
+	local animationSound = self.AnimationSound
+	if animationSound then
+		local _, endPosition = AudioService:GetPlaybackBounds(animationSound)
+		local progress
+		if not animationSound.Parent then
+			progress = 1
+		elseif endPosition <= self.AnimationStartPosition then
+			return
+		else
+			progress = math.clamp(
+				(animationSound.TimePosition - self.AnimationStartPosition)
+					/ (endPosition - self.AnimationStartPosition),
+				0,
+				1
+			)
+		end
+
+		local easedProgress = progress * progress * (3 - 2 * progress)
+		self.Angle = self.AnimationStartAngle + (self.Target - self.AnimationStartAngle) * easedProgress
+		self.Velocity = 0
+		self:_Apply()
+
+		if progress >= 1 then
+			self.AnimationSound = nil
+			self.Angle = self.Target
+			self:_Apply()
+		end
+		return
+	end
+
 	local target = self.Target
 	if target == 0 and math.abs(self.Velocity) <= DoorConfig.SettleVelocity and math.abs(self.Angle) <= DoorConfig.SettleAngle then
 		if self.Angle ~= 0 then

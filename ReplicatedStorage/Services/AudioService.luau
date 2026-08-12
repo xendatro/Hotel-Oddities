@@ -1,7 +1,50 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local SoundsFolder = workspace:WaitForChild("Sounds")
 
 local AudioService = {}
+
+local START_TIME_ATTRIBUTE = "StartTime"
+local END_TIME_ATTRIBUTE = "EndTime"
+
+local function getNumberAttribute(instance: Instance, name: string): number?
+	local value = instance:GetAttribute(name)
+	return typeof(value) == "number" and value or nil
+end
+
+--- Returns the effective start and end positions, in seconds, for a sound. Optional numeric
+--- `StartTime` and `EndTime` attributes override the natural clip bounds.
+function AudioService:GetPlaybackBounds(sound: Sound): (number, number)
+	local startTime = math.max(getNumberAttribute(sound, START_TIME_ATTRIBUTE) or 0, 0)
+	local endTime = getNumberAttribute(sound, END_TIME_ATTRIBUTE) or sound.TimeLength
+	return startTime, math.max(endTime, startTime)
+end
+
+local function bindPlaybackEnd(sound: Sound, endTime: number?)
+	local finished = false
+	local heartbeatConnection: RBXScriptConnection?
+
+	local function finish()
+		if finished then return end
+		finished = true
+		if heartbeatConnection then
+			heartbeatConnection:Disconnect()
+		end
+		sound:Destroy()
+	end
+
+	sound.Ended:Connect(finish)
+	if endTime ~= nil then
+		heartbeatConnection = RunService.Heartbeat:Connect(function()
+			if not sound.Parent then
+				finish()
+			elseif sound.TimePosition >= endTime then
+				sound:Stop()
+				finish()
+			end
+		end)
+	end
+end
 
 --[[
 Plays a 2D sound (non-spatial) by cloning a Sound object from this ModuleScript's children.
@@ -43,10 +86,11 @@ function AudioService:Play2DSound(name: string, looped: boolean, soundGroup: str
 		end
 	end
 
+	newAudio.PlaybackRegionsEnabled = false
+	local startTime = AudioService:GetPlaybackBounds(newAudio)
+	newAudio.TimePosition = startTime
+	bindPlaybackEnd(newAudio, getNumberAttribute(newAudio, END_TIME_ATTRIBUTE))
 	newAudio:Play()
-	newAudio.Ended:Connect(function()
-		newAudio:Destroy()
-	end)
 
 	return newAudio
 end
@@ -71,9 +115,7 @@ function AudioService:Play3DSound(name: string, parent: BasePart, looped: boolea
 		return
 	end
 
-	local newAudio = Instance.new("Sound")
-	newAudio.Name = name
-	newAudio.SoundId = sourceSound.SoundId
+	local newAudio = sourceSound:Clone()
 	newAudio.Looped = looped
 	newAudio.Parent = parent
 
@@ -93,10 +135,11 @@ function AudioService:Play3DSound(name: string, parent: BasePart, looped: boolea
 		end
 	end
 
+	newAudio.PlaybackRegionsEnabled = false
+	local startTime = AudioService:GetPlaybackBounds(newAudio)
+	newAudio.TimePosition = startTime
+	bindPlaybackEnd(newAudio, getNumberAttribute(newAudio, END_TIME_ATTRIBUTE))
 	newAudio:Play()
-	newAudio.Ended:Connect(function()
-		newAudio:Destroy()
-	end)
 
 	return newAudio
 end
