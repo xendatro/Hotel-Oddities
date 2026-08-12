@@ -243,6 +243,13 @@ function NpcAnimator:_apply(speed: number)
 		elseif speed >= RUN_THRESHOLD then self.Tracks.Run
 		else self.Tracks.Walk
 	if not track then return end
+	-- Some rigs deliberately use one clip for both gaits. Keep the playing copy when crossing the
+	-- walk/run threshold so a speed adjustment does not visibly restart the same animation.
+	if self.Current
+		and track ~= self.Current
+		and track.Animation.AnimationId == self.Current.Animation.AnimationId then
+		track = self.Current
+	end
 
 	-- Standing still covers no ground, so nothing held there has a stride to be measured against. An
 	-- authored idle plays at the pace it was made at; a held walk does not play at all.

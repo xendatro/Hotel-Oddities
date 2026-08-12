@@ -42,10 +42,20 @@ export type EnemyConfig = {
 
 	-- Blind-specific
 	InvestigateRange: number?, -- distance from the latest noise that counts as reaching it
+	InvestigateSpeed: number?, -- cautious speed after weak or isolated noise
+	AlertSpeed: number?, -- speed after enough consecutive noise to establish a likely target
 	SearchTime: number?, -- seconds spent listening at the last sound before wandering again
 	HearingAccurateRange: number?, -- noises inside this distance are localized exactly
 	HearingErrorMaxDistance: number?, -- distance at which localization error reaches its maximum
 	HearingErrorMax: number?, -- largest random offset at or beyond that distance, in studs
+	HearingErrorMinScale: number?, -- minimum share of that error a low-determination guess retains
+	AlertThreshold: number?, -- determination required to leave cautious investigation
+	FrenzyThreshold: number?, -- determination required to use full chase speed
+	DeterminationPerNoiseMin: number?, -- determination earned by a sound at the edge of its radius
+	DeterminationPerNoiseMax: number?, -- determination earned by a sound made beside Blind
+	DeterminationSilenceGrace: number?, -- seconds after a sound before determination starts draining
+	DeterminationDecay: number?, -- determination lost per second of silence
+	TrailSilenceTime: number?, -- silence required before arriving at the final footstep ends pursuit
 
 	-- Perception of being seen. Setting this at all is what marks an enemy as caring: `NPC:Start`
 	-- reads it to decide whether this model should accept client view reports.
@@ -206,7 +216,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		Animations = AnimationConfig.Sets.Blind,
 
 		WalkSpeed = 8,
-		ChaseSpeed = 13,
+		ChaseSpeed = 19,
 		RepathInterval = 0.25,
 		RepathDistance = 4,
 		AgentParams = {
@@ -229,14 +239,27 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		AttackCooldown = 1.5,
 
 		InvestigateRange = 2.5,
-		SearchTime = 4,
+		InvestigateSpeed = 10,
+		AlertSpeed = 14,
+		SearchTime = 3,
 		HearingAccurateRange = 12,
 		HearingErrorMaxDistance = 45,
 		HearingErrorMax = 10,
+		HearingErrorMinScale = 0.65,
 
-		-- Cheap because it cannot catch anybody: 13 against a player's 16 means walking away from it
-		-- always works. What it costs you is the right to make noise, which is a different kind of
-		-- pressure entirely and one the hotel can carry a lot of.
+		-- The stages are deliberately discrete: they make its intent readable and avoid a gait whose
+		-- speed changes every frame. A runner pushes it into frenzy quickly; silence drops it back
+		-- through alert and cautious investigation while it commits to the final footstep.
+		AlertThreshold = 0.35,
+		FrenzyThreshold = 0.75,
+		DeterminationPerNoiseMin = 0.18,
+		DeterminationPerNoiseMax = 0.4,
+		DeterminationSilenceGrace = 0.35,
+		DeterminationDecay = 0.45,
+		TrailSilenceTime = 0.65,
+
+		-- Cheap because silence breaks its information, not because it loses a footrace. It can outrun
+		-- an ordinary player once provoked, but only toward the last place that player made noise.
 		Budget = "Pursuit",
 		Cost = 1,
 		SpawnWeight = 8,

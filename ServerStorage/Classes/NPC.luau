@@ -21,7 +21,7 @@ local NpcAnimator = require(ReplicatedStorage.Classes.NpcAnimator)
 local RoomService = require(ServerStorage.Services.RoomService)
 local Vanished = require(ReplicatedStorage.Modules.Vanished)
 
-local WAYPOINT_REACHED_DISTANCE = 2
+local WAYPOINT_REACHED_DISTANCE = 1.25
 local WAYPOINT_PROGRESS = 0.5 -- studs of gain on a waypoint that counts as making ground
 local WAYPOINT_STALL_GRACE = 1.5 -- seconds of making none before a leg is called blocked
 local MOVE_REFRESH_INTERVAL = 4 -- seconds between re-issued goals; `Humanoid:MoveTo` gives up after eight
@@ -222,6 +222,32 @@ function NPC:GetWaypointDistance(position: Vector3): number
 	return (rootPosition - self.RootPart.Position).Magnitude
 end
 
+--- Whether the whole agent, rather than only a sight ray through its center, has an unobstructed
+--- horizontal lane to `destination`. This is required before pursuit bypasses the navmesh at close
+--- range; otherwise a visible player just beyond a corner can make a wide rig charge into its wall.
+function NPC:HasMovementClearance(destination: Vector3): boolean
+	local offset = horizontal(destination - self.RootPart.Position)
+	if offset.Magnitude < 1e-3 then return true end
+
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local filter = { self.Model }
+	if self.Target and self.Target.Character then
+		table.insert(filter, self.Target.Character)
+	end
+	params.FilterDescendantsInstances = filter
+	params.RespectCanCollide = true
+
+	local radius = self.Config.AgentParams.AgentRadius
+	local height = math.min(self.Config.AgentParams.AgentHeight, self.RootPart.Size.Y)
+	return workspace:Blockcast(
+		CFrame.new(self.RootPart.Position),
+		Vector3.new(radius * 2, height, radius * 2),
+		offset,
+		params
+	) == nil
+end
+
 -- Walks the waypoints of `path`, polling `shouldAbandon` between each. Returns "Reached" once the
 -- last waypoint lands, "Abandoned" if the caller bailed out, or "Blocked" if it stopped making ground.
 --
@@ -231,8 +257,18 @@ end
 -- in the doorway. So a leg ends when it stops closing on its goal, not when it runs long.
 function NPC:_walkPath(path: Path, shouldAbandon: (() -> boolean)?): string
 	local waypoints = self:GetMovementWaypoints(path)
+	local blockedAt = nil :: number?
+	local blockedConnection = path.Blocked:Connect(function(index)
+		blockedAt = if blockedAt then math.min(blockedAt, index) else index
+	end)
+	local function finish(result: string): string
+		blockedConnection:Disconnect()
+		return result
+	end
+
 	for index = 2, #waypoints do
-		if shouldAbandon and shouldAbandon() then return "Abandoned" end
+		if shouldAbandon and shouldAbandon() then return finish("Abandoned") end
+		if blockedAt and blockedAt >= index then return finish("Blocked") end
 
 		local waypoint = waypoints[index]
 		if waypoint.Action == Enum.PathWaypointAction.Jump then
@@ -247,12 +283,13 @@ function NPC:_walkPath(path: Path, shouldAbandon: (() -> boolean)?): string
 		while true do
 			local distance = self:GetWaypointDistance(waypoint.Position)
 			if distance <= WAYPOINT_REACHED_DISTANCE then break end
-			if shouldAbandon and shouldAbandon() then return "Abandoned" end
+			if shouldAbandon and shouldAbandon() then return finish("Abandoned") end
+			if blockedAt and blockedAt >= index then return finish("Blocked") end
 
 			if distance < closest - WAYPOINT_PROGRESS then
 				closest, progressedAt = distance, os.clock()
 			elseif os.clock() - progressedAt >= WAYPOINT_STALL_GRACE then
-				return "Blocked"
+				return finish("Blocked")
 			end
 
 			if os.clock() >= refreshAt then
@@ -262,7 +299,7 @@ function NPC:_walkPath(path: Path, shouldAbandon: (() -> boolean)?): string
 			task.wait(MOVEMENT_POLL_INTERVAL)
 		end
 	end
-	return "Reached"
+	return finish("Reached")
 end
 
 --- Walks a single pathed trip to a fixed point. Returns whether it arrived.
@@ -282,7 +319,7 @@ end
 --- cannot make progress.
 function NPC:Pursue(
 	getGoal: () -> Vector3?,
-	arriveDistance: number,
+	arriveDistance: number?,
 	hasArrived: (() -> boolean)?,
 	canMoveDirectly: (() -> boolean)?
 ): string
@@ -296,8 +333,11 @@ function NPC:Pursue(
 		if hasArrived and hasArrived() then return "Reached" end
 
 		local distance = (self.RootPart.Position - goal).Magnitude
-		if distance <= arriveDistance then return "Reached" end
-		if distance <= DIRECT_PURSUIT_DISTANCE and canMoveDirectly and canMoveDirectly() then
+		if arriveDistance and distance <= arriveDistance then return "Reached" end
+		if distance <= DIRECT_PURSUIT_DISTANCE
+			and canMoveDirectly
+			and canMoveDirectly()
+			and self:HasMovementClearance(goal) then
 			blockedAttempts = 0
 			-- Re-issued on a clock as well as on drift, because a goal that has stopped moving is
 			-- exactly the case that never trips the drift check: a player standing still somewhere
@@ -336,7 +376,9 @@ function NPC:Pursue(
 				arrived = true
 				return true
 			end
-			if (self.RootPart.Position - current).Magnitude <= arriveDistance then return true end
+			if arriveDistance and (self.RootPart.Position - current).Magnitude <= arriveDistance then
+				return true
+			end
 			return os.clock() >= repathAt and (current - goal).Magnitude > self.Config.RepathDistance
 		end)
 		path:Destroy()

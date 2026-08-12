@@ -1,8 +1,8 @@
 --- @class Blind
---- Has no visual perception at all. It wanders until a noise reaches it, approaches its best estimate
---- of where that noise came from, and tracks the source exactly once it gets close enough to hear
---- where they stopped. Corners do not muffle sound; walls only matter because it still has to path
---- around them. Contact is fatal, even when the player it finds was not the one it originally heard.
+--- Has no visual perception at all. It hunts a trail of sounds, never a player: every footstep replaces
+--- its destination, and silence leaves it committed to that final point. Sustained sound escalates it
+--- from a cautious investigation into a faster-than-player frenzy; stopping makes that certainty and
+--- speed fall away. Contact is fatal, even when the player it finds was not the one it originally heard.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -16,6 +16,41 @@ local PERCEPTION_INTERVAL = 0.1
 
 local Blind = NPC.extend("Blind")
 
+local function updateDetermination(npc: any, now: number)
+	local updatedAt = npc.DeterminationUpdatedAt or now
+	local decayAfter = (npc.LastNoiseAt or now) + npc.Config.DeterminationSilenceGrace
+	local decayFrom = math.max(updatedAt, decayAfter)
+	if now > decayFrom then
+		npc.Determination = math.max(
+			npc.Determination - (now - decayFrom) * npc.Config.DeterminationDecay,
+			0
+		)
+	end
+	npc.DeterminationUpdatedAt = now
+end
+
+local function setInvestigateSpeed(npc: any)
+	local config = npc.Config
+	local speed = if npc.Determination >= config.FrenzyThreshold
+		then config.ChaseSpeed
+		elseif npc.Determination >= config.AlertThreshold then config.AlertSpeed
+		else config.InvestigateSpeed
+	if npc.Humanoid.WalkSpeed ~= speed then
+		npc:SetSpeed(speed)
+	end
+end
+
+local function addDetermination(npc: any, noise, now: number)
+	updateDetermination(npc, now)
+	local distance = (noise.Position - npc.RootPart.Position).Magnitude
+	local strength = 1 - math.clamp(distance / math.max(noise.Radius, 1e-3), 0, 1)
+	local config = npc.Config
+	local gained = config.DeterminationPerNoiseMin
+		+ (config.DeterminationPerNoiseMax - config.DeterminationPerNoiseMin) * strength
+	npc.Determination = math.min(npc.Determination + gained, 1)
+	npc.LastNoiseAt = now
+end
+
 local function getTouchingPlayer(npc: any): Player?
 	for _, player in Players:GetPlayers() do
 		if npc:IsValidTarget(player) and npc:IsTouchingPlayer(player) then
@@ -25,27 +60,18 @@ local function getTouchingPlayer(npc: any): Player?
 	return nil
 end
 
---- A source inside the exact-hearing range can still be placed after their last footstep. This closes
---- the gap between the last emitted noise and where a nearby player came to rest.
-local function getCloseSourcePosition(npc: any, source: Player?): Vector3?
-	if not source then return nil end
-	local position = npc:GetTargetPosition(source)
-	if not position then return nil end
-	if (position - npc.RootPart.Position).Magnitude > npc.Config.HearingAccurateRange then return nil end
-	return position
-end
-
 --- What it thinks it heard. Nearby sounds are exact; distance stretches one stable random offset so
 --- successive footsteps move the estimate smoothly instead of rolling a new zigzag every pulse.
---- The random size means a distant sound can still be pinpointed by luck, while the cap makes sure
---- investigating a guess never leaves it farther from the real sound than when it heard it.
+--- Determination squeezes that error toward zero. Its random scale has a floor, so one distant sound
+--- cannot reveal somebody perfectly by luck.
 local function estimatePosition(npc: any, noise): Vector3
 	if not npc.HearingErrorDirection
 		or npc.HearingErrorScale == nil
 		or npc.HeardSource ~= noise.Source then
 		local angle = math.random() * math.pi * 2
 		npc.HearingErrorDirection = Vector3.new(math.cos(angle), 0, math.sin(angle))
-		npc.HearingErrorScale = math.random()
+		npc.HearingErrorScale = npc.Config.HearingErrorMinScale
+			+ math.random() * (1 - npc.Config.HearingErrorMinScale)
 	end
 
 	local config = npc.Config
@@ -60,28 +86,41 @@ local function estimatePosition(npc: any, noise): Vector3
 		config.HearingErrorMax * errorAlpha,
 		math.max(distance - config.InvestigateRange, 0)
 	)
-	return noise.Position + npc.HearingErrorDirection * maximumError * npc.HearingErrorScale
+	local uncertainty = 1 - npc.Determination
+	return noise.Position + npc.HearingErrorDirection * maximumError * npc.HearingErrorScale * uncertainty
 end
 
---- Follows successive noises rather than a player. Silence freezes the goal unless the source is close
---- enough to place exactly; arriving at a lost trail starts a short listening search.
+--- Follows successive noises rather than a player. Silence freezes the goal at the final footstep;
+--- arriving at the end of that lost trail starts a short listening search.
 local function investigate(_changeState: StateMachine.ChangeState, npc: any)
 	npc.Animator:Resume()
-	npc:SetSpeed(npc.Config.ChaseSpeed)
+	setInvestigateSpeed(npc)
 
 	local caught = nil :: Player?
+	local lastKnown = npc.HeardPosition or npc.RootPart.Position
 	npc:Pursue(function()
-		return npc.HeardPosition
-	end, npc.Config.InvestigateRange, function()
+		local goal = npc.HeardPosition
+		if goal then
+			lastKnown = goal
+		end
+		if goal
+			and npc.LastNoiseAt
+			and os.clock() - npc.LastNoiseAt >= npc.Config.TrailSilenceTime
+			and (npc.RootPart.Position - goal).Magnitude <= npc.Config.InvestigateRange then
+			return nil
+		end
+		return goal
+	end, nil, function()
 		caught = getTouchingPlayer(npc)
 		return caught ~= nil
+	end, function()
+		return true
 	end)
 
 	if caught then
 		return "Attack", npc, caught
 	end
 
-	local lastKnown = npc.HeardPosition or npc.RootPart.Position
 	return "Search", npc, lastKnown
 end
 
@@ -100,7 +139,7 @@ local function attack(_changeState: StateMachine.ChangeState, npc: any, target: 
 	return "Idle", npc
 end
 
---- Stands at the last sound and listens. A fresh noise or a close source interrupts this immediately.
+--- Stands at the last sound and listens. A fresh noise interrupts this immediately.
 local function search(_changeState: StateMachine.ChangeState, npc: any, lastKnown: Vector3)
 	npc.Target = nil
 	npc.Animator:Resume()
@@ -114,6 +153,9 @@ local function search(_changeState: StateMachine.ChangeState, npc: any, lastKnow
 	npc.HeardSource = nil
 	npc.HearingErrorDirection = nil
 	npc.HearingErrorScale = nil
+	npc.Determination = 0
+	npc.LastNoiseAt = nil
+	npc.DeterminationUpdatedAt = nil
 	return "Idle", npc
 end
 
@@ -124,6 +166,9 @@ function Blind.new(model: Model, config)
 	self.HeardSource = nil
 	self.HearingErrorDirection = nil
 	self.HearingErrorScale = nil
+	self.Determination = 0
+	self.LastNoiseAt = nil
+	self.DeterminationUpdatedAt = nil
 	return self
 end
 
@@ -143,7 +188,6 @@ function Blind:BuildStateMachine(): StateMachine.StateMachine
 		-- A sound only pulls it away from quiet work. During an investigation, the evaluator updates
 		-- `HeardPosition` in place so `Pursue` can repath without restarting the whole state every step.
 		Noise = { "Idle", "Wander", "Patrol", "Search" },
-		CloseHearing = { "Idle", "Wander", "Patrol", "Search" },
 		Contact = { "Idle", "Wander", "Patrol", "Investigate", "Search" },
 		Impact = { "Idle", "Wander", "Patrol", "Investigate", "Attack", "Search" },
 	}, {
@@ -151,6 +195,11 @@ function Blind:BuildStateMachine(): StateMachine.StateMachine
 			local lastSequence = 0
 			while true do
 				task.wait(PERCEPTION_INTERVAL)
+				local now = os.clock()
+				updateDetermination(npc, now)
+				if npc.StateMachine.State == "Investigate" then
+					setInvestigateSpeed(npc)
+				end
 
 				local touching = getTouchingPlayer(npc)
 				if touching then
@@ -158,26 +207,22 @@ function Blind:BuildStateMachine(): StateMachine.StateMachine
 					continue
 				end
 
-				local closePosition = getCloseSourcePosition(npc, npc.HeardSource)
-				if closePosition then
-					npc.HeardPosition = closePosition
-					npc.Target = npc.HeardSource
-					npc.StateMachine:SetState("Investigate", "CloseHearing", npc)
-					continue
-				end
-
 				local noise = NoiseService:GetLatest(npc.RootPart.Position, lastSequence, function(candidate)
 					return candidate.Source == nil or npc:IsValidTarget(candidate.Source)
 				end)
-				if not noise then continue end
-
-				lastSequence = noise.Sequence
-				npc.HeardPosition = getCloseSourcePosition(npc, noise.Source)
-					or estimatePosition(npc, noise)
-				npc.HeardNoise = noise
-				npc.HeardSource = noise.Source
-				npc.Target = noise.Source
-				npc.StateMachine:SetState("Investigate", "Noise", npc)
+				if noise then
+					lastSequence = noise.Sequence
+					if npc.HeardNoise and npc.HeardSource ~= noise.Source then
+						npc.Determination = 0
+						npc.DeterminationUpdatedAt = now
+					end
+					addDetermination(npc, noise, now)
+					npc.HeardPosition = estimatePosition(npc, noise)
+					npc.HeardNoise = noise
+					npc.HeardSource = noise.Source
+					npc.Target = noise.Source
+					npc.StateMachine:SetState("Investigate", "Noise", npc)
+				end
 			end
 		end,
 	}, "Idle", self)

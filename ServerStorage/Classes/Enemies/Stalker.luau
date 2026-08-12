@@ -32,11 +32,6 @@ local PERCEPTION_INTERVAL = 0.25
 local HOLD_INTERVAL = 0.1 -- seconds between checks while it stands on a target's back
 local FOLLOW_HYSTERESIS = 2 -- extra studs a target must open up before a held follow starts moving again
 local RETRY_INTERVAL = 0.25 -- seconds before trying for cover again when a retreat did not come off
-local SPRINT_POLL = 0.05 -- seconds between movement checks on a long run
-local SPRINT_REACHED_DISTANCE = 2 -- studs of a waypoint that counts as having got there
-local SPRINT_PROGRESS = 0.5 -- studs of gain on a waypoint that counts as making ground
-local SPRINT_STUCK_GRACE = 1.5 -- seconds of making none before a run is called stuck
-local MOVE_REFRESH = 4 -- seconds between re-issued goals; `Humanoid:MoveTo` gives up after eight
 local LOOK_AROUND_DISTANCE = 10 -- studs out in front the search glances are aimed
 
 local Stalker = NPC.extend("Stalker")
@@ -70,58 +65,16 @@ function Stalker:_getFollowPosition(target: Player): (Vector3?, Vector3?)
 	return position - facing.Unit * self.Config.FollowDistance, position
 end
 
---- Walks one computed path to `destination` the whole way, however long that takes. Returns "Reached",
---- "NoPath" where the map would not produce a route, "Stuck" where it stopped making ground, or
---- "Abandoned" where `shouldStop` cut it short.
----
---- `NPC:Pursue` is the obvious thing to use here and it is the wrong shape for it. Pursue is built to
---- chase somebody: it re-paths as they move, and it allows each waypoint twice its *estimated* travel
---- time before calling the path blocked. That estimate is `distance / WalkSpeed`, which is a guess at
---- physics -- fair for a target ten studs off, a coin toss for a hundred-stud corridor. Guess low and
---- the retreat becomes the one thing a retreat cannot be: a short run, a stall, a re-path, another
---- short run.
----
---- So there is no clock in here. It gives up when it stops making ground, which is the only thing worth
---- giving up over, and it re-issues its goal often enough that Roblox's own eight-second `MoveTo`
---- cutoff never lands halfway along a corridor.
+--- Walks one computed path to `destination` the whole way, however long that takes. The shared path
+--- walker also watches Roblox's blocked signal, so a newly obstructed retreat is abandoned before
+--- the Stalker spends its full stall grace pushing into the obstacle.
 function Stalker:_sprintTo(destination: Vector3, shouldStop: () -> boolean): string
 	local path = self:ComputePath(destination)
 	if not path then return "NoPath" end
 
-	local waypoints = self:GetMovementWaypoints(path)
+	local result = self:_walkPath(path, shouldStop)
 	path:Destroy()
-
-	for index = 2, #waypoints do
-		local waypoint = waypoints[index]
-		if waypoint.Action == Enum.PathWaypointAction.Jump then
-			self.Humanoid.Jump = true
-		end
-
-		self.Humanoid:MoveTo(waypoint.Position)
-		local closest = math.huge
-		local progressedAt = os.clock()
-		local refreshAt = os.clock() + MOVE_REFRESH
-
-		while true do
-			local distance = self:GetWaypointDistance(waypoint.Position)
-			if distance <= SPRINT_REACHED_DISTANCE then break end
-			if shouldStop() then return "Abandoned" end
-
-			if distance < closest - SPRINT_PROGRESS then
-				closest, progressedAt = distance, os.clock()
-			elseif os.clock() - progressedAt >= SPRINT_STUCK_GRACE then
-				return "Stuck"
-			end
-
-			if os.clock() >= refreshAt then
-				refreshAt = os.clock() + MOVE_REFRESH
-				self.Humanoid:MoveTo(waypoint.Position)
-			end
-			task.wait(SPRINT_POLL)
-		end
-	end
-
-	return "Reached"
+	return if result == "Blocked" then "Stuck" else result
 end
 
 --- Keeps station on `target`'s back for as long as it is allowed to. It ends three ways -- somebody
