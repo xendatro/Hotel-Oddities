@@ -172,9 +172,9 @@ TagService:Listen(CREEP_TAG, track, function(model: Instance, render: Render)
 	Creeps[model :: Model] = nil
 end, workspace)
 
---- Lays the wall across the hallway, on the far side of the Creep from `eye`. False where this
---- corridor cannot hold one -- too short, or the Creep standing too near the end of it -- in which
---- case there is no wall at all rather than one in the wrong place.
+--- Lays the wall across the hallway, on the far side of the Creep from `eye`. Long corridors keep
+--- the configured end margin; short corridors use the nearest point that still keeps the wall
+--- inside their ends.
 local function placeInHallway(render: Render, backdrop: Part, creepPosition: Vector3, eye: Vector3): boolean
 	local hallway = render.Hallway :: Hallways.Hallway
 	local creepAlong = Hallways.Along(hallway, creepPosition)
@@ -185,11 +185,23 @@ local function placeInHallway(render: Render, backdrop: Part, creepPosition: Vec
 
 	-- Everything past this point is one number: how far down the corridor from its middle the wall
 	-- goes. Sizing and squareness follow from the hallway itself.
-	local limit = hallway.HalfLength - CreepConfig.BackdropEndMargin
-	if limit <= 0 then return false end
+	local safeLimit = hallway.HalfLength - CreepConfig.BackdropThickness / 2
+	if safeLimit <= 0 then return false end
+	local preferredLimit = math.min(
+		hallway.HalfLength - CreepConfig.BackdropEndMargin,
+		safeLimit
+	)
+	local limit = math.max(preferredLimit, 0)
 
 	local along = math.clamp(creepAlong + render.Side * CreepConfig.BackdropDistance, -limit, limit)
-	if (along - creepAlong) * render.Side < CreepConfig.BackdropMinimumDistance then return false end
+	if (along - creepAlong) * render.Side < CreepConfig.BackdropMinimumDistance then
+		along = math.clamp(
+			creepAlong + render.Side * CreepConfig.BackdropMinimumDistance,
+			-safeLimit,
+			safeLimit
+		)
+	end
+	if (along - creepAlong) * render.Side <= 0 then return false end
 
 	local position = Hallways.PointAt(hallway, along) + Vector3.yAxis * render.Height / 2
 	backdrop.Size = Vector3.new(

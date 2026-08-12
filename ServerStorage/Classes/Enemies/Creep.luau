@@ -1,6 +1,6 @@
 --- @class Creep
---- A stationary ambient enemy with no Humanoid. It extinguishes nearby floor lights and disappears
---- as soon as a player comes close.
+--- A stationary ambient enemy with no Humanoid. It extinguishes floor lights along its hallway and
+--- disappears as soon as a player comes close.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -59,7 +59,7 @@ function Creep:Start()
 	self.RootPart.Anchored = true
 	self.Model:AddTag(ENEMY_TAG)
 	self.Model:AddTag(CREEP_TAG)
-	self.LightClaim = LightService:DisableNear(self.RootPart.Position, self.Config.LightRange)
+	self.LightClaim = LightService:DisableAlongHallway(self.RootPart.Position, self.Config.LightRange)
 
 	-- A Creep is the one enemy holding something that outlives it: a stretch of hallway it has turned
 	-- off. Going through `Despawn` hands that back, but anything that destroys the model without

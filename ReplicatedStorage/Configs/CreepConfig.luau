@@ -1,7 +1,7 @@
---- Shared Creep presentation tuning. The server reads `LightRange` to extinguish the world, while
+--- Shared Creep presentation tuning. The server reads `LightRange` to extinguish its hallway, while
 --- each client turns the thing itself and places its own backdrop from the rest.
 return {
-	LightRange = 80, -- studs of corridor it puts out around itself
+	LightRange = 80, -- studs along its hallway that it puts out around itself
 
 	--- How fast it comes round to face a viewer, as the fraction of the angle left closed per second.
 	--- Quick: what turns is the pair of glowing points, and a pair that lags a strafing player reads
@@ -17,9 +17,9 @@ return {
 	--- enough to the Creep to read as one thing with it, and it is dropped instead -- see
 	--- `CreepRenderService` on the corridors too short to hold one.
 	BackdropMinimumDistance = 5,
-	--- Kept this far inside the end of the hallway. Corridors are authored butted together, so the
-	--- last stretch of one is the opening of whatever crosses it: a wall placed any closer to the end
-	--- is a wall standing in somebody else's hallway.
+	--- Preferred inset from the end of the hallway. Corridors are authored butted together, so the
+	--- last stretch of one is the opening of whatever crosses it. Short corridors relax this inset
+	--- when needed to keep the wall inside its own ends.
 	BackdropEndMargin = 10,
 	--- How tall it is, floor upwards. Measured off the corridor rather than fixed, because the hotel is
 	--- not one height: some halls are ceilinged and some are open to the night, and a wall tall enough

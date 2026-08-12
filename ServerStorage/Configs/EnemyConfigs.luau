@@ -98,7 +98,7 @@ export type EnemyConfig = {
 	DriftMargin: number?, -- studs past a corridor's edges it may drift, which is how it gets outside
 
 	-- Creep-specific
-	LightRange: number?, -- studs around it in which tagged light models are disabled
+	LightRange: number?, -- studs along its hallway in which tagged light models are disabled
 	DespawnRange: number?, -- studs at which a nearby player makes it disappear
 
 	-- Eye-specific. Damage is a rate rather than a hit: what costs you is how long you look and how

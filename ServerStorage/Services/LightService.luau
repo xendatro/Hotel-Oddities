@@ -14,6 +14,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local AudioService = require(ReplicatedStorage.Services.AudioService)
+local Hallways = require(ReplicatedStorage.Modules.Hallways)
 local TagService = require(ReplicatedStorage.Services.TagService)
 
 local FLOOR_1_LIGHT_TAG = "Floor1Light"
@@ -139,6 +140,14 @@ local function restore(model: Model)
 	DisabledModels[model] = nil
 end
 
+local function isSameHallway(first: Hallways.Hallway, second: Hallways.Hallway): boolean
+	return first.Center == second.Center
+		and first.Axis == second.Axis
+		and first.HalfLength == second.HalfLength
+		and first.HalfWidth == second.HalfWidth
+		and first.FloorY == second.FloorY
+end
+
 --- Disables every tagged light model whose pivot is within `radius` studs of `position`.
 --- Each returned claim must be released; overlapping claims keep a light off until all release it.
 function LightService:DisableNear(position: Vector3, radius: number): LightClaim
@@ -152,6 +161,32 @@ function LightService:DisableNear(position: Vector3, radius: number): LightClaim
 	end) do
 		local model = instance :: Model
 		if (model:GetPivot().Position - position).Magnitude <= radius then
+			disable(model)
+			table.insert(claim.Models, model)
+		end
+	end
+
+	return claim
+end
+
+--- Disables tagged light models within `distance` studs along the hallway containing `position`.
+--- Lights in crossing or nearby hallways are ignored, even when their world-space positions are
+--- inside the range. A position outside the tagged hallway network affects no lights.
+function LightService:DisableAlongHallway(position: Vector3, distance: number): LightClaim
+	local claim: LightClaim = {
+		Models = {},
+		Released = false,
+	}
+	local hallway = Hallways.At(position)
+	if not hallway then return claim end
+
+	local creepAlong = Hallways.Along(hallway, position)
+	for _, model in LightService:GetModels() do
+		local modelPosition = model:GetPivot().Position
+		local modelHallway = Hallways.At(modelPosition)
+		if modelHallway and isSameHallway(hallway, modelHallway)
+			and math.abs(Hallways.Along(hallway, modelPosition) - creepAlong) <= distance
+		then
 			disable(model)
 			table.insert(claim.Models, model)
 		end
