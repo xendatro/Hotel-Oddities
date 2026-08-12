@@ -109,9 +109,12 @@ function AudioService:Create3DSound(
 	local emitter = (Templates[name] :: AudioEmitter):Clone()
 	local player = emitter.Player :: AudioPlayer
 	player.Looping = looped
-	applySettings(player, emitter, settings)
 
 	emitter.Parent = parent
+	-- Apply emitter settings after parenting. In the new audio API, attenuation is evaluated by the
+	-- live emitter/listener graph, and changing these properties before the emitter enters that graph
+	-- can leave the runtime attenuation state stale even though the property reads back correctly.
+	applySettings(player, emitter, settings)
 	bindLifetime(emitter, player, bindBus(player, self:GetBus(soundGroup)))
 	return player
 end
