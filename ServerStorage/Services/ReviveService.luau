@@ -22,12 +22,14 @@ local FORCE_FIELD_DURATION = DeathConfig.Revive.ForceFieldDuration
 local CHARACTER_LOAD_TIMEOUT = 10
 
 type DeathSnapshot = {
+	Token: number,
 	Location: CFrame,
 	Items: LoadoutService.Snapshot,
 }
 
 local ReviveService = {}
 local PendingDeaths: { [Player]: DeathSnapshot } = {}
+local NextOfferId: { [Player]: number } = {}
 
 local function loadLivingCharacter(player: Player): Model
 	local character = LoadoutService:GetLivingCharacter(player)
@@ -44,16 +46,28 @@ local function loadLivingCharacter(player: Player): Model
 	error(`ReviveService: failed to load a character for {player.Name}`)
 end
 
---- Saves everything needed to fulfill a revive, then opens the product prompt on that player.
-function ReviveService:Offer(player: Player, character: Model)
+--- Saves everything needed to fulfill a revive. The prompt opens when the client's death screen
+--- reports that it has fully finished, so the purchase UI does not interrupt the death screen. Returns
+--- a token that identifies this death to the client's completion signal.
+function ReviveService:Offer(player: Player, character: Model): number
 	local root = character:FindFirstChild("HumanoidRootPart")
 	local location = if root and root:IsA("BasePart") then root.CFrame else character:GetPivot()
+	local token = (NextOfferId[player] or 0) + 1
+	NextOfferId[player] = token
 
 	PendingDeaths[player] = {
+		Token = token,
 		Location = location,
 		Items = LoadoutService:Capture(player),
 	}
 
+	return token
+end
+
+--- Opens the player's own revive purchase prompt for the pending death, if it is still available.
+function ReviveService:Prompt(player: Player, token: number)
+	local snapshot = PendingDeaths[player]
+	if not snapshot or snapshot.Token ~= token then return end
 	MarketplaceService:PromptProductPurchase(player, REVIVE_PRODUCT_ID)
 end
 
@@ -111,6 +125,7 @@ end)
 
 Players.PlayerRemoving:Connect(function(player: Player)
 	PendingDeaths[player] = nil
+	NextOfferId[player] = nil
 end)
 
 return ReviveService

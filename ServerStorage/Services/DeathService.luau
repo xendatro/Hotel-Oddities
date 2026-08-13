@@ -21,6 +21,10 @@ local Show = ReplicatedStorage
 	:WaitForChild("Communication")
 	:WaitForChild("Death")
 	:WaitForChild("Show") :: RemoteEvent
+local Complete = ReplicatedStorage
+	:WaitForChild("Communication")
+	:WaitForChild("Death")
+	:WaitForChild("Complete") :: RemoteEvent
 
 local DeathService = {}
 
@@ -59,11 +63,11 @@ local function watchCharacter(player: Player, character: Model)
 	local humanoid = character:WaitForChild("Humanoid") :: Humanoid
 	humanoid.Died:Once(function()
 		local cause = DeathService:GetCause(player)
-		-- Two offers off one death: the player's own prompt, and a card in front of every friend of
-		-- theirs in the server. Both spend the same pending death, whichever is answered first.
-		ReviveService:Offer(player, character)
+		-- Save the death immediately, but wait for the client's death screen to finish before opening
+		-- the player's own purchase prompt. Friend cards still open immediately below.
+		local token = ReviveService:Offer(player, character)
 		FriendReviveService:Offer(player)
-		Show:FireClient(player, cause)
+		Show:FireClient(player, cause, token)
 
 		-- Dying to something teaches you more about it than any amount of looking, and it is the only
 		-- way to learn anything at all about the two that ambush you. Granted from here rather than
@@ -75,6 +79,11 @@ local function watchCharacter(player: Player, character: Model)
 		Records[player] = nil
 	end)
 end
+
+Complete.OnServerEvent:Connect(function(player: Player, token: any)
+	if type(token) ~= "number" then return end
+	ReviveService:Prompt(player, token)
+end)
 
 local function watchPlayer(player: Player)
 	if player.Character then

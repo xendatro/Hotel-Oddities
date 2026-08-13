@@ -27,6 +27,10 @@ local Show = ReplicatedStorage
 	:WaitForChild("Communication")
 	:WaitForChild("Death")
 	:WaitForChild("Show") :: RemoteEvent
+local Complete = ReplicatedStorage
+	:WaitForChild("Communication")
+	:WaitForChild("Death")
+	:WaitForChild("Complete") :: RemoteEvent
 
 local SCREEN = DeathConfig.Screen
 local COLORS = SCREEN.Colors
@@ -49,6 +53,7 @@ local Blur: BlurEffect?, Correction: ColorCorrectionEffect?
 local HintText = ""
 local Visible = false
 local ShownAt = 0
+local DeathToken = 0
 local HidingAt = nil :: number?
 local BurstUntil = 0
 local NextBurstAt = 0
@@ -282,6 +287,7 @@ local function render()
 		else math.clamp((now - ShownAt) / SCREEN.FadeInTime, 0, 1)
 
 	if fade <= 0 and HidingAt then
+		Complete:FireServer(DeathToken)
 		teardown()
 		return
 	end
@@ -364,7 +370,7 @@ end
 
 --- Puts the screen up for a death caused by `causeId`. An id with no entry in `DeathConfig.Causes`,
 --- and a death nothing claimed at all, both land on the `Unknown` cause.
-function DeathScreenService:Show(causeId: string?)
+function DeathScreenService:Show(causeId: string?, token: number)
 	if Visible then
 		teardown() -- a second death before the first screen left; start the new one from scratch
 	end
@@ -380,6 +386,7 @@ function DeathScreenService:Show(causeId: string?)
 	TypedCount, CursorShown = -1, false
 
 	ShownAt = os.clock()
+	DeathToken = token
 	HidingAt = nil
 	NextBurstAt = ShownAt + SCREEN.FadeInTime
 	NextJitterAt = 0
@@ -430,8 +437,8 @@ end
 
 build()
 
-Show.OnClientEvent:Connect(function(causeId: string?)
-	DeathScreenService:Show(causeId)
+Show.OnClientEvent:Connect(function(causeId: string?, token: number)
+	DeathScreenService:Show(causeId, token)
 end)
 
 LocalPlayer.CharacterAdded:Connect(function()
