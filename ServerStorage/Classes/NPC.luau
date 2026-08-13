@@ -21,7 +21,10 @@ local NpcAnimator = require(ReplicatedStorage.Classes.NpcAnimator)
 local RoomService = require(ServerStorage.Services.RoomService)
 local Vanished = require(ReplicatedStorage.Modules.Vanished)
 
-local WAYPOINT_REACHED_DISTANCE = 1.25
+local WAYPOINT_REACHED_DISTANCE = 1.25 -- the floor on it; see `_getReachDistance` for what widens it
+local POLL_OVERSHOOT_ALLOWANCE = 1.5 -- polls' worth of travel a waypoint window has to be able to catch
+local MAX_REACH_FRACTION = 0.75 -- of the waypoint spacing, so a leg is never skipped outright
+local DEFAULT_WAYPOINT_SPACING = 4 -- what Roblox spaces waypoints at when a config names nothing
 local WAYPOINT_PROGRESS = 0.5 -- studs of gain on a waypoint that counts as making ground
 local WAYPOINT_STALL_GRACE = 1.5 -- seconds of making none before a leg is called blocked
 local MOVE_REFRESH_INTERVAL = 4 -- seconds between re-issued goals; `Humanoid:MoveTo` gives up after eight
@@ -222,6 +225,24 @@ function NPC:GetWaypointDistance(position: Vector3): number
 	return (rootPosition - self.RootPart.Position).Magnitude
 end
 
+-- How near a waypoint has to be before the leg to it counts as walked.
+--
+-- It cannot be a fixed radius, because the radius is a window the rig has to be found *inside* on a
+-- poll and a fast one steps clean over it: at a flee speed of 32 a poll is 1.6 studs apart, wider than
+-- the window, so arrival is missed as often as not. What follows is not a rig that keeps running --
+-- it is one that walks past the waypoint, notices it is getting further away, turns round for it, and
+-- burns its stall grace doing that at every second corner. Visible as a run that keeps hitching, with
+-- nothing logged, because each leg does eventually recover.
+--
+-- So the window is at least one poll wide with room to spare, and held under the waypoint spacing so a
+-- leg is still walked rather than skipped. Advancing early is already the intended behaviour here: the
+-- goal is replaced before the humanoid slows for it, which is what keeps a route continuous.
+function NPC:_getReachDistance(): number
+	local spacing = (self.Config.AgentParams and self.Config.AgentParams.WaypointSpacing) or DEFAULT_WAYPOINT_SPACING
+	local perPoll = self.Humanoid.WalkSpeed * MOVEMENT_POLL_INTERVAL * POLL_OVERSHOOT_ALLOWANCE
+	return math.clamp(perPoll, WAYPOINT_REACHED_DISTANCE, spacing * MAX_REACH_FRACTION)
+end
+
 --- Whether the whole agent, rather than only a sight ray through its center, has an unobstructed
 --- horizontal lane to `destination`. This is required before pursuit bypasses the navmesh at close
 --- range; otherwise a visible player just beyond a corner can make a wide rig charge into its wall.
@@ -257,6 +278,7 @@ end
 -- in the doorway. So a leg ends when it stops closing on its goal, not when it runs long.
 function NPC:_walkPath(path: Path, shouldAbandon: (() -> boolean)?): string
 	local waypoints = self:GetMovementWaypoints(path)
+	local reachDistance = self:_getReachDistance()
 	local blockedAt = nil :: number?
 	local blockedConnection = path.Blocked:Connect(function(index)
 		blockedAt = if blockedAt then math.min(blockedAt, index) else index
@@ -282,7 +304,7 @@ function NPC:_walkPath(path: Path, shouldAbandon: (() -> boolean)?): string
 
 		while true do
 			local distance = self:GetWaypointDistance(waypoint.Position)
-			if distance <= WAYPOINT_REACHED_DISTANCE then break end
+			if distance <= reachDistance then break end
 			if shouldAbandon and shouldAbandon() then return finish("Abandoned") end
 			if blockedAt and blockedAt >= index then return finish("Blocked") end
 

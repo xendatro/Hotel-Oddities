@@ -143,6 +143,8 @@ export type EnemyConfig = {
 	RevealTurnTime: number?, -- seconds spent forcing the target's camera around to face it
 	RevealHoldTime: number?, -- beat held on it before the charge begins
 	FleeTime: number?, -- seconds of being watched without a break before it gives up and leaves
+	FleeCoverRange: number?, -- studs of floor searched around it for somewhere out of sight to run to
+	FleeCoverMinDistance: number?, -- and how far off it must be, so a retreat is never a shuffle on the spot
 
 	-- Director. What `EnemyDirectorService` needs to decide whether to put one of these in the world.
 	-- An enemy with no `SpawnWeight` is never rolled: the Ghost places itself over the whole map, and
@@ -424,6 +426,12 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		RevealHoldTime = 0.4,
 
 		FleeTime = 15, -- seconds of unbroken watching, not of running: see `Stalker.flee`
+
+		-- It despawns the moment nobody can see it, so a retreat only has to reach the far side of
+		-- something. A corridor and a bit: wide enough that a room with one doorway still offers a
+		-- way out, narrow enough that the search is a handful of raycasts rather than a map sweep.
+		FleeCoverRange = 70,
+		FleeCoverMinDistance = 12,
 
 		-- The most expensive thing in the game, because being stalked *is* the encounter rather than
 		-- a component of one. At cost 5 it crowds out nearly everything else, which is correct: a

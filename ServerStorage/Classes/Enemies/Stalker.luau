@@ -10,9 +10,11 @@
 --- looking where you are going. It follows close because of that rather than in spite of it -- when you
 --- do turn round, it is already an arm's length away.
 ---
---- Looked at by anybody, it breaks and runs toward the furthest hidden point `HideSpotService` can
---- offer. The run only has to carry it beyond everybody's sight: the moment nobody can see it, it
---- leaves entirely. Holding it in view for all of `FleeTime` also forces it out.
+--- Looked at by anybody, it breaks away from whoever is looking and runs for the nearest cover
+--- `HideSpotService` can offer. The run only has to carry it out of sight -- the moment nobody can see
+--- it, it leaves entirely -- so it goes round the corner rather than to the far end of the building,
+--- and every step of it is away from the eyes that caught it. Holding it in view for all of `FleeTime`
+--- also forces it out.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
@@ -20,6 +22,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local EnemyDiscoveryService = require(ServerStorage.Services.EnemyDiscoveryService)
+local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local HideSpotService = require(ServerStorage.Services.HideSpotService)
 local NPC = require(ServerStorage.Classes.NPC)
 
@@ -33,6 +36,32 @@ local HOLD_INTERVAL = 0.1 -- seconds between checks while it stands on a target'
 local FOLLOW_HYSTERESIS = 2 -- extra studs a target must open up before a held follow starts moving again
 local RETRY_INTERVAL = 0.25 -- seconds before trying for cover again when a retreat did not come off
 local LOOK_AROUND_DISTANCE = 10 -- studs out in front the search glances are aimed
+
+-- Studs of straight-line ground it tries to put between itself and a watcher on the spot, longest
+-- first. Several lengths because the clearance test is a blockcast down the whole span at the rig's
+-- full width, and twenty studs of that is a thing a hotel corridor rarely has in any direction -- so
+-- asking only for the long one is how it ends up with no goal at all, standing still through the third
+-- of a second the pathfinder takes to answer. A short goal it can actually take beats a long one it
+-- cannot, by the width of the entire problem.
+local RETREAT_STEPS = { 20, 12, 6 }
+local RETREAT_SPREAD = { 0, 30, -30, 60, -60, 90, -90 } -- degrees off dead-away, tried in order when blocked
+local RETREAT_TIME = 0.6 -- seconds spent running blind before it looks for cover again
+local MAX_BLIND_RETREAT = 2 -- and the longest that ever grows to, however often cover lies behind them
+local HEADING_SPEED = 6 -- studs/s under which it is not going anywhere in particular
+local RETREAT_REFRESH = 0.25 -- seconds between away-goals while the pathfinder is still thinking
+-- How much of its current clearance a route is allowed to give back before it counts as heading for
+-- somebody rather than away from them, and the ceiling on that in studs. A fraction rather than a
+-- distance because the same route means opposite things from different starting points: three studs
+-- off somebody is a corner being rounded when it begins six studs behind them, and is running at them
+-- when it begins at the far end of the hallway.
+local ROUTE_APPROACH_FRACTION = 0.5
+local ROUTE_CLEARANCE = 12
+local ROUTE_LOOKAHEAD = 30 -- studs of a route that have to lead away before it is committed to
+local ROUTE_DETOUR_LIMIT = 1.7 -- times the straight line a route may be before it is going round somebody
+local ROUTE_DETOUR_FLOOR = 15 -- studs under which that ratio means nothing: short routes bend for doorways
+local MAX_RETREAT_ATTEMPTS = 5 -- legs in a row that gain no ground before a retreat gives up on its spot
+local RETREAT_PROGRESS = 4 -- studs closer to the spot that makes an interrupted leg count as progress
+local REPATH_WAIT = 0.1 -- seconds before a blocked retreat is re-pathed around whatever stopped it
 
 local Stalker = NPC.extend("Stalker")
 
@@ -65,16 +94,183 @@ function Stalker:_getFollowPosition(target: Player): (Vector3?, Vector3?)
 	return position - facing.Unit * self.Config.FollowDistance, position
 end
 
---- Walks one computed path to `destination` the whole way, however long that takes. The shared path
---- walker also watches Roblox's blocked signal, so a newly obstructed retreat is abandoned before
---- the Stalker spends its full stall grace pushing into the obstacle.
-function Stalker:_sprintTo(destination: Vector3, shouldStop: () -> boolean): string
-	local path = self:ComputePath(destination)
-	if not path then return "NoPath" end
+-- Where the nearest pair of eyes is, and how far off they are. Nil when nobody is alive to look.
+local function getNearestEye(position: Vector3): (Vector3?, number)
+	local nearest, nearestDistance = nil :: Vector3?, math.huge
+	for _, eye in EnemyObservationService:GetEyes() do
+		local distance = (eye - position).Magnitude
+		if distance < nearestDistance then
+			nearest, nearestDistance = eye, distance
+		end
+	end
+	return nearest, nearestDistance
+end
 
-	local result = self:_walkPath(path, shouldStop)
-	path:Destroy()
-	return if result == "Blocked" then "Stuck" else result
+-- Whether a route sets off away from everybody, judged once and only over its first stretch.
+--
+-- A hiding place picked away from the eyes watching can still sit at the end of a loop whose only
+-- entrance is back past them -- a dead-end hallway is exactly that, the way on is behind the person
+-- looking -- and reading the opening of the route is what catches it before a step is taken.
+--
+-- Only the opening, for two reasons. In a maze this dense nearly every route brushes past the middle
+-- somewhere, so judging the whole thing refuses all of them; and what happens forty studs along is
+-- mostly hypothetical anyway, because the point of the run is to break the sight line, and once that
+-- happens this is gone. What must not happen is setting off towards somebody.
+--
+-- Judged here rather than while running, because a rule applied mid-route turns the retreat round in
+-- the middle of a corridor -- and a Stalker that keeps reversing reads as a broken one, whatever the
+-- reversal was protecting. A route is committed to once it is taken.
+--
+-- The bar is a fraction of present clearance rather than a distance, because the same three studs mean
+-- opposite things from different starting points: a corner being rounded when it begins an arm's
+-- length behind somebody, and a charge when it begins at the far end of the hallway.
+local function isRouteAway(path: Path, origin: Vector3, destination: Vector3): boolean
+	local eyes = EnemyObservationService:GetEyes()
+	local threshold = ROUTE_CLEARANCE
+	for _, eye in eyes do
+		threshold = math.min(threshold, flatten(eye - origin).Magnitude * ROUTE_APPROACH_FRACTION)
+	end
+
+	local travelled, previous = 0, origin
+	for _, waypoint in path:GetWaypoints() do
+		travelled += (waypoint.Position - previous).Magnitude
+		previous = waypoint.Position
+		if travelled > ROUTE_LOOKAHEAD then continue end
+
+		for _, eye in eyes do
+			if flatten(waypoint.Position - eye).Magnitude < threshold then return false end
+		end
+	end
+
+	-- And the length of the whole thing against the straight line to it, which is what catches the
+	-- rest: a hiding place forty studs off that costs a hundred and forty studs of walking is one
+	-- whose only entrance is somewhere else entirely, and in a corridor that somewhere else is back
+	-- past the person looking. Cheap, and it needs no idea where anybody is -- a route that doubles
+	-- back is a route that doubles back.
+	local direct = (destination - origin).Magnitude
+	return direct < ROUTE_DETOUR_FLOOR or travelled <= direct * ROUTE_DETOUR_LIMIT
+end
+
+-- Works out a route to `destination` without standing still for it. `PathfindingService` takes
+-- anything from a tenth of a second to two seconds to answer in a hotel this size, and it yields, so
+-- asking for a route on the thread that is supposed to be running is how a retreat ends up standing
+-- in plain view thinking. The answer arrives on its own thread while this one keeps putting ground
+-- between it and whoever is looking.
+--
+function Stalker:_computeWhileMoving(destination: Vector3, shouldStop: () -> boolean): Path?
+	local path, finished = nil :: Path?, false
+	task.spawn(function()
+		path = self:ComputePath(destination)
+		finished = true
+	end)
+
+	while not finished do
+		-- Being done with the retreat mid-answer must not mean waiting for the answer: the whole point
+		-- of a Stalker leaving is that it leaves the moment nobody can see it. The route it no longer
+		-- wants is left to the thread still working it out, which tidies up after itself.
+		if shouldStop() then
+			task.spawn(function()
+				while not finished do
+					task.wait()
+				end
+				if path then
+					path:Destroy()
+				end
+			end)
+			return nil
+		end
+
+		local eye = getNearestEye(self.RootPart.Position)
+		if eye then
+			self:_retreatFrom(eye)
+		end
+		task.wait(RETREAT_REFRESH)
+	end
+	return path
+end
+
+--- Runs to `destination` and keeps running to it: a leg that ends blocked is re-pathed from wherever
+--- it stopped rather than handed back, so the retreat only ends by arriving, by no longer being
+--- needed, or by genuinely having nowhere left to try.
+---
+--- That matters more here than anywhere else the chassis walks. The one thing certain to be near a
+--- fleeing Stalker's route is the person it is fleeing, and a body moving next to the route sets off
+--- Roblox's blocked signal on it -- so treating one blocked leg as a failed retreat means the retreats
+--- most worth completing are the ones that get abandoned ten studs in. Only legs that gain no ground
+--- count against it, which is what tells being shoved about in a doorway apart from being walked past.
+function Stalker:_sprintTo(destination: Vector3, shouldStop: () -> boolean): string
+	local attempts = 0
+	local closest = (self.RootPart.Position - destination).Magnitude
+	local obstructed = false
+
+	while not shouldStop() do
+		local path = self:_computeWhileMoving(destination, shouldStop)
+		if not path then
+			if shouldStop() then return "Abandoned" end
+			attempts += 1
+			if attempts >= MAX_RETREAT_ATTEMPTS then return "NoPath" end
+			task.wait(REPATH_WAIT)
+			continue
+		end
+
+		if not isRouteAway(path, self.RootPart.Position, destination) then
+			path:Destroy()
+			return "PastThem" -- somewhere else, rather than set off towards the person it is fleeing
+		end
+
+		-- The chassis watches this signal too, and abandons the leg on it. Listening as well is how a
+		-- leg that ended obstructed is told from one that ended stalled, which is the whole difference
+		-- between somebody having walked past and this having lost a shoving match with a door frame.
+		obstructed = false
+		local connection = path.Blocked:Connect(function()
+			obstructed = true
+		end)
+
+		local result = self:_walkPath(path, shouldStop)
+		connection:Disconnect()
+		path:Destroy()
+
+		if result ~= "Blocked" then return result end
+
+		local distance = (self.RootPart.Position - destination).Magnitude
+		if distance < closest - RETREAT_PROGRESS then
+			closest, attempts = distance, 0
+		else
+			attempts += 1
+			if attempts >= MAX_RETREAT_ATTEMPTS then
+				return if obstructed then "Obstructed" else "Stuck"
+			end
+		end
+		task.wait(REPATH_WAIT)
+	end
+	return "Abandoned"
+end
+
+--- The immediate break, and the fallback when the floor around it offers nowhere to hide: one movement
+--- goal set straight away from the nearest pair of eyes, or the nearest angle to it that is not a wall.
+--- It is what keeps the first moment of being caught from being a pause -- the cover search runs on
+--- this thread, and standing still through it in plain view is the one thing a Stalker must never do.
+function Stalker:_retreatFrom(eye: Vector3): boolean
+	local origin = self.RootPart.Position
+	local away = flatten(origin - eye)
+	if away.Magnitude < 1e-3 then return false end
+	away = away.Unit
+
+	-- Angle before length: a shorter step in a direction that is genuinely away beats a longer one
+	-- that is merely sideways, and every one of these is replaced by a real route in a moment anyway.
+	for _, degrees in RETREAT_SPREAD do
+		local direction = CFrame.Angles(0, math.rad(degrees), 0) * away
+		for _, step in RETREAT_STEPS do
+			local goal = origin + direction * step
+			-- The blockcast filters out only itself, so the watcher's own body counts as a wall here.
+			-- That is exactly the rule wanted: no angle that runs through somebody is away from them.
+			if self:HasMovementClearance(goal) then
+				self.Humanoid:MoveTo(goal)
+				return true
+			end
+		end
+	end
+	return false
 end
 
 --- Keeps station on `target`'s back for as long as it is allowed to. It ends three ways -- somebody
@@ -228,7 +424,12 @@ local function attack(_changeState: StateMachine.ChangeState, npc: any, target: 
 	return "Idle", npc
 end
 
---- Caught. Sprints toward hidden ground until it actually leaves every player's view, then disappears.
+--- Caught. Backs off whoever is looking and runs for the nearest cover that breaks their line, over
+--- and over until nothing can see it, and then it is gone. It is not trying to get away from anybody
+--- -- it only has to stop being looked at -- so the goal each time is the closest spot out of sight
+--- rather than the furthest spot on the map, which is both what it should look like and what keeps
+--- the search cheap enough to repeat every couple of seconds.
+---
 --- If everybody somehow holds sight for `FleeTime`, it gives up and disappears in front of them.
 local function flee(_changeState: StateMachine.ChangeState, npc: any)
 	local config = npc.Config
@@ -241,31 +442,83 @@ local function flee(_changeState: StateMachine.ChangeState, npc: any)
 		return not npc:IsObserved() or os.clock() >= despawnAt
 	end
 
+	local options = { Range = config.FleeCoverRange, MinDistance = config.FleeCoverMinDistance }
+	local pause = 0 -- seconds the last attempt asked for before another spot is worth looking for
+	local turnedBack = 0 -- routes in a row that led back towards somebody
+
+	local function retreatStep()
+		local eye = getNearestEye(npc.RootPart.Position)
+		if eye then
+			npc:_retreatFrom(eye)
+		end
+	end
+
+	-- Nothing in here may yield without a live movement goal, and that is the whole shape of the loop.
+	-- A retreat is one continuous run made of several destinations -- reaching one hiding place while
+	-- somebody can still see it means picking another, not arriving -- so every wait, every raycast of
+	-- the cover search and every path compute has to happen with the legs already going. A quarter of a
+	-- second standing between two spots is not a small pause, it is the thing that looks broken.
 	while not shouldDespawn() do
+		retreatStep() -- moving before it knows where to, so nothing after this costs ground
+
+		-- The pause is not a wait, it is the blind retreat: a fresh goal directly away every quarter
+		-- second for as long as it lasts. That is what it does instead of hunting for cover it has just
+		-- been told it cannot use, and what turns a shuttle back and forth across a hallway into a run.
+		if pause > 0 then
+			local until_ = os.clock() + pause
+			while os.clock() < until_ and not shouldDespawn() do
+				task.wait(RETREAT_REFRESH)
+				retreatStep()
+			end
+			if shouldDespawn() then break end
+			pause = 0
+		end
+
 		-- The agent radius goes along because an unreachable hiding place does not read as a bad choice,
 		-- it reads as a bug: the navmesh holds walkable ground a full radius off every wall, so a spot
 		-- tucked any tighter than that is one nothing can be routed to.
-		local spot = HideSpotService:Find(npc.Config.AgentParams.AgentRadius)
-		if spot then
-			local from = npc.RootPart.Position
-			local result = npc:_sprintTo(spot, function()
-				return shouldDespawn()
-			end)
+		-- Where it is actually going, while it is going anywhere fast enough for that to mean something.
+		-- Standing still it has no heading worth keeping, and its facing is not one: a rig that has just
+		-- turned to look at a corner would otherwise pick its next hiding place out of that glance.
+		local velocity = flatten(npc.RootPart.AssemblyLinearVelocity)
+		options.Heading = if velocity.Magnitude > HEADING_SPEED then velocity else nil
 
-			-- The whole enemy hangs off this run working, and there is no way to tell from watching it
-			-- whether a retreat that ended early ran out of map, out of navmesh or out of patience.
-			if result == "NoPath" or result == "Stuck" then
-				local covered = (npc.RootPart.Position - from).Magnitude
-				warn(
-					`[enemies] stalker retreat came up {result} `
-						.. `after {math.floor(covered)} of {math.floor((spot - from).Magnitude)} studs`
-				)
-			end
+		local spot = HideSpotService:Find(npc.RootPart.Position, config.AgentParams.AgentRadius, options)
+		if not spot then
+			-- Nowhere near it breaks the line. Keep running the blind way and ask again from there,
+			-- which is a different question: cover is a thing you find by moving.
+			pause = RETREAT_TIME
+			continue
 		end
 
-		-- No path, or it reached that point while somebody could still see it. Try another while watched.
-		if shouldDespawn() then break end
-		task.wait(RETRY_INTERVAL)
+		local from = npc.RootPart.Position
+		local result = npc:_sprintTo(spot, shouldDespawn)
+
+		-- The whole enemy hangs off this run working, and there is no way to tell from watching it
+		-- whether a retreat that ended early ran out of map, out of navmesh or out of patience.
+		if result == "NoPath" or result == "Stuck" or result == "Obstructed" then
+			local covered = (npc.RootPart.Position - from).Magnitude
+			warn(
+				`[enemies] stalker retreat came up {result} `
+					.. `after {math.floor(covered)} of {math.floor((spot - from).Magnitude)} studs`
+			)
+		end
+
+		-- Straight into the next spot when it got to that one: still being seen there means the run is
+		-- not over, and a run that is not over should not have a gap in it.
+		--
+		-- A route that turned back is the one worth answering differently. Somewhere behind the person
+		-- looking is where the cover is, and no amount of asking again changes that -- what changes it
+		-- is being somewhere else, so each turn back buys a longer blind run away before it looks
+		-- again. Two of those and it is round the corner the hallway did not have.
+		if result == "Reached" then
+			pause, turnedBack = 0, 0
+		elseif result == "PastThem" then
+			turnedBack += 1
+			pause = math.min(RETREAT_TIME * turnedBack, MAX_BLIND_RETREAT)
+		else
+			pause, turnedBack = RETRY_INTERVAL, 0
+		end
 	end
 
 	return "Despawn", npc
