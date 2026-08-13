@@ -3,13 +3,22 @@ local DataSaveService = {}
 local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local ProfileService = require(ServerStorage.Services.ProfileService)
+local ItemShopConfig = require(ReplicatedStorage.Configs.ItemShopConfig)
 
 local PROFILE_STORE_NAME = "PlayerData"
 local PROFILE_TEMPLATE = {
 	Gems = 0,
+	Coins = ItemShopConfig.StartingCoins,
 	OwnedSwords = {},
 	CurrentSword = "Default",
+	--- Dense inventory entries written by InventoryService. Quantity and slot order are saved along
+	--- with stateful attributes such as a Pathfinder's remaining uses.
+	Inventory = {},
+	--- Developer-product receipts granted by ItemShopService, keyed by PurchaseId.
+	ProcessedItemReceipts = {},
 
 	--- How much of each enemy's index entry the player has earned, keyed by the same enemy id
 	--- `EnemyConfigs` and `IndexConfig` use, valued 0 to 1. Owned by `EnemyDiscoveryService`, which

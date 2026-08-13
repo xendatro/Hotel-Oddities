@@ -30,11 +30,16 @@ local pageNames = {
 	Shop = "ShopUI",
 	Vip = "VipPerksUI",
 	Gems = "GemsUI",
+	Items = "ItemsGui",
 }
 
 local pageGuis: { [string]: ScreenGui } = {}
 for pageId, guiName in pageNames do
-	local screenGui = playerGui:WaitForChild(guiName) :: ScreenGui
+	local screenGui = playerGui:WaitForChild(guiName, 10) :: ScreenGui?
+	if not screenGui then
+		warn(`InterfaceService: {guiName} did not replicate within 10 seconds`)
+		continue
+	end
 	pageGuis[pageId] = screenGui
 	screenGui.Enabled = false
 

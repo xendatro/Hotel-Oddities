@@ -1,12 +1,15 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
 
 local InventoryConfig = require(ReplicatedStorage.Configs.InventoryConfig)
+local DataSaveService = require(ServerStorage.Services.DataSaveService)
 
 local Tools = ReplicatedStorage.Tools
 local Communication = ReplicatedStorage.Communication.Inventory
 
 local CAPACITY = InventoryConfig.HotbarSlots + InventoryConfig.BackpackSlots
+local SAVED_ATTRIBUTES = { "uses" }
 
 --- Owns what every player is carrying: the stacks themselves and the order they sit in.
 ---
@@ -21,12 +24,66 @@ local InventoryService = {}
 
 -- [player] = { [slotIndex] = toolName }, sparse: a hole is an empty slot.
 local Order: { [Player]: { [number]: string } } = {}
+local Ready: { [Player]: boolean } = {}
+local AttributeConnections: { [Tool]: RBXScriptConnection } = {}
 
 local function getOrder(player: Player): { [number]: string }
 	if not Order[player] then
 		Order[player] = {}
 	end
 	return Order[player]
+end
+
+local function save(player: Player)
+	if not Ready[player] then return end
+
+	local profile = DataSaveService:Get(player)
+	if not profile then return end
+
+	local tools = InventoryService:GetAll(player)
+	local entries = {}
+	for slot = 1, CAPACITY do
+		local name = getOrder(player)[slot]
+		local tool = name and tools[name]
+		if not tool then continue end
+
+		local attributes = {}
+		for _, attribute in SAVED_ATTRIBUTES do
+			local value = tool:GetAttribute(attribute)
+			if value ~= nil then
+				attributes[attribute] = value
+			end
+		end
+
+		table.insert(entries, {
+			Name = name,
+			Quantity = tool:GetAttribute("quantity") or 1,
+			Slot = slot,
+			Attributes = attributes,
+		})
+	end
+	profile.Data.Inventory = entries
+end
+
+local function trackAttributes(player: Player, tool: Tool)
+	if AttributeConnections[tool] then return end
+
+	local connections = {}
+	for _, attribute in SAVED_ATTRIBUTES do
+		table.insert(connections, tool:GetAttributeChangedSignal(attribute):Connect(function()
+			save(player)
+		end))
+	end
+
+	AttributeConnections[tool] = tool.AncestryChanged:Connect(function(_, parent)
+		if parent then return end
+		for _, connection in connections do
+			connection:Disconnect()
+		end
+		local ancestry = AttributeConnections[tool]
+		if ancestry then ancestry:Disconnect() end
+		AttributeConnections[tool] = nil
+	end)
 end
 
 --- The player's Tool of that name, whether stowed or equipped, or nil if they have none.
@@ -83,6 +140,15 @@ function InventoryService:GetOrder(player: Player): { [number]: string }
 	return table.clone(getOrder(player))
 end
 
+function InventoryService:Wait(player: Player, timeout: number?): boolean
+	local deadline = timeout and os.clock() + timeout
+	while not Ready[player] do
+		if player.Parent ~= Players or (deadline and os.clock() >= deadline) then return false end
+		task.wait()
+	end
+	return true
+end
+
 -- Lowest free slot, or nil when the inventory is completely full.
 local function findFreeSlot(player: Player): number?
 	local order = getOrder(player)
@@ -120,6 +186,7 @@ end
 --- Grants `n` of a tool, creating the Tool instance and claiming a slot on the player's first one.
 --- Returns false when no template of that name exists or the inventory is full.
 function InventoryService:Add(player: Player, toolName: string, n: number): boolean
+	if n <= 0 then return false end
 	local tool = InventoryService:Get(player, toolName)
 
 	if not tool then
@@ -134,15 +201,19 @@ function InventoryService:Add(player: Player, toolName: string, n: number): bool
 			warn(`InventoryService: {player.Name}'s inventory is full, dropped "{toolName}"`)
 			return false
 		end
+		local backpack = player:FindFirstChildOfClass("Backpack")
+		if not backpack then return false end
 
 		tool = template:Clone()
 		tool:SetAttribute("quantity", 0)
-		tool.Parent = player:FindFirstChildOfClass("Backpack")
 		getOrder(player)[slot] = toolName
+		trackAttributes(player, tool)
+		tool.Parent = backpack
 	end
 
 	tool:SetAttribute("quantity", (tool:GetAttribute("quantity") or 0) + n)
 	InventoryService:Sync(player)
+	save(player)
 	return true
 end
 
@@ -163,6 +234,7 @@ function InventoryService:Remove(player: Player, toolName: string, n: number)
 	end
 
 	InventoryService:Sync(player)
+	save(player)
 end
 
 --- Consumes the player's whole stack of a tool and returns how many were taken.
@@ -182,6 +254,7 @@ function InventoryService:Clear(player: Player)
 	end
 	Order[player] = {}
 	InventoryService:Sync(player)
+	save(player)
 end
 
 --- Moves whatever is in `from` into `to`, swapping if `to` is occupied. Returns whether it applied.
@@ -196,6 +269,7 @@ function InventoryService:Move(player: Player, from: number, to: number): boolea
 
 	order[from], order[to] = order[to], order[from]
 	InventoryService:Sync(player)
+	save(player)
 	return true
 end
 
@@ -232,7 +306,77 @@ local function reconcile(player: Player)
 		order[slot] = toolName
 	end
 
+	for _, tool in tools do
+		trackAttributes(player, tool)
+	end
 	InventoryService:Sync(player)
+	save(player)
+end
+
+local function restore(player: Player)
+	local profile = DataSaveService:Wait(player)
+	if player.Parent ~= Players then return end
+
+	local backpack = player:FindFirstChildOfClass("Backpack")
+		or player:WaitForChild("Backpack", 10)
+	if not backpack or not backpack:IsA("Backpack") then return end
+
+	local order = getOrder(player)
+	local placed = {}
+	for _, entry in profile.Data.Inventory or {} do
+		if type(entry) ~= "table" then continue end
+		local name = entry.Name
+		local slot = entry.Slot
+		local quantity = entry.Quantity
+		if type(name) ~= "string" or type(slot) ~= "number" or type(quantity) ~= "number" then continue end
+		slot = math.floor(slot)
+		quantity = math.floor(quantity)
+		if slot < 1 or slot > CAPACITY or quantity < 1 or placed[name] or order[slot] then continue end
+
+		local template = Tools:FindFirstChild(name)
+		if not template or not template:IsA("Tool") then continue end
+
+		local tool = InventoryService:Get(player, name) or template:Clone()
+		tool:SetAttribute("quantity", quantity)
+		if type(entry.Attributes) == "table" then
+			for _, attribute in SAVED_ATTRIBUTES do
+				local value = entry.Attributes[attribute]
+				if value ~= nil then tool:SetAttribute(attribute, value) end
+			end
+		end
+
+		order[slot] = name
+		placed[name] = true
+		trackAttributes(player, tool)
+		if tool.Parent == nil then tool.Parent = backpack end
+	end
+
+	Ready[player] = true
+	reconcile(player)
+end
+
+local function watchCharacter(player: Player, character: Model)
+	local humanoid = character:WaitForChild("Humanoid", 10)
+	if not humanoid or not humanoid:IsA("Humanoid") then return end
+
+	humanoid.Died:Once(function()
+		-- Revives and Keep Items take their snapshots in their own Died callbacks. Delaying the clear
+		-- lets every snapshot finish before the authoritative inventory is emptied and saved.
+		task.delay(0.1, function()
+			if player.Parent == Players then InventoryService:Clear(player) end
+		end)
+	end)
+end
+
+local function watchPlayer(player: Player)
+	if player.Character then
+		task.spawn(watchCharacter, player, player.Character)
+	end
+	player.CharacterAdded:Connect(function(character)
+		task.spawn(watchCharacter, player, character)
+		if Ready[player] then task.defer(reconcile, player) end
+	end)
+	task.spawn(restore, player)
 end
 
 -- Client-driven consumption. Tools whose activation plays out on the client (the ball, the shovel)
@@ -278,15 +422,14 @@ Communication.Update.OnServerEvent:Connect(function(player: Player)
 	reconcile(player)
 end)
 
-Players.PlayerAdded:Connect(function(player: Player)
-	player.CharacterAdded:Connect(function()
-		-- The fresh Backpack replicates a moment after the character does.
-		task.defer(reconcile, player)
-	end)
-end)
+for _, player in Players:GetPlayers() do
+	watchPlayer(player)
+end
+Players.PlayerAdded:Connect(watchPlayer)
 
 Players.PlayerRemoving:Connect(function(player: Player)
 	Order[player] = nil
+	Ready[player] = nil
 end)
 
 return InventoryService
