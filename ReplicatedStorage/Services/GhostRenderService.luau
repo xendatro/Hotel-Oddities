@@ -131,6 +131,11 @@ local function createVisual(model: Model): Model?
 		visual = model:Clone()
 		visual:RemoveTag(GHOST_TAG)
 	end
+	for _, child in visual:GetChildren() do
+		if child:IsA("Accessory") then
+			child:Destroy()
+		end
+	end
 
 	visual.Name = `{model.Name}ClientVisual`
 	visual:PivotTo(model:GetPivot())
@@ -293,9 +298,11 @@ local function aimHeadAt(render: Render, targetPosition: Vector3)
 			* part0.CFrame:ToObjectSpace(desiredHeadCFrame)
 			* neck.C1
 	else
-		neck.Transform = neck.Attachment0.WorldCFrame:ToObjectSpace(
-			desiredHeadCFrame * neck.Attachment1.CFrame
-		)
+		local attachment0 = neck.Attachment0
+		local attachment1 = neck.Attachment1
+		local part0 = attachment0.Parent :: BasePart
+		attachment0.CFrame = part0.CFrame:ToObjectSpace(desiredHeadCFrame * attachment1.CFrame)
+			* neck.Transform:Inverse()
 	end
 end
 
