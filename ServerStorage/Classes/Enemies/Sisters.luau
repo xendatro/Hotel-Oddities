@@ -1,45 +1,19 @@
 --- @class Sisters
---- Two of them, abreast, walking the middle of the corridor. Mechanically they are a slow Chaos,
---- killing anybody caught out in the open along the line they sweep. Everything else about them is
---- the opposite. Chaos is an event you are warned about and survive by being anywhere else; the
---- Sisters announce nothing, touch no lights, and never leave. You get all the time in the world to
---- see them coming, and the only thing that costs you is standing in a corridor when they arrive.
----
---- They are never handed a route. Chaos knows its whole path before it spawns because its light
---- warnings have to be scheduled against an arrival time; the Sisters have no warnings to schedule
---- and no end to plan towards, so they pick each corner one ahead of the one they are walking:
---- straight on where they can, never into a dead end, and biased away from the corridors they have
---- just come down so they do not settle into a circuit. That bias fades, which lets a corridor come
---- back around eventually rather than being spent for good.
----
---- Neither sister is steered directly. Both walk at a point a little further down the route than they
---- have got to, one on each side of it, and their own Humanoids do the walking and the turning. That
---- one decision is what makes them read as two people rather than two props:
----   * the point is always out of reach, so neither ever arrives, stops, and drops out of her walk
----     into an idle for a frame -- which is what a Humanoid does the instant it reaches a `MoveTo`;
----   * the point runs on ahead into the next corridor before they get to the junction, so the corner
----     is a curve they walk rather than a turn they perform on the spot;
----   * nothing is ever placed by hand, so there is nothing that can jump.
---- All that is left is keeping them level with each other, and that is a trim on their walking speed:
---- whichever has got ahead takes it a little easier until her sister is beside her again.
----
---- The pair is one enemy. `EnemyService` clones the single `ReplicatedStorage.Enemies.Sister` rig for
---- us, and this class takes the second sister from that one, so the two of them are always identical,
---- which is most of the point of them.
+--- Two of them, abreast, walking one fixed straight route from a physical hallway end to another.
+--- They never choose a corner. At the far edge of the complete hallway they keep walking, fall out of the
+--- corridor, and disappear.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
+local TweenService = game:GetService("TweenService")
 
 local NpcAnimator = require(ReplicatedStorage.Classes.NpcAnimator)
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
-local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
-local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local DeathService = require(ServerStorage.Services.DeathService)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local EnemyService = require(ServerStorage.Services.EnemyService)
-local HallwayGraphService = require(ServerStorage.Services.HallwayGraphService)
 local LightService = require(ServerStorage.Services.LightService)
 local RoomService = require(ServerStorage.Services.RoomService)
 local Vanished = require(ReplicatedStorage.Modules.Vanished)
@@ -47,10 +21,7 @@ local Vanished = require(ReplicatedStorage.Modules.Vanished)
 local ENEMY_TAG = "Enemy"
 local SISTERS_TAG = "Sisters"
 local MINIMUM_LEG = 1e-3
-local DIRECTION_TIE_EPSILON = 0.05
-local PROGRESS_EPSILON = 0.5 -- studs of ground that count as having got somewhere
-local SIGHT_INTERVAL = 0.5 -- seconds between sight checks; these are raycasts, not a per-frame job
-local SLOWEST_TRIM = 0.4 -- of `WalkSpeed`: the trim slows a sister down, it never stops her walking
+local SIGHT_INTERVAL = 0.5
 local HEAD_TWITCH_MIN = 0.5
 local HEAD_TWITCH_MAX = 1.2
 local HEAD_TWITCH_ANGLE = math.rad(30)
@@ -60,8 +31,6 @@ local HEAD_GLITCH_SNAP_MIN = 0.025
 local HEAD_GLITCH_SNAP_MAX = 0.055
 local HEAD_GLITCH_HOLD_MIN = 0.08
 local HEAD_GLITCH_HOLD_MAX = 0.16
-
-type RouteNode = HallwayGraphService.RouteNode
 
 local Sisters = {}
 Sisters.__index = Sisters
@@ -80,18 +49,6 @@ local function distanceToSegment(point: Vector3, origin: Vector3, destination: V
 	return (point - origin:Lerp(destination, alpha)).Magnitude
 end
 
--- The middle of the corridor at `node`. The graph's nodes sit at the height of the floor part itself,
--- and these are rigs standing on that floor rather than a part flying over it.
-local function walkPosition(node: RouteNode, config): Vector3
-	return node.Position + Vector3.yAxis * config.RouteHeight
-end
-
--- Hands the rig to its own Humanoid, which is what walks it, turns it and animates it. Server
--- ownership keeps both sisters simulated where their path is being swept. The collision group is the
--- one every enemy shares: the pair walk `SideSpacing` apart down corridors narrow enough to close
--- that up on a corner, and two Humanoids shouldering one another out of line is the one drift
--- steering them cannot answer -- but a sister wedged against a passing Chaser is the same failure,
--- so the group that fixes it is not theirs to own.
 local function prepare(model: Model)
 	local neck = model.Head.Neck :: AnimationConstraint
 	neck.Attachment0 = model.UpperTorso.NeckRigAttachment
@@ -99,70 +56,44 @@ local function prepare(model: Model)
 
 	for _, descendant in model:GetDescendants() do
 		if descendant:IsA("BasePart") then
-			descendant.Anchored = false
+			descendant.Anchored = descendant.Name == "HumanoidRootPart"
 			descendant.CollisionGroup = EnemyService.CollisionGroup
-			if descendant:CanSetNetworkOwnership() then
-				descendant:SetNetworkOwner(nil)
-			end
 		end
 	end
 
 	local humanoid = model.Humanoid :: Humanoid
-	-- Both on purpose rather than on the template's defaults: between them they are what walks her,
-	-- turns her and drives her walk clip, and a rig authored with either switched off would stand
-	-- there sliding along the corridor in a T-pose.
-	humanoid.EvaluateStateMachine = true
-	humanoid.AutoRotate = true -- she turns to face wherever she is walking; nothing here rotates her
-	-- No nameplates. Two of them, identical, is the whole idea; a pair of captions over their heads
-	-- answers at a glance the question of whether there is any difference between them.
+	humanoid.EvaluateStateMachine = false
+	humanoid.AutoRotate = false
 	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 end
 
--- `options` narrowed to those that pass, or left exactly as it was when that would leave nothing.
--- Every preference the Sisters have is one they will break sooner than stand still for.
-local function prefer(options: { RouteNode }, predicate: (RouteNode) -> boolean): { RouteNode }
-	local kept = {}
-	for _, option in options do
-		if predicate(option) then
-			table.insert(kept, option)
-		end
-	end
-	return if #kept > 0 then kept else options
-end
-
---- @param startNode RouteNode -- the corridor node the pair is placed on
---- @param firstNode RouteNode -- and the one it sets off towards, which fixes its opening facing
-function Sisters.new(model: Model, config, startNode: RouteNode, firstNode: RouteNode)
+--- @param startTip Vector3 -- the physical edge the pair is placed at
+--- @param direction Vector3 -- the fixed direction they walk
+--- @param destinationTip Vector3 -- the opposite physical edge of the complete straight hallway
+function Sisters.new(model: Model, config, startTip: Vector3, direction: Vector3, destinationTip: Vector3)
 	local self = setmetatable({}, Sisters)
 
 	self.Model = model
 	self.Config = config
 	self.Models = { model }
 	self.Animators = {}
-
-	-- Which step each node was last left on, against a count of steps taken. Ages rather than a plain
-	-- visited set: a corridor they walked twenty corners ago should be worth as much as any other.
-	-- Set before the first corner is chosen, because choosing one reads them.
-	self.VisitedAt = {} :: { [RouteNode]: number }
-	self.Step = 0
-
-	-- The leg they are walking, and the corner past it. Knowing one corner ahead is what lets them
-	-- start bending into it before they reach the junction.
-	self.Origin = startNode
-	self.Destination = firstNode
-	self.After = self:ChooseNext(firstNode, startNode)
-	self.Facing = horizontal(firstNode.Position - startNode.Position).Unit
-	self.Progress = -math.huge -- furthest down this leg they have got, for spotting one they have stopped getting down
-	self.StalledSince = 0
-	self.LastPositions = {} :: { Vector3 } -- where each sister was last frame, for the kill sweep
-	self.NeckAttachments = {} :: { [Model]: Attachment }
-	self.NeckAttachmentBases = {} :: { [Model]: CFrame }
-	self.HeadTwitches = {} :: { [Model]: number }
+	self.StartPosition = startTip
+		+ direction * config.EndInset
+		+ Vector3.yAxis * config.RouteHeight
+	self.DestinationTip = destinationTip
+	self.Facing = direction
+	self.FloorDistance = horizontal(self.DestinationTip - self.StartPosition):Dot(self.Facing)
+	self.LastPositions = {}
+	self.NeckAttachments = {}
+	self.NeckAttachmentBases = {}
+	self.HeadTwitches = {}
+	self.HeadTwitchOffsets = {}
 	self.NextHeadTwitch = 0
 	self.NextLightFlicker = 0
+	self._movementValue = nil :: NumberValue?
+	self._movementTween = nil :: Tween?
+	self._movementConnection = nil :: RBXScriptConnection?
 
-	-- Whether anybody has laid eyes on them yet, and how long it has been since anybody last did.
-	-- Both feed the one chance they get to simply not turn up; see `_shouldForget`.
 	self.HasBeenSeen = false
 	self.UnseenSince = nil :: number?
 	self.ForgetRolled = false
@@ -172,64 +103,56 @@ function Sisters.new(model: Model, config, startNode: RouteNode, firstNode: Rout
 	self.StateMachine = StateMachine.new({
 		Walk = function()
 			self:Patrol()
-			coroutine.yield() -- the graph offered nowhere to go; nothing here will change that
+			coroutine.yield()
 		end,
 	}, {}, {}, "Walk")
 
 	return self
 end
 
--- How much `node` is worth avoiding for having been walked recently: full penalty on the step they
--- left it, gone by `LoopMemory` steps later.
-function Sisters:_recencyPenalty(node: RouteNode): number
-	local visitedAt = self.VisitedAt[node]
-	if not visitedAt then return 0 end
-
-	local age = self.Step - visitedAt
-	return self.Config.LoopPenalty * math.max(0, 1 - age / self.Config.LoopMemory)
-end
-
---- The corner they take after `node`, having arrived from `previous`, or nil where there is no way
---- out at all. Straightness is scored against staleness rather than ranked above it, so carrying
---- straight on into a corridor they have just walked loses to turning off into one they have not.
-function Sisters:ChooseNext(node: RouteNode, previous: RouteNode?): RouteNode?
-	local options = {}
-	for neighbor in node.Neighbors do
-		table.insert(options, neighbor)
-	end
-	if #options == 0 then return nil end
-
-	options = prefer(options, function(option: RouteNode)
-		return HallwayGraphService:CountExits(option) > 1 -- never walk into something they must back out of
-	end)
-	options = prefer(options, function(option: RouteNode)
-		return option ~= previous -- and never turn round on the spot while anywhere else is open
-	end)
-
-	local incoming = if previous then horizontal(node.Position - previous.Position).Unit else nil
-	local bestScore = -math.huge
-	local best = {}
-	for _, option in options do
-		local score = -self:_recencyPenalty(option)
-		if incoming then
-			score += incoming:Dot(horizontal(option.Position - node.Position).Unit)
-		end
-		-- A lean towards the worse corridors, weighted well under straightness so it colours where
-		-- they end up over a long walk rather than steering them corner by corner.
-		score += DangerMapService:GetDanger(option.Position) * DangerConfig.RouteDangerWeight
-
-		if score > bestScore + DIRECTION_TIE_EPSILON then
-			bestScore = score
-			best = { option }
-		elseif math.abs(score - bestScore) <= DIRECTION_TIE_EPSILON then
-			table.insert(best, option)
+local function nearestPlayerPosition(origin: Vector3): Vector3?
+	local nearest = nil
+	local nearestDistance = math.huge
+	for _, player in Players:GetPlayers() do
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if root and humanoid and humanoid.Health > 0 then
+			local distance = (root.Position - origin).Magnitude
+			if distance < nearestDistance then
+				nearest = root.Position
+				nearestDistance = distance
+			end
 		end
 	end
-	return best[math.random(1, #best)]
+	return nearest
 end
 
---- Halfway between the two of them: the pair's own position, taken from where they actually are
---- rather than from where anything decided they should be.
+function Sisters:_facePlayers()
+	for _, model in self.Models do
+		local torso = model.UpperTorso :: BasePart
+		local head = model.Head :: BasePart
+		local target = nearestPlayerPosition(head.Position)
+		local tracking = CFrame.identity
+		if target then
+			local offset = target - head.Position
+			local localDirection = torso.CFrame:VectorToObjectSpace(
+				if offset.Magnitude > MINIMUM_LEG then offset.Unit else torso.CFrame.LookVector
+			)
+			local yaw = math.atan2(-localDirection.X, -localDirection.Z)
+			local pitch = math.atan2(
+				localDirection.Y,
+				Vector2.new(localDirection.X, localDirection.Z).Magnitude
+			)
+			tracking = CFrame.Angles(pitch, yaw, 0)
+		end
+
+		self.NeckAttachments[model].CFrame = self.NeckAttachmentBases[model]
+			* tracking
+			* (self.HeadTwitchOffsets[model] or CFrame.identity)
+	end
+end
+
 function Sisters:GetCenter(): Vector3
 	local total = Vector3.zero
 	for _, model in self.Models do
@@ -238,72 +161,15 @@ function Sisters:GetCenter(): Vector3
 	return total / #self.Models
 end
 
--- Moves them on to the next leg. Returns false at a dead end, which is the one thing that stops them.
-function Sisters:_takeCorner(): boolean
-	local nextNode = self.After or self:ChooseNext(self.Destination, self.Origin)
-	if not nextNode then return false end
-
-	self.Step += 1
-	self.VisitedAt[self.Origin] = self.Step
-	self.Origin, self.Destination = self.Destination, nextNode
-	self.After = self:ChooseNext(self.Destination, self.Origin)
-	-- Not zero: giving up on a blocked leg leaves them short of the corner they are now walking from,
-	-- so their first honest progress down the new one is negative and still counts as getting somewhere.
-	self.Progress = -math.huge
-	self.StalledSince = os.clock()
-	return true
-end
-
--- The point they walk at: `LookAhead` studs further down the route than the pair has got, carried on
--- round the corner into the next corridor once the rest of this one is shorter than that. It is never
--- reachable, which is the point of it -- a Humanoid that arrives somewhere stops walking, and a
--- Humanoid that stops walking drops its walk clip for an idle until it sets off again.
-function Sisters:_aimPoint(origin: Vector3, direction: Vector3, length: number, travelled: number): Vector3
-	local ahead = math.max(travelled, 0) + self.Config.LookAhead
-	if ahead <= length or not self.After then
-		return origin + direction * ahead
-	end
-
-	local destination = origin + direction * length
-	local nextLeg = horizontal(walkPosition(self.After, self.Config) - destination)
-	if nextLeg.Magnitude < MINIMUM_LEG then
-		return origin + direction * ahead
-	end
-	return destination + nextLeg.Unit * math.min(ahead - length, nextLeg.Magnitude)
-end
-
--- Turns the pair's axis towards `direction`, by at most a frame's worth of turning. It only decides
--- which side of the aim point each sister walks on; how they themselves turn is their Humanoids'
--- business. Rate limiting it stops the two of them trading sides when the route doubles back.
-function Sisters:_turnTowards(direction: Vector3, deltaTime: number)
-	-- Signed, so an about-turn commits to one side instead of blending into nothing.
-	local angle = math.atan2(self.Facing:Cross(direction).Y, self.Facing:Dot(direction))
-	local maxTurn = math.rad(self.Config.TurnSpeed) * deltaTime
-	self.Facing = (CFrame.Angles(0, math.clamp(angle, -maxTurn, maxTurn), 0) * self.Facing).Unit
-end
-
--- Walks both sisters at `aim`, one either side of it, each trimmed to whether she is ahead of her
--- sister or behind her. The trim is what keeps them level, and it is bounded well clear of a standstill
--- so that neither of them ever stops walking to hold formation.
-function Sisters:_drive(aim: Vector3, center: Vector3)
+function Sisters:_place(distance: number)
 	local side = Vector3.yAxis:Cross(self.Facing).Unit * (self.Config.SideSpacing / 2)
-	local marks = { aim - side, aim + side }
-
+	local center = self.StartPosition + self.Facing * distance
+	local marks = { center - side, center + side }
 	for index, model in self.Models do
-		local humanoid = model.Humanoid :: Humanoid
-		local root = model.HumanoidRootPart :: BasePart
-		local lead = horizontal(root.Position - center):Dot(self.Facing) -- studs ahead of her sister
-		humanoid.WalkSpeed = math.clamp(
-			self.Config.WalkSpeed - lead * self.Config.FormationTrim,
-			self.Config.WalkSpeed * SLOWEST_TRIM,
-			self.Config.CatchUpSpeed
-		)
-		humanoid:MoveTo(marks[index])
+		model:PivotTo(CFrame.lookAt(marks[index], marks[index] + self.Facing))
 	end
 end
 
--- Kills every exposed player either sister walked over since the last frame. A player in a room is
--- safe however close they came: the whole answer to the Sisters is to be off the corridor.
 function Sisters:_sweep()
 	local center = self:GetCenter()
 	for index, model in self.Models do
@@ -313,15 +179,14 @@ function Sisters:_sweep()
 
 		for _, player in Players:GetPlayers() do
 			if RoomService:IsInRoom(player) then continue end
-			-- Same as a room: they walk the line they were going to walk anyway, and somebody the
-			-- hotel cannot find is not standing in it.
 			if Vanished.Is(player.Character) then continue end
 
 			local character = player.Character
 			local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 			if root and humanoid and humanoid.Health > 0
-				and distanceToSegment(root.Position, origin, position) <= self.Config.KillRange then
+				and distanceToSegment(root.Position, origin, position) <= self.Config.KillRange
+			then
 				DeathService:RecordCause(player, self.EnemyId)
 				humanoid.Health = 0
 			end
@@ -341,7 +206,6 @@ function Sisters:_twitchHeads(now: number)
 
 	for _, model in self.Models do
 		local attachment = self.NeckAttachments[model]
-		local base = self.NeckAttachmentBases[model]
 		local twitch = (self.HeadTwitches[model] or 0) + 1
 		self.HeadTwitches[model] = twitch
 
@@ -349,7 +213,7 @@ function Sisters:_twitchHeads(now: number)
 			task.wait(math.random() * HEAD_GLITCH_SNAP_MAX)
 			for _ = 1, math.random(HEAD_GLITCH_SNAPS_MIN, HEAD_GLITCH_SNAPS_MAX) do
 				if self.HeadTwitches[model] ~= twitch or not attachment.Parent then return end
-				attachment.CFrame = base * CFrame.Angles(
+				self.HeadTwitchOffsets[model] = CFrame.Angles(
 					(math.random() - 0.5) * HEAD_TWITCH_ANGLE,
 					(math.random() - 0.5) * HEAD_TWITCH_ANGLE * 2,
 					(math.random() - 0.5) * HEAD_TWITCH_ANGLE
@@ -361,53 +225,31 @@ function Sisters:_twitchHeads(now: number)
 			task.wait(HEAD_GLITCH_HOLD_MIN
 				+ math.random() * (HEAD_GLITCH_HOLD_MAX - HEAD_GLITCH_HOLD_MIN))
 			if self.HeadTwitches[model] == twitch and attachment.Parent then
-				attachment.CFrame = base
+				self.HeadTwitchOffsets[model] = CFrame.identity
 			end
 		end)
 	end
 end
 
--- One frame of walking. False once there is nowhere left to walk to.
-function Sisters:_step(deltaTime: number): boolean
-	local origin = walkPosition(self.Origin, self.Config)
-	local leg = horizontal(walkPosition(self.Destination, self.Config) - origin)
-	local length = leg.Magnitude
-	local direction = if length > MINIMUM_LEG then leg.Unit else self.Facing
+function Sisters:_step(): boolean
 	local center = self:GetCenter()
-	local travelled = horizontal(center - origin):Dot(direction)
+	local travelled = horizontal(center - self.StartPosition):Dot(self.Facing)
 
-	if travelled >= length then return self:_takeCorner() end
-
-	-- A leg they have stopped getting anywhere down is one something is in the way of. Give up on it
-	-- and take the next corner instead, rather than leaning on the obstacle for the rest of the round.
-	if travelled > self.Progress + PROGRESS_EPSILON then
-		self.Progress = travelled
-		self.StalledSince = os.clock()
-	elseif os.clock() - self.StalledSince > self.Config.StuckTime then
-		return self:_takeCorner()
+	if travelled >= self.FloorDistance + self.Config.DespawnPastEnd then
+		self:Despawn()
+		return false
 	end
 
-	local aim = self:_aimPoint(origin, direction, length, travelled)
-	local heading = horizontal(aim - center)
-	if heading.Magnitude > MINIMUM_LEG then
-		self:_turnTowards(heading.Unit, deltaTime)
-	end
-	self:_drive(aim, center)
 	self:_sweep()
+	self:_facePlayers()
 	self:_twitchHeads(os.clock())
 	return true
 end
 
---- Whether anybody can currently see either of them. Real reported camera positions rather than a
---- guess at where a head is, for the same reason hiding uses them: in first person the camera sits
---- inside the head, and a pair hidden from where a body is standing is not necessarily hidden from
---- the eye that counts.
 function Sisters:_isSeen(): boolean
 	local filter = { table.unpack(self.Models) }
 	for _, player in Players:GetPlayers() do
-		if player.Character then
-			table.insert(filter, player.Character)
-		end
+		if player.Character then table.insert(filter, player.Character) end
 	end
 
 	local params = RaycastParams.new()
@@ -427,17 +269,6 @@ function Sisters:_isSeen(): boolean
 	return false
 end
 
---- Sometimes they just never come round the corner.
----
---- You see them down the hall, you turn off, and then there is a stretch where the only question in
---- your head is whether they are still following -- and once in a while the answer is that they are
---- simply gone. That only works if the other four times out of five they do arrive, so this rolls
---- once per break in sight rather than continuously, and only after `ForgetDelay` of being unseen,
---- which is the moment the question is actually live. Rolling every frame would make vanishing a
---- certainty; rolling the instant sight breaks would answer a question nobody had asked yet.
----
---- It also requires them to have been seen at all. Deleting a pair nobody ever registered is not an
---- effect, it is housekeeping -- and the director's own sweep already does that.
 function Sisters:_shouldForget(now: number): boolean
 	if now < self.NextSightCheck then return false end
 	self.NextSightCheck = now + SIGHT_INTERVAL
@@ -450,7 +281,6 @@ function Sisters:_shouldForget(now: number): boolean
 	end
 
 	if not self.HasBeenSeen or self.ForgetRolled then return false end
-
 	if not self.UnseenSince then
 		self.UnseenSince = now
 		return false
@@ -461,18 +291,16 @@ function Sisters:_shouldForget(now: number): boolean
 	return math.random() < (self.Config.ForgetChance or 0)
 end
 
---- Corner after corner, for as long as they are in the map -- or until they quietly decide not to be.
 function Sisters:Patrol()
 	while self.Active do
-		local deltaTime = RunService.Heartbeat:Wait()
+		RunService.Heartbeat:Wait()
 		if not self.Active then return end
 
 		if self:_shouldForget(os.clock()) then
 			self:Despawn()
 			return
 		end
-
-		if not self:_step(deltaTime) then return end
+		if not self:_step() then return end
 	end
 end
 
@@ -485,35 +313,56 @@ function Sisters:Start()
 	twin.Parent = self.Model.Parent
 	table.insert(self.Models, twin)
 
-	-- Stood on their marks, once, before either of them has taken a step. It is the only time anything
-	-- here sets where a sister is.
-	local side = Vector3.yAxis:Cross(self.Facing).Unit * (self.Config.SideSpacing / 2)
-	local marks = { walkPosition(self.Origin, self.Config) - side, walkPosition(self.Origin, self.Config) + side }
-	for index, model in self.Models do
+	for _, model in self.Models do
 		prepare(model)
-		model:PivotTo(CFrame.lookAt(marks[index], marks[index] + self.Facing))
 
-		local humanoid = model.Humanoid :: Humanoid
-		humanoid.WalkSpeed = self.Config.WalkSpeed
 		local animator = NpcAnimator.new(model, self.Config.Animations)
-		animator:Start()
+		animator:SetMovementSpeed(self.Config.WalkSpeed)
 		table.insert(self.Animators, animator)
 
-		self.LastPositions[index] = (model.HumanoidRootPart :: BasePart).Position
 		local neckAttachment = model.UpperTorso.NeckRigAttachment :: Attachment
 		self.NeckAttachments[model] = neckAttachment
 		self.NeckAttachmentBases[model] = neckAttachment.CFrame
+		self.HeadTwitchOffsets[model] = CFrame.identity
 		model:AddTag(ENEMY_TAG)
 		model:AddTag(SISTERS_TAG)
 	end
+	self:_place(0)
+	for index, model in self.Models do
+		self.LastPositions[index] = (model.HumanoidRootPart :: BasePart).Position
+	end
 
-	self.StalledSince = os.clock()
+	local targetDistance = self.FloorDistance + self.Config.WalkOffDistance
+	local movementValue = Instance.new("NumberValue")
+	self._movementValue = movementValue
+	self._movementConnection = movementValue.Changed:Connect(function(distance)
+		self:_place(distance)
+	end)
+	local tween = TweenService:Create(
+		movementValue,
+		TweenInfo.new(targetDistance / self.Config.WalkSpeed, Enum.EasingStyle.Linear),
+		{ Value = targetDistance }
+	)
+	self._movementTween = tween
+	tween.Completed:Once(function(state)
+		if state == Enum.PlaybackState.Completed and self.Active then
+			self:Despawn()
+		end
+	end)
+	tween:Play()
+
 	self.StateMachine:Start()
 end
 
 function Sisters:Despawn()
 	if not self.Active then return end
 	self.Active = false
+	if self._movementTween then self._movementTween:Cancel() end
+	if self._movementConnection then self._movementConnection:Disconnect() end
+	if self._movementValue then self._movementValue:Destroy() end
+	self._movementTween = nil
+	self._movementConnection = nil
+	self._movementValue = nil
 
 	for _, model in self.Models do
 		self.HeadTwitches[model] = (self.HeadTwitches[model] or 0) + 1

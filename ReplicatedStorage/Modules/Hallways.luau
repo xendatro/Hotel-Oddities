@@ -1,82 +1,90 @@
---- Reading the corridor a point stands in, off the parts tagged `MazeFloor`.
----
---- The same tag the corridor graph is built from, asked a much smaller question: not how the hotel
---- connects up, but which straight hallway this position is in and which way it runs. That is what
---- anything wanting to lay something *along* a corridor needs -- an effect sized to the width it
---- actually has, kept inside the length it actually has, instead of a guess that works until the
---- player and the thing line up wrongly and it turns up in the next hallway over.
----
---- Shared rather than server-side, because the callers are clients: the corridor an effect is drawn
---- down is a fact about the map, and the map is in `workspace` where every machine can read it.
----
---- A floor part is one straight hallway: `RightVector` runs along its length, `Size.X` is that
---- length and `Size.Z` the width across it. Height is not part of the answer -- floors are one stud
---- of walkable surface with no record of the ceiling over them -- so a caller that needs to span a
---- corridor top to bottom brings its own height.
+--- Reads authored corridor floors as geometry rather than treating each part as a complete hallway.
 
 local CollectionService = game:GetService("CollectionService")
 
 local HALLWAY_TAG = "MazeFloor"
---- How far above its floor a position may be and still count as being in that hallway. Comfortably
---- taller than anything that walks the hotel, and far short of the next storey up.
+local HALLWAY_ROOM_TAG = "HallwayRoomFloor"
 local HEIGHT_WINDOW = 24
-local BELOW_WINDOW = 4 -- and how far under it, for something standing on a rug or a step
+local BELOW_WINDOW = 4
+local VERTICAL_CONNECTION_DISTANCE = 4
+local SPAN_CONNECTION_EPSILON = 0.75
+local AXIS_EPSILON = 1e-4
 
 export type Hallway = {
-	Center: Vector3, -- of the floor part, at the middle of its thickness
-	Axis: Vector3, -- unit and horizontal, along the length of the corridor
-	Across: Vector3, -- unit and horizontal, square across it
+	Center: Vector3,
+	Axis: Vector3,
+	Across: Vector3,
 	HalfLength: number,
 	HalfWidth: number,
-	FloorY: number, -- the walkable surface, which is what a caller stands things on
+	FloorY: number,
+	IsRoomFloor: boolean,
+}
+
+export type StraightSpan = {
+	Start: Vector3,
+	Finish: Vector3,
+	Center: Vector3,
+	Axis: Vector3,
+	Length: number,
+}
+
+type Interval = {
+	Min: number,
+	Max: number,
 }
 
 local Hallways = {}
 
-local function toHallway(part: BasePart): Hallway
-	local axis = Vector3.new(part.CFrame.RightVector.X, 0, part.CFrame.RightVector.Z).Unit
+local function horizontal(vector: Vector3): Vector3
+	return Vector3.new(vector.X, 0, vector.Z)
+end
+
+local function getTags(includeRoomFloors: boolean?): { string }
+	return if includeRoomFloors then { HALLWAY_TAG, HALLWAY_ROOM_TAG } else { HALLWAY_TAG }
+end
+
+local function toHallway(part: BasePart, isRoomFloor: boolean): Hallway
+	local runsAlongX = part.Size.X >= part.Size.Z
+	local axis = horizontal(if runsAlongX then part.CFrame.RightVector else part.CFrame.LookVector).Unit
 	return {
 		Center = part.Position,
 		Axis = axis,
-		Across = Vector3.new(-axis.Z, 0, axis.X),
-		HalfLength = part.Size.X / 2,
-		HalfWidth = part.Size.Z / 2,
+		Across = Vector3.yAxis:Cross(axis).Unit,
+		HalfLength = (if runsAlongX then part.Size.X else part.Size.Z) / 2,
+		HalfWidth = (if runsAlongX then part.Size.Z else part.Size.X) / 2,
 		FloorY = part.Position.Y + part.Size.Y / 2,
+		IsRoomFloor = isRoomFloor,
 	}
 end
 
---- Every hallway in the map, in no particular order: the whole corridor network as flat records, for
---- a caller whose question is about all of them rather than about one position.
-function Hallways.All(): { Hallway }
+function Hallways.All(includeRoomFloors: boolean?): { Hallway }
 	local hallways = {}
-	for _, instance in CollectionService:GetTagged(HALLWAY_TAG) do
-		if instance:IsA("BasePart") and instance:IsDescendantOf(workspace) then
-			table.insert(hallways, toHallway(instance :: BasePart))
+	for _, tag in getTags(includeRoomFloors) do
+		for _, instance in CollectionService:GetTagged(tag) do
+			if instance:IsA("BasePart") and instance:IsDescendantOf(workspace) then
+				table.insert(hallways, toHallway(instance :: BasePart, tag == HALLWAY_ROOM_TAG))
+			end
 		end
 	end
 	return hallways
 end
 
---- The hallway `position` is standing in, or nil where it is in a room, a doorway or anywhere else
---- off the corridor network. Containment rather than nearest: a caller that lands just outside every
---- corridor wants to know that, not to be handed the corridor through the wall.
-function Hallways.At(position: Vector3): Hallway?
-	for _, hallway in Hallways.All() do
-		local height = position.Y - hallway.FloorY
-		if height > HEIGHT_WINDOW or height < -BELOW_WINDOW then continue end
+local function contains(hallway: Hallway, position: Vector3): boolean
+	local height = position.Y - hallway.FloorY
+	if height > HEIGHT_WINDOW or height < -BELOW_WINDOW then return false end
 
-		local offset = position - hallway.Center
-		if math.abs(offset:Dot(hallway.Axis)) <= hallway.HalfLength
-			and math.abs(offset:Dot(hallway.Across)) <= hallway.HalfWidth
-		then
-			return hallway
-		end
+	local offset = position - hallway.Center
+	return math.abs(offset:Dot(hallway.Axis)) <= hallway.HalfLength
+		and math.abs(offset:Dot(hallway.Across)) <= hallway.HalfWidth
+end
+
+function Hallways.At(position: Vector3, includeRoomFloors: boolean?): Hallway?
+	for _, hallway in Hallways.All(includeRoomFloors) do
+		if contains(hallway, position) then return hallway end
 	end
 	return nil
 end
 
---- The point on `hallway`'s walkable surface closest to `position`: inside the corridor, that is
---- `position` dropped onto the floor; outside it, the nearest point along the floor's edge.
 function Hallways.ClosestPoint(hallway: Hallway, position: Vector3): Vector3
 	local surface = Vector3.new(hallway.Center.X, hallway.FloorY, hallway.Center.Z)
 	local offset = position - surface
@@ -85,10 +93,6 @@ function Hallways.ClosestPoint(hallway: Hallway, position: Vector3): Vector3
 	return surface + hallway.Axis * along + hallway.Across * across
 end
 
---- The hallway whose floor `position` is nearest to, which for a position inside one is that one.
---- Nearest rather than containment, and so the counterpart to `At`: a caller floating over a wall or
---- out past the edge of the building still gets the corridor it belongs to. Nil only while nothing
---- is tagged at all.
 function Hallways.Nearest(position: Vector3): Hallway?
 	local nearest = nil :: Hallway?
 	local best = math.huge
@@ -102,15 +106,151 @@ function Hallways.Nearest(position: Vector3): Hallway?
 	return nearest
 end
 
---- How far `position` is along `hallway` from its middle, signed along the axis.
 function Hallways.Along(hallway: Hallway, position: Vector3): number
 	return (position - hallway.Center):Dot(hallway.Axis)
 end
 
---- The point `along` studs down the middle of `hallway`, on its floor.
 function Hallways.PointAt(hallway: Hallway, along: number): Vector3
 	local center = hallway.Center + hallway.Axis * along
 	return Vector3.new(center.X, hallway.FloorY, center.Z)
+end
+
+local function slabInterval(offset: number, slope: number, halfSize: number): (number?, number?)
+	if math.abs(slope) < AXIS_EPSILON then
+		if math.abs(offset) > halfSize then return nil, nil end
+		return -math.huge, math.huge
+	end
+
+	local first = (-halfSize - offset) / slope
+	local second = (halfSize - offset) / slope
+	return math.min(first, second), math.max(first, second)
+end
+
+local function lineInterval(hallway: Hallway, origin: Vector3, direction: Vector3): Interval?
+	local offset = origin - hallway.Center
+	local alongMin, alongMax = slabInterval(
+		offset:Dot(hallway.Axis),
+		direction:Dot(hallway.Axis),
+		hallway.HalfLength
+	)
+	if not alongMin or not alongMax then return nil end
+
+	local acrossMin, acrossMax = slabInterval(
+		offset:Dot(hallway.Across),
+		direction:Dot(hallway.Across),
+		hallway.HalfWidth
+	)
+	if not acrossMin or not acrossMax then return nil end
+
+	local minimum = math.max(alongMin, acrossMin)
+	local maximum = math.min(alongMax, acrossMax)
+	return if minimum <= maximum then { Min = minimum, Max = maximum } else nil
+end
+
+local function chooseAxis(source: Hallway, preferredDirection: Vector3?): Vector3
+	local axis = source.Axis
+	local preferred = preferredDirection and horizontal(preferredDirection)
+	if preferred and preferred.Magnitude > AXIS_EPSILON then
+		preferred = preferred.Unit
+		if source.IsRoomFloor and math.abs(source.Across:Dot(preferred)) > math.abs(axis:Dot(preferred)) then
+			axis = source.Across
+		end
+		if axis:Dot(preferred) < 0 then axis = -axis end
+	end
+	return axis
+end
+
+local function straightSpan(
+	source: Hallway,
+	position: Vector3,
+	preferredDirection: Vector3?,
+	allHallways: { Hallway }
+): StraightSpan?
+	local axis = chooseAxis(source, preferredDirection)
+	local along = horizontal(position - source.Center):Dot(axis)
+	local origin = source.Center + axis * along
+	local intervals = {}
+
+	for _, hallway in allHallways do
+		if math.abs(hallway.FloorY - source.FloorY) > VERTICAL_CONNECTION_DISTANCE then continue end
+		local interval = lineInterval(hallway, origin, axis)
+		if interval then table.insert(intervals, interval) end
+	end
+	if #intervals == 0 then return nil end
+
+	table.sort(intervals, function(first: Interval, second: Interval)
+		return first.Min < second.Min
+	end)
+
+	local merged = {}
+	for _, interval in intervals do
+		local last = merged[#merged]
+		if last and interval.Min <= last.Max + SPAN_CONNECTION_EPSILON then
+			last.Max = math.max(last.Max, interval.Max)
+		else
+			table.insert(merged, table.clone(interval))
+		end
+	end
+
+	for _, interval in merged do
+		if interval.Min <= 0 and interval.Max >= 0 then
+			local start = origin + axis * interval.Min
+			local finish = origin + axis * interval.Max
+			return {
+				Start = start,
+				Finish = finish,
+				Center = start:Lerp(finish, 0.5),
+				Axis = axis,
+				Length = interval.Max - interval.Min,
+			}
+		end
+	end
+	return nil
+end
+
+--- The complete straight run of connected corridor floor through `position`. Connector and room
+--- floors bridge authored floor seams, but never bend the returned axis around a corner.
+function Hallways.StraightSpanAt(position: Vector3, preferredDirection: Vector3?): StraightSpan?
+	local allHallways = Hallways.All(true)
+	local source = nil :: Hallway?
+	for _, hallway in allHallways do
+		if contains(hallway, position) then
+			source = hallway
+			break
+		end
+	end
+	if not source then return nil end
+	return straightSpan(source, position, preferredDirection, allHallways)
+end
+
+local function sameSpan(first: StraightSpan, second: StraightSpan): boolean
+	local sameDirection = (first.Start - second.Start).Magnitude <= SPAN_CONNECTION_EPSILON
+		and (first.Finish - second.Finish).Magnitude <= SPAN_CONNECTION_EPSILON
+	local oppositeDirection = (first.Start - second.Finish).Magnitude <= SPAN_CONNECTION_EPSILON
+		and (first.Finish - second.Start).Magnitude <= SPAN_CONNECTION_EPSILON
+	return sameDirection or oppositeDirection
+end
+
+--- Every distinct straight hallway run in the map. Room floors extend and bridge these routes but
+--- are not seeds of their own, so a square connector does not invent duplicate horizontal/vertical
+--- hallways independently of the `MazeFloor` corridors attached to it.
+function Hallways.StraightSpans(): { StraightSpan }
+	local allHallways = Hallways.All(true)
+	local spans = {}
+	for _, source in Hallways.All() do
+		local span = straightSpan(source, source.Center, source.Axis, allHallways)
+		if not span then continue end
+
+		local duplicate = false
+		for _, existing in spans do
+			if sameSpan(span, existing) then
+				duplicate = true
+				break
+			end
+		end
+		if not duplicate then table.insert(spans, span) end
+	end
+	return spans
 end
 
 return Hallways

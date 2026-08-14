@@ -58,6 +58,7 @@ export type NpcAnimator = typeof(setmetatable(
 		Set: AnimationConfig.AnimationSet,
 		Attacks: { AnimationTrack },
 		Rate: number,
+		MovementSpeedOverride: number?,
 		Paused: boolean,
 		_connections: { [string]: RBXScriptConnection? },
 	},
@@ -115,6 +116,7 @@ function NpcAnimator.new(model: Model, set: AnimationConfig.AnimationSet?)
 	self.Animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
 	self.Current = nil :: AnimationTrack?
 	self.Rate = 1
+	self.MovementSpeedOverride = nil :: number?
 	self.Paused = false
 	self._connections = {}
 
@@ -219,7 +221,8 @@ function NpcAnimator:_resyncRate(track: AnimationTrack)
 			task.wait(LENGTH_POLL)
 		end
 		if track.Length > 0 and self.Current == track then
-			self:_apply(self.Humanoid.MoveDirection.Magnitude * self.Humanoid.WalkSpeed)
+			self:_apply(self.MovementSpeedOverride
+				or self.Humanoid.MoveDirection.Magnitude * self.Humanoid.WalkSpeed)
 		end
 	end)
 end
@@ -277,11 +280,18 @@ end
 --- Begins reacting to the humanoid's movement. Safe to call again after `Stop`.
 function NpcAnimator:Start()
 	if self._connections.Running then return end
+	self.MovementSpeedOverride = nil
 
 	self._connections.Running = self.Humanoid.Running:Connect(function(speed: number)
 		self:_apply(speed)
 	end)
 	self:_apply(self.Humanoid.MoveDirection.Magnitude * self.Humanoid.WalkSpeed)
+end
+
+--- Drives locomotion for a rig moved without Humanoid physics, such as an anchored tweened model.
+function NpcAnimator:SetMovementSpeed(speed: number)
+	self.MovementSpeedOverride = speed
+	self:_apply(speed)
 end
 
 --- Stops driving and drops the current clip, handing the rig's animation to whoever simulates it now.
@@ -313,7 +323,8 @@ end
 function NpcAnimator:Resume()
 	if not self.Paused then return end
 	self.Paused = false
-	self:_apply(self.Humanoid.MoveDirection.Magnitude * self.Humanoid.WalkSpeed)
+	self:_apply(self.MovementSpeedOverride
+		or self.Humanoid.MoveDirection.Magnitude * self.Humanoid.WalkSpeed)
 end
 
 --- Rebuilds the tracks from the rig's current animation set, keeping whatever the NPC was doing.

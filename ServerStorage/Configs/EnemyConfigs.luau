@@ -110,7 +110,7 @@ export type EnemyConfig = {
 	FalloffExponent: number?, -- above 1 concentrates the damage into the middle of the screen
 	Lifetime: number?, -- seconds it stays in the world before leaving of its own accord
 
-	-- Shared by the anchored corridor enemies that travel the `MazeFloor` graph, Chaos and Sisters
+	-- Shared by the corridor hazards Chaos and Sisters
 	SpawnPlayerDistance: number?, -- minimum distance from every player at which a route may begin
 	KillRange: number?, -- distance from its swept movement path at which an exposed player dies
 	RouteHeight: number?, -- studs above a tagged hallway floor part's center it travels at
@@ -122,14 +122,10 @@ export type EnemyConfig = {
 
 	-- Sisters-specific
 	SideSpacing: number?, -- studs between the two of them, across the corridor
-	LookAhead: number?, -- studs down the route they walk at; also how early they bend into a corner
-	TurnSpeed: number?, -- degrees/s the pair's axis rotates, which is which side of it each walks on
-	FormationTrim: number?, -- studs/s taken off a sister's walk per stud she is ahead of her sister
-	CatchUpSpeed: number?, -- studs/s the trim will never push her past while she is catching up
-	StuckTime: number?, -- seconds of getting nowhere down a leg before they give up and take a corner
-	LoopMemory: number?, -- corners for which a node stays worth avoiding after they leave it
-	LoopPenalty: number?, -- how strongly it is avoided at its freshest, against a straightness score of 1
-	ForgetChance: number?, -- odds they simply never round the corner, rolled once per break in sight
+	EndInset: number?, -- studs in from the physical floor edge where the pair is placed
+	WalkOffDistance: number?, -- studs beyond the far floor edge their linear movement tween targets
+	DespawnPastEnd: number?, -- studs their center must travel beyond the far floor edge before despawning
+	ForgetChance: number?, -- odds they simply disappear, rolled once per break in sight
 	ForgetDelay: number?, -- seconds out of everybody's sight before that roll happens
 	LightFlickerDuration: number?, -- seconds each flicker effect lasts
 	LightFlickerInterval: number?, -- seconds between hallway-wide flicker triggers
@@ -606,9 +602,9 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		MaxAlive = 1,
 	},
 
-	-- The other end of the same idea as Chaos: two R15 rigs walking the same corridor graph, with none
-	-- of the warning and none of the hurry. They touch no lights and never despawn, so what makes them
-	-- survivable is only ever how long you have to see them and how near a door you were.
+	-- The other end of the same idea as Chaos: two R15 rigs walking one complete straight corridor run,
+	-- with none of the warning and none of the hurry. Authored floor parts and connector tiles are
+	-- merged into that run, so only the physical edge of the whole hallway ends it.
 	Sisters = {
 		Model = "Sister", -- one rig. The class takes the second sister from this one.
 
@@ -619,29 +615,12 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		KillRange = 12, -- covers `SideSpacing` and then some, so between them is not a gap to stand in
 		RouteHeight = 0.5, -- feet on the floor: these are rigs standing on it, not a part flying over it
 
-		SideSpacing = 7,
-
-		-- How far down the route they walk at, and so how wide they take a corner: the point runs on
-		-- into the next corridor this far before the junction, and they follow it round. Small enough
-		-- that they hold the middle of a corridor rather than cutting across it, large enough that
-		-- neither of them can ever reach it and stop -- a Humanoid that arrives drops out of its walk.
-		LookAhead = 8,
-		TurnSpeed = 90,
-
-		-- What keeps them level. A sister a stud ahead of her sister walks at 4 rather than 5 until she
-		-- is not, which is a correction you would have to be looking for to see. The cap only matters
-		-- coming out of a corner, where the one on the outside has ground to make up.
-		FormationTrim = 1,
-		CatchUpSpeed = 8,
-
-		StuckTime = 4, -- long enough that a scrape along a wall is not mistaken for being stuck on it
-
-		-- Twelve corners of memory at a penalty of 1.2 -- more than the whole 0..1 range a straightness
-		-- score can offer, so a corridor they have just left loses to any turn at all, and a corridor
-		-- from a dozen corners ago costs them nothing. That is the difference between a pair that
-		-- wanders the hotel and a pair pacing the same four corridors forever.
-		LoopMemory = 12,
-		LoopPenalty = 1.2,
+		-- Center-to-center distance. The old seven-stud formation was too wide; this keeps them abreast
+		-- while bringing their closest edges roughly 1.5 studs nearer.
+		SideSpacing = 5.5,
+		EndInset = 2,
+		WalkOffDistance = 10,
+		DespawnPastEnd = 6,
 
 		-- The cheapest thing in the Pursuit budget. At a walk speed of 5 against a player's 16 they
 		-- can be outpaced, walked around at a distance and left behind entirely -- being caught by
@@ -655,7 +634,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		-- Seen, then not seen, and then -- occasionally -- never arriving. Rolled once each time they
 		-- drop out of everybody's sight and stay out of it for `ForgetDelay`, which is the moment the
 		-- question "are they still coming?" is actually live. One in five, because the other four
-		-- times they do come round the corner and that is what makes the fifth land.
+		-- times they are still walking the route and that is what makes the fifth land.
 		ForgetChance = 0.2,
 		ForgetDelay = 5,
 
