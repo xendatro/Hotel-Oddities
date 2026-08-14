@@ -11,12 +11,43 @@ local NPC = require(ServerStorage.Classes.NPC)
 
 local PERCEPTION_INTERVAL = 0.25
 local LOOK_AROUND_DISTANCE = 10
+local CHASE_TARGET_ATTRIBUTE = "ChaseTargetUserId"
 
 local Chaser = NPC.extend("Chaser")
+
+local function clearChaseTarget(npc: any)
+	npc.Model:SetAttribute(CHASE_TARGET_ATTRIBUTE, nil)
+end
+
+local function idle(changeState: StateMachine.ChangeState, npc: any)
+	clearChaseTarget(npc)
+	return NPC.SharedStates.Idle(changeState, npc)
+end
+
+local function wander(changeState: StateMachine.ChangeState, npc: any)
+	clearChaseTarget(npc)
+	return NPC.SharedStates.Wander(changeState, npc)
+end
+
+local function patrol(changeState: StateMachine.ChangeState, npc: any)
+	clearChaseTarget(npc)
+	return NPC.SharedStates.Patrol(changeState, npc)
+end
+
+local function stunned(changeState: StateMachine.ChangeState, npc: any, duration: number)
+	clearChaseTarget(npc)
+	return NPC.SharedStates.Stunned(changeState, npc, duration)
+end
+
+local function despawn(changeState: StateMachine.ChangeState, npc: any)
+	clearChaseTarget(npc)
+	return NPC.SharedStates.Despawn(changeState, npc)
+end
 
 --- Runs `target` down until it is caught, reaches a safe room, or outruns `GiveUpRange`.
 local function chase(_changeState: StateMachine.ChangeState, npc: any, target: Player)
 	npc.Target = target
+	npc.Model:SetAttribute(CHASE_TARGET_ATTRIBUTE, target.UserId)
 	npc.Animator:Resume()
 	npc:SetSpeed(npc.Config.ChaseSpeed)
 
@@ -61,6 +92,7 @@ end
 --- Sweeps to where the target was last seen and loiters there, giving perception a window to
 --- re-acquire them when they leave the room.
 local function search(_changeState: StateMachine.ChangeState, npc: any, lastKnown: Vector3)
+	clearChaseTarget(npc)
 	npc.Target = nil
 	npc.Animator:Resume()
 	npc:SetSpeed(npc.Config.WalkSpeed)
@@ -85,14 +117,14 @@ function Chaser:BuildStateMachine(): StateMachine.StateMachine
 	local npc = self
 
 	return StateMachine.new({
-		Idle = NPC.SharedStates.Idle,
-		Wander = NPC.SharedStates.Wander,
-		Patrol = NPC.SharedStates.Patrol,
-		Despawn = NPC.SharedStates.Despawn,
+		Idle = idle,
+		Wander = wander,
+		Patrol = patrol,
+		Despawn = despawn,
 		Chase = chase,
 		Attack = attack,
 		Search = search,
-		Stunned = NPC.SharedStates.Stunned,
+		Stunned = stunned,
 	}, {
 		-- Spotting a player pulls the chaser off anything idle, but never out of a swing.
 		Perception = { "Idle", "Wander", "Patrol", "Search" },

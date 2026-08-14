@@ -6,6 +6,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local CameraBobConfig = require(ReplicatedStorage.Configs.CameraBobConfig)
+local ChaserCameraService = require(ReplicatedStorage.Services.ChaserCameraService)
 
 local FirstPersonCameraService = {}
 
@@ -49,8 +50,13 @@ local function render(deltaTime: number)
 		and humanoid.MoveDirection.Magnitude > 0.05
 		and horizontalSpeed > 0.1
 		and humanoid.FloorMaterial ~= Enum.Material.Air
-	local targetWeight = if moving then 1 else 0
-	weight += (targetWeight - weight) * (1 - math.exp(-CameraBobConfig.FadeSpeed * deltaTime))
+	local chaserActive = ChaserCameraService:IsActive()
+	if chaserActive then
+		weight = 0
+	else
+		local targetWeight = if moving then 1 else 0
+		weight += (targetWeight - weight) * (1 - math.exp(-CameraBobConfig.FadeSpeed * deltaTime))
+	end
 
 	if moving then
 		local stepRate = CameraBobConfig.StepsPerSecond
