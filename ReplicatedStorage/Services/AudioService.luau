@@ -15,6 +15,11 @@ local Buses = workspace:WaitForChild("Sounds")
 local AudioService = {}
 
 local Output: AudioDeviceOutput? = nil
+type Audio3DTemplate = string | AudioEmitter
+
+local function resolve3DTemplate(template: Audio3DTemplate): AudioEmitter
+	return if typeof(template) == "string" then Templates[template] :: AudioEmitter else template
+end
 
 --- The bus faders under `workspace.Sounds` are volume stores rather than wired mixer nodes. A 3D
 --- sound reaches the ear through its own emitter and the shared listener, so there is no node
@@ -93,20 +98,20 @@ end
 
 --[[
 Builds a 3D sound at `parent` without starting it, by cloning an AudioEmitter template from
-ReplicatedStorage.Sounds. Use this when playback has to be driven later; `Play3DSound` is the
-one-shot form.
+ReplicatedStorage.Sounds. A template instance can be supplied for sounds stored in a subfolder.
+Use this when playback has to be driven later; `Play3DSound` is the one-shot form.
 
 Returns the AudioPlayer inside the emitter. The emitter is destroyed for you once a non-looping
 sound ends; a looping one is yours to stop with `StopSound`.
 ]]
 function AudioService:Create3DSound(
-	name: string,
+	template: Audio3DTemplate,
 	parent: BasePart,
 	looped: boolean,
 	soundGroup: string,
 	settings: {[string]: any}?
 ): AudioPlayer
-	local emitter = (Templates[name] :: AudioEmitter):Clone()
+	local emitter = resolve3DTemplate(template):Clone()
 	local player = emitter.Player :: AudioPlayer
 	player.Looping = looped
 
@@ -121,13 +126,13 @@ end
 
 --- Plays a 3D spatial sound at `parent`. See `Create3DSound` for the returned object's lifetime.
 function AudioService:Play3DSound(
-	name: string,
+	template: Audio3DTemplate,
 	parent: BasePart,
 	looped: boolean,
 	soundGroup: string,
 	settings: {[string]: any}?
 ): AudioPlayer
-	local player = self:Create3DSound(name, parent, looped, soundGroup, settings)
+	local player = self:Create3DSound(template, parent, looped, soundGroup, settings)
 	player:Play()
 	return player
 end
