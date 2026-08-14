@@ -36,6 +36,9 @@ local DIRECT_PURSUIT_UPDATE_DISTANCE = 1
 local DIRECT_PURSUIT_OVERSHOOT = 4
 local MAX_BLOCKED_ATTEMPTS = 3 -- consecutive stalled paths before a pursuit gives up
 local WANDER_ATTEMPTS = 6
+local PREFETCH_LEAD = 2.5 -- seconds of walking left on a route when the next one starts computing
+local PREFETCH_ORIGIN_TOLERANCE = 8 -- studs the guessed start of a prefetched route may be out by
+local PREFETCH_DESTINATION_TOLERANCE = 1 -- and its guessed destination, unless a caller allows more
 -- Degrees of the cone the server falls back to when a client stops reporting what it can see. A shade
 -- wider than the default camera, because the cost of being generous is an enemy that waits a moment
 -- longer, and the cost of being stingy is one that moves while you are looking at it.
@@ -112,6 +115,7 @@ function NPC.new(model: Model, config: EnemyConfigs.EnemyConfig, class: any?)
 	self.AcquireAfter = nil :: number? -- set by the director; see `CanAcquire`
 	self._observedUntil = nil :: number? -- see `IsObserved`
 	self._patrol = nil :: any -- corridors walked so far, kept across interruptions; see `SharedStates.Patrol`
+	self._prefetch = nil :: any -- the route being worked out ahead of time; see `PrefetchPath`
 	self.Active = false
 	self.StateMachine = self:BuildStateMachine()
 
@@ -161,6 +165,7 @@ function NPC:Despawn()
 	self.Active = false
 
 	ByModel[self.Model] = nil
+	self:_discardPrefetch()
 	self.Model:RemoveTag(ENEMY_TAG)
 	self.Model:RemoveTag(OBSERVABLE_TAG)
 
@@ -199,15 +204,70 @@ function NPC:FaceTowards(position: Vector3)
 	self.RootPart.CFrame = CFrame.lookAt(origin, flat)
 end
 
---- A computed path to `destination`, or nil if none exists. Callers own the returned path.
-function NPC:ComputePath(destination: Vector3): Path?
+function NPC:_computePath(origin: Vector3, destination: Vector3): Path?
 	local path = PathfindingService:CreatePath(self.Config.AgentParams)
-	local ok = pcall(path.ComputeAsync, path, self.RootPart.Position, destination)
+	local ok = pcall(path.ComputeAsync, path, origin, destination)
 	if not ok or path.Status ~= Enum.PathStatus.Success then
 		path:Destroy()
 		return nil
 	end
 	return path
+end
+
+-- Throws away a prefetched route. One still being computed is left to its own thread, which checks
+-- whether it is still wanted and tidies up after itself.
+function NPC:_discardPrefetch()
+	local entry = self._prefetch
+	if not entry then return end
+	self._prefetch = nil
+	if entry.Done and entry.Path then
+		entry.Path:Destroy()
+	end
+end
+
+--- Starts working out a route in the background, so a later `ComputePath` for the same trip can be
+--- answered without standing still for it. `ComputeAsync` takes anything from a tenth of a second to
+--- two in a hotel this size, and that is dead time at the end of every route unless the next one is
+--- already in hand. Only one prefetch is held; asking for another replaces it.
+--- @param origin Vector3? -- where the NPC will be when it sets off; defaults to where it is now
+function NPC:PrefetchPath(destination: Vector3, origin: Vector3?)
+	self:_discardPrefetch()
+
+	local entry = { Destination = destination, Origin = origin or self.RootPart.Position, Path = nil :: Path?, Done = false }
+	self._prefetch = entry
+
+	task.spawn(function()
+		local path = self:_computePath(entry.Origin, destination)
+		entry.Path, entry.Done = path, true
+		-- Superseded, taken up, or despawned while this was being worked out.
+		if self._prefetch ~= entry and path then
+			path:Destroy()
+		end
+	end)
+end
+
+--- A computed path to `destination`, or nil if none exists. Callers own the returned path.
+---
+--- A prefetched route answers this without yielding, provided it was aimed close enough to the same
+--- place and set off from close enough to where the NPC actually ended up. `tolerance` widens how far
+--- the destination may have moved, for callers chasing something that does not stand still.
+function NPC:ComputePath(destination: Vector3, tolerance: number?): Path?
+	local entry = self._prefetch
+	if entry then
+		if (entry.Destination - destination).Magnitude <= (tolerance or PREFETCH_DESTINATION_TOLERANCE)
+			and (entry.Origin - self.RootPart.Position).Magnitude <= PREFETCH_ORIGIN_TOLERANCE then
+			while not entry.Done do
+				task.wait()
+			end
+			self._prefetch = nil
+			-- A prefetch that came back empty was asked from a position this only expected to be in, so
+			-- there is still an honest answer to be had from where it is now.
+			if entry.Path then return entry.Path end
+		else
+			self:_discardPrefetch()
+		end
+	end
+	return self:_computePath(self.RootPart.Position, destination)
 end
 
 --- Preserves the pathfinder's complete route. Skipping waypoints based only on their angle can turn
@@ -269,6 +329,16 @@ function NPC:HasMovementClearance(destination: Vector3): boolean
 	) == nil
 end
 
+-- Distance still to be walked from waypoint `index` to the end of `waypoints`, by index.
+local function remainingDistances(waypoints: { PathWaypoint }): { number }
+	local remaining = table.create(#waypoints, 0)
+	for index = #waypoints - 1, 1, -1 do
+		remaining[index] = remaining[index + 1]
+			+ (waypoints[index + 1].Position - waypoints[index].Position).Magnitude
+	end
+	return remaining
+end
+
 -- Walks the waypoints of `path`, polling `shouldAbandon` between each. Returns "Reached" once the
 -- last waypoint lands, "Abandoned" if the caller bailed out, or "Blocked" if it stopped making ground.
 --
@@ -276,9 +346,15 @@ end
 -- a goal has to be re-issued or the rig simply stops mid-corridor. And there is no honest clock to
 -- judge the rest by: ideal travel time says nothing about a leg spent walking around a player who is
 -- in the doorway. So a leg ends when it stops closing on its goal, not when it runs long.
-function NPC:_walkPath(path: Path, shouldAbandon: (() -> boolean)?): string
+--
+-- `getNextDestination` is where the caller expects to go after this route. Given one, the route there
+-- is worked out during the last few seconds of this one, off this thread, so arriving does not mean
+-- stopping to think. Asking earlier would only buy a staler answer for a moving goal, and asking on
+-- the walking thread is exactly the pause this exists to remove.
+function NPC:_walkPath(path: Path, shouldAbandon: (() -> boolean)?, getNextDestination: (() -> Vector3?)?): string
 	local waypoints = self:GetMovementWaypoints(path)
 	local reachDistance = self:_getReachDistance()
+	local remaining = if getNextDestination then remainingDistances(waypoints) else nil
 	local blockedAt = nil :: number?
 	local blockedConnection = path.Blocked:Connect(function(index)
 		blockedAt = if blockedAt then math.min(blockedAt, index) else index
@@ -301,6 +377,17 @@ function NPC:_walkPath(path: Path, shouldAbandon: (() -> boolean)?): string
 		local closest = self:GetWaypointDistance(waypoint.Position)
 		local progressedAt = os.clock()
 		local refreshAt = os.clock() + MOVE_REFRESH_INTERVAL
+
+		if remaining then
+			local left = closest + (remaining :: { number })[index]
+			if left / math.max(self.Humanoid.WalkSpeed, 1e-3) <= PREFETCH_LEAD then
+				local destination = (getNextDestination :: () -> Vector3?)()
+				if destination then
+					self:PrefetchPath(destination, waypoints[#waypoints].Position)
+				end
+				remaining = nil
+			end
+		end
 
 		while true do
 			local distance = self:GetWaypointDistance(waypoint.Position)
@@ -381,7 +468,9 @@ function NPC:Pursue(
 		end
 		directGoal = nil
 
-		local path = self:ComputePath(goal)
+		-- A prefetched route is worth taking as long as the target has not moved further than a repath
+		-- would have been triggered by anyway, which is the drift this pursuit already tolerates.
+		local path = self:ComputePath(goal, self.Config.RepathDistance)
 		if not path then
 			blockedAttempts += 1
 			if blockedAttempts >= MAX_BLOCKED_ATTEMPTS then return "Blocked" end
@@ -402,7 +491,7 @@ function NPC:Pursue(
 				return true
 			end
 			return os.clock() >= repathAt and (current - goal).Magnitude > self.Config.RepathDistance
-		end)
+		end, getGoal)
 		path:Destroy()
 
 		if arrived then return "Reached" end
@@ -771,6 +860,7 @@ function NPC.SharedStates.Patrol(changeState: StateMachine.ChangeState, npc: any
 	local walked: { [any]: { [any]: number } } = memory.Walked
 	local blocked: { [any]: number } = memory.Blocked
 	local step = memory.Step
+	local planned = nil :: any -- the corner picked a leg early, whose route is already in hand
 
 	while true do
 		-- One frame, unconditionally. A path to a node it is effectively already standing on comes
@@ -780,12 +870,33 @@ function NPC.SharedStates.Patrol(changeState: StateMachine.ChangeState, npc: any
 		step += 1
 		memory.Step = step
 
-		local nextNode = chooseNextNode(previous, current, walked, step, blocked)
+		local nextNode = planned or chooseNextNode(previous, current, walked, step, blocked)
+		planned = nil
 		if not nextNode then return "Idle", npc end
 
-		if npc:WalkTo(nextNode.Position + Vector3.yAxis * PATROL_NODE_HEIGHT) then
+		local path = npc:ComputePath(nextNode.Position + Vector3.yAxis * PATROL_NODE_HEIGHT)
+		local reached = false
+		local upcoming = nil :: any
+
+		if path then
+			-- Marked on setting off rather than on arriving, because the corner after this one is chosen
+			-- now -- while there is still a leg's worth of walking to work out its route in -- and a
+			-- choice made without this corridor counted as walked is a choice that turns straight back
+			-- down it. A leg that then fails is one it has genuinely just been on, which is what this
+			-- record is for; the failure path deliberately keeps history for the same reason.
 			markWalked(walked, current, nextNode, step)
+			upcoming = chooseNextNode(current, nextNode, walked, step + 1, blocked)
+			local nextGoal = upcoming and upcoming.Position + Vector3.yAxis * PATROL_NODE_HEIGHT
+
+			reached = npc:_walkPath(path, nil, nextGoal and function()
+				return nextGoal
+			end) == "Reached"
+			path:Destroy()
+		end
+
+		if reached then
 			previous, current = current, nextNode
+			planned = upcoming
 		else
 			-- Blocked, shoved somewhere else, or aimed at a corner nothing can path to. Which of those
 			-- it was is not knowable from here, so treat it as all three: the corner goes out of favour
