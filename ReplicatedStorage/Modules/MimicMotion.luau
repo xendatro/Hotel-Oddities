@@ -94,12 +94,12 @@ end
 
 --- `cframe` rotated toward `look` at a human turn rate. Frame-rate independent, so it turns the same
 --- on a machine dropping frames as one that is not.
-function MimicMotion.Turn(cframe: CFrame, look: Vector3, deltaTime: number): CFrame
+function MimicMotion.Turn(cframe: CFrame, look: Vector3, deltaTime: number, turnRate: number?): CFrame
 	local flat = flatten(look)
 	if flat.Magnitude < 1e-3 then return cframe end
 
 	local goal = CFrame.lookAt(cframe.Position, cframe.Position + flat.Unit)
-	return cframe:Lerp(goal, 1 - math.exp(-MimicConfig.TurnRate * deltaTime))
+	return cframe:Lerp(goal, 1 - math.exp(-(turnRate or MimicConfig.TurnRate) * deltaTime))
 end
 
 return MimicMotion

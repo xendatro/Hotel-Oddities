@@ -80,15 +80,33 @@ export type EnemyConfig = {
 
 	-- Mimic-specific. How it moves while stalking is not here: that runs on the stalked player's own
 	-- client and is tuned in `ReplicatedStorage.Configs.MimicConfig`.
-	StalkTimeMin: number?, -- seconds it will keep up the act before committing
-	StalkTimeMax: number?,
-	StrikeRange: number?, -- studs at which the act ends and the chase begins
+	EngageRange: number?, -- entering this range makes retreating behavior meaningful
+	RunawayRange: number?, -- while engaged, retreating inside this range starts the chase immediately
+	RetreatSpeed: number?, -- outward movement speed that counts as backing away from an encounter
+	CloseTime: number?, -- seconds inside `StrikeRange` before it commits to a chase
+	StrikeRange: number?, -- studs at which staying close becomes suspicious
 	RetreatSlack: number?, -- studs a target may open up beyond its closest approach before it charges
 	TurnAwayAngle: number?, -- degrees off it a target must face to count as turning their back
 	TurnAwayGrace: number?, -- seconds of that before it charges
+	BystanderRange: number?, -- how close another player may approach during a mimic act
+	BystanderNoticeTime: number?, -- how long that player can remain close before the mimic turns
+	BystanderTurnTime: number?, -- seconds for the mimic to turn toward that player
+	BystanderChaseTurnFraction: number?, -- turn progress that makes a fleeing bystander fair game
+	AfkAmbientChance: number?, -- chance of choosing an AFK stance when no player is nearby
+	AfkAmbientRollMin: number?, -- minimum delay between ambient AFK decisions
+	AfkAmbientRollMax: number?, -- maximum delay between ambient AFK decisions
+	AfkNoticeRange: number?, -- how close a player must stand before AFK awareness starts
+	AfkNoticeTime: number?, -- how long a nearby player must stay before the turn begins
+	AfkTurnTime: number?, -- seconds for the AFK turn toward the player
+	AfkChaseTurnFraction: number?, -- turn progress that makes a fleeing player fair game
+	AfkWallDistance: number?, -- how far the AFK stance searches for an off-center wall
+	RunSpeed: number?, -- horizontal speed that counts as fleeing
 	GlanceAngle: number?, -- degrees it turns to look around while idle
 	GlanceInterval: number?, -- seconds between those glances
 	IdleJumpChance: number?, -- odds of a pointless hop per glance
+	PatrolTurnAroundChance: number?, -- Mimic-specific chance to reverse at a junction
+	PatrolTurnAroundMinExits: number?, -- allow that reversal at a two-way corner too
+	PatrolTurnAheadDistance: number?, -- begin taking the next waypoint early to round corners
 
 	-- Ghost-specific. How it looks while it drifts is not here: that is rendered on every client
 	-- and is tuned in `ReplicatedStorage.Configs.GhostConfig`.
@@ -336,9 +354,9 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		IdleNextState = "Patrol",
 		WanderRadius = 90,
 
-		DetectionRange = 70,
+		DetectionRange = 80,
 		GiveUpRange = 120,
-		FieldOfView = 130,
+		FieldOfView = 360, -- it can notice somebody standing behind it, like an absent-minded player
 		RespectsSafeRooms = true,
 
 		Damage = math.huge,
@@ -348,17 +366,36 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		LoseInterestTime = 5,
 		SearchLookInterval = 1,
 
-		-- It has all the patience in the world: locked on, it does nothing but copy you, so the act
-		-- ends because you ended it. The timer is only there so a standoff cannot last forever.
-		StalkTimeMin = 40,
-		StalkTimeMax = 80,
-		StrikeRange = 12,
-		RetreatSlack = 14,
+		-- An encounter lasts while the same player remains nearby. It commits after the player comes
+		-- close enough to matter or starts retreating from within that range.
+		EngageRange = 32,
+		RunawayRange = 32,
+		CloseTime = 0,
+		StrikeRange = 16,
+		RetreatSlack = 5,
+		RetreatSpeed = 4,
 		TurnAwayAngle = 100,
 		TurnAwayGrace = 0.45,
+		BystanderRange = 10,
+		BystanderNoticeTime = 0.35,
+		BystanderTurnTime = 1.25,
+		BystanderChaseTurnFraction = 0.5,
+		AfkAmbientChance = 0.25,
+		AfkAmbientRollMin = 6,
+		AfkAmbientRollMax = 12,
+		AfkNoticeRange = 14,
+		AfkNoticeTime = 10,
+		AfkTurnTime = 7.5,
+		AfkChaseTurnFraction = 0.8,
+		AfkWallDistance = 16,
+		RunSpeed = 18, -- above the normal 16 WalkSpeed; boosted movement reads as running
 		GlanceAngle = 22,
 		GlanceInterval = 0.9,
 		IdleJumpChance = 0.15,
+		PatrolTurnAroundChance = 0.35,
+		PatrolTurnAroundMinExits = 2,
+		PatrolTurnAheadDistance = 5,
+		CommandSpawnDistance = 48,
 
 		-- An ambush rather than a chase: it commits from `StrikeRange` at a speed you cannot answer,
 		-- so there is no runway and nothing to do about it once it drops the act. All the skill was

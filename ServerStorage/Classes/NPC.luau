@@ -354,7 +354,12 @@ end
 -- is worked out during the last few seconds of this one, off this thread, so arriving does not mean
 -- stopping to think. Asking earlier would only buy a staler answer for a moving goal, and asking on
 -- the walking thread is exactly the pause this exists to remove.
-function NPC:_walkPath(path: Path, shouldAbandon: (() -> boolean)?, getNextDestination: (() -> Vector3?)?): string
+function NPC:_walkPath(
+	path: Path,
+	shouldAbandon: (() -> boolean)?,
+	getNextDestination: (() -> Vector3?)?,
+	smoothCorners: boolean?
+): string
 	local waypoints = self:GetMovementWaypoints(path)
 	local reachDistance = self:_getReachDistance()
 	local remaining = if getNextDestination then remainingDistances(waypoints) else nil
@@ -376,8 +381,16 @@ function NPC:_walkPath(path: Path, shouldAbandon: (() -> boolean)?, getNextDesti
 			self.Humanoid.Jump = true
 		end
 
-		self.Humanoid:MoveTo(waypoint.Position)
-		local closest = self:GetWaypointDistance(waypoint.Position)
+		local goal = waypoint.Position
+		local goalDistance = self:GetWaypointDistance(goal)
+		local nextWaypoint = waypoints[index + 1]
+		local turnAheadDistance = if smoothCorners
+			then self.Config.PatrolTurnAheadDistance or 0
+			else 0
+		local turningEarly = false
+
+		self.Humanoid:MoveTo(goal)
+		local closest = goalDistance
 		local progressedAt = os.clock()
 		local refreshAt = os.clock() + MOVE_REFRESH_INTERVAL
 
@@ -393,7 +406,7 @@ function NPC:_walkPath(path: Path, shouldAbandon: (() -> boolean)?, getNextDesti
 		end
 
 		while true do
-			local distance = self:GetWaypointDistance(waypoint.Position)
+			local distance = self:GetWaypointDistance(goal)
 			if distance <= reachDistance then break end
 			if shouldAbandon and shouldAbandon() then return finish("Abandoned") end
 			if blockedAt and blockedAt >= index then return finish("Blocked") end
@@ -404,14 +417,32 @@ function NPC:_walkPath(path: Path, shouldAbandon: (() -> boolean)?, getNextDesti
 				return finish("Blocked")
 			end
 
+			if not turningEarly
+				and nextWaypoint
+				and nextWaypoint.Action ~= Enum.PathWaypointAction.Jump
+				and self:GetWaypointDistance(waypoint.Position) <= turnAheadDistance
+				and self:HasMovementClearance(nextWaypoint.Position)
+			then
+				goal = nextWaypoint.Position
+				turningEarly = true
+				closest = self:GetWaypointDistance(goal)
+				progressedAt = os.clock()
+				self.Humanoid:MoveTo(goal)
+			end
+
 			if os.clock() >= refreshAt then
 				refreshAt = os.clock() + MOVE_REFRESH_INTERVAL
-				self.Humanoid:MoveTo(waypoint.Position)
+				self.Humanoid:MoveTo(goal)
 			end
 			task.wait(MOVEMENT_POLL_INTERVAL)
 		end
 	end
 	return finish("Reached")
+end
+
+--- Patrols may opt into a little corner anticipation without changing pursuit movement.
+function NPC:WalkPatrolPath(path: Path, getNextDestination: (() -> Vector3?)?): string
+	return self:_walkPath(path, nil, getNextDestination, true)
 end
 
 --- Walks a single pathed trip to a fixed point. Returns whether it arrived.
@@ -815,6 +846,7 @@ end
 ---    four tenths of a second for the rest of the round. It stays a penalty rather than an exclusion
 ---    so that a junction whose every exit is blocked still picks one and moves instead of giving up.
 local function chooseNextNode(
+	config: EnemyConfigs.EnemyConfig,
 	previous: any,
 	current: any,
 	walked: { [any]: { [any]: number } },
@@ -825,8 +857,8 @@ local function chooseNextNode(
 	local now = os.clock()
 	if previous
 		and current.Neighbors[previous]
-		and HallwayGraphService:CountExits(current) > 2
-		and math.random() < DangerConfig.PatrolTurnAroundChance
+		and HallwayGraphService:CountExits(current) >= (config.PatrolTurnAroundMinExits or 3)
+		and math.random() < (config.PatrolTurnAroundChance or DangerConfig.PatrolTurnAroundChance)
 	then
 		return previous
 	end
@@ -930,7 +962,7 @@ function NPC.SharedStates.Patrol(changeState: StateMachine.ChangeState, npc: any
 		step += 1
 		memory.Step = step
 
-		local nextNode = planned or chooseNextNode(previous, current, walked, step, blocked)
+		local nextNode = planned or chooseNextNode(npc.Config, previous, current, walked, step, blocked)
 		planned = nil
 		if not nextNode then return "Idle", npc end
 
@@ -945,10 +977,10 @@ function NPC.SharedStates.Patrol(changeState: StateMachine.ChangeState, npc: any
 			-- down it. A leg that then fails is one it has genuinely just been on, which is what this
 			-- record is for; the failure path deliberately keeps history for the same reason.
 			markWalked(walked, current, nextNode, step)
-			upcoming = chooseNextNode(current, nextNode, walked, step + 1, blocked)
+			upcoming = chooseNextNode(npc.Config, current, nextNode, walked, step + 1, blocked)
 			local nextGoal = upcoming and upcoming.Position + Vector3.yAxis * PATROL_NODE_HEIGHT
 
-			reached = npc:_walkPath(path, nil, nextGoal and function()
+			reached = npc:WalkPatrolPath(path, nextGoal and function()
 				return nextGoal
 			end) == "Reached"
 			path:Destroy()

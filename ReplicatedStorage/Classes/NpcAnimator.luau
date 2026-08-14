@@ -15,6 +15,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local AnimationConfig = require(ReplicatedStorage.Configs.AnimationConfig)
+local MimicConfig = require(ReplicatedStorage.Configs.MimicConfig)
 
 local MOVING_THRESHOLD = 0.1 -- studs/s of measured travel below which the NPC counts as standing still
 local RUN_THRESHOLD = 12 -- studs/s of *commanded* pace at which the walk clip gives way to the run clip
@@ -42,7 +43,7 @@ local EMOTE_STOP_TIME = 0.1 -- snappier than a locomotion change: it is being cu
 
 -- The stock `Animate` containers worth playing on the spot. `ApplyDescription` rewrites these along
 -- with everything else, so a mimic wearing someone's avatar waves with their emote pack too.
-local EMOTE_CONTAINERS = { "wave", "point", "laugh", "cheer", "dance" }
+local EMOTE_CONTAINERS = { "wave", "hello", "cheer", "dance", "dance2", "dance3", "laugh", "point" }
 
 local NpcAnimator = {}
 NpcAnimator.__index = NpcAnimator
@@ -101,12 +102,10 @@ local function loadTrack(animator: Animator, container: Instance?, assetId: numb
 	return track
 end
 
-local function loadEmote(animator: Animator, container: Instance?): AnimationTrack?
-	local track = loadTrack(animator, container)
-	if not track then return nil end
-
+local function loadEmote(animator: Animator, animation: Animation): AnimationTrack
+	local track = animator:LoadAnimation(animation)
 	track.Priority = Enum.AnimationPriority.Action -- over the locomotion clip it stands in
-	track.Looped = false
+	track.Looped = true
 	return track
 end
 
@@ -165,9 +164,13 @@ end
 function NpcAnimator:_loadEmotes()
 	local emotes = {}
 	for _, name in EMOTE_CONTAINERS do
-		local track = loadEmote(self.Animator, self.Animate:FindFirstChild(name))
-		if track then
-			table.insert(emotes, track)
+		local container = self.Animate:FindFirstChild(name)
+		if container then
+			for _, descendant in container:GetDescendants() do
+				if descendant:IsA("Animation") then
+					table.insert(emotes, loadEmote(self.Animator, descendant))
+				end
+			end
 		end
 	end
 	return emotes
@@ -182,12 +185,12 @@ function NpcAnimator:PlayEmote(): boolean
 
 	local track = self.Emotes[math.random(#self.Emotes)]
 	self.Emote = track
-	track.Stopped:Once(function()
+	track:Play(TRANSITION_TIME)
+	task.delay(MimicConfig.EmoteDuration, function()
 		if self.Emote == track then
-			self.Emote = nil
+			self:StopEmote()
 		end
 	end)
-	track:Play(TRANSITION_TIME)
 	return true
 end
 

@@ -3,18 +3,12 @@
 --- of whoever it kills after that, so the copy is always of a face you have seen.
 ---
 --- Its tell is meant to be behavioural rather than visual, which is why it does not charge on sight
---- like a `Chaser`. It locks on and copies you: your keys, played back a beat late, and nothing else.
---- Wiggling to test it produces a wiggle, walking at it walks it at you, and standing still leaves it
---- standing still -- because that is what someone mirroring you would do, and it is what makes the
---- test inconclusive. That mirroring runs on your own client (`MimicService`) with the rig handed to
---- you, because a server-driven humanoid reaches your screen as stepped motion and no amount of
---- smoothing on this side fixes that. This half owns the act instead: who it is, when to lock on, and
---- when to stop pretending.
+--- like a `Chaser`. Each encounter rolls one act: delayed key-copying, emotes, periodic spinning, or
+--- an AFK stance that slowly notices somebody who lingers. This half owns the act and every chase;
+--- only the key-copying movement is handed to the copied player's client, where it can arrive smooth.
 ---
---- Since it never moves on its own, it only closes the gap when you do. The act ends at
---- `StrikeRange`, when you have opened up `RetreatSlack` of real ground, when you turn your back
---- after having looked right at it, or when it finally runs out of patience. Then the rig comes back
---- to the server and it runs you down.
+--- Contact alone is never an attack. Entering its close range or retreating after engaging starts a real
+--- chase; the Mimic still has to catch the player before it can kill them.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -40,6 +34,10 @@ local Mirror = ReplicatedStorage
 
 local Mimic = NPC.extend("Mimic")
 
+local ENCOUNTER_MODES = { "Mirror", "Emote", "Spin", "Afk" }
+local HEAD_TURN_ATTRIBUTE = "MimicHeadTurnTarget"
+local HEAD_TURN_DURATION_ATTRIBUTE = "MimicHeadTurnDuration"
+
 local function randomRange(minimum: number, maximum: number): number
 	return minimum + math.random() * (maximum - minimum)
 end
@@ -55,10 +53,208 @@ local function angleBetween(from: Vector3, to: Vector3): number
 	return math.deg(math.acos(math.clamp(a.Unit:Dot(b.Unit), -1, 1)))
 end
 
+local function headRotation(npc: any, position: Vector3): CFrame
+	local relative = npc.RootPart.CFrame:VectorToObjectSpace(position - npc.RootPart.Position)
+	local horizontal = Vector3.new(relative.X, 0, relative.Z)
+	if horizontal.Magnitude < 1e-3 then return CFrame.identity end
+
+	local yaw = math.clamp(math.atan2(-relative.X, -relative.Z), -math.rad(80), math.rad(80))
+	local pitch = math.clamp(
+		math.atan2(relative.Y, horizontal.Magnitude),
+		-math.rad(35),
+		math.rad(35)
+	)
+	return CFrame.Angles(-pitch, yaw, 0)
+end
+
+local function isFleeing(npc: any, player: Player): boolean
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then return false end
+
+	local away = flatten(root.Position - npc.RootPart.Position)
+	local velocity = flatten(root.AssemblyLinearVelocity)
+	return away.Magnitude > 1e-3
+		and velocity.Magnitude >= npc.Config.RunSpeed
+		and velocity.Unit:Dot(away.Unit) >= 0.35
+end
+
+local function isRetreating(npc: any, player: Player): boolean
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then return false end
+
+	local away = flatten(root.Position - npc.RootPart.Position)
+	local velocity = flatten(root.AssemblyLinearVelocity)
+	return away.Magnitude > 1e-3
+		and velocity.Magnitude >= npc.Config.RetreatSpeed
+		and velocity:Dot(away.Unit) >= npc.Config.RetreatSpeed
+end
+
+local function newEncounter(npc: any)
+	return {
+		Closest = math.huge,
+		CloseSince = nil :: number?,
+		LastDistance = math.huge,
+		LastKnown = npc.RootPart.Position,
+		LostSightAt = nil :: number?,
+		Noticed = false,
+		TurnedAwayAt = nil :: number?,
+		Engaged = false,
+	}
+end
+
+--- Shared engagement rules for the three player-facing acts. The close threshold starts pursuit;
+--- it is not the attack hitbox, so the Mimic still has to catch the player.
+local function updateEncounter(npc: any, target: Player, encounter: any): string?
+	local position = npc:GetTargetPosition(target)
+	if not position then return "Idle" end
+
+	local now = os.clock()
+	local distance = flatten(npc.RootPart.Position - position).Magnitude
+	encounter.LastKnown = position
+	encounter.Closest = math.min(encounter.Closest, distance)
+
+	if distance <= npc.Config.EngageRange then
+		encounter.Engaged = true
+		if distance <= npc.Config.StrikeRange then
+			encounter.CloseSince = encounter.CloseSince or now
+			if now - encounter.CloseSince >= npc.Config.CloseTime then
+				return "Chase"
+			end
+		else
+			encounter.CloseSince = nil
+		end
+	else
+		encounter.CloseSince = nil
+	end
+
+	if encounter.Engaged
+		and isRetreating(npc, target)
+		and distance <= (npc.Config.RunawayRange or npc.Config.EngageRange)
+	then
+		return "Chase"
+	end
+
+	if encounter.Engaged
+		and distance - encounter.Closest >= npc.Config.RetreatSlack
+		and isRetreating(npc, target)
+	then
+		return "Chase"
+	end
+
+	if npc:HasLineOfSightToPlayer(target) then
+		encounter.LostSightAt = nil
+	else
+		encounter.LostSightAt = encounter.LostSightAt or now
+		if now - encounter.LostSightAt >= SIGHT_GRACE then
+			return "Search"
+		end
+	end
+
+	local root = (target.Character :: Model).HumanoidRootPart :: BasePart
+	local away = angleBetween(root.CFrame.LookVector, npc.RootPart.Position - position)
+	if away <= NOTICED_ANGLE then
+		encounter.Noticed, encounter.TurnedAwayAt = true, nil
+	elseif encounter.Engaged and encounter.Noticed and away >= npc.Config.TurnAwayAngle then
+		encounter.TurnedAwayAt = encounter.TurnedAwayAt or now
+		if now - encounter.TurnedAwayAt >= npc.Config.TurnAwayGrace and isFleeing(npc, target) then
+			return "Chase"
+		end
+	else
+		encounter.TurnedAwayAt = nil
+	end
+
+	encounter.LastDistance = distance
+	if distance > npc.Config.DetectionRange then return "Idle" end
+	return nil
+end
+
+local function findBystander(npc: any, excluded: Player): Player?
+	local nearest, nearestDistance = nil, npc.Config.BystanderRange
+	for _, player in Players:GetPlayers() do
+		if player ~= excluded and npc:IsValidTarget(player) and npc:HasLineOfSightToPlayer(player) then
+			local position = npc:GetTargetPosition(player)
+			local distance = position and flatten(npc.RootPart.Position - position).Magnitude
+			if distance and distance <= nearestDistance then
+				nearest, nearestDistance = player, distance
+			end
+		end
+	end
+	return nearest
+end
+
+local function findNearbyPlayer(npc: any): Player?
+	local player = npc:GetNearestTarget()
+	if not player then return nil end
+
+	local position = npc:GetTargetPosition(player)
+	if position and flatten(npc.RootPart.Position - position).Magnitude <= npc.Config.DetectionRange then
+		return player
+	end
+	return nil
+end
+
+--- The copied player owns the rig, so the server takes it back for the brief turn toward a second
+--- player. If that player leaves, the original act resumes; if they run once the turn is half done,
+--- this is a real chase rather than a contact kill.
+local function watchBystander(npc: any, excluded: Player, state: any): (string?, Player?)
+	local candidate = findBystander(npc, excluded)
+	if not candidate then
+		if state.Player then
+			state.Player = nil
+			npc:SetHeadTurn(nil)
+			if npc:IsValidTarget(excluded) then npc:StartMirroring(excluded) end
+		end
+		return nil, nil
+	end
+
+	local now = os.clock()
+	if state.Player ~= candidate then
+		state.Player = candidate
+		state.NoticedAt = now
+		state.TurnStartedAt = nil
+		npc:StopMirroring()
+		npc:SetSpeed(npc.Config.WalkSpeed)
+		npc:StopMoving()
+	end
+
+	if now - state.NoticedAt < npc.Config.BystanderNoticeTime then return nil, nil end
+
+	local position = npc:GetTargetPosition(candidate)
+	if not position then
+		state.Player = nil
+		npc:SetHeadTurn(nil)
+		return nil, nil
+	end
+
+	state.TurnStartedAt = state.TurnStartedAt or now
+	npc:SetHeadTurn(position, npc.Config.BystanderTurnTime)
+	local progress = math.clamp(
+		(now - state.TurnStartedAt) / npc.Config.BystanderTurnTime,
+		0,
+		1
+	)
+
+	if progress >= npc.Config.BystanderChaseTurnFraction and isFleeing(npc, candidate) then
+		return "Chase", candidate
+	end
+	if progress >= 0.995 then return "Chase", candidate end
+	return nil, nil
+end
+
+local function finishEncounter(npc: any, nextState: string, ...: any)
+	npc.EncounterMode = nil
+	npc:SetHeadTurn(nil)
+	npc:StopMirroring()
+	return nextState, npc, ...
+end
+
 --- Stands around the way a player does between decisions: turning to look at something, hopping for
 --- no reason. A humanoid holding perfectly still is the fastest way to read as an NPC.
 local function loiter(_changeState: StateMachine.ChangeState, npc: any)
 	npc.Target = nil
+	npc.EncounterMode = nil
 	npc.Animator:Resume()
 	npc:StopMirroring()
 	npc:SetSpeed(npc.Config.WalkSpeed)
@@ -87,70 +283,180 @@ local function loiter(_changeState: StateMachine.ChangeState, npc: any)
 		deltaTime = RunService.Heartbeat:Wait()
 	end
 
-	return config.IdleNextState, npc
+	return finishEncounter(npc, config.IdleNextState)
 end
 
---- Watches `target` while their own client does the moving. Locked on, the mimic has no will of its
---- own -- it copies their keys a beat late and does nothing else, so it closes the gap only when they
---- close it. Everything here is a reason to stop pretending; the mirroring is not this side's business.
-local function stalk(_changeState: StateMachine.ChangeState, npc: any, target: Player)
+local function mirror(_changeState: StateMachine.ChangeState, npc: any, target: Player)
 	npc.Target = target
 	npc.Animator:Resume()
 	npc:SetSpeed(npc.Config.WalkSpeed)
 	npc:StopMoving()
 	npc:StartMirroring(target)
 
-	local config = npc.Config
-	local giveUpAt = os.clock() + randomRange(config.StalkTimeMin, config.StalkTimeMax)
-	local closest = math.huge
-	local lastKnown = npc.RootPart.Position
-	local lostSightAt = nil :: number?
-	local turnedAwayAt = nil :: number?
-	local noticed = false
-
-	while os.clock() < giveUpAt do
-		local position = npc:GetTargetPosition(target)
-		if not position then return "Idle", npc end
-
-		local now = os.clock()
-		local toMimic = npc.RootPart.Position - position
-		local distance = flatten(toMimic).Magnitude
-		if distance <= config.StrikeRange then return "Chase", npc, target end
-
-		-- Backing away is allowed, and mirrored -- but only so far. `RetreatSlack` is measured from
-		-- the closest it has managed to get, so the grace is a head start rather than a fixed range.
-		closest = math.min(closest, distance)
-		if distance - closest >= config.RetreatSlack then return "Chase", npc, target end
-
-		-- Stalking is line-of-sight work: it only ever moves straight at you. Round a corner and it
-		-- walks over to where you were like anyone else would, rather than mirroring through a wall.
-		if npc:HasLineOfSightToPlayer(target) then
-			lastKnown, lostSightAt = position, nil
-		else
-			lostSightAt = lostSightAt or now
-			if now - lostSightAt >= SIGHT_GRACE then
-				return "Search", npc, lastKnown
-			end
-		end
-
-		-- Facing, not camera: the server only knows which way a character is turned. Turning your back
-		-- counts only once you have squarely faced it, so someone who never noticed it standing across
-		-- the room is not charged at out of nowhere.
-		local root = (target.Character :: Model).HumanoidRootPart :: BasePart
-		local away = angleBetween(root.CFrame.LookVector, toMimic)
-		if away <= NOTICED_ANGLE then
-			noticed, turnedAwayAt = true, nil
-		elseif noticed and away >= config.TurnAwayAngle then
-			turnedAwayAt = turnedAwayAt or now
-			if now - turnedAwayAt >= config.TurnAwayGrace then return "Chase", npc, target end
-		else
-			turnedAwayAt = nil
-		end
-
+	local encounter = newEncounter(npc)
+	local bystander = {}
+	while true do
+		local result = updateEncounter(npc, target, encounter)
+		if result == "Chase" then return "Chase", npc, target end
+		if result == "Search" then return "Search", npc, encounter.LastKnown end
+		if result == "Idle" then return finishEncounter(npc, "Idle") end
+		local bystanderState, bystanderTarget = watchBystander(npc, target, bystander)
+		if bystanderState then return "Chase", npc, bystanderTarget end
 		task.wait(SUPERVISE_INTERVAL)
 	end
+end
 
-	return "Chase", npc, target
+local function lookAndPerform(
+	_changeState: StateMachine.ChangeState,
+	npc: any,
+	target: Player,
+	mode: string
+)
+	npc.Target = target
+	npc:StopMirroring()
+	npc.Animator:Resume()
+	npc:SetSpeed(npc.Config.WalkSpeed)
+	npc:StopMoving()
+	local position = npc:GetTargetPosition(target)
+	local turningToTarget = position ~= nil
+
+	local encounter = newEncounter(npc)
+	local nextEmoteAt = os.clock() + randomRange(MimicConfig.ModeEmoteDelayMin, MimicConfig.ModeEmoteDelayMax)
+	local nextSpinAt = os.clock() + randomRange(MimicConfig.SpinDelayMin, MimicConfig.SpinDelayMax)
+	local spinUntil = 0
+
+	while true do
+		local result = updateEncounter(npc, target, encounter)
+		if result == "Chase" then return "Chase", npc, target end
+		if result == "Search" then return "Search", npc, encounter.LastKnown end
+		if result == "Idle" then return finishEncounter(npc, "Idle") end
+
+		position = npc:GetTargetPosition(target)
+		if not position then return finishEncounter(npc, "Idle") end
+		local now = os.clock()
+		if turningToTarget and spinUntil <= now then
+			local look = position - npc.RootPart.Position
+			npc.RootPart.CFrame = MimicMotion.Turn(
+				npc.RootPart.CFrame,
+				look,
+				SUPERVISE_INTERVAL,
+				MimicConfig.InteractionTurnRate
+			)
+			turningToTarget = angleBetween(npc.RootPart.CFrame.LookVector, look)
+				> MimicConfig.InteractionTurnTolerance
+		end
+
+		if mode == "Emote" then
+			npc:SetHeadTurn(nil)
+			if not turningToTarget and now >= nextEmoteAt then
+				npc.Animator:PlayEmote()
+				nextEmoteAt = now + randomRange(MimicConfig.ModeEmoteDelayMin, MimicConfig.ModeEmoteDelayMax)
+			end
+		elseif spinUntil > now then
+			npc:SetHeadTurn(nil)
+		elseif spinUntil > 0 then
+			npc:StopMirroring()
+			spinUntil = 0
+			turningToTarget = true
+			nextSpinAt = now + randomRange(MimicConfig.SpinDelayMin, MimicConfig.SpinDelayMax)
+		elseif not turningToTarget and now >= nextSpinAt then
+			npc:SetHeadTurn(nil)
+			spinUntil = now + MimicConfig.SpinDuration
+			npc:StartSpinning(target)
+		else
+			npc:SetHeadTurn(nil)
+		end
+		task.wait(SUPERVISE_INTERVAL)
+	end
+end
+
+local function findWallDirection(npc: any, target: Player?): Vector3
+	local origin = npc.RootPart.Position
+	local targetPosition = target and npc:GetTargetPosition(target)
+	local away = targetPosition and flatten(origin - targetPosition)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { npc.Model }
+	if target and target.Character then
+		table.insert(params.FilterDescendantsInstances, target.Character)
+	end
+	params.RespectCanCollide = true
+
+	local bestDirection, bestDistance = nil, math.huge
+	for index = 0, 7 do
+		local direction = CFrame.Angles(0, index * math.pi / 4, 0) * npc.RootPart.CFrame.LookVector
+		direction = flatten(direction).Unit
+		if away and direction:Dot(away.Unit) < 0.25 then continue end
+		local hit = workspace:Raycast(origin, direction * npc.Config.AfkWallDistance, params)
+		if hit and (hit.Position - origin).Magnitude < bestDistance then
+			bestDirection, bestDistance = direction, (hit.Position - origin).Magnitude
+		end
+	end
+
+	return bestDirection or if away and away.Magnitude > 1e-3 then away.Unit else -npc.RootPart.CFrame.LookVector
+end
+
+local function afkIdle(_changeState: StateMachine.ChangeState, npc: any)
+	npc.Target = nil
+	npc:StopMirroring()
+	npc.Animator:Resume()
+	npc:SetSpeed(0)
+	npc:StopMoving()
+
+	local wallDirection = findWallDirection(npc, nil)
+	npc.RootPart.CFrame = CFrame.lookAt(npc.RootPart.Position, npc.RootPart.Position + wallDirection)
+	while true do
+		task.wait(SUPERVISE_INTERVAL)
+	end
+end
+
+local function afk(_changeState: StateMachine.ChangeState, npc: any, target: Player)
+	npc.Target = target
+	npc:StopMirroring()
+	npc.Animator:Resume()
+	npc:SetSpeed(npc.Config.WalkSpeed)
+	npc:StopMoving()
+
+	local config = npc.Config
+	local encounter = newEncounter(npc)
+	local noticedAt = nil :: number?
+	local turnStartedAt = nil :: number?
+
+	while true do
+		local position = npc:GetTargetPosition(target)
+		if not position then return finishEncounter(npc, "Idle") end
+
+		local now = os.clock()
+		local distance = flatten(position - npc.RootPart.Position).Magnitude
+		if distance > config.DetectionRange then return finishEncounter(npc, "Idle") end
+
+		if distance <= config.AfkNoticeRange then
+			noticedAt = noticedAt or now
+		elseif distance > config.AfkNoticeRange + 6 then
+			noticedAt, turnStartedAt = nil, nil
+			npc:SetHeadTurn(nil)
+		end
+
+		if noticedAt and now - noticedAt >= config.AfkNoticeTime then
+			turnStartedAt = turnStartedAt or now
+			npc:SetHeadTurn(position, config.AfkTurnTime)
+			local progress = math.clamp((now - turnStartedAt) / config.AfkTurnTime, 0, 1)
+			if progress >= config.AfkChaseTurnFraction and isFleeing(npc, target) then
+				return "Chase", npc, target
+			end
+			if progress >= 0.995 then return "Chase", npc, target end
+			RunService.Heartbeat:Wait()
+		else
+			task.wait(SUPERVISE_INTERVAL)
+		end
+	end
+end
+
+local function stalk(changeState: StateMachine.ChangeState, npc: any, target: Player)
+	if npc.EncounterMode == "Emote" then return lookAndPerform(changeState, npc, target, "Emote") end
+	if npc.EncounterMode == "Spin" then return lookAndPerform(changeState, npc, target, "Spin") end
+	if npc.EncounterMode == "Afk" then return afk(changeState, npc, target) end
+	return mirror(changeState, npc, target)
 end
 
 --- The act is over. Runs `target` down until it is caught, reaches a safe room, or outruns `GiveUpRange`.
@@ -183,6 +489,7 @@ local function chase(_changeState: StateMachine.ChangeState, npc: any, target: P
 	if result == "Reached" then
 		return "Attack", npc, target
 	end
+	npc.EncounterMode = nil
 	return "Search", npc, lastKnown
 end
 
@@ -193,10 +500,10 @@ local function attack(_changeState: StateMachine.ChangeState, npc: any, target: 
 
 	local position = npc:GetTargetPosition(target)
 	if not position then
+		npc.EncounterMode = nil
 		return "Search", npc, npc.RootPart.Position
 	end
 
-	npc:FaceTowards(position)
 	-- Reach, not contact. Two humanoids that run into each other shove each other apart, so a strict
 	-- touch test flickers off the moment it lands -- which sends this straight back to `Chase` to
 	-- re-path from a standstill, and reads as the mimic pulling up next to you and hesitating.
@@ -209,7 +516,7 @@ local function attack(_changeState: StateMachine.ChangeState, npc: any, target: 
 	npc:Attack(target)
 	npc:AssumeIdentity(target)
 	task.wait(npc.Config.AttackCooldown)
-	return "Idle", npc
+	return finishEncounter(npc, "Idle")
 end
 
 --- Sweeps to where the target was last seen and loiters there before the mask goes back on.
@@ -224,8 +531,12 @@ local function search(_changeState: StateMachine.ChangeState, npc: any, lastKnow
 	local until_ = os.clock() + npc.Config.LoseInterestTime
 	while os.clock() < until_ do
 		local offset = Vector3.new(math.random() - 0.5, 0, math.random() - 0.5) * LOOK_AROUND_DISTANCE
-		npc:FaceTowards(npc.RootPart.Position + offset)
-		task.wait(npc.Config.SearchLookInterval)
+		local glanceUntil = math.min(until_, os.clock() + npc.Config.SearchLookInterval)
+		local deltaTime = RunService.Heartbeat:Wait()
+		while os.clock() < glanceUntil do
+			npc.RootPart.CFrame = MimicMotion.Turn(npc.RootPart.CFrame, offset, deltaTime)
+			deltaTime = RunService.Heartbeat:Wait()
+		end
 	end
 
 	return "Idle", npc
@@ -234,6 +545,7 @@ end
 --- Held still by a trap or a paper ball. Takes the rig back first: a stunned mimic that a client is
 --- still driving would keep swivelling on the spot.
 local function stunned(changeState: StateMachine.ChangeState, npc: any, duration: number)
+	npc.EncounterMode = nil
 	npc:StopMirroring()
 	return NPC.SharedStates.Stunned(changeState, npc, duration)
 end
@@ -243,13 +555,26 @@ function Mimic.new(model: Model, config)
 
 	self.Identity = nil :: Player?
 	self.Mirroring = nil :: Player?
+	self.MirroringMode = nil :: string?
+	self.EncounterMode = nil :: string?
+	self._nextAfkRollAt = os.clock() + randomRange(3, 6)
 	self._appliedIdentity = nil :: Player?
 	self._swapping = false
+	self.Model:SetAttribute("MimicHeadTurn", true)
+	self.Model:SetAttribute(HEAD_TURN_ATTRIBUTE, CFrame.identity)
+	self.Model:SetAttribute(HEAD_TURN_DURATION_ATTRIBUTE, MimicConfig.HeadTurnDefaultDuration)
 
 	return self
 end
 
 --- Movement -------------------------------------------------------------------------------------
+
+function Mimic:SetHeadTurn(position: Vector3?, duration: number?)
+	local target = if position then headRotation(self, position) else CFrame.identity
+	local turnDuration = duration or MimicConfig.HeadTurnDefaultDuration
+	self.Model:SetAttribute(HEAD_TURN_ATTRIBUTE, target)
+	self.Model:SetAttribute(HEAD_TURN_DURATION_ATTRIBUTE, turnDuration)
+end
 
 --- Hands `target`'s own client the job of moving this mimic, and the rig to simulate it with. Their
 --- machine knows their input on the frame they make it and renders the answer on the frame it
@@ -257,25 +582,39 @@ end
 ---
 --- Only the act is delegated. Damage, the decision to charge, and the chase itself stay here, so the
 --- worst a client that refuses to play along gets is a mimic that stands there until it charges.
-function Mimic:StartMirroring(target: Player)
-	if self.Mirroring == target then return end
+function Mimic:_StartClientControl(target: Player, mode: string)
+	if self.Mirroring == target and self.MirroringMode == mode then return end
 
 	self:StopMirroring()
+	self:SetHeadTurn(nil)
 	self.Mirroring = target
+	self.MirroringMode = mode
 	self.Humanoid.AutoRotate = false -- the client aims it by hand, at the person it is copying
-	self.Animator:Stop() -- and animates it there too, where the rig's speed is known the frame it changes
+	if mode ~= "Spin" then
+		self.Animator:Stop() -- mirrored locomotion is animated where its speed is known that frame
+	end
 	self:SetNetworkOwner(target)
-	Mirror:FireClient(target, self.Model)
+	Mirror:FireClient(target, self.Model, mode)
+end
+
+function Mimic:StartMirroring(target: Player)
+	self:_StartClientControl(target, "Mirror")
+end
+
+function Mimic:StartSpinning(target: Player)
+	self:_StartClientControl(target, "Spin")
 end
 
 --- Takes the rig back. Safe to call when nothing is mirroring, which is why every other state opens
 --- with it: a state can be cancelled mid-act, so this cannot live at the end of the stalk.
 function Mimic:StopMirroring()
+	self:SetHeadTurn(nil)
 	self.Humanoid.AutoRotate = true
 	if not self.Mirroring then return end
 
 	local target = self.Mirroring
 	self.Mirroring = nil
+	self.MirroringMode = nil
 	self:SetNetworkOwner(nil)
 	self.Animator:Start()
 	Mirror:FireClient(target, nil)
@@ -353,6 +692,11 @@ function Mimic:Start()
 	end
 end
 
+function Mimic:RollEncounterMode(allowAfk: boolean?): string
+	if allowAfk ~= false then return ENCOUNTER_MODES[math.random(#ENCOUNTER_MODES)] end
+	return ENCOUNTER_MODES[math.random(#ENCOUNTER_MODES - 1)]
+end
+
 function Mimic:Despawn()
 	self:StopMirroring()
 	NPC.Despawn(self)
@@ -363,6 +707,7 @@ function Mimic:BuildStateMachine(): StateMachine.StateMachine
 
 	return StateMachine.new({
 		Idle = loiter,
+		AfkIdle = afkIdle,
 		Wander = NPC.SharedStates.Wander,
 		Patrol = NPC.SharedStates.Patrol,
 		Despawn = NPC.SharedStates.Despawn,
@@ -373,9 +718,9 @@ function Mimic:BuildStateMachine(): StateMachine.StateMachine
 		Stunned = stunned,
 	}, {
 		-- Spotting someone starts the act, but nothing interrupts the act except the act ending.
-		Perception = { "Idle", "Wander", "Patrol", "Search" },
+		Perception = { "Idle", "Wander", "Patrol", "Search", "AfkIdle" },
 		-- A trap or a paper ball lands whatever it is doing, including mid-performance.
-		Impact = { "Idle", "Wander", "Patrol", "Search", "Stalk", "Chase", "Attack" },
+		Impact = { "Idle", "AfkIdle", "Wander", "Patrol", "Search", "Stalk", "Chase", "Attack" },
 	}, {
 		Perception = function()
 			while true do
@@ -391,8 +736,34 @@ function Mimic:BuildStateMachine(): StateMachine.StateMachine
 				end
 
 				local target = npc:GetNearestVisibleTarget()
-				if target then
+				local state = npc.StateMachine.State
+				local canStartEncounter = state == "Idle"
+					or state == "Wander"
+					or state == "Patrol"
+					or state == "Search"
+
+				if target and state == "AfkIdle" and npc.EncounterMode == "Afk" then
 					npc.StateMachine:SetState("Stalk", "Perception", npc, target)
+				elseif target and npc.EncounterMode and state == "Search" then
+					-- Losing sight briefly does not roll another act when the same interaction resumes.
+					npc.StateMachine:SetState("Stalk", "Perception", npc, target)
+				elseif target and not npc.EncounterMode and canStartEncounter then
+					-- AFK is an ambient stance, so a player already nearby cannot cause a fresh AFK
+					-- encounter. The other three modes are locked for the whole interaction.
+					npc.EncounterMode = npc:RollEncounterMode(false)
+					npc.StateMachine:SetState("Stalk", "Perception", npc, target)
+				elseif not target
+					and not npc.EncounterMode
+					and canStartEncounter
+					and not findNearbyPlayer(npc)
+					and os.clock() >= npc._nextAfkRollAt
+				then
+					npc._nextAfkRollAt = os.clock()
+						+ randomRange(npc.Config.AfkAmbientRollMin, npc.Config.AfkAmbientRollMax)
+					if math.random() < npc.Config.AfkAmbientChance then
+						npc.EncounterMode = "Afk"
+						npc.StateMachine:SetState("AfkIdle", "Perception", npc)
+					end
 				end
 			end
 		end,
