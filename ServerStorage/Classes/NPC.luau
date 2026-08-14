@@ -35,6 +35,8 @@ local DIRECT_PURSUIT_DISTANCE = 15
 local DIRECT_PURSUIT_UPDATE_DISTANCE = 1
 local DIRECT_PURSUIT_OVERSHOOT = 4
 local MAX_BLOCKED_ATTEMPTS = 3 -- consecutive stalled paths before a pursuit gives up
+local MAX_PATH_FAILURES = 5 -- consecutive routes a pursuit fails to compute before it writes the target off
+local UNREACHABLE_MEMORY = 12 -- seconds a written-off target stays unacquirable; as `PATROL_BLOCKED_MEMORY`
 local WANDER_ATTEMPTS = 6
 local PREFETCH_LEAD = 2.5 -- seconds of walking left on a route when the next one starts computing
 local PREFETCH_ORIGIN_TOLERANCE = 8 -- studs the guessed start of a prefetched route may be out by
@@ -114,6 +116,7 @@ function NPC.new(model: Model, config: EnemyConfigs.EnemyConfig, class: any?)
 	self.Target = nil :: Player?
 	self.AcquireAfter = nil :: number? -- set by the director; see `CanAcquire`
 	self._observedUntil = nil :: number? -- see `IsObserved`
+	self._unreachable = {} :: { [Player]: number } -- players written off, and when they stop being
 	self._patrol = nil :: any -- corridors walked so far, kept across interruptions; see `SharedStates.Patrol`
 	self._prefetch = nil :: any -- the route being worked out ahead of time; see `PrefetchPath`
 	self.Active = false
@@ -426,6 +429,10 @@ end
 --- goal instead of replacing a completed path. Returns "Reached" when `hasArrived` succeeds or it
 --- comes within `arriveDistance`, "Lost" when the goal goes invalid, or "Blocked" when the NPC
 --- cannot make progress.
+---
+--- Failing to compute a route enough times running writes the current target off through `GiveUpOn`,
+--- so a chase that ends "Blocked" against somebody genuinely unreachable is not started again a
+--- moment later by the same perception that started this one.
 function NPC:Pursue(
 	getGoal: () -> Vector3?,
 	arriveDistance: number?,
@@ -433,6 +440,7 @@ function NPC:Pursue(
 	canMoveDirectly: (() -> boolean)?
 ): string
 	local blockedAttempts = 0
+	local pathFailures, failureTarget = 0, self.Target
 	local directGoal = nil :: Vector3?
 	local directRefreshAt = 0
 
@@ -447,7 +455,7 @@ function NPC:Pursue(
 			and canMoveDirectly
 			and canMoveDirectly()
 			and self:HasMovementClearance(goal) then
-			blockedAttempts = 0
+			blockedAttempts, pathFailures = 0, 0
 			-- Re-issued on a clock as well as on drift, because a goal that has stopped moving is
 			-- exactly the case that never trips the drift check: a player standing still somewhere
 			-- this cannot quite reach would otherwise be charged at once and then watched from a
@@ -472,11 +480,31 @@ function NPC:Pursue(
 		-- would have been triggered by anyway, which is the drift this pursuit already tolerates.
 		local path = self:ComputePath(goal, self.Config.RepathDistance)
 		if not path then
-			blockedAttempts += 1
-			if blockedAttempts >= MAX_BLOCKED_ATTEMPTS then return "Blocked" end
+			-- A route that cannot be worked out is a different problem from one that cannot be walked,
+			-- so it is counted separately. A stalled leg is nearly always something standing in the way
+			-- and clears on its own, which is what `blockedAttempts` backs off for. Nothing being
+			-- routable to the goal, over and over, is the goal itself being out of reach -- and coming
+			-- back to it from the top of the next chase is how an enemy spends a whole round walking to
+			-- the same corner and looking around. So that one is given up on rather than retried.
+			--
+			-- Several in a row, because one means very little: doors move, and the navmesh is a moment
+			-- behind them, so a single miss is a beat of bad timing rather than a target it cannot get to.
+			--
+			-- The patience is per target. A run of failures describes one goal and says nothing about
+			-- the next, so a pursuit handed somebody else part way through starts over rather than
+			-- writing them off on the strength of what it could not reach before.
+			if self.Target ~= failureTarget then
+				pathFailures, failureTarget = 0, self.Target
+			end
+			pathFailures += 1
+			if pathFailures >= MAX_PATH_FAILURES then
+				self:GiveUpOn(self.Target)
+				return "Blocked"
+			end
 			task.wait(self.Config.RepathInterval)
 			continue
 		end
+		pathFailures = 0
 
 		local repathAt = os.clock() + self.Config.RepathInterval
 		local arrived = false
@@ -524,10 +552,39 @@ function NPC:HasLineOfSightToPlayer(player: Player): boolean
 	return root ~= nil and not Vanished.Is(root.Parent) and self:HasLineOfSight(root)
 end
 
+--- Stops this NPC pursuing `player` and keeps it from picking them up again for a while. What a
+--- pursuit does when it cannot work out a route to somebody at all.
+---
+--- Ending the chase alone would not settle anything: the enemy walks back onto its patrol, perception
+--- finds the same unreachable player from the same corridor a quarter of a second later, and the whole
+--- thing runs again for the rest of the round -- which reads as an enemy pacing and staring at nothing.
+--- Held for a while rather than for ever, because what puts somebody out of reach is nearly always
+--- where they are standing, and they do not stand there all night.
+--- @param player Player? -- nil where a pursuit was following something other than a player
+function NPC:GiveUpOn(player: Player?)
+	if not player then return end
+	self._unreachable[player] = os.clock() + UNREACHABLE_MEMORY
+	if self.Target == player then
+		self.Target = nil
+	end
+end
+
+-- Whether `player` has been written off as unreachable and is not to be picked up again yet.
+function NPC:_hasGivenUpOn(player: Player): boolean
+	local until_ = self._unreachable[player]
+	if not until_ then return false end
+	if os.clock() < until_ then return true end
+
+	self._unreachable[player] = nil
+	return false
+end
+
 --- Whether a player is worth pursuing at all: alive, out of a safe room, and still in range.
 --- Deliberately ignores facing and sight, so an acquired target cannot be shaken by ducking behind
 --- a corner -- only by reaching a room or outrunning `GiveUpRange`.
 function NPC:IsValidTarget(player: Player): boolean
+	if self:_hasGivenUpOn(player) then return false end
+
 	local root = getAliveRoot(player)
 	if not root then return false end
 	if Vanished.Is(root.Parent) then return false end
@@ -652,7 +709,10 @@ function NPC:CanAcquire(): boolean
 	return self.AcquireAfter == nil or os.clock() >= self.AcquireAfter
 end
 
--- Nearest player satisfying `predicate`, if any.
+-- Nearest player satisfying `predicate`, if any. Anyone this NPC has given up on is skipped: this is
+-- the only way into a chase, so it is where writing somebody off has to be honoured, and it is the
+-- same kind of gate as `CanAcquire` -- about whether a target may be taken up rather than about
+-- whether it can be seen.
 function NPC:_findNearest(predicate: (Player) -> boolean): Player?
 	if not self:CanAcquire() then return nil end
 
@@ -661,7 +721,7 @@ function NPC:_findNearest(predicate: (Player) -> boolean): Player?
 
 	for _, player in Players:GetPlayers() do
 		local root = getAliveRoot(player)
-		if root and predicate(player) then
+		if root and not self:_hasGivenUpOn(player) and predicate(player) then
 			local distance = (root.Position - origin).Magnitude
 			if distance < nearestDistance then
 				nearest, nearestDistance = player, distance

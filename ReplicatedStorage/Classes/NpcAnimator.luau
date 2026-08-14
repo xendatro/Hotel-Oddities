@@ -16,9 +16,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local AnimationConfig = require(ReplicatedStorage.Configs.AnimationConfig)
 
-local MOVING_THRESHOLD = 0.1 -- studs/s below which the NPC counts as standing still
-local RUN_THRESHOLD = 12 -- studs/s at which the walk clip gives way to the run clip
+local MOVING_THRESHOLD = 0.1 -- studs/s of measured travel below which the NPC counts as standing still
+local RUN_THRESHOLD = 12 -- studs/s of *commanded* pace at which the walk clip gives way to the run clip
 local TRANSITION_TIME = 0.2
+local IDLE_DELAY = 0.15 -- seconds stopped before an authored idle replaces a held locomotion pose
 
 -- Every locomotion clip is one whole gait cycle: one foot out, then the other, then back to the pose
 -- it started in. That is what makes a clip's own length enough to place it -- a cycle covers this much
@@ -60,6 +61,9 @@ export type NpcAnimator = typeof(setmetatable(
 		Rate: number,
 		MovementSpeedOverride: number?,
 		Paused: boolean,
+		_lastSpeed: number,
+		_idleToken: number,
+		_idlePending: boolean,
 		_connections: { [string]: RBXScriptConnection? },
 	},
 	NpcAnimator
@@ -118,6 +122,9 @@ function NpcAnimator.new(model: Model, set: AnimationConfig.AnimationSet?)
 	self.Rate = 1
 	self.MovementSpeedOverride = nil :: number?
 	self.Paused = false
+	self._lastSpeed = 0
+	self._idleToken = 0
+	self._idlePending = false
 	self._connections = {}
 
 	self.Emote = nil :: AnimationTrack?
@@ -227,24 +234,73 @@ function NpcAnimator:_resyncRate(track: AnimationTrack)
 	end)
 end
 
+-- The pace this NPC has been *told* to travel at, which is what decides between the walk clip and the
+-- run one. `Humanoid.Running` reports what a physics step actually measured, and that is a far noisier
+-- number than the gait it belongs to: a rig turning a corner, clipping a doorframe or being shoved by
+-- the player it is chasing reports anything from a crawl to its full pace, several times a second.
+-- Read against a fixed threshold, a Chaser told to run at 19 crosses the walk/run line repeatedly
+-- within a single second, and every crossing stops one clip and starts the other from its first frame.
+-- What that looks like is a chase animation restarting continuously -- worst on a Mimic, whose client
+-- mirrors a player's keys and so is forever accelerating out of a standstill.
+--
+-- The measurement is still exactly the right number for the playback rate, which is a question about
+-- ground covered rather than about intent, so that is what it stays used for. A rig wedged against
+-- something while it has been told to run therefore holds the run clip and plays it as slowly as it is
+-- actually travelling, rather than dropping to a walk and back the moment it works itself free.
+function NpcAnimator:_gaitSpeed(): number
+	return self.MovementSpeedOverride or self.Humanoid.WalkSpeed
+end
+
 -- Swaps to the clip matching `speed` and scales its playback to match.
-function NpcAnimator:_apply(speed: number)
+function NpcAnimator:_apply(speed: number, forceIdle: boolean?)
+	local effectiveSpeed = self.MovementSpeedOverride or speed
+	self._lastSpeed = effectiveSpeed
+
 	-- Ahead of the pause check: whatever else is true, an emote does not survive walking.
-	if speed >= MOVING_THRESHOLD then
+	if effectiveSpeed >= MOVING_THRESHOLD then
+		self._idleToken += 1
+		self._idlePending = false
 		self:StopEmote()
 	end
 	if self.Paused then return end
 
-	-- Standing still holds the pose it stopped in rather than resolving to a clip of its own: an enemy
-	-- that has come to a halt in the middle of a stride is one that has stopped for a reason and is
-	-- about to carry on, where a rig settling into a stance reads as something that was never really
-	-- going anywhere. Falling back to the walk covers an NPC that has not taken a step yet -- the first
-	-- pose of a gait cycle is a standing one, so there is nothing to see, and there is no A-pose either.
-	local moving = speed >= MOVING_THRESHOLD
+	-- A brief stop holds the pose it stopped in rather than resolving to a clip of its own: an enemy
+	-- that has come to a halt in the middle of a stride may be about to carry on. After the short grace
+	-- period above, an authored idle replaces that pose. Falling back to the walk covers an NPC that
+	-- has not taken a step yet -- the first pose of a gait cycle is a standing one, so there is nothing
+	-- to see, and there is no A-pose either.
+	local moving = effectiveSpeed >= MOVING_THRESHOLD
+	local explicitStop = self.MovementSpeedOverride ~= nil and not moving
+	if not moving
+		and not explicitStop
+		and not forceIdle
+		and self.Current
+		and self.Tracks.Idle
+		and self.Current ~= self.Tracks.Idle
+	then
+		local token = self._idleToken
+		if not self._idlePending then
+			self._idlePending = true
+			task.delay(IDLE_DELAY, function()
+				if self._idlePending
+					and self._idleToken == token
+					and not self.Paused
+					and self._lastSpeed < MOVING_THRESHOLD
+				then
+					self._idlePending = false
+					self:_apply(0, true)
+				end
+			end)
+		end
+	end
+
 	local track = if not moving
-		then self.Tracks.Idle or self.Current or self.Tracks.Walk
-		elseif speed >= RUN_THRESHOLD then self.Tracks.Run
-		else self.Tracks.Walk
+		then if forceIdle or explicitStop
+			then self.Tracks.Idle
+			else self.Current or self.Tracks.Idle or self.Tracks.Walk or self.Tracks.Run
+		elseif self:_gaitSpeed() >= RUN_THRESHOLD
+		then self.Tracks.Run or self.Tracks.Walk
+		else self.Tracks.Walk or self.Tracks.Run
 	if not track then return end
 	-- Some rigs deliberately use one clip for both gaits. Keep the playing copy when crossing the
 	-- walk/run threshold so a speed adjustment does not visibly restart the same animation.
@@ -258,13 +314,14 @@ function NpcAnimator:_apply(speed: number)
 	-- authored idle plays at the pace it was made at; a held walk does not play at all.
 	local rate
 	if moving then
-		rate = cycleRate(track, speed)
+		rate = cycleRate(track, effectiveSpeed)
 	else
 		rate = if track == self.Tracks.Idle then 1 else 0
 	end
 
 	self.Rate = rate
 	if track ~= self.Current then
+		self._idlePending = false
 		if self.Current then
 			self.Current:Stop(TRANSITION_TIME)
 		end
@@ -297,6 +354,8 @@ end
 --- Stops driving and drops the current clip, handing the rig's animation to whoever simulates it now.
 --- `Start` picks it back up.
 function NpcAnimator:Stop()
+	self._idleToken += 1
+	self._idlePending = false
 	if self._connections.Running then
 		self._connections.Running:Disconnect()
 		self._connections.Running = nil
@@ -313,6 +372,8 @@ end
 function NpcAnimator:Pause()
 	if self.Paused then return end
 	self.Paused = true
+	self._idleToken += 1
+	self._idlePending = false
 	self:StopEmote() -- a stunned enemy waving would be quite the tell
 	if self.Current then
 		self.Current:AdjustSpeed(0)
@@ -334,6 +395,8 @@ function NpcAnimator:Reload()
 	-- The attacks are not rebuilt with the rest: they are authored ids rather than clips read off the
 	-- rig, so a new `HumanoidDescription` has nothing to say about them.
 	local paused = self.Paused
+	self._idleToken += 1
+	self._idlePending = false
 	self.Emote = nil
 	unload(self.Tracks)
 	unload(self.Emotes)
@@ -354,6 +417,8 @@ function NpcAnimator:Reload()
 end
 
 function NpcAnimator:Destroy()
+	self._idleToken += 1
+	self._idlePending = false
 	for _, connection in self._connections do
 		connection:Disconnect()
 	end

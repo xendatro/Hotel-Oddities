@@ -109,6 +109,9 @@ local function drive(active: Job, own: MotionTrail.MotionTrail, deltaTime: numbe
 		direction = Vector3.zero -- it would sooner stand than scrape along a wall
 	end
 	humanoid:Move(direction)
+	-- This rig is moved directly on the owning client, so Humanoid.Running is not a reliable source
+	-- for its locomotion state. Feed the same command to the animator explicitly.
+	active.Animator:SetMovementSpeed(direction.Magnitude * humanoid.WalkSpeed)
 
 	-- Waiting on you with nothing to copy, it amuses itself. The animator drops the emote the moment
 	-- the rig takes a step, so the timer only has to keep them apart, not police the overlap -- and it
