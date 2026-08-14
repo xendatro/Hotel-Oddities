@@ -297,11 +297,10 @@ local function beginFlicker(model: Model, duration: number, playSound: boolean?)
 	return state
 end
 
-local function setFlickerDark(state: FlickerState, lightsOnly: boolean?)
+local function setFlickerDark(state: FlickerState)
 	for light in state.Lights do
 		light.Enabled = false
 	end
-	if lightsOnly then return end
 	for _, part in state.Parts do
 		part.Material = Enum.Material.SmoothPlastic
 	end
@@ -310,18 +309,16 @@ local function setFlickerDark(state: FlickerState, lightsOnly: boolean?)
 	end
 end
 
-local function restoreFlicker(model: Model, state: FlickerState, lightsOnly: boolean?)
+local function restoreFlicker(model: Model, state: FlickerState)
 	if FlickerModels[model] ~= state then return end
 	for light, lightState in state.Lights do
 		light.Enabled = lightState.Enabled
 	end
-	if not lightsOnly then
-		for _, part in state.Parts do
-			part.Material = Enum.Material.Neon
-		end
-		for emitter, particleState in state.Particles do
-			emitter.Enabled = particleState.Enabled
-		end
+	for _, part in state.Parts do
+		part.Material = Enum.Material.Neon
+	end
+	for emitter, particleState in state.Particles do
+		emitter.Enabled = particleState.Enabled
 	end
 	FlickerModels[model] = nil
 end
@@ -381,7 +378,7 @@ function LightService:FlickerAlongHallway(position: Vector3, duration: number)
 			local state = beginFlicker(model, duration, false)
 			if state then
 				state.ExpiresAt = os.clock() + duration
-				setFlickerDark(state, true)
+				setFlickerDark(state)
 				table.insert(states, { Model = model, State = state })
 			end
 			if index % HALLWAY_FLICKER_BATCH_SIZE == 0 then
@@ -396,7 +393,7 @@ function LightService:FlickerAlongHallway(position: Vector3, duration: number)
 		if remaining > 0 then task.wait(remaining) end
 
 		for index, entry in states do
-			restoreFlicker(entry.Model, entry.State, true)
+			restoreFlicker(entry.Model, entry.State)
 			if index % HALLWAY_FLICKER_BATCH_SIZE == 0 then
 				RunService.Heartbeat:Wait()
 			end
