@@ -1,3 +1,4 @@
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -31,6 +32,36 @@ local function livingPositions(): { Vector3 }
 	return positions
 end
 
+-- Enemy models are server-created and tagged, and the tag replicates, so a client can place them
+-- without being told about each one.
+local function enemyPositions(): { Vector3 }
+	local positions = {}
+	for _, model in CollectionService:GetTagged(DoorConfig.EnemyTag) do
+		if model:IsA("Model") then
+			table.insert(positions, model:GetPivot().Position)
+		end
+	end
+	return positions
+end
+
+-- Nearest of `positions` to a slab's middle, skipping anything on another floor.
+local function nearestTo(positions: { Vector3 }, center: Vector3): (Vector3?, number)
+	local nearest: Vector3? = nil
+	local nearestDistance = math.huge
+
+	for _, position in positions do
+		if math.abs(position.Y - center.Y) > DoorConfig.MaxHeightDifference then continue end
+
+		local distance = (position - center).Magnitude
+		if distance < nearestDistance then
+			nearestDistance = distance
+			nearest = position
+		end
+	end
+
+	return nearest, nearestDistance
+end
+
 -- Walks up to the model the slab belongs to, and answers whether that model is one this system owns.
 local function inSwingingDoorway(part: BasePart): boolean
 	local instance: Instance? = part.Parent
@@ -53,22 +84,18 @@ end
 
 local function poll()
 	local positions = livingPositions()
+	local enemies = enemyPositions()
 
 	for door in Active do
 		local center = door.Center
-		local nearest: Vector3? = nil
-		local nearestDistance = math.huge
 
-		for _, position in positions do
-			if math.abs(position.Y - center.Y) > DoorConfig.MaxHeightDifference then continue end
+		-- Settled first: a held door ignores whoever is on the other side of it, so there is no point
+		-- asking whether they are close enough to open it.
+		local _, enemyDistance = nearestTo(enemies, center)
+		local forceLimit = door.Forced and DoorConfig.EnemyReleaseDistance or DoorConfig.EnemyForceDistance
+		door:SetForced(enemyDistance <= forceLimit)
 
-			local distance = (position - center).Magnitude
-			if distance < nearestDistance then
-				nearestDistance = distance
-				nearest = position
-			end
-		end
-
+		local nearest, nearestDistance = nearestTo(positions, center)
 		local limit = door:IsOpen() and DoorConfig.CloseDistance or DoorConfig.OpenDistance
 		door:SetOpen(nearest ~= nil and nearestDistance <= limit, nearest)
 	end

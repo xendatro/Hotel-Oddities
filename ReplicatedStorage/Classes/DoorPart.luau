@@ -23,6 +23,7 @@ function DoorPart.new(part: BasePart)
 
 	self.Part = part
 	self.ClosedPivot = part:GetPivot()
+	self.ClosedCanCollide = part.CanCollide
 	self.Hinge = self.ClosedPivot.Position
 	self.Center = part.Position
 
@@ -35,6 +36,7 @@ function DoorPart.new(part: BasePart)
 	self.Velocity = 0
 	self.Sign = 1
 	self.Target = 0
+	self.Forced = false
 	self.AnimationPlayer = nil
 	self.AnimationEnded = false
 	self.AnimationStartAngle = 0
@@ -58,6 +60,8 @@ end
 --- @param open boolean -- whether someone is close enough to hold it open
 --- @param from Vector3? -- the nearest such player, used to choose a side
 function DoorPart:SetOpen(open: boolean, from: Vector3?)
+	if open and self.Forced then return end
+
 	local wasOpen = self:IsOpen()
 
 	if open and not wasOpen and from and math.abs(self.Angle) <= DoorConfig.ResideAngle then
@@ -77,6 +81,19 @@ function DoorPart:SetOpen(open: boolean, from: Vector3?)
 				self.AnimationEnded = true
 			end
 		end)
+	end
+end
+
+--- Holds the slab shut against something standing in the doorway, ignoring every player who would
+--- otherwise push it open. It also goes solid while held, so the doorway reads as a barred way out
+--- rather than one that simply refuses to animate.
+function DoorPart:SetForced(forced: boolean)
+	if self.Forced == forced then return end
+	self.Forced = forced
+
+	self.Part.CanCollide = forced or self.ClosedCanCollide
+	if forced then
+		self:SetOpen(false)
 	end
 end
 
@@ -149,6 +166,7 @@ end
 
 function DoorPart:Destroy()
 	if self.Part.Parent then
+		self.Part.CanCollide = self.ClosedCanCollide
 		self.Part:PivotTo(self.ClosedPivot)
 	end
 end

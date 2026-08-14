@@ -10,13 +10,22 @@ return {
 	OpenAngle = 100,
 
 	--- Studs from the middle of the slab at which a player pushes it open.
-	OpenDistance = 9,
+	OpenDistance = 6,
 	--- Studs at which it falls shut again. Larger than `OpenDistance` so standing on the boundary
 	--- does not flutter the door.
-	CloseDistance = 14,
+	CloseDistance = 10,
 	--- Ignore players this far above or below the slab. Hotel floors stack, and a door should not
 	--- answer to someone standing on top of it.
 	MaxHeightDifference = 8,
+
+	--- Carried by every live enemy model; see `NPC:Start`.
+	EnemyTag = "Enemy",
+	--- Studs from the middle of the slab within which an enemy holds the door shut and solid. Under
+	--- `OpenDistance`, so an enemy has to be in the doorway itself rather than merely down the hall.
+	EnemyForceDistance = 5,
+	--- And how far it has to back off before the door is released, so one loitering on the boundary
+	--- does not rattle it.
+	EnemyReleaseDistance = 8,
 
 	--- Seconds between proximity checks. The swing itself is stepped every frame; only the decision
 	--- to open or shut is polled.
