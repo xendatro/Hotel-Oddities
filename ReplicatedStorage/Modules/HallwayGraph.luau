@@ -1,6 +1,8 @@
 local CollectionService = game:GetService("CollectionService")
 
 local HALLWAY_TAG = "MazeFloor"
+local HALLWAY_ROOM_TAG = "HallwayRoomFloor"
+local TRAVERSABLE_TAGS = { HALLWAY_TAG, HALLWAY_ROOM_TAG }
 local PARALLEL_EPSILON = 1e-3
 local CONNECTION_EPSILON = 0.5
 local NODE_MERGE_DISTANCE = 4
@@ -10,6 +12,7 @@ local MINIMUM_EDGE = 1
 export type RouteNode = {
 	Position: Vector3,
 	Neighbors: { [RouteNode]: boolean },
+	CanBeDestination: boolean,
 }
 
 type Hallway = {
@@ -19,6 +22,7 @@ type Hallway = {
 	HalfWidth: number,
 	Nodes: { RouteNode },
 	JunctionReach: { [RouteNode]: number },
+	CanBeDestination: boolean,
 }
 
 type Graph = {
@@ -38,6 +42,7 @@ local function cross2d(first: Vector3, second: Vector3): number
 end
 
 local function addNode(hallway: Hallway, node: RouteNode)
+	node.CanBeDestination = node.CanBeDestination and hallway.CanBeDestination
 	if not table.find(hallway.Nodes, node) then
 		table.insert(hallway.Nodes, node)
 	end
@@ -71,6 +76,7 @@ local function getOrCreateNode(nodes: { RouteNode }, position: Vector3): RouteNo
 	local node = {
 		Position = position,
 		Neighbors = {},
+		CanBeDestination = true,
 	}
 	table.insert(nodes, node)
 	return node
@@ -116,7 +122,10 @@ local function addParallelIntersection(first: Hallway, second: Hallway, nodes: {
 	if math.abs(cross2d(first.Direction, second.Direction)) > PARALLEL_EPSILON then return end
 
 	local perpendicular = Vector3.new(-first.Direction.Z, 0, first.Direction.X)
-	if math.abs((second.Center - first.Center):Dot(perpendicular)) > CONNECTION_EPSILON then return end
+	local maximumOffset = if first.CanBeDestination and second.CanBeDestination
+		then CONNECTION_EPSILON
+		else first.HalfWidth + second.HalfWidth + CONNECTION_EPSILON
+	if math.abs((second.Center - first.Center):Dot(perpendicular)) > maximumOffset then return end
 
 	local firstEnds = {
 		first.Center - first.Direction * first.HalfLength,
@@ -142,22 +151,29 @@ end
 local function build(): Graph
 	local nodes = {}
 	local hallways: { Hallway } = {}
+	local added: { [BasePart]: boolean } = {}
 
-	for _, instance in CollectionService:GetTagged(HALLWAY_TAG) do
-		if not instance:IsA("BasePart") or not instance:IsDescendantOf(workspace) then continue end
+	for _, tag in TRAVERSABLE_TAGS do
+		for _, instance in CollectionService:GetTagged(tag) do
+			if not instance:IsA("BasePart") or not instance:IsDescendantOf(workspace) then continue end
 
-		local part = instance :: BasePart
-		local runsAlongX = part.Size.X >= part.Size.Z
-		local direction = horizontal(if runsAlongX then part.CFrame.RightVector else part.CFrame.LookVector).Unit
-		local hallway: Hallway = {
-			Center = part.Position,
-			Direction = direction,
-			HalfLength = (if runsAlongX then part.Size.X else part.Size.Z) / 2,
-			HalfWidth = (if runsAlongX then part.Size.Z else part.Size.X) / 2,
-			Nodes = {},
-			JunctionReach = {},
-		}
-		table.insert(hallways, hallway)
+			local part = instance :: BasePart
+			if added[part] then continue end
+			added[part] = true
+
+			local runsAlongX = part.Size.X >= part.Size.Z
+			local direction = horizontal(if runsAlongX then part.CFrame.RightVector else part.CFrame.LookVector).Unit
+			local hallway: Hallway = {
+				Center = part.Position,
+				Direction = direction,
+				HalfLength = (if runsAlongX then part.Size.X else part.Size.Z) / 2,
+				HalfWidth = (if runsAlongX then part.Size.Z else part.Size.X) / 2,
+				Nodes = {},
+				JunctionReach = {},
+				CanBeDestination = not CollectionService:HasTag(part, HALLWAY_ROOM_TAG),
+			}
+			table.insert(hallways, hallway)
+		end
 	end
 
 	for firstIndex = 1, #hallways - 1 do
@@ -351,12 +367,14 @@ function HallwayGraph:GetWalkingDistance(firstPosition: Vector3, secondPosition:
 	return math.min(direct, first.Distance + route + second.Distance)
 end
 
-CollectionService:GetInstanceAddedSignal(HALLWAY_TAG):Connect(function()
-	HallwayGraph:Invalidate()
-end)
+for _, tag in TRAVERSABLE_TAGS do
+	CollectionService:GetInstanceAddedSignal(tag):Connect(function()
+		HallwayGraph:Invalidate()
+	end)
 
-CollectionService:GetInstanceRemovedSignal(HALLWAY_TAG):Connect(function()
-	HallwayGraph:Invalidate()
-end)
+	CollectionService:GetInstanceRemovedSignal(tag):Connect(function()
+		HallwayGraph:Invalidate()
+	end)
+end
 
 return HallwayGraph

@@ -674,12 +674,12 @@ local function chooseNextNode(
 ): any
 	local best, bestScore = nil, -math.huge
 	local now = os.clock()
-	if previous and current.Neighbors[previous] then
-		local hasAlternative = false
-		for neighbor in current.Neighbors do
-			if neighbor ~= previous then hasAlternative = true break end
-		end
-		if hasAlternative and math.random() < DangerConfig.PatrolTurnAroundChance then return previous end
+	if previous
+		and current.Neighbors[previous]
+		and HallwayGraphService:CountExits(current) > 2
+		and math.random() < DangerConfig.PatrolTurnAroundChance
+	then
+		return previous
 	end
 
 	for neighbor in current.Neighbors do

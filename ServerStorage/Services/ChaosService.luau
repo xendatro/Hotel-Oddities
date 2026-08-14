@@ -94,7 +94,8 @@ local function planRoute(start: RouteNode): { Vector3 }?
 		for _, option in orderedExits(previous, current, visited) do
 			visited[option] = true
 			table.insert(path, option)
-			if HallwayGraphService:CountExits(option) == 1 or extend(current, option) then
+			if (option.CanBeDestination and HallwayGraphService:CountExits(option) == 1)
+				or extend(current, option) then
 				return true
 			end
 
@@ -172,7 +173,8 @@ local function drawStart(): RouteNode?
 	local total = 0
 
 	for _, node in HallwayGraphService:Get() do
-		if next(node.Neighbors)
+		if node.CanBeDestination
+			and next(node.Neighbors)
 			and HallwayGraphService:IsFarFromPlayers(node.Position, Config.SpawnPlayerDistance) then
 			-- Never zero, so a hotel whose corridors are all fairly safe still gets a Chaos somewhere
 			-- rather than none at all.

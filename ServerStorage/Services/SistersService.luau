@@ -54,7 +54,8 @@ function SistersService:Spawn(): any?
 	local total = 0
 
 	for _, node in HallwayGraphService:Get() do
-		if HallwayGraphService:CountExits(node) > 1
+		if node.CanBeDestination
+			and HallwayGraphService:CountExits(node) > 1
 			and HallwayGraphService:IsFarFromPlayers(node.Position, Config.SpawnPlayerDistance) then
 			-- A floor under the weight, so a hotel with no strongly dangerous corridors still gets a
 			-- pair walking about somewhere rather than none at all.
@@ -95,7 +96,8 @@ function SistersService:SpawnInHallway(player: Player): any?
 	local farthestDistance = -math.huge
 	for _, node in HallwayGraphService:Get() do
 		local nodeHallway = Hallways.At(node.Position)
-		if nodeHallway
+		if node.CanBeDestination
+			and nodeHallway
 			and isSameHallway(hallway, nodeHallway)
 			and HallwayGraphService:CountExits(node) > 1
 		then
