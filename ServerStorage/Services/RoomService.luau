@@ -13,6 +13,8 @@ local BLOCKER_FOLDER = "RoomBlockers"
 local WALL_INSET = 1
 -- ...but never more than this much of an axis, so a cupboard does not inset itself out of existence.
 local MAX_INSET_FRACTION = 0.25
+-- Studs added back onto every face of the inset box so the safe volume slightly overhangs the walls.
+local SAFE_PAD = 0.5
 
 --- Owns the `Room` tag: the safe zones players duck into to break an enemy's interest. Rooms are the
 --- room models themselves, and occupancy is the model's own bounding box rather than a separate
@@ -40,9 +42,9 @@ Blockers.Parent = workspace
 local function insetHalfSize(size: Vector3): Vector3
 	local half = size / 2
 	return Vector3.new(
-		half.X - math.min(WALL_INSET, half.X * MAX_INSET_FRACTION),
-		half.Y - math.min(WALL_INSET, half.Y * MAX_INSET_FRACTION),
-		half.Z - math.min(WALL_INSET, half.Z * MAX_INSET_FRACTION)
+		half.X - math.min(WALL_INSET, half.X * MAX_INSET_FRACTION) + SAFE_PAD,
+		half.Y - math.min(WALL_INSET, half.Y * MAX_INSET_FRACTION) + SAFE_PAD,
+		half.Z - math.min(WALL_INSET, half.Z * MAX_INSET_FRACTION) + SAFE_PAD
 	)
 end
 
@@ -50,6 +52,19 @@ local function isInside(point: Vector3, room: Room): boolean
 	local offset = room.CFrame:PointToObjectSpace(point)
 	local half = room.HalfSize
 	return math.abs(offset.X) <= half.X and math.abs(offset.Y) <= half.Y and math.abs(offset.Z) <= half.Z
+end
+
+-- True if any body part of `character` is inside `room`. Falls back to nil if the character has no
+-- parts yet, so a partially loaded avatar never reports a stale room.
+local function isCharacterInside(character: Model, rooms): Model?
+	for _, room in rooms do
+		for _, part in character:GetChildren() do
+			if part:IsA("BasePart") and isInside(part.Position, room) then
+				return room.Model
+			end
+		end
+	end
+	return nil
 end
 
 --- Every room doubles as a pathfinding blocker so enemies never route a path through a safe zone.
@@ -120,17 +135,7 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 	local rooms = TagService:GetAllApplied(ROOM_TAG)
 	for _, player in Players:GetPlayers() do
 		local character = player.Character
-		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-		local occupied = nil
-		if root then
-			for _, room in rooms do
-				if isInside(root.Position, room) then
-					occupied = room.Model
-					break
-				end
-			end
-		end
-		PlayerRooms[player] = occupied
+		PlayerRooms[player] = if character then isCharacterInside(character, rooms) else nil
 	end
 end)
 
