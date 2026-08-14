@@ -51,6 +51,15 @@ local DIRECTION_TIE_EPSILON = 0.05
 local PROGRESS_EPSILON = 0.5 -- studs of ground that count as having got somewhere
 local SIGHT_INTERVAL = 0.5 -- seconds between sight checks; these are raycasts, not a per-frame job
 local SLOWEST_TRIM = 0.4 -- of `WalkSpeed`: the trim slows a sister down, it never stops her walking
+local HEAD_TWITCH_MIN = 0.5
+local HEAD_TWITCH_MAX = 1.2
+local HEAD_TWITCH_ANGLE = math.rad(30)
+local HEAD_GLITCH_SNAPS_MIN = 2
+local HEAD_GLITCH_SNAPS_MAX = 4
+local HEAD_GLITCH_SNAP_MIN = 0.025
+local HEAD_GLITCH_SNAP_MAX = 0.055
+local HEAD_GLITCH_HOLD_MIN = 0.08
+local HEAD_GLITCH_HOLD_MAX = 0.16
 
 type RouteNode = HallwayGraphService.RouteNode
 
@@ -84,6 +93,10 @@ end
 -- steering them cannot answer -- but a sister wedged against a passing Chaser is the same failure,
 -- so the group that fixes it is not theirs to own.
 local function prepare(model: Model)
+	local neck = model.Head.Neck :: AnimationConstraint
+	neck.Attachment0 = model.UpperTorso.NeckRigAttachment
+	neck.Attachment1 = model.Head.NeckRigAttachment
+
 	for _, descendant in model:GetDescendants() do
 		if descendant:IsA("BasePart") then
 			descendant.Anchored = false
@@ -142,6 +155,11 @@ function Sisters.new(model: Model, config, startNode: RouteNode, firstNode: Rout
 	self.Progress = -math.huge -- furthest down this leg they have got, for spotting one they have stopped getting down
 	self.StalledSince = 0
 	self.LastPositions = {} :: { Vector3 } -- where each sister was last frame, for the kill sweep
+	self.NeckAttachments = {} :: { [Model]: Attachment }
+	self.NeckAttachmentBases = {} :: { [Model]: CFrame }
+	self.HeadTwitches = {} :: { [Model]: number }
+	self.NextHeadTwitch = 0
+	self.NextLightFlicker = 0
 
 	-- Whether anybody has laid eyes on them yet, and how long it has been since anybody last did.
 	-- Both feed the one chance they get to simply not turn up; see `_shouldForget`.
@@ -310,7 +328,43 @@ function Sisters:_sweep()
 		end
 	end
 
-	LightService:FlickerNear(center, self.Config.LightFlickerRange, self.Config.LightFlickerDuration)
+	local now = os.clock()
+	if now >= self.NextLightFlicker then
+		self.NextLightFlicker = now + (self.Config.LightFlickerInterval or 1)
+		LightService:FlickerAlongHallway(center, self.Config.LightFlickerDuration)
+	end
+end
+
+function Sisters:_twitchHeads(now: number)
+	if now < self.NextHeadTwitch then return end
+	self.NextHeadTwitch = now + HEAD_TWITCH_MIN + math.random() * (HEAD_TWITCH_MAX - HEAD_TWITCH_MIN)
+
+	for _, model in self.Models do
+		local attachment = self.NeckAttachments[model]
+		local base = self.NeckAttachmentBases[model]
+		local twitch = (self.HeadTwitches[model] or 0) + 1
+		self.HeadTwitches[model] = twitch
+
+		task.spawn(function()
+			task.wait(math.random() * HEAD_GLITCH_SNAP_MAX)
+			for _ = 1, math.random(HEAD_GLITCH_SNAPS_MIN, HEAD_GLITCH_SNAPS_MAX) do
+				if self.HeadTwitches[model] ~= twitch or not attachment.Parent then return end
+				attachment.CFrame = base * CFrame.Angles(
+					(math.random() - 0.5) * HEAD_TWITCH_ANGLE,
+					(math.random() - 0.5) * HEAD_TWITCH_ANGLE * 2,
+					(math.random() - 0.5) * HEAD_TWITCH_ANGLE
+				)
+				task.wait(HEAD_GLITCH_SNAP_MIN
+					+ math.random() * (HEAD_GLITCH_SNAP_MAX - HEAD_GLITCH_SNAP_MIN))
+			end
+
+			task.wait(HEAD_GLITCH_HOLD_MIN
+				+ math.random() * (HEAD_GLITCH_HOLD_MAX - HEAD_GLITCH_HOLD_MIN))
+			if self.HeadTwitches[model] == twitch and attachment.Parent then
+				attachment.CFrame = base
+			end
+		end)
+	end
 end
 
 -- One frame of walking. False once there is nowhere left to walk to.
@@ -340,6 +394,7 @@ function Sisters:_step(deltaTime: number): boolean
 	end
 	self:_drive(aim, center)
 	self:_sweep()
+	self:_twitchHeads(os.clock())
 	return true
 end
 
@@ -445,6 +500,9 @@ function Sisters:Start()
 		table.insert(self.Animators, animator)
 
 		self.LastPositions[index] = (model.HumanoidRootPart :: BasePart).Position
+		local neckAttachment = model.UpperTorso.NeckRigAttachment :: Attachment
+		self.NeckAttachments[model] = neckAttachment
+		self.NeckAttachmentBases[model] = neckAttachment.CFrame
 		model:AddTag(ENEMY_TAG)
 		model:AddTag(SISTERS_TAG)
 	end
@@ -458,6 +516,9 @@ function Sisters:Despawn()
 	self.Active = false
 
 	for _, model in self.Models do
+		self.HeadTwitches[model] = (self.HeadTwitches[model] or 0) + 1
+		local attachment = self.NeckAttachments[model]
+		if attachment then attachment.CFrame = self.NeckAttachmentBases[model] end
 		model:RemoveTag(ENEMY_TAG)
 		model:RemoveTag(SISTERS_TAG)
 	end

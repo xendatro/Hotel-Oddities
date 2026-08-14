@@ -9,6 +9,7 @@ local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyService = require(ServerStorage.Services.EnemyService)
 local HallwayGraphService = require(ServerStorage.Services.HallwayGraphService)
+local Hallways = require(ReplicatedStorage.Modules.Hallways)
 
 type RouteNode = HallwayGraphService.RouteNode
 
@@ -17,6 +18,14 @@ local Config = EnemyConfigs.Sisters
 
 local function walkPosition(node: RouteNode): Vector3
 	return node.Position + Vector3.yAxis * Config.RouteHeight
+end
+
+local function isSameHallway(first: Hallways.Hallway, second: Hallways.Hallway): boolean
+	return first.Center == second.Center
+		and first.Axis == second.Axis
+		and first.HalfLength == second.HalfLength
+		and first.HalfWidth == second.HalfWidth
+		and first.FloorY == second.FloorY
 end
 
 -- The corner they set off towards. A dead-end neighbor is the one opening worth avoiding: it would
@@ -64,6 +73,40 @@ function SistersService:Spawn(): any?
 			break
 		end
 	end
+
+	local firstNode = chooseOpening(startNode)
+	if not firstNode then return nil end
+
+	local spawnCFrame = CFrame.lookAt(walkPosition(startNode), walkPosition(firstNode))
+	return EnemyService:Spawn("Sisters", spawnCFrame, startNode, firstNode)
+end
+
+--- Puts one pair in the caller's current hallway for the hand-spawn command. The farthest usable
+--- node is chosen so the pair appears in the same corridor without landing on the caller.
+function SistersService:SpawnInHallway(player: Player): any?
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then return nil end
+
+	local hallway = Hallways.At(root.Position)
+	if not hallway then return nil end
+
+	local startNode = nil :: RouteNode?
+	local farthestDistance = -math.huge
+	for _, node in HallwayGraphService:Get() do
+		local nodeHallway = Hallways.At(node.Position)
+		if nodeHallway
+			and isSameHallway(hallway, nodeHallway)
+			and HallwayGraphService:CountExits(node) > 1
+		then
+			local distance = (node.Position - root.Position).Magnitude
+			if distance > farthestDistance then
+				startNode = node
+				farthestDistance = distance
+			end
+		end
+	end
+	if not startNode then return nil end
 
 	local firstNode = chooseOpening(startNode)
 	if not firstNode then return nil end

@@ -12,6 +12,7 @@
 --- back dead. The tag comes off only when the lamp is genuinely lit again.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local AudioService = require(ReplicatedStorage.Services.AudioService)
 local Hallways = require(ReplicatedStorage.Modules.Hallways)
@@ -25,6 +26,7 @@ local AMBIENT_FLICKERS_MIN = 1
 local AMBIENT_FLICKERS_MAX = 2
 local AMBIENT_FLICKER_DURATION_MIN = 0.2
 local AMBIENT_FLICKER_DURATION_MAX = 0.45
+local HALLWAY_FLICKER_BATCH_SIZE = 2
 
 type LightState = {
 	Enabled: boolean,
@@ -67,6 +69,7 @@ local LightService = {}
 local DisabledModels: { [Model]: DisabledState } = {}
 local RedModels: { [Model]: RedState } = {}
 local FlickerModels: { [Model]: FlickerState } = {}
+local FlickerHallway: Hallways.Hallway? = nil
 local RED_COLOR = Color3.fromRGB(255, 0, 0)
 
 local function getSoundParent(model: Model): BasePart?
@@ -140,12 +143,13 @@ local function restore(model: Model)
 	DisabledModels[model] = nil
 end
 
-local function isSameHallway(first: Hallways.Hallway, second: Hallways.Hallway): boolean
-	return first.Center == second.Center
-		and first.Axis == second.Axis
-		and first.HalfLength == second.HalfLength
-		and first.HalfWidth == second.HalfWidth
-		and first.FloorY == second.FloorY
+local function containsHallway(hallway: Hallways.Hallway, position: Vector3): boolean
+	local height = position.Y - hallway.FloorY
+	if height > 24 or height < -4 then return false end
+
+	local offset = position - hallway.Center
+	return math.abs(offset:Dot(hallway.Axis)) <= hallway.HalfLength
+		and math.abs(offset:Dot(hallway.Across)) <= hallway.HalfWidth
 end
 
 --- Disables every tagged light model whose pivot is within `radius` studs of `position`.
@@ -183,8 +187,7 @@ function LightService:DisableAlongHallway(position: Vector3, distance: number): 
 	local creepAlong = Hallways.Along(hallway, position)
 	for _, model in LightService:GetModels() do
 		local modelPosition = model:GetPivot().Position
-		local modelHallway = Hallways.At(modelPosition)
-		if modelHallway and isSameHallway(hallway, modelHallway)
+		if containsHallway(hallway, modelPosition)
 			and math.abs(Hallways.Along(hallway, modelPosition) - creepAlong) <= distance
 		then
 			disable(model)
@@ -256,11 +259,11 @@ function LightService:WarnRed(model: Model, duration: number)
 	end)
 end
 
-local function flickerModel(model: Model, duration: number)
+local function beginFlicker(model: Model, duration: number, playSound: boolean?): FlickerState?
 	local existing = FlickerModels[model]
 	if existing then
 		existing.ExpiresAt = math.max(existing.ExpiresAt, os.clock() + duration)
-		return
+		return nil
 	end
 
 	local state: FlickerState = {
@@ -268,7 +271,7 @@ local function flickerModel(model: Model, duration: number)
 		Lights = {},
 		Parts = {},
 		Particles = {},
-		SoundParent = getSoundParent(model),
+		SoundParent = if playSound ~= false then getSoundParent(model) else nil,
 	}
 	FlickerModels[model] = state
 
@@ -288,9 +291,44 @@ local function flickerModel(model: Model, duration: number)
 		end
 	end
 
-	if state.SoundParent then
+	if playSound ~= false and state.SoundParent then
 		AudioService:Play3DSound("Flicker", state.SoundParent, false, "SFX")
 	end
+	return state
+end
+
+local function setFlickerDark(state: FlickerState, lightsOnly: boolean?)
+	for light in state.Lights do
+		light.Enabled = false
+	end
+	if lightsOnly then return end
+	for _, part in state.Parts do
+		part.Material = Enum.Material.SmoothPlastic
+	end
+	for emitter in state.Particles do
+		emitter.Enabled = false
+	end
+end
+
+local function restoreFlicker(model: Model, state: FlickerState, lightsOnly: boolean?)
+	if FlickerModels[model] ~= state then return end
+	for light, lightState in state.Lights do
+		light.Enabled = lightState.Enabled
+	end
+	if not lightsOnly then
+		for _, part in state.Parts do
+			part.Material = Enum.Material.Neon
+		end
+		for emitter, particleState in state.Particles do
+			emitter.Enabled = particleState.Enabled
+		end
+	end
+	FlickerModels[model] = nil
+end
+
+local function flickerModel(model: Model, duration: number)
+	local state = beginFlicker(model, duration, true)
+	if not state then return end
 
 	task.spawn(function()
 		while true do
@@ -298,15 +336,7 @@ local function flickerModel(model: Model, duration: number)
 			if remaining <= 0 then break end
 
 			if math.random() < 0.5 then
-				for light in state.Lights do
-					light.Enabled = false
-				end
-				for _, part in state.Parts do
-					part.Material = Enum.Material.SmoothPlastic
-				end
-				for emitter in state.Particles do
-					emitter.Enabled = false
-				end
+				setFlickerDark(state)
 			else
 				for light, lightState in state.Lights do
 					light.Enabled = lightState.Enabled
@@ -322,33 +352,56 @@ local function flickerModel(model: Model, duration: number)
 			task.wait(0.1 + math.random() * 0.1)
 		end
 
-		if FlickerModels[model] ~= state then return end
-		for light, lightState in state.Lights do
-			light.Enabled = lightState.Enabled
-		end
-		for _, part in state.Parts do
-			part.Material = Enum.Material.Neon
-		end
-		for emitter, particleState in state.Particles do
-			emitter.Enabled = particleState.Enabled
-		end
-		FlickerModels[model] = nil
+		restoreFlicker(model, state)
 	end)
 end
 
---- Flickers every light in models near `position` within `radius` for `duration`. Lights turn on and off
---- randomly, creating an unsettling effect.
-function LightService:FlickerNear(position: Vector3, radius: number, duration: number)
+--- Flickers every light model in the hallway containing `position` for `duration`. Lights turn on and
+--- off randomly, creating an unsettling effect without spilling into crossing hallways.
+function LightService:FlickerAlongHallway(position: Vector3, duration: number)
 	if duration <= 0 then return end
+	local hallway = FlickerHallway
+	if not hallway or not containsHallway(hallway, position) then
+		hallway = Hallways.At(position)
+		FlickerHallway = hallway
+	end
+	if not hallway then return end
 
-	for _, instance in TagService:GetTaggedOfPredicate(FLOOR_1_LIGHT_TAG, function(tagged: Instance)
-		return tagged:IsA("Model")
-	end) do
-		local model = instance :: Model
-		if (model:GetPivot().Position - position).Magnitude <= radius then
-			flickerModel(model, duration)
+	local models = {} :: { Model }
+	for _, model in LightService:GetModels() do
+		if containsHallway(hallway, model:GetPivot().Position) then
+			table.insert(models, model)
 		end
 	end
+	if #models == 0 then return end
+
+	task.spawn(function()
+		local states = {} :: { { Model: Model, State: FlickerState } }
+		for index, model in models do
+			local state = beginFlicker(model, duration, false)
+			if state then
+				state.ExpiresAt = os.clock() + duration
+				setFlickerDark(state, true)
+				table.insert(states, { Model = model, State = state })
+			end
+			if index % HALLWAY_FLICKER_BATCH_SIZE == 0 then
+				RunService.Heartbeat:Wait()
+			end
+		end
+
+		local remaining = 0
+		for _, entry in states do
+			remaining = math.max(remaining, entry.State.ExpiresAt - os.clock())
+		end
+		if remaining > 0 then task.wait(remaining) end
+
+		for index, entry in states do
+			restoreFlicker(entry.Model, entry.State, true)
+			if index % HALLWAY_FLICKER_BATCH_SIZE == 0 then
+				RunService.Heartbeat:Wait()
+			end
+		end
+	end)
 end
 
 local function startAmbientFlickering()

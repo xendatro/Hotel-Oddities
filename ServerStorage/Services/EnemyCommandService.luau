@@ -72,8 +72,8 @@ local function spawnOne(player: Player, enemyId: string): boolean
 	end
 
 	if enemyId == "Sisters" then
-		if SistersService:Spawn() then return true end
-		warn(`[enemies] no MazeFloor corridor at least {EnemyConfigs.Sisters.SpawnPlayerDistance} studs from every player to walk the Sisters out of`)
+		if SistersService:SpawnInHallway(player) then return true end
+		warn(`[enemies] {player.Name} must be standing in a usable MazeFloor hallway to spawn the Sisters`)
 		return false
 	end
 

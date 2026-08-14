@@ -20,13 +20,12 @@ end
 local Teleport = ReplicatedStorage.Communication.PlayerLocator.Teleport
 
 local MODES = PlayerLocatorConfig.Modes
-local GUI_TIMEOUT = 10
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
-local gui = playerGui:WaitForChild("PlayerLocator", GUI_TIMEOUT)
-local frame = gui and gui:WaitForChild("Mode", GUI_TIMEOUT)
+local gui = playerGui:WaitForChild("PlayerLocator")
+local frame = gui and gui:WaitForChild("Mode")
 local modeLabel = frame and frame:FindFirstChild("Mode")
 local toggle = frame and frame:FindFirstChild("Toggle")
 local cooldownLabel = frame and frame:FindFirstChild("TeleportCooldown")
