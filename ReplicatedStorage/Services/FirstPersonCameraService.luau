@@ -13,6 +13,9 @@ local RENDER_JOB = "CameraBob"
 local TAU = math.pi * 2
 local localPlayer = Players.LocalPlayer
 
+UserInputService.MouseIconEnabled = false
+localPlayer.PlayerGui:WaitForChild("Cursor").Enabled = true
+
 type CharacterState = {
 	Humanoid: Humanoid,
 	Root: BasePart,
@@ -78,7 +81,5 @@ if localPlayer.Character then
 end
 
 RunService:BindToRenderStep(RENDER_JOB, Enum.RenderPriority.Camera.Value + 2, render)
-UserInputService.MouseIconEnabled = false
-localPlayer.PlayerGui:WaitForChild("Cursor").Enabled = true
 
 return FirstPersonCameraService
