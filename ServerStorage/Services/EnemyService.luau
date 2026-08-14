@@ -1,4 +1,5 @@
 local PhysicsService = game:GetService("PhysicsService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
@@ -9,21 +10,53 @@ local EnemyService = {}
 local ActiveEnemies = {}
 
 --- Every enemy rig in the world sits in this group, and the group does not collide with itself.
---- Enemies are solid to players and to the hotel exactly as before; they are transparent only to one
---- another. Two Humanoids that meet in a corridor otherwise shoulder each other out of line and both
---- stall against a wall, which no amount of re-pathing can answer -- the path is fine, the rig simply
---- cannot walk it. Nothing about damage runs through physics: contact is an `OverlapParams` query
---- against the player's own parts, so passing through a fellow enemy costs an enemy no lethality.
+--- Enemies do not collide with players or with one another, but remain solid to the hotel geometry.
+--- Nothing about damage runs through physics: contact is an `OverlapParams` query against the
+--- player's own parts, so passing through an enemy does not remove the attack check.
 EnemyService.CollisionGroup = "Enemies"
+local PLAYER_COLLISION_GROUP = "Players"
 
 --- Registers the group if it is not already there. Idempotent, and safe to call from anywhere that
 --- puts a rig in the world without going through `Spawn` -- the second sister is cloned after her
 --- pair has already spawned.
 function EnemyService:EnsureCollisionGroup()
-	if PhysicsService:IsCollisionGroupRegistered(self.CollisionGroup) then return end
+	if not PhysicsService:IsCollisionGroupRegistered(self.CollisionGroup) then
+		PhysicsService:RegisterCollisionGroup(self.CollisionGroup)
+	end
+	if not PhysicsService:IsCollisionGroupRegistered(PLAYER_COLLISION_GROUP) then
+		PhysicsService:RegisterCollisionGroup(PLAYER_COLLISION_GROUP)
+	end
 
-	PhysicsService:RegisterCollisionGroup(self.CollisionGroup)
 	PhysicsService:CollisionGroupSetCollidable(self.CollisionGroup, self.CollisionGroup, false)
+	PhysicsService:CollisionGroupSetCollidable(self.CollisionGroup, PLAYER_COLLISION_GROUP, false)
+	PhysicsService:CollisionGroupSetCollidable(PLAYER_COLLISION_GROUP, PLAYER_COLLISION_GROUP, false)
+end
+
+local function preparePlayerCharacter(character: Model)
+	for _, descendant in character:GetDescendants() do
+		if descendant:IsA("BasePart") then
+			descendant.CollisionGroup = PLAYER_COLLISION_GROUP
+		end
+	end
+	character.DescendantAdded:Connect(function(descendant)
+		if descendant:IsA("BasePart") then
+			descendant.CollisionGroup = PLAYER_COLLISION_GROUP
+		end
+	end)
+end
+
+EnemyService:EnsureCollisionGroup()
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(preparePlayerCharacter)
+	if player.Character then
+		preparePlayerCharacter(player.Character)
+	end
+end)
+for _, player in Players:GetPlayers() do
+	player.CharacterAdded:Connect(preparePlayerCharacter)
+	if player.Character then
+		preparePlayerCharacter(player.Character)
+	end
 end
 
 local activeFolder: Folder?
