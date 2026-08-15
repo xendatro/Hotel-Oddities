@@ -19,6 +19,7 @@ local Hallways = require(ReplicatedStorage.Modules.Hallways)
 local TagService = require(ReplicatedStorage.Services.TagService)
 
 local FLOOR_1_LIGHT_TAG = "Floor1Light"
+local ROOM_TAG = "Room"
 local NEON_OFF_TAG = "NeonOff" -- on a part: it is Neon, and this service is holding it dark
 local AMBIENT_FLICKER_INTERVAL_MIN = 0.6
 local AMBIENT_FLICKER_INTERVAL_MAX = 1.2
@@ -27,6 +28,10 @@ local AMBIENT_FLICKERS_MAX = 2
 local AMBIENT_FLICKER_DURATION_MIN = 0.2
 local AMBIENT_FLICKER_DURATION_MAX = 0.45
 local HALLWAY_FLICKER_BATCH_SIZE = 2
+local HALLWAY_HEIGHT_WINDOW = 24
+local HALLWAY_BELOW_WINDOW = 4
+local SPAN_EPSILON = 0.75
+local ROOM_CONNECTION_GAP = 1.5
 
 type LightState = {
 	Enabled: boolean,
@@ -60,6 +65,21 @@ type DisabledState = {
 	Particles: { [ParticleEmitter]: ParticleState },
 }
 
+type Rectangle = {
+	Center: Vector3,
+	Axis: Vector3,
+	Across: Vector3,
+	HalfLength: number,
+	HalfWidth: number,
+	FloorY: number,
+}
+
+type BranchConnection = {
+	Span: Hallways.StraightSpan,
+	Along: number,
+	Hallways: { Hallways.Hallway },
+}
+
 export type LightClaim = {
 	Models: { Model },
 	Released: boolean,
@@ -71,6 +91,75 @@ local RedModels: { [Model]: RedState } = {}
 local FlickerModels: { [Model]: FlickerState } = {}
 local FlickerHallway: Hallways.Hallway? = nil
 local RED_COLOR = Color3.fromRGB(255, 0, 0)
+
+local function horizontal(vector: Vector3): Vector3
+	return Vector3.new(vector.X, 0, vector.Z)
+end
+
+local function sameSpan(first: Hallways.StraightSpan, second: Hallways.StraightSpan): boolean
+	local sameDirection = (first.Start - second.Start).Magnitude <= SPAN_EPSILON
+		and (first.Finish - second.Finish).Magnitude <= SPAN_EPSILON
+	local oppositeDirection = (first.Start - second.Finish).Magnitude <= SPAN_EPSILON
+		and (first.Finish - second.Start).Magnitude <= SPAN_EPSILON
+	return sameDirection or oppositeDirection
+end
+
+local function rectangleFromBounds(cframe: CFrame, size: Vector3, floorY: number): Rectangle
+	local runsAlongX = size.X >= size.Z
+	local axis = horizontal(if runsAlongX then cframe.RightVector else cframe.LookVector).Unit
+	return {
+		Center = cframe.Position,
+		Axis = axis,
+		Across = Vector3.yAxis:Cross(axis).Unit,
+		HalfLength = (if runsAlongX then size.X else size.Z) / 2,
+		HalfWidth = (if runsAlongX then size.Z else size.X) / 2,
+		FloorY = floorY,
+	}
+end
+
+local function rectangleFromPart(part: BasePart): Rectangle
+	return rectangleFromBounds(part.CFrame, part.Size, part.Position.Y + part.Size.Y / 2)
+end
+
+local function rectangleFromHallway(hallway: Hallways.Hallway): Rectangle
+	return {
+		Center = hallway.Center,
+		Axis = hallway.Axis,
+		Across = hallway.Across,
+		HalfLength = hallway.HalfLength,
+		HalfWidth = hallway.HalfWidth,
+		FloorY = hallway.FloorY,
+	}
+end
+
+local function rectanglesTouch(first: Rectangle, second: Rectangle, gap: number): boolean
+	if math.abs(first.FloorY - second.FloorY) > 4 then return false end
+
+	for _, axis in { first.Axis, first.Across, second.Axis, second.Across } do
+		local offset = math.abs((second.Center - first.Center):Dot(axis))
+		local firstRadius = first.HalfLength * math.abs(first.Axis:Dot(axis))
+			+ first.HalfWidth * math.abs(first.Across:Dot(axis))
+		local secondRadius = second.HalfLength * math.abs(second.Axis:Dot(axis))
+			+ second.HalfWidth * math.abs(second.Across:Dot(axis))
+		if offset > firstRadius + secondRadius + gap then return false end
+	end
+	return true
+end
+
+local function segmentIntersection(first: Hallways.StraightSpan, second: Hallways.StraightSpan): Vector3?
+	local firstDirection = first.Finish - first.Start
+	local secondDirection = second.Finish - second.Start
+	local determinant = firstDirection.X * secondDirection.Z - firstDirection.Z * secondDirection.X
+	if math.abs(determinant) < 1e-4 then return nil end
+
+	local between = second.Start - first.Start
+	local firstAlpha = (between.X * secondDirection.Z - between.Z * secondDirection.X) / determinant
+	local secondAlpha = (between.X * firstDirection.Z - between.Z * firstDirection.X) / determinant
+	if firstAlpha < -0.01 or firstAlpha > 1.01 or secondAlpha < -0.01 or secondAlpha > 1.01 then
+		return nil
+	end
+	return first.Start:Lerp(first.Finish, math.clamp(firstAlpha, 0, 1))
+end
 
 local function getSoundParent(model: Model): BasePart?
 	local parents = {}
@@ -123,6 +212,13 @@ local function disable(model: Model)
 	end
 end
 
+local function addModel(claim: LightClaim, seen: { [Model]: boolean }, model: Model)
+	if seen[model] then return end
+	seen[model] = true
+	disable(model)
+	table.insert(claim.Models, model)
+end
+
 local function restore(model: Model)
 	local state = DisabledModels[model]
 	if not state then return end
@@ -145,7 +241,7 @@ end
 
 local function containsHallway(hallway: Hallways.Hallway, position: Vector3): boolean
 	local height = position.Y - hallway.FloorY
-	if height > 24 or height < -4 then return false end
+	if height > HALLWAY_HEIGHT_WINDOW or height < -HALLWAY_BELOW_WINDOW then return false end
 
 	local offset = position - hallway.Center
 	return math.abs(offset:Dot(hallway.Axis)) <= hallway.HalfLength
@@ -160,10 +256,7 @@ function LightService:DisableNear(position: Vector3, radius: number): LightClaim
 		Released = false,
 	}
 
-	for _, instance in TagService:GetTaggedOfPredicate(FLOOR_1_LIGHT_TAG, function(tagged: Instance)
-		return tagged:IsA("Model")
-	end) do
-		local model = instance :: Model
+	for _, model in LightService:GetModels() do
 		if (model:GetPivot().Position - position).Magnitude <= radius then
 			disable(model)
 			table.insert(claim.Models, model)
@@ -198,6 +291,131 @@ function LightService:DisableAlongHallway(position: Vector3, distance: number): 
 	return claim
 end
 
+local function hallwaysInSpan(span: Hallways.StraightSpan): { Hallways.Hallway }
+	local result = {}
+	for _, hallway in Hallways.All(true) do
+		local axisAlignment = math.abs(hallway.Axis:Dot(span.Axis))
+		local offset = hallway.Center - span.Center
+		local along = offset:Dot(span.Axis)
+		local across = math.abs(offset:Dot(Vector3.yAxis:Cross(span.Axis).Unit))
+		local alongOverlap = math.abs(along) <= span.Length / 2 + hallway.HalfLength + SPAN_EPSILON
+		local parallel = axisAlignment >= 1 - 1e-4
+		local sameNonParallel = false
+		if not parallel then
+			local candidate = Hallways.StraightSpanAt(hallway.Center, span.Axis)
+			sameNonParallel = candidate ~= nil and sameSpan(candidate, span)
+		end
+		if math.abs(hallway.FloorY - span.Start.Y) <= 4
+			and ((parallel and across <= hallway.HalfWidth + ROOM_CONNECTION_GAP and alongOverlap)
+				or (not parallel and sameNonParallel))
+		then
+			table.insert(result, hallway)
+		end
+	end
+	return result
+end
+
+local function connectedRooms(spanHallways: { Hallways.Hallway }): { [Model]: boolean }
+	local rooms: { [Model]: boolean } = {}
+	for _, instance in TagService:GetTaggedOfPredicate(ROOM_TAG, function(tagged: Instance)
+		return tagged:IsA("Model") and tagged:IsDescendantOf(workspace)
+	end) do
+		local room = instance :: Model
+		local floor = room:FindFirstChild("Floor", true)
+		local roomRectangle
+		if floor and floor:IsA("BasePart") then
+			roomRectangle = rectangleFromPart(floor)
+		else
+			local boundsCFrame, boundsSize = room:GetBoundingBox()
+			roomRectangle = rectangleFromBounds(boundsCFrame, boundsSize, boundsCFrame.Position.Y - boundsSize.Y / 2)
+		end
+		for _, hallway in spanHallways do
+			if rectanglesTouch(roomRectangle, rectangleFromHallway(hallway), ROOM_CONNECTION_GAP) then
+				rooms[room] = true
+				break
+			end
+		end
+	end
+	return rooms
+end
+
+local function branchConnections(span: Hallways.StraightSpan): { BranchConnection }
+	local connections = {}
+	for _, other in Hallways.StraightSpans() do
+		if sameSpan(other, span) then continue end
+		local intersection = segmentIntersection(span, other)
+		if intersection then
+			table.insert(connections, {
+				Span = other,
+				Along = (intersection - other.Center):Dot(other.Axis),
+				Hallways = hallwaysInSpan(other),
+			})
+		end
+	end
+	return connections
+end
+
+local function containsAnyHallway(hallways: { Hallways.Hallway }, position: Vector3): boolean
+	for _, hallway in hallways do
+		if containsHallway(hallway, position) then return true end
+	end
+	return false
+end
+
+--- Disables the complete straight hallway containing `position`, using the same span calculation as
+--- the Sisters. It also disables every lamp in a room whose floor touches that span and the first
+--- `connectedDistance` studs of every straight hallway that intersects it.
+---
+--- The claim is released in the usual way; overlapping effects keep each lamp dark until all claims
+--- are released.
+function LightService:DisableHallway(
+	position: Vector3,
+	preferredDirection: Vector3?,
+	connectedDistance: number?
+): LightClaim
+	local claim: LightClaim = {
+		Models = {},
+		Released = false,
+	}
+	local span = Hallways.StraightSpanAt(position, preferredDirection)
+	if not span then return claim end
+
+	local seen: { [Model]: boolean } = {}
+	local spanHallways = hallwaysInSpan(span)
+	local rooms = connectedRooms(spanHallways)
+	local branches = branchConnections(span)
+	local branchRange = math.max(connectedDistance or 0, 0)
+
+	for _, model in LightService:GetModels() do
+		local modelPosition = model:GetPivot().Position
+		local isConnected = containsAnyHallway(spanHallways, modelPosition)
+		if not isConnected and branchRange > 0 then
+			for _, connection in branches do
+				local modelAlong = (modelPosition - connection.Span.Center):Dot(connection.Span.Axis)
+				if containsAnyHallway(connection.Hallways, modelPosition)
+					and math.abs(modelAlong - connection.Along) <= branchRange
+				then
+					isConnected = true
+					break
+				end
+			end
+		end
+
+		if not isConnected then
+			for room in rooms do
+				if model:IsDescendantOf(room) then
+					isConnected = true
+					break
+				end
+			end
+		end
+
+		if isConnected then addModel(claim, seen, model) end
+	end
+
+	return claim
+end
+
 function LightService:Release(claim: LightClaim)
 	if claim.Released then return end
 	claim.Released = true
@@ -207,14 +425,22 @@ function LightService:Release(claim: LightClaim)
 	end
 end
 
---- Every tagged floor-light model. Callers that plan effects along a route use the model pivots to
---- decide which lights are affected.
+--- Every owning model referenced by a `Floor1Light` tag. Map assets tag both lamp models and some of
+--- their child light parts, so child tags collapse onto one model instead of being missed or claimed
+--- twice.
 function LightService:GetModels(): { Model }
 	local models = {}
+	local seen: { [Model]: boolean } = {}
 	for _, instance in TagService:GetTaggedOfPredicate(FLOOR_1_LIGHT_TAG, function(tagged: Instance)
-		return tagged:IsA("Model")
+		return tagged:IsDescendantOf(workspace)
 	end) do
-		table.insert(models, instance :: Model)
+		local model = if instance:IsA("Model")
+			then instance
+			else instance:FindFirstAncestorOfClass("Model")
+		if model and not seen[model] then
+			seen[model] = true
+			table.insert(models, model)
+		end
 	end
 	return models
 end

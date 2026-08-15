@@ -117,7 +117,8 @@ export type EnemyConfig = {
 	DriftMargin: number?, -- studs past a corridor's edges it may drift, which is how it gets outside
 
 	-- Creep-specific
-	LightRange: number?, -- studs along its hallway in which tagged light models are disabled
+	LightRange: number?, -- studs around it used for discovery
+	ConnectedHallwayLightRange: number?, -- studs into hallways joined to its own
 	DespawnRange: number?, -- studs at which a nearby player makes it disappear
 
 	-- Eye-specific. Damage is a rate rather than a hit: what costs you is how long you look and how
@@ -565,6 +566,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 		WalkSpeed = 0, -- unused; Creep does not use the humanoid-backed NPC chassis
 		LightRange = CreepConfig.LightRange,
+		ConnectedHallwayLightRange = CreepConfig.ConnectedHallwayLightRange,
 		DespawnRange = 96,
 		CommandSpawnDistance = 128,
 

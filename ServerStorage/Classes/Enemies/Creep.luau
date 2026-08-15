@@ -1,5 +1,6 @@
 --- @class Creep
---- A stationary ambient enemy with no Humanoid. It extinguishes floor lights along its hallway and
+--- A stationary ambient enemy with no Humanoid. It extinguishes its complete hallway, connected rooms,
+--- and a short stretch of any hallway joining it, then
 --- disappears as soon as a player comes close.
 
 local Players = game:GetService("Players")
@@ -59,10 +60,14 @@ function Creep:Start()
 	self.RootPart.Anchored = true
 	self.Model:AddTag(ENEMY_TAG)
 	self.Model:AddTag(CREEP_TAG)
-	self.LightClaim = LightService:DisableAlongHallway(self.RootPart.Position, self.Config.LightRange)
+	self.LightClaim = LightService:DisableHallway(
+		self.RootPart.Position,
+		self.RootPart.CFrame.LookVector,
+		self.Config.ConnectedHallwayLightRange
+	)
 
-	-- A Creep is the one enemy holding something that outlives it: a stretch of hallway it has turned
-	-- off. Going through `Despawn` hands that back, but anything that destroys the model without
+	-- A Creep is the one enemy holding something that outlives it: a hallway and its attached spaces
+	-- it has turned off. Going through `Despawn` hands that back, but anything that destroys the model without
 	-- asking -- and the model outliving its object is exactly what `EnemyService` watches for -- would
 	-- otherwise leave those lamps dark for the rest of the round with nothing left alive to claim them.
 	-- Releasing twice is a no-op, so this costs the ordinary path nothing.

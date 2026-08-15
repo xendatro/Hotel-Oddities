@@ -1,7 +1,9 @@
---- Shared Creep presentation tuning. The server reads `LightRange` to extinguish its hallway, while
+--- Shared Creep presentation tuning. The server reads `LightRange` for its discovery radius and
+--- `ConnectedHallwayLightRange` for the short spill into hallways that meet its own, while
 --- each client turns the thing itself and places its own backdrop from the rest.
 return {
-	LightRange = 80, -- studs along its hallway that it puts out around itself
+	LightRange = 80, -- studs used for discovery around the Creep
+	ConnectedHallwayLightRange = 15, -- studs into each hallway joined to its own
 
 	--- How fast it comes round to face a viewer, as the fraction of the angle left closed per second.
 	--- Quick: what turns is the pair of glowing points, and a pair that lags a strafing player reads

@@ -140,8 +140,8 @@ DiscoveryConfig.Rules = {
 	Creep = {
 		-- Nothing to look at. Two red points on an invisible slab, and a `ViewportFrame` cannot even
 		-- draw its emitters -- what a player meets is the corridor going dark around them, so that is
-		-- what counts. Range matches the radius it puts lights out in, which makes "discovered it"
-		-- and "stood in the dark it made" the same event.
+		-- what counts. The proximity range stays local to the Creep even though its light claim now
+		-- covers the full straight hallway and the rooms attached to it.
 		-- Scaled down alongside the sight rates rather than left where it was: proximity is the same
 		-- passive trickle by another name, and at the old rate standing in one Creep's dark would have
 		-- finished its entry in the time it takes to half-fill anything else's.
