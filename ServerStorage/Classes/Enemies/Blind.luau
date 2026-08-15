@@ -11,6 +11,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local NoiseService = require(ServerStorage.Services.NoiseService)
 local NPC = require(ServerStorage.Classes.NPC)
+local RoomService = require(ServerStorage.Services.RoomService)
 
 local PERCEPTION_INTERVAL = 0.1
 
@@ -98,7 +99,12 @@ local function investigate(_changeState: StateMachine.ChangeState, npc: any)
 
 	local caught = nil :: Player?
 	local lastKnown = npc.HeardPosition or npc.RootPart.Position
+	local safeRoom = nil :: Model?
 	npc:Pursue(function()
+		if npc.HeardSource and RoomService:IsInRoom(npc.HeardSource) then
+			safeRoom = RoomService:GetRoom(npc.HeardSource)
+			return nil
+		end
 		local goal = npc.HeardPosition
 		if goal then
 			lastKnown = goal
@@ -119,6 +125,9 @@ local function investigate(_changeState: StateMachine.ChangeState, npc: any)
 
 	if caught then
 		return "Attack", npc, caught
+	end
+	if safeRoom then
+		return "RoomReaction", npc, safeRoom
 	end
 
 	return "Search", npc, lastKnown
@@ -159,6 +168,10 @@ local function search(_changeState: StateMachine.ChangeState, npc: any, lastKnow
 	return "Idle", npc
 end
 
+local function roomReaction(changeState: StateMachine.ChangeState, npc: any, room: Model)
+	return NPC.SharedStates.RoomReaction(changeState, npc, room)
+end
+
 function Blind.new(model: Model, config)
 	local self = NPC.new(model, config, Blind)
 	self.HeardNoise = nil
@@ -183,13 +196,14 @@ function Blind:BuildStateMachine(): StateMachine.StateMachine
 		Investigate = investigate,
 		Attack = attack,
 		Search = search,
+		RoomReaction = roomReaction,
 		Stunned = NPC.SharedStates.Stunned,
 	}, {
 		-- A sound only pulls it away from quiet work. During an investigation, the evaluator updates
 		-- `HeardPosition` in place so `Pursue` can repath without restarting the whole state every step.
 		Noise = { "Idle", "Wander", "Patrol", "Search" },
 		Contact = { "Idle", "Wander", "Patrol", "Investigate", "Search" },
-		Impact = { "Idle", "Wander", "Patrol", "Investigate", "Attack", "Search" },
+		Impact = { "Idle", "Wander", "Patrol", "Investigate", "Attack", "Search", "RoomReaction" },
 	}, {
 		Hearing = function()
 			local lastSequence = 0

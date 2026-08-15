@@ -20,6 +20,7 @@ local MimicMotion = require(ReplicatedStorage.Modules.MimicMotion)
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local EnemyDiscoveryService = require(ServerStorage.Services.EnemyDiscoveryService)
 local NPC = require(ServerStorage.Classes.NPC)
+local RoomService = require(ServerStorage.Services.RoomService)
 
 local PERCEPTION_INTERVAL = 0.25
 local SUPERVISE_INTERVAL = 0.1 -- how often the act is re-examined while the client does the moving
@@ -585,7 +586,12 @@ local function chase(_changeState: StateMachine.ChangeState, npc: any, target: P
 	EnemyDiscoveryService:GrantEvent(target, npc.EnemyId)
 
 	local lastKnown = npc.RootPart.Position
+	local safeRoom = nil :: Model?
 	local result = npc:Pursue(function()
+		if RoomService:IsInRoom(target) then
+			safeRoom = RoomService:GetRoom(target)
+			return nil
+		end
 		local position = npc:GetTargetPosition(target)
 		if position then
 			lastKnown = position
@@ -601,6 +607,9 @@ local function chase(_changeState: StateMachine.ChangeState, npc: any, target: P
 		return "Attack", npc, target
 	end
 	npc.EncounterMode = nil
+	if safeRoom then
+		return "RoomReaction", npc, safeRoom
+	end
 	return "Search", npc, lastKnown
 end
 
@@ -640,6 +649,11 @@ local function search(_changeState: StateMachine.ChangeState, npc: any, _lastKno
 	npc:StopMirroring()
 	npc:SetSpeed(npc.Config.WalkSpeed)
 	return "Patrol", npc
+end
+
+local function roomReaction(changeState: StateMachine.ChangeState, npc: any, room: Model)
+	npc.EncounterMode = nil
+	return NPC.SharedStates.RoomReaction(changeState, npc, room)
 end
 
 --- Held still by a trap or a paper ball. Takes the rig back first: a stunned mimic that a client is
@@ -827,12 +841,13 @@ function Mimic:BuildStateMachine(): StateMachine.StateMachine
 		Chase = chase,
 		Attack = attack,
 		Search = search,
+		RoomReaction = roomReaction,
 		Stunned = stunned,
 	}, {
 		-- Spotting someone starts the act, but nothing interrupts the act except the act ending.
 		Perception = { "Idle", "Wander", "Patrol", "Search", "AfkIdle" },
 		-- A trap or a paper ball lands whatever it is doing, including mid-performance.
-		Impact = { "Idle", "AfkIdle", "Wander", "Patrol", "Search", "Stalk", "Chase", "Attack" },
+		Impact = { "Idle", "AfkIdle", "Wander", "Patrol", "Search", "Stalk", "Chase", "Attack", "RoomReaction" },
 	}, {
 		Perception = function()
 			while true do

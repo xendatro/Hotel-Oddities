@@ -8,6 +8,7 @@
 local PathfindingService = game:GetService("PathfindingService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
@@ -45,6 +46,9 @@ local PREFETCH_DESTINATION_TOLERANCE = 1 -- and its guessed destination, unless 
 -- wider than the default camera, because the cost of being generous is an enemy that waits a moment
 -- longer, and the cost of being stingy is one that moves while you are looking at it.
 local FALLBACK_FIELD_OF_VIEW = 100
+local ROOM_REACTION_DURATION = 3.5
+local ROOM_REACTION_TURN_TIME = 0.45
+local FORCED_DOORWAY_ATTRIBUTE = "ForcedDoorway"
 
 local PATROL_NODE_HEIGHT = 3 -- studs above a corridor node the walk goal is put, clear of the slab
 local PATROL_BLOCKED_WAIT = 0.4 -- seconds before a patrol that could not path anywhere tries again
@@ -166,6 +170,7 @@ end
 function NPC:Despawn()
 	if not self.Active then return end
 	self.Active = false
+	self:SetForcedDoorway(nil)
 
 	ByModel[self.Model] = nil
 	self:_discardPrefetch()
@@ -189,6 +194,10 @@ function NPC:StopMoving()
 	self.Humanoid:MoveTo(self.RootPart.Position)
 end
 
+function NPC:SetForcedDoorway(doorway: Model?)
+	self.Model:SetAttribute(FORCED_DOORWAY_ATTRIBUTE, doorway and doorway.Name or nil)
+end
+
 --- Hands simulation of this rig to `player`, or back to the server with nil. An enemy whose movement
 --- is driven by one client has to be owned by that client, or every frame of it arrives late.
 function NPC:SetNetworkOwner(player: Player?)
@@ -205,6 +214,53 @@ function NPC:FaceTowards(position: Vector3)
 	local flat = Vector3.new(position.X, origin.Y, position.Z)
 	if (flat - origin).Magnitude < 1e-3 then return end
 	self.RootPart.CFrame = CFrame.lookAt(origin, flat)
+end
+
+--- Turns in place over a few frames, so arriving at a doorway does not end in a body snap.
+function NPC:TurnTowardsSmooth(position: Vector3, duration: number?)
+	local origin = self.RootPart.Position
+	local flat = Vector3.new(position.X, origin.Y, position.Z)
+	if (flat - origin).Magnitude < 1e-3 then return end
+
+	local start = self.RootPart.CFrame
+	local target = CFrame.lookAt(origin, flat)
+	local elapsed = 0
+	local turnTime = duration or ROOM_REACTION_TURN_TIME
+	while elapsed < turnTime do
+		elapsed += RunService.Heartbeat:Wait()
+		self.RootPart.CFrame = start:Lerp(target, math.clamp(elapsed / turnTime, 0, 1))
+	end
+	self.RootPart.CFrame = target
+end
+
+--- Walks to the hall side of a room door, settles, and plays the temporary reaction emote. The
+--- movement is still a normal path through the hallway; this only supplies the shared destination
+--- and timing so each enemy can replace the reaction state later without changing chase logic.
+function NPC:ReactAtRoomDoor(room: Model): boolean
+	local doorway = RoomService:GetDoorway(room)
+	self:SetForcedDoorway(doorway)
+	local agentParams = self.Config.AgentParams or {}
+	local approach, doorPosition = RoomService:GetDoorApproach(room, agentParams.AgentRadius or 2.5)
+	if not approach or not doorPosition then
+		self:SetForcedDoorway(nil)
+		return false
+	end
+
+	self.Animator:Resume()
+	self:SetSpeed(self.Config.WalkSpeed)
+	local arrived = self:WalkTo(approach)
+	self:StopMoving()
+	self:SetSpeed(0)
+	if not arrived then
+		self:SetForcedDoorway(nil)
+		return false
+	end
+
+	self:TurnTowardsSmooth(doorPosition)
+	self.Animator:PlayEmote("cheer")
+	task.wait(ROOM_REACTION_DURATION)
+	self:SetForcedDoorway(nil)
+	return true
 end
 
 function NPC:_computePath(origin: Vector3, destination: Vector3): Path?
@@ -1039,6 +1095,7 @@ end
 --- paper ball put an enemy into; enter it with the `Impact` reason so it can cut off a chase.
 function NPC.SharedStates.Stunned(_changeState: StateMachine.ChangeState, npc: any, duration: number)
 	npc.Target = nil
+	npc:SetForcedDoorway(nil)
 	npc:SetSpeed(0)
 	npc:StopMoving()
 	npc.Animator:Pause()
@@ -1047,6 +1104,18 @@ function NPC.SharedStates.Stunned(_changeState: StateMachine.ChangeState, npc: a
 
 	npc.Animator:Resume()
 	return "Idle", npc
+end
+
+--- Follows a player to the edge of a safe room, then celebrates the escape. It is shared for now so
+--- the four pursuit enemies get the same test behavior; an enemy can replace this state when its
+--- authored reaction is ready.
+function NPC.SharedStates.RoomReaction(_changeState: StateMachine.ChangeState, npc: any, room: Model)
+	npc.Target = nil
+	if npc.StopMirroring then
+		npc:StopMirroring()
+	end
+	npc:ReactAtRoomDoor(room)
+	return "Patrol", npc
 end
 
 --- Terminal state: tears the NPC down and never resolves, so the machine stops here.

@@ -65,6 +65,7 @@ export type NpcAnimator = typeof(setmetatable(
 		Tracks: { [string]: AnimationTrack? },
 		Emote: AnimationTrack?,
 		Emotes: { AnimationTrack },
+		EmoteTracks: { [string]: { AnimationTrack } },
 		Set: AnimationConfig.AnimationSet,
 		Attacks: { AnimationTrack },
 		Rate: number,
@@ -136,7 +137,7 @@ function NpcAnimator.new(model: Model, set: AnimationConfig.AnimationSet?)
 	self.Animate = model.Animate
 	self.Animate.Disabled = true
 	self.Tracks = self:_loadTracks()
-	self.Emotes = self:_loadEmotes()
+	self.Emotes, self.EmoteTracks = self:_loadEmotes()
 	self.Attacks = self:_loadAttacks()
 
 	return self
@@ -167,27 +168,34 @@ end
 
 function NpcAnimator:_loadEmotes()
 	local emotes = {}
+	local byName = {}
 	for _, name in EMOTE_CONTAINERS do
 		local container = self.Animate:FindFirstChild(name)
 		if container then
+			local named = {}
 			for _, descendant in container:GetDescendants() do
 				if descendant:IsA("Animation") then
-					table.insert(emotes, loadEmote(self.Animator, descendant))
+					local track = loadEmote(self.Animator, descendant)
+					table.insert(emotes, track)
+					table.insert(named, track)
 				end
 			end
+			if #named > 0 then byName[name] = named end
 		end
 	end
-	return emotes
+	return emotes, byName
 end
 
 --- Plays a random emote over whatever it is standing in. Refuses while it is moving, already
 --- emoting, or held still deliberately -- an emote layered onto a walk is two clips fighting for the
 --- same joints, which is the whole reason this lives next to the locomotion rather than beside it.
-function NpcAnimator:PlayEmote(): boolean
+function NpcAnimator:PlayEmote(name: string?): boolean
 	if self.Paused or self.Emote or #self.Emotes == 0 then return false end
 	if self:_isMoving() then return false end
 
-	local track = self.Emotes[math.random(#self.Emotes)]
+	local choices = if name then self.EmoteTracks[name] else self.Emotes
+	if not choices or #choices == 0 then return false end
+	local track = choices[math.random(#choices)]
 	self.Emote = track
 	track:Play(TRANSITION_TIME)
 	task.delay(MimicConfig.EmoteDuration, function()
@@ -418,7 +426,7 @@ function NpcAnimator:Reload()
 	self.Paused = false
 	self._stoppedSince = nil
 	self.Tracks = self:_loadTracks()
-	self.Emotes = self:_loadEmotes()
+	self.Emotes, self.EmoteTracks = self:_loadEmotes()
 
 	-- Only pick playback back up if this animator is the one driving: a rig handed to a client is
 	-- animated there, and a reload here would put a second clip on it.

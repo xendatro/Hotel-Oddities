@@ -7,6 +7,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local NPC = require(ServerStorage.Classes.NPC)
+local RoomService = require(ServerStorage.Services.RoomService)
 
 local PERCEPTION_INTERVAL = 0.25
 local CHASE_TARGET_ATTRIBUTE = "ChaseTargetUserId"
@@ -50,7 +51,12 @@ local function chase(_changeState: StateMachine.ChangeState, npc: any, target: P
 	npc:SetSpeed(npc.Config.ChaseSpeed)
 
 	local lastKnown = npc.RootPart.Position
+	local safeRoom = nil :: Model?
 	local result = npc:Pursue(function()
+		if RoomService:IsInRoom(target) then
+			safeRoom = RoomService:GetRoom(target)
+			return nil
+		end
 		local position = npc:GetTargetPosition(target)
 		if position then
 			lastKnown = position
@@ -64,6 +70,9 @@ local function chase(_changeState: StateMachine.ChangeState, npc: any, target: P
 
 	if result == "Reached" then
 		return "Attack", npc, target
+	end
+	if safeRoom then
+		return "RoomReaction", npc, safeRoom
 	end
 	return "Search", npc, lastKnown
 end
@@ -96,6 +105,11 @@ local function search(_changeState: StateMachine.ChangeState, npc: any, _lastKno
 	return "Patrol", npc
 end
 
+local function roomReaction(changeState: StateMachine.ChangeState, npc: any, room: Model)
+	clearChaseTarget(npc)
+	return NPC.SharedStates.RoomReaction(changeState, npc, room)
+end
+
 function Chaser.new(model: Model, config)
 	return NPC.new(model, config, Chaser)
 end
@@ -111,12 +125,13 @@ function Chaser:BuildStateMachine(): StateMachine.StateMachine
 		Chase = chase,
 		Attack = attack,
 		Search = search,
+		RoomReaction = roomReaction,
 		Stunned = stunned,
 	}, {
 		-- Spotting a player pulls the chaser off anything idle, but never out of a swing.
 		Perception = { "Idle", "Wander", "Patrol", "Search" },
 		-- A trap or a paper ball lands whatever it is doing, but cannot re-stun a stunned chaser.
-		Impact = { "Idle", "Wander", "Patrol", "Search", "Chase", "Attack" },
+		Impact = { "Idle", "Wander", "Patrol", "Search", "Chase", "Attack", "RoomReaction" },
 	}, {
 		Perception = function()
 			while true do

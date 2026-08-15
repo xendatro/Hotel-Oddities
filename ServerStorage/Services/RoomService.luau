@@ -1,4 +1,5 @@
 local Players = game:GetService("Players")
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -125,6 +126,55 @@ end
 --- Whether a player is currently safe from enemies that respect rooms.
 function RoomService:IsInRoom(player: Player): boolean
 	return PlayerRooms[player] ~= nil
+end
+
+--- Finds the swinging doorway belonging to `room`. Room and doorway models share an authored id;
+--- the nearest tagged doorway is a fallback for older maps that do not follow that naming rule.
+function RoomService:GetDoorway(room: Model): Model?
+	local suffix = room.Name:match("^Room_(.+)$")
+	local nearest: Model? = nil
+	local nearestDistance = math.huge
+	local roomPosition = room:GetPivot().Position
+
+	for _, instance in CollectionService:GetTagged("Doorway") do
+		if not instance:IsA("Model") or not instance:HasTag("RoomDoor") then continue end
+		local doorway = instance :: Model
+		if suffix and doorway.Name == `Doorway_{suffix}` then
+			return doorway
+		end
+
+		local position = doorway:GetPivot().Position
+		if math.abs(position.Y - roomPosition.Y) <= 8 then
+			local distance = (position - roomPosition).Magnitude
+			if distance < nearestDistance then
+				nearest, nearestDistance = doorway, distance
+			end
+		end
+	end
+
+	return nearest
+end
+
+--- Returns a floor point outside a room's doorway and the point the enemy should face after arriving.
+--- The offset keeps the whole agent in the hall, where the room's pathfinding blocker cannot pull it
+--- through the threshold.
+function RoomService:GetDoorApproach(room: Model, agentRadius: number): (Vector3?, Vector3?)
+	local doorway = self:GetDoorway(room)
+	if not doorway then return nil, nil end
+
+	local threshold = doorway:FindFirstChild("Threshold", true)
+	local thresholdPart: BasePart? = if threshold and threshold:IsA("BasePart") then threshold else nil
+	local doorPosition = if thresholdPart then thresholdPart.Position else doorway:GetPivot().Position
+	local roomCFrame = room:GetBoundingBox()
+	local outward = Vector3.new(doorPosition.X - roomCFrame.Position.X, 0, doorPosition.Z - roomCFrame.Position.Z)
+	if outward.Magnitude < 1e-3 then
+		outward = Vector3.new(doorway:GetPivot().Position.X - roomCFrame.Position.X, 0, doorway:GetPivot().Position.Z - roomCFrame.Position.Z)
+	end
+	if outward.Magnitude < 1e-3 then return nil, nil end
+
+	local distance = math.max(agentRadius + 0.75, 3.25)
+	local approach = doorPosition + outward.Unit * distance
+	return Vector3.new(approach.X, doorPosition.Y, approach.Z), doorPosition
 end
 
 RunService.Heartbeat:Connect(function(deltaTime: number)

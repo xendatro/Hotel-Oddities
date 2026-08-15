@@ -34,14 +34,19 @@ end
 
 -- Enemy models are server-created and tagged, and the tag replicates, so a client can place them
 -- without being told about each one.
-local function enemyPositions(): { Vector3 }
+local function enemyPositions(): ({ Vector3 }, { [string]: boolean })
 	local positions = {}
+	local forcedDoorways = {}
 	for _, model in CollectionService:GetTagged(DoorConfig.EnemyTag) do
 		if model:IsA("Model") then
 			table.insert(positions, model:GetPivot().Position)
+			local doorwayName = model:GetAttribute("ForcedDoorway")
+			if typeof(doorwayName) == "string" then
+				forcedDoorways[doorwayName] = true
+			end
 		end
 	end
-	return positions
+	return positions, forcedDoorways
 end
 
 -- Nearest of `positions` to a slab's middle, skipping anything on another floor.
@@ -82,9 +87,20 @@ local function inSwingingDoorway(part: BasePart): boolean
 	return false
 end
 
+local function doorwayFor(part: BasePart): Model?
+	local instance: Instance? = part.Parent
+	while instance and instance ~= workspace do
+		if instance:IsA("Model") and instance:HasTag("Doorway") and instance:HasTag("RoomDoor") then
+			return instance
+		end
+		instance = instance.Parent
+	end
+	return nil
+end
+
 local function poll()
 	local positions = livingPositions()
-	local enemies = enemyPositions()
+	local enemies, forcedDoorways = enemyPositions()
 
 	for door in Active do
 		local center = door.Center
@@ -93,7 +109,9 @@ local function poll()
 		-- asking whether they are close enough to open it.
 		local _, enemyDistance = nearestTo(enemies, center)
 		local forceLimit = door.Forced and DoorConfig.EnemyReleaseDistance or DoorConfig.EnemyForceDistance
-		door:SetForced(enemyDistance <= forceLimit)
+		local doorway = doorwayFor(door.Part)
+		local forceForReaction = doorway ~= nil and forcedDoorways[doorway.Name] == true
+		door:SetForced(forceForReaction or enemyDistance <= forceLimit)
 
 		local nearest, nearestDistance = nearestTo(positions, center)
 		local limit = door:IsOpen() and DoorConfig.CloseDistance or DoorConfig.OpenDistance
