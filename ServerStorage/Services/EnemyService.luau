@@ -1,4 +1,3 @@
-local CollectionService = game:GetService("CollectionService")
 local PhysicsService = game:GetService("PhysicsService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -6,42 +5,9 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
-local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 
 local EnemyService = {}
 local ActiveEnemies = {}
-
--- A Stalker is an ambush. Check the exact spawn transform again after placement has been chosen so a
--- player turning during that small gap cannot watch it appear. The director performs the same check
--- while it samples points; this final guard also covers command and service-created spawns.
-local STALKER_SIGHT_HEIGHTS = { 1.5, 4.5, 7 }
-
-local function isStalkerSpawnVisible(position: Vector3): boolean
-	local filter = {}
-	for _, player in Players:GetPlayers() do
-		if player.Character then
-			table.insert(filter, player.Character)
-		end
-	end
-	for _, model in CollectionService:GetTagged("Enemy") do
-		table.insert(filter, model)
-	end
-
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = filter
-	params.RespectCanCollide = true
-
-	for _, eye in EnemyObservationService:GetEyes() do
-		for _, height in STALKER_SIGHT_HEIGHTS do
-			local direction = position + Vector3.yAxis * height - eye
-			if direction.Magnitude < 1e-3 or workspace:Raycast(eye, direction, params) == nil then
-				return true
-			end
-		end
-	end
-	return false
-end
 
 --- Every enemy rig in the world sits in this group, and the group does not collide with itself.
 --- Enemies do not collide with players or with one another, but remain solid to the hotel geometry.
@@ -125,9 +91,6 @@ end
 --- is placed on a corner that had to be found before there was a model to place.
 function EnemyService:Spawn(enemyId: string, spawnCFrame: CFrame, ...: any)
 	if not FLAGS.Enemies then return nil end
-	if enemyId == "Stalker" and isStalkerSpawnVisible(spawnCFrame.Position) then
-		return nil
-	end
 
 	local config = EnemyConfigs[enemyId]
 	local enemyClass = require(ServerStorage.Classes.Enemies:WaitForChild(enemyId))

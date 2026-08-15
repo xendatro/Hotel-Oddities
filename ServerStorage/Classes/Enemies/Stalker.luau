@@ -11,10 +11,10 @@
 --- do turn round, it is already an arm's length away.
 ---
 --- Looked at by anybody, it breaks away from whoever is looking and runs for the nearest cover
---- `HideSpotService` can offer. The run only has to carry it out of sight -- shortly after nobody can
---- see it, it leaves entirely -- so it goes round the corner rather than to the far end of the
---- building, and every step of it is away from the eyes that caught it. Holding it in view for all
---- of `FleeTime` also forces it out.
+--- `HideSpotService` can offer. The run only has to carry it out of sight -- the moment nobody can see
+--- it, it leaves entirely -- so it goes round the corner rather than to the far end of the building,
+--- and every step of it is away from the eyes that caught it. Holding it in view for all of `FleeTime`
+--- also forces it out.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
@@ -437,13 +437,8 @@ local function flee(_changeState: StateMachine.ChangeState, npc: any)
 	npc:SetSpeed(config.FleeSpeed)
 
 	local despawnAt = os.clock() + config.FleeTime
-	-- Keep the retreat alive for a short beat after the last sighting. Without this, the first report
-	-- that says "not on screen" can remove the Stalker halfway across the open floor instead of letting
-	-- it reach the cover it was already running toward.
-	local hideUntil = os.clock() + (config.FleeHideTime or 1.5)
 	local function shouldDespawn(): boolean
-		if os.clock() >= despawnAt then return true end
-		return not npc:IsObserved() and os.clock() >= hideUntil
+		return not npc:IsObserved() or os.clock() >= despawnAt
 	end
 
 	local options = { Range = config.FleeCoverRange, MinDistance = config.FleeCoverMinDistance }
@@ -496,12 +491,7 @@ local function flee(_changeState: StateMachine.ChangeState, npc: any)
 		end
 
 		local from = npc.RootPart.Position
-		-- Once a cover goal has been chosen, finish that leg even if the last sight report has already
-		-- cleared. Stopping the path at `hideUntil` is what makes a retreat vanish in the open instead of
-		-- reaching the corner it was sent to.
-		local result = npc:_sprintTo(spot, function()
-			return os.clock() >= despawnAt
-		end)
+		local result = npc:_sprintTo(spot, shouldDespawn)
 
 		-- The whole enemy hangs off this run working, and there is no way to tell from watching it
 		-- whether a retreat that ended early ran out of map, out of navmesh or out of patience.
@@ -521,11 +511,6 @@ local function flee(_changeState: StateMachine.ChangeState, npc: any)
 		-- is being somewhere else, so each turn back buys a longer blind run away before it looks
 		-- again. Two of those and it is round the corner the hallway did not have.
 		if result == "Reached" then
-			if not npc:IsObserved() then
-				local remaining = hideUntil - os.clock()
-				if remaining > 0 then task.wait(remaining) end
-				break
-			end
 			pause, turnedBack = 0, 0
 		elseif result == "PastThem" then
 			turnedBack += 1

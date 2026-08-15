@@ -159,7 +159,6 @@ export type EnemyConfig = {
 	RevealTurnTime: number?, -- seconds spent forcing the target's camera around to face it
 	RevealHoldTime: number?, -- beat held on it before the charge begins
 	FleeTime: number?, -- seconds of being watched without a break before it gives up and leaves
-	FleeHideTime: number?, -- minimum seconds it keeps retreating after the last sighting
 	FleeCoverRange: number?, -- studs of floor searched around it for somewhere out of sight to run to
 	FleeCoverMinDistance: number?, -- and how far off it must be, so a retreat is never a shuffle on the spot
 
@@ -464,9 +463,8 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		RevealHoldTime = 0.4,
 
 		FleeTime = 15, -- seconds of unbroken watching, not of running: see `Stalker.flee`
-		FleeHideTime = 1.5, -- minimum retreat after a sighting before it is allowed to despawn
 
-		-- It despawns just after nobody can see it, so a retreat only has to reach the far side of
+		-- It despawns the moment nobody can see it, so a retreat only has to reach the far side of
 		-- something. A corridor and a bit: wide enough that a room with one doorway still offers a
 		-- way out, narrow enough that the search is a handful of raycasts rather than a map sweep.
 		FleeCoverRange = 70,
