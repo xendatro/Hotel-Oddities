@@ -633,27 +633,13 @@ local function attack(_changeState: StateMachine.ChangeState, npc: any, target: 
 	return finishEncounter(npc, "Idle")
 end
 
---- Sweeps to where the target was last seen and loiters there before the mask goes back on.
-local function search(_changeState: StateMachine.ChangeState, npc: any, lastKnown: Vector3)
+--- Drops the target and resumes patrolling as soon as the chase ends.
+local function search(_changeState: StateMachine.ChangeState, npc: any, _lastKnown: Vector3)
 	npc.Target = nil
 	npc.Animator:Resume()
 	npc:StopMirroring()
 	npc:SetSpeed(npc.Config.WalkSpeed)
-	npc:WalkTo(lastKnown)
-	npc:StopMoving()
-
-	local until_ = os.clock() + npc.Config.LoseInterestTime
-	while os.clock() < until_ do
-		local offset = Vector3.new(math.random() - 0.5, 0, math.random() - 0.5) * LOOK_AROUND_DISTANCE
-		local glanceUntil = math.min(until_, os.clock() + npc.Config.SearchLookInterval)
-		local deltaTime = RunService.Heartbeat:Wait()
-		while os.clock() < glanceUntil do
-			npc.RootPart.CFrame = MimicMotion.Turn(npc.RootPart.CFrame, offset, deltaTime)
-			deltaTime = RunService.Heartbeat:Wait()
-		end
-	end
-
-	return "Idle", npc
+	return "Patrol", npc
 end
 
 --- Held still by a trap or a paper ball. Takes the rig back first: a stunned mimic that a client is

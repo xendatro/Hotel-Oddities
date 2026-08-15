@@ -1,7 +1,6 @@
 --- @class Chaser
 --- The plain hunter. Wanders its spawn area until a player crosses the cone in front of it, then
---- runs them down. Ducking into a `Room` breaks its line: it holds the spot it last saw you for
---- `LoseInterestTime` before drifting back to wandering.
+--- runs them down. Ducking into a `Room` breaks its line and sends it straight back to its patrol.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
@@ -10,7 +9,6 @@ local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local NPC = require(ServerStorage.Classes.NPC)
 
 local PERCEPTION_INTERVAL = 0.25
-local LOOK_AROUND_DISTANCE = 10
 local CHASE_TARGET_ATTRIBUTE = "ChaseTargetUserId"
 
 local Chaser = NPC.extend("Chaser")
@@ -89,24 +87,13 @@ local function attack(_changeState: StateMachine.ChangeState, npc: any, target: 
 	return "Idle", npc
 end
 
---- Sweeps to where the target was last seen and loiters there, giving perception a window to
---- re-acquire them when they leave the room.
-local function search(_changeState: StateMachine.ChangeState, npc: any, lastKnown: Vector3)
+--- Drops the target and resumes patrolling as soon as the chase ends.
+local function search(_changeState: StateMachine.ChangeState, npc: any, _lastKnown: Vector3)
 	clearChaseTarget(npc)
 	npc.Target = nil
 	npc.Animator:Resume()
 	npc:SetSpeed(npc.Config.WalkSpeed)
-	npc:WalkTo(lastKnown)
-	npc:StopMoving()
-
-	local until_ = os.clock() + npc.Config.LoseInterestTime
-	while os.clock() < until_ do
-		local offset = Vector3.new(math.random() - 0.5, 0, math.random() - 0.5) * LOOK_AROUND_DISTANCE
-		npc:FaceTowards(npc.RootPart.Position + offset)
-		task.wait(npc.Config.SearchLookInterval)
-	end
-
-	return "Idle", npc
+	return "Patrol", npc
 end
 
 function Chaser.new(model: Model, config)

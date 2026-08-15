@@ -35,7 +35,6 @@ local PERCEPTION_INTERVAL = 0.25
 local HOLD_INTERVAL = 0.1 -- seconds between checks while it stands on a target's back
 local FOLLOW_HYSTERESIS = 2 -- extra studs a target must open up before a held follow starts moving again
 local RETRY_INTERVAL = 0.25 -- seconds before trying for cover again when a retreat did not come off
-local LOOK_AROUND_DISTANCE = 10 -- studs out in front the search glances are aimed
 
 -- Studs of straight-line ground it tries to put between itself and a watcher on the spot, longest
 -- first. Several lengths because the clearance test is a blockcast down the whole span at the rig's
@@ -524,25 +523,13 @@ local function flee(_changeState: StateMachine.ChangeState, npc: any)
 	return "Despawn", npc
 end
 
---- Sweeps the spot a target got away from and has a look round it, which is the one thing it does that
---- is not either patient or violent. Turning up nothing, it goes quiet and starts again on whoever is
---- nearest.
-local function search(_changeState: StateMachine.ChangeState, npc: any, lastKnown: Vector3)
+--- Drops the target and resumes patrolling as soon as the chase ends.
+local function search(_changeState: StateMachine.ChangeState, npc: any, _lastKnown: Vector3)
 	releaseCamera(npc)
 	npc.Target = nil
 	npc.Animator:Resume()
 	npc:SetSpeed(npc.Config.WalkSpeed)
-	npc:WalkTo(lastKnown)
-	npc:StopMoving()
-
-	local until_ = os.clock() + npc.Config.LoseInterestTime
-	while os.clock() < until_ do
-		local offset = Vector3.new(math.random() - 0.5, 0, math.random() - 0.5) * LOOK_AROUND_DISTANCE
-		npc:FaceTowards(npc.RootPart.Position + offset)
-		task.wait(npc.Config.SearchLookInterval)
-	end
-
-	return "Idle", npc
+	return "Patrol", npc
 end
 
 local function stunned(changeState: StateMachine.ChangeState, npc: any, duration: number)

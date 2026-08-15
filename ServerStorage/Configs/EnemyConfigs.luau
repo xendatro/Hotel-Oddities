@@ -36,10 +36,6 @@ export type EnemyConfig = {
 	AttackRange: number?,
 	AttackCooldown: number?,
 
-	-- Chaser-specific
-	LoseInterestTime: number?, -- seconds spent lingering at a lost target's last position
-	SearchLookInterval: number?,
-
 	-- Blind-specific
 	InvestigateRange: number?, -- distance from the latest noise that counts as reaching it
 	InvestigateSpeed: number?, -- cautious speed after weak or isolated noise
@@ -218,9 +214,6 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		AttackRange = 4.5,
 		AttackCooldown = 1.5,
 
-		LoseInterestTime = 5,
-		SearchLookInterval = 1,
-
 		-- The bread and butter. Twenty seconds of runway between acquisition and contact, and doors
 		-- are common enough that fleeing one is a real decision rather than a formality, so this is
 		-- the enemy the hotel can afford to keep putting in front of you.
@@ -368,9 +361,6 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		AttackRange = 4.5,
 		AttackCooldown = 1.5,
 
-		LoseInterestTime = 5,
-		SearchLookInterval = 1,
-
 		-- An encounter lasts while the same player remains nearby. It commits after the player comes
 		-- close enough to matter or starts retreating from within that range.
 		EngageRange = 32,
@@ -455,9 +445,6 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		Damage = math.huge,
 		AttackRange = 4.5,
 		AttackCooldown = 1.5,
-
-		LoseInterestTime = 4,
-		SearchLookInterval = 1,
 
 		ObservationRange = 250,
 
