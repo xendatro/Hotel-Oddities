@@ -99,8 +99,28 @@ function LocatorMarker:_Bind(character: Model?)
 		self.Died = nil
 	end
 
+	-- Every bind cancels the one before it, so a rig that finishes replicating after the player has
+	-- already died again cannot switch the marker back on over a body that is gone.
+	self.BindId = (self.BindId or 0) + 1
+	local bindId = self.BindId
+
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+
+	-- `CharacterAdded` can arrive before the rig has replicated. Waiting for the parts is the
+	-- difference between a marker that comes back when its player respawns and one that stays off
+	-- until the mode happens to be toggled.
+	if character and (not root or not humanoid) then
+		self:_SetShown(false)
+		task.spawn(function()
+			local part = character:WaitForChild("HumanoidRootPart", 10)
+			local living = character:FindFirstChildOfClass("Humanoid") or character:WaitForChild("Humanoid", 10)
+			if self.BindId ~= bindId or not part or not living or not character.Parent then return end
+			self:_Bind(character)
+		end)
+		return
+	end
+
 	if not character or not root or not humanoid or humanoid.Health <= 0 then
 		self:_SetShown(false)
 		return
@@ -121,6 +141,7 @@ function LocatorMarker:_SetShown(shown: boolean)
 end
 
 function LocatorMarker:Destroy()
+	self.BindId = (self.BindId or 0) + 1 -- cancels a rig this marker is still waiting on
 	if self.Died then
 		self.Died:Disconnect()
 		self.Died = nil
