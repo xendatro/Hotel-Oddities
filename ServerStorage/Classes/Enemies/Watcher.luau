@@ -18,6 +18,7 @@
 --- there. Spawned bare through `EnemyService`, it lands wherever it was told and has to go and find a
 --- corner itself, which is one relocation it should not have needed.
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -25,12 +26,50 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local NPC = require(ServerStorage.Classes.NPC)
+local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local PeekSpotService = require(ServerStorage.Services.PeekSpotService)
 
 local ROOT_HEIGHT = 3 -- studs from the floor to an R15 root; peek spots are floor positions
 local REST_POLL = 0.1 -- seconds between checks that it is still unseen while waiting between peeks
+local PEEK_VIEW_CONE = 100 -- degrees of camera view that count as actively watching the peek point
 
 local Watcher = NPC.extend("Watcher")
+
+local function isWithinView(eye: Vector3, look: Vector3, point: Vector3): boolean
+	local offset = point - eye
+	if offset.Magnitude < 1e-3 or look.Magnitude < 1e-3 then return true end
+	return math.deg(math.acos(math.clamp(offset.Unit:Dot(look.Unit), -1, 1))) <= PEEK_VIEW_CONE / 2
+end
+
+-- A Watcher must not start its slide while somebody is already watching the place it will appear.
+-- `IsObserved` cannot answer that while the rig is still behind the corner, so use the reported camera
+-- view and a server raycast against the actual peek position instead.
+local function isPeekWatched(floorPosition: Vector3): boolean
+	local filter = {}
+	for _, player in Players:GetPlayers() do
+		if player.Character then
+			table.insert(filter, player.Character)
+		end
+	end
+	for _, model in CollectionService:GetTagged("Enemy") do
+		table.insert(filter, model)
+	end
+
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = filter
+	params.RespectCanCollide = true
+
+	local point = floorPosition + Vector3.yAxis * (ROOT_HEIGHT + 1.5)
+	for _, player in Players:GetPlayers() do
+		local eye, look = EnemyObservationService:GetView(player)
+		if eye and look and isWithinView(eye, look, point) then
+			local direction = point - eye
+			if workspace:Raycast(eye, direction, params) == nil then return true end
+		end
+	end
+	return false
+end
 
 local function randomBetween(minimum: number, maximum: number): number
 	return math.random() * (maximum - minimum) + minimum
@@ -162,6 +201,15 @@ local function peek(
 	spot: PeekSpotService.PeekSpot,
 	player: Player
 )
+	-- The model is hidden at this point, so a sight report cannot tell us whether the player is already
+	-- watching the place it is about to occupy. Stay tucked away and choose again until that location
+	-- is clear; emerging into a camera that is fixed on the corner defeats the whole effect.
+	if isPeekWatched(spot.Peek) then
+		npc:_placeAt(spot.Hide, spot, player, 0)
+		task.wait(npc.Config.RetryInterval)
+		return "Seek", npc
+	end
+
 	local function isCaught()
 		return npc:IsObserved()
 	end
