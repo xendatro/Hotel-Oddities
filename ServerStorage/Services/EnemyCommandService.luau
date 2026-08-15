@@ -15,6 +15,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local ChaosService = require(ServerStorage.Services.ChaosService)
+local CeilingVentService = require(ServerStorage.Services.CeilingVentService)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyService = require(ServerStorage.Services.EnemyService)
 local SistersService = require(ServerStorage.Services.SistersService)
@@ -81,6 +82,12 @@ local function spawnOne(player: Player, enemyId: string): boolean
 		-- Any direction, not just ahead: a hand-spawn is meant to be walked over to and looked at.
 		if WatcherService:SpawnNear(player, true) then return true end
 		warn(`[enemies] no corner near {player.Name} to put a Watcher behind -- try a corridor`)
+		return false
+	end
+
+	if enemyId == "CeilingDweller" then
+		if CeilingVentService:SpawnFromNearest(player) then return true end
+		warn(`[enemies] no usable ceiling vent found for {player.Name}`)
 		return false
 	end
 

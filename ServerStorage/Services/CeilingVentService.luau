@@ -34,6 +34,30 @@ local DEFAULT_TRIGGER_HEIGHT = 20
 local DEFAULT_TRIGGER_CHANCE = 0.35
 local DEFAULT_RETRY_INTERVAL = 0.75
 
+local function getCameraEvent(): RemoteEvent
+	local communication = ReplicatedStorage:FindFirstChild("Communication")
+	if not communication then
+		communication = Instance.new("Folder")
+		communication.Name = "Communication"
+		communication.Parent = ReplicatedStorage
+	end
+	local enemies = communication:FindFirstChild("Enemies")
+	if not enemies then
+		enemies = Instance.new("Folder")
+		enemies.Name = "Enemies"
+		enemies.Parent = communication
+	end
+	local event = enemies:FindFirstChild("CeilingDwellerCamera")
+	if not event then
+		event = Instance.new("RemoteEvent")
+		event.Name = "CeilingDwellerCamera"
+		event.Parent = enemies
+	end
+	return event :: RemoteEvent
+end
+
+local CameraEvent = getCameraEvent()
+
 -- What a vent's authored `TriggerChance` is multiplied by, from the calmest ground to the worst. The
 -- floor is not zero on purpose: vents are placed by hand rather than by the danger map, so some of
 -- them will land in quiet pockets, and a vent that never opens is a prop rather than an ambush. At
@@ -286,11 +310,15 @@ local function triggerChance(state: VentState): number
 	return state.TriggerChance * scale
 end
 
-local function trigger(state: VentState, player: Player)
+local function trigger(state: VentState, player: Player, forced: boolean?)
 	if state.Triggered or not state.Alive then return end
+	if not forced and not EnemyDirectorService:CanAfford(ENEMY_ID) then return end
 	state.Triggered = true
 
 	task.spawn(function()
+		if player.Parent == Players then
+			CameraEvent:FireClient(player, "Open", DOOR_MOVE_TIME)
+		end
 		local opened = moveDoor(state, state.DoorPivot * CFrame.Angles(OPEN_ANGLE, 0, 0))
 		if not opened or not state.Alive or not state.Vent:IsDescendantOf(workspace) then return end
 
@@ -312,6 +340,31 @@ local function trigger(state: VentState, player: Player)
 		EnemyDirectorService:Adopt(state.Enemy, ENEMY_ID, true)
 		state.ReadyToReset = true
 	end)
+end
+
+--- Opens the closest usable vent for a hand-spawn command, ignoring approach range and roll chance.
+function CeilingVentService:SpawnFromNearest(player: Player): boolean
+	local root = getAliveRoot(player)
+	if not root then return false end
+
+	local nearest: VentState? = nil
+	local nearestDistance = math.huge
+	for _, state in TagService:GetAllApplied(CEILING_VENT_TAG) do
+		if state.Alive and not state.Triggered then
+			local _, floorNormal = getDropSurface(state)
+			if floorNormal then
+				local distance = (state.SpawnPosition - root.Position).Magnitude
+				if distance < nearestDistance then
+					nearest = state
+					nearestDistance = distance
+				end
+			end
+		end
+	end
+
+	if not nearest then return false end
+	trigger(nearest, player, true)
+	return true
 end
 
 TagService:Listen(CEILING_VENT_TAG, function(vent: Instance)

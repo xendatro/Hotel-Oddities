@@ -701,6 +701,7 @@ ceilingDwellerConfig.Cost = 4
 ceilingDwellerConfig.MaxAlive = 1
 ceilingDwellerConfig.SpawnWeight = nil
 ceilingDwellerConfig.DangerBias = nil
+ceilingDwellerConfig.RunSpeed = 25
 
 EnemyConfigs.CeilingDweller = ceilingDwellerConfig
 

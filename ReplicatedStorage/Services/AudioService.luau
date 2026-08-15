@@ -170,7 +170,18 @@ function AudioService:Play2DSound(
 	soundGroup: string,
 	settings: {[string]: any}?
 ): AudioPlayer
-	return self:Play2D(Templates[name], looped, soundGroup, settings)
+	local template = Templates:FindFirstChild(name)
+	-- Studio can briefly contain an empty synced duplicate while an audio asset is being uploaded.
+	-- Prefer a same-named template whose player has a real asset, rather than silently playing nothing.
+	for _, candidate in Templates:GetChildren() do
+		if candidate.Name ~= name then continue end
+		local source = if candidate:IsA("AudioPlayer") then candidate else candidate:FindFirstChild("Player")
+		if source and source:IsA("AudioPlayer") and source.Asset ~= "" then
+			template = candidate
+			break
+		end
+	end
+	return self:Play2D(template, looped, soundGroup, settings)
 end
 
 --- Stops a sound this service started and removes the graph it was playing through.

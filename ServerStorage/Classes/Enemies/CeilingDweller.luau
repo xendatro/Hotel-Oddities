@@ -3,6 +3,8 @@
 --- hand it the player who opened the ambush so its initial state is Chase rather than Idle.
 
 local ServerStorage = game:GetService("ServerStorage")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local Chaser = require(ServerStorage.Classes.Enemies.Chaser)
@@ -11,6 +13,31 @@ local NPC = require(ServerStorage.Classes.NPC)
 local DROP_SPEED = 22
 local DROP_TIME_MIN = 0.2
 local DROP_TIME_MAX = 1.25
+local SCREAM_HOLD_TIME = 2
+
+local function getCameraEvent(): RemoteEvent
+	local communication = ReplicatedStorage:FindFirstChild("Communication")
+	if not communication then
+		communication = Instance.new("Folder")
+		communication.Name = "Communication"
+		communication.Parent = ReplicatedStorage
+	end
+	local enemies = communication:FindFirstChild("Enemies")
+	if not enemies then
+		enemies = Instance.new("Folder")
+		enemies.Name = "Enemies"
+		enemies.Parent = communication
+	end
+	local event = enemies:FindFirstChild("CeilingDwellerCamera")
+	if not event then
+		event = Instance.new("RemoteEvent")
+		event.Name = "CeilingDwellerCamera"
+		event.Parent = enemies
+	end
+	return event :: RemoteEvent
+end
+
+local CameraEvent = getCameraEvent()
 
 local CeilingDweller = NPC.extend("Ceiling Dweller")
 
@@ -71,6 +98,10 @@ local function dropToFloor(self)
 
 	local start = self.Model:GetPivot()
 	local duration = math.clamp((start.Position - target.Position).Magnitude / DROP_SPEED, DROP_TIME_MIN, DROP_TIME_MAX)
+	local dropTarget = self.DropTarget
+	if dropTarget and dropTarget.Parent == Players then
+		CameraEvent:FireClient(dropTarget, "Drop", duration)
+	end
 	local value = Instance.new("CFrameValue")
 	value.Value = start
 	local changed = value:GetPropertyChangedSignal("Value"):Connect(function()
@@ -110,6 +141,7 @@ end
 function CeilingDweller:Start()
 	local target = self.InitialTarget
 	self.InitialTarget = nil
+	self.DropTarget = target
 
 	if target then
 		-- NPC:Start starts the state machine on a spawned task. Seed Chase before that task exists so
@@ -120,6 +152,11 @@ function CeilingDweller:Start()
 	end
 
 	if not dropToFloor(self) then return end
+	if target and target.Parent == Players then
+		CameraEvent:FireClient(target, "Scream")
+		task.wait(SCREAM_HOLD_TIME)
+	end
+	self.DropTarget = nil
 	NPC.Start(self)
 end
 

@@ -106,6 +106,7 @@ function EnemyService:Spawn(enemyId: string, spawnCFrame: CFrame, ...: any)
 	-- cannot work this out for itself: `CeilingDweller` is a `Chaser` with another model on it, and
 	-- the pair of Sisters is one enemy with two rigs.
 	enemy.EnemyId = enemyId
+	model:SetAttribute("EnemyId", enemyId)
 	table.insert(ActiveEnemies, enemy)
 	model.Destroying:Connect(function()
 		local index = table.find(ActiveEnemies, enemy)
