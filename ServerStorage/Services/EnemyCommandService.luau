@@ -92,8 +92,7 @@ local function spawnOne(player: Player, enemyId: string): boolean
 		return false
 	end
 
-	EnemyService:Spawn(enemyId, where)
-	return true
+	return EnemyService:Spawn(enemyId, where) ~= nil
 end
 
 local Commands = {}
