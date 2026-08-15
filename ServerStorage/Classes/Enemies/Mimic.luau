@@ -26,6 +26,11 @@ local SUPERVISE_INTERVAL = 0.1 -- how often the act is re-examined while the cli
 local LOOK_AROUND_DISTANCE = 10
 local SIGHT_GRACE = 1.5 -- seconds it will keep mirroring a target it can no longer see
 local NOTICED_ANGLE = 65 -- degrees within which a target counts as having looked at the mimic
+local HANDBACK_SWEEP_DELAY = 0.5 -- generous room for a round trip; see `StopMirroring`
+local AFK_SETTLE_POLL = 0.05
+local AFK_DRIFT_REACHED = 1 -- studs of the settling step left that count as having taken it
+local AFK_DRIFT_TIMEOUT = 2.5 -- and how long it is given before that is called close enough
+local AFK_SETTLE_TURN_TIMEOUT = 6 -- a slow turn is still a turn; nothing waits on one for ever
 
 local Mirror = ReplicatedStorage
 	:WaitForChild("Communication")
@@ -152,7 +157,12 @@ local function updateEncounter(npc: any, target: Player, encounter: any): string
 		end
 	end
 
-	local root = (target.Character :: Model).HumanoidRootPart :: BasePart
+	-- The character can go between the position read at the top of this and here -- a death, a respawn --
+	-- and an act that errors out of its own state leaves the mimic standing in a corridor for good.
+	local character = target.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then return "Idle" end
+
 	local away = angleBetween(root.CFrame.LookVector, npc.RootPart.Position - position)
 	if away <= NOTICED_ANGLE then
 		encounter.Noticed, encounter.TurnedAwayAt = true, nil
@@ -396,15 +406,83 @@ local function findWallDirection(npc: any, target: Player?): Vector3
 	return bestDirection or if away and away.Magnitude > 1e-3 then away.Unit else -npc.RootPart.CFrame.LookVector
 end
 
+-- A couple of steps off the middle of the corridor. Walked rather than pathed: this is two or three
+-- studs of drift, and asking the navmesh for it would cost more standing still than the whole move is
+-- worth. Skipped entirely if there is anything in the way, since the point is to look unhurried.
+local function driftAside(npc: any)
+	local cframe = npc.RootPart.CFrame
+	-- Weighted forward, because this is a walk that wandered rather than a sidestep. `AutoRotate` turns
+	-- the body onto whatever it ends up walking, so the mix is also how far off its old heading it
+	-- comes to rest: mostly-sideways would have it finishing square across the corridor.
+	local direction = flatten(
+		cframe.RightVector * (if math.random() < 0.5 then -1 else 1) * randomRange(0.3, 0.7)
+			+ cframe.LookVector * randomRange(0.6, 1)
+	)
+	if direction.Magnitude < 1e-3 then return end
+	direction = direction.Unit
+
+	local distance = randomRange(npc.Config.AfkDriftMin, npc.Config.AfkDriftMax)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { npc.Model }
+	params.RespectCanCollide = true
+	local reach = distance + npc.Config.AgentParams.AgentRadius
+	if workspace:Raycast(npc.RootPart.Position, direction * reach, params) then return end
+
+	local goal = npc.RootPart.Position + direction * distance
+	npc.Humanoid:MoveTo(goal)
+
+	local until_ = os.clock() + AFK_DRIFT_TIMEOUT
+	while flatten(npc.RootPart.Position - goal).Magnitude > AFK_DRIFT_REACHED
+		and os.clock() < until_
+	do
+		task.wait(AFK_SETTLE_POLL)
+	end
+end
+
+-- Round to `direction` at an idle pace. Everything the mimic does to its own facing goes through
+-- `MimicMotion.Turn` for the same reason: a rotation that lands in a single frame is the one thing in
+-- the whole act that could not have been done by somebody holding a mouse.
+local function turnSlowly(npc: any, direction: Vector3)
+	local deltaTime = RunService.Heartbeat:Wait()
+	local until_ = os.clock() + AFK_SETTLE_TURN_TIMEOUT
+	while angleBetween(npc.RootPart.CFrame.LookVector, direction) > MimicConfig.InteractionTurnTolerance
+		and os.clock() < until_
+	do
+		npc.RootPart.CFrame = MimicMotion.Turn(
+			npc.RootPart.CFrame,
+			direction,
+			deltaTime,
+			npc.Config.AfkSettleTurnRate
+		)
+		deltaTime = RunService.Heartbeat:Wait()
+	end
+end
+
+--- Comes to rest the way somebody does when they stop paying attention, rather than arriving at a
+--- pose. Whatever it was walking carries on for a step or two off the centre line, and only some
+--- encounters turn to face anything at all -- the rest stop where the last step left them, which is
+--- what being interrupted mid-corridor actually looks like.
+---
+--- The snap this replaces was the worst tell the Mimic had. Every other part of the act is judged over
+--- seconds and can be argued with; a body that changes heading between one frame and the next is not a
+--- player at any speed, and anybody walking behind it saw the whole thing happen.
 local function afkIdle(_changeState: StateMachine.ChangeState, npc: any)
 	npc.Target = nil
 	npc:StopMirroring()
 	npc.Animator:Resume()
-	npc:SetSpeed(0)
-	npc:StopMoving()
+	npc:SetSpeed(npc.Config.WalkSpeed)
 
-	local wallDirection = findWallDirection(npc, nil)
-	npc.RootPart.CFrame = CFrame.lookAt(npc.RootPart.Position, npc.RootPart.Position + wallDirection)
+	if math.random() < npc.Config.AfkDriftChance then
+		driftAside(npc)
+	end
+	npc:StopMoving()
+	npc:SetSpeed(0)
+
+	if math.random() < npc.Config.AfkFaceWallChance then
+		turnSlowly(npc, findWallDirection(npc, nil))
+	end
+
 	while true do
 		task.wait(SUPERVISE_INTERVAL)
 	end
@@ -418,9 +496,9 @@ local function afk(_changeState: StateMachine.ChangeState, npc: any, target: Pla
 	npc:StopMoving()
 
 	local config = npc.Config
-	local encounter = newEncounter(npc)
 	local noticedAt = nil :: number?
 	local turnStartedAt = nil :: number?
+	local watchingSince = nil :: number? -- when its head first came off the wall; never unset in here
 
 	while true do
 		local position = npc:GetTargetPosition(target)
@@ -433,14 +511,30 @@ local function afk(_changeState: StateMachine.ChangeState, npc: any, target: Pla
 		if distance <= config.AfkNoticeRange then
 			noticedAt = noticedAt or now
 		elseif distance > config.AfkNoticeRange + 6 then
+			-- Backing off buys off the charge it was working up to. It does not buy back the attention:
+			-- a head that swings home the moment you retreat is the mechanism announcing itself, where
+			-- one that stays on you is a guest who has clocked you and has not decided what to do about
+			-- it yet. Only the encounter ending puts the head back, which `finishEncounter` does.
 			noticedAt, turnStartedAt = nil, nil
-			npc:SetHeadTurn(nil)
 		end
 
-		if noticedAt and now - noticedAt >= config.AfkNoticeTime then
+		local noticing = noticedAt ~= nil and now - (noticedAt :: number) >= config.AfkNoticeTime
+		if noticing then
+			watchingSince = watchingSince or now
+		end
+
+		if watchingSince then
+			-- The first turn is the slow one it was authored to be. Once it has had that long to come
+			-- round, it keeps up with a moving player at an ordinary glance rather than trailing them by
+			-- most of a turn -- which is what following somebody actually looks like.
+			npc:SetHeadTurn(position, if now - watchingSince >= config.AfkTurnTime
+				then MimicConfig.HeadTurnDefaultDuration
+				else config.AfkTurnTime)
+		end
+
+		if noticing then
 			turnStartedAt = turnStartedAt or now
-			npc:SetHeadTurn(position, config.AfkTurnTime)
-			local progress = math.clamp((now - turnStartedAt) / config.AfkTurnTime, 0, 1)
+			local progress = math.clamp((now - (turnStartedAt :: number)) / config.AfkTurnTime, 0, 1)
 			if progress >= config.AfkChaseTurnFraction and isFleeing(npc, target) then
 				return "Chase", npc, target
 			end
@@ -462,9 +556,26 @@ end
 --- The act is over. Runs `target` down until it is caught, reaches a safe room, or outruns `GiveUpRange`.
 local function chase(_changeState: StateMachine.ChangeState, npc: any, target: Player)
 	npc.Target = target
+	npc:StopMirroring() -- takes the rig, and its animation, back before anything is asked of either
+	-- And claims it, which `StopMirroring` only does for an act that had actually been handed out. An
+	-- unanchored humanoid standing next to somebody is given to that player's machine by default, and a
+	-- chase run from here against a rig simulated over there is a `MoveTo` that has to fly out and a
+	-- position that arrives back late: the pursuit judges its progress on stale ground, calls legs
+	-- stalled that were not, and the run comes out as a series of lunges. The acts that never mirror --
+	-- the emote, the spin, the AFK stance -- are the ones that reached a chase still owned by the player
+	-- they were chasing, which is exactly where that stutter was.
+	npc:SetNetworkOwner(nil)
 	npc.Animator:Resume()
-	npc:StopMirroring()
 	npc:SetSpeed(npc.Config.ChaseSpeed)
+
+	-- The act it is dropping has had it standing still for a while, so the first route of the chase can
+	-- be worked out during the moment it takes to drop it rather than after. `ComputeAsync` is the one
+	-- thing here that can take the better part of a second, and spending it stood in front of somebody
+	-- who has just started running is most of what a chase that opens badly actually is.
+	local start = npc:GetTargetPosition(target)
+	if start then
+		npc:PrefetchPath(start)
+	end
 
 	-- The only moment a player can be said to have met a Mimic. Everything before this looked like
 	-- another guest, which is why `DiscoveryConfig` gives this one no sighting rule at all: unlocking
@@ -510,6 +621,9 @@ local function attack(_changeState: StateMachine.ChangeState, npc: any, target: 
 	if (npc.RootPart.Position - position).Magnitude > npc.Config.AttackRange
 		and not npc:IsTouchingPlayer(target)
 	then
+		-- Going straight back out is the one bounce this cannot avoid, so it does not also pay for a
+		-- route from a standstill: the chase it returns to starts with one already in hand.
+		npc:PrefetchPath(position)
 		return "Chase", npc, target
 	end
 
@@ -615,9 +729,21 @@ function Mimic:StopMirroring()
 	local target = self.Mirroring
 	self.Mirroring = nil
 	self.MirroringMode = nil
+	Mirror:FireClient(target, nil) -- ahead of the rest, so it stops driving at the first moment it can
 	self:SetNetworkOwner(nil)
 	self.Animator:Start()
-	Mirror:FireClient(target, nil)
+	-- Whatever that client was playing is still on the rig and it can no longer stop it, ownership
+	-- having gone. Left there it blends against the chase this hands back to, which is a mimic that
+	-- charges you without ever putting its legs into it.
+	--
+	-- Swept twice, because the clip it started on its last frame of ownership is still on the wire
+	-- while this runs, and nothing that arrives after the first sweep is ever cleared by it.
+	self.Animator:ClearForeignTracks()
+	task.delay(HANDBACK_SWEEP_DELAY, function()
+		if self.Active and not self.Mirroring then
+			self.Animator:ClearForeignTracks()
+		end
+	end)
 end
 
 --- Identity -------------------------------------------------------------------------------------

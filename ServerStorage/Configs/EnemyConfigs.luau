@@ -100,6 +100,11 @@ export type EnemyConfig = {
 	AfkTurnTime: number?, -- seconds for the AFK turn toward the player
 	AfkChaseTurnFraction: number?, -- turn progress that makes a fleeing player fair game
 	AfkWallDistance: number?, -- how far the AFK stance searches for an off-center wall
+	AfkFaceWallChance: number?, -- odds it turns to face anything at all as it settles into the stance
+	AfkSettleTurnRate: number?, -- how fast that turn is; an idle turn, not the one it walks corners at
+	AfkDriftChance: number?, -- odds its last few steps carry it off the middle of the corridor
+	AfkDriftMin: number?, -- studs those steps cover
+	AfkDriftMax: number?,
 	RunSpeed: number?, -- horizontal speed that counts as fleeing
 	GlanceAngle: number?, -- degrees it turns to look around while idle
 	GlanceInterval: number?, -- seconds between those glances
@@ -388,6 +393,17 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		AfkTurnTime = 7.5,
 		AfkChaseTurnFraction = 0.8,
 		AfkWallDistance = 16,
+
+		-- Settling into the stance. Under half of them turn to face anything: the rest simply stop
+		-- where their last step left them, which is what somebody who has stopped paying attention
+		-- looks like, and it keeps the stance from being a shape you learn to recognise. The turn rate
+		-- is well under the one it walks corners at -- an idle swivel, not a decision.
+		AfkFaceWallChance = 0.45,
+		AfkSettleTurnRate = 2.2,
+		AfkDriftChance = 0.6,
+		AfkDriftMin = 2,
+		AfkDriftMax = 5.5,
+
 		RunSpeed = 18, -- above the normal 16 WalkSpeed; boosted movement reads as running
 		GlanceAngle = 22,
 		GlanceInterval = 0.9,

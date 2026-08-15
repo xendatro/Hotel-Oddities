@@ -143,6 +143,9 @@ local function drive(active: Job, own: MotionTrail.MotionTrail, deltaTime: numbe
 	-- The server zeroes the speed to hold a mimic still -- a stun, or the moment before it despawns.
 	-- Driving through that would leave it swivelling on the spot while it is meant to be frozen.
 	if humanoid.WalkSpeed <= 0 or humanoid.Health <= 0 then
+		if active.Animator then
+			active.Animator:SetMovementSpeed(0)
+		end
 		return
 	end
 	if active.Mode == "Spin" then
@@ -152,8 +155,13 @@ local function drive(active: Job, own: MotionTrail.MotionTrail, deltaTime: numbe
 	local animator = active.Animator
 	if not animator then return end
 
+	-- Every path out of here from this point has to say what the rig is doing, or the animator is left
+	-- holding whatever it was told last: a mimic that stopped mid-stride and stayed there.
 	local offset = flatten(own.RootPart.Position - root.Position)
-	if offset.Magnitude < 1e-3 then return end
+	if offset.Magnitude < 1e-3 then
+		animator:SetMovementSpeed(0)
+		return
+	end
 	local targetForward = offset.Unit
 
 	-- Locked on, it has no will of its own: no closing the gap, no shifting its weight, nothing but
@@ -304,7 +312,10 @@ Mirror.OnClientEvent:Connect(function(model: Model?, mode: string?)
 		release()
 		return
 	end
-	if job and job.Model == model then return end -- already on it; keep the rhythm it has built up
+	-- Already on it, and on the same act: keep the rhythm it has built up. A change of act is a
+	-- different job on the same rig -- the spin does not animate and the mirroring does -- so that one
+	-- is rebuilt rather than carried over.
+	if job and job.Model == model and job.Mode == (mode or "Mirror") then return end
 
 	release()
 	local humanoid = model:WaitForChild("Humanoid") :: Humanoid
@@ -367,7 +378,12 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 	-- Dying, or waiting on a respawn, is a pause rather than the end of the job. The server decides
 	-- when the act is over and says so; dropping it here instead would hand the rig back to nobody --
 	-- the server has already let go of it, so it would stand frozen for the rest of the stalk.
-	if not own or own.Humanoid.Health <= 0 then return end
+	if not own or own.Humanoid.Health <= 0 then
+		if active.Animator then
+			active.Animator:SetMovementSpeed(0)
+		end
+		return
+	end
 
 	drive(active, own, deltaTime)
 end)

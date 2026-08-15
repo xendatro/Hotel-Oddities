@@ -539,6 +539,7 @@ function NPC:Pursue(
 
 		local repathAt = os.clock() + self.Config.RepathInterval
 		local arrived = false
+		local repathing = false
 		local result = self:_walkPath(path, function()
 			local current = getGoal()
 			if not current then return true end
@@ -549,7 +550,23 @@ function NPC:Pursue(
 			if arriveDistance and (self.RootPart.Position - current).Magnitude <= arriveDistance then
 				return true
 			end
-			return os.clock() >= repathAt and (current - goal).Magnitude > self.Config.RepathDistance
+			if os.clock() < repathAt or (current - goal).Magnitude <= self.Config.RepathDistance then
+				return false
+			end
+
+			-- A route that has gone stale is not worth stopping for until its replacement is in hand.
+			-- Abandoning on the spot puts the NPC back at the top of this loop, where `ComputePath` is
+			-- a yield of anything up to a second -- and against somebody running, that condition is met
+			-- again every `RepathInterval`, so the chase becomes a walk punctuated by standing still.
+			-- The route it is on still points broadly the right way for the moment it takes to work the
+			-- next one out, so it keeps walking it and swaps when there is something to swap to.
+			if not repathing then
+				repathing = true
+				self:PrefetchPath(current)
+				return false
+			end
+			local entry = self._prefetch
+			return entry == nil or entry.Done
 		end, getGoal)
 		path:Destroy()
 
