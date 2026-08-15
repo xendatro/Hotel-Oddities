@@ -1,5 +1,7 @@
 for _, service in game:GetService("ReplicatedStorage").Services:GetChildren() do
-	require(service)
+	task.defer(function()
+		require(service)
+	end)
 end
 
 require(game:GetService("ReplicatedStorage").Modules.Tagger)()
