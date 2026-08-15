@@ -285,7 +285,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 	WeepingAngel = {
 		Model = "Weeping Angel",
 
-		WalkSpeed = 8,
+		WalkSpeed = 35,
 		ChaseSpeed = 26,
 		RepathInterval = 0.35,
 		RepathDistance = 6,
