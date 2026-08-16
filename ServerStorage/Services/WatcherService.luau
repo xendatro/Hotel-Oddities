@@ -33,10 +33,9 @@ end
 ---
 --- `anyDirection` gives up the two things the tuning asks for when the tuning cannot be satisfied:
 --- first the requirement that the corner be somewhere they are roughly facing, then the distance
---- floor. Between them that takes a junction from about 60% likely to host one to about 77%. Ambient
---- spawning should leave it off -- a corner behind somebody is wasted on a thing that wants to be
---- glimpsed, and one at arm's length is worse -- but a hand-spawn wants a Watcher now, to go and look
---- at, and a warning is no use to somebody standing in a corridor full of corners.
+--- floor. Ambient spawning should leave it off -- a corner behind somebody is wasted on a thing that
+--- wants to be glimpsed, and one at arm's length is worse -- but a hand-spawn wants a Watcher now, to
+--- go and look at, and a warning is no use to somebody standing in a corridor full of corners.
 function WatcherService:SpawnNear(player: Player, anyDirection: boolean?)
 	local spot = self:FindSpot(player)
 

@@ -63,6 +63,8 @@ export type EnemyConfig = {
 	MinPeekDistance: number?, -- studs from the player a corner must be to be worth using
 	MaxPeekDistance: number?,
 	PeekArc: number?, -- degrees around the player's facing a corner must fall within; 360 for anywhere
+	ActiveLookAngle: number?, -- degrees of aim that count as looking *at* the spot it would appear in
+	PeekWaitTime: number?, -- seconds it will wait behind one corner for that aim to move off it
 	LeanTime: number?, -- seconds it takes to slide out from behind a corner
 	RetreatTime: number?, -- and to pull back once it has been seen
 	SeenGrace: number?, -- seconds it stays put after being looked at, before it pulls back
@@ -70,6 +72,8 @@ export type EnemyConfig = {
 	HoldTimeMax: number?,
 	RestTimeMin: number?, -- seconds spent out of sight between one peek and the next
 	RestTimeMax: number?,
+	SeenRestMin: number?, -- and after one that was actually caught, which wants a longer gap
+	SeenRestMax: number?,
 	PeekCountMin: number?, -- peeks it performs before it leaves for good
 	PeekCountMax: number?,
 	PeekTilt: number?, -- degrees it leans past the corner at full extension
@@ -518,6 +522,10 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		WalkSpeed = 0, -- its root is anchored and moved by hand; nothing goes through the humanoid
 
 		ObservationRange = 200,
+		-- A short hold, because the whole of this enemy's behaviour hangs off one boolean. Sight
+		-- reports arrive at 20Hz over the wire and a dropped beat otherwise reads as the player
+		-- having looked away, which ends the pose in the middle of the moment it exists for.
+		ObservationHold = 0.35,
 
 		-- Down the far end of a corridor, not around the nearest doorway. Something close enough to
 		-- make out properly is close enough to walk up to and find still standing there, and the
@@ -532,21 +540,37 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		-- planted dead ahead. Directly behind a player is cut out, because nobody would ever see it.
 		PeekArc = 200,
 
+		-- What counts as being looked at, for the one decision that has to be made before there is
+		-- anything on screen to report: whether to emerge. Narrow on purpose. This is not "would it
+		-- be visible" -- a corner down the corridor somebody is walking along is visible the whole
+		-- way, and gating on that leaves a Watcher tucked away for its entire life, never leaning
+		-- out at all. 50 degrees is roughly the middle of a screen, so it emerges at the edges of
+		-- vision and behind, and is there to be found when the head turns. Waiting for that is
+		-- capped: a player who stares down one corridor has cost this corner nothing but a few
+		-- seconds, and the map has others.
+		ActiveLookAngle = 50,
+		PeekWaitTime = 12,
+
 		-- Out slowly, back quickly. Easing out is what makes it feel like it chose to be seen;
 		-- snapping back is what makes being caught feel like catching something. The grace in between
 		-- is what stops it vanishing on the same frame it registers -- caught, it lets you have your
 		-- look first.
 		LeanTime = 1.1,
-		SeenGrace = 0.5,
+		SeenGrace = 0.7,
 		RetreatTime = 0.3,
 
 		HoldTimeMin = 4,
 		HoldTimeMax = 9,
 		RestTimeMin = 8,
 		RestTimeMax = 20,
+		-- Longer after being caught, and long enough to relocate under: back in ten seconds at the
+		-- next corner along is one thing bobbing in and out, and the same gap after two minutes is a
+		-- second sighting.
+		SeenRestMin = 20,
+		SeenRestMax = 40,
 		PeekCountMin = 3,
 		PeekCountMax = 6,
-		PeekTilt = 10,
+		PeekTilt = 14,
 		RetryInterval = 1.5,
 
 		-- Presence, and the one enemy the director does not place on the floor: a Watcher only works
