@@ -69,7 +69,7 @@ local CameraEvent = getCameraEvent()
 -- you, and danger decides how long lingering is.
 local MINIMUM_DANGER_SCALE = 0.2
 
-local OPEN_ANGLE = math.rad(-45)
+local OPEN_ANGLE = math.rad(-100)
 local DOOR_MOVE_TIME = 0.45
 local DROP_RAY_START_OFFSET = 2.5
 local DROP_RAY_DISTANCE = 100
