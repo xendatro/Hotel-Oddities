@@ -15,6 +15,7 @@ export type EnemyConfig = {
 	-- Locomotion
 	WalkSpeed: number,
 	ChaseSpeed: number?,
+	DirectPursuitDistance: number?, -- clear line distance at which a chase skips pathfinding
 	RepathInterval: number?, -- minimum time between moving-target path updates
 	RepathDistance: number?, -- studs the goal must drift before its path is replaced
 	AgentParams: { [string]: any }?,
@@ -186,8 +187,9 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 		WalkSpeed = 10,
 		ChaseSpeed = 19,
-		RepathInterval = 0.5,
-		RepathDistance = 8,
+		DirectPursuitDistance = 60, -- its detection range; an open hallway should be one uninterrupted run
+		RepathInterval = 1.25,
+		RepathDistance = 16,
 		AgentParams = {
 			AgentRadius = 2.5,
 			AgentHeight = 6,

@@ -32,11 +32,11 @@ local MOVE_REFRESH_INTERVAL = 4 -- seconds between re-issued goals; `Humanoid:Mo
 local MOVEMENT_POLL_INTERVAL = 0.05
 local CONTACT_PADDING = 0.25
 local CONTACT_ROOT_DISTANCE = 2.25
-local DIRECT_PURSUIT_DISTANCE = 15
+local DIRECT_PURSUIT_DISTANCE = 24
+local DIRECT_PURSUIT_HYSTERESIS = 4
 local DIRECT_PURSUIT_UPDATE_DISTANCE = 1
 local DIRECT_PURSUIT_OVERSHOOT = 4
-local MAX_BLOCKED_ATTEMPTS = 3 -- consecutive stalled paths before a pursuit gives up
-local MAX_PATH_FAILURES = 5 -- consecutive routes a pursuit fails to compute before it writes the target off
+local DIRECT_MOVE_REFRESH_INTERVAL = 0.25
 local UNREACHABLE_MEMORY = 12 -- seconds a written-off target stays unacquirable; as `PATROL_BLOCKED_MEMORY`
 local WANDER_ATTEMPTS = 6
 local PREFETCH_LEAD = 2.5 -- seconds of walking left on a route when the next one starts computing
@@ -329,6 +329,26 @@ function NPC:ComputePath(destination: Vector3, tolerance: number?): Path?
 	return self:_computePath(self.RootPart.Position, destination)
 end
 
+--- Takes a completed prefetched route without yielding. Returns nil while the worker is still
+--- computing, or when the route was not usable for the current destination.
+function NPC:TakePrefetchedPath(destination: Vector3, tolerance: number?): Path?
+	local entry = self._prefetch
+	if not entry then return nil end
+
+	if (entry.Destination - destination).Magnitude > (tolerance or PREFETCH_DESTINATION_TOLERANCE)
+		or (entry.Origin - self.RootPart.Position).Magnitude > PREFETCH_ORIGIN_TOLERANCE
+	then
+		self:_discardPrefetch()
+		return nil
+	end
+	if not entry.Done then return nil end
+
+	self._prefetch = nil
+	local path = entry.Path
+	entry.Path = nil
+	return path
+end
+
 --- Preserves the pathfinder's complete route. Skipping waypoints based only on their angle can turn
 --- a gradual route around a wall into a single movement goal through it. The movement loop advances
 --- before reaching each waypoint, so following the complete route does not make the Humanoid stop.
@@ -511,15 +531,8 @@ function NPC:WalkTo(destination: Vector3): boolean
 	return result == "Reached"
 end
 
---- Chases a moving goal, re-pathing as it drifts. `getGoal` returns nil once the goal stops being
---- valid. When `canMoveDirectly` succeeds at close range, it continuously drives straight at the
---- goal instead of replacing a completed path. Returns "Reached" when `hasArrived` succeeds or it
---- comes within `arriveDistance`, "Lost" when the goal goes invalid, or "Blocked" when the NPC
---- cannot make progress.
----
---- Failing to compute a route enough times running writes the current target off through `GiveUpOn`,
---- so a chase that ends "Blocked" against somebody genuinely unreachable is not started again a
---- moment later by the same perception that started this one.
+--- Chases a moving goal, re-pathing as it drifts. Direct movement handles clear lanes; route work is
+--- prefetched in the background so a new `Path` never pauses the current chase to compute.
 function NPC:Pursue(
 	getGoal: () -> Vector3?,
 	arriveDistance: number?,
@@ -530,19 +543,83 @@ function NPC:Pursue(
 	local pathFailures, failureTarget = 0, self.Target
 	local directGoal = nil :: Vector3?
 	local directRefreshAt = 0
+	local directPursuit = false
+	local directDistance = self.Config.DirectPursuitDistance or DIRECT_PURSUIT_DISTANCE
+	local repathInterval = self.Config.RepathInterval or 0.5
+	local repathDistance = self.Config.RepathDistance or 8
+	local path = nil :: Path?
+	local pathGoal = nil :: Vector3?
+	local requestGoal = nil :: Vector3?
+	local nextPathRequestAt = 0
+
+	local function finish(result: string): string
+		if path then
+			path:Destroy()
+			path = nil
+		end
+		self:_discardPrefetch()
+		return result
+	end
+
+	local function recordPathFailure()
+		if self.Target ~= failureTarget then
+			pathFailures, failureTarget = 0, self.Target
+		end
+		pathFailures += 1
+		-- A failed computation is retried in the background with a small backoff. It is not treated as
+		-- proof that the player is unreachable: doors and the navmesh can change while they stand still.
+		nextPathRequestAt = os.clock() + math.min(repathInterval * (1 + pathFailures), 4)
+	end
+
+	local function requestPath(destination: Vector3)
+		if os.clock() < nextPathRequestAt
+			and (not requestGoal or (destination - requestGoal).Magnitude <= repathDistance)
+		then
+			return
+		end
+
+		local entry = self._prefetch
+		if entry then
+			local destinationStillUseful = (entry.Destination - destination).Magnitude <= repathDistance
+			local originStillUseful = (entry.Origin - self.RootPart.Position).Magnitude <= PREFETCH_ORIGIN_TOLERANCE
+			local targetStillNearRequest = requestGoal
+				and (destination - requestGoal).Magnitude <= repathDistance
+			if (not entry.Done and targetStillNearRequest) or (destinationStillUseful and originStillUseful) then
+				return
+			end
+			self:_discardPrefetch()
+		end
+
+		self:PrefetchPath(destination)
+		requestGoal = destination
+		nextPathRequestAt = math.huge
+	end
 
 	while true do
 		local goal = getGoal()
-		if not goal then return "Lost" end
-		if hasArrived and hasArrived() then return "Reached" end
+		if not goal then return finish("Lost") end
+		if hasArrived and hasArrived() then return finish("Reached") end
 
 		local distance = (self.RootPart.Position - goal).Magnitude
-		if arriveDistance and distance <= arriveDistance then return "Reached" end
-		if distance <= DIRECT_PURSUIT_DISTANCE
-			and canMoveDirectly
-			and canMoveDirectly()
-			and self:HasMovementClearance(goal) then
+		if arriveDistance and distance <= arriveDistance then return finish("Reached") end
+		local directLimit = if directPursuit
+			then directDistance + DIRECT_PURSUIT_HYSTERESIS
+			else directDistance
+		local canPursueDirectly = false
+		if distance <= directLimit and canMoveDirectly then
+			canPursueDirectly = canMoveDirectly() and self:HasMovementClearance(goal)
+		end
+		if canPursueDirectly then
+			directPursuit = true
 			blockedAttempts, pathFailures = 0, 0
+			if path then
+				path:Destroy()
+				path = nil
+			end
+			pathGoal = nil
+			self:_discardPrefetch()
+			requestGoal = nil
+			nextPathRequestAt = 0
 			-- Re-issued on a clock as well as on drift, because a goal that has stopped moving is
 			-- exactly the case that never trips the drift check: a player standing still somewhere
 			-- this cannot quite reach would otherwise be charged at once and then watched from a
@@ -551,52 +628,52 @@ function NPC:Pursue(
 				or (goal - directGoal).Magnitude >= DIRECT_PURSUIT_UPDATE_DISTANCE
 				or os.clock() >= directRefreshAt then
 				directGoal = goal
-				directRefreshAt = os.clock() + MOVE_REFRESH_INTERVAL
+				directRefreshAt = os.clock() + DIRECT_MOVE_REFRESH_INTERVAL
 				local direction = goal - self.RootPart.Position
-				local movementGoal = if direction.Magnitude > 1e-3
-					then goal + direction.Unit * DIRECT_PURSUIT_OVERSHOOT
-					else goal
+				local movementGoal = goal
+				if direction.Magnitude > 1e-3 then
+					local overshootGoal = goal + direction.Unit * DIRECT_PURSUIT_OVERSHOOT
+					if self:HasMovementClearance(overshootGoal) then
+						movementGoal = overshootGoal
+					end
+				end
 				self.Humanoid:MoveTo(movementGoal)
 			end
 			task.wait(MOVEMENT_POLL_INTERVAL)
 			continue
 		end
+		directPursuit = false
 		directGoal = nil
 
-		-- A prefetched route is worth taking as long as the target has not moved further than a repath
-		-- would have been triggered by anyway, which is the drift this pursuit already tolerates.
-		local path = self:ComputePath(goal, self.Config.RepathDistance)
 		if not path then
-			-- A route that cannot be worked out is a different problem from one that cannot be walked,
-			-- so it is counted separately. A stalled leg is nearly always something standing in the way
-			-- and clears on its own, which is what `blockedAttempts` backs off for. Nothing being
-			-- routable to the goal, over and over, is the goal itself being out of reach -- and coming
-			-- back to it from the top of the next chase is how an enemy spends a whole round walking to
-			-- the same corner and looking around. So that one is given up on rather than retried.
-			--
-			-- Several in a row, because one means very little: doors move, and the navmesh is a moment
-			-- behind them, so a single miss is a beat of bad timing rather than a target it cannot get to.
-			--
-			-- The patience is per target. A run of failures describes one goal and says nothing about
-			-- the next, so a pursuit handed somebody else part way through starts over rather than
-			-- writing them off on the strength of what it could not reach before.
-			if self.Target ~= failureTarget then
-				pathFailures, failureTarget = 0, self.Target
+			local readyPath = self:TakePrefetchedPath(goal, repathDistance)
+			if readyPath then
+				path = readyPath
+				pathGoal = goal
+				requestGoal = goal
+				pathFailures = 0
+				blockedAttempts = 0
+				continue
 			end
-			pathFailures += 1
-			if pathFailures >= MAX_PATH_FAILURES then
-				self:GiveUpOn(self.Target)
-				return "Blocked"
+
+			local entry = self._prefetch
+			if entry and entry.Done then
+				self:_discardPrefetch()
+				recordPathFailure()
 			end
-			task.wait(self.Config.RepathInterval)
+			if not self._prefetch then
+				requestPath(goal)
+			end
+			task.wait(MOVEMENT_POLL_INTERVAL)
 			continue
 		end
-		pathFailures = 0
 
-		local repathAt = os.clock() + self.Config.RepathInterval
+		local repathAt = os.clock() + repathInterval
 		local arrived = false
 		local repathing = false
-		local result = self:_walkPath(path, function()
+		local route = path
+		local routeGoal = pathGoal or goal
+		local result = self:_walkPath(route, function()
 			local current = getGoal()
 			if not current then return true end
 			if hasArrived and hasArrived() then
@@ -606,7 +683,16 @@ function NPC:Pursue(
 			if arriveDistance and (self.RootPart.Position - current).Magnitude <= arriveDistance then
 				return true
 			end
-			if os.clock() < repathAt or (current - goal).Magnitude <= self.Config.RepathDistance then
+			if not directPursuit
+				and canMoveDirectly
+				and (self.RootPart.Position - current).Magnitude <= directDistance
+				and canMoveDirectly()
+				and self:HasMovementClearance(current)
+			then
+				directPursuit = true
+				return true
+			end
+			if os.clock() < repathAt or (current - routeGoal).Magnitude <= repathDistance then
 				return false
 			end
 
@@ -619,20 +705,25 @@ function NPC:Pursue(
 			if not repathing then
 				repathing = true
 				self:PrefetchPath(current)
+				requestGoal = current
+				nextPathRequestAt = math.huge
 				return false
 			end
 			local entry = self._prefetch
 			return entry == nil or entry.Done
 		end, getGoal)
-		path:Destroy()
+		route:Destroy()
+		path = nil
+		requestGoal = routeGoal
+		pathGoal = nil
 
-		if arrived then return "Reached" end
+		if arrived then return finish("Reached") end
 		if result == "Blocked" then
 			blockedAttempts += 1
-			if blockedAttempts >= MAX_BLOCKED_ATTEMPTS then return "Blocked" end
-			task.wait(self.Config.RepathInterval)
+			nextPathRequestAt = os.clock() + math.min(repathInterval * blockedAttempts, 4)
 		else
 			blockedAttempts = 0
+			nextPathRequestAt = os.clock() + repathInterval
 		end
 	end
 end
