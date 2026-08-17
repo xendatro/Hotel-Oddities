@@ -18,6 +18,21 @@ local OPEN_ANGLE = DoorConfig.OpenAngle
 local STIFFNESS = DoorConfig.Stiffness
 local DAMPING = DoorConfig.DampingRatio * 2 * math.sqrt(DoorConfig.Stiffness)
 
+local function horizontal(vector: Vector3): Vector3
+	return Vector3.new(vector.X, 0, vector.Z)
+end
+
+local function findDoorModel(part: BasePart): Model?
+	local instance: Instance? = part.Parent
+	while instance and instance ~= workspace do
+		if instance:IsA("Model") and instance.Name == "Door" then
+			return instance
+		end
+		instance = instance.Parent
+	end
+	return nil
+end
+
 function DoorPart.new(part: BasePart)
 	local self = setmetatable({}, DoorPart)
 
@@ -41,6 +56,11 @@ function DoorPart.new(part: BasePart)
 	self.AnimationEnded = false
 	self.AnimationStartAngle = 0
 	self.AnimationStartPosition = 0
+	self.OddityClaims = {}
+
+	local doorModel = findDoorModel(part)
+	local outward = doorModel and horizontal(doorModel:GetPivot().LookVector)
+	self.Outward = if outward and outward.Magnitude > 1e-3 then outward.Unit else nil
 
 	return self
 end
@@ -57,20 +77,51 @@ function DoorPart:_swingSign(from: Vector3): number
 	return (plus - from).Magnitude >= (minus - from).Magnitude and 1 or -1
 end
 
+function DoorPart:_swingSignAlong(direction: Vector3): number
+	local radians = math.rad(OPEN_ANGLE)
+	local plus = CFrame.Angles(0, radians, 0):VectorToWorldSpace(self.Arm)
+	local minus = CFrame.Angles(0, -radians, 0):VectorToWorldSpace(self.Arm)
+	return plus:Dot(direction) >= minus:Dot(direction) and 1 or -1
+end
+
+function DoorPart:_oddityClaim(): { Blocked: boolean, Speed: number }?
+	for _, claim in self.OddityClaims do
+		if not claim.Blocked then return claim end
+	end
+	return nil
+end
+
+function DoorPart:_applyOddity()
+	local claim = self:_oddityClaim()
+	if claim then
+		self:_setOpen(true, nil, claim.Speed, self.Outward)
+	else
+		self:_setOpen(false, nil, nil, nil)
+	end
+end
+
 --- @param open boolean -- whether someone is close enough to hold it open
 --- @param from Vector3? -- the nearest such player, used to choose a side
-function DoorPart:SetOpen(open: boolean, from: Vector3?)
+function DoorPart:_setOpen(
+	open: boolean,
+	from: Vector3?,
+	playbackSpeed: number?,
+	preferredDirection: Vector3?
+)
 	if open and self.Forced then return end
 
 	local wasOpen = self:IsOpen()
 
 	if open and not wasOpen and from and math.abs(self.Angle) <= DoorConfig.ResideAngle then
 		self.Sign = self:_swingSign(from)
+	elseif open and not wasOpen and preferredDirection and math.abs(self.Angle) <= DoorConfig.ResideAngle then
+		self.Sign = self:_swingSignAlong(preferredDirection)
 	end
 	self.Target = open and OPEN_ANGLE * self.Sign or 0
 
 	if wasOpen ~= open then
-		local player = AudioService:Play3DSound(open and "DoorOpen" or "DoorClose", self.Part, false, "SFX")
+		local settings = if playbackSpeed then { PlaybackSpeed = playbackSpeed } else nil
+		local player = AudioService:Play3DSound(open and "DoorOpen" or "DoorClose", self.Part, false, "SFX", settings)
 		self.AnimationPlayer = player
 		self.AnimationEnded = false
 		self.AnimationStartAngle = self.Angle
@@ -84,6 +135,36 @@ function DoorPart:SetOpen(open: boolean, from: Vector3?)
 	end
 end
 
+function DoorPart:SetOpen(open: boolean, from: Vector3?)
+	if next(self.OddityClaims) then
+		self:_applyOddity()
+		return
+	end
+	self:_setOpen(open, from, nil, nil)
+end
+
+function DoorPart:SetOddityOpen(token: number, playbackSpeed: number)
+	self.OddityClaims[token] = {
+		Blocked = self.Forced,
+		Speed = playbackSpeed,
+	}
+	if not self.Forced then
+		if self.Outward then
+			self.Sign = self:_swingSignAlong(self.Outward)
+		end
+		self:_applyOddity()
+	end
+end
+
+function DoorPart:ClearOddity(token: number)
+	self.OddityClaims[token] = nil
+	if next(self.OddityClaims) then
+		self:_applyOddity()
+	elseif not self.Forced then
+		self:_setOpen(false, nil, nil, nil)
+	end
+end
+
 --- Holds the slab shut against something standing in the doorway, ignoring every player who would
 --- otherwise push it open. It also goes solid while held, so the doorway reads as a barred way out
 --- rather than one that simply refuses to animate.
@@ -93,7 +174,12 @@ function DoorPart:SetForced(forced: boolean)
 
 	self.Part.CanCollide = forced or self.ClosedCanCollide
 	if forced then
-		self:SetOpen(false)
+		for _, claim in self.OddityClaims do
+			claim.Blocked = true
+		end
+		self:_setOpen(false, nil, nil, nil)
+	elseif next(self.OddityClaims) then
+		self:_applyOddity()
 	end
 end
 
@@ -165,6 +251,7 @@ function DoorPart:_Apply()
 end
 
 function DoorPart:Destroy()
+	table.clear(self.OddityClaims)
 	if self.Part.Parent then
 		self.Part.CanCollide = self.ClosedCanCollide
 		self.Part:PivotTo(self.ClosedPivot)

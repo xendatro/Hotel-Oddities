@@ -13,11 +13,23 @@ local DoorConfig = require(ReplicatedStorage.Configs.DoorConfig)
 local DoorPart = require(ReplicatedStorage.Classes.DoorPart)
 local TagService = require(ReplicatedStorage.Services.TagService)
 
+local communication = ReplicatedStorage:WaitForChild("Communication", 30)
+local oddities = communication and communication:WaitForChild("Oddities", 30)
+local MapDoors = oddities and oddities:WaitForChild("MapDoors", 30)
+
 -- Every live slab, stepped together. Doors are animated locally, so this runs against ALL players'
 -- characters rather than just the local one: a door another player walks through has to open here
 -- too, or two clients disagree about the hotel.
 local Active: { [any]: true } = {}
 local sincePoll = 0
+
+type MapOpening = {
+	CFrame: CFrame,
+	Size: Vector3,
+	Speed: number,
+}
+
+local MapOpenings: { [number]: MapOpening } = {}
 
 local function livingPositions(): { Vector3 }
 	local positions = {}
@@ -98,6 +110,61 @@ local function doorwayFor(part: BasePart): Model?
 	return nil
 end
 
+local function isDoorInOpening(door, opening: MapOpening): boolean
+	local offset = opening.CFrame:PointToObjectSpace(door.Part.Position)
+	local half = opening.Size / 2
+	return math.abs(offset.X) <= half.X
+		and math.abs(offset.Y) <= half.Y
+		and math.abs(offset.Z) <= half.Z
+end
+
+local function applyOpening(door, token: number, opening: MapOpening)
+	if isDoorInOpening(door, opening) then
+		door:SetOddityOpen(token, opening.Speed)
+	end
+end
+
+if MapDoors and MapDoors:IsA("RemoteEvent") then
+	(MapDoors :: RemoteEvent).OnClientEvent:Connect(function(
+		action: any,
+		token: any,
+		boxCFrame: any,
+		boxSize: any,
+		speed: any
+	)
+		if type(token) ~= "number" then return end
+
+		if action == "Start" then
+			if typeof(boxCFrame) ~= "CFrame" or typeof(boxSize) ~= "Vector3" or type(speed) ~= "number" then
+				return
+			end
+
+			local previous = MapOpenings[token]
+			if previous then
+				for door in Active do
+					door:ClearOddity(token)
+				end
+			end
+
+			local opening: MapOpening = {
+				CFrame = boxCFrame,
+				Size = boxSize,
+				Speed = math.clamp(speed, 0.05, 4),
+			}
+			MapOpenings[token] = opening
+			for door in Active do
+				applyOpening(door, token, opening)
+			end
+		elseif action == "Stop" then
+			if not MapOpenings[token] then return end
+			MapOpenings[token] = nil
+			for door in Active do
+				door:ClearOddity(token)
+			end
+		end
+	end)
+end
+
 local function poll()
 	local positions = livingPositions()
 	local enemies, forcedDoorways = enemyPositions()
@@ -138,6 +205,9 @@ TagService:Listen("DoorPart", function(part: BasePart)
 
 	local door = DoorPart.new(part)
 	Active[door] = true
+	for token, opening in MapOpenings do
+		applyOpening(door, token, opening)
+	end
 	return door
 end, function(_, door)
 	if not door then return end
