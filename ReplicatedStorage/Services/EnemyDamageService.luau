@@ -4,6 +4,11 @@ local Players = game:GetService("Players")
 local Vanished = require(game:GetService("ReplicatedStorage").Modules.Vanished)
 local AnimationConfig = require(game:GetService("ReplicatedStorage").Configs.AnimationConfig)
 
+local ROOM_TAG = "Room"
+local WALL_INSET = 1
+local MAX_INSET_FRACTION = 0.25
+local SAFE_PAD = 0.5
+
 local EnemyDamageService = {}
 
 local localPlayer = Players.LocalPlayer
@@ -11,6 +16,32 @@ local character: Model? = localPlayer.Character
 local connections: { [Model]: { RBXScriptConnection } } = {}
 local attackTracks: { [Model]: { AnimationTrack } } = {}
 local dead = false
+
+local function isInSafeRoom(): boolean
+	if not character then return false end
+	for _, room in CollectionService:GetTagged(ROOM_TAG) do
+		if not room:IsA("Model") or not room:IsDescendantOf(workspace) then continue end
+		local roomCFrame, roomSize = room:GetBoundingBox()
+		local half = roomSize / 2
+		local safeHalf = Vector3.new(
+			half.X - math.min(WALL_INSET, half.X * MAX_INSET_FRACTION) + SAFE_PAD,
+			half.Y - math.min(WALL_INSET, half.Y * MAX_INSET_FRACTION) + SAFE_PAD,
+			half.Z - math.min(WALL_INSET, half.Z * MAX_INSET_FRACTION) + SAFE_PAD
+		)
+		for _, part in character:GetChildren() do
+			if part:IsA("BasePart") then
+				local offset = roomCFrame:PointToObjectSpace(part.Position)
+				if math.abs(offset.X) <= safeHalf.X
+					and math.abs(offset.Y) <= safeHalf.Y
+					and math.abs(offset.Z) <= safeHalf.Z
+				then
+					return true
+				end
+			end
+		end
+	end
+	return false
+end
 
 local Kill = game:GetService("ReplicatedStorage")
 	:WaitForChild("Communication")
@@ -50,6 +81,7 @@ end
 
 local function tryKill(enemy: Model, hit: BasePart)
 	if dead or not character or not hit:IsDescendantOf(character) then return end
+	if isInSafeRoom() then return end
 	if not enemy:IsDescendantOf(workspace) then return end
 	if Vanished.Is(character) then return end
 	-- Some enemies are scenery. A Watcher stands in corridors people walk down and has no attack at

@@ -16,6 +16,7 @@ local DeathConfig = require(ReplicatedStorage.Configs.DeathConfig)
 local EnemyDiscoveryService = require(ServerStorage.Services.EnemyDiscoveryService)
 local FriendReviveService = require(ServerStorage.Services.FriendReviveService)
 local ReviveService = require(ServerStorage.Services.ReviveService)
+local RoomService = require(ServerStorage.Services.RoomService)
 
 local Show = ReplicatedStorage
 	:WaitForChild("Communication")
@@ -46,6 +47,7 @@ local Records: { [Player]: Record } = {}
 local Killers: { [Player]: Model } = {}
 
 Kill.OnServerEvent:Connect(function(player: Player, enemy: Instance?)
+	if RoomService:IsInRoom(player) then return end
 	if not enemy or not enemy:IsA("Model") or not enemy:IsDescendantOf(workspace) then return end
 	if not enemy:HasTag("Enemy") then return end
 	if enemy:GetAttribute("Harmless") then return end -- it has no way to have done that

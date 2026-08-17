@@ -4,7 +4,7 @@
 ---
 --- Its tell is meant to be behavioural rather than visual, which is why it does not charge on sight
 --- like a `Chaser`. Each encounter rolls one act: delayed key-copying, emotes, periodic spinning, or
---- an AFK stance that slowly notices somebody who lingers. This half owns the act and every chase;
+--- an AFK stance that slowly notices anybody who lingers. This half owns the act and every chase;
 --- only the key-copying movement is handed to the copied player's client, where it can arrive smooth.
 ---
 --- Contact alone is never an attack. Entering its close range or retreating after engaging starts a real
@@ -43,6 +43,8 @@ local Mimic = NPC.extend("Mimic")
 local ENCOUNTER_MODES = { "Mirror", "Emote", "Spin", "Afk" }
 local HEAD_TURN_ATTRIBUTE = "MimicHeadTurnTarget"
 local HEAD_TURN_DURATION_ATTRIBUTE = "MimicHeadTurnDuration"
+local HEAD_TURN_VIEWER_ATTRIBUTE = "MimicHeadTurnToViewer"
+local HEAD_TURN_RANGE_ATTRIBUTE = "MimicHeadTurnRange"
 
 local function randomRange(minimum: number, maximum: number): number
 	return minimum + math.random() * (maximum - minimum)
@@ -489,57 +491,88 @@ local function afkIdle(_changeState: StateMachine.ChangeState, npc: any)
 	end
 end
 
-local function afk(_changeState: StateMachine.ChangeState, npc: any, target: Player)
-	npc.Target = target
+-- AFK keeps a clock for every valid player in range. It is distance-based rather than cone-based so
+-- a second player can become the first one to run or linger, even while the mimic is facing away.
+local function findAfkPlayers(npc: any): { Player }
+	local players: { Player } = {}
+	for _, player in Players:GetPlayers() do
+		local position = npc:GetTargetPosition(player)
+		if position
+			and flatten(position - npc.RootPart.Position).Magnitude <= npc.Config.DetectionRange
+		then
+			table.insert(players, player)
+		end
+	end
+	return players
+end
+
+local function afk(_changeState: StateMachine.ChangeState, npc: any, _target: Player?)
+	npc.Target = nil
 	npc:StopMirroring()
 	npc.Animator:Resume()
 	npc:SetSpeed(npc.Config.WalkSpeed)
 	npc:StopMoving()
 
 	local config = npc.Config
-	local noticedAt = nil :: number?
-	local turnStartedAt = nil :: number?
-	local watchingSince = nil :: number? -- when its head first came off the wall; never unset in here
+	npc:SetHeadTurnForViewers(config.AfkNoticeRange)
+	local encounters: { [Player]: { NoticedAt: number?, TurnStartedAt: number? } } = {}
 
 	while true do
-		local position = npc:GetTargetPosition(target)
-		if not position then return finishEncounter(npc, "Idle") end
-
 		local now = os.clock()
-		local distance = flatten(position - npc.RootPart.Position).Magnitude
-		if distance > config.DetectionRange then return finishEncounter(npc, "Idle") end
+		local activeNoticing = false
+		local winner: Player? = nil
+		local winnerAt: number? = nil
+		local seen: { [Player]: boolean } = {}
 
-		if distance <= config.AfkNoticeRange then
-			noticedAt = noticedAt or now
-		elseif distance > config.AfkNoticeRange + 6 then
-			-- Backing off buys off the charge it was working up to. It does not buy back the attention:
-			-- a head that swings home the moment you retreat is the mechanism announcing itself, where
-			-- one that stays on you is a guest who has clocked you and has not decided what to do about
-			-- it yet. Only the encounter ending puts the head back, which `finishEncounter` does.
-			noticedAt, turnStartedAt = nil, nil
-		end
-
-		local noticing = noticedAt ~= nil and now - (noticedAt :: number) >= config.AfkNoticeTime
-		if noticing then
-			watchingSince = watchingSince or now
-		end
-
-		if watchingSince then
-			-- The first turn is the slow one it was authored to be. Once it has had that long to come
-			-- round, it keeps up with a moving player at an ordinary glance rather than trailing them by
-			-- most of a turn -- which is what following somebody actually looks like.
-			npc:SetHeadTurn(position, if now - watchingSince >= config.AfkTurnTime
-				then MimicConfig.HeadTurnDefaultDuration
-				else config.AfkTurnTime)
-		end
-
-		if noticing then
-			turnStartedAt = turnStartedAt or now
-			local progress = math.clamp((now - (turnStartedAt :: number)) / config.AfkTurnTime, 0, 1)
-			if progress >= config.AfkChaseTurnFraction and isFleeing(npc, target) then
-				return "Chase", npc, target
+		for _, player in findAfkPlayers(npc) do
+			seen[player] = true
+			local encounter = encounters[player]
+			if not encounter then
+				encounter = { NoticedAt = nil, TurnStartedAt = nil }
+				encounters[player] = encounter
 			end
-			if progress >= 0.995 then return "Chase", npc, target end
+
+			local position = npc:GetTargetPosition(player)
+			if not position then continue end
+			local distance = flatten(position - npc.RootPart.Position).Magnitude
+			if distance <= config.AfkNoticeRange then
+				encounter.NoticedAt = encounter.NoticedAt or now
+			elseif distance > config.AfkNoticeRange + 6 then
+				-- Backing off buys off the charge it was working up to, but a nearby player keeps
+				-- their own attention clock. Each player gets this reset independently.
+				encounter.NoticedAt, encounter.TurnStartedAt = nil, nil
+			end
+
+			local noticing = encounter.NoticedAt ~= nil
+				and now - (encounter.NoticedAt :: number) >= config.AfkNoticeTime
+			if not noticing then continue end
+			activeNoticing = true
+			encounter.TurnStartedAt = encounter.TurnStartedAt or now
+			local turnStartedAt = encounter.TurnStartedAt :: number
+			local progress = math.clamp(
+				(now - turnStartedAt) / config.AfkTurnTime,
+				0,
+				1
+			)
+
+			local triggerAt = nil :: number?
+			if progress >= config.AfkChaseTurnFraction and isFleeing(npc, player) then
+				triggerAt = now
+			elseif progress >= 0.995 then
+				triggerAt = turnStartedAt + config.AfkTurnTime * 0.995
+			end
+			if triggerAt and (winnerAt == nil or triggerAt < winnerAt) then
+				winner, winnerAt = player, triggerAt
+			end
+		end
+
+		for player in encounters do
+			if not seen[player] then encounters[player] = nil end
+		end
+
+		if winner then return "Chase", npc, winner end
+		if not next(seen) then return finishEncounter(npc, "Idle") end
+		if activeNoticing then
 			RunService.Heartbeat:Wait()
 		else
 			task.wait(SUPERVISE_INTERVAL)
@@ -547,10 +580,11 @@ local function afk(_changeState: StateMachine.ChangeState, npc: any, target: Pla
 	end
 end
 
-local function stalk(changeState: StateMachine.ChangeState, npc: any, target: Player)
+local function stalk(changeState: StateMachine.ChangeState, npc: any, target: Player?)
+	if npc.EncounterMode == "Afk" then return afk(changeState, npc, target) end
+	if not target then return finishEncounter(npc, "Idle") end
 	if npc.EncounterMode == "Emote" then return lookAndPerform(changeState, npc, target, "Emote") end
 	if npc.EncounterMode == "Spin" then return lookAndPerform(changeState, npc, target, "Spin") end
-	if npc.EncounterMode == "Afk" then return afk(changeState, npc, target) end
 	return mirror(changeState, npc, target)
 end
 
@@ -672,6 +706,8 @@ function Mimic.new(model: Model, config)
 	self._appliedIdentity = nil :: Player?
 	self._swapping = false
 	self.Model:SetAttribute("MimicHeadTurn", true)
+	self.Model:SetAttribute(HEAD_TURN_VIEWER_ATTRIBUTE, nil)
+	self.Model:SetAttribute(HEAD_TURN_RANGE_ATTRIBUTE, nil)
 	self.Model:SetAttribute(HEAD_TURN_ATTRIBUTE, CFrame.identity)
 	self.Model:SetAttribute(HEAD_TURN_DURATION_ATTRIBUTE, MimicConfig.HeadTurnDefaultDuration)
 
@@ -683,8 +719,22 @@ end
 function Mimic:SetHeadTurn(position: Vector3?, duration: number?)
 	local target = if position then headRotation(self, position) else CFrame.identity
 	local turnDuration = duration or MimicConfig.HeadTurnDefaultDuration
+	self.Model:SetAttribute(HEAD_TURN_VIEWER_ATTRIBUTE, nil)
+	self.Model:SetAttribute(HEAD_TURN_RANGE_ATTRIBUTE, nil)
 	self.Model:SetAttribute(HEAD_TURN_ATTRIBUTE, target)
 	self.Model:SetAttribute(HEAD_TURN_DURATION_ATTRIBUTE, turnDuration)
+end
+
+-- AFK does not choose a head-turn target on the server. Each client points the neck at its own
+-- player, while the server tracks all nearby players and chooses the first one to trigger a chase.
+function Mimic:SetHeadTurnForViewers(range: number, duration: number?)
+	self.Model:SetAttribute(HEAD_TURN_VIEWER_ATTRIBUTE, true)
+	self.Model:SetAttribute(HEAD_TURN_RANGE_ATTRIBUTE, range)
+	self.Model:SetAttribute(HEAD_TURN_ATTRIBUTE, CFrame.identity)
+	self.Model:SetAttribute(
+		HEAD_TURN_DURATION_ATTRIBUTE,
+		duration or MimicConfig.HeadTurnDefaultDuration
+	)
 end
 
 --- Hands `target`'s own client the job of moving this mimic, and the rig to simulate it with. Their
@@ -872,8 +922,10 @@ function Mimic:BuildStateMachine(): StateMachine.StateMachine
 					or state == "Patrol"
 					or state == "Search"
 
-				if target and state == "AfkIdle" and npc.EncounterMode == "Afk" then
-					npc.StateMachine:SetState("Stalk", "Perception", npc, target)
+				if state == "AfkIdle" and npc.EncounterMode == "Afk" and findNearbyPlayer(npc) then
+					-- AFK watches every nearby player at once. The client aims the head at its own
+					-- viewer, so no single player owns the stance before the server commits to a chase.
+					npc.StateMachine:SetState("Stalk", "Perception", npc)
 				elseif target and npc.EncounterMode and state == "Search" then
 					-- Losing sight briefly does not roll another act when the same interaction resumes.
 					npc.StateMachine:SetState("Stalk", "Perception", npc, target)

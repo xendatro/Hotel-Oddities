@@ -1117,6 +1117,7 @@ end
 function NPC:Attack(player: Player)
 	local root = getAliveRoot(player)
 	if not root then return end
+	if self.Config.RespectsSafeRooms and RoomService:IsInRoom(player) then return end
 	-- Checked here as well as in perception, and not as a formality. Everything that reaches this
 	-- line decided to attack at some earlier moment -- a lunge is committed to before it lands -- so
 	-- perception refusing to *acquire* a vanished player says nothing about one who vanished while

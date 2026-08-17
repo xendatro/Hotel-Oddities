@@ -78,13 +78,13 @@ export type EnemyConfig = {
 	RetreatTime: number?, -- and to duck back once it has been seen
 	HoldTimeMin: number?, -- seconds it will stay out for if nobody ever looks
 	HoldTimeMax: number?,
-	RestTimeMin: number?, -- seconds spent out of sight between one peek and the next
+	RestTimeMin: number?, -- seconds spent out of sight between one unseen pose and the next
 	RestTimeMax: number?,
-	SeenRestMin: number?, -- and after one that was actually caught, which wants a longer gap
-	SeenRestMax: number?,
-	PeekCountMin: number?, -- peeks it performs before it leaves for good
+	-- Corners it will work before giving up and leaving. Spent by a pose nobody caught and by a
+	-- search that turned nothing up alike, so a Watcher in a stretch of hotel with no corners behind
+	-- the player leaves instead of hunting forever. Being caught ends it outright, whatever is left.
+	PeekCountMin: number?,
 	PeekCountMax: number?,
-	PeekTilt: number?, -- degrees it leans past the corner at full extension
 	RetryInterval: number?, -- seconds before looking again when the map offered no corner at all
 
 	-- Mimic-specific. How it moves while stalking is not here: that runs on the stalked player's own
@@ -537,19 +537,19 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		-- having looked away, which ends the pose in the middle of the moment it exists for.
 		ObservationHold = 0.35,
 
-		-- Down the far end of a corridor, not around the nearest doorway. Something close enough to
-		-- make out properly is close enough to walk up to and find still standing there, and the
-		-- whole effect depends on never getting a good look at it.
-		-- 18 puts the average peek about 40 studs out, and about 60% of junctions can host one. Pushing
-		-- the floor higher does buy distance, but it buys it out of corners that exist: at 30 the
-		-- average was 53 studs and half the corridors in the hotel had nothing to offer at all, which
-		-- reads as a Watcher that never turns up rather than one that keeps its distance.
-		MinPeekDistance = 18,
-		MaxPeekDistance = 85,
-		-- Behind them, always. 150 degrees is the whole rear hemisphere and 15 degrees either side of
-		-- it again, so the corridor a player is walking down is never offered up and the one they
-		-- have just left usually is. It is what makes turning round the only way to find this thing.
-		RearArc = 150,
+		-- Far enough that walking up to it is a decision, near enough that it is unmistakably a body
+		-- leaning out of a doorway. The old ceiling of 85 was most of a corridor's length away, where
+		-- a rig four studs across is a few pixels of grey and reads as nothing at all -- which is the
+		-- complaint this range is answering. A corner behind you at fourteen studs is still behind
+		-- you, and at fifty it is still legible.
+		MinPeekDistance = 14,
+		MaxPeekDistance = 120,
+		-- Search around most of the player's rear half. The final view-cone and line-of-sight checks
+		-- below still reject anything that could be seen arriving; this wider candidate arc keeps a
+		-- valid corner at the far side of a long hallway from being discarded too early.
+		--
+		-- `ViewCone` remains the safety boundary and is checked against every point of the lean.
+		RearArc = 300,
 
 		-- Degrees of aim treated as this player's screen, for the two decisions that have to be made
 		-- before there is anything on screen to report: whether a corner may be used at all, and
@@ -571,14 +571,8 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		HoldTimeMax = 9,
 		RestTimeMin = 8,
 		RestTimeMax = 20,
-		-- Longer after being caught, and long enough to relocate under: back in ten seconds at the
-		-- next corner along is one thing bobbing in and out, and the same gap after two minutes is a
-		-- second sighting.
-		SeenRestMin = 20,
-		SeenRestMax = 40,
 		PeekCountMin = 3,
 		PeekCountMax = 6,
-		PeekTilt = 14,
 		RetryInterval = 1.5,
 
 		-- Presence, and the one enemy the director does not place on the floor: a Watcher only works

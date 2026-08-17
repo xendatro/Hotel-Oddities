@@ -73,6 +73,37 @@ local function flatten(vector: Vector3): Vector3
 	return Vector3.new(vector.X, 0, vector.Z)
 end
 
+local function viewerPosition(): Vector3?
+	local character = localPlayer.Character
+	if not character then return nil end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 then return nil end
+
+	local head = character:FindFirstChild("Head")
+	if head and head:IsA("BasePart") then return head.Position end
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if root and root:IsA("BasePart") then return root.Position + Vector3.yAxis * 2.5 end
+	return nil
+end
+
+local function headRotation(model: Model, target: Vector3): CFrame
+	local root = model:FindFirstChild("HumanoidRootPart")
+	if not root or not root:IsA("BasePart") then return CFrame.identity end
+
+	local relative = root.CFrame:VectorToObjectSpace(target - root.Position)
+	local horizontal = flatten(relative)
+	if horizontal.Magnitude < 1e-3 then return CFrame.identity end
+
+	local yaw = math.clamp(math.atan2(-relative.X, -relative.Z), -math.rad(80), math.rad(80))
+	local pitch = math.clamp(
+		math.atan2(relative.Y, horizontal.Magnitude),
+		-math.rad(35),
+		math.rad(35)
+	)
+	return CFrame.Angles(-pitch, yaw, 0)
+end
+
 local function randomRange(minimum: number, maximum: number): number
 	return minimum + math.random() * (maximum - minimum)
 end
@@ -242,7 +273,7 @@ RunService.PreAnimation:Connect(function()
 	end
 end)
 
-RunService.PreSimulation:Connect(function(_deltaTime: number)
+RunService.PreSimulation:Connect(function(deltaTime: number)
 	local seen = {}
 	local now = os.clock()
 	for _, model in CollectionService:GetTagged("Enemy") do
@@ -251,7 +282,24 @@ RunService.PreSimulation:Connect(function(_deltaTime: number)
 		if not neck then seen[model] = true continue end
 
 		local target = model:GetAttribute("MimicHeadTurnTarget")
-		if typeof(target) ~= "CFrame" then target = CFrame.identity end
+		-- AFK head turns are local: every client sees the mimic acknowledge its own player, while the
+		-- server keeps the actual chase decision shared and authoritative.
+		local viewerTurn = model:GetAttribute("MimicHeadTurnToViewer") == true
+		if viewerTurn then
+			local position = viewerPosition()
+			local range = model:GetAttribute("MimicHeadTurnRange")
+			local root = model:FindFirstChild("HumanoidRootPart")
+			if type(range) ~= "number" then range = math.huge end
+			if position and root and root:IsA("BasePart")
+				and flatten(position - root.Position).Magnitude <= range
+			then
+				target = headRotation(model, position)
+			else
+				target = CFrame.identity
+			end
+		elseif typeof(target) ~= "CFrame" then
+			target = CFrame.identity
+		end
 
 		local duration = model:GetAttribute("MimicHeadTurnDuration")
 		if type(duration) ~= "number" then duration = MimicConfig.HeadTurnDefaultDuration end
@@ -266,6 +314,17 @@ RunService.PreSimulation:Connect(function(_deltaTime: number)
 				Duration = duration,
 			}
 			appliedHeadTurns[model] = state
+		end
+
+		if viewerTurn then
+			-- The viewer target can move every frame, so smooth toward it directly instead of
+			-- restarting a duration tween for every small CFrame change.
+			state.Start = state.Applied
+			state.StartedAt = now
+			state.Target = target :: CFrame
+			state.Duration = duration
+			local alpha = 1 - math.exp(-4.6 * deltaTime / math.max(duration, 1e-3))
+			state.Applied = state.Applied:Lerp(target :: CFrame, alpha)
 		elseif target ~= state.Target then
 			if now >= state.StartedAt + state.Duration then
 				state.Start = state.Applied
@@ -281,9 +340,11 @@ RunService.PreSimulation:Connect(function(_deltaTime: number)
 			state.Duration = duration
 		end
 
-		local progress = math.clamp((now - state.StartedAt) / state.Duration, 0, 1)
-		local eased = progress * 0.88 + progress * progress * (3 - 2 * progress) * 0.12
-		state.Applied = state.Start:Lerp(state.Target, eased)
+		if not viewerTurn then
+			local progress = math.clamp((now - state.StartedAt) / state.Duration, 0, 1)
+			local eased = progress * 0.88 + progress * progress * (3 - 2 * progress) * 0.12
+			state.Applied = state.Start:Lerp(state.Target, eased)
+		end
 
 		neck.Transform = state.Applied * neck.Transform
 		seen[model] = true

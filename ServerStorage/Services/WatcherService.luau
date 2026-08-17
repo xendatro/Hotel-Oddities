@@ -54,17 +54,20 @@ function WatcherService:SpawnNear(player: Player, anyDirection: boolean?)
 
 	if not spot then return nil end
 
-	-- Placed on the corner it will perform at, and handed the same corner, so its opening move is to
-	-- lean out rather than to go looking for somewhere better.
+	-- Placed upright on the corner it will perform at and handed that same corner, so its opening move
+	-- is to wait for its moment rather than to go looking for somewhere better.
 	--
-	-- The floor position goes in unadjusted: these rigs carry a `WorldPivot` at their feet, so
-	-- `PivotTo` stands one on a floor point rather than burying it to the waist.
+	-- Upright, and a floor position rather than the leaning pose the state machine will drive: these
+	-- rigs carry a `WorldPivot` at their feet, so `PivotTo` stands one on a floor point rather than
+	-- burying it to the waist, and a lean is described about the root three studs above that.
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	local origin = spot.Hide
 	local facing = if root
-		then Vector3.new(root.Position.X, origin.Y, root.Position.Z)
-		else origin + Vector3.zAxis
-	return EnemyService:Spawn("Watcher", CFrame.lookAt(origin, facing), spot, player)
+		then Vector3.new(root.Position.X, spot.Stand.Y, root.Position.Z)
+		else spot.Stand + spot.Facing
+	if (facing - spot.Stand).Magnitude < 1e-3 then
+		facing = spot.Stand + spot.Facing
+	end
+	return EnemyService:Spawn("Watcher", CFrame.lookAt(spot.Stand, facing), spot, player)
 end
 
 return WatcherService
