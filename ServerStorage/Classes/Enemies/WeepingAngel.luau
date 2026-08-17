@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
+local ObservedFreezeConfig = require(ReplicatedStorage.Configs.ObservedFreezeConfig)
 local NPC = require(ServerStorage.Classes.NPC)
 
 -- Matched to the rate clients report what they can see at, so noticing a look costs at most one
@@ -20,6 +21,17 @@ local NPC = require(ServerStorage.Classes.NPC)
 local PERCEPTION_INTERVAL = 0.05
 
 local WeepingAngel = NPC.extend("WeepingAngel")
+
+local function setFrozen(npc: any, frozen: boolean)
+	npc.Model:SetAttribute(ObservedFreezeConfig.FrozenAttribute, frozen)
+end
+
+local function released(state: StateMachine.StateFunction): StateMachine.StateFunction
+	return function(changeState: StateMachine.ChangeState, npc: any, ...: any)
+		setFrozen(npc, false)
+		return state(changeState, npc, ...)
+	end
+end
 
 -- A beat standing still, then back on patrol. Where an attack's cooldown and a stun both land.
 local function idle(_changeState: StateMachine.ChangeState, npc: any)
@@ -32,6 +44,7 @@ local function idle(_changeState: StateMachine.ChangeState, npc: any)
 end
 
 local function frozen(_changeState: StateMachine.ChangeState, npc: any)
+	setFrozen(npc, true)
 	npc.Animator:Pause()
 	npc:SetSpeed(0)
 	npc:StopMoving()
@@ -49,9 +62,7 @@ local function chase(_changeState: StateMachine.ChangeState, npc: any, target: P
 
 	local result = npc:Pursue(function()
 		return npc:GetTargetPosition(target)
-	end, 0, function()
-		return npc:IsTouchingPlayer(target)
-	end, function()
+	end, nil, nil, function()
 		return npc:HasLineOfSightToPlayer(target)
 	end)
 
@@ -62,7 +73,6 @@ local function chase(_changeState: StateMachine.ChangeState, npc: any, target: P
 end
 
 local function attack(_changeState: StateMachine.ChangeState, npc: any, target: Player)
-	npc:StopMoving()
 	if npc:IsObserved() then
 		return "Frozen", npc
 	end
@@ -83,6 +93,8 @@ local function attack(_changeState: StateMachine.ChangeState, npc: any, target: 
 end
 
 function WeepingAngel.new(model: Model, config)
+	model:AddTag(ObservedFreezeConfig.Tag)
+	model:SetAttribute(ObservedFreezeConfig.FrozenAttribute, false)
 	return NPC.new(model, config, WeepingAngel)
 end
 
@@ -90,13 +102,13 @@ function WeepingAngel:BuildStateMachine(): StateMachine.StateMachine
 	local npc = self
 
 	return StateMachine.new({
-		Idle = idle,
-		Patrol = NPC.SharedStates.Patrol,
+		Idle = released(idle),
+		Patrol = released(NPC.SharedStates.Patrol),
 		Frozen = frozen,
-		Chase = chase,
-		Attack = attack,
-		Despawn = NPC.SharedStates.Despawn,
-		Stunned = NPC.SharedStates.Stunned,
+		Chase = released(chase),
+		Attack = released(attack),
+		Despawn = released(NPC.SharedStates.Despawn),
+		Stunned = released(NPC.SharedStates.Stunned),
 	}, {
 		Observed = { "Idle", "Patrol", "Chase", "Attack" },
 		Released = { "Frozen" },

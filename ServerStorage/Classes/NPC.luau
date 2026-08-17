@@ -33,14 +33,27 @@ local MOVEMENT_POLL_INTERVAL = 0.05
 local CONTACT_PADDING = 0.25
 local CONTACT_ROOT_DISTANCE = 2.25
 local DIRECT_PURSUIT_DISTANCE = 24
+local CLOSE_PURSUIT_DISTANCE = 16
 local DIRECT_PURSUIT_HYSTERESIS = 4
-local DIRECT_PURSUIT_UPDATE_DISTANCE = 1
-local DIRECT_PURSUIT_OVERSHOOT = 4
-local DIRECT_MOVE_REFRESH_INTERVAL = 0.25
+local PURSUIT_LEAD_TIME = 0.45
+local MIN_PURSUIT_LEAD = 4
+local MAX_PURSUIT_LEAD = 10
+-- Studs a chase aims past whatever it is walking to. See `NPC:MoveThrough`.
+local PURSUIT_OVERSHOOT = 12
+-- Studs from a live target at which a killing chase stops being able to end in anything but their
+-- death. See `NPC:Pursue`; `Config.CommitDistance` overrides it per enemy.
+local PURSUIT_COMMIT_DISTANCE = 10
+local PURSUIT_PROGRESS = 2 -- studs of ground covered that count as still getting somewhere
+local PURSUIT_STALL_GRACE = 1.5 -- seconds of covering none before the way it is moving is the problem
+local DIRECT_STALL_RETRY = 2 -- seconds a charge that hit something stays handed over to the navmesh
 local UNREACHABLE_MEMORY = 12 -- seconds a written-off target stays unacquirable; as `PATROL_BLOCKED_MEMORY`
 local WANDER_ATTEMPTS = 6
 local PREFETCH_LEAD = 2.5 -- seconds of walking left on a route when the next one starts computing
-local PREFETCH_ORIGIN_TOLERANCE = 8 -- studs the guessed start of a prefetched route may be out by
+-- Studs the guessed start of a prefetched route may be out by. Generous because a pursuit keeps
+-- walking while its next route computes, so it is never where it was when it asked; `_startingWaypoint`
+-- is what makes a route that begins behind the rig safe to take up.
+local PREFETCH_ORIGIN_TOLERANCE = 12
+local MIN_LANE_ADVANCE = 4 -- studs of clear lane worth walking when the whole lane is not clear
 local PREFETCH_DESTINATION_TOLERANCE = 1 -- and its guessed destination, unless a caller allows more
 -- Degrees of the cone the server falls back to when a client stops reporting what it can see. A shade
 -- wider than the default camera, because the cost of being generous is an enemy that waits a moment
@@ -81,6 +94,25 @@ end
 
 local function horizontal(vector: Vector3): Vector3
 	return Vector3.new(vector.X, 0, vector.Z)
+end
+
+local function getTargetLead(player: Player?): Vector3
+	local character = player and player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root or not root:IsA("BasePart") then return Vector3.zero end
+
+	local velocity = horizontal(root.AssemblyLinearVelocity)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local moveDirection = if humanoid then horizontal(humanoid.MoveDirection) else Vector3.zero
+	if humanoid and moveDirection.Magnitude > 0.05 then
+		local speed = math.max(velocity.Magnitude, humanoid.WalkSpeed)
+		velocity = moveDirection.Unit * speed
+	end
+
+	local speed = velocity.Magnitude
+	if speed < 1 then return Vector3.zero end
+	local distance = math.clamp(speed * PURSUIT_LEAD_TIME, MIN_PURSUIT_LEAD, MAX_PURSUIT_LEAD)
+	return velocity.Unit * distance
 end
 
 -- Whether `point` falls inside a horizontal cone of `fieldOfView` degrees opening along `lookVector`.
@@ -331,9 +363,15 @@ end
 
 --- Takes a completed prefetched route without yielding. Returns nil while the worker is still
 --- computing, or when the route was not usable for the current destination.
+---
+--- Work still in flight is left alone rather than judged against where the target has got to since.
+--- Throwing it away only starts the same computation again from a fresher position, and against
+--- somebody running that repeats every time they cover `RepathDistance` -- so the route never lands,
+--- and a chase that is waiting on one never gets it.
 function NPC:TakePrefetchedPath(destination: Vector3, tolerance: number?): Path?
 	local entry = self._prefetch
 	if not entry then return nil end
+	if not entry.Done then return nil end
 
 	if (entry.Destination - destination).Magnitude > (tolerance or PREFETCH_DESTINATION_TOLERANCE)
 		or (entry.Origin - self.RootPart.Position).Magnitude > PREFETCH_ORIGIN_TOLERANCE
@@ -341,7 +379,6 @@ function NPC:TakePrefetchedPath(destination: Vector3, tolerance: number?): Path?
 		self:_discardPrefetch()
 		return nil
 	end
-	if not entry.Done then return nil end
 
 	self._prefetch = nil
 	local path = entry.Path
@@ -382,13 +419,10 @@ function NPC:_getReachDistance(): number
 	return math.clamp(perPoll, WAYPOINT_REACHED_DISTANCE, spacing * MAX_REACH_FRACTION)
 end
 
---- Whether the whole agent, rather than only a sight ray through its center, has an unobstructed
---- horizontal lane to `destination`. This is required before pursuit bypasses the navmesh at close
---- range; otherwise a visible player just beyond a corner can make a wide rig charge into its wall.
-function NPC:HasMovementClearance(destination: Vector3): boolean
-	local offset = horizontal(destination - self.RootPart.Position)
-	if offset.Magnitude < 1e-3 then return true end
-
+-- What the agent's own width would strike on its way to `destination`, or nil where nothing would.
+-- Cast as a box rather than a ray so the answer is about whether the *rig* fits, not whether its
+-- center line happens to be clear.
+function NPC:_laneObstruction(destination: Vector3): RaycastResult?
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	local filter = { self.Model }
@@ -403,9 +437,115 @@ function NPC:HasMovementClearance(destination: Vector3): boolean
 	return workspace:Blockcast(
 		CFrame.new(self.RootPart.Position),
 		Vector3.new(radius * 2, height, radius * 2),
-		offset,
+		horizontal(destination - self.RootPart.Position),
 		params
-	) == nil
+	)
+end
+
+--- Whether the whole agent, rather than only a sight ray through its center, has an unobstructed
+--- horizontal lane to `destination`. This is required before pursuit bypasses the navmesh at close
+--- range; otherwise a visible player just beyond a corner can make a wide rig charge into its wall.
+function NPC:HasMovementClearance(destination: Vector3): boolean
+	local offset = horizontal(destination - self.RootPart.Position)
+	if offset.Magnitude < 1e-3 then return true end
+	return self:_laneObstruction(destination) == nil
+end
+
+--- Leaves a live movement goal aimed at `destination`, walking as much of the lane as is actually
+--- clear when the whole of it is not. Returns whether anything was worth walking.
+---
+--- This exists so that a pursuit with no route in hand still moves. `ComputeAsync` takes anything up
+--- to a second, a chase asks for a new route every `RepathInterval`, and a stretch of that spent
+--- standing still is a stretch a running player gains outright -- which is exactly how an enemy that
+--- has nearly caught somebody falls behind and never closes again. The target's own direction is the
+--- best heading available until the route lands, and walking part of a blocked lane still ends nearer
+--- than not walking at all. `MIN_LANE_ADVANCE` is what keeps that from becoming a rig shuffling into
+--- the wall in front of it for the sake of moving.
+function NPC:MoveTowards(destination: Vector3): boolean
+	local offset = horizontal(destination - self.RootPart.Position)
+	if offset.Magnitude < 1e-3 then return false end
+
+	local obstruction = self:_laneObstruction(destination)
+	if not obstruction then
+		self.Humanoid:MoveTo(destination)
+		return true
+	end
+	if obstruction.Distance < MIN_LANE_ADVANCE then return false end
+
+	self.Humanoid:MoveTo(self.RootPart.Position + offset.Unit * obstruction.Distance)
+	return true
+end
+
+--- A point `PURSUIT_OVERSHOOT` studs past `destination`, carrying on towards `beyond` where one is
+--- given and along the approach otherwise.
+function NPC:_extendPast(destination: Vector3, beyond: Vector3?): Vector3
+	local heading = if beyond then horizontal(beyond - destination) else Vector3.zero
+	if heading.Magnitude < 1e-3 then
+		heading = horizontal(destination - self.RootPart.Position)
+	end
+	if heading.Magnitude < 1e-3 then
+		heading = horizontal(self.RootPart.CFrame.LookVector)
+	end
+	if heading.Magnitude < 1e-3 then return destination end
+	return destination + heading.Unit * PURSUIT_OVERSHOOT
+end
+
+--- Walks *through* `destination` rather than up to it, carrying on towards `beyond`.
+---
+--- A `Humanoid` decelerates into a `MoveTo` goal and settles on it, so a goal is a stop with a
+--- position attached. That is the right shape for a destination and the wrong shape for everything a
+--- chase does: a route waypoint every few studs is a route walked as a series of small stops, and a
+--- goal set on a player who is three studs away is an instruction to stop three studs away -- which
+--- the rig carries out, over and over, as the hitch that reads as an enemy losing its nerve the moment
+--- it reaches you. Aiming past the point keeps the walk controller out of its own arrival radius, so
+--- the rig runs through it at full speed and the whole chase is one continuous movement.
+---
+--- The overshoot is clipped to whatever lane is genuinely clear, but never back behind `destination`
+--- itself. Shortening a goal something has already vouched for -- a navmesh waypoint, a target in
+--- plain sight -- is how an obstruction *near* the path becomes a stop *on* it.
+function NPC:MoveThrough(destination: Vector3, beyond: Vector3?)
+	local root = self.RootPart.Position
+	local extended = self:_extendPast(destination, beyond)
+	local offset = horizontal(extended - root)
+	if offset.Magnitude < 1e-3 then
+		self.Humanoid:MoveTo(destination)
+		return
+	end
+
+	local obstruction = self:_laneObstruction(extended)
+	if not obstruction then
+		self.Humanoid:MoveTo(extended)
+	elseif obstruction.Distance <= horizontal(destination - root).Magnitude then
+		-- The extension runs into something the destination itself does not. Give up the overshoot
+		-- rather than the distance.
+		self.Humanoid:MoveTo(destination)
+	else
+		self.Humanoid:MoveTo(root + offset.Unit * obstruction.Distance)
+	end
+end
+
+--- The waypoint of `waypoints` a rig standing where this one is should be walking to, searching from
+--- `index` on. Normally the second, the first being where the route was computed from -- but a chase
+--- keeps walking while its next route is worked out, so by the time one is in hand the rig is often
+--- already some way along it, and it advances between polls rather than between blocking legs.
+---
+--- A waypoint already inside reach is simply behind it. One that is not is only skipped where the one
+--- after it is both nearer and reachable in a straight line, so a route that doubles back around a
+--- corner is never cut through.
+function NPC:AdvanceWaypoint(waypoints: { PathWaypoint }, index: number): number
+	local reach = self:_getReachDistance()
+	while index < #waypoints do
+		local following = waypoints[index + 1]
+		if following.Action == Enum.PathWaypointAction.Jump then break end
+
+		local here = self:GetWaypointDistance(waypoints[index].Position)
+		if here > reach then
+			if self:GetWaypointDistance(following.Position) >= here then break end
+			if not self:HasMovementClearance(following.Position) then break end
+		end
+		index += 1
+	end
+	return index
 end
 
 -- Distance still to be walked from waypoint `index` to the end of `waypoints`, by index.
@@ -448,7 +588,7 @@ function NPC:_walkPath(
 		return result
 	end
 
-	for index = 2, #waypoints do
+	for index = self:AdvanceWaypoint(waypoints, 2), #waypoints do
 		if shouldAbandon and shouldAbandon() then return finish("Abandoned") end
 		if blockedAt and blockedAt >= index then return finish("Blocked") end
 
@@ -531,200 +671,232 @@ function NPC:WalkTo(destination: Vector3): boolean
 	return result == "Reached"
 end
 
---- Chases a moving goal, re-pathing as it drifts. Direct movement handles clear lanes; route work is
---- prefetched in the background so a new `Path` never pauses the current chase to compute.
+--- Chases a moving goal until it is caught, until it is lost, or until the caller says it has arrived.
+---
+--- One loop, one movement goal per poll, and no branch through it that issues none. Everything that
+--- used to mean standing still -- waiting on `ComputeAsync`, swapping a stale route for a fresh one,
+--- handing a route over to direct movement -- now happens underneath a rig that is already walking.
+--- Routes are computed off this thread and picked up wherever the walking has got to by the time they
+--- land; until one does, the target's own direction is the heading, walked as far as the lane allows.
+---
+--- Two rules make the last few studs work, and both are there because the killing blow is not the
+--- server's to land. It is the victim's own client that notices the touch and ends them, on its own
+--- clock, and nothing here may act as though that has happened.
+---
+---  * Every goal is aimed *past* what the rig is walking to, never at it. See `NPC:MoveThrough` -- a
+---    goal set on a player standing three studs away is an instruction to stop three studs away.
+---  * A pursuit that named no arrival condition of its own is one that ends in a kill, and inside
+---    `CommitDistance` of a live target it commits. Nothing after that ends it but that player's
+---    death: not a trail going quiet, not a route failing, not the caller's own goal coming back nil.
+---    Every one of those is the server forming an opinion about a kill, and it does not have one to
+---    form. `IsValidTarget` is what lets go -- of the dead, of anyone who reached a room, and of
+---    anyone who got far enough away that this stopped being the same chase.
+---
+--- Callers that mean to stop short -- a follow, a shadow -- pass `arriveDistance` or `hasArrived` and
+--- are left alone by all of that.
 function NPC:Pursue(
 	getGoal: () -> Vector3?,
 	arriveDistance: number?,
 	hasArrived: (() -> boolean)?,
 	canMoveDirectly: (() -> boolean)?
 ): string
-	local blockedAttempts = 0
-	local pathFailures, failureTarget = 0, self.Target
-	local directGoal = nil :: Vector3?
-	local directRefreshAt = 0
-	local directPursuit = false
-	local directDistance = self.Config.DirectPursuitDistance or DIRECT_PURSUIT_DISTANCE
-	local repathInterval = self.Config.RepathInterval or 0.5
-	local repathDistance = self.Config.RepathDistance or 8
-	local path = nil :: Path?
-	local pathGoal = nil :: Vector3?
-	local requestGoal = nil :: Vector3?
-	local nextPathRequestAt = 0
+	local config = self.Config
+	local commits = arriveDistance == nil and hasArrived == nil
+	local commitDistance = config.CommitDistance or PURSUIT_COMMIT_DISTANCE
+	local directDistance = config.DirectPursuitDistance or DIRECT_PURSUIT_DISTANCE
+	local closeDistance = math.min(config.ClosePursuitDistance or CLOSE_PURSUIT_DISTANCE, directDistance)
+	local repathInterval = config.RepathInterval or 0.5
+	local repathDistance = config.RepathDistance or 8
 
-	local function finish(result: string): string
+	local path = nil :: Path?
+	local waypoints = nil :: { PathWaypoint }?
+	local index = 2
+	local routeGoal = nil :: Vector3?
+	local blockedAt = nil :: number?
+	local blockedConnection = nil :: RBXScriptConnection?
+
+	local directPursuit, closePursuit = false, false
+	local directBlockedUntil = 0
+	local lastTargetLead = Vector3.zero
+	local failures, nextRequestAt = 0, 0
+	local anchor, movedAt = self.RootPart.Position, os.clock()
+
+	local function dropRoute()
+		if blockedConnection then
+			blockedConnection:Disconnect()
+			blockedConnection = nil
+		end
 		if path then
 			path:Destroy()
 			path = nil
 		end
+		waypoints, index, routeGoal, blockedAt = nil, 2, nil, nil
+	end
+
+	local function finish(result: string): string
+		dropRoute()
 		self:_discardPrefetch()
 		return result
 	end
 
-	local function recordPathFailure()
-		if self.Target ~= failureTarget then
-			pathFailures, failureTarget = 0, self.Target
-		end
-		pathFailures += 1
-		-- A failed computation is retried in the background with a small backoff. It is not treated as
-		-- proof that the player is unreachable: doors and the navmesh can change while they stand still.
-		nextPathRequestAt = os.clock() + math.min(repathInterval * (1 + pathFailures), 4)
+	-- A route that could not be worked out is retried with a growing gap rather than taken as proof
+	-- that anywhere is unreachable: doors open and the navmesh changes while a player stands still.
+	local function backOff()
+		failures += 1
+		nextRequestAt = os.clock() + math.min(repathInterval * failures, 4)
 	end
 
-	local function requestPath(destination: Vector3)
-		if os.clock() < nextPathRequestAt
-			and (not requestGoal or (destination - requestGoal).Magnitude <= repathDistance)
-		then
+	-- Never yields. A route is only ever taken up once it has finished computing somewhere else, which
+	-- is the whole of what lets the rig keep walking through its own repath.
+	local function collectRoute(goal: Vector3)
+		local entry = self._prefetch
+		if not entry or not entry.Done then return end
+		if not entry.Path then
+			self:_discardPrefetch()
+			backOff()
 			return
 		end
 
-		local entry = self._prefetch
-		if entry then
-			local destinationStillUseful = (entry.Destination - destination).Magnitude <= repathDistance
-			local originStillUseful = (entry.Origin - self.RootPart.Position).Magnitude <= PREFETCH_ORIGIN_TOLERANCE
-			local targetStillNearRequest = requestGoal
-				and (destination - requestGoal).Magnitude <= repathDistance
-			if (not entry.Done and targetStillNearRequest) or (destinationStillUseful and originStillUseful) then
-				return
-			end
-			self:_discardPrefetch()
-		end
+		local ready = self:TakePrefetchedPath(goal, repathDistance)
+		if not ready then return end
 
-		self:PrefetchPath(destination)
-		requestGoal = destination
-		nextPathRequestAt = math.huge
+		dropRoute()
+		path = ready
+		local list = self:GetMovementWaypoints(ready)
+		waypoints = list
+		index = self:AdvanceWaypoint(list, 2)
+		routeGoal = goal
+		failures = 0
+		nextRequestAt = os.clock() + repathInterval
+		blockedConnection = ready.Blocked:Connect(function(at: number)
+			blockedAt = if blockedAt then math.min(blockedAt, at) else at
+		end)
+	end
+
+	local function requestRoute(goal: Vector3)
+		if self._prefetch then return end -- one at a time, and work in flight is left to land
+		if os.clock() < nextRequestAt then return end
+		self:PrefetchPath(goal)
+	end
+
+	local function targetLead(): Vector3
+		local lead = getTargetLead(self.Target)
+		if lead.Magnitude > 0.05 then
+			lastTargetLead = lead
+		elseif commits then
+			lead = lastTargetLead
+		end
+		return lead
 	end
 
 	while true do
 		local goal = getGoal()
-		if not goal then return finish("Lost") end
-		if hasArrived and hasArrived() then return finish("Reached") end
 
-		local distance = (self.RootPart.Position - goal).Magnitude
-		if arriveDistance and distance <= arriveDistance then return finish("Reached") end
+		local committed = false
+		local target = self.Target
+		if commits and target and self:IsValidTarget(target) then
+			local position = (getAliveRoot(target) :: BasePart).Position
+			if horizontal(self.RootPart.Position - position).Magnitude <= commitDistance then
+				goal, committed = position, true
+			end
+		end
+
+		if not goal then return finish("Lost") end
+		if not committed then
+			if hasArrived and hasArrived() then return finish("Reached") end
+			local reach = horizontal(self.RootPart.Position - goal).Magnitude
+			if arriveDistance and reach <= arriveDistance then return finish("Reached") end
+		end
+
+		local distance = horizontal(self.RootPart.Position - goal).Magnitude
+		if distance <= closeDistance then
+			closePursuit = true
+		elseif distance > closeDistance + DIRECT_PURSUIT_HYSTERESIS then
+			closePursuit = false
+		end
+
+		local lead = targetLead()
+		local movementGoal = goal + lead
+		local extendedGoal = self:_extendPast(
+			movementGoal,
+			if lead.Magnitude > 0.05 then movementGoal + lead else nil
+		)
+
+		-- Keep a usable route warm even while charging in a straight line. If the projected lane meets
+		-- a corner, the next waypoint is already available instead of being computed after the collision.
+		collectRoute(goal)
+		if not routeGoal or (goal - routeGoal).Magnitude > repathDistance then
+			requestRoute(goal)
+		end
+
 		local directLimit = if directPursuit
 			then directDistance + DIRECT_PURSUIT_HYSTERESIS
 			else directDistance
-		local canPursueDirectly = false
-		if distance <= directLimit and canMoveDirectly then
-			canPursueDirectly = canMoveDirectly() and self:HasMovementClearance(goal)
+		local laneClear = self:HasMovementClearance(movementGoal)
+		local direct = closePursuit and laneClear
+		if not direct and distance <= directLimit and canMoveDirectly and os.clock() >= directBlockedUntil then
+			direct = canMoveDirectly() and laneClear
 		end
-		if canPursueDirectly then
-			directPursuit = true
-			blockedAttempts, pathFailures = 0, 0
-			if path then
-				path:Destroy()
-				path = nil
-			end
-			pathGoal = nil
-			self:_discardPrefetch()
-			requestGoal = nil
-			nextPathRequestAt = 0
-			-- Re-issued on a clock as well as on drift, because a goal that has stopped moving is
-			-- exactly the case that never trips the drift check: a player standing still somewhere
-			-- this cannot quite reach would otherwise be charged at once and then watched from a
-			-- standstill, `Humanoid:MoveTo` having quietly given up eight seconds in.
-			if not directGoal
-				or (goal - directGoal).Magnitude >= DIRECT_PURSUIT_UPDATE_DISTANCE
-				or os.clock() >= directRefreshAt then
-				directGoal = goal
-				directRefreshAt = os.clock() + DIRECT_MOVE_REFRESH_INTERVAL
-				local direction = goal - self.RootPart.Position
-				local movementGoal = goal
-				if direction.Magnitude > 1e-3 then
-					local overshootGoal = goal + direction.Unit * DIRECT_PURSUIT_OVERSHOOT
-					if self:HasMovementClearance(overshootGoal) then
-						movementGoal = overshootGoal
-					end
-				end
-				self.Humanoid:MoveTo(movementGoal)
-			end
-			task.wait(MOVEMENT_POLL_INTERVAL)
-			continue
-		end
-		directPursuit = false
-		directGoal = nil
+		directPursuit = direct
 
-		if not path then
-			local readyPath = self:TakePrefetchedPath(goal, repathDistance)
-			if readyPath then
-				path = readyPath
-				pathGoal = goal
-				requestGoal = goal
-				pathFailures = 0
-				blockedAttempts = 0
-				continue
+		if direct then
+			-- The server sees a player slightly behind their owning client. Aim several studs along the
+			-- replicated movement heading so reaching the server position never becomes a reason to coast.
+			if closePursuit then
+				self.Humanoid:MoveTo(extendedGoal)
+			elseif not self:MoveTowards(extendedGoal) then
+				-- Nothing in front of it worth walking. That is a wall and not a moment, so hand it to the
+				-- navmesh now rather than after a stall window spent pressing into it.
+				self.Humanoid:MoveTo(extendedGoal)
+				directBlockedUntil = os.clock() + DIRECT_STALL_RETRY
 			end
-
-			local entry = self._prefetch
-			if entry and entry.Done then
-				self:_discardPrefetch()
-				recordPathFailure()
-			end
-			if not self._prefetch then
-				requestPath(goal)
-			end
-			task.wait(MOVEMENT_POLL_INTERVAL)
-			continue
-		end
-
-		local repathAt = os.clock() + repathInterval
-		local arrived = false
-		local repathing = false
-		local route = path
-		local routeGoal = pathGoal or goal
-		local result = self:_walkPath(route, function()
-			local current = getGoal()
-			if not current then return true end
-			if hasArrived and hasArrived() then
-				arrived = true
-				return true
-			end
-			if arriveDistance and (self.RootPart.Position - current).Magnitude <= arriveDistance then
-				return true
-			end
-			if not directPursuit
-				and canMoveDirectly
-				and (self.RootPart.Position - current).Magnitude <= directDistance
-				and canMoveDirectly()
-				and self:HasMovementClearance(current)
-			then
-				directPursuit = true
-				return true
-			end
-			if os.clock() < repathAt or (current - routeGoal).Magnitude <= repathDistance then
-				return false
-			end
-
-			-- A route that has gone stale is not worth stopping for until its replacement is in hand.
-			-- Abandoning on the spot puts the NPC back at the top of this loop, where `ComputePath` is
-			-- a yield of anything up to a second -- and against somebody running, that condition is met
-			-- again every `RepathInterval`, so the chase becomes a walk punctuated by standing still.
-			-- The route it is on still points broadly the right way for the moment it takes to work the
-			-- next one out, so it keeps walking it and swaps when there is something to swap to.
-			if not repathing then
-				repathing = true
-				self:PrefetchPath(current)
-				requestGoal = current
-				nextPathRequestAt = math.huge
-				return false
-			end
-			local entry = self._prefetch
-			return entry == nil or entry.Done
-		end, getGoal)
-		route:Destroy()
-		path = nil
-		requestGoal = routeGoal
-		pathGoal = nil
-
-		if arrived then return finish("Reached") end
-		if result == "Blocked" then
-			blockedAttempts += 1
-			nextPathRequestAt = os.clock() + math.min(repathInterval * blockedAttempts, 4)
 		else
-			blockedAttempts = 0
-			nextPathRequestAt = os.clock() + repathInterval
+			local list = waypoints
+			if list and blockedAt and blockedAt >= index then
+				dropRoute()
+				list = nil
+				backOff()
+			end
+			if list then
+				index = self:AdvanceWaypoint(list, index)
+				if index >= #list and self:GetWaypointDistance(list[#list].Position) <= self:_getReachDistance() then
+					-- Walked out. Whatever this was computed for has moved on since, so carry on towards it
+					-- directly while the replacement is worked out, rather than standing on the last waypoint.
+					dropRoute()
+					list = nil
+				end
+			end
+
+			if list then
+				local waypoint = list[index]
+				if waypoint.Action == Enum.PathWaypointAction.Jump then
+					self.Humanoid.Jump = true
+				end
+				local following = list[index + 1]
+				self:MoveThrough(waypoint.Position, if following then following.Position else goal)
+			else
+				if not self:MoveTowards(extendedGoal) then
+					self.Humanoid:MoveTo(extendedGoal)
+				end
+			end
 		end
+
+		-- Stuck is ground not covered, not a target not getting nearer. Somebody who is simply faster is
+		-- not a wall, and treating them as one hands a straight-line chase down an open corridor to the
+		-- navmesh for no reason at all.
+		if (self.RootPart.Position - anchor).Magnitude >= PURSUIT_PROGRESS then
+			anchor, movedAt = self.RootPart.Position, os.clock()
+		elseif os.clock() - movedAt >= PURSUIT_STALL_GRACE then
+			anchor, movedAt = self.RootPart.Position, os.clock()
+			if direct and not closePursuit then
+				directBlockedUntil = os.clock() + DIRECT_STALL_RETRY
+			elseif not direct then
+				dropRoute()
+				backOff()
+			end
+		end
+
+		task.wait(MOVEMENT_POLL_INTERVAL)
 	end
 end
 
@@ -951,17 +1123,9 @@ function NPC:Attack(player: Player)
 	-- something was already swinging at them. This is where the promise actually holds.
 	if Vanished.Is(root.Parent) then return end
 
-	-- Ahead of the damage rather than after it, so the swing is on screen for the frame that kills:
-	-- everything that gets here is lethal by default, and a clip started afterwards plays to a corpse.
-	self.Animator:PlayAttack()
-
-	local humanoid = (root.Parent :: Model):FindFirstChildOfClass("Humanoid") :: Humanoid
+	-- The local client owns both the contact check and the attack animation. This keeps the animation
+	-- on the same machine that saw the killing touch instead of waiting for a server overlap result.
 	DeathService:RecordCause(player, self.EnemyId)
-	if self.Config.Damage == math.huge then
-		humanoid.Health = 0
-	else
-		humanoid:TakeDamage(self.Config.Damage)
-	end
 end
 
 --- Shared states ------------------------------------------------------------------------------

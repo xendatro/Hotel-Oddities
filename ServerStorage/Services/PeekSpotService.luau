@@ -1,49 +1,54 @@
 --- Finds the places something can wait out of sight and then lean into view: the geometry behind
 --- peeking around a corner.
 ---
---- There is no list of corners to read. The map is over a thousand loose parts with no naming that
---- separates a wall from a bedframe, and hand-tagging every corner in a hotel is a job that grows
---- with every room built. So a corner is not treated as a feature of the map at all -- it is treated
---- as a feature of one player's sight line: a spot they cannot see, close enough to a spot they can
---- that a single step sideways crosses between the two. Anything that produces such a boundary --
---- the end of a wall, a door frame, a pillar, a wardrobe -- is a corner, and none of it is authored.
+--- Two promises, and the second one is the reason this is a service rather than a raycast at the
+--- spawn site. A pair of spots is only offered up when the blind one cannot be seen by anybody, and
+--- when the seen one -- the place a figure will actually appear in -- is behind every living player,
+--- outside the wedge they are looking down. Nothing this hands back can be watched arriving. What
+--- makes it worth appearing there at all is that the seen side still has a clear line to the player:
+--- it is not on their screen, but it is somewhere they would find something standing the moment they
+--- turn around.
 ---
---- Four moves:
----  1. Fan rays around the player's eye and find the silhouettes. A pair of neighbouring rays is an
----     edge when the far one lands well past where the near one's *surface*, carried on, would have
----     put it -- not merely when the two depths differ. That distinction is the whole of step one:
----     a flat wall seen at a glancing angle puts neighbouring rays tens of studs apart on unbroken
----     stone, and reading those as corners is how something ends up leaning out of a wall.
----  2. Bisect between that pair to pin the edge down, so where the spots land does not depend on how
----     coarse the fan was, and check that whatever forms it screens a figure from floor to head --
----     a discontinuity at eye height is just as happily the end of a desk.
----  3. Straddle the edge, a little past it: one spot on the blind side to wait on, one on the seen
----     side to lean to. Both have to be standable, and -- the constraint that does the real work --
----     they have to be able to see each other. Two spots either side of a solid wall straddle an
----     edge just as well; only two spots either side of that wall's *end* can see across.
----  4. Sweep a body between them. Two standable spots that can see each other are not two spots a
----     body can travel between: at a door frame the line between them runs through the jamb, and a
----     figure sliding along it emerges out of the wall rather than around it.
+--- Corners come from two places, in this order:
+---  1. `HallwayGridService`, which reads junctions off the hallway graph. A corridor mouth is a
+---     corner the map states outright, and those are the corners worth using.
+---  2. A ray fan, for everywhere the graph is silent about -- rooms, door frames, pillars, the end of
+---     a wardrobe. A pair of neighbouring rays is an edge when the far one lands well past where the
+---     near one's *surface*, carried on, would have put it -- not merely when the two depths differ.
+---     That distinction is the whole of the fallback: a flat wall seen at a glancing angle puts
+---     neighbouring rays tens of studs apart on unbroken stone, and reading those as corners is how
+---     something ends up leaning out of a wall.
 ---
---- Every visibility question here is asked of a figure rather than of a point. One ray at head
---- height cannot tell a body in full view from a shoulder showing past a frame, and both promises
---- this service makes -- hidden here, seen there -- are about the body.
+--- Either way the corner is only a direction and a distance. Turning one into a pair of standable
+--- spots is the same work for both: straddle it, a little past it -- one spot on the blind side to
+--- wait on, one on the seen side to lean to -- then check that they can see each other and that a
+--- body can actually travel between them. Two spots either side of a solid wall straddle an edge
+--- just as well; only two either side of that wall's *end* can see across. And at a door frame the
+--- line between two such spots runs through the jamb, so a figure sliding along it emerges out of the
+--- wall rather than around it.
+---
+--- Every visibility question here is asked of a figure rather than of a point. One ray at head height
+--- cannot tell a body in full view from a shoulder showing past a frame, and all three promises this
+--- service makes -- hidden here, unseen there, findable once looked for -- are about the body.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
 
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
+local HallwayGridService = require(ServerStorage.Services.HallwayGridService)
 
 local ENEMY_TAG = "Enemy"
 
 local EYE_OFFSET = 1.5 -- studs from an R15 root up to roughly where that character looks from
 local ROOT_HEIGHT = 3 -- studs from the floor to an R15 root
-local STANDING_SIZE = Vector3.new(2, 5, 2) -- the room a figure needs to stand somewhere unclipped
+-- The Watcher is wide across its shoulders but shallow front-to-back. The old square probe forced
+-- the hidden side deep into the branch before it fit, leaving the rig in the middle of the hall.
+local STANDING_SIZE = Vector3.new(4.5, 5.2, 2.4) -- width, height and depth of the rig with margin
 local STANDING_CLEARANCE = 0.5 -- studs of the box held off the floor, so the floor is not an overlap
 -- The volume swept from one side of a spot to the other. Slightly wider than standing room and a
 -- little shorter: the rig tilts as it travels, and a path it only just fits down is one it scrapes.
-local SWEEP_SIZE = Vector3.new(2.6, 4.6, 2.6)
+local SWEEP_SIZE = Vector3.new(4.8, 4.8, 4.8)
 
 local FAN_RAYS = 96
 local FAN_RANGE = 100 -- studs; nothing further away is worth peeking from
@@ -58,16 +63,16 @@ local OCCLUDER_SLACK = 3 -- studs past the corner those probes may travel before
 
 -- Corners to collect before a search calls it a day. This bounds the cost of a pillared corridor,
 -- which throws up thirty-odd edges, without ever being a reason to leave one unexamined: a cap on
--- edges *looked at* silently discards the one corner a room had, and most edges do not pan out.
+-- corners *looked at* silently discards the one a room had, and most do not pan out.
 local ENOUGH_SPOTS = 6
--- How the pair is tried around an edge, nearest and tightest first. These grids are finer than the
--- checks strictly need because the expensive constraint -- that a body can actually travel from one
--- side to the other -- is satisfied by a narrow band of placements around any given corner, and a
--- coarse grid steps straight over it. Measured over the hotel, thickening them from four depths and
--- five offsets to six and eight takes the share of positions that can host a Watcher from 18% to
--- 26%, for about 5ms on a search that runs once per peek.
+-- How a pair is tried around a fan-found edge, nearest and tightest first. These grids are finer
+-- than the checks strictly need because the expensive constraint -- that a body can actually travel
+-- from one side to the other -- is satisfied by a narrow band of placements around any given corner,
+-- and a coarse grid steps straight over it. Measured over the hotel, thickening them from four
+-- depths and five offsets to six and eight takes the share of positions that can host a Watcher from
+-- 18% to 26%, for about 5ms on a search that runs once per peek.
 local EDGE_DEPTHS = { 1.5, 2.5, 3.5, 5, 6.5, 8 } -- studs past the edge to try the pair at
--- Studs onto the seen side of the edge: far enough out to read as a body rather than a smudge, and
+-- Studs onto the seen side of the corner: far enough out to read as a body rather than a smudge, and
 -- more than one because the near side of an edge is often a pillar's own bay -- no room to stand in
 -- at 1.5, room a stud further out.
 local PEEK_OFFSETS = { 1.5, 2.25, 3 }
@@ -75,8 +80,9 @@ local PEEK_OFFSETS = { 1.5, 2.25, 3 }
 -- the end of a thin door frame is out of sight, and behind the end of a chimney breast is still
 -- inside it. It starts further back than the seen side does because a rig is about four studs across
 -- and the offset is measured to its middle: tuck it 1.5 behind the sight line and the far shoulder
--- is still half a stud in front of it.
-local HIDE_OFFSETS = { 2.25, 3, 4, 5, 6 }
+-- is still half a stud in front of it. The long tail is what a corridor junction needs -- being
+-- around the corner of a hallway means being clear of its whole width, not of a wall's thickness.
+local HIDE_OFFSETS = { 2.25, 3, 4, 5, 6, 8, 10 }
 local FLOOR_PROBE_UP = 8 -- studs above a candidate the floor probe starts at
 local FLOOR_PROBE_DOWN = 20 -- and how far down it looks from there
 local MAX_FLOOR_DROP = 3 -- studs of floor height change that still counts as the same storey
@@ -116,16 +122,24 @@ local PEEK_VISIBLE_SAMPLES = 4 -- of those six, before a lean counts as showing 
 
 --- A corner, expressed as the two places either side of it.
 export type PeekSpot = {
-	Hide: Vector3, -- floor position out of the player's sight, to wait on
-	Peek: Vector3, -- floor position in the player's sight, to lean to
+	Hide: Vector3, -- floor position out of everybody's sight, to wait on
+	Peek: Vector3, -- floor position behind the player but in clear line of them, to lean to
 	Lateral: Vector3, -- horizontal unit vector from `Hide` towards `Peek`
 }
 
 export type FindOptions = {
 	MinDistance: number, -- studs from the player a corner must be at least, to not appear underfoot
 	MaxDistance: number,
-	Arc: number, -- degrees around the player's facing a corner must fall within; 360 for anywhere
+	-- Degrees around the direction *away* from the player's facing a corner must fall within, so 180
+	-- is anywhere behind them and 360 gives the requirement up. What keeps a Watcher out of the
+	-- corridor somebody is walking down and into the one they have just left.
+	RearArc: number,
+	-- Degrees of aim treated as this player's screen. Nothing is offered up that would put a figure
+	-- inside it; roughly a first-person camera's own field of view, plus margin for turning heads.
+	ViewCone: number,
 }
+
+export type Corner = HallwayGridService.Corner
 
 -- One fan ray's answer. The surface it landed on matters as much as how far away it was: without a
 -- normal there is no way to tell a corner from a wall viewed edge-on.
@@ -133,6 +147,17 @@ type Sample = {
 	Distance: number,
 	Position: Vector3,
 	Normal: Vector3?,
+}
+
+-- Everything one search needs to keep asking the same questions of the same world.
+type Search = {
+	Params: RaycastParams,
+	Overlap: OverlapParams,
+	Eye: Vector3, -- where the player this is being found for is looking from
+	Back: Vector3, -- and the horizontal direction opposite the way they face
+	FloorY: number,
+	Views: { EnemyObservationService.View }, -- every living player, including that one
+	Options: FindOptions,
 }
 
 local PeekSpotService = {}
@@ -149,6 +174,10 @@ local function buildFilter(): { Instance }
 		table.insert(filter, model)
 	end
 	return filter
+end
+
+local function horizontal(vector: Vector3): Vector3
+	return Vector3.new(vector.X, 0, vector.Z)
 end
 
 local function isClear(params: RaycastParams, from: Vector3, to: Vector3): boolean
@@ -195,14 +224,19 @@ local function findStanding(
 	params: RaycastParams,
 	overlap: OverlapParams,
 	position: Vector3,
-	floorY: number
+	floorY: number,
+	facing: Vector3?
 ): Vector3?
 	local from = Vector3.new(position.X, floorY + FLOOR_PROBE_UP, position.Z)
 	local result = workspace:Raycast(from, Vector3.new(0, -(FLOOR_PROBE_UP + FLOOR_PROBE_DOWN), 0), params)
 	if not result or math.abs(result.Position.Y - floorY) > MAX_FLOOR_DROP then return nil end
 
 	local centre = result.Position + Vector3.new(0, STANDING_SIZE.Y / 2 + STANDING_CLEARANCE, 0)
-	if #workspace:GetPartBoundsInBox(CFrame.new(centre), STANDING_SIZE, overlap) > 0 then return nil end
+	local frame = CFrame.new(centre)
+	if facing and Vector3.new(facing.X, 0, facing.Z).Magnitude > 1e-3 then
+		frame = CFrame.lookAt(centre, centre + Vector3.new(facing.X, 0, facing.Z))
+	end
+	if #workspace:GetPartBoundsInBox(frame, STANDING_SIZE, overlap) > 0 then return nil end
 	return result.Position
 end
 
@@ -237,6 +271,27 @@ local function isHiddenFrom(params: RaycastParams, eye: Vector3, points: { Vecto
 	return true
 end
 
+-- Whether nobody's line of sight reaches any part of a figure standing there.
+local function isHiddenFromEveryone(search: Search, points: { Vector3 }): boolean
+	for _, view in search.Views do
+		if not isHiddenFrom(search.Params, view.Eye, points) then return false end
+	end
+	return true
+end
+
+-- Whether a figure standing there would be off every player's screen. Aim only, and deliberately:
+-- this is asked of the place a Watcher will *become* visible in, so the wall currently between it
+-- and somebody is no reassurance at all -- what matters is that when it does step out, it steps out
+-- behind them.
+local function isOutOfView(search: Search, points: { Vector3 }): boolean
+	for _, view in search.Views do
+		for _, point in points do
+			if EnemyObservationService.IsWithinCone(view, point, search.Options.ViewCone) then return false end
+		end
+	end
+	return true
+end
+
 -- Whether a body can travel from one side of a spot to the other without passing through anything.
 -- Two standable spots either side of an edge are not two spots something can move between: at a door
 -- frame the straight line between them runs through the jamb, and the pair of head-height sight
@@ -250,7 +305,7 @@ local function isPathClear(params: RaycastParams, from: Vector3, to: Vector3): b
 	return workspace:Blockcast(frame, SWEEP_SIZE, direction, params) == nil
 end
 
--- Whether the thing forming this edge screens a standing figure top to bottom. A depth
+-- Whether the thing forming a fan-found edge screens a standing figure top to bottom. A depth
 -- discontinuity at eye height is just as happily the end of a desk or the top of a stair rail, and
 -- neither hides anything from somebody looking at the floor behind it.
 --
@@ -279,8 +334,8 @@ end
 local function isWithinArc(origin: Vector3, facing: Vector3, point: Vector3, arc: number): boolean
 	if arc >= 360 then return true end
 
-	local offset = Vector3.new(point.X - origin.X, 0, point.Z - origin.Z)
-	local look = Vector3.new(facing.X, 0, facing.Z)
+	local offset = horizontal(point - origin)
+	local look = horizontal(facing)
 	if offset.Magnitude < 1e-3 or look.Magnitude < 1e-3 then return true end
 
 	local angle = math.deg(math.acos(math.clamp(offset.Unit:Dot(look.Unit), -1, 1)))
@@ -312,30 +367,134 @@ local function bisectEdge(
 	return blind, seen
 end
 
--- Where everybody other than `player` is looking from, so a corner is never offered up on the
--- strength of being hidden from one person in a party of four.
-local function otherEyes(player: Player): { Vector3 }
-	local eyes = {}
-
-	for _, other in Players:GetPlayers() do
-		if other == player then continue end
-
-		local character = other.Character
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid") :: Humanoid?
-		if not (humanoid and humanoid.Health > 0) then continue end
-
-		local eye = EnemyObservationService:GetView(other)
-		if eye then
-			table.insert(eyes, eye)
-		end
+local function shuffle<T>(items: { T }): { T }
+	for index = #items, 2, -1 do
+		local swap = math.random(index)
+		items[index], items[swap] = items[swap], items[index]
 	end
-	return eyes
+	return items
 end
 
---- A corner near `player` to peek around, or nil while the geometry around them offers none. The
---- search is a few hundred raycasts and runs on the calling thread; it is meant to be asked once
---- per peek, not once per frame.
-function PeekSpotService:Find(player: Player, options: FindOptions): PeekSpot?
+--- Turns one corner into a pair of spots, or nil where nothing about it works out. Nearest depth and
+--- shallowest tuck win: both keep the pair as tight to the corner as the geometry allows, which is
+--- what makes the lean read as a lean.
+local function placeOn(search: Search, corner: Corner): PeekSpot?
+	for _, depth in corner.Depths do
+		local base = corner.Position + corner.Axis * depth
+		local facing = -corner.Axis
+
+		for _, peekOffset in PEEK_OFFSETS do
+			local peek = findStanding(
+				search.Params,
+				search.Overlap,
+				base + corner.Lateral * peekOffset,
+				search.FloorY,
+				facing
+			)
+			if not peek then continue end
+
+			local peekPoints = bodyPoints(PEEK_SAMPLES, peek, corner.Lateral)
+			-- Worth appearing in: a clear line from the player, so turning round finds something.
+			local visible, headVisible = countVisible(search.Params, search.Eye, peekPoints)
+			if not headVisible or visible < PEEK_VISIBLE_SAMPLES then continue end
+			-- And safe to appear in: nowhere anybody is currently pointed.
+			if not isOutOfView(search, peekPoints) then continue end
+
+			for _, hideOffset in HIDE_OFFSETS do
+				local hide = findStanding(
+					search.Params,
+					search.Overlap,
+					base - corner.Lateral * hideOffset,
+					search.FloorY,
+					facing
+				)
+				if not hide then continue end
+				if math.abs(hide.Y - peek.Y) > MAX_FLOOR_DROP then continue end
+
+				local hidePoints = bodyPoints(HIDE_SAMPLES, hide, corner.Lateral)
+				if not isHiddenFromEveryone(search, hidePoints) then continue end -- start out of sight
+				if not isPathClear(search.Params, hide, peek) then continue end -- round the corner, not through it
+
+				return { Hide = hide, Peek = peek, Lateral = corner.Lateral }
+			end
+		end
+	end
+	return nil
+end
+
+--- Walks `corners` until enough have worked out. Every one stays eligible: in a corridor lined with
+--- pillars most lead nowhere, and the one that does is as likely to be last as first.
+local function collectSpots(search: Search, corners: { Corner }): { PeekSpot }
+	local spots = {}
+
+	for _, corner in corners do
+		if #spots >= ENOUGH_SPOTS then break end
+
+		local distance = horizontal(corner.Position - search.Eye).Magnitude
+		if distance < search.Options.MinDistance or distance > search.Options.MaxDistance then continue end
+		if not isWithinArc(search.Eye, search.Back, corner.Position, search.Options.RearArc) then continue end
+
+		local spot = placeOn(search, corner)
+		if spot then
+			table.insert(spots, spot)
+		end
+	end
+
+	return spots
+end
+
+--- Silhouette edges around the player, for the geometry the hallway graph says nothing about.
+local function findFanCorners(search: Search): { Corner }
+	local params = search.Params
+	local eye = search.Eye
+
+	local directions, samples = {}, {}
+	for index = 0, FAN_RAYS - 1 do
+		local angle = index * 2 * math.pi / FAN_RAYS
+		directions[index] = Vector3.new(math.cos(angle), 0, math.sin(angle))
+		samples[index] = castSample(params, eye, directions[index])
+	end
+
+	local corners = {}
+	for index = 0, FAN_RAYS - 1 do
+		local neighbour = (index + 1) % FAN_RAYS
+		local nearIsFirst = samples[index].Distance <= samples[neighbour].Distance
+		local near = if nearIsFirst then samples[index] else samples[neighbour]
+		local far = if nearIsFirst then samples[neighbour] else samples[index]
+
+		-- Something has to be there to hide behind, it has to be a wall rather than the floor, and
+		-- the far side has to open up enough to give a figure somewhere to have leaned out of.
+		if far.Distance - near.Distance < MIN_EDGE_GAP then continue end
+		if not near.Normal or math.abs(near.Normal.Y) > MAX_WALL_NORMAL_Y then continue end
+
+		local blindDirection = if nearIsFirst then directions[index] else directions[neighbour]
+		local farDirection = if nearIsFirst then directions[neighbour] else directions[index]
+		local flat = planeDistance(eye, near, farDirection)
+		if flat and math.abs(flat - far.Distance) <= PLANE_TOLERANCE then continue end -- same wall, edge-on
+
+		-- Filtered before the expensive checks rather than in `collectSpots`, which repeats them
+		-- harmlessly: an edge in front of the player or across the building is two raycasts saved.
+		local corner = eye + blindDirection * near.Distance
+		if near.Distance < search.Options.MinDistance or near.Distance > search.Options.MaxDistance then continue end
+		if not isWithinArc(eye, search.Back, corner, search.Options.RearArc) then continue end
+		if not isSolidOccluder(params, eye, blindDirection, near.Distance, search.FloorY) then continue end
+
+		local blind, seen = bisectEdge(params, eye, blindDirection, farDirection, near.Distance)
+		local lateral = horizontal(seen - blind)
+		if lateral.Magnitude < 1e-4 then continue end
+
+		table.insert(corners, {
+			Position = eye + blind * near.Distance,
+			Axis = blind,
+			Lateral = lateral.Unit,
+			Depths = EDGE_DEPTHS,
+		} :: Corner)
+	end
+
+	return corners
+end
+
+local function buildSearch(player: Player, options: FindOptions): Search?
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if not root then return nil end
@@ -351,146 +510,69 @@ function PeekSpotService:Find(player: Player, options: FindOptions): PeekSpot?
 	overlap.FilterDescendantsInstances = filter
 	overlap.RespectCanCollide = true
 
-	-- The reported camera rather than the character's head, where one is in hand. Hiding is a
-	-- question about where somebody is looking from, and answering it off the top of a character is
-	-- how you get a thing that tucks itself behind furniture the camera sees straight over.
+	-- The reported camera rather than the character's head, where one is in hand. Both questions here
+	-- are about where somebody is looking from and which way, and answering either off the top of a
+	-- character is how you get a thing that tucks itself behind furniture the camera sees over.
 	local reportedEye, reportedLook = EnemyObservationService:GetView(player)
 	local eye = reportedEye or root.Position + Vector3.new(0, EYE_OFFSET, 0)
 	local facing = reportedLook or root.CFrame.LookVector
-	local floorY = root.Position.Y - ROOT_HEIGHT
-	local others = otherEyes(player)
 
-	-- Sweep for silhouettes. Each one is an edge this player can see past.
-	local directions, samples = {}, {}
-	for index = 0, FAN_RAYS - 1 do
-		local angle = index * 2 * math.pi / FAN_RAYS
-		directions[index] = Vector3.new(math.cos(angle), 0, math.sin(angle))
-		samples[index] = castSample(params, eye, directions[index])
-	end
+	return {
+		Params = params,
+		Overlap = overlap,
+		Eye = eye,
+		Back = -horizontal(facing),
+		FloorY = root.Position.Y - ROOT_HEIGHT,
+		Views = EnemyObservationService:GetViews(),
+		Options = options,
+	}
+end
 
-	local edges = {}
-	for index = 0, FAN_RAYS - 1 do
-		local neighbour = (index + 1) % FAN_RAYS
-		local nearIsFirst = samples[index].Distance <= samples[neighbour].Distance
-		local near = if nearIsFirst then samples[index] else samples[neighbour]
-		local far = if nearIsFirst then samples[neighbour] else samples[index]
+--- A corner behind `player` to peek around, or nil while the geometry around them offers none. The
+--- search is a few hundred raycasts and runs on the calling thread; it is meant to be asked once per
+--- peek, not once per frame.
+---
+--- Junctions are tried before the ray fan and the fan is only run when none of them worked out, so
+--- the common case in a corridor costs no fan at all.
+function PeekSpotService:Find(player: Player, options: FindOptions): PeekSpot?
+	local search = buildSearch(player, options)
+	if not search then return nil end
 
-		-- Something has to be there to hide behind, it has to be a wall rather than the floor, and
-		-- the far side has to open up enough to give a figure somewhere to have leaned out of.
-		if far.Distance - near.Distance < MIN_EDGE_GAP then continue end
-		if not near.Normal or math.abs(near.Normal.Y) > MAX_WALL_NORMAL_Y then continue end
+	local corners = HallwayGridService:GetCorners(
+		search.Eye,
+		search.FloorY,
+		options.MinDistance,
+		options.MaxDistance
+	)
+	local spots = collectSpots(search, shuffle(corners))
 
-		local farDirection = if nearIsFirst then directions[neighbour] else directions[index]
-		local flat = planeDistance(eye, near, farDirection)
-		if flat and math.abs(flat - far.Distance) <= PLANE_TOLERANCE then continue end -- same wall, seen edge-on
-
-		table.insert(edges, {
-			Blind = if nearIsFirst then directions[index] else directions[neighbour],
-			Seen = farDirection,
-			Distance = near.Distance,
-		})
-	end
-
-	-- Shuffled so the same hallway does not always offer up the same corner, then walked until enough
-	-- have worked out. Every edge stays eligible: in a corridor lined with pillars most of them lead
-	-- nowhere, and the one that does is as likely to be last as first.
-	local spots = {}
-	for index = #edges, 2, -1 do
-		local swap = math.random(index)
-		edges[index], edges[swap] = edges[swap], edges[index]
-	end
-
-	for _, edge in edges do
-		if #spots >= ENOUGH_SPOTS then break end
-		if edge.Distance < options.MinDistance or edge.Distance > options.MaxDistance then continue end
-
-		local blind, seen = bisectEdge(params, eye, edge.Blind, edge.Seen, edge.Distance)
-
-		-- The axis the pair splits along: from the side the near surface covers to the side it does
-		-- not, which is the direction something behind it would have to lean to be seen.
-		local lateral = Vector3.new(seen.X - blind.X, 0, seen.Z - blind.Z)
-		if lateral.Magnitude < 1e-4 then continue end
-		lateral = lateral.Unit
-
-		local corner = eye + blind * edge.Distance
-		if not isWithinArc(eye, facing, corner, options.Arc) then continue end
-		if not isSolidOccluder(params, eye, edge.Blind, edge.Distance, floorY) then continue end
-
-		-- Settle the seen side first, then work out how far back of the edge something has to stand
-		-- to be out of sight from it. Nearest depth and shallowest tuck win: both keep the pair as
-		-- tight to the corner as the geometry allows, which is what makes the lean read as a lean.
-		local placed = false
-		for _, depth in EDGE_DEPTHS do
-			if placed then break end
-			local base = corner + blind * depth
-
-			for _, peekOffset in PEEK_OFFSETS do
-				if placed then break end
-
-				local peek = findStanding(params, overlap, base + lateral * peekOffset, floorY)
-				if not peek then continue end
-
-				local visible, headVisible = countVisible(params, eye, bodyPoints(PEEK_SAMPLES, peek, lateral))
-				if not headVisible or visible < PEEK_VISIBLE_SAMPLES then continue end
-
-				for _, hideOffset in HIDE_OFFSETS do
-					local hide = findStanding(params, overlap, base - lateral * hideOffset, floorY)
-					if not hide then continue end
-					if math.abs(hide.Y - peek.Y) > MAX_FLOOR_DROP then continue end
-
-					local hidden = bodyPoints(HIDE_SAMPLES, hide, lateral)
-					if not isHiddenFrom(params, eye, hidden) then continue end -- start out of sight
-
-					local hiddenFromEveryone = true
-					for _, other in others do
-						if not isHiddenFrom(params, other, hidden) then
-							hiddenFromEveryone = false
-							break
-						end
-					end
-					if not hiddenFromEveryone then continue end
-
-					if not isPathClear(params, hide, peek) then continue end -- around the corner, not through it
-
-					table.insert(spots, { Hide = hide, Peek = peek, Lateral = lateral } :: PeekSpot)
-					placed = true
-					break
-				end
-			end
-		end
+	if #spots == 0 then
+		spots = collectSpots(search, shuffle(findFanCorners(search)))
 	end
 
 	if #spots == 0 then return nil end
 	return spots[math.random(#spots)]
 end
 
---- Whether the two sides of `spot` still hold up: nobody can see the blind side, `player` can still
---- make out a body on the seen side, and a figure can still get from one to the other.
+--- Whether the two sides of `spot` still hold up: nobody can see the blind side, the seen side is
+--- still both clear of `player` and off everybody's screen, and a figure can still get from one to
+--- the other.
 ---
 --- A spot is found once and used for minutes. Doors open, other players wander in, and a corner that
 --- was worth waiting behind when it was chosen is not necessarily one worth leaning out of now.
-function PeekSpotService:IsStillValid(spot: PeekSpot, player: Player): boolean
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not root then return false end
-
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = buildFilter()
-	params.RespectCanCollide = true
-
-	local eye = EnemyObservationService:GetView(player) or root.Position + Vector3.new(0, EYE_OFFSET, 0)
+function PeekSpotService:IsStillValid(spot: PeekSpot, player: Player, options: FindOptions): boolean
+	local search = buildSearch(player, options)
+	if not search then return false end
 
 	local hidden = bodyPoints(HIDE_SAMPLES, spot.Hide, spot.Lateral)
-	if not isHiddenFrom(params, eye, hidden) then return false end
-	for _, other in otherEyes(player) do
-		if not isHiddenFrom(params, other, hidden) then return false end
-	end
+	if not isHiddenFromEveryone(search, hidden) then return false end
 
-	local visible, headVisible = countVisible(params, eye, bodyPoints(PEEK_SAMPLES, spot.Peek, spot.Lateral))
+	local seen = bodyPoints(PEEK_SAMPLES, spot.Peek, spot.Lateral)
+	local visible, headVisible = countVisible(search.Params, search.Eye, seen)
 	if not headVisible or visible < PEEK_VISIBLE_SAMPLES then return false end
+	if not isOutOfView(search, seen) then return false end
 
-	return isPathClear(params, spot.Hide, spot.Peek)
+	return isPathClear(search.Params, spot.Hide, spot.Peek)
 end
 
 return PeekSpotService

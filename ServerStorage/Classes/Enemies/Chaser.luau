@@ -62,9 +62,7 @@ local function chase(_changeState: StateMachine.ChangeState, npc: any, target: P
 			lastKnown = position
 		end
 		return position
-	end, 0, function()
-		return npc:IsTouchingPlayer(target)
-	end, function()
+	end, nil, nil, function()
 		return npc:HasLineOfSightToPlayer(target)
 	end)
 
@@ -79,8 +77,6 @@ end
 
 --- Lands the killing blow, or drops back to chasing if the target slipped out of reach first.
 local function attack(_changeState: StateMachine.ChangeState, npc: any, target: Player)
-	npc:StopMoving()
-
 	local position = npc:GetTargetPosition(target)
 	if not position then
 		return "Search", npc, npc.RootPart.Position

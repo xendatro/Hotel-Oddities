@@ -9,6 +9,7 @@ local ROOM_TAG = "Room"
 local ROOM_LABEL = "Room" -- pathfinding label; enemy agents price this at math.huge
 local POLL_INTERVAL = 0.1
 local BLOCKER_FOLDER = "RoomBlockers"
+local ROOM_FOLDER_NAME = "Rooms"
 -- Studs trimmed off every face of a room's bounds before anybody counts as inside it. The box reaches
 -- the outer face of the walls, and the far side of a wall is not the room.
 local WALL_INSET = 1
@@ -39,6 +40,25 @@ local Accumulator = 0
 local Blockers = Instance.new("Folder")
 Blockers.Name = BLOCKER_FOLDER
 Blockers.Parent = workspace
+
+local function isRoomModel(instance: Instance): boolean
+	if not instance:IsA("Model") or not instance.Name:match("^Room_") then return false end
+	local parent = instance.Parent
+	return parent ~= nil and parent:IsA("Folder") and parent.Name == ROOM_FOLDER_NAME
+end
+
+local function tagRoomModel(instance: Instance)
+	if isRoomModel(instance) and not instance:HasTag(ROOM_TAG) then
+		instance:AddTag(ROOM_TAG)
+	end
+end
+
+-- Room geometry is authored as models under a Rooms folder, but the safe volume is runtime-owned.
+-- Tagging here keeps the map free of hand-maintained Room tags and also covers streamed/generated rooms.
+for _, descendant in workspace:GetDescendants() do
+	tagRoomModel(descendant)
+end
+workspace.DescendantAdded:Connect(tagRoomModel)
 
 local function insetHalfSize(size: Vector3): Vector3
 	local half = size / 2

@@ -400,8 +400,8 @@ local function spawnFor(enemyId: string, anchor: Player): boolean
 	end
 
 	if enemyId == "Watcher" then
-		-- Ambient placement, so no `anyDirection`: a corner behind somebody is wasted on a thing that
-		-- wants to be glimpsed, and one at arm's length is worse.
+		-- Ambient placement, so no `anyDirection`: it should be waiting around a corner somebody has
+		-- already walked past, and one at arm's length is worse than none.
 		local watcher = WatcherService:SpawnNear(anchor)
 		register(watcher, enemyId, config)
 		return watcher ~= nil

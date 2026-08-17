@@ -21,6 +21,12 @@ type Observation = {
 	ReceivedAt: number,
 }
 
+--- One player's camera, reduced to what a "would they see something there" question needs.
+export type View = {
+	Eye: Vector3,
+	Look: Vector3,
+}
+
 local UpdateView = ReplicatedStorage
 	:WaitForChild("Communication")
 	:WaitForChild("Enemies")
@@ -145,6 +151,38 @@ function EnemyObservationService:GetView(player: Player): (Vector3?, Vector3?)
 	end
 
 	return root.Position + Vector3.new(0, HEAD_OFFSET, 0), root.CFrame.LookVector
+end
+
+--- Every living player's camera, as `GetView` reports it. What a placement that must not happen in
+--- front of anybody asks, rather than asking after one player at a time and forgetting the rest.
+function EnemyObservationService:GetViews(): { View }
+	local views = {}
+
+	for _, player in Players:GetPlayers() do
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid") :: Humanoid?
+		if not (humanoid and humanoid.Health > 0) then continue end
+
+		local eye, look = self:GetView(player)
+		if eye and look then
+			table.insert(views, { Eye = eye, Look = look } :: View)
+		end
+	end
+
+	return views
+end
+
+--- Whether `point` falls inside the `cone`-degree wedge somebody with this view is looking down.
+---
+--- Aim only: a point behind a wall is still within the cone, because the cheap half of "can they see
+--- it" is the half worth asking first. A caller that means the whole question follows this with a
+--- raycast of its own, which also lets it choose what that ray is allowed to be stopped by.
+function EnemyObservationService.IsWithinCone(view: View, point: Vector3, cone: number): boolean
+	if cone >= 360 then return true end
+
+	local offset = point - view.Eye
+	if offset.Magnitude < 1e-3 or view.Look.Magnitude < 1e-3 then return true end
+	return math.deg(math.acos(math.clamp(offset.Unit:Dot(view.Look.Unit), -1, 1))) <= cone / 2
 end
 
 --- Where every living player is looking from. A reported camera is used while it is fresh, and the top

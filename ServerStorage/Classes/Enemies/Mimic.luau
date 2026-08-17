@@ -597,9 +597,7 @@ local function chase(_changeState: StateMachine.ChangeState, npc: any, target: P
 			lastKnown = position
 		end
 		return position
-	end, npc.Config.AttackRange, function()
-		return npc:IsTouchingPlayer(target)
-	end, function()
+	end, nil, nil, function()
 		return npc:HasLineOfSightToPlayer(target)
 	end)
 
@@ -616,7 +614,6 @@ end
 --- Lands the killing blow and puts on the victim, or drops back to chasing if they slipped out of reach.
 local function attack(_changeState: StateMachine.ChangeState, npc: any, target: Player)
 	npc:StopMirroring()
-	npc:StopMoving()
 
 	local position = npc:GetTargetPosition(target)
 	if not position then
@@ -703,6 +700,11 @@ function Mimic:_StartClientControl(target: Player, mode: string)
 	self:SetHeadTurn(nil)
 	self.Mirroring = target
 	self.MirroringMode = mode
+	-- Advertises whose gaze to copy; LookService reads this and tilts the rig's neck and waist
+	-- with the mirrored player's own look pitch. Mirror only -- a spin has no gaze to copy.
+	if mode == "Mirror" then
+		self.Model:SetAttribute("LookMirrorUserId", target.UserId)
+	end
 	self.Humanoid.AutoRotate = false -- the client aims it by hand, at the person it is copying
 	if mode ~= "Spin" then
 		self.Animator:Stop() -- mirrored locomotion is animated where its speed is known that frame
@@ -723,6 +725,7 @@ end
 --- with it: a state can be cancelled mid-act, so this cannot live at the end of the stalk.
 function Mimic:StopMirroring()
 	self:SetHeadTurn(nil)
+	self.Model:SetAttribute("LookMirrorUserId", nil)
 	self.Humanoid.AutoRotate = true
 	if not self.Mirroring then return end
 

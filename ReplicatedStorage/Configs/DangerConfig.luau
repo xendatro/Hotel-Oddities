@@ -93,6 +93,22 @@ return {
 	PatrolDangerWeight = 0.6,
 	PatrolTurnAroundChance = 0.2, -- at a junction, deliberately head back the way it came
 
+	-- Server-side vents use the same field as enemies, but keep their own pacing so they add
+	-- atmosphere without consuming the enemy director's budget.
+	ProgrammaticVents = {
+		MaxAlive = 20,
+		InitialAlive = 10,
+		InitialSpawnInterval = 1,
+		SpawnInterval = 10,
+		SpawnChance = 0.16,
+		DangerChance = 0.36,
+		DangerBias = 1.2,
+		PlacementAttempts = 24,
+		MinimumSpacing = 28,
+		DespawnInterval = 5,
+		DespawnGrace = 180,
+	},
+
 	--- Corridors a patroller remembers walking, and what walking one again costs it.
 	---
 	--- Corridors, not corners. Remembering places it has *been* cannot break a loop, because at a

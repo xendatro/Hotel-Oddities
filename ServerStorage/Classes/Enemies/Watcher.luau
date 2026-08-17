@@ -1,22 +1,18 @@
 --- @class Watcher
 --- Ambient dread with nothing behind it. It has no target, no path, no attack and no opinion about
---- where anybody is going: it waits out of sight beside a distant corner, leans far enough past it to
---- be caught at the edge of your vision, and is gone once you actually look at it.
+--- where anybody is going -- it cannot hurt you and never tries. It waits out of sight around a
+--- corner somebody has already walked past, leans far enough out to be found there, and is gone the
+--- moment they actually look at it.
 ---
---- Where it stands is the entire trick, and that question belongs to `PeekSpotService`, which hands
---- back a pair of floor positions either side of some corner near a player -- one blind to them, one
---- seen. This class only performs: lurk on the blind one until they are not staring at the place it
---- would appear, slide onto the seen one, hold the pose, and tuck back once somebody has had their
---- look.
+--- Everything it does follows from one rule: it is never in view. Not when it spawns, not when it
+--- leans out, not for a second after somebody turns round and sees it. So it only ever works a
+--- corner *behind* a player, and the only way to catch it is to turn round -- which is the moment
+--- this thing exists to produce, and the moment it ducks back around the corner.
 ---
---- The timing rule that shapes everything here is that it must never be *watched arriving*, and must
---- always be *findable once arrived*. Those pull in opposite directions, and the resolution is that
---- only the moment of emerging is gated. It waits for the peek point to fall outside the narrow cone
---- somebody is actually looking down -- not merely outside their screen, which in a corridor is
---- almost never true and is what makes a Watcher that stands behind a corner forever -- and once it
---- has begun leaning it commits. Being seen mid-lean is the intended outcome. Cutting the lean short
---- on the first sight report turns the one moment this thing exists for into a flicker, and a flicker
---- is easy to talk yourself out of having seen.
+--- Where it stands belongs to `PeekSpotService`, which hands back a pair of floor positions either
+--- side of some corner behind a player: one nobody can see at all, one clear of them but off their
+--- screen. This class only performs: lurk on the blind one until the seen one is still off every
+--- screen, slide onto it, hold the pose, and tuck back the instant somebody has it.
 ---
 --- Relocating is a teleport, and a teleport somebody watches reads as a bug rather than a fright, so
 --- every move between corners happens from behind one, and a Watcher found while hiding leaves
@@ -53,23 +49,17 @@ local function randomBetween(minimum: number, maximum: number): number
 	return math.random() * (maximum - minimum) + minimum
 end
 
-local function isWithinCone(eye: Vector3, look: Vector3, point: Vector3, cone: number): boolean
-	local offset = point - eye
-	if offset.Magnitude < 1e-3 or look.Magnitude < 1e-3 then return true end
-	return math.deg(math.acos(math.clamp(offset.Unit:Dot(look.Unit), -1, 1))) <= cone / 2
-end
-
---- Whether somebody is looking straight down the barrel at the place a Watcher is about to occupy.
+--- Whether the place a Watcher is about to occupy is on anybody's screen.
 ---
 --- `IsObserved` cannot answer this while the rig is still behind the corner -- there is nothing on
---- screen to report -- so it is asked of the reported camera and a server raycast against the peek
+--- screen to report -- so it is asked of the reported cameras and a server raycast against the peek
 --- position instead.
 ---
---- The cone is deliberately narrow. It is not "would this be on their screen": a peek point down the
---- corridor somebody is walking along is on their screen the entire time, and gating emergence on
---- that leaves a Watcher tucked behind a corner for its whole life. It is "are they looking at it",
---- which leaves the edges of vision open -- which is exactly where this wants to appear.
-local function isPeekWatched(config, floorPosition: Vector3): boolean
+--- The spot was chosen behind the player in the first place, so the usual answer is no and the wait
+--- in `Lurk` is short. What this catches is the player who has since turned round, or the second one
+--- who has wandered into the far end of that corridor: either way the corner is now somewhere a
+--- Watcher would be watched arriving, and it stays put until that stops being true.
+local function isPeekOnScreen(config, floorPosition: Vector3): boolean
 	local filter = {}
 	for _, player in Players:GetPlayers() do
 		if player.Character then
@@ -85,14 +75,12 @@ local function isPeekWatched(config, floorPosition: Vector3): boolean
 	params.FilterDescendantsInstances = filter
 	params.RespectCanCollide = true
 
-	local cone = config.ActiveLookAngle
-	for _, player in Players:GetPlayers() do
-		local eye, look = EnemyObservationService:GetView(player)
-		if not (eye and look) then continue end
-
+	for _, view in EnemyObservationService:GetViews() do
 		for _, height in EMERGENCE_HEIGHTS do
 			local point = floorPosition + Vector3.yAxis * height
-			if isWithinCone(eye, look, point, cone) and workspace:Raycast(eye, point - eye, params) == nil then
+			if EnemyObservationService.IsWithinCone(view, point, config.ViewCone)
+				and workspace:Raycast(view.Eye, point - view.Eye, params) == nil
+			then
 				return true
 			end
 		end
@@ -114,15 +102,18 @@ function Watcher.GetFindOptions(config): PeekSpotService.FindOptions
 	return {
 		MinDistance = config.MinPeekDistance,
 		MaxDistance = config.MaxPeekDistance,
-		Arc = config.PeekArc,
+		RearArc = config.RearArc,
+		ViewCone = config.ViewCone,
 	}
 end
 
---- Puts the rig on `floorPosition`, staring at `player`, leaned `lean` of the way out -- 0 tucked
---- back behind the corner, 1 fully committed. The tilt goes along the spot's lateral axis, so it
---- always leans past the corner rather than into it.
-function Watcher:_placeAt(floorPosition: Vector3, spot: PeekSpotService.PeekSpot, player: Player, lean: number)
-	local position = floorPosition + Vector3.new(0, ROOT_HEIGHT, 0)
+--- Puts the rig `lean` of the way out of `spot` -- 0 tucked back behind the corner, 1 fully
+--- committed -- staring at `player`. Position and tilt both come from that one number, so a lean
+--- interrupted half way through is a pose the retreat can carry on from rather than a place the rig
+--- has to be snapped back to. The tilt goes along the spot's lateral axis, so it always leans past
+--- the corner rather than into it.
+function Watcher:_placeAt(spot: PeekSpotService.PeekSpot, player: Player, lean: number)
+	local position = spot.Hide:Lerp(spot.Peek, lean) + Vector3.new(0, ROOT_HEIGHT, 0)
 
 	local target = getAliveRoot(player)
 	local lookAt = if target
@@ -134,33 +125,39 @@ function Watcher:_placeAt(floorPosition: Vector3, spot: PeekSpotService.PeekSpot
 
 	local tilt = math.tan(math.rad(self.Config.PeekTilt * lean))
 	self.RootPart.CFrame = CFrame.lookAt(position, lookAt, (Vector3.yAxis + spot.Lateral * tilt).Unit)
+	self.Lean = lean
 end
 
---- Slides the rig between the two sides of `spot` over `duration`, leaning as it goes. Returns false
---- if `shouldStop` cut the slide short, which leaves the rig wherever it had got to.
+--- Moves the lean to `targetLean` over `duration`, which is the time a full 0-to-1 move takes: a
+--- retreat from half way out takes half of it. Returns false if `shouldStop` cut the move short,
+--- which leaves the rig wherever it had got to.
 function Watcher:_slide(
 	spot: PeekSpotService.PeekSpot,
 	player: Player,
 	duration: number,
-	towardsPeek: boolean,
+	targetLean: number,
 	shouldStop: (() -> boolean)?
 ): boolean
-	local from = if towardsPeek then spot.Hide else spot.Peek
-	local to = if towardsPeek then spot.Peek else spot.Hide
+	local startLean = self.Lean or 0
+	local travel = math.abs(targetLean - startLean)
+	if travel < 1e-3 then
+		self:_placeAt(spot, player, targetLean)
+		return true
+	end
+
 	local startedAt = os.clock()
+	local scaled = duration * travel
 
 	while true do
-		local alpha = math.clamp((os.clock() - startedAt) / duration, 0, 1)
-		self:_placeAt(from:Lerp(to, alpha), spot, player, if towardsPeek then alpha else 1 - alpha)
+		local alpha = math.clamp((os.clock() - startedAt) / scaled, 0, 1)
+		self:_placeAt(spot, player, startLean + (targetLean - startLean) * alpha)
 		if alpha >= 1 then return true end
 		if shouldStop and shouldStop() then return false end
 		RunService.Heartbeat:Wait()
 	end
 end
 
---- Holds the pose for `duration`, still staring. Returns false if `shouldStop` cut it short. Passing
---- no predicate holds the pose come what may, which is what the grace after being spotted needs --
---- gating that on not being looked at would end it on the frame it began.
+--- Holds the pose for `duration`, still staring. Returns false if `shouldStop` cut it short.
 function Watcher:_hold(
 	spot: PeekSpotService.PeekSpot,
 	player: Player,
@@ -171,7 +168,7 @@ function Watcher:_hold(
 
 	while os.clock() < expiresAt do
 		if shouldStop and shouldStop() then return false end
-		self:_placeAt(spot.Peek, spot, player, 1) -- keeps staring while they move
+		self:_placeAt(spot, player, 1) -- keeps staring while they move
 		RunService.Heartbeat:Wait()
 	end
 	return true
@@ -194,8 +191,8 @@ function Watcher:_getAudience(): Player?
 	return nearest
 end
 
---- Finds a corner and parks on its blind side. Leaves rather than move in front of anybody, and
---- leaves rather than stand around in the open once its budget of quiet peeks is spent.
+--- Finds a corner behind somebody and parks on its blind side. Leaves rather than move in front of
+--- anybody, and leaves rather than stand around in the open once its budget of quiet peeks is spent.
 local function seek(_changeState: StateMachine.ChangeState, npc: any)
 	if npc:IsObserved() then
 		return "Despawn", npc
@@ -219,13 +216,14 @@ local function seek(_changeState: StateMachine.ChangeState, npc: any)
 		return "Seek", npc
 	end
 
-	npc:_placeAt(spot.Hide, spot, player, 0)
+	npc:_placeAt(spot, player, 0)
 	return "Lurk", npc, spot, player
 end
 
 --- Waits behind the corner for a moment where emerging will not be watched happening. Gives the
---- corner up rather than wait forever: somebody parked facing it, or one who has wandered up close
---- enough to get a proper look, has made this corner useless, and there are others.
+--- corner up rather than wait forever: somebody who has turned round and parked facing it, or one
+--- who has wandered up close enough to get a proper look, has made this corner useless, and the map
+--- has others.
 local function lurk(
 	_changeState: StateMachine.ChangeState,
 	npc: any,
@@ -251,40 +249,39 @@ local function lurk(
 			return "Seek", npc
 		end
 
-		if not isPeekWatched(npc.Config, spot.Peek) then break end
+		if not isPeekOnScreen(npc.Config, spot.Peek) then break end
 
-		npc:_placeAt(spot.Hide, spot, player, 0) -- keeps it aimed, so the lean opens already staring
+		npc:_placeAt(spot, player, 0) -- keeps it aimed, so the lean opens already staring
 		task.wait(POLL)
 	end
 
 	-- Re-checked here rather than only at spawn: a door has opened or somebody has moved since this
-	-- corner was chosen, and leaning out of a spot that is no longer around a corner is the failure
-	-- this whole class is arranged to avoid.
-	if not PeekSpotService:IsStillValid(spot, player) then
+	-- corner was chosen, and leaning out of a spot that is no longer around a corner -- or no longer
+	-- behind anybody -- is the failure this whole class is arranged to avoid.
+	if not PeekSpotService:IsStillValid(spot, player, Watcher.GetFindOptions(npc.Config)) then
 		return "Seek", npc
 	end
 
 	return "Peek", npc, spot, player
 end
 
---- Leans out and holds the pose. Committed once begun: being seen is what it leaned out for.
+--- Leans out and holds the pose, and hides the moment anybody has it. Being caught is the point of
+--- the exercise and the end of it: no grace, no standing there being looked at. Cut short mid-lean,
+--- the retreat carries on from whatever pose it had reached.
 local function peek(
 	_changeState: StateMachine.ChangeState,
 	npc: any,
 	spot: PeekSpotService.PeekSpot,
 	player: Player
 )
-	npc:_slide(spot, player, npc.Config.LeanTime, true)
-
 	local function isCaught()
 		return npc:IsObserved()
 	end
 
-	local caught = not npc:_hold(spot, player, randomBetween(npc.Config.HoldTimeMin, npc.Config.HoldTimeMax), isCaught)
-	if caught then
-		-- It does not bolt on the frame it is spotted. No predicate here on purpose -- once seen it
-		-- commits to being seen, and lets you have your look before it goes.
-		npc:_hold(spot, player, npc.Config.SeenGrace)
+	local caught = not npc:_slide(spot, player, npc.Config.LeanTime, 1, isCaught)
+	if not caught then
+		local hold = randomBetween(npc.Config.HoldTimeMin, npc.Config.HoldTimeMax)
+		caught = not npc:_hold(spot, player, hold, isCaught)
 	end
 
 	npc.PeeksLeft -= 1
@@ -300,7 +297,7 @@ local function retreat(
 	player: Player,
 	caught: boolean
 )
-	npc:_slide(spot, player, npc.Config.RetreatTime, false)
+	npc:_slide(spot, player, npc.Config.RetreatTime, 0)
 
 	if npc.PeeksLeft <= 0 then
 		return "Despawn", npc
@@ -336,11 +333,12 @@ local function rest(_changeState: StateMachine.ChangeState, npc: any, caught: bo
 end
 
 --- @param spot PeekSpotService.PeekSpot? -- the corner a spawner already placed it on
---- @param player Player? -- who that corner was found for
+--- @param player Player? -- who that corner was found behind
 function Watcher.new(model: Model, config, spot: PeekSpotService.PeekSpot?, player: Player?)
 	local self = NPC.new(model, config, Watcher)
 	self.Spot = spot
 	self.Audience = player
+	self.Lean = 0
 	return self
 end
 

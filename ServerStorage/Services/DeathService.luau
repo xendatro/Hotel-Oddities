@@ -25,6 +25,15 @@ local Complete = ReplicatedStorage
 	:WaitForChild("Communication")
 	:WaitForChild("Death")
 	:WaitForChild("Complete") :: RemoteEvent
+local existingKill = ReplicatedStorage.Communication.Death:FindFirstChild("Kill")
+local Kill: RemoteEvent
+if existingKill and existingKill:IsA("RemoteEvent") then
+	Kill = existingKill
+else
+	Kill = Instance.new("RemoteEvent")
+	Kill.Name = "Kill"
+	Kill.Parent = ReplicatedStorage.Communication.Death
+end
 
 local DeathService = {}
 
@@ -34,6 +43,18 @@ type Record = {
 }
 
 local Records: { [Player]: Record } = {}
+local Killers: { [Player]: Model } = {}
+
+Kill.OnServerEvent:Connect(function(player: Player, enemy: Instance?)
+	if not enemy or not enemy:IsA("Model") or not enemy:IsDescendantOf(workspace) then return end
+	if not enemy:HasTag("Enemy") then return end
+	if enemy:GetAttribute("Harmless") then return end -- it has no way to have done that
+	Killers[player] = enemy
+	local causeId = enemy:GetAttribute("EnemyId")
+	if type(causeId) == "string" then
+		DeathService:RecordCause(player, causeId)
+	end
+end)
 
 --- Names `causeId` as the thing that just hurt `player`. Called on every damaging hit rather than
 --- only on fatal ones, so a chip-damage enemy still gets the credit when its last tick lands.
@@ -62,7 +83,19 @@ local function watchCharacter(player: Player, character: Model)
 
 	local humanoid = character:WaitForChild("Humanoid") :: Humanoid
 	humanoid.Died:Once(function()
+		local killer = Killers[player]
+		Killers[player] = nil
 		local cause = DeathService:GetCause(player)
+		-- The client reports contact kills and sets Health to zero in the same frame. If the
+		-- Humanoid.Died signal reaches the server first, use the already validated model as a
+		-- final attribution fallback instead of treating the death as the hotel's own.
+		if not cause and killer then
+			local killerId = killer:GetAttribute("EnemyId")
+			if type(killerId) == "string" then
+				cause = killerId
+			end
+		end
+		Kill:FireAllClients(player, killer)
 		-- Save the death immediately, but wait for the client's death screen to finish before opening
 		-- the player's own purchase prompt. Friend cards still open immediately below.
 		local token = ReviveService:Offer(player, character)
@@ -77,6 +110,7 @@ local function watchCharacter(player: Player, character: Model)
 		EnemyDiscoveryService:GrantDeath(player, cause)
 
 		Records[player] = nil
+		Killers[player] = nil
 	end)
 end
 
@@ -101,6 +135,7 @@ Players.PlayerAdded:Connect(watchPlayer)
 
 Players.PlayerRemoving:Connect(function(player: Player)
 	Records[player] = nil
+	Killers[player] = nil
 end)
 
 return DeathService

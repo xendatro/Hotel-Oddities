@@ -79,7 +79,8 @@ local function spawnOne(player: Player, enemyId: string): boolean
 	end
 
 	if enemyId == "Watcher" then
-		-- Any direction, not just ahead: a hand-spawn is meant to be walked over to and looked at.
+		-- Any direction, not just behind: a hand-spawn is meant to be walked over to and looked at.
+		-- It still never lands on screen -- that part is not negotiable, even by hand.
 		if WatcherService:SpawnNear(player, true) then return true end
 		warn(`[enemies] no corner near {player.Name} to put a Watcher behind -- try a corridor`)
 		return false

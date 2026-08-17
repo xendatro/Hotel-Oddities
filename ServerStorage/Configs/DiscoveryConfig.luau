@@ -122,8 +122,8 @@ DiscoveryConfig.Rules = {
 	-- is the whole of what they offer -- which is the case the index would have had no answer for if
 	-- discovery were only ever recorded on death.
 	Watcher = {
-		-- Deliberately far off and deliberately brief: it retreats about half a second after being
-		-- caught. The dwell has to be short enough that a peek registers at all.
+		-- Deliberately far off and deliberately brief: it ducks back the moment it is caught, so all
+		-- there is to see is the retreat. The dwell has to be short enough that a peek registers.
 		Sight = { Range = 160, Angle = 40, GainPerSecond = 0.055, MinDwell = 0.2 },
 	},
 	Ghost = {

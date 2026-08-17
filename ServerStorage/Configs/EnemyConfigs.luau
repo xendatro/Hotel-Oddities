@@ -16,6 +16,11 @@ export type EnemyConfig = {
 	WalkSpeed: number,
 	ChaseSpeed: number?,
 	DirectPursuitDistance: number?, -- clear line distance at which a chase skips pathfinding
+	ClosePursuitDistance: number?, -- distance that locks a chase direct despite a brief sight or path check miss
+	-- Distance from a live target inside which a killing chase can only end in that player's death.
+	-- The client is what lands the blow, so nothing on the server may read contact as a kill; see
+	-- `NPC:Pursue`. Lower it for an enemy that should still be losable at arm's length.
+	CommitDistance: number?,
 	RepathInterval: number?, -- minimum time between moving-target path updates
 	RepathDistance: number?, -- studs the goal must drift before its path is replaced
 	AgentParams: { [string]: any }?,
@@ -36,6 +41,10 @@ export type EnemyConfig = {
 	Damage: number?,
 	AttackRange: number?,
 	AttackCooldown: number?,
+	-- Set on an enemy that must never kill anybody, which the client's touch handler reads off the
+	-- spawned model. Only the Watcher wants it: touching one is a thing that can happen -- it stands
+	-- in corridors people walk down -- and it has no attack, no chase and nothing to punish you with.
+	Harmless: boolean?,
 
 	-- Blind-specific
 	InvestigateRange: number?, -- distance from the latest noise that counts as reaching it
@@ -62,12 +71,11 @@ export type EnemyConfig = {
 	-- Watcher-specific
 	MinPeekDistance: number?, -- studs from the player a corner must be to be worth using
 	MaxPeekDistance: number?,
-	PeekArc: number?, -- degrees around the player's facing a corner must fall within; 360 for anywhere
-	ActiveLookAngle: number?, -- degrees of aim that count as looking *at* the spot it would appear in
-	PeekWaitTime: number?, -- seconds it will wait behind one corner for that aim to move off it
+	RearArc: number?, -- degrees around the player's back a corner must fall within; 360 for anywhere
+	ViewCone: number?, -- degrees of aim treated as a player's screen, which it must never appear in
+	PeekWaitTime: number?, -- seconds it will wait behind one corner for a screen to turn off its spot
 	LeanTime: number?, -- seconds it takes to slide out from behind a corner
-	RetreatTime: number?, -- and to pull back once it has been seen
-	SeenGrace: number?, -- seconds it stays put after being looked at, before it pulls back
+	RetreatTime: number?, -- and to duck back once it has been seen
 	HoldTimeMin: number?, -- seconds it will stay out for if nobody ever looks
 	HoldTimeMax: number?,
 	RestTimeMin: number?, -- seconds spent out of sight between one peek and the next
@@ -319,10 +327,9 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		AttackCooldown = 1.5,
 
 		ObservationRange = 200,
-		-- Long enough to cover a dropped report and the polling either side of it, short enough that
-		-- looking away and it moving still feel like the same moment. This one is the whole promise --
-		-- it does not move while seen -- so it errs towards holding still.
-		ObservationHold = 0.35,
+		-- Edge reports make a long hold unnecessary. This still covers a missed evaluator poll without
+		-- adding a visible pause after the player looks away.
+		ObservationHold = 0.08,
 
 		-- It patrols like everything else, though its 250-stud reach means it is nearly always chasing
 		-- instead. The patrol is what it does while every player is shut behind a safe room door --
@@ -512,14 +519,17 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		-- how dangerous the ground is, and `GhostAreaService` already owns that question.
 	},
 
-	-- Ambient only. It never targets, chases or attacks: it hides beside a corner, leans out, and
-	-- retreats once it is looked at. It has no locomotion tuning because it never walks anywhere --
-	-- it is placed, one corner at a time, by `PeekSpotService`.
+	-- Ambient only. It never targets, chases or attacks: it hides beside a corner behind somebody,
+	-- leans out, and ducks back once it is looked at. It has no locomotion tuning because it never
+	-- walks anywhere -- it is placed, one corner at a time, by `PeekSpotService`.
 	Watcher = {
 		Model = "Watcher",
 		Animations = AnimationConfig.Sets.Watcher,
 
 		WalkSpeed = 0, -- its root is anchored and moved by hand; nothing goes through the humanoid
+		-- It stands in corridors people walk down and has no way to hurt anybody on purpose, so
+		-- walking into one must not be a death either.
+		Harmless = true,
 
 		ObservationRange = 200,
 		-- A short hold, because the whole of this enemy's behaviour hangs off one boolean. Sight
@@ -536,27 +546,25 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		-- reads as a Watcher that never turns up rather than one that keeps its distance.
 		MinPeekDistance = 18,
 		MaxPeekDistance = 85,
-		-- A wide arc rather than a narrow one: it should be catchable at the edge of vision, not
-		-- planted dead ahead. Directly behind a player is cut out, because nobody would ever see it.
-		PeekArc = 200,
+		-- Behind them, always. 150 degrees is the whole rear hemisphere and 15 degrees either side of
+		-- it again, so the corridor a player is walking down is never offered up and the one they
+		-- have just left usually is. It is what makes turning round the only way to find this thing.
+		RearArc = 150,
 
-		-- What counts as being looked at, for the one decision that has to be made before there is
-		-- anything on screen to report: whether to emerge. Narrow on purpose. This is not "would it
-		-- be visible" -- a corner down the corridor somebody is walking along is visible the whole
-		-- way, and gating on that leaves a Watcher tucked away for its entire life, never leaning
-		-- out at all. 50 degrees is roughly the middle of a screen, so it emerges at the edges of
-		-- vision and behind, and is there to be found when the head turns. Waiting for that is
-		-- capped: a player who stares down one corridor has cost this corner nothing but a few
-		-- seconds, and the map has others.
-		ActiveLookAngle = 50,
+		-- Degrees of aim treated as this player's screen, for the two decisions that have to be made
+		-- before there is anything on screen to report: whether a corner may be used at all, and
+		-- whether to emerge onto it now. 140 covers a first-person camera's own view -- about 105
+		-- degrees across at a normal aspect -- with the rest as margin for a head that turns while
+		-- the lean is being decided. Waiting for a spot to fall outside it is capped: a player who
+		-- has turned to stare down the corridor behind them has cost this corner a few seconds, and
+		-- the map has others.
+		ViewCone = 140,
 		PeekWaitTime = 12,
 
 		-- Out slowly, back quickly. Easing out is what makes it feel like it chose to be seen;
-		-- snapping back is what makes being caught feel like catching something. The grace in between
-		-- is what stops it vanishing on the same frame it registers -- caught, it lets you have your
-		-- look first.
+		-- snapping back on the frame it is caught is what makes finding it feel like having caught
+		-- something, and is the whole of what it does about being looked at.
 		LeanTime = 1.1,
-		SeenGrace = 0.7,
 		RetreatTime = 0.3,
 
 		HoldTimeMin = 4,

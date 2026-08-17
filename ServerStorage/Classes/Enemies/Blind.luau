@@ -2,9 +2,8 @@
 --- Has no visual perception at all. It hunts a trail of sounds, never a player: every footstep replaces
 --- its destination, and silence leaves it committed to that final point. Sustained sound escalates it
 --- from a cautious investigation into a faster-than-player frenzy; stopping makes that certainty and
---- speed fall away. Contact is fatal, even when the player it finds was not the one it originally heard.
+--- speed fall away. Contact is only fatal once that certainty is high.
 
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
@@ -16,6 +15,10 @@ local RoomService = require(ServerStorage.Services.RoomService)
 local PERCEPTION_INTERVAL = 0.1
 
 local Blind = NPC.extend("Blind")
+
+local function isHighlyCertain(npc: any): boolean
+	return npc.Determination >= npc.Config.FrenzyThreshold
+end
 
 local function updateDetermination(npc: any, now: number)
 	local updatedAt = npc.DeterminationUpdatedAt or now
@@ -50,15 +53,6 @@ local function addDetermination(npc: any, noise, now: number)
 		+ (config.DeterminationPerNoiseMax - config.DeterminationPerNoiseMin) * strength
 	npc.Determination = math.min(npc.Determination + gained, 1)
 	npc.LastNoiseAt = now
-end
-
-local function getTouchingPlayer(npc: any): Player?
-	for _, player in Players:GetPlayers() do
-		if npc:IsValidTarget(player) and npc:IsTouchingPlayer(player) then
-			return player
-		end
-	end
-	return nil
 end
 
 --- What it thinks it heard. Nearby sounds are exact; distance stretches one stable random offset so
@@ -97,7 +91,6 @@ local function investigate(_changeState: StateMachine.ChangeState, npc: any)
 	npc.Animator:Resume()
 	setInvestigateSpeed(npc)
 
-	local caught = nil :: Player?
 	local lastKnown = npc.HeardPosition or npc.RootPart.Position
 	local safeRoom = nil :: Model?
 	npc:Pursue(function()
@@ -116,16 +109,10 @@ local function investigate(_changeState: StateMachine.ChangeState, npc: any)
 			return nil
 		end
 		return goal
-	end, nil, function()
-		caught = getTouchingPlayer(npc)
-		return caught ~= nil
-	end, function()
+	end, nil, nil, function()
 		return true
 	end)
 
-	if caught then
-		return "Attack", npc, caught
-	end
 	if safeRoom then
 		return "RoomReaction", npc, safeRoom
 	end
@@ -135,9 +122,7 @@ end
 
 --- Kills only while contact is real. Losing that contact provides a last-known position, not sight.
 local function attack(_changeState: StateMachine.ChangeState, npc: any, target: Player)
-	npc:StopMoving()
-
-	if not npc:IsValidTarget(target) or not npc:IsTouchingPlayer(target) then
+	if not isHighlyCertain(npc) or not npc:IsValidTarget(target) or not npc:IsTouchingPlayer(target) then
 		return "Search", npc, npc.RootPart.Position
 	end
 
@@ -202,7 +187,6 @@ function Blind:BuildStateMachine(): StateMachine.StateMachine
 		-- A sound only pulls it away from quiet work. During an investigation, the evaluator updates
 		-- `HeardPosition` in place so `Pursue` can repath without restarting the whole state every step.
 		Noise = { "Idle", "Wander", "Patrol", "Search" },
-		Contact = { "Idle", "Wander", "Patrol", "Investigate", "Search" },
 		Impact = { "Idle", "Wander", "Patrol", "Investigate", "Attack", "Search", "RoomReaction" },
 	}, {
 		Hearing = function()
@@ -213,12 +197,6 @@ function Blind:BuildStateMachine(): StateMachine.StateMachine
 				updateDetermination(npc, now)
 				if npc.StateMachine.State == "Investigate" then
 					setInvestigateSpeed(npc)
-				end
-
-				local touching = getTouchingPlayer(npc)
-				if touching then
-					npc.StateMachine:SetState("Attack", "Contact", npc, touching)
-					continue
 				end
 
 				local noise = NoiseService:GetLatest(npc.RootPart.Position, lastSequence, function(candidate)

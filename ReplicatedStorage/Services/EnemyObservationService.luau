@@ -4,6 +4,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
+local ObservedFreezeConfig = require(ReplicatedStorage.Configs.ObservedFreezeConfig)
+local Sightline = require(ReplicatedStorage.Modules.Sightline)
 
 local REPORT_INTERVAL = 0.05
 -- Carried by the enemies that react to being seen, and only those: the report costs a raycast per
@@ -23,102 +25,79 @@ local UpdateView = ReplicatedStorage
 
 local localPlayer = Players.LocalPlayer
 local accumulator = REPORT_INTERVAL
+local lastSentAt = -math.huge
+local pending = false
 
---- The camera's view volume, reduced to what a sphere has to be tested against. Rebuilt per report
---- rather than per part, since it only moves when the viewport resizes or something animates the FOV.
-type Frustum = {
-	TanX: number, -- tangent of the half horizontal angle, and of the vertical one
-	TanY: number,
-	SideX: number, -- and the lengths that turn each side plane's equation into a distance
-	SideY: number,
-}
+-- Answers somebody else has already worked out this frame, by model. `ObservedFreezeService` tests
+-- the enemies it predicts for every frame rather than every report, and it tests them against where
+-- it is drawing them rather than where they replicated to -- so its answer is both fresher than one
+-- taken here and the only one that matches what the player is actually looking at. Taking it whole
+-- also keeps the raycasts to one set per frame instead of two.
+local Overrides: { [Model]: boolean } = {}
 
-local function buildFrustum(camera: Camera): Frustum?
-	local viewportSize = camera.ViewportSize
-	if viewportSize.Y <= 0 then return nil end -- a frame or two at startup, before there is a screen
+local function send()
+	local character = localPlayer.Character
+	local camera = workspace.CurrentCamera
+	local frustum = camera and Sightline.Frustum(camera)
+	if not (character and camera and frustum) then return end
 
-	local tanY = math.tan(math.rad(camera.FieldOfView / 2)) -- `FieldOfView` is the vertical one
-	local tanX = tanY * viewportSize.X / viewportSize.Y
-	return {
-		TanX = tanX,
-		TanY = tanY,
-		SideX = math.sqrt(1 + tanX * tanX),
-		SideY = math.sqrt(1 + tanY * tanY),
-	}
-end
+	local observed = {}
+	for _, model in CollectionService:GetTagged(OBSERVABLE_TAG) do
+		if not model:IsA("Model") then continue end
 
---- Whether a sphere overlaps what the camera can see, against the near plane and all four sides.
----
---- Done in camera space rather than by projecting corners to the screen, because projection cannot
---- describe a thing that spans the camera plane: half its corners land behind the eye, where the
---- perspective divide is by a negative depth and the coordinates come back mirrored and enormous.
---- Discard those and the rest of the object is wherever the arithmetic left it -- which is how a rig
---- pressed against your shoulder reads as filling the screen while you look the other way, and how a
---- Weeping Angel ends up frozen by somebody facing away from it. A sphere has no such case: it is
---- either within reach of each plane or it is not, including when it swallows the camera whole.
-local function intersectsFrustum(camera: Camera, frustum: Frustum, center: Vector3, radius: number): boolean
-	local point = camera.CFrame:PointToObjectSpace(center) -- -Z is forward, so depth is `-point.Z`
-	if point.Z > radius then return false end
-	if math.abs(point.X) + frustum.TanX * point.Z > radius * frustum.SideX then return false end
-	if math.abs(point.Y) + frustum.TanY * point.Z > radius * frustum.SideY then return false end
-	return true
-end
-
-local function isObserved(camera: Camera, frustum: Frustum, character: Model, model: Model): boolean
-	local boundsCFrame, boundsSize = model:GetBoundingBox()
-	if not intersectsFrustum(camera, frustum, boundsCFrame.Position, boundsSize.Magnitude / 2) then
-		return false -- nothing of it is on screen, so no part of it can be either
-	end
-
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { character }
-	params.RespectCanCollide = true
-
-	local origin = camera.CFrame.Position
-	for _, descendant in model:GetDescendants() do
-		if descendant:IsA("BasePart")
-			and intersectsFrustum(camera, frustum, descendant.Position, descendant.Size.Magnitude / 2)
-		then
-			local direction = descendant.Position - origin
-			if direction.Magnitude < 1e-3 then
-				return true
-			end
-
-			local result = workspace:Raycast(origin, direction, params)
-			if result == nil or result.Instance:IsDescendantOf(model) then
-				return true
-			end
+		local override = Overrides[model]
+		local seen = if override ~= nil then override else Sightline.CanSee(camera, frustum, character, model)
+		if seen then
+			table.insert(observed, model)
 		end
 	end
-	return false
+
+	lastSentAt = os.clock()
+	pending = false
+	accumulator = 0
+
+	-- Where this report was taken from and which way it was pointing, so the server can work out what
+	-- else this player would see without having to guess at a camera it cannot reach. An enemy
+	-- choosing somewhere to hide is asking exactly that question, and answering it off the character's
+	-- own head is how you get a thing that hides behind furniture the camera is looking straight over.
+	-- The direction is what turns "on screen" into "how far off the middle of the screen", which is
+	-- the whole of what an Eye does with this.
+	UpdateView:FireServer(observed, camera.CFrame.Position, camera.CFrame.LookVector)
+end
+
+--- Records what this client has already decided about `model` this frame, in place of the test this
+--- service would otherwise run for it. Cleared with nil.
+function EnemyObservationService:SetSeen(model: Model, seen: boolean?)
+	Overrides[model] = seen
+end
+
+--- Sends a report now rather than on the next tick, for a client that has just noticed something it
+--- should not have to wait fifty milliseconds to say. Cheap to call on an edge and wasteful to call
+--- every frame: the timer is reset by a send either way, so an edge report replaces the next periodic
+--- one instead of adding to it.
+---
+--- Held back and retried on the following frame when the last report was too recent, because the
+--- server drops anything arriving inside its own rate limit -- and a report dropped for being eager
+--- is strictly worse than one sent a frame late.
+function EnemyObservationService:Report()
+	if os.clock() - lastSentAt < ObservedFreezeConfig.MinReportGap then
+		pending = true
+		return
+	end
+	send()
 end
 
 RunService.RenderStepped:Connect(function(deltaTime: number)
-	local character = localPlayer.Character
-	if not character then return end
+	if not localPlayer.Character then return end
+
+	if pending and os.clock() - lastSentAt >= ObservedFreezeConfig.MinReportGap then
+		send()
+		return
+	end
 
 	accumulator += deltaTime
 	if accumulator < REPORT_INTERVAL then return end
-	accumulator = 0
-
-	local camera = workspace.CurrentCamera
-	local frustum = camera and buildFrustum(camera)
-	if camera and frustum then
-		local observed = {}
-		for _, model in CollectionService:GetTagged(OBSERVABLE_TAG) do
-			if model:IsA("Model") and isObserved(camera, frustum, character, model) then
-				table.insert(observed, model)
-			end
-		end
-		-- Where this report was taken from and which way it was pointing, so the server can work out
-		-- what else this player would see without having to guess at a camera it cannot reach. An enemy
-		-- choosing somewhere to hide is asking exactly that question, and answering it off the
-		-- character's own head is how you get a thing that hides behind furniture the camera is looking
-		-- straight over. The direction is what turns "on screen" into "how far off the middle of the
-		-- screen", which is the whole of what an Eye does with this.
-		UpdateView:FireServer(observed, camera.CFrame.Position, camera.CFrame.LookVector)
-	end
+	send()
 end)
 
 return EnemyObservationService

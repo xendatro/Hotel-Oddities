@@ -1,9 +1,11 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local InventoryConfig = require(ReplicatedStorage.Configs.InventoryConfig)
+local ItemShopConfig = require(ReplicatedStorage.Configs.ItemShopConfig)
 
 local COLORS = InventoryConfig.Colors
 local TRANSPARENCY = InventoryConfig.Transparency
+local VIEWPORT = ItemShopConfig.Viewport
 
 --- @class InventorySlot
 --- One square of the inventory. Owns its frame and nothing else: it does not know what a tool is,
@@ -68,18 +70,29 @@ local function renderTool(viewport: ViewportFrame, toolName: string)
 		end
 	end
 	clone.Parent = world
+	-- Tool templates keep whatever world CFrame they were saved with (several lie pitched -90°),
+	-- so re-pivot to identity to stand the preview upright, as ItemsUIService does.
+	world:PivotTo(CFrame.identity)
 
 	local boundsCFrame, boundsSize = world:GetBoundingBox()
 	if boundsSize.Magnitude < 1e-3 then return end
 
 	local camera = Instance.new("Camera")
 	camera.Name = "Camera"
-	camera.FieldOfView = 35
+	camera.FieldOfView = VIEWPORT.FieldOfView
 	camera.Parent = viewport
 	viewport.CurrentCamera = camera
 
-	local direction = Vector3.new(1, 0.65, 1).Unit
-	local distance = math.max(boundsSize.Magnitude * 1.15, 2)
+	-- Frame the tool exactly the way its shop card does, honouring the same per-item
+	-- Yaw/Pitch/Zoom overrides so both UIs show every item from one agreed angle.
+	local entry = ItemShopConfig.EntriesById[toolName]
+	local radius = math.max(boundsSize.X, boundsSize.Y, boundsSize.Z) * 0.5 * VIEWPORT.Padding
+	local distance = radius / math.tan(math.rad(VIEWPORT.FieldOfView) * 0.5)
+	distance *= (entry and entry.Zoom) or VIEWPORT.Zoom
+
+	local yaw = math.rad((entry and entry.Yaw) or VIEWPORT.Yaw)
+	local pitch = math.rad((entry and entry.Pitch) or VIEWPORT.Pitch)
+	local direction = CFrame.Angles(pitch, yaw, 0).LookVector
 	camera.CFrame = CFrame.lookAt(boundsCFrame.Position + direction * distance, boundsCFrame.Position)
 end
 
