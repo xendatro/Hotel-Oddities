@@ -84,6 +84,9 @@ local function tryKill(enemy: Model, hit: BasePart)
 	if isInSafeRoom() then return end
 	if not enemy:IsDescendantOf(workspace) then return end
 	if Vanished.Is(character) then return end
+	if enemy:GetAttribute("EnemyId") == "Mimic" and enemy:GetAttribute("MimicAttackActive") ~= true then
+		return
+	end
 	-- Some enemies are scenery. A Watcher stands in corridors people walk down and has no attack at
 	-- all, so brushing past one is not a death. Read at contact as the final guard; the server stamps
 	-- the attribute before parenting, so it arrives with the model before the Enemy tag is added.

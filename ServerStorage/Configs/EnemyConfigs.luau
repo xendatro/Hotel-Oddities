@@ -108,6 +108,7 @@ export type EnemyConfig = {
 	AfkNoticeTime: number?, -- how long a nearby player must stay before the turn begins
 	AfkTurnTime: number?, -- seconds for the AFK turn toward the player
 	AfkChaseTurnFraction: number?, -- turn progress that makes a fleeing player fair game
+	AfkRoomBuffer: number?, -- clear horizontal distance around an occupied room before AFK is allowed
 	AfkWallDistance: number?, -- how far the AFK stance searches for an off-center wall
 	AfkFaceWallChance: number?, -- odds it turns to face anything at all as it settles into the stance
 	AfkSettleTurnRate: number?, -- how fast that turn is; an idle turn, not the one it walks corners at
@@ -392,10 +393,11 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		AfkAmbientChance = 0.25,
 		AfkAmbientRollMin = 6,
 		AfkAmbientRollMax = 12,
-		AfkNoticeRange = 14,
+		AfkNoticeRange = 18,
 		AfkNoticeTime = 10,
 		AfkTurnTime = 7.5,
 		AfkChaseTurnFraction = 0.8,
+		AfkRoomBuffer = 18,
 		AfkWallDistance = 16,
 
 		-- Settling into the stance. Under half of them turn to face anything: the rest simply stop

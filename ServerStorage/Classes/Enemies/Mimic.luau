@@ -45,6 +45,7 @@ local HEAD_TURN_ATTRIBUTE = "MimicHeadTurnTarget"
 local HEAD_TURN_DURATION_ATTRIBUTE = "MimicHeadTurnDuration"
 local HEAD_TURN_VIEWER_ATTRIBUTE = "MimicHeadTurnToViewer"
 local HEAD_TURN_RANGE_ATTRIBUTE = "MimicHeadTurnRange"
+local ATTACK_ACTIVE_ATTRIBUTE = "MimicAttackActive"
 
 local function randomRange(minimum: number, maximum: number): number
 	return minimum + math.random() * (maximum - minimum)
@@ -208,6 +209,13 @@ local function findNearbyPlayer(npc: any): Player?
 	return nil
 end
 
+local function isNearOccupiedRoom(npc: any): boolean
+	return RoomService:IsNearOccupiedRoom(
+		npc.RootPart.Position,
+		npc.Config.AfkRoomBuffer or npc.Config.AfkNoticeRange
+	)
+end
+
 --- The copied player owns the rig, so the server takes it back for the brief turn toward a second
 --- player. If that player leaves, the original act resumes; if they run once the turn is half done,
 --- this is a real chase rather than a contact kill.
@@ -258,6 +266,7 @@ end
 
 local function finishEncounter(npc: any, nextState: string, ...: any)
 	npc.EncounterMode = nil
+	npc:SetAttackActive(false)
 	npc:SetHeadTurn(nil)
 	npc:StopMirroring()
 	return nextState, npc, ...
@@ -268,6 +277,7 @@ end
 local function loiter(_changeState: StateMachine.ChangeState, npc: any)
 	npc.Target = nil
 	npc.EncounterMode = nil
+	npc:SetAttackActive(false)
 	npc.Animator:Resume()
 	npc:StopMirroring()
 	npc:SetSpeed(npc.Config.WalkSpeed)
@@ -301,6 +311,7 @@ end
 
 local function mirror(_changeState: StateMachine.ChangeState, npc: any, target: Player)
 	npc.Target = target
+	npc:SetAttackActive(false)
 	npc.Animator:Resume()
 	npc:SetSpeed(npc.Config.WalkSpeed)
 	npc:StopMoving()
@@ -326,6 +337,7 @@ local function lookAndPerform(
 	mode: string
 )
 	npc.Target = target
+	npc:SetAttackActive(false)
 	npc:StopMirroring()
 	npc.Animator:Resume()
 	npc:SetSpeed(npc.Config.WalkSpeed)
@@ -472,6 +484,7 @@ end
 --- player at any speed, and anybody walking behind it saw the whole thing happen.
 local function afkIdle(_changeState: StateMachine.ChangeState, npc: any)
 	npc.Target = nil
+	npc:SetAttackActive(false)
 	npc:StopMirroring()
 	npc.Animator:Resume()
 	npc:SetSpeed(npc.Config.WalkSpeed)
@@ -487,6 +500,7 @@ local function afkIdle(_changeState: StateMachine.ChangeState, npc: any)
 	end
 
 	while true do
+		if isNearOccupiedRoom(npc) then return finishEncounter(npc, "Patrol") end
 		task.wait(SUPERVISE_INTERVAL)
 	end
 end
@@ -508,16 +522,19 @@ end
 
 local function afk(_changeState: StateMachine.ChangeState, npc: any, _target: Player?)
 	npc.Target = nil
+	npc:SetAttackActive(false)
 	npc:StopMirroring()
 	npc.Animator:Resume()
 	npc:SetSpeed(npc.Config.WalkSpeed)
 	npc:StopMoving()
 
 	local config = npc.Config
-	npc:SetHeadTurnForViewers(config.AfkNoticeRange)
+	npc:SetHeadTurn(nil)
 	local encounters: { [Player]: { NoticedAt: number?, TurnStartedAt: number? } } = {}
+	local headTurnActive = false
 
 	while true do
+		if isNearOccupiedRoom(npc) then return finishEncounter(npc, "Patrol") end
 		local now = os.clock()
 		local activeNoticing = false
 		local winner: Player? = nil
@@ -570,6 +587,15 @@ local function afk(_changeState: StateMachine.ChangeState, npc: any, _target: Pl
 			if not seen[player] then encounters[player] = nil end
 		end
 
+		if activeNoticing ~= headTurnActive then
+			headTurnActive = activeNoticing
+			if headTurnActive then
+				npc:SetHeadTurnForViewers(config.AfkNoticeRange, config.AfkTurnTime)
+			else
+				npc:SetHeadTurn(nil)
+			end
+		end
+
 		if winner then return "Chase", npc, winner end
 		if not next(seen) then return finishEncounter(npc, "Idle") end
 		if activeNoticing then
@@ -591,6 +617,7 @@ end
 --- The act is over. Runs `target` down until it is caught, reaches a safe room, or outruns `GiveUpRange`.
 local function chase(_changeState: StateMachine.ChangeState, npc: any, target: Player)
 	npc.Target = target
+	npc:SetAttackActive(true)
 	npc:StopMirroring() -- takes the rig, and its animation, back before anything is asked of either
 	-- And claims it, which `StopMirroring` only does for an act that had actually been handed out. An
 	-- unanchored humanoid standing next to somebody is given to that player's machine by default, and a
@@ -676,6 +703,7 @@ end
 --- Drops the target and resumes patrolling as soon as the chase ends.
 local function search(_changeState: StateMachine.ChangeState, npc: any, _lastKnown: Vector3)
 	npc.Target = nil
+	npc:SetAttackActive(false)
 	npc.Animator:Resume()
 	npc:StopMirroring()
 	npc:SetSpeed(npc.Config.WalkSpeed)
@@ -684,6 +712,7 @@ end
 
 local function roomReaction(changeState: StateMachine.ChangeState, npc: any, room: Model)
 	npc.EncounterMode = nil
+	npc:SetAttackActive(false)
 	return NPC.SharedStates.RoomReaction(changeState, npc, room)
 end
 
@@ -691,6 +720,7 @@ end
 --- still driving would keep swivelling on the spot.
 local function stunned(changeState: StateMachine.ChangeState, npc: any, duration: number)
 	npc.EncounterMode = nil
+	npc:SetAttackActive(false)
 	npc:StopMirroring()
 	return NPC.SharedStates.Stunned(changeState, npc, duration)
 end
@@ -702,6 +732,7 @@ function Mimic.new(model: Model, config)
 	self.Mirroring = nil :: Player?
 	self.MirroringMode = nil :: string?
 	self.EncounterMode = nil :: string?
+	self.Model:SetAttribute(ATTACK_ACTIVE_ATTRIBUTE, false)
 	self._nextAfkRollAt = os.clock() + randomRange(3, 6)
 	self._appliedIdentity = nil :: Player?
 	self._swapping = false
@@ -723,6 +754,10 @@ function Mimic:SetHeadTurn(position: Vector3?, duration: number?)
 	self.Model:SetAttribute(HEAD_TURN_RANGE_ATTRIBUTE, nil)
 	self.Model:SetAttribute(HEAD_TURN_ATTRIBUTE, target)
 	self.Model:SetAttribute(HEAD_TURN_DURATION_ATTRIBUTE, turnDuration)
+end
+
+function Mimic:SetAttackActive(active: boolean)
+	self.Model:SetAttribute(ATTACK_ACTIVE_ATTRIBUTE, active)
 end
 
 -- AFK does not choose a head-turn target on the server. Each client points the neck at its own
@@ -877,6 +912,7 @@ function Mimic:RollEncounterMode(allowAfk: boolean?): string
 end
 
 function Mimic:Despawn()
+	self:SetAttackActive(false)
 	self:StopMirroring()
 	NPC.Despawn(self)
 end
@@ -938,6 +974,7 @@ function Mimic:BuildStateMachine(): StateMachine.StateMachine
 					and not npc.EncounterMode
 					and canStartEncounter
 					and not findNearbyPlayer(npc)
+					and not isNearOccupiedRoom(npc)
 					and os.clock() >= npc._nextAfkRollAt
 				then
 					npc._nextAfkRollAt = os.clock()

@@ -51,6 +51,9 @@ Kill.OnServerEvent:Connect(function(player: Player, enemy: Instance?)
 	if not enemy or not enemy:IsA("Model") or not enemy:IsDescendantOf(workspace) then return end
 	if not enemy:HasTag("Enemy") then return end
 	if enemy:GetAttribute("Harmless") then return end -- it has no way to have done that
+	if enemy:GetAttribute("EnemyId") == "Mimic" and enemy:GetAttribute("MimicAttackActive") ~= true then
+		return
+	end
 	Killers[player] = enemy
 	local causeId = enemy:GetAttribute("EnemyId")
 	if type(causeId) == "string" then

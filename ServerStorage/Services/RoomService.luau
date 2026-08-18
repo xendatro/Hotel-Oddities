@@ -148,6 +148,23 @@ function RoomService:IsInRoom(player: Player): boolean
 	return PlayerRooms[player] ~= nil
 end
 
+--- Whether a point is close to any room that currently contains a player. The check uses the room's
+--- horizontal bounds rather than its pivot, so a Mimic cannot settle beside a doorway on a large or
+--- rotated room just because the room center is farther away.
+function RoomService:IsNearOccupiedRoom(position: Vector3, distance: number): boolean
+	local distanceSquared = distance * distance
+	for _, room in PlayerRooms do
+		if not room or not room:IsDescendantOf(workspace) then continue end
+
+		local boundsCFrame, boundsSize = room:GetBoundingBox()
+		local localPosition = boundsCFrame:PointToObjectSpace(position)
+		local dx = math.max(math.abs(localPosition.X) - boundsSize.X / 2, 0)
+		local dz = math.max(math.abs(localPosition.Z) - boundsSize.Z / 2, 0)
+		if dx * dx + dz * dz <= distanceSquared then return true end
+	end
+	return false
+end
+
 --- Finds the swinging doorway belonging to `room`. Room and doorway models share an authored id;
 --- the nearest tagged doorway is a fallback for older maps that do not follow that naming rule.
 function RoomService:GetDoorway(room: Model): Model?
