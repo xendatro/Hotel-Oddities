@@ -1,7 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DrawerConfig = require(ReplicatedStorage.Configs.DrawerConfig)
-local AudioService = require(ReplicatedStorage.Services.AudioService)
 
 --- @class Drawer
 --- One `Drawer`-tagged model: a box that slides straight out of the furniture it sits in and back.
@@ -49,7 +48,6 @@ function Drawer.new(model: Model)
 	self.Model = model
 	self.ClosedPivot = model:GetPivot()
 	self.Axis = outwardAxis(model)
-	self.SoundPart = model:FindFirstChildWhichIsA("BasePart", true)
 
 	--- Studs out of the furniture, and how fast that is changing.
 	self.Offset = 0
@@ -72,22 +70,12 @@ function Drawer:_apply()
 	self.Model:PivotTo(self.ClosedPivot * CFrame.new(self.Axis * self.Offset))
 end
 
-function Drawer:_playSound(open: boolean)
-	local sound = DrawerConfig.Sound
-	local part = self.SoundPart
-	if not sound.Enabled or not part or not part:IsDescendantOf(workspace) then return end
-
-	local template = if open then sound.OpenTemplate else sound.CloseTemplate
-	AudioService:Play3DSound(template, part, false, sound.Group, { PlaybackSpeed = sound.PlaybackSpeed })
-end
-
 --- Opens or shuts the drawer. `immediate` puts it there without the slide or the sound, which is
 --- what a player joining into a hotel with drawers already pulled out wants.
 function Drawer:SetOpen(open: boolean, immediate: boolean?)
 	local target = if open then DrawerConfig.OpenDistance else 0
 	if self.Target == target and not immediate then return end
 
-	local changed = self.Target ~= target
 	self.Target = target
 
 	if immediate then
@@ -97,9 +85,6 @@ function Drawer:SetOpen(open: boolean, immediate: boolean?)
 		return
 	end
 
-	if changed then
-		self:_playSound(open)
-	end
 end
 
 --- Moves the slide on. Answers whether it is still going, so the caller can stop stepping a drawer

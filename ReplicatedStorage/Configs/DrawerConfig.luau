@@ -71,10 +71,8 @@ return {
 
 	Sound = {
 		Enabled = true,
-		OpenTemplate = "DoorOpen",
-		CloseTemplate = "DoorClose",
-		--- The door clips played short and high, which is close enough to a drawer that it does not
-		--- need its own asset.
+		OpenTemplate = "DrawerOpen",
+		CloseTemplate = "DrawerClose",
 		PlaybackSpeed = 1.6,
 		Group = "SFX",
 	},

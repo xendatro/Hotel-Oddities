@@ -9,6 +9,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DrawerConfig = require(ReplicatedStorage.Configs.DrawerConfig)
+local AudioService = require(ReplicatedStorage.Services.AudioService)
 
 local DrawerService = {}
 
@@ -34,6 +35,13 @@ end
 function DrawerService:SetOpen(model: Model, open: boolean)
 	if model:GetAttribute(DrawerConfig.Attribute) == open then return end
 	model:SetAttribute(DrawerConfig.Attribute, open)
+
+	local sound = DrawerConfig.Sound
+	local part = model:FindFirstChildWhichIsA("BasePart", true)
+	if sound.Enabled and part then
+		local template = if open then sound.OpenTemplate else sound.CloseTemplate
+		AudioService:Play3DSound(template, part, false, sound.Group, { PlaybackSpeed = sound.PlaybackSpeed })
+	end
 end
 
 Toggle.OnServerEvent:Connect(function(player: Player, model: any, open: any)
