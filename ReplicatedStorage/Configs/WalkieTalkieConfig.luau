@@ -1,0 +1,36 @@
+--- Shared tuning for the walkie-talkie voice route.
+
+return {
+	--- Local sound from a held radio. Direct radio output is not distance limited.
+	PhysicalRange = 30,
+
+	--- The player filter is shared by incoming and outgoing radio audio.
+	Modes = {
+		{ Id = "All", Label = "All Players", Friends = false },
+		{ Id = "Friends", Label = "Friends Only", Friends = true },
+	},
+
+	Effects = {
+		Compressor = {
+			Threshold = -20,
+			Ratio = 8,
+			Attack = 0.01,
+			Release = 0.18,
+			MakeupGain = 14,
+		},
+		Bandpass = {
+			Frequency = 1700,
+			Q = 0.8,
+		},
+		Equalizer = {
+			LowGain = -20,
+			MidGain = 6,
+			HighGain = -14,
+		},
+		DistortionLevel = 0.35,
+		Limiter = {
+			MaxLevel = -1,
+			Release = 0.08,
+		},
+	},
+}

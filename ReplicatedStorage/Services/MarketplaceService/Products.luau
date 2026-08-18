@@ -21,5 +21,6 @@ return {
 		SpellBook = 0,
 		Trap = 0,
 		Visor = 0,
+		WalkieTalkie = 0,
 	},
 }

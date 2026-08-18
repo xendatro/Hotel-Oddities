@@ -145,4 +145,8 @@ return {
 	["Player Locator"] = {
 		Tag = "Player Locator",
 	},
+
+	["Walkie Talkie"] = {
+		Tag = "Walkie Talkie",
+	},
 }

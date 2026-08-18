@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
+local VoiceChatService = game:GetService("VoiceChatService")
 
 local ItemShopConfig = require(ReplicatedStorage.Configs.ItemShopConfig)
 local MarketplaceService = require(ReplicatedStorage.Services.MarketplaceService)
@@ -33,12 +34,25 @@ local function grant(player: Player, itemId: string): boolean
 	return InventoryService:Add(player, itemId, 1)
 end
 
+local function voiceEligible(player: Player): boolean
+	local success, enabled = pcall(
+		VoiceChatService.IsVoiceEnabledForUserIdAsync,
+		VoiceChatService,
+		player.UserId
+	)
+	return success and enabled == true
+end
+
 Purchase.OnServerEvent:Connect(function(player: Player, itemId: any)
 	if type(itemId) ~= "string" then return end
 	if not InventoryService:Wait(player, 10) then return end
 
 	local entry = ItemShopConfig.EntriesById[itemId]
 	if not entry then return end
+	if entry.RequiresVoice and not voiceEligible(player) then
+		ItemShopService:Sync(player, "VoiceUnavailable", itemId)
+		return
+	end
 
 	local profile = DataSaveService:Get(player)
 	if not profile then return end
@@ -69,6 +83,9 @@ for _, entry in ItemShopConfig.Entries do
 	MarketplaceService:CreateReceipt(productId, function(receiptInfo)
 		local player = Players:GetPlayerByUserId(receiptInfo.PlayerId)
 		if not player then return Enum.ProductPurchaseDecision.NotProcessedYet end
+		if entry.RequiresVoice and not voiceEligible(player) then
+			return Enum.ProductPurchaseDecision.NotProcessedYet
+		end
 		if not InventoryService:Wait(player, 10) then
 			return Enum.ProductPurchaseDecision.NotProcessedYet
 		end

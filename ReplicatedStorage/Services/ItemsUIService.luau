@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local VoiceChatService = game:GetService("VoiceChatService")
 
 local ItemShopConfig = require(ReplicatedStorage.Configs.ItemShopConfig)
 local MarketplaceService = require(ReplicatedStorage.Services.MarketplaceService)
@@ -49,7 +50,8 @@ type Card = {
 }
 
 local Cards: { [string]: Card } = {}
-local selectedId = ItemShopConfig.Entries[1].Id
+local visibleEntries: { ItemShopConfig.Entry } = {}
+local selectedId: string? = nil
 local dealGeneration = 0
 local robuxPrices: { [string]: number } = {}
 
@@ -147,6 +149,7 @@ local function robuxText(entry: ItemShopConfig.Entry): string
 end
 
 local function paintInfo(animate: boolean)
+	if not selectedId then return end
 	local entry = ItemShopConfig.EntriesById[selectedId]
 	if not entry then return end
 
@@ -170,7 +173,7 @@ local function selectCard(id: string)
 end
 
 local function buildCards()
-	for order, entry in ItemShopConfig.Entries do
+	for order, entry in visibleEntries do
 		local holder = Instance.new("Frame")
 		holder.Name = entry.Id
 		holder.BackgroundTransparency = 1
@@ -224,7 +227,7 @@ end
 local function dealCards()
 	dealGeneration += 1
 	local generation = dealGeneration
-	for offset, entry in ItemShopConfig.Entries do
+	for offset, entry in visibleEntries do
 		local card = Cards[entry.Id]
 		if not card then continue end
 		if card.Tween then card.Tween:Cancel() end
@@ -297,7 +300,7 @@ local function flashBalance(success: boolean)
 end
 
 coinButton.Activated:Connect(function()
-	Purchase:FireServer(selectedId)
+	if selectedId then Purchase:FireServer(selectedId) end
 end)
 
 robuxButton.Activated:Connect(function()
@@ -324,22 +327,41 @@ gui:GetPropertyChangedSignal("Enabled"):Connect(function()
 	if gui.Enabled then dealCards() end
 end)
 
-buildCards()
 wireButton(coinButton)
 wireButton(robuxButton)
-paintInfo(false)
 balance.Text = tostring(player:GetAttribute("Coins") or ItemShopConfig.StartingCoins)
 Sync:FireServer()
 
-for _, entry in ItemShopConfig.Entries do
-	local productId = MarketplaceService.Products.Items[entry.Product]
-	if type(productId) ~= "number" or productId <= 0 then continue end
-	task.spawn(function()
-		local success, productInfo = pcall(MarketplaceService.GetProductInfo, MarketplaceService, productId, Enum.InfoType.Product)
-		if not success or not productInfo or type(productInfo.PriceInRobux) ~= "number" then return end
-		robuxPrices[entry.Id] = productInfo.PriceInRobux
-		if selectedId == entry.Id then robuxButtonLabel.Text = robuxText(entry) end
-	end)
+local function isVoiceEligible(): boolean
+	local success, enabled = pcall(
+		VoiceChatService.IsVoiceEnabledForUserIdAsync,
+		VoiceChatService,
+		player.UserId
+	)
+	return success and enabled == true
 end
+
+task.spawn(function()
+	local voiceEligible = isVoiceEligible()
+	for _, entry in ItemShopConfig.Entries do
+		if not entry.RequiresVoice or voiceEligible then
+			table.insert(visibleEntries, entry)
+		end
+	end
+	selectedId = visibleEntries[1] and visibleEntries[1].Id
+	buildCards()
+	paintInfo(false)
+
+	for _, entry in visibleEntries do
+		local productId = MarketplaceService.Products.Items[entry.Product]
+		if type(productId) ~= "number" or productId <= 0 then continue end
+		task.spawn(function()
+			local success, productInfo = pcall(MarketplaceService.GetProductInfo, MarketplaceService, productId, Enum.InfoType.Product)
+			if not success or not productInfo or type(productInfo.PriceInRobux) ~= "number" then return end
+			robuxPrices[entry.Id] = productInfo.PriceInRobux
+			if selectedId == entry.Id then robuxButtonLabel.Text = robuxText(entry) end
+		end)
+	end
+end)
 
 return ItemsUIService
