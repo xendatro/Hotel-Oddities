@@ -11,13 +11,19 @@
 --- that the corner is not really involved.
 ---
 --- Corners come from `HallwayGridService`, which reads junctions off the authored hallway graph, and
---- from nowhere else. An earlier version fell back to a ray fan over the room geometry for everywhere
---- the graph is silent about; it found plenty of corners and a large share of them were not corners
---- at all, which is how a Watcher ends up leaning out of a wall. A corridor mouth the map states
---- outright is the only kind worth using.
+--- from nowhere else. The graph's opinion is a starting point rather than an answer: a node states
+--- that two corridors meet, not that anything solid was built at the meeting, so every candidate is
+--- still made to prove there is a wall between it and the player before it counts as a corner.
+---
+--- An earlier version fell back to a ray fan over the room geometry for everywhere the graph is
+--- silent about; it found plenty of corners and a large share of them were not corners at all, which
+--- is how a Watcher ends up leaning out of a wall, or out of nothing in the middle of a room. A
+--- corridor mouth the map states outright is the only kind worth using, and no corner at all is a
+--- better answer than an invented one -- the caller is built to be told no.
 ---
 --- Three promises, all checked against the rig's real shape rather than a point:
----  1. Standing upright on the spot, nobody can see any part of it.
+---  1. Standing upright on the spot, a wall is between it and the player it was found for, and
+---     nobody else can see any part of it either. A camera aimed elsewhere does not count as a wall.
 ---  2. Tipped all the way out, the player it was found for has a clear line to its head and
 ---     shoulders -- so turning round finds something.
 ---  3. Tipped all the way out, it is still outside everybody's view cone, and so is the arc it
@@ -82,25 +88,6 @@ local LEAN_STEPS = { 2.9, 2.2, 1.5, 0.8, 0 }
 -- Corners to collect before a search calls it a day. Enough for the pick to be worth randomising,
 -- few enough that a junction-dense floor does not cost a full sweep of the building.
 local ENOUGH_SPOTS = 6
-
--- The ray fan, which finds the corners the hallway graph has no opinion about -- door frames above
--- all, and pillars, alcoves and the ends of wardrobes after that. Doorways are the reason it exists:
--- a room's frame opening onto a corridor is not a junction and the graph never mentions one, and it
--- is exactly the shape something leans out of.
---
--- A pair of neighbouring rays is an edge when the far one lands well past where the near one's
--- *surface*, carried on, would have put it -- not merely when the two depths differ. A flat wall seen
--- at a glancing angle puts neighbouring rays tens of studs apart on unbroken stone, and reading those
--- as corners is the old way of ending up leaning out of one.
-local FAN_RAYS = 96
-local FAN_RANGE = 150 -- studs; nothing further away is worth leaning out of
-local BISECT_STEPS = 6
-local PLANE_TOLERANCE = 2 -- studs the far ray may miss the near surface's plane by and still be it
-local MIN_EDGE_GAP = 8 -- studs the far side must open up by, so there is somewhere to lean into
-local MAX_WALL_NORMAL_Y = 0.5 -- |Y| of a near surface's normal past which it is floor, not wall
-local OCCLUDER_HEIGHTS = { 1, 4.2 } -- studs above the floor a corner must still block at
-local OCCLUDER_SLACK = 3 -- studs past the corner those probes may travel before giving up
-local EDGE_DEPTHS = { 0, 1.5, 3 } -- studs past a fan edge to try the stance at
 
 -- Points over the rig's silhouette, as (studs above the floor, studs across its width) in its own
 -- upright frame. Both sets get tipped with the body, so they describe the same figure at any angle.
@@ -176,14 +163,6 @@ export type FindOptions = {
 
 export type Corner = HallwayGridService.Corner
 
--- One fan ray's answer. The surface it landed on matters as much as how far away it was: without a
--- normal there is no way to tell a corner from a wall viewed edge-on.
-type Sample = {
-	Distance: number,
-	Position: Vector3,
-	Normal: Vector3?,
-}
-
 -- Everything one search needs to keep asking the same questions of the same world.
 type Search = {
 	Params: RaycastParams,
@@ -219,83 +198,6 @@ local function isClear(params: RaycastParams, from: Vector3, to: Vector3): boole
 	local direction = to - from
 	if direction.Magnitude < 1e-3 then return true end
 	return workspace:Raycast(from, direction, params) == nil
-end
-
-local function castSample(params: RaycastParams, from: Vector3, direction: Vector3): Sample
-	local result = workspace:Raycast(from, direction * FAN_RANGE, params)
-	if not result then
-		return { Distance = FAN_RANGE, Position = from + direction * FAN_RANGE }
-	end
-	return {
-		Distance = (result.Position - from).Magnitude,
-		Position = result.Position,
-		Normal = result.Normal,
-	}
-end
-
--- How far away `sample`'s surface would be along `direction` if it simply carried on flat, or nil
--- where that plane is edge-on to the ray or behind it. This is what separates a corner from a wall
--- running away from the viewer: on unbroken stone the answer matches the ray that was actually cast.
-local function planeDistance(eye: Vector3, sample: Sample, direction: Vector3): number?
-	local normal = sample.Normal
-	if not normal then return nil end
-
-	local denominator = direction:Dot(normal)
-	if math.abs(denominator) < 1e-3 then return nil end
-
-	local distance = (sample.Position - eye):Dot(normal) / denominator
-	if distance <= 0 then return nil end
-	return distance
-end
-
--- Narrows the gap between a direction that grazes the near surface and one that clears it, so the
--- edge between them is located to a fraction of a degree rather than to the width of a fan step.
-local function bisectEdge(
-	params: RaycastParams,
-	eye: Vector3,
-	near: Vector3,
-	far: Vector3,
-	nearDistance: number
-)
-	local blind, seen = near, far
-
-	for _ = 1, BISECT_STEPS do
-		local middle = blind + seen
-		if middle.Magnitude < 1e-4 then break end
-		middle = middle.Unit
-
-		if castSample(params, eye, middle).Distance - nearDistance < MIN_EDGE_GAP then
-			blind = middle
-		else
-			seen = middle
-		end
-	end
-	return blind, seen
-end
-
--- Whether the thing forming a fan-found edge screens a standing figure top to bottom. A depth
--- discontinuity at eye height is just as happily the end of a desk or the top of a stair rail, and
--- neither hides anything from somebody looking at the floor behind it.
---
--- `direction` must be the fan ray that found the surface, not the bisected one that pins the edge
--- down. Bisection deliberately lands a fraction of a degree off the silhouette, so a probe along it
--- grazes the surface by inches -- close enough that a skirting board, a seam between two wall parts
--- or a doorway's trim decides the answer. Measured over the hotel that rejects five corners in six,
--- almost all of them real. The unrefined ray is a few degrees into the same surface, and rejects the
--- three in a hundred that are genuinely waist-high.
-local function isSolidOccluder(
-	params: RaycastParams,
-	eye: Vector3,
-	direction: Vector3,
-	distance: number,
-	floorY: number
-): boolean
-	local reach = direction * (distance + OCCLUDER_SLACK)
-	for _, height in OCCLUDER_HEIGHTS do
-		local from = Vector3.new(eye.X, floorY + height, eye.Z)
-		if workspace:Raycast(from, reach, params) == nil then return false end
-	end
-	return true
 end
 
 --- The body's own axes after tipping `angle` degrees along `lateral`. Everything about a leaning rig
@@ -399,6 +301,27 @@ local function isHiddenFromEveryone(search: Search, points: { Vector3 }): boolea
 				return false
 			end
 		end
+	end
+	return true
+end
+
+--- Whether real geometry -- not merely a camera pointed elsewhere -- stands between the player this
+--- search is for and every part of a figure waiting upright there.
+---
+--- The view cone alone was never enough, and the failure is the one this enemy exists to avoid. A
+--- spot in the open behind somebody satisfies the cone test and nothing else: it is unseen because of
+--- where they happen to be looking this instant, so walking on and glancing sideways finds a figure
+--- standing in the middle of a corridor. Nobody reads that as something hiding. Requiring a wall in
+--- the way makes the concealment a property of the place rather than of the moment, which is what
+--- "around a corner" means, and it is what tells a real corridor mouth from a graph node that merely
+--- sits square to the viewer.
+---
+--- Paired with the lean check, which asks the opposite question of the same eye, this is also the
+--- tightest available definition of a corner: a spot whose body is behind something and whose head,
+--- tipped out, is not.
+local function isConcealedFrom(search: Search, points: { Vector3 }): boolean
+	for _, point in points do
+		if isClear(search.Params, search.Eye, point) then return false end
 	end
 	return true
 end
@@ -520,7 +443,12 @@ local function placeOn(search: Search, corner: Corner, diagnostic: ((any) -> ())
 				Facing = facing,
 				LeanAngle = 0,
 			}
-			if not isHiddenFromEveryone(search, bodyPoints(HIDE_SAMPLES, upright, 0)) then
+			local waiting = bodyPoints(HIDE_SAMPLES, upright, 0)
+			if not isConcealedFrom(search, waiting) then
+				reject("upright_exposed", depth, offset)
+				continue
+			end
+			if not isHiddenFromEveryone(search, waiting) then
 				reject("upright_visible", depth, offset)
 				continue
 			end
@@ -559,56 +487,6 @@ local function placeOn(search: Search, corner: Corner, diagnostic: ((any) -> ())
 		end
 	end
 	return nil
-end
-
---- Silhouette edges around the player, for the geometry the hallway graph says nothing about.
-local function findFanCorners(search: Search): { Corner }
-	local params, eye = search.Params, search.Eye
-
-	local directions, samples = {}, {}
-	for index = 0, FAN_RAYS - 1 do
-		local angle = index * 2 * math.pi / FAN_RAYS
-		directions[index] = Vector3.new(math.cos(angle), 0, math.sin(angle))
-		samples[index] = castSample(params, eye, directions[index])
-	end
-
-	local corners = {}
-	for index = 0, FAN_RAYS - 1 do
-		local neighbour = (index + 1) % FAN_RAYS
-		local nearIsFirst = samples[index].Distance <= samples[neighbour].Distance
-		local near = if nearIsFirst then samples[index] else samples[neighbour]
-		local far = if nearIsFirst then samples[neighbour] else samples[index]
-
-		-- Something has to be there to hide behind, it has to be a wall rather than the floor, and
-		-- the far side has to open up enough to give a figure somewhere to have leaned into.
-		if far.Distance - near.Distance < MIN_EDGE_GAP then continue end
-		if not near.Normal or math.abs(near.Normal.Y) > MAX_WALL_NORMAL_Y then continue end
-
-		local blindDirection = if nearIsFirst then directions[index] else directions[neighbour]
-		local farDirection = if nearIsFirst then directions[neighbour] else directions[index]
-		local flat = planeDistance(eye, near, farDirection)
-		if flat and math.abs(flat - far.Distance) <= PLANE_TOLERANCE then continue end -- same wall, edge-on
-
-		-- Filtered before the expensive checks rather than in the caller, which repeats them
-		-- harmlessly: an edge in front of the player or across the building is two raycasts saved.
-		local position = eye + blindDirection * near.Distance
-		if near.Distance < search.Options.MinDistance or near.Distance > search.Options.MaxDistance then continue end
-		if not isWithinArc(eye, search.Back, position, search.Options.RearArc) then continue end
-		if not isSolidOccluder(params, eye, blindDirection, near.Distance, search.FloorY) then continue end
-
-		local blind, seen = bisectEdge(params, eye, blindDirection, farDirection, near.Distance)
-		local lateral = horizontal(seen - blind)
-		if lateral.Magnitude < 1e-4 then continue end
-
-		table.insert(corners, {
-			Position = eye + blind * near.Distance,
-			Axis = blind,
-			Lateral = lateral.Unit,
-			Depths = EDGE_DEPTHS,
-		} :: Corner)
-	end
-
-	return corners
 end
 
 local function shuffle<T>(items: { T }): { T }
@@ -674,20 +552,16 @@ function PeekSpotService:Find(player: Player, options: FindOptions): PeekSpot?
 		return spots
 	end
 
-	-- Junctions first, and the fan only when none of them worked out. A corridor mouth the map states
-	-- outright is a better corner than one inferred from a depth discontinuity, and in a corridor the
-	-- common case costs no fan at all.
+	-- Junctions and nothing else. A silhouette edge inferred from a depth discontinuity finds plenty
+	-- of corners, and a good share of them are the end of a desk, the side of a pillar or a seam
+	-- between two wall parts standing in open floor -- which is a figure lurking in the middle of a
+	-- room, not one around a corner. Coming back empty is the better answer; the caller retries.
 	local spots = collect(HallwayGridService:GetCorners(
 		search.Eye,
 		search.FloorY,
 		options.MinDistance,
 		options.MaxDistance
 	))
-
-	if #spots == 0 then
-		spots = collect(findFanCorners(search))
-	end
-
 	if #spots == 0 then return nil end
 	return spots[math.random(#spots)]
 end
@@ -730,7 +604,9 @@ function PeekSpotService:IsStillValid(spot: PeekSpot, player: Player, options: F
 	local search = buildSearch(player, options)
 	if not search then return false end
 
-	if not isHiddenFromEveryone(search, bodyPoints(HIDE_SAMPLES, spot, 0)) then return false end
+	local waiting = bodyPoints(HIDE_SAMPLES, spot, 0)
+	if not isConcealedFrom(search, waiting) then return false end
+	if not isHiddenFromEveryone(search, waiting) then return false end
 	if not isArcClear(search, spot) then return false end
 
 	return isLeanWorthwhile(search, spot)
