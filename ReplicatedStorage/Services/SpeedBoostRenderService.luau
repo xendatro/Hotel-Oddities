@@ -1,5 +1,10 @@
+--- What a speed drink looks like from the inside: the camera opens up and the world warms slightly
+--- for as long as the boost lasts. The field of view itself is handed to CameraFovService, so this
+--- and a sprint add up instead of overwriting one another.
+
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
@@ -9,7 +14,12 @@ if not RunService:IsClient() then
 	return SpeedBoostRenderService
 end
 
+local CameraFovService = require(ReplicatedStorage.Services.CameraFovService)
+
 local player = Players.LocalPlayer
+
+-- Tweened rather than set, then read back out on every change: the easing lives on this value and
+-- CameraFovService only ever sees where it has got to.
 local offset = Instance.new("NumberValue")
 offset.Name = "SpeedBoostFovOffset"
 
@@ -18,47 +28,9 @@ color.Name = "SpeedBoostColor"
 color.Enabled = false
 color.Parent = Lighting
 
-local BIND_NAME = "SpeedBoostCameraFov"
-local bound = false
-local lastCamera: Camera? = nil
-local lastApplied = 0
 local effectTween: Tween? = nil
 local colorTween: Tween? = nil
 local tweenVersion = 0
-
-local function restoreCamera()
-	if lastCamera and lastCamera.Parent and lastApplied ~= 0 then
-		lastCamera.FieldOfView -= lastApplied
-	end
-	lastCamera = nil
-	lastApplied = 0
-end
-
-local function render()
-	local camera = workspace.CurrentCamera
-	if camera ~= lastCamera then
-		restoreCamera()
-		lastCamera = camera
-	end
-	if not camera then return end
-
-	-- Remove the offset written last frame before adding this frame's value. That makes the effect
-	-- compose with camera scripts and interface tweens instead of fighting their chosen base FOV.
-	local base = camera.FieldOfView - lastApplied
-	lastApplied = offset.Value
-	camera.FieldOfView = base + lastApplied
-end
-
-local function setBound(value: boolean)
-	if bound == value then return end
-	bound = value
-	if value then
-		RunService:BindToRenderStep(BIND_NAME, Enum.RenderPriority.Camera.Value + 2, render)
-	else
-		RunService:UnbindFromRenderStep(BIND_NAME)
-		restoreCamera()
-	end
-end
 
 local function refresh()
 	local target = player:GetAttribute("SpeedBoostFov")
@@ -71,7 +43,6 @@ local function refresh()
 	if colorTween then colorTween:Cancel() end
 
 	if target > 0 then
-		setBound(true)
 		color.Enabled = true
 	end
 
@@ -92,15 +63,15 @@ local function refresh()
 
 	effectTween.Completed:Once(function()
 		if tweenVersion ~= version or target > 0 then return end
-		setBound(false)
 		color.Enabled = false
 	end)
 end
 
-player:GetAttributeChangedSignal("SpeedBoostFov"):Connect(refresh)
-workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
-	if bound then render() end
+offset.Changed:Connect(function(value)
+	CameraFovService:SetOffset("SpeedBoost", value)
 end)
+
+player:GetAttributeChangedSignal("SpeedBoostFov"):Connect(refresh)
 
 refresh()
 

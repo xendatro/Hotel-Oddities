@@ -25,6 +25,10 @@ type CharacterState = {
 local characterState = nil :: CharacterState?
 local phase = 0
 local weight = 0
+--- How large the step motion currently is against the distances in the config. Eased rather than
+--- read straight off this frame's speed, so crossing a doorway or clipping a wall does not punch
+--- the camera.
+local amplitude = 1
 
 local function bindCharacter(character: Model)
 	local state = {
@@ -36,6 +40,7 @@ local function bindCharacter(character: Model)
 	characterState = state
 	phase = 0
 	weight = 0
+	amplitude = 1
 end
 
 local function render(deltaTime: number)
@@ -59,20 +64,29 @@ local function render(deltaTime: number)
 	end
 
 	if moving then
-		local stepRate = CameraBobConfig.StepsPerSecond
-			* horizontalSpeed / CameraBobConfig.ReferenceWalkSpeed
-		phase += TAU * stepRate * deltaTime
+		local speedRatio = horizontalSpeed / CameraBobConfig.ReferenceWalkSpeed
+		phase += TAU * CameraBobConfig.StepsPerSecond * speedRatio * deltaTime
+
+		-- Sprinting is faster steps *and* heavier ones. Rate alone reads as the same walk on fast
+		-- forward, so the distances travel with the speed too.
+		local target = math.clamp(
+			1 + (speedRatio - 1) * CameraBobConfig.AmplitudeSpeedInfluence,
+			CameraBobConfig.MinAmplitudeScale,
+			CameraBobConfig.MaxAmplitudeScale
+		)
+		amplitude += (target - amplitude) * (1 - math.exp(-CameraBobConfig.FadeSpeed * deltaTime))
 	end
 
 	if weight < 1e-3 then return end
 
+	local scale = weight * amplitude
 	local side = math.sin(phase / 2)
 	local offset = Vector3.new(
 		side * CameraBobConfig.HorizontalDistance,
 		-math.cos(phase) * CameraBobConfig.VerticalDistance,
 		0
-	) * weight
-	local roll = math.rad(-side * CameraBobConfig.RollAngle * weight)
+	) * scale
+	local roll = math.rad(-side * CameraBobConfig.RollAngle * scale)
 	camera.CFrame *= CFrame.new(offset) * CFrame.Angles(0, 0, roll)
 end
 
