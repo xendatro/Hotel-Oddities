@@ -3,6 +3,9 @@
 return {
 	--- Local sound from a held radio. Direct radio output is not distance limited.
 	PhysicalRange = 30,
+	AmbientRange = 30,
+	RadioAllowedTag = "RadioAllowed",
+	DeathActiveGrace = 0.35,
 
 	--- The player filter is shared by incoming and outgoing radio audio.
 	Modes = {
@@ -31,6 +34,10 @@ return {
 		Limiter = {
 			MaxLevel = -1,
 			Release = 0.08,
+		},
+		Static = {
+			ActiveVolume = 1,
+			DeathVolume = 1,
 		},
 	},
 }

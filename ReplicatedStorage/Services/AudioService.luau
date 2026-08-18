@@ -1,4 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Templates = ReplicatedStorage:WaitForChild("Sounds")
 local Buses = workspace:WaitForChild("Sounds")
@@ -13,6 +14,36 @@ local Buses = workspace:WaitForChild("Sounds")
 --- up, so nothing has to build a listener. A 2D template is a bare `AudioPlayer`, with no emitter to
 --- place it in the world; it wires straight to the speakers instead.
 local AudioService = {}
+
+local RadioTransmit: RemoteEvent? = nil
+if RunService:IsClient() then
+	local communication = ReplicatedStorage:FindFirstChild("Communication")
+	local radio = communication and communication:FindFirstChild("WalkieTalkie")
+	local remote = radio and radio:FindFirstChild("TransmitSound")
+	if remote and remote:IsA("RemoteEvent") then RadioTransmit = remote end
+end
+
+local function getRadioSoundName(template: Instance): string?
+	if template:HasTag("RadioAllowed") then return template.Name end
+	local parent = template.Parent
+	if parent and parent:IsA("AudioEmitter") and parent:HasTag("RadioAllowed") then
+		return parent.Name
+	end
+	return nil
+end
+
+local function requestRadioRelay(template: Instance)
+	local name = getRadioSoundName(template)
+	if RadioTransmit and name then
+		RadioTransmit:FireServer(name)
+	end
+end
+
+local function registerServerRadioEmitter(emitter: AudioEmitter, allowed: boolean)
+	if not RunService:IsServer() or not allowed then return end
+	local service = require(game:GetService("ServerStorage").Services.WalkieTalkieService)
+	service:RegisterAmbientEmitter(emitter)
+end
 
 local Output: AudioDeviceOutput? = nil
 type Audio3DTemplate = string | AudioEmitter
@@ -111,11 +142,14 @@ function AudioService:Create3DSound(
 	soundGroup: string,
 	settings: {[string]: any}?
 ): AudioPlayer
-	local emitter = resolve3DTemplate(template):Clone()
+	local sourceTemplate = resolve3DTemplate(template)
+	local radioAllowed = getRadioSoundName(sourceTemplate) ~= nil
+	local emitter = sourceTemplate:Clone()
 	local player = emitter.Player :: AudioPlayer
 	player.Looping = looped
 
 	emitter.Parent = parent
+	registerServerRadioEmitter(emitter, radioAllowed)
 	-- Apply emitter settings after parenting. In the new audio API, attenuation is evaluated by the
 	-- live emitter/listener graph, and changing these properties before the emitter enters that graph
 	-- can leave the runtime attenuation state stale even though the property reads back correctly.
@@ -134,6 +168,7 @@ function AudioService:Play3DSound(
 ): AudioPlayer
 	local player = self:Create3DSound(template, parent, looped, soundGroup, settings)
 	player:Play()
+	if RunService:IsClient() then requestRadioRelay(resolve3DTemplate(template)) end
 	return player
 end
 
@@ -160,6 +195,7 @@ function AudioService:Play2D(
 	self:Wire(player, target or self:GetOutput())
 	bindLifetime(player, player, bindBus(player, self:GetBus(soundGroup)))
 	player:Play()
+	if RunService:IsClient() then requestRadioRelay(template) end
 	return player
 end
 
