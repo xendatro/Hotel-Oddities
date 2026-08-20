@@ -212,15 +212,37 @@ end
 --- floors bridge authored floor seams, but never bend the returned axis around a corner.
 function Hallways.StraightSpanAt(position: Vector3, preferredDirection: Vector3?): StraightSpan?
 	local allHallways = Hallways.All(true)
-	local source = nil :: Hallway?
+	local preferred = preferredDirection and horizontal(preferredDirection)
+	if preferred and preferred.Magnitude > AXIS_EPSILON then
+		preferred = preferred.Unit
+	else
+		preferred = nil
+	end
+
+	local bestSpan = nil :: StraightSpan?
+	local bestAlignment = -1
+	local bestDistance = math.huge
 	for _, hallway in allHallways do
 		if contains(hallway, position) then
-			source = hallway
-			break
+			local span = straightSpan(hallway, position, preferredDirection, allHallways)
+			if span then
+				-- A T or cross can contain more than one authored floor at once. Prefer the
+				-- complete run that points where the caller is facing; tag order is not a
+				-- meaningful way to choose between those overlapping floors.
+				local alignment = if preferred then math.abs(span.Axis:Dot(preferred)) else 0
+				local offset = position - span.Center
+				local distance = math.abs(offset:Dot(Vector3.yAxis:Cross(span.Axis).Unit))
+				if alignment > bestAlignment + AXIS_EPSILON
+					or (math.abs(alignment - bestAlignment) <= AXIS_EPSILON and distance < bestDistance)
+				then
+					bestSpan = span
+					bestAlignment = alignment
+					bestDistance = distance
+				end
+			end
 		end
 	end
-	if not source then return nil end
-	return straightSpan(source, position, preferredDirection, allHallways)
+	return bestSpan
 end
 
 local function sameSpan(first: StraightSpan, second: StraightSpan): boolean

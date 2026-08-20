@@ -14,6 +14,14 @@ return {
 		DoorsOpen = {
 			OpeningSpeed = 0.75,
 		},
+		HallwayChaos = {
+			OpeningSpeed = 1.2,
+			ClosingSpeed = 1.2,
+			DoorIntervalMin = 0.3,
+			DoorIntervalMax = 1.1,
+			LightIntervalMin = 0.06,
+			LightIntervalMax = 0.24,
+		},
 	},
 
 	HallwayTransparency = 0.02,

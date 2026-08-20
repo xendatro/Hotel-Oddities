@@ -84,18 +84,25 @@ function DoorPart:_swingSignAlong(direction: Vector3): number
 	return plus:Dot(direction) >= minus:Dot(direction) and 1 or -1
 end
 
-function DoorPart:_oddityClaim(): { Blocked: boolean, Speed: number }?
+function DoorPart:_oddityClaim(): { Blocked: boolean, Speed: number, Chaos: boolean? }?
 	for _, claim in self.OddityClaims do
 		if not claim.Blocked then return claim end
 	end
 	return nil
 end
 
+function DoorPart:_hasOtherOddity(token: number): boolean
+	for otherToken, claim in self.OddityClaims do
+		if otherToken ~= token and not claim.Blocked then return true end
+	end
+	return false
+end
+
 function DoorPart:_applyOddity()
 	local claim = self:_oddityClaim()
-	if claim then
+	if claim and not claim.Chaos then
 		self:_setOpen(true, nil, claim.Speed, self.Outward)
-	else
+	elseif not claim then
 		self:_setOpen(false, nil, nil, nil)
 	end
 end
@@ -137,7 +144,9 @@ end
 
 function DoorPart:SetOpen(open: boolean, from: Vector3?)
 	if next(self.OddityClaims) then
-		self:_applyOddity()
+		if not self:_oddityClaim() or not self:_oddityClaim().Chaos then
+			self:_applyOddity()
+		end
 		return
 	end
 	self:_setOpen(open, from, nil, nil)
@@ -147,6 +156,7 @@ function DoorPart:SetOddityOpen(token: number, playbackSpeed: number)
 	self.OddityClaims[token] = {
 		Blocked = self.Forced,
 		Speed = playbackSpeed,
+		Chaos = false,
 	}
 	if not self.Forced then
 		if self.Outward then
@@ -154,6 +164,40 @@ function DoorPart:SetOddityOpen(token: number, playbackSpeed: number)
 		end
 		self:_applyOddity()
 	end
+end
+
+function DoorPart:SetOddityChaos(
+	token: number,
+	openSpeed: number,
+	closeSpeed: number,
+	intervalMin: number,
+	intervalMax: number
+)
+	local claim = {
+		Blocked = self.Forced,
+		Speed = openSpeed,
+		CloseSpeed = closeSpeed,
+		IntervalMin = math.min(intervalMin, intervalMax),
+		IntervalMax = math.max(intervalMin, intervalMax),
+		Chaos = true,
+	}
+	self.OddityClaims[token] = claim
+
+	task.spawn(function()
+		task.wait(math.random() * (claim.IntervalMax - claim.IntervalMin) + claim.IntervalMin)
+		while self.OddityClaims[token] == claim do
+			if not claim.Blocked and not self:_hasOtherOddity(token) then
+				local opening = not self:IsOpen()
+				if opening then
+					if self.Outward then
+						self.Sign = self:_swingSignAlong(self.Outward)
+					end
+				end
+				self:_setOpen(opening, nil, if opening then claim.Speed else claim.CloseSpeed, nil)
+			end
+			task.wait(math.random() * (claim.IntervalMax - claim.IntervalMin) + claim.IntervalMin)
+		end
+	end)
 end
 
 function DoorPart:ClearOddity(token: number)
@@ -179,6 +223,9 @@ function DoorPart:SetForced(forced: boolean)
 		end
 		self:_setOpen(false, nil, nil, nil)
 	elseif next(self.OddityClaims) then
+		for _, claim in self.OddityClaims do
+			claim.Blocked = false
+		end
 		self:_applyOddity()
 	end
 end

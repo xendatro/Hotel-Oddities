@@ -5,7 +5,22 @@ return {
 	PhysicalRange = 30,
 	AmbientRange = 30,
 	RadioAllowedTag = "RadioAllowed",
-	DeathActiveGrace = 0.35,
+	DeathActiveGrace = 0.75,
+	-- The default voice route is raised slightly; radio routes are then attenuated below it.
+	NormalVoiceVolume = 1.25,
+	RadioOutputVolume = 0.42,
+	RadioAmbientVolume = 0.65,
+	VoiceNoiseRadius = 45,
+	RadioNoiseRadius = 35,
+	NoiseInterval = 0.2,
+	VoiceActivity = {
+		Threshold = 0.05,
+		Release = 0.18,
+		PollInterval = 1 / 30,
+		Heartbeat = 0.2,
+		Timeout = 0.75,
+		TransmissionGrace = 0.5,
+	},
 
 	--- The player filter is shared by incoming and outgoing radio audio.
 	Modes = {

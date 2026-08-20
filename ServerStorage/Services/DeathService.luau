@@ -121,7 +121,7 @@ end
 
 Complete.OnServerEvent:Connect(function(player: Player, token: any)
 	if type(token) ~= "number" then return end
-	ReviveService:Prompt(player, token)
+	-- ReviveService:Prompt(player, token)
 end)
 
 local function watchPlayer(player: Player)

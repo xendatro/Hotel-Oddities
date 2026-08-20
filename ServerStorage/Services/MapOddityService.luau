@@ -1,10 +1,31 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Configs.MapOddityConfig)
 local Hallways = require(ReplicatedStorage.Modules.Hallways)
 
 local MapOddityService = {}
+
+-- Studio edit mode can require server modules while syncing or inspecting the place.
+-- Do not create remotes, start schedulers, or mutate map parts until the game is running.
+if RunService:IsStudio() and not RunService:IsRunning() then
+	function MapOddityService:Trigger(_position: Vector3, _kind: string?): (boolean, string?, string?)
+		return false, nil, "map oddities are disabled in Studio edit mode"
+	end
+
+	function MapOddityService:Clear(_token: number?): boolean
+		return false
+	end
+
+	function MapOddityService:GetActive(): { [number]: any }
+		return {}
+	end
+
+	return MapOddityService
+end
+
+local LightService = require(game:GetService("ServerStorage").Services.LightService)
 
 local function getMapDoorsRemote(): RemoteEvent
 	local communication = ReplicatedStorage:FindFirstChild("Communication")
@@ -52,6 +73,7 @@ type ActiveEffect = {
 	BoxSize: Vector3,
 	Parts: { [BasePart]: boolean },
 	Added: RBXScriptConnection?,
+	LightClaim: any?,
 }
 
 type TransparencyClaim = {
@@ -226,6 +248,12 @@ local function clearEffect(effect: ActiveEffect)
 		releaseParts(effect)
 	elseif effect.Kind == "DoorsOpen" then
 		MapDoors:FireAllClients("Stop", effect.Token)
+	elseif effect.Kind == "HallwayChaos" then
+		if effect.LightClaim then
+			LightService:ReleaseFlicker(effect.LightClaim)
+			effect.LightClaim = nil
+		end
+		MapDoors:FireAllClients("Stop", effect.Token)
 	end
 end
 
@@ -258,8 +286,13 @@ local function start(span: Hallways.StraightSpan, kind: string): boolean
 		BoxSize = boxSize,
 		Parts = {},
 		Added = nil,
+		LightClaim = nil,
 	}
 	active[effect.Token] = effect
+	local duration = randomRange(
+		math.max(setting(kind, "MinDuration", 45), 0),
+		math.max(setting(kind, "MaxDuration", 120), 0)
+	)
 
 	if kind == "Transparency" then
 		queryParts(effect)
@@ -276,12 +309,26 @@ local function start(span: Hallways.StraightSpan, kind: string): boolean
 			effect.BoxSize,
 			math.clamp(setting(kind, "OpeningSpeed", 0.75), 0.05, 4)
 		)
+	elseif kind == "HallwayChaos" then
+		effect.LightClaim = LightService:FlickerChaosAlongHallway(
+			span.Center,
+			duration,
+			math.max(setting(kind, "LightIntervalMin", 0.06), 0.02),
+			math.max(setting(kind, "LightIntervalMax", 0.24), 0.03)
+		)
+		MapDoors:FireAllClients(
+			"Start",
+			effect.Token,
+			effect.BoxCFrame,
+			effect.BoxSize,
+			math.clamp(setting(kind, "OpeningSpeed", 1.2), 0.05, 4),
+			"Chaos",
+			math.clamp(setting(kind, "ClosingSpeed", 1.2), 0.05, 4),
+			math.max(setting(kind, "DoorIntervalMin", 0.3), 0.05),
+			math.max(setting(kind, "DoorIntervalMax", 1.1), 0.06)
+		)
 	end
 
-	local duration = randomRange(
-		math.max(setting(kind, "MinDuration", 45), 0),
-		math.max(setting(kind, "MaxDuration", 120), 0)
-	)
 	task.delay(duration, function()
 		clearEffect(effect)
 	end)
@@ -312,12 +359,12 @@ function MapOddityService:Trigger(position: Vector3, kind: string?): (boolean, s
 
 	local chosen = kind or "Transparency"
 	if not Config.Effects[chosen] then
-		return false, nil, "unknown effect; use transparency or doors"
+		return false, nil, "unknown effect; use transparency, doors, or chaos"
 	end
 
 	local span = spanAt(position)
 	if not span then return false, nil, "that position is not in a usable hallway" end
-	if chosen == "DoorsOpen" and not playerInSpan(span) then
+	if (chosen == "DoorsOpen" or chosen == "HallwayChaos") and not playerInSpan(span) then
 		return false, nil, "doors need a living player in that hallway"
 	end
 	if not start(span, chosen) then return false, nil, "could not start that oddity" end
@@ -365,7 +412,7 @@ end
 local function roll(kind: string)
 	if math.random() > setting(kind, "TriggerChance", 0.15) then return end
 
-	local span = if kind == "DoorsOpen" then randomPlayerSpan() else randomSpan()
+	local span = if kind == "DoorsOpen" or kind == "HallwayChaos" then randomPlayerSpan() else randomSpan()
 	if span then start(span, kind) end
 end
 

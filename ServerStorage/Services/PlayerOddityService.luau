@@ -1,9 +1,17 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Configs.PlayerOddityConfig)
 
 local PlayerOddityService = {}
+
+if RunService:IsStudio() and not RunService:IsRunning() then
+	function PlayerOddityService:Trigger(_player: Player, _kind: string?): (boolean, string?, string?)
+		return false, nil, "player oddities are disabled in Studio edit mode"
+	end
+	return PlayerOddityService
+end
 
 local function getHeadStareRemote(): RemoteEvent
 	local communication = ReplicatedStorage:FindFirstChild("Communication")

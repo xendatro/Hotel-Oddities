@@ -49,9 +49,14 @@ type RedState = {
 type FlickerState = {
 	ExpiresAt: number,
 	Lights: { [Light]: LightState },
-	Parts: { BasePart },
+	Parts: { [BasePart]: Enum.Material },
 	Particles: { [ParticleEmitter]: ParticleState },
 	SoundParent: BasePart?,
+}
+
+export type FlickerClaim = {
+	Released: boolean,
+	States: { { Model: Model, State: FlickerState } },
 }
 
 type ParticleState = {
@@ -509,7 +514,7 @@ local function beginFlicker(model: Model, duration: number, playSound: boolean?)
 		elseif descendant:IsA("BasePart")
 			and (descendant.Material == Enum.Material.Neon or descendant:HasTag(NEON_OFF_TAG))
 		then
-			table.insert(state.Parts, descendant)
+			state.Parts[descendant] = descendant.Material
 		elseif descendant:IsA("ParticleEmitter") then
 			state.Particles[descendant] = {
 				Enabled = descendant.Enabled,
@@ -527,11 +532,23 @@ local function setFlickerDark(state: FlickerState)
 	for light in state.Lights do
 		light.Enabled = false
 	end
-	for _, part in state.Parts do
+	for part in state.Parts do
 		part.Material = Enum.Material.SmoothPlastic
 	end
 	for emitter in state.Particles do
 		emitter.Enabled = false
+	end
+end
+
+local function setFlickerLit(state: FlickerState)
+	for light, lightState in state.Lights do
+		light.Enabled = lightState.Enabled
+	end
+	for part, material in state.Parts do
+		part.Material = material
+	end
+	for emitter, particleState in state.Particles do
+		emitter.Enabled = particleState.Enabled
 	end
 end
 
@@ -540,8 +557,8 @@ local function restoreFlicker(model: Model, state: FlickerState)
 	for light, lightState in state.Lights do
 		light.Enabled = lightState.Enabled
 	end
-	for _, part in state.Parts do
-		part.Material = Enum.Material.Neon
+	for part, material in state.Parts do
+		part.Material = material
 	end
 	for emitter, particleState in state.Particles do
 		emitter.Enabled = particleState.Enabled
@@ -561,15 +578,7 @@ local function flickerModel(model: Model, duration: number)
 			if math.random() < 0.5 then
 				setFlickerDark(state)
 			else
-				for light, lightState in state.Lights do
-					light.Enabled = lightState.Enabled
-				end
-				for _, part in state.Parts do
-					part.Material = Enum.Material.Neon
-				end
-				for emitter, particleState in state.Particles do
-					emitter.Enabled = particleState.Enabled
-				end
+				setFlickerLit(state)
 			end
 
 			task.wait(0.1 + math.random() * 0.1)
@@ -577,6 +586,62 @@ local function flickerModel(model: Model, duration: number)
 
 		restoreFlicker(model, state)
 	end)
+end
+
+--- Flickers every lamp in a straight hallway with independent, rapid timings. The returned claim
+--- lets a caller stop the effect early without leaving a lamp dark.
+function LightService:FlickerChaosAlongHallway(
+	position: Vector3,
+	duration: number,
+	intervalMin: number,
+	intervalMax: number
+): FlickerClaim
+	local claim: FlickerClaim = {
+		Released = duration <= 0,
+		States = {},
+	}
+	if claim.Released then return claim end
+
+	local span = Hallways.StraightSpanAt(position)
+	if not span then
+		claim.Released = true
+		return claim
+	end
+	local spanHallways = hallwaysInSpan(span)
+
+	local minimum = math.max(math.min(intervalMin, intervalMax), 0.02)
+	local maximum = math.max(math.max(intervalMin, intervalMax), minimum)
+	for _, model in LightService:GetModels() do
+		if containsAnyHallway(spanHallways, model:GetPivot().Position) then
+			local state = beginFlicker(model, duration, true)
+			if state then
+				state.ExpiresAt = os.clock() + duration
+				table.insert(claim.States, { Model = model, State = state })
+				task.spawn(function()
+					task.wait(math.random() * (maximum - minimum) + minimum)
+					while not claim.Released and state.ExpiresAt > os.clock() do
+						if math.random() < 0.55 then
+							setFlickerDark(state)
+						else
+							setFlickerLit(state)
+						end
+						task.wait(math.random() * (maximum - minimum) + minimum)
+					end
+					restoreFlicker(model, state)
+				end)
+			end
+		end
+	end
+
+	return claim
+end
+
+function LightService:ReleaseFlicker(claim: FlickerClaim)
+	if claim.Released then return end
+	claim.Released = true
+	for _, entry in claim.States do
+		restoreFlicker(entry.Model, entry.State)
+	end
 end
 
 --- Flickers every light model in the hallway containing `position` for `duration`. Lights turn on and

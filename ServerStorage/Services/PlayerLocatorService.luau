@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local InventoryService = require(script.Parent.InventoryService)
+local HallwayStreamingService = require(script.Parent.HallwayStreamingService)
 
 local PlayerLocatorConfig = require(ReplicatedStorage.Configs.PlayerLocatorConfig)
 
@@ -47,6 +48,16 @@ function PlayerLocatorService:Teleport(player: Player, target: Player): boolean
 	if not root or not targetRoot then return false end
 
 	-- Behind them, facing the way they face: they are the first thing the arriving player sees.
+	local destination = targetRoot.CFrame * CFrame.new(0, 0, PlayerLocatorConfig.ArriveDistance)
+	if not HallwayStreamingService:PrepareTeleport(player, destination.Position) then
+		return false
+	end
+
+	-- The target may have moved or died while its destination streamed. Re-check before changing
+	-- the character's CFrame, so a failed preparation never strands somebody in an unloaded area.
+	root = livingRoot(player)
+	targetRoot = livingRoot(target)
+	if not root or not targetRoot then return false end
 	root.CFrame = targetRoot.CFrame * CFrame.new(0, 0, PlayerLocatorConfig.ArriveDistance)
 	NextTeleport[player] = os.clock() + PlayerLocatorConfig.Cooldown
 	return true

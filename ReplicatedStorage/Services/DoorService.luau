@@ -27,6 +27,10 @@ type MapOpening = {
 	CFrame: CFrame,
 	Size: Vector3,
 	Speed: number,
+	Mode: string?,
+	CloseSpeed: number?,
+	IntervalMin: number?,
+	IntervalMax: number?,
 }
 
 local MapOpenings: { [number]: MapOpening } = {}
@@ -120,7 +124,17 @@ end
 
 local function applyOpening(door, token: number, opening: MapOpening)
 	if isDoorInOpening(door, opening) then
-		door:SetOddityOpen(token, opening.Speed)
+		if opening.Mode == "Chaos" then
+			door:SetOddityChaos(
+				token,
+				opening.Speed,
+				opening.CloseSpeed or opening.Speed,
+				opening.IntervalMin or 0.3,
+				opening.IntervalMax or 1.1
+			)
+		else
+			door:SetOddityOpen(token, opening.Speed)
+		end
 	end
 end
 
@@ -130,7 +144,11 @@ if MapDoors and MapDoors:IsA("RemoteEvent") then
 		token: any,
 		boxCFrame: any,
 		boxSize: any,
-		speed: any
+		speed: any,
+		mode: any,
+		closeSpeed: any,
+		intervalMin: any,
+		intervalMax: any
 	)
 		if type(token) ~= "number" then return end
 
@@ -150,6 +168,10 @@ if MapDoors and MapDoors:IsA("RemoteEvent") then
 				CFrame = boxCFrame,
 				Size = boxSize,
 				Speed = math.clamp(speed, 0.05, 4),
+				Mode = if mode == "Chaos" then "Chaos" else nil,
+				CloseSpeed = if type(closeSpeed) == "number" then math.clamp(closeSpeed, 0.05, 4) else nil,
+				IntervalMin = if type(intervalMin) == "number" then math.max(intervalMin, 0.05) else nil,
+				IntervalMax = if type(intervalMax) == "number" then math.max(intervalMax, 0.06) else nil,
 			}
 			MapOpenings[token] = opening
 			for door in Active do

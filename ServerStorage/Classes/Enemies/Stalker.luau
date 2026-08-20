@@ -279,6 +279,7 @@ local function stalk(_changeState: StateMachine.ChangeState, npc: any, target: P
 	local config = npc.Config
 	npc.Target = target
 	npc.Animator:Resume()
+	npc.Animator:SetMovementTrack("Walk")
 	npc:SetSpeed(config.WalkSpeed)
 
 	local strikeAt = os.clock() + randomRange(config.StrikeTimeMin, config.StrikeTimeMax)
@@ -378,6 +379,7 @@ end
 local function chase(_changeState: StateMachine.ChangeState, npc: any, target: Player)
 	npc.Target = target
 	npc.Animator:Resume()
+	npc.Animator:SetMovementTrack(nil)
 	npc:SetSpeed(npc.Config.ChaseSpeed)
 
 	local lastKnown = npc.RootPart.Position
@@ -430,6 +432,7 @@ local function flee(_changeState: StateMachine.ChangeState, npc: any)
 	local config = npc.Config
 	npc.Target = nil
 	npc.Animator:Resume()
+	npc.Animator:SetMovementTrack(nil)
 	npc:SetSpeed(config.FleeSpeed)
 
 	local despawnAt = os.clock() + config.FleeTime
@@ -524,6 +527,7 @@ local function search(_changeState: StateMachine.ChangeState, npc: any, _lastKno
 	releaseCamera(npc)
 	npc.Target = nil
 	npc.Animator:Resume()
+	npc.Animator:SetMovementTrack("Walk")
 	npc:SetSpeed(npc.Config.WalkSpeed)
 	return "Patrol", npc
 end
@@ -544,6 +548,7 @@ function Stalker:Start()
 	-- over your shoulder while the thing itself is off the bottom of your screen would give away both
 	-- the follow and every hiding place it ever picks.
 	self.Humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+	self.Animator:SetMovementTrack("Walk")
 	NPC.Start(self)
 end
 

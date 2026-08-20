@@ -70,6 +70,7 @@ export type NpcAnimator = typeof(setmetatable(
 		Attacks: { AnimationTrack },
 		Rate: number,
 		MovementSpeedOverride: number?,
+	MovementTrackOverride: "Walk" | "Run"?,
 		Paused: boolean,
 		_stoppedSince: number?,
 		_connections: { [string]: RBXScriptConnection? },
@@ -127,6 +128,7 @@ function NpcAnimator.new(model: Model, set: AnimationConfig.AnimationSet?)
 	self.Current = nil :: AnimationTrack?
 	self.Rate = 1
 	self.MovementSpeedOverride = nil :: number?
+	self.MovementTrackOverride = nil
 	self.Paused = false
 	self._stoppedSince = nil :: number?
 	self._connections = {}
@@ -310,9 +312,11 @@ function NpcAnimator:_update()
 	-- is driving it said it stopped, so there is nothing to wait and see about.
 	local track
 	if moving then
-		track = if self:_gaitSpeed() >= RUN_THRESHOLD
-			then self.Tracks.Run or self.Tracks.Walk
-			else self.Tracks.Walk or self.Tracks.Run
+		track = if self.MovementTrackOverride
+			then self.Tracks[self.MovementTrackOverride]
+			else if self:_gaitSpeed() >= RUN_THRESHOLD
+				then self.Tracks.Run or self.Tracks.Walk
+				else self.Tracks.Walk or self.Tracks.Run
 	elseif self.Tracks.Idle
 		and (self.MovementSpeedOverride ~= nil
 			or self.Current == nil
@@ -374,6 +378,12 @@ end
 --- Drives locomotion for a rig moved without Humanoid physics, such as an anchored tweened model.
 function NpcAnimator:SetMovementSpeed(speed: number)
 	self.MovementSpeedOverride = speed
+	self:_update()
+end
+
+--- Forces moving NPCs to use one locomotion slot until cleared.
+function NpcAnimator:SetMovementTrack(trackName: "Walk" | "Run"?)
+	self.MovementTrackOverride = trackName
 	self:_update()
 end
 
