@@ -12,6 +12,4 @@ return {
 	BackdropMinimumHeight = 8,
 	BackdropHeight = 24,
 	BackdropThickness = 1,
-
-	BackdropFallbackSize = Vector3.new(100, 100, 1),
 }

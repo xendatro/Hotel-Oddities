@@ -1,4 +1,3 @@
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -20,8 +19,6 @@ if not FLAGS.Enemies then
 	return CreepRenderService
 end
 
-local localPlayer = Players.LocalPlayer
-
 type Render = {
 	RootPart: BasePart?,
 	Backdrop: Part?,
@@ -36,7 +33,7 @@ local Creeps: { [Model]: Render } = {}
 local function newBackdrop(): Part
 	local backdrop = Instance.new("Part")
 	backdrop.Name = "CreepBackdrop"
-	backdrop.Size = CreepConfig.BackdropFallbackSize
+	backdrop.Size = Vector3.new(1, 1, 1)
 	backdrop.Color = Color3.new(0, 0, 0)
 	backdrop.Material = Enum.Material.Neon
 	backdrop.Anchored = true
@@ -162,18 +159,6 @@ local function placeInHallway(render: Render, backdrop: Part, creepPosition: Vec
 	return true
 end
 
-local function placeFacingViewer(backdrop: Part, creepPosition: Vector3, eye: Vector3): boolean
-	local offset = creepPosition - eye
-	local direction = Vector3.new(offset.X, 0, offset.Z)
-	if direction.Magnitude < MINIMUM_DIRECTION then return false end
-	direction = direction.Unit
-
-	local position = creepPosition + direction * CreepConfig.BackdropDistance
-	backdrop.Size = CreepConfig.BackdropFallbackSize
-	backdrop.CFrame = CFrame.lookAt(position, position - direction)
-	return true
-end
-
 RunService.RenderStepped:Connect(function(deltaTime: number)
 	local camera = workspace.CurrentCamera
 	if not camera then return end
@@ -196,7 +181,7 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 
 		local placed = if render.Hallway
 			then placeInHallway(render, backdrop, position, eye)
-			else placeFacingViewer(backdrop, position, eye)
+			else false
 		backdrop.Transparency = if placed then 0 else 1
 	end
 end)
