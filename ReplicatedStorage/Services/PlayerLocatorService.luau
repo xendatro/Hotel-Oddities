@@ -1,16 +1,12 @@
+local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local LocatorMarker = require(ReplicatedStorage.Classes.LocatorMarker)
 local PlayerLocatorConfig = require(ReplicatedStorage.Configs.PlayerLocatorConfig)
 
---- Drives the PlayerLocator gui: the mode toggle, the outlines over everyone the mode includes, and
---- the countdown after a teleport.
----
---- The mode is a display choice and lives only here. There is nothing to validate about it -- "All
---- Players" is open to everyone, so a client claiming to be in it is claiming nothing. The teleport
---- itself is the server's, and so is its cooldown; this only counts down what the server reports.
 local PlayerLocatorService = {}
 
 if not RunService:IsClient() then
@@ -20,6 +16,10 @@ end
 local Teleport = ReplicatedStorage.Communication.PlayerLocator.Teleport
 
 local MODES = PlayerLocatorConfig.Modes
+local MARKER = PlayerLocatorConfig.Marker
+local FOCUS = PlayerLocatorConfig.Focus
+local RENDER_JOB = "PlayerLocatorFocus"
+local TAU = math.pi * 2
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -40,7 +40,6 @@ if not modeLabel or not toggle or not cooldownLabel then
 end
 
 local Markers: { [Player]: any } = {}
---- nil while the answer has not come back yet, which reads as "not a friend" until it does.
 local Friends: { [number]: boolean } = {}
 local Asking: { [number]: boolean } = {}
 local modeIndex = 1
@@ -48,20 +47,12 @@ local enabled = false
 
 local refresh
 
---- Where the markers live ------------------------------------------------------------------------
-
---- A respawn empties the player's gui of everything that is not a ScreenGui kept across one, and a
---- plain folder is neither -- so the first death takes the marker folder and every highlight inside
---- it. Nothing errors when it goes: the markers rebuilt afterwards are parented into an instance
---- that is no longer in the world, and the locator quietly draws nothing for the rest of the round.
---- So the folder is made on demand, and its own removal asks for it back.
 local markerFolder: Folder? = nil
 
 local function markerHost(): Folder
 	local existing = markerFolder
 	if existing and existing.Parent then return existing end
 
-	-- Whatever took the folder took the markers with it; they are instances now, not markers.
 	for target, marker in Markers do
 		marker:Destroy()
 		Markers[target] = nil
@@ -84,10 +75,13 @@ local function markerHost(): Folder
 	return folder
 end
 
---- Teleport ---------------------------------------------------------------------------------------
-
 local cooldownEndsAt = 0
 local ticking: RBXScriptConnection? = nil
+local pendingTarget: Player? = nil
+
+local function isAvailable(): boolean
+	return os.clock() >= cooldownEndsAt
+end
 
 local function updateCooldown()
 	local remaining = cooldownEndsAt - os.clock()
@@ -104,30 +98,144 @@ local function updateCooldown()
 	cooldownLabel.Text = string.format(PlayerLocatorConfig.CooldownFormat, math.ceil(remaining))
 end
 
---- Starts the on-screen countdown from what the server says is left. Always the server's figure, so
---- a request refused for being early corrects the label rather than leaving it out of step.
 local function setCooldown(remaining: number)
 	cooldownEndsAt = os.clock() + math.max(remaining, 0)
 	if remaining > 0 and not ticking then
 		ticking = RunService.Heartbeat:Connect(updateCooldown)
 	end
 	updateCooldown()
+
+	local target = pendingTarget
+	pendingTarget = nil
+	if remaining > 0 and target and Markers[target] then
+		Markers[target]:Confirm()
+	end
 end
 
 local function requestTeleport(target: Player)
-	if not enabled then return end
-	if os.clock() < cooldownEndsAt then return end
+	if not enabled or not isAvailable() then return end
 	if target == player or not target.Parent then return end
 
+	local marker = Markers[target]
+	if marker then
+		marker:Press()
+	end
+
+	pendingTarget = target
 	Teleport:FireServer(target)
 end
 
 Teleport.OnClientEvent:Connect(setCooldown)
 
---- Who is marked ----------------------------------------------------------------------------------
+local function findCursorDot(): GuiObject?
+	local cursor = playerGui:FindFirstChild("Cursor")
+	local holder = cursor and cursor:FindFirstChild("Frame")
+	return if holder and holder:IsA("GuiObject") then holder else nil
+end
 
---- Asks Roblox whether `target` is a friend, once per player per session. The call yields, so the
---- markers are built without it and rebuilt when the answer lands.
+local cursorDot: GuiObject? = findCursorDot()
+
+local function aimsAtCentre(): boolean
+	if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then return true end
+	return not UserInputService.MouseIconEnabled
+		or UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter
+end
+
+local function aimPoint(camera: Camera): Vector2
+	local inset = GuiService:GetGuiInset()
+
+	if not aimsAtCentre() then
+		return UserInputService:GetMouseLocation() - inset
+	end
+
+	local dot = cursorDot
+	if dot and dot.Visible and dot.AbsoluteSize.X > 0 then
+		return dot.AbsolutePosition + dot.AbsoluteSize / 2
+	end
+
+	return (camera.ViewportSize - inset) / 2
+end
+
+local focused: any = nil
+local pulse = 0
+
+local function setFocused(marker: any)
+	if focused == marker then return end
+	if focused then
+		focused:SetFocused(false)
+	end
+	focused = marker
+	if marker then
+		marker:SetFocused(true)
+	end
+end
+
+local function render(deltaTime: number)
+	local camera = workspace.CurrentCamera
+	if not camera then return end
+
+	pulse = (pulse + deltaTime * TAU / FOCUS.PulsePeriod) % TAU
+
+	local aim = aimPoint(camera)
+	local viewportHeight = camera.ViewportSize.Y
+	local uiScale = math.clamp(viewportHeight / MARKER.ReferenceHeight, MARKER.MinScale, MARKER.MaxScale)
+	local radius = math.clamp(viewportHeight * FOCUS.RadiusScale, FOCUS.MinRadius, FOCUS.MaxRadius)
+	local available = isAvailable()
+	local eye = camera.CFrame.Position
+
+	local nearest, nearestDistance = nil, math.huge
+	for _, marker in Markers do
+		marker:SetUiScale(uiScale)
+
+		local anchor = marker:GetAnchor()
+		if not anchor then
+			continue
+		end
+
+		local position = anchor.Position + MARKER.Offset
+		local screen, onScreen = camera:WorldToScreenPoint(position)
+		if onScreen then
+			local offset = (Vector2.new(screen.X, screen.Y) - aim).Magnitude
+			local limit = if marker == focused then radius * FOCUS.ReleaseSlack else radius
+			if offset <= limit and offset < nearestDistance then
+				nearest, nearestDistance = marker, offset
+			end
+		end
+
+		if marker == focused then
+			marker:SetAvailable(available)
+			if MARKER.ShowDistance then
+				marker:SetDistanceText(
+					if available
+						then string.format(MARKER.DistanceFormat, math.round((position - eye).Magnitude))
+						else string.format(PlayerLocatorConfig.MarkerCooldownFormat, math.ceil(cooldownEndsAt - os.clock()))
+				)
+			end
+		end
+
+		marker:Pulse(pulse)
+	end
+
+	setFocused(nearest)
+end
+
+local function setRendering(shouldRender: boolean)
+	if shouldRender then
+		RunService:BindToRenderStep(RENDER_JOB, Enum.RenderPriority.Camera.Value + 1, render)
+	else
+		RunService:UnbindFromRenderStep(RENDER_JOB)
+		setFocused(nil)
+	end
+end
+
+UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
+	if processed or not enabled or not focused then return end
+	if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+	if not aimsAtCentre() then return end
+
+	requestTeleport(focused.Player)
+end)
+
 local function askFriendship(target: Player)
 	local userId = target.UserId
 	if Friends[userId] ~= nil or Asking[userId] then return end
@@ -149,14 +257,23 @@ local function shouldMark(target: Player): boolean
 	return Friends[target.UserId] == true
 end
 
+local function drop(target: Player)
+	local marker = Markers[target]
+	if not marker then return end
+	if focused == marker then
+		focused = nil
+	end
+	marker:Destroy()
+	Markers[target] = nil
+end
+
 local refreshing = false
 local refreshQueued = false
 
 local function rebuild()
 	if not enabled then
-		for target, marker in Markers do
-			marker:Destroy()
-			Markers[target] = nil
+		for target in Markers do
+			drop(target)
 		end
 		return
 	end
@@ -167,15 +284,11 @@ local function rebuild()
 		if wanted and not Markers[target] then
 			Markers[target] = LocatorMarker.new(target, host, requestTeleport)
 		elseif not wanted and Markers[target] then
-			Markers[target]:Destroy()
-			Markers[target] = nil
+			drop(target)
 		end
 	end
 end
 
---- A friendship answer that was already cached arrives from inside the very loop that asked for it,
---- so a pass is queued rather than nested: one runs at a time, and repeats while anything asked for
---- another. Switching modes in a full server otherwise rebuilt the markers once per player.
 function refresh()
 	if refreshing then
 		refreshQueued = true
@@ -194,12 +307,15 @@ function refresh()
 	refreshing = false
 end
 
---- Enables the locator only for the tool's equipped lifetime.
 function PlayerLocatorService:SetEnabled(value: boolean)
-	enabled = value == true
+	local wanted = value == true
+	if enabled == wanted then return end
+
+	enabled = wanted
 	gui.Enabled = enabled
 	refresh()
 	updateCooldown()
+	setRendering(enabled)
 end
 
 function PlayerLocatorService:IsEnabled(): boolean
@@ -207,15 +323,10 @@ function PlayerLocatorService:IsEnabled(): boolean
 end
 
 local function forget(target: Player)
-	if Markers[target] then
-		Markers[target]:Destroy()
-		Markers[target] = nil
-	end
+	drop(target)
 	Friends[target.UserId] = nil
 	Asking[target.UserId] = nil
 end
-
---- Mode -------------------------------------------------------------------------------------------
 
 local function setMode(index: number)
 	modeIndex = (index - 1) % #MODES + 1
@@ -227,7 +338,6 @@ toggle.Activated:Connect(function()
 	setMode(modeIndex + 1)
 end)
 
---- The mode currently selected, as one of the ids in `PlayerLocatorConfig.Modes`.
 function PlayerLocatorService:GetMode(): string
 	return MODES[modeIndex].Id
 end

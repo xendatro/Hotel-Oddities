@@ -8,10 +8,6 @@ local Create = ReplicatedStorage.Communication.Hole.Create
 local Other = ReplicatedStorage.Props.Other
 local MAZE_FLOOR_TAG = "MazeFloor"
 
---- @class Shovel
---- Digs an escape hole. The player is rooted for the dig while a widening placeholder opens under
---- them; when it finishes the server is asked to cut the real hole pair. Digging in midair is
---- refused outright, so the dig cannot be started off a ledge.
 local Shovel = ClientTool.extend("Shovel")
 
 function Shovel.new(tool: Tool)
@@ -35,8 +31,6 @@ function Shovel:OnUnequipped()
 	end
 end
 
--- Grows the placeholder hole. Model:ScaleTo is a method rather than a property, so the tween drives
--- a NumberValue and the scale follows it.
 function Shovel:_growHole(hole: Model)
 	local scale = Instance.new("NumberValue")
 	scale.Value = self.Config.HoleStartScale
@@ -76,12 +70,12 @@ function Shovel:OnActivated()
 	params.FilterType = Enum.RaycastFilterType.Include
 	params.FilterDescendantsInstances = TagService:GetTaggedOfAncestor(workspace, MAZE_FLOOR_TAG)
 	if #params.FilterDescendantsInstances == 0 then
-		warn(`Shovel: no parts tagged "{MAZE_FLOOR_TAG}" -- there is nowhere to dig`)
+		warn(`Shovel: no parts tagged "{MAZE_FLOOR_TAG}" -- nothing to dig into`)
 		return
 	end
 
 	local ground = workspace:Raycast(character:GetPivot().Position, Vector3.new(0, -self.Config.DigDepth, 0), params)
-	if not ground then return end -- only MazeFloor can be dug
+	if not ground then return end
 
 	local entry = ground.Position + Vector3.new(0, 0.5, 0)
 	self:PlaySound(self.Config.Sound, character.PrimaryPart)
@@ -103,13 +97,10 @@ function Shovel:OnActivated()
 
 	self:_growHole(dummy)
 
-	-- Bounded rather than a bare `track.Ended:Wait()`: an interrupted or missing animation used to
-	-- leave the player rooted at WalkSpeed 0 with the placeholder hole stuck in the world.
 	self:WaitForTrack(track, self.Config.HoleGrowTime + 3)
 
 	if not self:IsAlive() then return end
 
-	-- Spending the last shovel ends the equip pose with it.
 	if self:GetQuantity() <= 1 and self.EquipTrack then
 		self.EquipTrack:Stop()
 	end

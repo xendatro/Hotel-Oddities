@@ -248,6 +248,50 @@ function HallwayGraph:CountExits(node: RouteNode): number
 	return count
 end
 
+function HallwayGraph:FindPath(from: RouteNode, to: RouteNode): { RouteNode }?
+	if from == to then return { from } end
+
+	local distances: { [RouteNode]: number } = { [from] = 0 }
+	local previous: { [RouteNode]: RouteNode } = {}
+	local settled: { [RouteNode]: boolean } = {}
+	local frontier: { RouteNode } = { from }
+
+	while #frontier > 0 do
+		local currentIndex, current = 1, frontier[1]
+		for index = 2, #frontier do
+			if distances[frontier[index]] < distances[current] then
+				currentIndex, current = index, frontier[index]
+			end
+		end
+		table.remove(frontier, currentIndex)
+		if settled[current] then continue end
+		settled[current] = true
+
+		if current == to then
+			local route = { to }
+			local node = to
+			while previous[node] do
+				node = previous[node]
+				table.insert(route, 1, node)
+			end
+			return route
+		end
+
+		local currentDistance = distances[current]
+		for neighbor in current.Neighbors do
+			if settled[neighbor] then continue end
+			local distance = currentDistance + horizontal(current.Position - neighbor.Position).Magnitude
+			if distance < (distances[neighbor] or math.huge) then
+				distances[neighbor] = distance
+				previous[neighbor] = current
+				table.insert(frontier, neighbor)
+			end
+		end
+	end
+
+	return nil
+end
+
 type RoutePoint = {
 	Hallway: Hallway,
 	Along: number,
@@ -345,8 +389,6 @@ local function getShortestNodeDistance(startCandidates: { [RouteNode]: number },
 	return best
 end
 
---- Shortest distance along the corridor graph between two world positions.
---- Positions outside a hallway are charged the horizontal distance to their nearest floor point.
 function HallwayGraph:GetWalkingDistance(firstPosition: Vector3, secondPosition: Vector3): number
 	if not Cached then
 		Cached = build()

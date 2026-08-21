@@ -1,12 +1,3 @@
---- Client half of the `Ghost`. The server owns where a ghost truly is and publishes the leg it is
---- travelling; every client replays that same leg on its own frames, so the drift is drawn smoothly
---- instead of stepping forward each time a position replicates.
----
---- Nothing here is trusted with anything: the leg is read, never written, and the CFrames set on the
---- rig are local to this machine -- the root is anchored and server-owned, so these writes go no
---- further than the screen. A client that lied to itself about where a ghost is would see a ghost
---- somewhere it is not, which is the whole extent of the damage available.
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -126,7 +117,6 @@ local function createVisual(model: Model): Model?
 		end
 	end
 
-	-- Keep the Ghost visible if Roblox cannot build the client-only avatar model.
 	if not visual then
 		visual = model:Clone()
 		visual:RemoveTag(GHOST_TAG)
@@ -146,10 +136,6 @@ local function createVisual(model: Model): Model?
 		humanoid.EvaluateStateMachine = false
 		humanoid.AutoRotate = false
 
-		-- Animated here rather than left to the server's animator, which is driving the rig this stands
-		-- in front of -- and that rig is invisible from the moment this one exists. Nothing on this
-		-- machine's copy moves on its own: the humanoid is anchored, never walks and has had its state
-		-- machine turned off, so the clip is simply played and left running for as long as the ghost is.
 		local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
 		local animation = Instance.new("Animation")
 		animation.AnimationId = `rbxassetid://{AnimationConfig.Sets.Ghost.Idle}`
@@ -192,6 +178,7 @@ type Render = {
 	Leg: GhostMotion.Leg?,
 	Phase: number,
 	Connection: RBXScriptConnection?,
+	RootConnection: RBXScriptConnection?,
 	TransparencyConnection: RBXScriptConnection?,
 	VisualTransparencyConnection: RBXScriptConnection?,
 }
@@ -208,6 +195,7 @@ local function track(model: Model): Render
 		Leg = GhostMotion.Read(model),
 		Phase = Bob.NewPhase(),
 		Connection = nil,
+		RootConnection = nil,
 		TransparencyConnection = nil,
 		VisualTransparencyConnection = nil,
 	}
@@ -231,14 +219,22 @@ local function track(model: Model): Render
 		end
 	end)
 
-	-- Off the tag callback: a rig whose root has not replicated yet must not hold up every other
-	-- listener behind it. Until it lands the ghost simply renders where the server put it.
-	task.spawn(function()
-		local rootPart = model:WaitForChild("HumanoidRootPart") :: BasePart
-		if Ghosts[model] == render then
-			render.RootPart = rootPart
-		end
-	end)
+	local existingRoot = model:FindFirstChild("HumanoidRootPart")
+	if existingRoot and existingRoot:IsA("BasePart") then
+		render.RootPart = existingRoot
+	else
+		render.RootConnection = model.ChildAdded:Connect(function(child: Instance)
+			if child.Name ~= "HumanoidRootPart" or not child:IsA("BasePart") then return end
+			local connection = render.RootConnection
+			if connection then
+				connection:Disconnect()
+			end
+			render.RootConnection = nil
+			if Ghosts[model] == render then
+				render.RootPart = child
+			end
+		end)
+	end
 
 	task.spawn(function()
 		local visual = createVisual(model)
@@ -269,6 +265,10 @@ end
 TagService:Listen(GHOST_TAG, track, function(model: Instance, render: Render)
 	local connection = render.Connection :: RBXScriptConnection
 	connection:Disconnect()
+	local rootConnection = render.RootConnection
+	if rootConnection then
+		rootConnection:Disconnect()
+	end
 	local transparencyConnection = render.TransparencyConnection
 	if transparencyConnection then
 		transparencyConnection:Disconnect()

@@ -1,5 +1,3 @@
---- Reads authored corridor floors as geometry rather than treating each part as a complete hallway.
-
 local CollectionService = game:GetService("CollectionService")
 
 local HALLWAY_TAG = "MazeFloor"
@@ -208,8 +206,6 @@ local function straightSpan(
 	return nil
 end
 
---- The complete straight run of connected corridor floor through `position`. Connector and room
---- floors bridge authored floor seams, but never bend the returned axis around a corner.
 function Hallways.StraightSpanAt(position: Vector3, preferredDirection: Vector3?): StraightSpan?
 	local allHallways = Hallways.All(true)
 	local preferred = preferredDirection and horizontal(preferredDirection)
@@ -226,9 +222,6 @@ function Hallways.StraightSpanAt(position: Vector3, preferredDirection: Vector3?
 		if contains(hallway, position) then
 			local span = straightSpan(hallway, position, preferredDirection, allHallways)
 			if span then
-				-- A T or cross can contain more than one authored floor at once. Prefer the
-				-- complete run that points where the caller is facing; tag order is not a
-				-- meaningful way to choose between those overlapping floors.
 				local alignment = if preferred then math.abs(span.Axis:Dot(preferred)) else 0
 				local offset = position - span.Center
 				local distance = math.abs(offset:Dot(Vector3.yAxis:Cross(span.Axis).Unit))
@@ -253,9 +246,6 @@ local function sameSpan(first: StraightSpan, second: StraightSpan): boolean
 	return sameDirection or oppositeDirection
 end
 
---- Every distinct straight hallway run in the map. Room floors extend and bridge these routes but
---- are not seeds of their own, so a square connector does not invent duplicate horizontal/vertical
---- hallways independently of the `MazeFloor` corridors attached to it.
 function Hallways.StraightSpans(): { StraightSpan }
 	local allHallways = Hallways.All(true)
 	local spans = {}

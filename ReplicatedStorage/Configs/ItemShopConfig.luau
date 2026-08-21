@@ -110,15 +110,6 @@ local Entries: { Entry } = {
 		RobuxPrice = 18,
 		Product = "Visor",
 	},
-	{
-		Id = "Walkie Talkie",
-		Name = "Walkie Talkie",
-		Description = "Route your voice through a rough radio signal. Friends-only mode uses the same filter in both directions.",
-		CoinPrice = 100,
-		RobuxPrice = 18,
-		Product = "WalkieTalkie",
-		RequiresVoice = true,
-	},
 }
 
 local EntriesById: { [string]: Entry } = {}

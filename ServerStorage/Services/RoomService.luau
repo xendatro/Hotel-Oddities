@@ -6,31 +6,20 @@ local RunService = game:GetService("RunService")
 local TagService = require(ReplicatedStorage.Services.TagService)
 
 local ROOM_TAG = "Room"
-local ROOM_LABEL = "Room" -- pathfinding label; enemy agents price this at math.huge
+local ROOM_LABEL = "Room"
 local POLL_INTERVAL = 0.1
 local BLOCKER_FOLDER = "RoomBlockers"
 local ROOM_FOLDER_NAME = "Rooms"
--- Studs trimmed off every face of a room's bounds before anybody counts as inside it. The box reaches
--- the outer face of the walls, and the far side of a wall is not the room.
 local WALL_INSET = 1
--- ...but never more than this much of an axis, so a cupboard does not inset itself out of existence.
 local MAX_INSET_FRACTION = 0.25
--- Studs added back onto every face of the inset box so the safe volume slightly overhangs the walls.
 local SAFE_PAD = 0.5
 
---- Owns the `Room` tag: the safe zones players duck into to break an enemy's interest. Rooms are the
---- room models themselves, and occupancy is the model's own bounding box rather than a separate
---- volume placed alongside it -- one less thing to keep in sync, and a room nobody remembered to put
---- a marker in is a room enemies walk straight into.
----
---- Occupancy is polled rather than driven by touch events so it stays correct for teleports and for
---- volumes nothing can touch.
 local RoomService = {}
 
 type Room = {
 	Model: Model,
-	CFrame: CFrame, -- of the bounding box, which is oriented, so containment is done in its space
-	HalfSize: Vector3, -- already inset, so the test is three comparisons
+	CFrame: CFrame,
+	HalfSize: Vector3,
 	Blocker: BasePart,
 }
 
@@ -53,8 +42,6 @@ local function tagRoomModel(instance: Instance)
 	end
 end
 
--- Room geometry is authored as models under a Rooms folder, but the safe volume is runtime-owned.
--- Tagging here keeps the map free of hand-maintained Room tags and also covers streamed/generated rooms.
 for _, descendant in workspace:GetDescendants() do
 	tagRoomModel(descendant)
 end
@@ -75,8 +62,6 @@ local function isInside(point: Vector3, room: Room): boolean
 	return math.abs(offset.X) <= half.X and math.abs(offset.Y) <= half.Y and math.abs(offset.Z) <= half.Z
 end
 
--- True if any body part of `character` is inside `room`. Falls back to nil if the character has no
--- parts yet, so a partially loaded avatar never reports a stale room.
 local function isCharacterInside(character: Model, rooms): Model?
 	for _, room in rooms do
 		for _, part in character:GetChildren() do
@@ -88,16 +73,6 @@ local function isCharacterInside(character: Model, rooms): Model?
 	return nil
 end
 
---- Every room doubles as a pathfinding blocker so enemies never route a path through a safe zone.
----
---- A `PathfindingModifier` only labels the single part it hangs on, and a room is a model, so the
---- volume it needs is built here instead of being placed by hand: one invisible box matching the
---- model's bounds. That is exactly the safe-zone part this used to ask a mapper to keep in sync with
---- the room it belonged to, minus the asking. It lives outside the model so that re-reading the
---- model's bounds never measures the blocker as part of the room.
----
---- Bounds are measured once, when the tag is applied. A room is built and then stands still; a model
---- that is still being assembled when it is tagged measures whatever exists at that moment.
 TagService:Listen(ROOM_TAG, function(model: Model): Room
 	local boundsCFrame, boundsSize = model:GetBoundingBox()
 
@@ -105,7 +80,7 @@ TagService:Listen(ROOM_TAG, function(model: Model): Room
 	blocker.Name = `{model.Name}Blocker`
 	blocker.Anchored = true
 	blocker.CanCollide = false
-	blocker.CanQuery = false -- sight is measured through rooms; this is for pathfinding and nothing else
+	blocker.CanQuery = false
 	blocker.CanTouch = false
 	blocker.CastShadow = false
 	blocker.Transparency = 1
@@ -129,7 +104,6 @@ end, function(_model: Instance, room: Room)
 	room.Blocker:Destroy()
 end, workspace)
 
---- Every model currently tagged as a room.
 function RoomService:GetRooms(): { Model }
 	local rooms = {}
 	for model in TagService:GetAllApplied(ROOM_TAG) do
@@ -138,19 +112,14 @@ function RoomService:GetRooms(): { Model }
 	return rooms
 end
 
---- The room a player is standing in, or nil if they are out in the open.
 function RoomService:GetRoom(player: Player): Model?
 	return PlayerRooms[player]
 end
 
---- Whether a player is currently safe from enemies that respect rooms.
 function RoomService:IsInRoom(player: Player): boolean
 	return PlayerRooms[player] ~= nil
 end
 
---- Whether a point is close to any room that currently contains a player. The check uses the room's
---- horizontal bounds rather than its pivot, so a Mimic cannot settle beside a doorway on a large or
---- rotated room just because the room center is farther away.
 function RoomService:IsNearOccupiedRoom(position: Vector3, distance: number): boolean
 	local distanceSquared = distance * distance
 	for _, room in PlayerRooms do
@@ -165,8 +134,6 @@ function RoomService:IsNearOccupiedRoom(position: Vector3, distance: number): bo
 	return false
 end
 
---- Finds the swinging doorway belonging to `room`. Room and doorway models share an authored id;
---- the nearest tagged doorway is a fallback for older maps that do not follow that naming rule.
 function RoomService:GetDoorway(room: Model): Model?
 	local suffix = room.Name:match("^Room_(.+)$")
 	local nearest: Model? = nil
@@ -192,9 +159,6 @@ function RoomService:GetDoorway(room: Model): Model?
 	return nearest
 end
 
---- Returns a floor point outside a room's doorway and the point the enemy should face after arriving.
---- The offset keeps the whole agent in the hall, where the room's pathfinding blocker cannot pull it
---- through the threshold.
 function RoomService:GetDoorApproach(room: Model, agentRadius: number): (Vector3?, Vector3?)
 	local doorway = self:GetDoorway(room)
 	if not doorway then return nil, nil end

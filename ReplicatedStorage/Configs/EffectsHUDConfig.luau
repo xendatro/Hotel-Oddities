@@ -1,7 +1,3 @@
---- Every tunable the active-effects HUD reads: the right-side panel that shows one tile per
---- effect currently running on the local player, with a drain sheet and a tenths countdown.
---- The UI is built in code from these values, matching how the inventory is styled.
-
 return {
 	--- Tile geometry, in pixels before scaling. Kept near the inventory's slot look.
 	TileSize = 56,
@@ -27,13 +23,8 @@ return {
 	--- How long an instantaneous use (Medkit, Bandage, ...) stays on screen just to say "used one".
 	FlashDuration = 0.5,
 
-	--- Mirrors HOLE_LIFETIME in ServerStorage.Services.HoleService -- that constant is local to the
-	--- service, so keep the two in sync by hand if either changes.
 	HoleLifetime = 30,
 
-	--- Items that flash for FlashDuration when one is consumed. Timed items (Soda, Energy Drink,
-	--- SpellBook) are absent on purpose: their entries are driven by their own signals instead, so
-	--- the consumption tick never doubles up with the real duration tile.
 	FlashItems = {
 		Medkit = true,
 		Bandage = true,
@@ -42,8 +33,6 @@ return {
 		Pathfinder = true,
 	},
 
-	--- rbxassetid icons per effect, generated art uploaded through Open Cloud. An empty string
-	--- falls back to the item's name drawn as text.
 	Icons = {
 		Medkit = "rbxassetid://105226575800706",
 		Bandage = "rbxassetid://120230018864645",

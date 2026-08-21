@@ -1,17 +1,3 @@
---- Restricted testing commands for the hacking computers.
----
----   /hack list                    which game runs on which computer, and what YOU have done
----   /hack <game|room>             teleport in front of that computer (e.g. /hack snake, /hack 227)
----   /hack win <game|room|all>     mark it hacked without playing
----   /hack reset [game|room|all]   put it (default: everything) back to unhacked
----
---- Hacking is per player, so every one of these acts on the SENDER's own state and nobody else's:
---- `win all` finishes the hotel for the tester and leaves everyone else's screens exactly as they
---- were, and `list` reports what the tester has done rather than what the server has seen.
----
---- Games can be named by any prefix ("mine", "aim", "frog"), computers by their room number. Only
---- usable in Studio or by the allowed accounts, like /give.
-
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -28,20 +14,10 @@ local ALLOWED_USER_IDS = {
 	[1936118388] = true,
 }
 
---- How far in front of the screen the teleport lands, in studs. Inside the prompt's reach, far
---- enough back that the whole monitor is in view.
 local TELEPORT_DISTANCE = 4
 
---- MUST match `MinigameService.ORDER` and its assignment rule (peers of a maze sorted by their
---- parent room's name, dealt out in this order). Duplicated because that service is client-only
---- and returns a stub on the server; a mismatch here sends the tester to the wrong screen but
---- breaks nothing else.
 local ORDER = { "Memory", "AimTrainer", "Frogger", "Snake", "Simon" }
 
---- Finding computers -----------------------------------------------------------------------------
-
---- The maze a computer belongs to, or the workspace when it stands outside one. Mirrors the
---- client's rule so both deal the same hand.
 local function mazeOf(model: Instance): Instance
 	local instance: Instance? = model
 	while instance and instance ~= workspace do
@@ -58,7 +34,6 @@ local function sortKey(model: Model): string
 	return if parent then parent.Name else model.Name
 end
 
---- Every tagged computer, grouped and sorted the way the client deals games out.
 local function allComputers(): { Model }
 	local computers: { Model } = {}
 	for _, tagged in CollectionService:GetTagged(ComputerConfig.Tag) do
@@ -76,7 +51,6 @@ local function allComputers(): { Model }
 	return computers
 end
 
---- Which game `model` runs: its position among the computers of its own maze, dealt into ORDER.
 local function gameOf(model: Model, computers: { Model }): string
 	local maze = mazeOf(model)
 	local index = 0
@@ -90,7 +64,6 @@ local function gameOf(model: Model, computers: { Model }): string
 	return ORDER[1]
 end
 
---- The computer `text` names: a game (any prefix, "mine"/"frog"/"aim") or a room ("227"/"room_227").
 local function findComputer(text: string): (Model?, string?)
 	local lowered = text:lower()
 	local computers = allComputers()
@@ -113,8 +86,6 @@ local function findComputer(text: string): (Model?, string?)
 	return nil, nil
 end
 
---- Doing things ----------------------------------------------------------------------------------
-
 local function teleport(player: Player, model: Model)
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -129,21 +100,15 @@ local function teleport(player: Player, model: Model)
 		screen = screen:FindFirstChild(name)
 	end
 
-	-- The Screen's Front points out into the room; without one, fall back to standing off the
-	-- model's own front.
 	local base = if screen and screen:IsA("BasePart") then screen.CFrame else model:GetPivot()
 	local outward = base.LookVector
 	local at = base.Position + outward * TELEPORT_DISTANCE
 
-	-- Dropped a little low and left to physics: room floors vary and a teleport buried in the
-	-- carpet self-resolves, where one floating over it reads as broken.
 	local stand = Vector3.new(at.X, base.Position.Y - 2, at.Z)
 	local look = Vector3.new(base.Position.X, stand.Y, base.Position.Z)
 	root.CFrame = CFrame.lookAt(stand, look)
 end
 
---- The list as `sender` has it. HACKED/locked is their own answer -- another player reading the same
---- computers would get a different one.
 local function describe(sender: Player): string
 	local computers = allComputers()
 	local lines = { `[hack] {#computers} computers, for {sender.Name}:` }
@@ -160,8 +125,6 @@ local function setAll(sender: Player, hacked: boolean)
 		ComputerService:SetHacked(sender, model, hacked)
 	end
 end
-
---- The command -----------------------------------------------------------------------------------
 
 function ComputerCommandService:Execute(sender: Player, argument: string?): boolean
 	if not RunService:IsStudio() and not ALLOWED_USER_IDS[sender.UserId] then
@@ -202,7 +165,6 @@ function ComputerCommandService:Execute(sender: Player, argument: string?): bool
 		return true
 	end
 
-	-- Anything else names a computer to teleport to.
 	local model, game_ = findComputer(argument)
 	if not model then
 		warn(`[hack] no computer matches "{argument}"`)

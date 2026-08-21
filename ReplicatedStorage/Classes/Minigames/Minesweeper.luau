@@ -1,18 +1,3 @@
---- Minesweeper: eight by eight, ten mines, clear every safe square to unlock the machine.
----
---- The mines are not laid until the first square is opened, and never under it or beside it. A first
---- click that loses is not a puzzle, it is a coin toss, and the opening flood is what gives the
---- board something to reason from.
----
---- Losing is not a fail state here. The board shows itself for a second and lays itself out again --
---- the computer is a lock to be picked, and being sent back to the start is the whole punishment.
----
---- Flagging is offered twice over: right-click for anyone with a second mouse button, and a FLAG
---- mode toggle for everyone else, since the screen is played on a SurfaceGui that a touch player
---- reaches with one finger.
-
---- Mirrors the framework's Theme. A child of a folder module cannot require its own parent without
---- going in a circle, so the shape is restated and the values are handed over at construction.
 type Theme = {
 	Font: Enum.Font,
 	Background: Color3,
@@ -25,8 +10,6 @@ type Theme = {
 	TextDim: Color3,
 }
 
---- `Sound` is optional so that a framework built before the sound layer existed still satisfies this
---- contract; every call site here checks for it rather than assuming it.
 type Api = {
 	Complete: () -> (),
 	Theme: Theme,
@@ -44,11 +27,8 @@ local BOARD = GRID * CELL + (GRID - 1) * GAP
 local HEADER_HEIGHT = 40
 local HEADER_GAP = 16
 
---- How long the opened board is left on show before it deals itself again.
 local BOOM_TIME = 1
 
---- Counts get their own colour so a board can be read at a glance rather than counted. Only the
---- palette the framework hands out is used, so the eight wrap around it.
 local COUNT_COLORS = {
 	"Primary",
 	"Accent",
@@ -67,9 +47,6 @@ Minesweeper.Id = "Minesweeper"
 Minesweeper.Title = "MINESWEEPER.EXE"
 Minesweeper.SupportsReset = true
 
---- Board helpers ---------------------------------------------------------------------------------
-
---- Calls `visit` for each of the up to eight squares touching `index`.
 local function forEachNeighbour(index: number, visit: (number) -> ())
 	local row = math.floor((index - 1) / GRID)
 	local column = (index - 1) % GRID
@@ -86,8 +63,6 @@ local function forEachNeighbour(index: number, visit: (number) -> ())
 	end
 end
 
---- Whether a restored snapshot is still shaped like a board. Saved state outlives nothing but the
---- session, yet a half-written one should start a fresh game rather than throw on the player.
 local function isValidSave(saved: any): boolean
 	if typeof(saved) ~= "table" then return false end
 
@@ -98,8 +73,6 @@ local function isValidSave(saved: any): boolean
 
 	return true
 end
-
---- Drawing --------------------------------------------------------------------------------------
 
 local function addStroke(parent: GuiObject, color: Color3, thickness: number): UIStroke
 	local stroke = Instance.new("UIStroke")
@@ -128,14 +101,11 @@ function Minesweeper.new(root: Frame, api: Api): any
 	self.Flagging = false
 	self.Opened = 0
 	self.Won = false
-	--- Bumped by every reset and by teardown, so a delayed re-deal that belongs to an older board
-	--- knows to do nothing.
 	self.Generation = 0
 
 	return self
 end
 
---- The look of one square, from whatever is currently true about it.
 function Minesweeper:_paint(index: number)
 	local theme: Theme = self.Theme
 	local button: TextButton = self.Buttons[index]
@@ -199,8 +169,6 @@ function Minesweeper:_updateHeader()
 	self.FlagStroke.Color = color
 end
 
---- Rules ----------------------------------------------------------------------------------------
-
 function Minesweeper:_count(index: number): number
 	local count = 0
 	forEachNeighbour(index, function(neighbour: number)
@@ -211,8 +179,6 @@ function Minesweeper:_count(index: number): number
 	return count
 end
 
---- Lays the mines once the player has committed to a square, keeping that square and its ring clear
---- so the first click always opens onto something worth reading.
 function Minesweeper:_place(safeIndex: number)
 	local forbidden: { [number]: true } = { [safeIndex] = true }
 	forEachNeighbour(safeIndex, function(neighbour: number)
@@ -234,8 +200,6 @@ function Minesweeper:_place(safeIndex: number)
 	self.Placed = true
 end
 
---- Opens a square, and every square an empty one leads to. Iterative rather than recursive: an
---- eight by eight board can flood almost all of itself from one click.
 function Minesweeper:_reveal(index: number)
 	local stack = { index }
 
@@ -260,8 +224,6 @@ end
 function Minesweeper:_boom()
 	self.Dead = true
 
-	-- The palette's low thud, dropped further still. Nothing else in these five games is allowed to
-	-- be this heavy, which is what makes a mine feel like the one mistake that costs the board.
 	if self.Api.Sound then self.Api.Sound("Boom", 0.8) end
 
 	for index = 1, CELLS do
@@ -273,8 +235,6 @@ function Minesweeper:_boom()
 
 	local generation = self.Generation
 	task.delay(BOOM_TIME, function()
-		-- Only the board that blew up gets dealt again; a reset or a teardown in the meantime has
-		-- already moved on.
 		if self.Generation ~= generation then return end
 		self:Reset()
 	end)
@@ -286,8 +246,6 @@ function Minesweeper:_click(index: number, flagging: boolean)
 	if flagging then
 		if self.Revealed[index] then return end
 		self.Flags[index] = not self.Flags[index] or nil
-		-- Planting and pulling a flag are told apart by pitch alone; two cues for one toggle would be
-		-- two things to recognise where the board only ever means one.
 		if self.Api.Sound then
 			self.Api.Sound("Flag", if self.Flags[index] then 1 else 0.8)
 		end
@@ -307,8 +265,6 @@ function Minesweeper:_click(index: number, flagging: boolean)
 		return
 	end
 
-	-- One blip for the click, not one per square: an opening flood can turn over fifty cells, and
-	-- fifty ticks in a frame is a noise rather than feedback.
 	if self.Api.Sound then self.Api.Sound("Blip") end
 
 	self:_reveal(index)
@@ -316,13 +272,9 @@ function Minesweeper:_click(index: number, flagging: boolean)
 
 	if self.Opened >= SAFE_CELLS then
 		self.Won = true
-		-- No sound of its own: clearing the board is a win, and the framework's jingle is the one
-		-- ending every game in the set shares.
 		self.Api.Complete()
 	end
 end
-
---- Building -------------------------------------------------------------------------------------
 
 function Minesweeper:_build()
 	local theme: Theme = self.Theme
@@ -412,15 +364,11 @@ function Minesweeper:_build()
 		cell.MouseButton1Click:Connect(function()
 			self:_click(index, self.Flagging)
 		end)
-		-- The second button is the classic way to flag, and costs nothing to offer alongside the
-		-- toggle that everyone else uses.
 		cell.MouseButton2Click:Connect(function()
 			self:_click(index, true)
 		end)
 	end
 end
-
---- Contract -------------------------------------------------------------------------------------
 
 function Minesweeper:Start(saved: any?)
 	self:_build()
@@ -445,7 +393,6 @@ function Minesweeper:Start(saved: any?)
 end
 
 function Minesweeper:Serialize(): any?
-	-- An untouched board and one that just blew up are both worth nothing to come back to.
 	if self.Dead or self.Won or (not self.Placed and self.Opened == 0) then
 		return nil
 	end
@@ -479,12 +426,10 @@ function Minesweeper:Reset()
 end
 
 function Minesweeper:Destroy()
-	-- Stops any pending re-deal from touching a board that is no longer on screen.
 	self.Generation += 1
 
 	table.clear(self.Buttons)
 	table.clear(self.Strokes)
-	-- The connections all hang off instances under the root, so clearing it takes them with it.
 	self.Root:ClearAllChildren()
 end
 

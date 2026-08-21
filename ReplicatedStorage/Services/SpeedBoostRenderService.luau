@@ -1,7 +1,3 @@
---- What a speed drink looks like from the inside: the camera opens up and the world warms slightly
---- for as long as the boost lasts. The field of view itself is handed to CameraFovService, so this
---- and a sprint add up instead of overwriting one another.
-
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -18,8 +14,6 @@ local CameraFovService = require(ReplicatedStorage.Services.CameraFovService)
 
 local player = Players.LocalPlayer
 
--- Tweened rather than set, then read back out on every change: the easing lives on this value and
--- CameraFovService only ever sees where it has got to.
 local offset = Instance.new("NumberValue")
 offset.Name = "SpeedBoostFovOffset"
 

@@ -1,5 +1,3 @@
--- Explicit debug hooks for Studio playtests. This module does nothing unless required and called.
-
 local ServerStorage = game:GetService("ServerStorage")
 
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)

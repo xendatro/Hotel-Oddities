@@ -1,24 +1,3 @@
---- @class Eye
---- A stationary ambient enemy that punishes the one thing every other enemy in the hotel is about:
---- looking. It never moves, never targets and never closes the distance. It stands where it was put
---- and burns anybody with it on screen -- hardest when it is dead center, tapering to a nag out at
---- the edges. Walking past it is free if you keep your eyes down the corridor; stopping to work out
---- what it is costs you most of your health. An equipped Visor blanks the charge entirely.
----
---- It has no Humanoid and no rig. Its state machine switches between its normal stare and a brief
---- paper-ball stun, while an evaluator counts down its `Lifetime` independently.
----
---- Which way it is pointing is not decided here, and not decided once: every client turns it to stare
---- back at its own camera and floats it gently where it stands, in
---- `ReplicatedStorage.Services.EyeRenderService`. None of that reaches the server, and none of it
---- needs to -- what this charges for is being on your screen, which does not depend on where it is
---- looking or on the few inches it drifts. The stare is only what tells you it noticed.
----
---- Whether it is on somebody's screen is the client's answer, through `EnemyObservationService`, on
---- exactly the terms every other observed enemy uses: the client owns visibility and occlusion, the
---- server owns range. How far off the middle of that screen it sits comes from the camera direction
---- in the same report, so a look reported at all is a look this can price.
-
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
@@ -26,44 +5,36 @@ local ServerStorage = game:GetService("ServerStorage")
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local DeathService = require(ServerStorage.Services.DeathService)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
+local EyeHit = require(ServerStorage.Services.EyeHitService).Remote
 local RoomService = require(ServerStorage.Services.RoomService)
 local Vanished = require(ReplicatedStorage.Modules.Vanished)
 
 local ENEMY_TAG = "Enemy"
-local EYE_TAG = "Eye" -- what each client's renderer watches for, to turn it towards that camera
-local OBSERVABLE_TAG = "Observable" -- makes a client's view report about this model legal
-local STUNNED_ATTRIBUTE = "Stunned" -- replicated presentation state; clients point the Eye down
-local DAMAGE_INTERVAL = 0.05 -- seconds between damage ticks; the report itself refreshes at 0.05
+local EYE_TAG = "Eye"
+local OBSERVABLE_TAG = "Observable"
+local STUNNED_ATTRIBUTE = "Stunned"
+local DAMAGE_INTERVAL = 0.05
 
 local Eye = {}
 Eye.__index = Eye
 Eye.ClassName = "Eye"
 
--- Eye is not an NPC (it has no rig), so it keeps its own small model lookup for tools that can
--- affect it. At present that is only the paper ball; traps still resolve rigged NPCs only.
 local ByModel: { [Model]: any } = {}
 
 function Eye.FromModel(model: Instance?): any?
 	return model and ByModel[model] or nil
 end
 
--- Damage per second earned by having it `angle` degrees off the middle of your screen. Full rate at
--- dead center, falling to `EdgeDamage` by `FalloffAngle` and staying there however wide it gets --
--- something on screen at all is never quite free.
 local function damageRate(config, angle: number): number
 	local nearness = math.clamp(1 - angle / config.FalloffAngle, 0, 1) ^ config.FalloffExponent
 	return config.EdgeDamage + (config.CenterDamage - config.EdgeDamage) * nearness
 end
 
--- Whether `character` is currently wearing a Visor. Equipped tools live under the character, so a
--- Visor still in the backpack does nothing -- you have to put it on.
 local function hasVisor(character: Model): boolean
 	local visor = character:FindFirstChild("Visor")
 	return visor ~= nil and visor:IsA("Tool")
 end
 
--- The living character `player` can be hurt through, or nil while they are dead, hidden by the spell
--- book, wearing a Visor, or standing in a safe room.
 local function getVulnerable(player: Player, config): Model?
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid") :: Humanoid?
@@ -74,9 +45,6 @@ local function getVulnerable(player: Player, config): Model?
 	return character
 end
 
---- How far off the middle of `player`'s screen this sits, in degrees, or nil while they are not
---- looking at it. Range is checked here rather than taken from the report: a client decides what it
---- can see, but not from how far away it is allowed to see it.
 function Eye:GetViewAngle(player: Player): number?
 	local character = getVulnerable(player, self.Config)
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -90,20 +58,37 @@ function Eye:GetViewAngle(player: Player): number?
 	return EnemyObservationService:GetViewAngle(player, self.Model)
 end
 
--- Bills everybody currently looking at it for `deltaTime` seconds of having done so.
 function Eye:_burnWatchers(deltaTime: number)
 	for _, player in Players:GetPlayers() do
 		local angle = self:GetViewAngle(player)
-		if not angle then continue end
+		if not angle then
+			self.DamageProgress[player] = 0
+			continue
+		end
 
-		local humanoid = (player.Character :: Model):FindFirstChildOfClass("Humanoid") :: Humanoid
-		DeathService:RecordCause(player, self.EnemyId)
-		humanoid:TakeDamage(damageRate(self.Config, angle) * deltaTime)
+		local character = player.Character :: Model
+		local humanoid = character:FindFirstChildOfClass("Humanoid") :: Humanoid
+		local progress = (self.DamageProgress[player] or 0) + damageRate(self.Config, angle) * deltaTime
+		local hitDamage = math.max(self.Config.HitDamage or 20, 1)
+		while progress >= hitDamage and humanoid.Health > 0 do
+			progress -= hitDamage
+			local healthBefore = humanoid.Health
+			local canKill = healthBefore <= hitDamage and not character:FindFirstChildOfClass("ForceField")
+			if canKill then
+				DeathService:RecordCause(player, self.EnemyId)
+			end
+			humanoid:TakeDamage(hitDamage)
+			if humanoid.Health < healthBefore then
+				EyeHit:FireClient(player, math.min(hitDamage, healthBefore))
+			end
+			if canKill and humanoid.Health > 0 then
+				DeathService:ClearCause(player, self.EnemyId)
+			end
+		end
+		self.DamageProgress[player] = progress
 	end
 end
 
---- Stands there. Damage is charged by the second rather than in hits, so looking away part way
---- through a tick costs exactly the part of it you spent looking.
 local function stare(_changeState: StateMachine.ChangeState, eye: any)
 	while true do
 		local deltaTime = task.wait(DAMAGE_INTERVAL)
@@ -111,8 +96,6 @@ local function stare(_changeState: StateMachine.ChangeState, eye: any)
 	end
 end
 
--- A paper-ball hit blanks the stare for a short time. Lifetime remains an evaluator, so stunning an
--- Eye never extends how long it stays in the hotel.
 local function stunned(_changeState: StateMachine.ChangeState, eye: any, duration: number)
 	eye.Model:SetAttribute(STUNNED_ATTRIBUTE, true)
 	task.wait(duration)
@@ -126,6 +109,7 @@ function Eye.new(model: Model, config)
 	self.Model = model
 	self.Config = config
 	self.Active = false
+	self.DamageProgress = {}
 	self.StateMachine = StateMachine.new({
 		Stare = stare,
 		Stunned = stunned,
@@ -145,10 +129,6 @@ function Eye:Start()
 	if self.Active then return end
 	self.Active = true
 
-	-- Every part, not just a primary one: it is a prop rather than a rig, and one loose part sagging
-	-- out of the model would be the only thing in it that ever moves. Anchored is also what buys the
-	-- turning below cost: an anchored, server-owned part takes a local CFrame and replicates nothing
-	-- back, so every viewer can be stared at without any two of them having to agree about it.
 	for _, descendant in self.Model:GetDescendants() do
 		if descendant:IsA("BasePart") then
 			descendant.Anchored = true

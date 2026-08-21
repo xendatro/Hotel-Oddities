@@ -23,9 +23,6 @@ type State = {
 }
 
 local States: { [Player]: State } = {}
---- Persistent per-player scaling on top of whatever a drink resolves to, owned by `PerkService`.
---- Absent means 1; nothing here is a boost of its own, so a player with only a multiplier has no
---- `State` and costs nothing to keep.
 local Multipliers: { [Player]: number } = {}
 local nextToken = 0
 
@@ -83,9 +80,6 @@ local function refresh(player: Player)
 	if not state then return end
 
 	local name, source = getEffective(state)
-	-- The multiplier scales the drink, not the result: `BaseSpeed` was already written scaled by
-	-- whoever owns the player's ordinary speed, and scaling it twice here would compound on itself
-	-- every time a boost started.
 	local boosted = source and source.Speed * (Multipliers[player] or 1)
 	local desired = boosted and math.max(state.BaseSpeed, boosted) or state.BaseSpeed
 
@@ -99,8 +93,6 @@ local function refresh(player: Player)
 		player:SetAttribute("SpeedBoostName", name)
 	else
 		clearAttributes(player)
-		-- A spell book may currently have the humanoid rooted. Keep the listener just long enough to
-		-- replace the stale boosted speed when that action restores it.
 		if not state.Suppressed then
 			disconnectState(player, false)
 		end
@@ -126,24 +118,18 @@ local function createState(player: Player, character: Model, humanoid: Humanoid)
 
 		local speed = humanoid.WalkSpeed
 		if speed <= 0 then
-			-- Rooting actions own zero. Do not let a drink break a spell-book cast.
 			state.Suppressed = true
 			return
 		end
 
 		if state.Suppressed then
 			state.Suppressed = false
-			-- Rooting code restores the value it saw before the root. If that was our old boosted
-			-- value, replace it with whatever is valid now instead of making it the new base speed.
 			if math.abs(speed - state.LastApplied) > 0.01 then
 				state.BaseSpeed = speed
 			end
 		elseif math.abs(speed - state.LastApplied) <= 0.01 then
-			-- Roblox may deliver this signal just after writeSpeed lowers its guard. A value equal to
-			-- our last write is still our own change, not a new ordinary movement speed.
 			return
 		else
-			-- Respect a real movement system changing the player's ordinary speed while boosted.
 			state.BaseSpeed = speed
 		end
 
@@ -157,21 +143,15 @@ local function createState(player: Player, character: Model, humanoid: Humanoid)
 	return state
 end
 
---- Scales everything a drink boosts `player` to for the rest of their session. Not a boost in its
---- own right and never touches their ordinary walk speed -- the caller owns that, and doubling a
---- base speed here as well would mean two writers fighting over one number.
 function SpeedBoostService:SetMultiplier(player: Player, multiplier: number)
 	Multipliers[player] = if multiplier == 1 then nil else multiplier
 	refresh(player)
 end
 
---- What a drink on `player` is currently scaled by. 1 for everybody without a multiplier.
 function SpeedBoostService:GetMultiplier(player: Player): number
 	return Multipliers[player] or 1
 end
 
---- Applies or refreshes one named drink. Different drinks coexist, but only the fastest one is
---- active; if Energy Drink ends while Soda still has time left, Soda takes over cleanly.
 function SpeedBoostService:Apply(
 	player: Player,
 	name: string,

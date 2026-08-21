@@ -1,8 +1,3 @@
---- @class Creep
---- A stationary ambient enemy with no Humanoid. It extinguishes its complete hallway, connected rooms,
---- and a short stretch of any hallway joining it, then
---- disappears as soon as a player comes close.
-
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
@@ -66,11 +61,6 @@ function Creep:Start()
 		self.Config.ConnectedHallwayLightRange
 	)
 
-	-- A Creep is the one enemy holding something that outlives it: a hallway and its attached spaces
-	-- it has turned off. Going through `Despawn` hands that back, but anything that destroys the model without
-	-- asking -- and the model outliving its object is exactly what `EnemyService` watches for -- would
-	-- otherwise leave those lamps dark for the rest of the round with nothing left alive to claim them.
-	-- Releasing twice is a no-op, so this costs the ordinary path nothing.
 	self.Destroying = self.Model.Destroying:Connect(function()
 		LightService:Release(self.LightClaim)
 	end)

@@ -9,16 +9,9 @@ local ToolConfigs = require(ReplicatedStorage.Configs.ToolConfigs)
 
 local CONFIG = ToolConfigs.Trap
 
---- @class TrapObject
---- An armed bear trap sitting in the world -- what the Trap tool leaves behind. It watches its own
---- parts for contact rather than waiting to be told it was stepped on, so it works against any
---- enemy without enemies needing to know traps exist. Springing is one-shot.
 local TrapObject = {}
 TrapObject.__index = TrapObject
 
--- Touched parts are not guaranteed to sit directly under the enemy model. Resolve upward until the
--- live NPC is found; this matters for nested parts in models such as the Ceiling Dweller. Eye has
--- no NPC entry, which deliberately keeps it immune to traps.
 local function findNpcModel(instance: Instance?): Model?
 	local current = instance
 	while current and current ~= workspace do
@@ -59,8 +52,6 @@ function TrapObject.new(trap: Model)
 	return self
 end
 
---- Snaps shut on whatever walked into it. A no-op unless `model` is a live enemy, so players walk
---- over their own traps safely.
 function TrapObject:Spring(model: Instance?)
 	if self.Trap:GetAttribute("Closed") then return end
 	local npcModel = findNpcModel(model)
@@ -72,8 +63,6 @@ function TrapObject:Spring(model: Instance?)
 	if self.Track then
 		self.Track:Play()
 
-		-- Bounded. A bare `GetMarkerReachedSignal("Finished"):Wait()` never returns if the marker is
-		-- missing from the animation, which would leave the trap sprung but never cleaned up.
 		local thread = coroutine.running()
 		local resolved = false
 		local function finish()

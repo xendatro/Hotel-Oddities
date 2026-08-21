@@ -5,16 +5,9 @@ local Race = require(ReplicatedStorage.Classes.Race)
 local Deadline = {}
 Deadline.__index = Deadline
 
---[[
-example:
-Tween:Wait()
-vs
-task.wait(2)
-]]
-
 function Deadline.new(f, n)
 	local self = setmetatable({}, Deadline)
-	
+
 	self.Function = f
 	self.Time = n
 	self.Race = Race.new({
@@ -22,7 +15,7 @@ function Deadline.new(f, n)
 		alt = function() task.wait(n) end
 	})
 	self.State = "Ready"
-	
+
 	return self
 end
 

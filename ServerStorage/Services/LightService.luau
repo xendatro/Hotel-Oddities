@@ -1,16 +1,3 @@
---- Turning the hotel's lights off and on again, for anything that wants a stretch of it dark.
----
---- A light model is a lamp: a `Light`, some particles, and the bright part you actually see from down
---- the corridor. That last one is found by material rather than by name or tag -- anything Neon inside
---- a tagged model is the glowing bit of it, and goes to SmoothPlastic while the lamp is out. Nothing
---- in the map has to be prepared for this, so a lantern built next week goes dark like the rest.
----
---- Which parts were Neon is remembered on the parts themselves, as a tag, rather than only in the
---- state below. A part already carrying it is one this service switched off and has not restored, so
---- a second claim over the same lamp reads SmoothPlastic and still knows what it was: without that,
---- the second disable would record the first one's handiwork as the original and the lamp would come
---- back dead. The tag comes off only when the lamp is genuinely lit again.
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -20,7 +7,7 @@ local TagService = require(ReplicatedStorage.Services.TagService)
 
 local FLOOR_1_LIGHT_TAG = "Floor1Light"
 local ROOM_TAG = "Room"
-local NEON_OFF_TAG = "NeonOff" -- on a part: it is Neon, and this service is holding it dark
+local NEON_OFF_TAG = "NeonOff"
 local AMBIENT_FLICKER_INTERVAL_MIN = 0.6
 local AMBIENT_FLICKER_INTERVAL_MAX = 1.2
 local AMBIENT_FLICKERS_MIN = 1
@@ -33,41 +20,32 @@ local HALLWAY_BELOW_WINDOW = 4
 local SPAN_EPSILON = 0.75
 local ROOM_CONNECTION_GAP = 1.5
 
-type LightState = {
-	Enabled: boolean,
+type Baseline = {
+	Lights: { [Light]: { Enabled: boolean, Color: Color3 } },
+	Neon: { [BasePart]: boolean },
+	Particles: { [ParticleEmitter]: boolean },
 }
 
-type RedLightState = {
-	Color: Color3,
-}
-
-type RedState = {
+type Flicker = {
+	Model: Model,
 	ExpiresAt: number,
-	Lights: { [Light]: RedLightState },
+	Dark: boolean,
 }
 
-type FlickerState = {
+type Red = {
 	ExpiresAt: number,
-	Lights: { [Light]: LightState },
-	Parts: { [BasePart]: Enum.Material },
-	Particles: { [ParticleEmitter]: ParticleState },
-	SoundParent: BasePart?,
+}
+
+type Lamp = {
+	Baseline: Baseline,
+	OffClaims: number,
+	Flicker: Flicker?,
+	Red: Red?,
 }
 
 export type FlickerClaim = {
 	Released: boolean,
-	States: { { Model: Model, State: FlickerState } },
-}
-
-type ParticleState = {
-	Enabled: boolean,
-}
-
-type DisabledState = {
-	Claims: number,
-	Lights: { [Light]: LightState },
-	Parts: { BasePart }, -- every part switched out of Neon; the tag is what remembers it was Neon
-	Particles: { [ParticleEmitter]: ParticleState },
+	States: { { Model: Model, State: Flicker } },
 }
 
 type Rectangle = {
@@ -91,9 +69,8 @@ export type LightClaim = {
 }
 
 local LightService = {}
-local DisabledModels: { [Model]: DisabledState } = {}
-local RedModels: { [Model]: RedState } = {}
-local FlickerModels: { [Model]: FlickerState } = {}
+local Lamps: { [Model]: Lamp } = {}
+local Watched: { [Model]: boolean } = {}
 local FlickerHallway: Hallways.Hallway? = nil
 local RED_COLOR = Color3.fromRGB(255, 0, 0)
 
@@ -181,40 +158,82 @@ local function getSoundParent(model: Model): BasePart?
 	return parents[math.random(1, #parents)]
 end
 
-local function disable(model: Model)
-	local state = DisabledModels[model]
-	if state then
-		state.Claims += 1
-		return
-	end
-
-	state = {
-		Claims = 1,
-		Lights = {},
-		Parts = {},
-		Particles = {},
-	}
-	DisabledModels[model] = state
+local function captureBaseline(model: Model): Baseline
+	local baseline: Baseline = { Lights = {}, Neon = {}, Particles = {} }
 
 	for _, descendant in model:GetDescendants() do
 		if descendant:IsA("Light") then
-			state.Lights[descendant] = {
-				Enabled = descendant.Enabled,
-			}
-			descendant.Enabled = false
+			baseline.Lights[descendant] = { Enabled = descendant.Enabled, Color = descendant.Color }
 		elseif descendant:IsA("BasePart")
 			and (descendant.Material == Enum.Material.Neon or descendant:HasTag(NEON_OFF_TAG))
 		then
-			table.insert(state.Parts, descendant)
-			descendant.Material = Enum.Material.SmoothPlastic
-			descendant:AddTag(NEON_OFF_TAG)
+			baseline.Neon[descendant] = true
 		elseif descendant:IsA("ParticleEmitter") then
-			state.Particles[descendant] = {
-				Enabled = descendant.Enabled,
-			}
-			descendant.Enabled = false
+			baseline.Particles[descendant] = descendant.Enabled
 		end
 	end
+
+	return baseline
+end
+
+local function apply(model: Model)
+	local lamp = Lamps[model]
+	if not lamp then return end
+
+	local flicker = lamp.Flicker
+	local dark = lamp.OffClaims > 0 or (flicker ~= nil and flicker.Dark)
+	local red = lamp.Red ~= nil
+
+	for light, base in lamp.Baseline.Lights do
+		light.Enabled = base.Enabled and not dark
+		light.Color = if red then RED_COLOR else base.Color
+	end
+	for part in lamp.Baseline.Neon do
+		if dark then
+			part.Material = Enum.Material.SmoothPlastic
+			part:AddTag(NEON_OFF_TAG)
+		else
+			part.Material = Enum.Material.Neon
+			part:RemoveTag(NEON_OFF_TAG)
+		end
+	end
+	for emitter, enabled in lamp.Baseline.Particles do
+		emitter.Enabled = enabled and not dark
+	end
+end
+
+local function acquire(model: Model): Lamp
+	local existing = Lamps[model]
+	if existing then return existing end
+
+	local lamp: Lamp = {
+		Baseline = captureBaseline(model),
+		OffClaims = 0,
+	}
+	Lamps[model] = lamp
+
+	if not Watched[model] then
+		Watched[model] = true
+		model.Destroying:Once(function()
+			Watched[model] = nil
+			Lamps[model] = nil
+		end)
+	end
+
+	return lamp
+end
+
+local function releaseIfIdle(model: Model)
+	local lamp = Lamps[model]
+	if not lamp then return end
+	if lamp.OffClaims > 0 or lamp.Flicker or lamp.Red then return end
+	Lamps[model] = nil
+end
+
+local function disable(model: Model)
+	local lamp = acquire(model)
+	lamp.OffClaims += 1
+	apply(model)
 end
 
 local function addModel(claim: LightClaim, seen: { [Model]: boolean }, model: Model)
@@ -225,23 +244,12 @@ local function addModel(claim: LightClaim, seen: { [Model]: boolean }, model: Mo
 end
 
 local function restore(model: Model)
-	local state = DisabledModels[model]
-	if not state then return end
+	local lamp = Lamps[model]
+	if not lamp then return end
 
-	state.Claims -= 1
-	if state.Claims > 0 then return end
-
-	for light, lightState in state.Lights do
-		light.Enabled = lightState.Enabled
-	end
-	for _, part in state.Parts do
-		part.Material = Enum.Material.Neon
-		part:RemoveTag(NEON_OFF_TAG)
-	end
-	for emitter, particleState in state.Particles do
-		emitter.Enabled = particleState.Enabled
-	end
-	DisabledModels[model] = nil
+	lamp.OffClaims = math.max(lamp.OffClaims - 1, 0)
+	apply(model)
+	releaseIfIdle(model)
 end
 
 local function containsHallway(hallway: Hallways.Hallway, position: Vector3): boolean
@@ -253,8 +261,6 @@ local function containsHallway(hallway: Hallways.Hallway, position: Vector3): bo
 		and math.abs(offset:Dot(hallway.Across)) <= hallway.HalfWidth
 end
 
---- Disables every tagged light model whose pivot is within `radius` studs of `position`.
---- Each returned claim must be released; overlapping claims keep a light off until all release it.
 function LightService:DisableNear(position: Vector3, radius: number): LightClaim
 	local claim: LightClaim = {
 		Models = {},
@@ -271,9 +277,6 @@ function LightService:DisableNear(position: Vector3, radius: number): LightClaim
 	return claim
 end
 
---- Disables tagged light models within `distance` studs along the hallway containing `position`.
---- Lights in crossing or nearby hallways are ignored, even when their world-space positions are
---- inside the range. A position outside the tagged hallway network affects no lights.
 function LightService:DisableAlongHallway(position: Vector3, distance: number): LightClaim
 	local claim: LightClaim = {
 		Models = {},
@@ -367,12 +370,6 @@ local function containsAnyHallway(hallways: { Hallways.Hallway }, position: Vect
 	return false
 end
 
---- Disables the complete straight hallway containing `position`, using the same span calculation as
---- the Sisters. It also disables every lamp in a room whose floor touches that span and the first
---- `connectedDistance` studs of every straight hallway that intersects it.
----
---- The claim is released in the usual way; overlapping effects keep each lamp dark until all claims
---- are released.
 function LightService:DisableHallway(
 	position: Vector3,
 	preferredDirection: Vector3?,
@@ -430,9 +427,6 @@ function LightService:Release(claim: LightClaim)
 	end
 end
 
---- Every owning model referenced by a `Floor1Light` tag. Map assets tag both lamp models and some of
---- their child light parts, so child tags collapse onto one model instead of being missed or claimed
---- twice.
 function LightService:GetModels(): { Model }
 	local models = {}
 	local seen: { [Model]: boolean } = {}
@@ -450,146 +444,105 @@ function LightService:GetModels(): { Model }
 	return models
 end
 
---- Turns every light in one floor-light model red for `duration`, restoring its original color
---- afterward. A concurrent warning extends the existing red effect.
 function LightService:WarnRed(model: Model, duration: number)
 	if duration <= 0 then return end
 
-	local existing = RedModels[model]
+	local lamp = acquire(model)
+	local existing = lamp.Red
 	if existing then
 		existing.ExpiresAt = math.max(existing.ExpiresAt, os.clock() + duration)
 		return
 	end
 
-	local state: RedState = {
-		ExpiresAt = os.clock() + duration,
-		Lights = {},
-	}
-	RedModels[model] = state
-	for _, descendant in model:GetDescendants() do
-		if descendant:IsA("Light") then
-			state.Lights[descendant] = {
-				Color = descendant.Color,
-			}
-			descendant.Color = RED_COLOR
-		end
-	end
+	local red: Red = { ExpiresAt = os.clock() + duration }
+	lamp.Red = red
+	apply(model)
 
 	task.spawn(function()
 		while true do
-			local remaining = state.ExpiresAt - os.clock()
+			local remaining = red.ExpiresAt - os.clock()
 			if remaining <= 0 then break end
 			task.wait(remaining)
 		end
 
-		if RedModels[model] ~= state then return end
-		for light, lightState in state.Lights do
-			light.Color = lightState.Color
-		end
-		RedModels[model] = nil
+		local current = Lamps[model]
+		if not current or current.Red ~= red then return end
+		current.Red = nil
+		apply(model)
+		releaseIfIdle(model)
 	end)
 end
 
-local function beginFlicker(model: Model, duration: number, playSound: boolean?): FlickerState?
-	local existing = FlickerModels[model]
+local function beginFlicker(model: Model, duration: number, playSound: boolean?): Flicker?
+	local lamp = acquire(model)
+	local existing = lamp.Flicker
 	if existing then
 		existing.ExpiresAt = math.max(existing.ExpiresAt, os.clock() + duration)
 		return nil
 	end
 
-	local state: FlickerState = {
+	local flicker: Flicker = {
+		Model = model,
 		ExpiresAt = os.clock() + duration,
-		Lights = {},
-		Parts = {},
-		Particles = {},
-		SoundParent = if playSound ~= false then getSoundParent(model) else nil,
+		Dark = false,
 	}
-	FlickerModels[model] = state
+	lamp.Flicker = flicker
 
-	for _, descendant in model:GetDescendants() do
-		if descendant:IsA("Light") then
-			state.Lights[descendant] = {
-				Enabled = descendant.Enabled,
-			}
-		elseif descendant:IsA("BasePart")
-			and (descendant.Material == Enum.Material.Neon or descendant:HasTag(NEON_OFF_TAG))
-		then
-			state.Parts[descendant] = descendant.Material
-		elseif descendant:IsA("ParticleEmitter") then
-			state.Particles[descendant] = {
-				Enabled = descendant.Enabled,
-			}
+	if playSound ~= false then
+		local soundParent = getSoundParent(model)
+		if soundParent then
+			AudioService:Play3DSound("Flicker", soundParent, false, "SFX")
 		end
 	end
-
-	if playSound ~= false and state.SoundParent then
-		AudioService:Play3DSound("Flicker", state.SoundParent, false, "SFX")
-	end
-	return state
+	return flicker
 end
 
-local function setFlickerDark(state: FlickerState)
-	for light in state.Lights do
-		light.Enabled = false
-	end
-	for part in state.Parts do
-		part.Material = Enum.Material.SmoothPlastic
-	end
-	for emitter in state.Particles do
-		emitter.Enabled = false
-	end
+local function flickerActive(flicker: Flicker): boolean
+	local lamp = Lamps[flicker.Model]
+	return lamp ~= nil and lamp.Flicker == flicker
 end
 
-local function setFlickerLit(state: FlickerState)
-	for light, lightState in state.Lights do
-		light.Enabled = lightState.Enabled
-	end
-	for part, material in state.Parts do
-		part.Material = material
-	end
-	for emitter, particleState in state.Particles do
-		emitter.Enabled = particleState.Enabled
-	end
+local function setFlickerDark(flicker: Flicker)
+	flicker.Dark = true
+	apply(flicker.Model)
 end
 
-local function restoreFlicker(model: Model, state: FlickerState)
-	if FlickerModels[model] ~= state then return end
-	for light, lightState in state.Lights do
-		light.Enabled = lightState.Enabled
-	end
-	for part, material in state.Parts do
-		part.Material = material
-	end
-	for emitter, particleState in state.Particles do
-		emitter.Enabled = particleState.Enabled
-	end
-	FlickerModels[model] = nil
+local function setFlickerLit(flicker: Flicker)
+	flicker.Dark = false
+	apply(flicker.Model)
+end
+
+local function restoreFlicker(model: Model, flicker: Flicker)
+	local lamp = Lamps[model]
+	if not lamp or lamp.Flicker ~= flicker then return end
+
+	lamp.Flicker = nil
+	apply(model)
+	releaseIfIdle(model)
 end
 
 local function flickerModel(model: Model, duration: number)
-	local state = beginFlicker(model, duration, true)
-	if not state then return end
+	local flicker = beginFlicker(model, duration, true)
+	if not flicker then return end
 
 	task.spawn(function()
-		while true do
-			local remaining = state.ExpiresAt - os.clock()
+		while flickerActive(flicker) do
+			local remaining = flicker.ExpiresAt - os.clock()
 			if remaining <= 0 then break end
 
 			if math.random() < 0.5 then
-				setFlickerDark(state)
+				setFlickerDark(flicker)
 			else
-				setFlickerLit(state)
+				setFlickerLit(flicker)
 			end
 
 			task.wait(0.1 + math.random() * 0.1)
 		end
 
-		restoreFlicker(model, state)
+		restoreFlicker(model, flicker)
 	end)
 end
 
---- Flickers every lamp in a straight hallway with independent, rapid timings. The returned claim
---- lets a caller stop the effect early without leaving a lamp dark.
 function LightService:FlickerChaosAlongHallway(
 	position: Vector3,
 	duration: number,
@@ -613,27 +566,59 @@ function LightService:FlickerChaosAlongHallway(
 	local maximum = math.max(math.max(intervalMin, intervalMax), minimum)
 	for _, model in LightService:GetModels() do
 		if containsAnyHallway(spanHallways, model:GetPivot().Position) then
-			local state = beginFlicker(model, duration, true)
-			if state then
-				state.ExpiresAt = os.clock() + duration
-				table.insert(claim.States, { Model = model, State = state })
+			local flicker = beginFlicker(model, duration, true)
+			if flicker then
+				flicker.ExpiresAt = os.clock() + duration
+				table.insert(claim.States, { Model = model, State = flicker })
 				task.spawn(function()
 					task.wait(math.random() * (maximum - minimum) + minimum)
-					while not claim.Released and state.ExpiresAt > os.clock() do
+					while not claim.Released and flickerActive(flicker) and flicker.ExpiresAt > os.clock() do
 						if math.random() < 0.55 then
-							setFlickerDark(state)
+							setFlickerDark(flicker)
 						else
-							setFlickerLit(state)
+							setFlickerLit(flicker)
 						end
 						task.wait(math.random() * (maximum - minimum) + minimum)
 					end
-					restoreFlicker(model, state)
+					restoreFlicker(model, flicker)
 				end)
 			end
 		end
 	end
 
 	return claim
+end
+
+function LightService:FlickerHallwayContaining(
+	position: Vector3,
+	duration: number,
+	intervalMin: number?,
+	intervalMax: number?
+)
+	if duration <= 0 then return end
+	local hallway = Hallways.At(position)
+	if not hallway then return end
+
+	local minimum = math.max(math.min(intervalMin or 0.08, intervalMax or 0.22), 0.02)
+	local maximum = math.max(intervalMax or 0.22, minimum)
+	for _, model in LightService:GetModels() do
+		if containsHallway(hallway, model:GetPivot().Position) then
+			local flicker = beginFlicker(model, duration, false)
+			if flicker then
+				task.spawn(function()
+					while flickerActive(flicker) and flicker.ExpiresAt > os.clock() do
+						if math.random() < 0.55 then
+							setFlickerDark(flicker)
+						else
+							setFlickerLit(flicker)
+						end
+						task.wait(math.random() * (maximum - minimum) + minimum)
+					end
+					restoreFlicker(model, flicker)
+				end)
+			end
+		end
+	end
 end
 
 function LightService:ReleaseFlicker(claim: FlickerClaim)
@@ -644,8 +629,6 @@ function LightService:ReleaseFlicker(claim: FlickerClaim)
 	end
 end
 
---- Flickers every light model in the hallway containing `position` for `duration`. Lights turn on and
---- off randomly, creating an unsettling effect without spilling into crossing hallways.
 function LightService:FlickerAlongHallway(position: Vector3, duration: number)
 	if duration <= 0 then return end
 	local hallway = FlickerHallway
@@ -664,13 +647,13 @@ function LightService:FlickerAlongHallway(position: Vector3, duration: number)
 	if #models == 0 then return end
 
 	task.spawn(function()
-		local states = {} :: { { Model: Model, State: FlickerState } }
+		local states = {} :: { { Model: Model, State: Flicker } }
 		for index, model in models do
-			local state = beginFlicker(model, duration, false)
-			if state then
-				state.ExpiresAt = os.clock() + duration
-				setFlickerDark(state)
-				table.insert(states, { Model = model, State = state })
+			local flicker = beginFlicker(model, duration, false)
+			if flicker then
+				flicker.ExpiresAt = os.clock() + duration
+				setFlickerDark(flicker)
+				table.insert(states, { Model = model, State = flicker })
 			end
 			if index % HALLWAY_FLICKER_BATCH_SIZE == 0 then
 				RunService.Heartbeat:Wait()

@@ -21,15 +21,9 @@ local cooldownLabel = frame:FindFirstChild("TeleportCooldown") :: TextLabel?
 
 local walkieCommunication = ReplicatedStorage.Communication.WalkieTalkie
 local SetMode = walkieCommunication.SetMode :: RemoteEvent
-local VoiceActivity = walkieCommunication:WaitForChild("VoiceActivity") :: RemoteEvent
 local modeIndex = 1
 local enabled = false
 local emitterConnection: RBXScriptConnection?
-local analyzerConnection: RBXScriptConnection?
-local analyzer: AudioAnalyzer?
-local analyzerWire: Wire?
-local speaking = false
-local lastActivitySentAt = -math.huge
 local mutedEmitterGroup = `WalkieTalkieMuted_{player.UserId}`
 
 local function isVoiceEligible(): boolean
@@ -61,71 +55,6 @@ local function watchOwnEmitter(tool: Tool)
 	emitterConnection = tool.DescendantAdded:Connect(muteOwnEmitter)
 end
 
-local function sendVoiceActivity(value: boolean, heartbeat: boolean?)
-	local now = os.clock()
-	if speaking == value and not heartbeat then return end
-	speaking = value
-	lastActivitySentAt = now
-	VoiceActivity:FireServer(value)
-end
-
-local function stopVoiceAnalyzer()
-	if analyzerConnection then
-		analyzerConnection:Disconnect()
-		analyzerConnection = nil
-	end
-	if analyzerWire then
-		analyzerWire:Destroy()
-		analyzerWire = nil
-	end
-	if analyzer then
-		analyzer:Destroy()
-		analyzer = nil
-	end
-	sendVoiceActivity(false)
-end
-
-local function startVoiceAnalyzer()
-	stopVoiceAnalyzer()
-
-	local source = player:FindFirstChild("AudioDeviceInput")
-	if not source or not source:IsA("AudioDeviceInput") then return end
-
-	local currentAnalyzer = Instance.new("AudioAnalyzer")
-	currentAnalyzer.Name = "WalkieTalkieVoiceAnalyzer"
-	currentAnalyzer.SpectrumEnabled = false
-	currentAnalyzer.Parent = player
-
-	local wire = Instance.new("Wire")
-	wire.Name = "WalkieTalkieVoiceAnalyzerWire"
-	wire.SourceInstance = source
-	wire.TargetInstance = currentAnalyzer
-	wire.Parent = currentAnalyzer
-
-	analyzer = currentAnalyzer
-	analyzerWire = wire
-	local lastAboveThreshold = 0
-	local accumulator = 0
-	analyzerConnection = RunService.Heartbeat:Connect(function(deltaTime)
-		accumulator += deltaTime
-		if accumulator < Config.VoiceActivity.PollInterval then return end
-		accumulator = 0
-
-		local now = os.clock()
-		local aboveThreshold = source.Active
-			and not source.Muted
-			and currentAnalyzer.RmsLevel >= Config.VoiceActivity.Threshold
-		if aboveThreshold then
-			lastAboveThreshold = now
-			if not speaking or now - lastActivitySentAt >= Config.VoiceActivity.Heartbeat then
-				sendVoiceActivity(true, true)
-			end
-		elseif speaking and now - lastAboveThreshold >= Config.VoiceActivity.Release then
-			sendVoiceActivity(false)
-		end
-	end)
-end
-
 toggle.Activated:Connect(function()
 	if enabled then setMode(modeIndex + 1, true) end
 end)
@@ -151,23 +80,10 @@ function WalkieTalkieService:SetEnabled(value: boolean, tool: Tool?)
 	end
 end
 
-player.ChildAdded:Connect(function(child)
-	if child.Name == "AudioDeviceInput" then
-		startVoiceAnalyzer()
-	end
-end)
-
-player.ChildRemoved:Connect(function(child)
-	if child.Name == "AudioDeviceInput" then
-		stopVoiceAnalyzer()
-	end
-end)
-
 function WalkieTalkieService:IsEnabled(): boolean
 	return enabled
 end
 
-startVoiceAnalyzer()
 setMode(1, false)
 gui.Enabled = false
 

@@ -1,14 +1,3 @@
---- What a revive IS, and the self-serve product that sells one. A death is kept in memory until
---- something spends it: where it happened and what the player was carrying at that moment.
----
---- Two products can spend the same death -- the player's own `Revive` and a friend's `ReviveFriend`,
---- which lives in `FriendReviveService` and calls `:Grant` here. Granting is public for exactly that
---- reason; the receipt below only covers the player buying their own way back.
----
---- Note a revive is not resurrection. Respawning is automatic and fast, so by the time a prompt has
---- been answered the player is usually already alive somewhere else -- what is actually being sold
---- is the trip back to where they fell, with their inventory and a few seconds of immunity.
-
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
@@ -46,9 +35,6 @@ local function loadLivingCharacter(player: Player): Model
 	error(`ReviveService: failed to load a character for {player.Name}`)
 end
 
---- Saves everything needed to fulfill a revive. The prompt opens when the client's death screen
---- reports that it has fully finished, so the purchase UI does not interrupt the death screen. Returns
---- a token that identifies this death to the client's completion signal.
 function ReviveService:Offer(player: Player, character: Model): number
 	local root = character:FindFirstChild("HumanoidRootPart")
 	local location = if root and root:IsA("BasePart") then root.CFrame else character:GetPivot()
@@ -64,22 +50,16 @@ function ReviveService:Offer(player: Player, character: Model): number
 	return token
 end
 
---- Opens the player's own revive purchase prompt for the pending death, if it is still available.
 function ReviveService:Prompt(player: Player, token: number)
 	local snapshot = PendingDeaths[player]
 	if not snapshot or snapshot.Token ~= token then return end
 	MarketplaceService:PromptProductPurchase(player, REVIVE_PRODUCT_ID)
 end
 
---- Whether `player` has a death nobody has spent yet. What a friend's card is really offering to
---- buy, and false once anything has already paid for it.
 function ReviveService:HasPendingDeath(player: Player): boolean
 	return PendingDeaths[player] ~= nil
 end
 
---- Puts `player` back on their feet and spends their pending death: full health, a force field, and
---- back where they fell with what they were carrying. Safe to call on a player who is already alive
---- somewhere else, which after a three second respawn is the normal case.
 function ReviveService:Grant(player: Player)
 	local snapshot = PendingDeaths[player]
 	PendingDeaths[player] = nil

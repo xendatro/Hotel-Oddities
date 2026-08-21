@@ -8,14 +8,6 @@ local UserInputService = game:GetService("UserInputService")
 local InventoryConfig = require(ReplicatedStorage.Configs.InventoryConfig)
 local InventorySlot = require(ReplicatedStorage.Classes.InventorySlot)
 
---- Draws the inventory and turns input into intent. Everything visible is built here in code, so
---- there is no StarterGui asset to keep in sync with the layout.
----
---- The one genuinely delicate part is telling a tap apart from a drag. A press does not commit to
---- being either until it has travelled `DragThreshold` pixels from where it went DOWN. Under that,
---- releasing equips; over it, the press becomes a drag and releasing drops. Measuring from the
---- press origin rather than from the slot's own position is what keeps a stationary tap on a
---- shifting layout from registering as an accidental drag.
 local InventoryUIService = {}
 
 if not RunService:IsClient() then
@@ -34,8 +26,6 @@ local Snapshot: { [number]: { Name: string, Quantity: number, Icon: string? } } 
 
 local screenGui, hotbar, panel, panelGrid
 local drag = nil :: { Slot: any, Origin: Vector2, Started: boolean, Ghost: ImageButton?, Target: any? }?
-
---- Building the interface ------------------------------------------------------------------------
 
 local function build()
 	screenGui = Instance.new("ScreenGui")
@@ -64,7 +54,6 @@ local function build()
 	hotbarLayout.Padding = UDim.new(0, padding)
 	hotbarLayout.Parent = hotbar
 
-	-- The overflow panel: everything past the hotbar, hidden until the toggle key.
 	panel = Instance.new("Frame")
 	panel.Name = "Backpack"
 	panel.Visible = false
@@ -105,9 +94,6 @@ local function build()
 	end
 end
 
---- Reading and applying state -------------------------------------------------------------------
-
--- The Tool instance behind a name, stowed or equipped, or nil if it is gone.
 local function findTool(toolName: string): Tool?
 	local backpack = player:FindFirstChildOfClass("Backpack")
 	local tool = backpack and backpack:FindFirstChild(toolName)
@@ -125,7 +111,6 @@ local function equippedToolName(): string?
 	return tool and tool.Name or nil
 end
 
---- Repaints every slot from the last snapshot the server sent.
 function InventoryUIService:Refresh()
 	local equipped = equippedToolName()
 
@@ -141,8 +126,6 @@ function InventoryUIService:Refresh()
 		end
 	end
 end
-
---- Equipping ------------------------------------------------------------------------------------
 
 local function toggleEquip(slot)
 	if slot:IsEmpty() then return end
@@ -163,16 +146,11 @@ local function toggleEquip(slot)
 	InventoryUIService:Refresh()
 end
 
---- Dragging -------------------------------------------------------------------------------------
-
--- Input positions exclude the top inset; AbsolutePosition includes it. Converting once here is
--- what removes the hardcoded pixel fudge FFM applied at two separate call sites.
 local function toScreenSpace(position: Vector3): Vector2
 	local inset = GuiService:GetGuiInset()
 	return Vector2.new(position.X + inset.X, position.Y + inset.Y)
 end
 
--- The slot under a screen-space point, ignoring slots inside the hidden panel.
 local function slotAt(point: Vector2)
 	for _, slot in Slots do
 		local frame = slot.Frame
@@ -210,7 +188,6 @@ local function beginDrag(position: Vector3)
 	ghost.Parent = screenGui
 	drag.Ghost = ghost
 
-	-- The slot being carried reads as empty underneath the ghost.
 	source.Frame.BackgroundTransparency = 0.7
 end
 
@@ -246,7 +223,6 @@ local function endDrag(position: Vector3)
 	drag = nil
 
 	if not started then
-		-- Never travelled far enough to be a drag, so it was a tap.
 		toggleEquip(source)
 		return
 	end
@@ -256,14 +232,10 @@ local function endDrag(position: Vector3)
 		return
 	end
 
-	-- Swap locally so the drag lands instantly, then let the server confirm. Its echo is
-	-- authoritative: if it disagrees, the next Refresh silently corrects this.
 	Snapshot[source.Index], Snapshot[target.Index] = Snapshot[target.Index], Snapshot[source.Index]
 	InventoryUIService:Refresh()
 	Communication.Move:FireServer(source.Index, target.Index)
 end
-
---- Wiring ---------------------------------------------------------------------------------------
 
 local function setUpConnections()
 	for _, slot in Slots do
@@ -285,8 +257,6 @@ local function setUpConnections()
 		end)
 	end
 
-	-- Movement and release are watched globally rather than per-slot: once a drag is under way the
-	-- pointer is usually no longer over the slot that started it.
 	UserInputService.InputChanged:Connect(function(input: InputObject)
 		if not drag then return end
 		if
@@ -333,8 +303,6 @@ local function setUpConnections()
 		end
 	end)
 
-	-- Arrives as a dense list of entries that each name their slot; re-indexed here so the rest of
-	-- this file can treat the snapshot as slot -> entry.
 	Communication.Update.OnClientEvent:Connect(function(entries)
 		Snapshot = {}
 		for _, entry in entries or {} do
@@ -363,8 +331,6 @@ build()
 setUpConnections()
 InventoryUIService:Refresh()
 
--- Ask for the current state now that the handler above is live. Without this the inventory stays
--- blank until the next thing that happens to change it.
 Communication.Update:FireServer()
 
 return InventoryUIService

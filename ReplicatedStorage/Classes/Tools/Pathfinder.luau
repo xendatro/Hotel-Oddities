@@ -6,20 +6,8 @@ local PathfinderMarker = require(ReplicatedStorage.Classes.PathfinderMarker)
 local ToolCounter = require(ReplicatedStorage.Classes.ToolCounter)
 local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
 
---- @class Pathfinder
---- Drops a marker at the player's feet pointing the way they were facing, so a corridor they have
---- already walked reads as walked.
----
---- Entirely client side. The markers exist only for the player who placed them, which is the point:
---- the hotel stays unmapped, and what one player knows is theirs to pass on or not.
----
---- Two versions share this code. The plain tool is a stack of `MaxInWorld` uses that spends one per
---- placement and is gone when the stack empties. The gamepass version never spends, so it hits the
---- cap instead and each new marker recycles the oldest -- an endless trail with a fixed tail.
 local Pathfinder = ClientTool.extend("Pathfinder")
 
--- Module level, not per instance: the trail outlives the tool that made it. Running out destroys the
--- Tool and dying destroys the class instance, but the markers stand until the player leaves.
 local Markers: { any } = {}
 local Placed = 0
 local Folder: Folder? = nil
@@ -36,8 +24,6 @@ local function markerFolder(): Folder
 	return folder
 end
 
--- Published by `PerkService`, which is the only thing that asks Roblox about the pass. Reading it is
--- a local lookup, so the counter can be right on the first frame the tool is equipped.
 local UNLIMITED_ATTRIBUTE = PerkConfig.AttributePrefix .. "Pathfinder"
 
 local function ownsUnlimited(): boolean
@@ -57,7 +43,6 @@ function Pathfinder.new(tool: Tool)
 	return self
 end
 
---- Charges left on the device. The server owns this; the client only reads it.
 function Pathfinder:GetUses(): number
 	return self.Tool:GetAttribute("uses") or self.Config.Uses
 end
@@ -79,15 +64,13 @@ function Pathfinder:OnEquipped()
 	self.Counter = ToolCounter.new(self.Config.Caption)
 	self:_updateCounter()
 
-	-- Covers both the pass resolving a moment after the player joined and one bought mid-round: the
-	-- counter swaps between a number and an infinity without the tool being put away first.
 	self.PassChanged = Players.LocalPlayer:GetAttributeChangedSignal(UNLIMITED_ATTRIBUTE):Connect(function()
 		self.Unlimited = ownsUnlimited()
 		self:_updateCounter()
 	end)
 
 	self.UsesChanged = self.Tool:GetAttributeChangedSignal("uses"):Connect(function()
-		self.Predicted = nil -- the real number landed; stop guessing
+		self.Predicted = nil
 		self:_updateCounter()
 	end)
 end
@@ -117,7 +100,6 @@ function Pathfinder:_closeCounter()
 	end
 end
 
--- The nearest marker within MinSpacing, if there is one.
 function Pathfinder:_crowdedBy(position: Vector3)
 	for _, marker in Markers do
 		if (marker.Position - position).Magnitude <= self.Config.MinSpacing then
@@ -133,7 +115,6 @@ function Pathfinder:OnActivated()
 	if not root then return end
 	if not self.Unlimited and self:GetUses() <= 0 then return end
 
-	-- Standing on one already: flare it rather than spending a second marker on the same spot.
 	local crowded = self:_crowdedBy(root.Position)
 	if crowded then
 		crowded:Pulse()
@@ -145,15 +126,13 @@ function Pathfinder:OnActivated()
 	params.FilterDescendantsInstances = { character, markerFolder() }
 
 	local ground = workspace:Raycast(root.Position, Vector3.new(0, -self.Config.SnapDistance, 0), params)
-	if not ground then return end -- midair, or over a hole
+	if not ground then return end
 
 	local look = root.CFrame.LookVector * Vector3.new(1, 0, 1)
 	look = look.Magnitude > 0.01 and look.Unit or Vector3.new(0, 0, -1)
 
 	local position = ground.Position + Vector3.new(0, 0.05, 0)
 
-	-- Planted before anything is spent, so a marker that cannot be built -- a missing prop -- costs
-	-- the player nothing.
 	local marker = PathfinderMarker.new(
 		CFrame.lookAt(position, position + look),
 		Placed + 1,
@@ -174,13 +153,9 @@ function Pathfinder:OnActivated()
 
 	reshade()
 
-	-- Reported even when this player believes they own the pass: the server re-checks and is the one
-	-- that decides whether a charge is actually spent.
 	self:Fire("Placed")
 
 	if not self.Unlimited then
-		-- The charge count comes back from the server a round trip later. The counter shows the
-		-- answer now and is corrected when the real one arrives.
 		self.Predicted = self:GetUses() - 1
 		self:_updateCounter()
 	end

@@ -6,6 +6,7 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
+local CameraFovService = require(ReplicatedStorage.Services.CameraFovService)
 local PresetConfig = require(ReplicatedStorage.Frameworks.xenterface.Config.PresetConfig)
 
 local InterfaceService = {}
@@ -177,16 +178,13 @@ end
 CollectionService:GetInstanceAddedSignal("InterfaceCloseButton"):Connect(wireCloseButton)
 
 local blurTween: Tween? = nil
-local fovTween: Tween? = nil
 local interfaceOpen = false
-local baseFov: number? = nil
 
 local function tweenEffects(open: boolean)
 	if interfaceOpen == open then return end
 	interfaceOpen = open
 
 	if blurTween then blurTween:Cancel() end
-	if fovTween then fovTween:Cancel() end
 
 	blurTween = TweenService:Create(
 		blur,
@@ -195,41 +193,12 @@ local function tweenEffects(open: boolean)
 	)
 	blurTween:Play()
 
-	local camera = workspace.CurrentCamera
-	if not camera then return end
-	if open then
-		baseFov = camera.FieldOfView
-	end
-
-	local targetFov = open
-		and math.max(EFFECT_PRESET.MinimumFieldOfView, (baseFov or camera.FieldOfView) - EFFECT_PRESET.FieldOfViewOffset)
-		or (baseFov or camera.FieldOfView)
-	fovTween = TweenService:Create(
-		camera,
-		TweenInfo.new(EFFECT_PRESET.Time, EFFECT_PRESET.Style, EFFECT_PRESET.Direction),
-		{ FieldOfView = targetFov }
+	CameraFovService:TweenOffset(
+		"Interface",
+		if open then -EFFECT_PRESET.FieldOfViewOffset else 0,
+		TweenInfo.new(EFFECT_PRESET.Time, EFFECT_PRESET.Style, EFFECT_PRESET.Direction)
 	)
-	fovTween:Play()
-
-	if not open then
-		baseFov = nil
-	end
 end
-
-workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
-	if not interfaceOpen then return end
-	local camera = workspace.CurrentCamera
-	if not camera then return end
-
-	baseFov = camera.FieldOfView
-	if fovTween then fovTween:Cancel() end
-	fovTween = TweenService:Create(
-		camera,
-		TweenInfo.new(EFFECT_PRESET.Time, EFFECT_PRESET.Style, EFFECT_PRESET.Direction),
-		{ FieldOfView = math.max(EFFECT_PRESET.MinimumFieldOfView, camera.FieldOfView - EFFECT_PRESET.FieldOfViewOffset) }
-	)
-	fovTween:Play()
-end)
 
 controller.Fired:Connect(function(data)
 	local activeId = data.ActiveId
@@ -300,16 +269,6 @@ UserInputService.InputBegan:Connect(function(input: InputObject, processed: bool
 	setMouseUnlocked(not mouseUnlocked)
 end)
 
---- Opening a page from code ------------------------------------------------------------------------
-
---- Opens one of `pageNames` as though its side button had been pressed, so the page arrives through
---- the same controller, the same animation and the same blur as every other way in. Nothing else
---- should be setting `ScreenGui.Enabled` by hand -- a page switched on behind the controller's back
---- is one the controller still believes is closed, and the next press of anything closes it without
---- animating.
----
---- Exists for the index, which the game opens on the player's behalf after a death has taught them
---- something. Everything else here is driven by a button the player pressed.
 function InterfaceService:Open(pageId: string)
 	if not pageGuis[pageId] then
 		warn(("[InterfaceService] No page named %q to open."):format(pageId))
@@ -322,7 +281,6 @@ function InterfaceService:Close()
 	controller:Fire("")
 end
 
---- The page currently open, or an empty string while none is.
 function InterfaceService:GetActive(): string
 	return controller.Active
 end

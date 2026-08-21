@@ -7,15 +7,6 @@ local EffectsHUDConfig = require(ReplicatedStorage.Configs.EffectsHUDConfig)
 local ToolConfigs = require(ReplicatedStorage.Configs.ToolConfigs)
 local Vanished = require(ReplicatedStorage.Modules.Vanished)
 
---- Draws the right-side stack of active-effect tiles: one per effect currently running on the
---- local player, each with the item's icon, a drain sheet that covers the spent share of its time,
---- and a countdown in tenths of a second. Instant consumables flash for a moment just to say
---- "used one". Re-triggering an effect that is already shown (a second Energy Drink mid-boost)
---- refreshes the existing tile rather than adding a twin.
----
---- Nothing here owns game state. Every tile is driven by a signal another system already emits:
---- the speed boost attributes, the Vanished tag, hole models appearing with the local player's
---- CreatorUserId, the inventory snapshot shrinking, or the Pathfinder spending a charge.
 local EffectsHUDService = {}
 
 if not RunService:IsClient() then
@@ -27,8 +18,6 @@ local TRANSPARENCY = EffectsHUDConfig.Transparency
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
-
---- Building the interface ------------------------------------------------------------------------
 
 local panel
 
@@ -58,11 +47,8 @@ local function build()
 	layout.Parent = panel
 end
 
---- Tiles ------------------------------------------------------------------------------------------
-
 type Entry = {
 	Frame: Frame,
-	-- Clips the full-colour icon to the remaining share of time; nil for the text fallback.
 	Bright: Frame?,
 	Label: TextLabel,
 	EndsAt: number,
@@ -80,7 +66,6 @@ local function buildTile(effectName: string): Entry
 	local size = EffectsHUDConfig.TileSize
 	local inset = EffectsHUDConfig.IconInset
 
-	-- No backing card: the tile is an invisible layout cell and only the icon itself shows.
 	local frame = Instance.new("Frame")
 	frame.Name = effectName
 	frame.Size = UDim2.fromOffset(size, size)
@@ -89,9 +74,6 @@ local function buildTile(effectName: string): Entry
 	local bright: Frame? = nil
 	local iconId = EffectsHUDConfig.Icons[effectName] or ""
 	if iconId ~= "" then
-		-- Two copies of the icon: a dimmed one underneath showing the spent share, and a
-		-- full-colour one clipped from the bottom up to exactly the remaining share -- the drain
-		-- reads on the icon's own silhouette instead of on a sheet over a card.
 		local dim = Instance.new("ImageLabel")
 		dim.Name = "Dim"
 		dim.BackgroundTransparency = 1
@@ -113,7 +95,6 @@ local function buildTile(effectName: string): Entry
 		clip.ZIndex = 2
 		clip.Parent = frame
 
-		-- Pinned to the tile's bottom so the image never moves while its window shrinks.
 		local icon = Instance.new("ImageLabel")
 		icon.Name = "Icon"
 		icon.BackgroundTransparency = 1
@@ -127,7 +108,6 @@ local function buildTile(effectName: string): Entry
 
 		bright = clip
 	else
-		-- Stands in until real art exists, so a tile is never blank.
 		local label = Instance.new("TextLabel")
 		label.Name = "Fallback"
 		label.BackgroundTransparency = 1
@@ -154,7 +134,6 @@ local function buildTile(effectName: string): Entry
 	countdown.ZIndex = 3
 	countdown.Parent = frame
 
-	-- Text floats straight on the world now, so it carries its own contrast.
 	local textStroke = Instance.new("UIStroke")
 	textStroke.Color = COLORS.TextStroke
 	textStroke.Thickness = 2
@@ -167,9 +146,6 @@ local function buildTile(effectName: string): Entry
 	return { Frame = frame, Bright = bright, Label = countdown, EndsAt = 0, Duration = 1 }
 end
 
---- Shows `effectName` for `duration` seconds, or refreshes its clock if it is already up.
---- `endsAt` (server time) pins the exact expiry when the server has already decided it, which is
---- what keeps a second drink mid-boost from drifting off the authoritative timer.
 local function show(effectName: string, duration: number, endsAt: number?)
 	local entry = Entries[effectName]
 	if not entry then
@@ -202,11 +178,6 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
---- Speed boosts (Soda, Energy Drink) --------------------------------------------------------------
-
--- SpeedBoostService stamps the winning boost's name and server-time expiry on the player. Reading
--- those instead of watching consumption means the tile always matches the boost actually applied,
--- including a re-drink resetting the clock.
 local lastBoostName: string? = nil
 
 local function refreshBoost()
@@ -228,11 +199,6 @@ player:GetAttributeChangedSignal("SpeedBoostName"):Connect(refreshBoost)
 player:GetAttributeChangedSignal("SpeedBoostEndsAt"):Connect(refreshBoost)
 refreshBoost()
 
---- SpellBook vanish -------------------------------------------------------------------------------
-
--- The cast's real length is the reading animation, which only the caster's tool knows; the tag is
--- the truth of when it ends. The tile counts down from the cast's hard cap and leaves early the
--- moment the tag does.
 CollectionService:GetInstanceAddedSignal(Vanished.Tag):Connect(function(instance)
 	if instance == player.Character then
 		show("SpellBook", ToolConfigs.SpellBook.MaxCastTime)
@@ -245,22 +211,12 @@ CollectionService:GetInstanceRemovedSignal(Vanished.Tag):Connect(function(instan
 	end
 end)
 
---- Shovel holes -----------------------------------------------------------------------------------
-
--- A dig parents an entry/exit pair into workspace, each stamped with the digger's UserId before it
--- arrives. One dig therefore fires ChildAdded twice; showing is idempotent so the pair collapses
--- into a single refreshed tile.
 workspace.ChildAdded:Connect(function(child)
 	if child:GetAttribute("CreatorUserId") == player.UserId and child:GetAttribute("ID") ~= nil then
 		show("Shovel", EffectsHUDConfig.HoleLifetime)
 	end
 end)
 
---- Instant consumables ----------------------------------------------------------------------------
-
--- The inventory snapshot is the one place every consumption already reports to. A drop in an
--- item's total between snapshots is read as "used one"; timed items are excluded via FlashItems so
--- their real tiles are never shadowed by a flash.
 local lastTotals: { [string]: number } = {}
 
 ReplicatedStorage.Communication.Inventory.Update.OnClientEvent:Connect(function(entries)
@@ -277,11 +233,6 @@ ReplicatedStorage.Communication.Inventory.Update.OnClientEvent:Connect(function(
 	lastTotals = totals
 end)
 
---- Pathfinder charges -----------------------------------------------------------------------------
-
--- One Pathfinder is one device spending charges, so quantity never moves on placement; the tool's
--- "uses" attribute is what ticks down. The unlimited gamepass spends nothing and correctly never
--- flashes. Watching every tool that enters the character keeps this alive across respawns.
 local function watchPathfinder(tool: Instance)
 	if not tool:IsA("Tool") or tool.Name ~= "Pathfinder" then return end
 	local lastUses = tool:GetAttribute("uses")

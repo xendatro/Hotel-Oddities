@@ -14,14 +14,9 @@ local COOLDOWN = 5
 local APPROACH_TIMEOUT = 1.5
 local SURFACE_HEIGHT = 3.5
 
---- @class Hole
---- One end of a dug hole pair. Crawling in surfaces the player at the twin sharing its `ID`.
---- Every hole in the world goes on cooldown after any crawl, so a player cannot immediately dive
---- back through the exit they just came out of.
 local Hole = {}
 Hole.__index = Hole
 
--- Every live Hole, so one crawl can put them all on cooldown together.
 local Active: { [any]: true } = {}
 
 local function beginCooldown()
@@ -57,7 +52,6 @@ function Hole.new(hole: Model)
 	return self
 end
 
--- The other end of this pair, or nil if it has already expired.
 function Hole:_findTwin(): Model?
 	return TagService:GetTaggedOfPredicate("Hole", function(other: Instance)
 		return other ~= self.Hole and other:GetAttribute("ID") == self.Hole:GetAttribute("ID")
@@ -75,8 +69,6 @@ function Hole:Crawl()
 	beginCooldown()
 	Controls:Disable()
 
-	-- Walk them onto the hole first, but never hang on it -- a blocked path times out and the
-	-- crawl plays from wherever they got to.
 	humanoid:MoveTo(self.Hole:GetPivot().Position)
 	local arrived = false
 	task.spawn(function()

@@ -1,5 +1,3 @@
--- Rare, harmless player oddities. The server owns when an effect starts; the head turn is rendered
--- only for the selected player's client.
 return {
 	Enabled = true,
 

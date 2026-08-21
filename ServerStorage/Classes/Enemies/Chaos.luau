@@ -1,7 +1,3 @@
---- @class Chaos
---- A fast, anchored enemy with no Humanoid. Its route and warning schedule are decided before it
---- enters the map; once spawned it only has to sweep along that route and kill exposed players.
-
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -16,9 +12,6 @@ local Vanished = require(ReplicatedStorage.Modules.Vanished)
 local ENEMY_TAG = "Enemy"
 local CHAOS_TAG = "Chaos"
 local MINIMUM_LEG = 1e-3
---- Multiple of `KillRange` within which a player who was not caught still counts as having met it.
---- Three, so the band that discovers a Chaos without killing anybody is about two corridor widths --
---- close enough that it went past you, wide enough that it does not require having nearly died.
 local NEAR_MISS_SCALE = 3
 
 local Chaos = {}
@@ -34,10 +27,6 @@ local function distanceToSegment(point: Vector3, origin: Vector3, destination: V
 	return (point - origin:Lerp(destination, alpha)).Magnitude
 end
 
---- Stops every emitter on the model and returns how long what is already in the air has left to live.
---- Disabling an emitter only stops new particles, so destroying the model in the same breath cuts the
---- trail off mid-flight; this is the wait that lets it burn out instead. Read off the emitters rather
---- than hardcoded, so retiming the effect in Studio retimes the despawn with it.
 local function stopParticles(model: Model): number
 	local linger = 0
 	for _, descendant in model:GetDescendants() do
@@ -75,8 +64,6 @@ end
 function Chaos:_killAlong(origin: Vector3, destination: Vector3)
 	for _, player in Players:GetPlayers() do
 		if RoomService:IsInRoom(player) then continue end
-		-- It has no perception to spare anybody with, so this is the only place a Chaos can honour a
-		-- vanish: it sweeps the corridor exactly as it would have, and whoever is not there is not hit.
 		if Vanished.Is(player.Character) then continue end
 
 		local character = player.Character
@@ -89,11 +76,6 @@ function Chaos:_killAlong(origin: Vector3, destination: Vector3)
 			DeathService:RecordCause(player, self.EnemyId)
 			humanoid.Health = 0
 		elseif distance <= self.Config.KillRange * NEAR_MISS_SCALE then
-			-- Close enough to have been the thing that nearly killed them. A Chaos travels at seventy
-			-- studs a second, so there is no looking at one -- the encounter is being in the corridor
-			-- it came down and not being where it went, which is why this is what discovers it rather
-			-- than a sighting rule. Survivors learn it; anybody who took the warning and left the
-			-- corridor entirely does not, which is the correct trade for having played it safe.
 			EnemyDiscoveryService:GrantEvent(player, self.EnemyId)
 		end
 	end
@@ -146,8 +128,6 @@ function Chaos:Despawn()
 
 	task.defer(function()
 		self.StateMachine:Stop()
-		-- Nothing is left to kill anybody by now: both tags are off, `Active` is false, and the model
-		-- is only still in the world so the trail it already threw can finish where it was thrown.
 		task.wait(linger)
 		self.Model:Destroy()
 	end)

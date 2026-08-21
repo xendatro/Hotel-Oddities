@@ -3,19 +3,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local InventoryConfig = require(ReplicatedStorage.Configs.InventoryConfig)
 
---- @class ToolCounter
---- The "MARKERS 15/20" readout in the corner of the screen while a consumable tool is out.
----
---- Client only, and deliberately generic: anything with a stack worth watching while you use it can
---- put one up. Sits bottom right, clear of the hotbar and the backpack panel.
 local ToolCounter = {}
 ToolCounter.__index = ToolCounter
 
--- Font.fromEnum does not resolve the Montserrat enums to Montserrat, so the family is named outright.
 local FONT = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Bold)
 local UNLIMITED = "∞"
 
---- @param caption string -- what is being counted, shown before the number
 function ToolCounter.new(caption: string)
 	local self = setmetatable({}, ToolCounter)
 
@@ -47,7 +40,6 @@ function ToolCounter.new(caption: string)
 	return self
 end
 
---- Shows `remaining` of `total`, or the infinity mark when called with nothing.
 function ToolCounter:Set(remaining: number?, total: number?)
 	if not self.Label.Parent then return end
 

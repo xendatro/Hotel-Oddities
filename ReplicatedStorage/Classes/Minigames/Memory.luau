@@ -1,25 +1,3 @@
---- MEMORY.EXE -- sixteen face-down cards, eight pairs, turn them all up to open the lock.
----
---- This is the touch player's Minesweeper. A minefield asks for a fingertip on a 54-pixel square and
---- for a second mouse button nobody carrying a phone has; a memory board asks for one tap on a card
---- the size of a thumb and nothing else at all. So the cards are deliberately enormous -- the grid is
---- only four by four precisely so that each cell can be huge -- and there is no keyboard input, no
---- modifier, no second button and no drag. Every interaction in this game is "tap a card".
----
---- The mismatch pause is the one piece of time in the game, and it is a `task.delay` guarded by a
---- generation counter rather than a Heartbeat state machine: there is exactly one timer, it exists at
---- most once, and a reset or a teardown that lands inside it simply moves the generation on so the
---- callback finds a board it no longer belongs to and returns. Input is locked for its duration --
---- letting a third card turn while two are still deciding is how a memory game gets an unwinnable
---- board.
----
---- Colour is decoration here and the glyph is the identity. The framework hands out four colours that
---- read at a glance against the panel, so eight glyphs share them two apiece; no two cards that share
---- a colour ever share a character, and green is spent entirely on "matched" so that a solved pair
---- reads as solved from across the room.
-
---- Mirrors the framework's Theme. A child of a folder module cannot require its own parent without
---- going in a circle, so the shape is restated and the values are handed over at construction.
 type Theme = {
 	Font: Enum.Font,
 	Background: Color3,
@@ -32,18 +10,15 @@ type Theme = {
 	TextDim: Color3,
 }
 
---- `Sound` is optional so that a framework built before the sound layer existed still satisfies this
---- contract; every call site here checks for it rather than assuming it.
 type Api = {
 	Complete: () -> (),
+	Fail: ((reason: string?) -> ())?,
 	Theme: Theme,
 	Sound: ((name: string, pitch: number?) -> ())?,
 }
 
 type Glyph = {
 	Char: string,
-	--- Which entry of the handed-out palette paints this glyph. Never "Accent": that colour means
-	--- matched, and a card must not wear the win state before it has earned it.
 	Color: string,
 }
 
@@ -52,26 +27,19 @@ local ROWS = 4
 local CARDS = COLUMNS * ROWS
 local PAIRS = CARDS // 2
 
---- Eight characters that are unmistakable from each other at a glance and that the Arcade font
---- actually draws: four letters/digits and four symbols, so a wrong guess is obvious even to someone
---- who has stopped reading and is going on shape alone.
 local GLYPHS: { Glyph } = {
-	{ Char = "A", Color = "Primary" },
-	{ Char = "7", Color = "Text" },
-	{ Char = "#", Color = "Danger" },
-	{ Char = "X", Color = "TextDim" },
-	{ Char = "O", Color = "Primary" },
-	{ Char = "%", Color = "Text" },
-	{ Char = "+", Color = "Danger" },
-	{ Char = "=", Color = "TextDim" },
+	{ Char = "🐸", Color = "Primary" },
+	{ Char = "🚀", Color = "Text" },
+	{ Char = "💀", Color = "Danger" },
+	{ Char = "🔑", Color = "TextDim" },
+	{ Char = "👾", Color = "Primary" },
+	{ Char = "🍕", Color = "Text" },
+	{ Char = "⚡", Color = "Danger" },
+	{ Char = "💾", Color = "TextDim" },
 }
 
---- What the back of a card says. One character, so it centres the same way the faces do.
 local BACK_CHAR = "?"
 
---- Big on purpose: the whole reason this game exists instead of Minesweeper is that a finger can hit
---- it. 150x104 with a 14 gap fills 642x458 of the 784x532 the framework gives us, leaving the header
---- its band and a comfortable margin all round.
 local CARD_WIDTH = 150
 local CARD_HEIGHT = 104
 local GAP = 14
@@ -81,27 +49,20 @@ local BOARD_HEIGHT = ROWS * CARD_HEIGHT + (ROWS - 1) * GAP
 local HEADER_HEIGHT = 40
 local HEADER_GAP = 16
 
---- How long a mismatched pair stays face up before it turns back. Long enough to memorise both
---- cards, short enough that it never feels like being told off.
 local FLIP_BACK_TIME = 0.7
 
 local Memory = {}
 Memory.__index = Memory
 
---- Helpers --------------------------------------------------------------------------------------
-
 local function addStroke(parent: GuiObject, color: Color3, thickness: number): UIStroke
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = color
 	stroke.Thickness = thickness
-	-- Border rather than Contextual: the chunky outside edge is the look the whole set shares.
 	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	stroke.Parent = parent
 	return stroke
 end
 
---- A fresh deal: each of the eight glyphs twice, shuffled in place. Fisher-Yates over `math.random`
---- is plenty -- nothing here needs a reproducible stream, only an unpredictable one.
 local function newLayout(): { number }
 	local layout: { number } = {}
 	for pair = 1, PAIRS do
@@ -117,9 +78,6 @@ local function newLayout(): { number }
 	return layout
 end
 
---- Whether a restored snapshot is still a board this game can deal. Saved state outlives nothing but
---- the session, but a truncated or hand-edited one should quietly start a new game rather than throw
---- on the player or hand them a board with three of one glyph on it.
 local function isValidSave(saved: any): boolean
 	if typeof(saved) ~= "table" then return false end
 
@@ -149,8 +107,6 @@ local function isValidSave(saved: any): boolean
 	return true
 end
 
---- Construction ---------------------------------------------------------------------------------
-
 function Memory.new(root: Frame, api: Api): any
 	local self = setmetatable({}, Memory)
 
@@ -162,36 +118,25 @@ function Memory.new(root: Frame, api: Api): any
 	self.Strokes = {} :: { UIStroke }
 	self.Connections = {} :: { RBXScriptConnection }
 
-	--- Which glyph sits on each card, whether that card is solved, and whether it is currently
-	--- turned over. Three flat arrays of sixteen, which is also exactly what gets serialised.
 	self.Layout = {} :: { number }
 	self.Matched = {} :: { boolean }
 	self.FaceUp = {} :: { boolean }
 
-	--- The one unresolved card, if the player is mid-guess.
 	self.Pending = nil :: number?
-	--- True only while a mismatched pair is on show; taps do nothing until it clears.
 	self.Locked = false
 	self.Found = 0
 	self.Moves = 0
 	self.Won = false
-	--- Bumped by every reset and by teardown, so a flip-back that belongs to an older board knows to
-	--- do nothing when it finally fires.
 	self.Generation = 0
 
 	return self
 end
 
---- Drawing --------------------------------------------------------------------------------------
-
---- The colour a face-up, not-yet-matched card wears.
 function Memory:_glyphColor(index: number): Color3
 	local glyph = GLYPHS[self.Layout[index]]
 	return if glyph then (self.Theme :: any)[glyph.Color] else self.Theme.Text
 end
 
---- The look of one card, from whatever is currently true about it. Called per card rather than per
---- board wherever only one card changed, so a tap repaints one thing.
 function Memory:_paint(index: number)
 	local theme: Theme = self.Theme
 	local button: TextButton? = self.Buttons[index]
@@ -202,8 +147,6 @@ function Memory:_paint(index: number)
 	local glyph = GLYPHS[pair]
 
 	if self.Matched[index] then
-		-- Solved cards are filled, not outlined: eight blocks of green is the win state announcing
-		-- itself before the fanfare ever gets a chance to.
 		button.BackgroundColor3 = theme.Accent
 		button.TextColor3 = theme.Background
 		button.Text = if glyph then glyph.Char else BACK_CHAR
@@ -215,8 +158,6 @@ function Memory:_paint(index: number)
 		button.BackgroundColor3 = theme.Panel
 		button.TextColor3 = self:_glyphColor(index)
 		button.Text = if glyph then glyph.Char else BACK_CHAR
-		-- While a wrong pair is being shown both of its cards wear the danger edge, which is the only
-		-- feedback the mismatch gets and the only reason the pause reads as deliberate.
 		stroke.Color = if self.Locked then theme.Danger else self:_glyphColor(index)
 		return
 	end
@@ -252,9 +193,6 @@ function Memory:_updateHeader()
 	end
 end
 
---- Rules ----------------------------------------------------------------------------------------
-
---- Turns the pending mismatched pair back over. Only ever reached through the guarded delay below.
 function Memory:_flipBack()
 	self.Locked = false
 
@@ -270,15 +208,11 @@ function Memory:_flipBack()
 end
 
 function Memory:_tap(index: number)
-	-- Everything that makes a tap meaningless, in one place: the game is over, a mismatch is still on
-	-- show, the card is already solved, or it is the card the player just turned.
 	if self.Won or self.Locked then return end
 	if self.Matched[index] or self.FaceUp[index] then return end
 
 	self.FaceUp[index] = true
 	self:_paint(index)
-	-- The second card of a guess turns a shade higher than the first, so the pair reads as a pair
-	-- before either the match chime or the buzz has said which kind it was.
 	if self.Api.Sound then
 		self.Api.Sound("Flip", if self.Pending then 1.12 else 1)
 	end
@@ -289,7 +223,6 @@ function Memory:_tap(index: number)
 		return
 	end
 
-	-- A move is a guess, not a tap: the counter ticks when the second card lands.
 	self.Pending = nil
 	self.Moves += 1
 
@@ -297,8 +230,6 @@ function Memory:_tap(index: number)
 		self.Matched[first] = true
 		self.Matched[index] = true
 		self.Found += 1
-		-- A step up per pair, so a board that is nearly solved sounds nearly solved. The eighth pair
-		-- gets no extra ending of its own: the framework's jingle is already following it.
 		if self.Api.Sound then
 			self.Api.Sound("Chime", 1 + (self.Found - 1) * 0.06)
 		end
@@ -321,8 +252,6 @@ function Memory:_tap(index: number)
 
 	local generation = self.Generation
 	task.delay(FLIP_BACK_TIME, function()
-		-- A reset or a teardown in the meantime has already turned these cards over, or thrown the
-		-- whole board away; either way this timer belongs to a game that no longer exists.
 		if self.Generation ~= generation then return end
 		self:_flipBack()
 	end)
@@ -332,18 +261,13 @@ function Memory:_win()
 	if self.Won then return end
 	self.Won = true
 
-	-- Nothing is left to tap and no timer is outstanding, but bumping the generation makes that true
-	-- by construction rather than by argument.
 	self.Generation += 1
 	self.Locked = false
 	self.Pending = nil
 	self:_updateHeader()
 
-	-- Last, because the framework tears this game down from inside the fanfare that follows.
 	self.Api.Complete()
 end
-
---- Building -------------------------------------------------------------------------------------
 
 function Memory:_build()
 	local theme: Theme = self.Theme
@@ -424,8 +348,6 @@ function Memory:_build()
 		self.Buttons[index] = card
 		self.Strokes[index] = addStroke(card, theme.Panel, 3)
 
-		-- `Activated` rather than `MouseButton1Click`: it is the one signal that a touch, a click and
-		-- a gamepad button all arrive on, and this game deliberately accepts nothing else.
 		table.insert(
 			self.Connections,
 			card.Activated:Connect(function()
@@ -434,8 +356,6 @@ function Memory:_build()
 		)
 	end
 end
-
---- Contract -------------------------------------------------------------------------------------
 
 function Memory:Start(saved: any?)
 	self:_build()
@@ -448,16 +368,12 @@ function Memory:Start(saved: any?)
 				self.Found += 1
 			end
 		end
-		-- Found counts cards, not pairs, until here; a snapshot with an odd count is impossible from
-		-- `Serialize` but costs nothing to survive.
 		self.Found //= 2
 
 		if typeof(saved.Moves) == "number" then
 			self.Moves = math.max(0, math.floor(saved.Moves))
 		end
 
-		-- At most one unsolved card may come back face up. Two would be a guess frozen mid-air with
-		-- no timer left to resolve it, so the pair is simply returned to the deck.
 		local up: number? = nil
 		local count = 0
 		for index = 1, CARDS do
@@ -478,8 +394,6 @@ function Memory:Start(saved: any?)
 end
 
 function Memory:Serialize(): any?
-	-- A board that was never played is not worth coming back to, and a solved one has nothing left to
-	-- come back to. Both hand back nothing so the framework clears the slot.
 	if self.Won or #self.Layout ~= CARDS then return nil end
 	if self.Moves == 0 and self.Found == 0 and not self.Pending then return nil end
 
@@ -487,8 +401,6 @@ function Memory:Serialize(): any?
 	for index = 1, CARDS do
 		layout[index] = self.Layout[index]
 		matched[index] = self.Matched[index] == true
-		-- A mismatched pair caught mid-pause is written down face down: it was a tenth of a second
-		-- from turning over anyway, and remembering it would resume a guess nobody can finish.
 		faceUp[index] = self.FaceUp[index] == true and not self.Locked
 	end
 
@@ -501,7 +413,6 @@ function Memory:Serialize(): any?
 end
 
 function Memory:Reset()
-	-- Retires any outstanding flip-back before the board underneath it changes.
 	self.Generation += 1
 
 	self.Layout = newLayout()
@@ -517,8 +428,6 @@ function Memory:Reset()
 end
 
 function Memory:Destroy()
-	-- Stops a pending flip-back from touching a board that is no longer on screen, and any further
-	-- tap from being counted.
 	self.Generation += 1
 	self.Won = true
 	self.Locked = true
@@ -531,8 +440,6 @@ function Memory:Destroy()
 	table.clear(self.Buttons)
 	table.clear(self.Strokes)
 
-	-- Teardown can arrive on a half-built game -- a fault partway through `Start` still gets closed
-	-- down -- so nothing here assumes a label, a board or a card ever existed.
 	self.PairsLabel = nil
 	self.MovesLabel = nil
 	self.Message = nil

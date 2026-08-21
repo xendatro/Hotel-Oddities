@@ -1,7 +1,5 @@
 local RunService = game:GetService("RunService")
 
---- @class Spin
---- Rotates a tagged part or model locally at the object's RPS attribute.
 local Spin = {}
 Spin.__index = Spin
 

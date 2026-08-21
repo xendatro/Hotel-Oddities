@@ -1,18 +1,3 @@
---- Client-only presentation for `Eye`: the stare and the float it hangs on. Every viewer turns each
---- Eye to look back at their own camera, so the thing that charges you for looking at it is always
---- looking at you, and drifts a little either side of where the server put it while it does.
----
---- Nothing here is trusted with anything and nothing here replicates. The model's parts are anchored
---- and server-owned, so a CFrame written on this machine goes no further than this screen -- which is
---- what makes a per-viewer stare possible at all: four players in a corridor are each stared at, and
---- no two of them have to agree about where it is pointing. A client that lied to itself about the
---- angle would see an Eye looking somewhere it is not, and would be billed for looking at it on
---- precisely the same terms either way. The server neither knows nor cares which way it faces.
----
---- It is aimed at the camera rather than at the character because the camera is what the damage is
---- scored off in `Eye:GetViewAngle` -- pointing it anywhere else would be an Eye that avoids your eye
---- while it bills you for meeting its own.
-
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -38,18 +23,14 @@ end
 local localPlayer = Players.LocalPlayer
 
 type Render = {
-	Anchor: Vector3, -- where the server put it, which the bob is measured either side of
+	Anchor: Vector3,
 	Phase: number,
-	Aimed: boolean, -- whether it has been pointed at this camera yet, which the first aim skips ahead
+	Aimed: boolean,
 }
 
 local Eyes: { [Model]: Render } = {}
 
 TagService:Listen(EYE_TAG, function(model: Instance): Render
-	-- The true position is read once and kept. Every frame after this writes a bobbed one, so asking
-	-- the model where it is would be asking it where this service last drew it -- and a bob measured
-	-- from that would climb the corridor a third of a stud at a time. An Eye never moves, so the one
-	-- reading stays good for as long as the model is alive.
 	local render: Render = {
 		Anchor = (model :: Model):GetPivot().Position,
 		Phase = Bob.NewPhase(),
@@ -65,9 +46,6 @@ RunService:BindToRenderStep(RENDER_BIND_NAME, Enum.RenderPriority.Camera.Value +
 	local camera = workspace.CurrentCamera
 	if not camera then return end
 
-	-- Hidden by the spell book means hidden from this too. It keeps whatever angle it had rather than
-	-- looking away, and it keeps floating -- an Eye that lost you is still an Eye. What the book buys
-	-- is that it stops following, in the one place a player can stand and watch it stop.
 	local character = localPlayer.Character
 	local tracking = not Vanished.Is(character)
 
@@ -80,19 +58,13 @@ RunService:BindToRenderStep(RENDER_BIND_NAME, Enum.RenderPriority.Camera.Value +
 		local distance = (cameraPosition - position).Magnitude
 
 		if model:GetAttribute(STUNNED_ATTRIBUTE) then
-			-- Looking straight down needs an explicit forward-compatible up vector: the usual Y-up is
-			-- parallel to this direction and leaves roll undefined.
 			local goal = CFrame.lookAt(position, position - Vector3.yAxis, Vector3.zAxis).Rotation
 			rotation = Aim.Ease(rotation, goal, EyeConfig.StunTurnRate, deltaTime)
 			render.Aimed = true
 		elseif tracking and distance > MINIMUM_DIRECTION and distance < EyeConfig.TrackRange then
-			-- The mesh's pupil sits on the model's own LookVector, so aiming it is the whole of this.
 			local goal = Aim.Toward(position, cameraPosition)
 			rotation = if render.Aimed
 				then Aim.Ease(rotation, goal, EyeConfig.TurnRate, deltaTime)
-				-- The first aim is instant, and unseen. An Eye spawns out of everybody's sight and
-				-- facing away from whoever it was drawn for, so easing from that would spend its
-				-- first second sweeping around from wherever the server happened to leave it.
 				else goal
 			render.Aimed = true
 		end

@@ -7,11 +7,6 @@ local COLORS = InventoryConfig.Colors
 local TRANSPARENCY = InventoryConfig.Transparency
 local VIEWPORT = ItemShopConfig.Viewport
 
---- @class InventorySlot
---- One square of the inventory. Owns its frame and nothing else: it does not know what a tool is,
---- how equipping works, or where it sits in the layout. `InventoryUIService` drives it by calling
---- `SetTool`/`SetEmpty`/`SetEquipped`, which keeps every piece of input handling in one place
---- rather than scattered across dozens of per-slot connections.
 local InventorySlot = {}
 InventorySlot.__index = InventorySlot
 
@@ -44,8 +39,6 @@ local function clearViewport(viewport: ViewportFrame)
 	viewport.CurrentCamera = nil
 end
 
--- Draws the real tool model instead of relying on a separate icon asset. The copy lives only in a
--- WorldModel, with scripts, sounds and live effects stripped so an inventory preview stays inert.
 local function renderTool(viewport: ViewportFrame, toolName: string)
 	clearViewport(viewport)
 
@@ -70,8 +63,6 @@ local function renderTool(viewport: ViewportFrame, toolName: string)
 		end
 	end
 	clone.Parent = world
-	-- Tool templates keep whatever world CFrame they were saved with (several lie pitched -90°),
-	-- so re-pivot to identity to stand the preview upright, as ItemsUIService does.
 	world:PivotTo(CFrame.identity)
 
 	local boundsCFrame, boundsSize = world:GetBoundingBox()
@@ -83,8 +74,6 @@ local function renderTool(viewport: ViewportFrame, toolName: string)
 	camera.Parent = viewport
 	viewport.CurrentCamera = camera
 
-	-- Frame the tool exactly the way its shop card does, honouring the same per-item
-	-- Yaw/Pitch/Zoom overrides so both UIs show every item from one agreed angle.
 	local entry = ItemShopConfig.EntriesById[toolName]
 	local radius = math.max(boundsSize.X, boundsSize.Y, boundsSize.Z) * 0.5 * VIEWPORT.Padding
 	local distance = radius / math.tan(math.rad(VIEWPORT.FieldOfView) * 0.5)
@@ -96,9 +85,6 @@ local function renderTool(viewport: ViewportFrame, toolName: string)
 	camera.CFrame = CFrame.lookAt(boundsCFrame.Position + direction * distance, boundsCFrame.Position)
 end
 
---- Builds an empty slot.
---- @param index number -- position in the overall layout, 1-based
---- @param showNumber boolean -- whether to draw the keyboard hint (hotbar slots only)
 function InventorySlot.new(index: number, showNumber: boolean): InventorySlot
 	local self = setmetatable({}, InventorySlot)
 
@@ -131,7 +117,6 @@ function InventorySlot.new(index: number, showNumber: boolean): InventorySlot
 	icon.Parent = frame
 	self.Icon = icon
 
-	-- Stands in for the icon until real art exists, so a slot is never blank.
 	local label = Instance.new("TextLabel")
 	label.Name = "Label"
 	label.BackgroundTransparency = 1
@@ -178,8 +163,6 @@ function InventorySlot.new(index: number, showNumber: boolean): InventorySlot
 	return self
 end
 
---- Fills the slot in. Passing a quantity of 1 or less clears the count rather than leaving a stale
---- one behind -- the specific thing FFM's version never did, so a spent stack kept reading "x3".
 function InventorySlot:SetTool(toolName: string, quantity: number, icon: string?)
 	local changed = self.ToolName ~= toolName
 	self.ToolName = toolName
@@ -192,7 +175,6 @@ function InventorySlot:SetTool(toolName: string, quantity: number, icon: string?
 	self.Quantity.Text = quantity > 1 and `x{quantity}` or ""
 end
 
---- Empties the slot, clearing every label with it.
 function InventorySlot:SetEmpty()
 	self.ToolName = nil
 	self.Frame.Visible = false
@@ -211,7 +193,6 @@ function InventorySlot:SetEquipped(equipped: boolean)
 	self.Frame.BackgroundColor3 = equipped and COLORS.SlotEquipped or COLORS.Slot
 end
 
---- Highlights the slot a drag is currently hovering over.
 function InventorySlot:SetDropTarget(active: boolean)
 	self.Frame.BackgroundColor3 = active and COLORS.SlotDropTarget or COLORS.Slot
 end

@@ -6,11 +6,6 @@ local HallwayStreamingService = require(script.Parent.HallwayStreamingService)
 
 local PlayerLocatorConfig = require(ReplicatedStorage.Configs.PlayerLocatorConfig)
 
---- Owns the locator's teleport and the cooldown on it.
----
---- The client picks the target and nothing else. Both characters are re-checked here -- alive, in the
---- world, not the same one -- and the cooldown is measured on the server, so a client that never
---- draws a countdown still cannot teleport more than once a minute.
 local PlayerLocatorService = {}
 
 local Teleport = ReplicatedStorage.Communication.PlayerLocator.Teleport
@@ -33,12 +28,10 @@ local function livingRoot(target: Player): BasePart?
 	return root
 end
 
---- Seconds before `player` may teleport again, or 0 when they may now.
 function PlayerLocatorService:GetCooldown(player: Player): number
 	return math.max((NextTeleport[player] or 0) - os.clock(), 0)
 end
 
---- Moves `player` to `target`, if everything is still true. Returns whether it happened.
 function PlayerLocatorService:Teleport(player: Player, target: Player): boolean
 	if target == player then return false end
 	if self:GetCooldown(player) > 0 then return false end
@@ -47,14 +40,11 @@ function PlayerLocatorService:Teleport(player: Player, target: Player): boolean
 	local targetRoot = livingRoot(target)
 	if not root or not targetRoot then return false end
 
-	-- Behind them, facing the way they face: they are the first thing the arriving player sees.
 	local destination = targetRoot.CFrame * CFrame.new(0, 0, PlayerLocatorConfig.ArriveDistance)
 	if not HallwayStreamingService:PrepareTeleport(player, destination.Position) then
 		return false
 	end
 
-	-- The target may have moved or died while its destination streamed. Re-check before changing
-	-- the character's CFrame, so a failed preparation never strands somebody in an unloaded area.
 	root = livingRoot(player)
 	targetRoot = livingRoot(target)
 	if not root or not targetRoot then return false end
@@ -73,8 +63,6 @@ Teleport.OnServerEvent:Connect(function(player: Player, target: any)
 		PlayerLocatorService:Teleport(player, target)
 	end
 
-	-- Answered either way. A refused request is still worth a reply: it is how a client whose
-	-- countdown has drifted, or was never drawn, gets the real number back.
 	Teleport:FireClient(player, PlayerLocatorService:GetCooldown(player))
 end)
 

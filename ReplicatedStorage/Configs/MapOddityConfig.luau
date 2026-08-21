@@ -1,4 +1,3 @@
--- Rare, harmless oddities that affect one complete straight hallway run.
 return {
 	Enabled = true,
 

@@ -5,10 +5,6 @@ local ServerTool = require(ServerStorage.Classes.ServerTool)
 
 local Other = ReplicatedStorage.Props.Other
 
---- @class Trap
---- The bear trap. Activating drops an armed `TrapObject` at the player's feet and spends one.
---- Placements are a shared FIFO queue: the trap past the cap removes the oldest, so a long round
---- cannot carpet the map in them.
 local Trap = ServerTool.extend("Trap")
 
 local Placed: { Model } = {}

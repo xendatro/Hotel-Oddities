@@ -1,7 +1,3 @@
---- @class CeilingDweller
---- A Chaser delivered by a ceiling vent. It uses the Chaser state machine unchanged, but a vent can
---- hand it the player who opened the ambush so its initial state is Chase rather than Idle.
-
 local ServerStorage = game:GetService("ServerStorage")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,7 +9,6 @@ local NPC = require(ServerStorage.Classes.NPC)
 local DROP_SPEED = 22
 local DROP_TIME_MIN = 0.2
 local DROP_TIME_MAX = 1.25
-local SCREAM_HOLD_TIME = 2
 
 local function getCameraEvent(): RemoteEvent
 	local communication = ReplicatedStorage:FindFirstChild("Communication")
@@ -138,14 +133,32 @@ local function dropToFloor(self)
 	return true
 end
 
+local function getNearestPlayer(self): Player?
+	local nearest, nearestDistance = nil, math.huge
+	for _, player in Players:GetPlayers() do
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if root and humanoid and humanoid.Health > 0 then
+			local distance = (root.Position - self.RootPart.Position).Magnitude
+			if distance < nearestDistance then
+				nearest, nearestDistance = player, distance
+			end
+		end
+	end
+	return nearest
+end
+
 function CeilingDweller:Start()
-	local target = self.InitialTarget
+	local target = self.InitialTarget or getNearestPlayer(self)
 	self.InitialTarget = nil
 	self.DropTarget = target
 
+	self.Animator:Start()
+	self.Animator:SetMovementTrack("Run")
+	self.Animator:SetMovementSpeed(self.Config.ChaseSpeed)
+
 	if target then
-		-- NPC:Start starts the state machine on a spawned task. Seed Chase before that task exists so
-		-- the first state it ever runs is pursuit; interrupting Idle afterward can lose the race.
 		self.Target = target
 		self.StateMachine.State = "Chase"
 		self.StateMachine.Parameters = table.pack("Chase", self, target)
@@ -154,9 +167,17 @@ function CeilingDweller:Start()
 	if not dropToFloor(self) then return end
 	if target and target.Parent == Players then
 		CameraEvent:FireClient(target, "Scream")
-		task.wait(SCREAM_HOLD_TIME)
 	end
 	self.DropTarget = nil
+
+	self.Animator.MovementSpeedOverride = nil
+	self.Animator:SetMovementTrack(nil)
+
+	local character = target and target.Character
+	local targetRoot = character and character:FindFirstChild("HumanoidRootPart")
+	if targetRoot then
+		self.Humanoid:MoveTo(targetRoot.Position)
+	end
 	NPC.Start(self)
 end
 

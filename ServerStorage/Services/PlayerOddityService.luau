@@ -194,8 +194,6 @@ local function chooseKind(playerCount: number): string?
 	return nil
 end
 
---- Starts one oddity on `player`. A nil kind uses the same weighted random pick as the automatic
---- scheduler; callers that need a specific effect can pass Size, Transparency, or HeadStare.
 function PlayerOddityService:Trigger(player: Player, kind: string?): (boolean, string?, string?)
 	if not Config.Enabled then return false, nil, "player oddities are disabled" end
 

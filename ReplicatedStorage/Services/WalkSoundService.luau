@@ -9,8 +9,11 @@ if not RunService:IsClient() then
 end
 
 local AudioService = require(ReplicatedStorage.Services.AudioService)
+local CrouchConfig = require(ReplicatedStorage.Configs.CrouchConfig)
 local WalkSoundConfig = require(ReplicatedStorage.Configs.WalkSoundConfig)
 local TagService = require(ReplicatedStorage.Services.TagService)
+
+local STEALTH = CrouchConfig.Stealth
 
 local ENEMY_TAG = "Enemy"
 local DEFAULT_WALK_SPEED = 16
@@ -91,7 +94,6 @@ local function watchModel(
 	stopModel(model)
 
 	if silenceDefault then
-		-- Roblox's own footsteps, an AudioPlayer since character sounds moved to the new audio API.
 		local defaultWalkSound = rootPart:WaitForChild("Running") :: AudioPlayer
 		defaultWalkSound.Volume = 0
 	else
@@ -106,9 +108,20 @@ local function watchModel(
 	local timeUntilStep = 0
 	local stepInterval = DEFAULT_STEP_INTERVAL
 
+	local function isCrouching(): boolean
+		return model:GetAttribute(STEALTH.Attribute) == true
+	end
+
 	local function playFootstep()
 		local template = FootstepTemplates[math.random(#FootstepTemplates)]
-		local audioPlayer = AudioService:Play3DSound(template, rootPart, false, "SFX", audioSettings)
+		local settings = if isCrouching()
+			then {
+				Volume = STEALTH.StepVolume,
+				PlaybackSpeed = STEALTH.StepPlaybackSpeed,
+				DistanceAttenuationBounds = NumberRange.new(0, STEALTH.StepMaxDistance),
+			}
+			else audioSettings
+		local audioPlayer = AudioService:Play3DSound(template, rootPart, false, "SFX", settings)
 		if trackRootMovement then
 			configureEnemyAttenuation(audioPlayer)
 		end
@@ -143,6 +156,9 @@ local function watchModel(
 
 			if not isMoving then return end
 			local frequencyMultiplier = if trackRootMovement then 1 else WalkSoundConfig.PlayerStepFrequencyMultiplier
+			if isCrouching() then
+				frequencyMultiplier *= STEALTH.StepFrequencyMultiplier
+			end
 			local newStepInterval = getStepInterval(humanoid, currentSpeed) / frequencyMultiplier
 			if math.abs(newStepInterval - stepInterval) > 0.001 then
 				if timeUntilStep > 0 then
@@ -194,8 +210,6 @@ end
 local function watchEnemy(instance: Instance): CharacterState?
 	if not instance:IsA("Model") then return nil end
 
-	-- The Enemy tag can replicate before the model's rig descendants do. Wait at this replication
-	-- boundary so a tagged patrol is not missed just because its Humanoid arrived one packet later.
 	local humanoid = instance:WaitForChild("Humanoid", 5) :: Humanoid?
 	local rootPart = instance:WaitForChild("HumanoidRootPart", 5) :: BasePart?
 	if not humanoid or not rootPart or not humanoid.EvaluateStateMachine then return nil end

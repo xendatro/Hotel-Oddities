@@ -1,14 +1,14 @@
---- Plans Chaos routes and their light warnings, for the director and for the chat command alike.
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
+local Hallways = require(ReplicatedStorage.Modules.Hallways)
 local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyService = require(ServerStorage.Services.EnemyService)
 local HallwayGraphService = require(ServerStorage.Services.HallwayGraphService)
 local LightService = require(ServerStorage.Services.LightService)
+local MapOddityService = require(ServerStorage.Services.MapOddityService)
 
 local ROUTE_ATTEMPTS = 20
 local DIRECTION_TIE_EPSILON = 0.05
@@ -29,8 +29,6 @@ local function horizontal(vector: Vector3): Vector3
 	return Vector3.new(vector.X, 0, vector.Z)
 end
 
--- Where Chaos travels through a corridor node: above the floor rather than inside it. The graph puts
--- its nodes at the floor part's own center and leaves the height to whatever is standing on them.
 local function routePosition(node: RouteNode): Vector3
 	return node.Position + Vector3.yAxis * Config.RouteHeight
 end
@@ -42,9 +40,6 @@ local function hasUnvisitedExit(node: RouteNode, visited: { [RouteNode]: boolean
 	return false
 end
 
---- Every way on from `current` Chaos has not already crossed, best first: a branch that continues
---- outranks one that stops here, and among equals the straightest continuation of the leg being
---- travelled wins. Directions too close to call are ordered at random.
 local function orderedExits(
 	previous: RouteNode?,
 	current: RouteNode,
@@ -62,9 +57,6 @@ local function orderedExits(
 			local outgoing = horizontal(neighbor.Position - current.Position).Unit
 			score += incoming:Dot(outgoing)
 		end
-		-- A preference for the worse half of the hotel, not a requirement to reach it. Weighted well
-		-- under the straightness term on purpose: turned up, Chaos visibly doubles back towards a hot
-		-- pocket, which reads as broken rather than as menacing.
 		score += DangerMapService:GetDanger(neighbor.Position) * DangerConfig.RouteDangerWeight
 
 		table.insert(options, neighbor)
@@ -77,11 +69,6 @@ local function orderedExits(
 	return options
 end
 
---- The route Chaos travels from `start`, or nil if no dead end is reachable from there.
----
---- Chaos is only allowed to stop where the corridor does, so the route is searched rather than walked:
---- a leg that traps the walk among nodes it has already crossed is taken back out again and the next
---- direction tried instead. The first path that reaches a node with one exit becomes the route.
 local function planRoute(start: RouteNode): { Vector3 }?
 	local visited: { [RouteNode]: boolean } = { [start] = true }
 	local path = { start }
@@ -154,6 +141,35 @@ local function scheduleWarnings(route: { Vector3 }, token: WarningToken): number
 			LightService:WarnRed(light, arrival - delay)
 		end)
 	end
+
+	local seenSpans: { [string]: boolean } = {}
+	local travelled = 0
+	for index, point in route do
+		if index > 1 then
+			travelled += horizontal(point - route[index - 1]).Magnitude
+		end
+
+		local span = Hallways.StraightSpanAt(point)
+		if not span then continue end
+
+		local key = string.format(
+			"%d:%d:%d:%d",
+			math.round(span.Center.X),
+			math.round(span.Center.Z),
+			math.round(math.abs(span.Axis.X) * 10),
+			math.round(math.abs(span.Axis.Z) * 10)
+		)
+		if seenSpans[key] then continue end
+		seenSpans[key] = true
+
+		local arrival = Config.SpawnDelay + travelled / Config.WalkSpeed
+		local delay = math.max(0, arrival - Config.WarningTime)
+		task.delay(delay, function()
+			if token.Cancelled then return end
+			MapOddityService:Warn(point, arrival - delay)
+		end)
+	end
+
 	return warningCount
 end
 
@@ -164,61 +180,39 @@ local function removePending(token: WarningToken)
 	end
 end
 
---- One eligible starting node, drawn towards the dangerous end of the hotel. Which corridor Chaos
---- comes screaming out of is felt far more than any turn it takes later, so this is where the danger
---- map earns most of its influence over this enemy.
-local function drawStart(): RouteNode?
-	local starts = {}
-	local cumulative = {}
-	local total = 0
+local SPAN_HEIGHT_WINDOW = 24
+local SPAN_WIDTH_SLACK = 2
 
+local function farthestNodeInHallway(position: Vector3): RouteNode?
+	local span = Hallways.StraightSpanAt(position)
+	local hallway = Hallways.At(position)
+	if not span or not hallway then return nil end
+
+	local across = Vector3.yAxis:Cross(span.Axis).Unit
+	local playerAlong = (position - span.Center):Dot(span.Axis)
+
+	local best, bestDistance = nil, -1
 	for _, node in HallwayGraphService:Get() do
-		if node.CanBeDestination
-			and next(node.Neighbors)
-			and HallwayGraphService:IsFarFromPlayers(node.Position, Config.SpawnPlayerDistance) then
-			-- Never zero, so a hotel whose corridors are all fairly safe still gets a Chaos somewhere
-			-- rather than none at all.
-			total += 0.1 + DangerMapService:GetDanger(node.Position) ^ (Config.DangerBias or 1)
-			table.insert(starts, node)
-			table.insert(cumulative, total)
-		end
-	end
-	if #starts == 0 or total <= 0 then return nil end
+		if not next(node.Neighbors) then continue end
 
-	local roll = math.random() * total
-	for index, ceiling in cumulative do
-		if roll <= ceiling then
-			return starts[index]
+		local offset = node.Position - span.Center
+		local height = node.Position.Y - hallway.FloorY
+		if height > SPAN_HEIGHT_WINDOW or height < -SPAN_HEIGHT_WINDOW then continue end
+		if math.abs(offset:Dot(across)) > hallway.HalfWidth + SPAN_WIDTH_SLACK then continue end
+
+		local along = offset:Dot(span.Axis)
+		if math.abs(along) > span.Length / 2 then continue end
+
+		local distance = math.abs(along - playerAlong)
+		if distance > bestDistance then
+			best, bestDistance = node, distance
 		end
 	end
-	return starts[#starts]
+	return best
 end
 
---- Plans one route, starts its light warnings now, and places Chaos after the shortened spawn delay.
---- `onSpawned` is called with the enemy if and when it actually reaches the world, which is the only
---- way a caller can get hold of something that does not exist for another few seconds.
----
---- Lights no longer decide whether a route is legal. They used to: a candidate was rejected unless at
---- least one light sat near enough to warn, which quietly made unlit corridors ineligible and cost a
---- good deal of route variety. Lights are a consequence of Chaos, not a constraint on it -- the
---- telegraph belongs in sound.
-function ChaosService:Spawn(onSpawned: ((any) -> ())?): boolean
-	local route, token
-	for _ = 1, ROUTE_ATTEMPTS do
-		local start = drawStart()
-		if not start then return false end
-
-		local candidate = planRoute(start)
-		if candidate then
-			route = candidate
-			token = { Cancelled = false }
-			break
-		end
-	end
-	if not route or not token then
-		warn("[Chaos] found no route ending at a dead end")
-		return false
-	end
+local function beginRoute(route: { Vector3 }, requireClearance: boolean, onSpawned: ((any) -> ())?): boolean
+	local token: WarningToken = { Cancelled = false }
 
 	scheduleWarnings(route, token)
 
@@ -228,7 +222,9 @@ function ChaosService:Spawn(onSpawned: ((any) -> ())?): boolean
 		if token.Cancelled then return end
 
 		local origin = route[1]
-		if not HallwayGraphService:IsFarFromPlayers(origin, Config.SpawnPlayerDistance) then
+		if requireClearance
+			and not HallwayGraphService:IsFarFromPlayers(origin, Config.SpawnPlayerDistance)
+		then
 			token.Cancelled = true
 			warn("[Chaos] cancelled because a player approached its planned spawn")
 			return
@@ -247,7 +243,68 @@ function ChaosService:Spawn(onSpawned: ((any) -> ())?): boolean
 	return true
 end
 
---- Cancels command-spawned Chaos routes that are still in their pre-spawn warning.
+local function drawStart(): RouteNode?
+	local starts = {}
+	local cumulative = {}
+	local total = 0
+
+	for _, node in HallwayGraphService:Get() do
+		if node.CanBeDestination
+			and next(node.Neighbors)
+			and HallwayGraphService:IsFarFromPlayers(node.Position, Config.SpawnPlayerDistance) then
+			total += 0.1 + DangerMapService:GetDanger(node.Position) ^ (Config.DangerBias or 1)
+			table.insert(starts, node)
+			table.insert(cumulative, total)
+		end
+	end
+	if #starts == 0 or total <= 0 then return nil end
+
+	local roll = math.random() * total
+	for index, ceiling in cumulative do
+		if roll <= ceiling then
+			return starts[index]
+		end
+	end
+	return starts[#starts]
+end
+
+function ChaosService:Spawn(onSpawned: ((any) -> ())?): boolean
+	local route
+	for _ = 1, ROUTE_ATTEMPTS do
+		local start = drawStart()
+		if not start then return false end
+
+		local candidate = planRoute(start)
+		if candidate then
+			route = candidate
+			break
+		end
+	end
+	if not route then
+		warn("[Chaos] found no route ending at a dead end")
+		return false
+	end
+
+	return beginRoute(route, true, onSpawned)
+end
+
+function ChaosService:SpawnInHallway(player: Player, onSpawned: ((any) -> ())?): boolean
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then return false end
+
+	local start = farthestNodeInHallway(root.Position)
+	if not start then return false end
+
+	local route = planRoute(start)
+	if not route then
+		warn("[Chaos] no route out of the caller's hallway ends at a dead end")
+		return false
+	end
+
+	return beginRoute(route, false, onSpawned)
+end
+
 function ChaosService:CancelPending(): number
 	local count = #PendingTokens
 	for _, token in PendingTokens do

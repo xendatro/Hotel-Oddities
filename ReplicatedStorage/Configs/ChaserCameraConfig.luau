@@ -1,28 +1,43 @@
---- Client-only tuning for the Chaser's proximity shake. Distances are in studs and angles are in degrees.
 return {
-	EffectRange = 55,
-	FullIntensityDistance = 12,
 	FadeInSpeed = 10,
 	FadeOutSpeed = 13,
-	PositionAmplitude = 0.06,
-	RotationAmplitude = 0.8,
-	Frequency = 8.5,
+	FovReleaseSpeed = 2.5,
 
-	-- The Ceiling Dweller is meant to unsettle without taking over the camera like a Chaser.
 	CeilingDweller = {
-		FieldOfView = 13,
-		PositionAmplitude = 0.03,
-		RotationAmplitude = 0.4,
+		FieldOfView = 49,
 	},
 
-	-- One-shot camera cues sent while a vent opens and the Dweller drops.
-	CeilingDwellerDrop = {
-		OpeningFieldOfView = 9,
-		FallStartFieldOfView = 12,
-		FallEndFieldOfView = 24,
-		ScreamFieldOfView = 36,
-		ScreamShake = 0.08,
-		ScreamRotation = 1.4,
-		ScreamDuration = 2,
+	MimicFovDelay = 0.25,
+
+	ChaseShakes = {
+		-- The plain hunter is the full takeover: heavy, everything moving.
+		Chaser = {
+			Range = 55,
+			FullIntensityDistance = 12,
+			Intensity = 0.8,
+			Roughness = 20,
+			MagnitudeScale = 5,
+			PositionInfluence = Vector3.new(0.25, 0.25, 0.25),
+			RotationInfluence = Vector3.new(1, 1, 1),
+		},
+		-- The Dweller's chase carries the vent-jolt's character: sharp and angry at full proximity.
+		CeilingDweller = {
+			Range = 55,
+			FullIntensityDistance = 12,
+			Intensity = 0.64,
+			Roughness = 32,
+			MagnitudeScale = 5,
+			PositionInfluence = Vector3.new(0.35, 0.35, 0.15),
+			RotationInfluence = Vector3.new(1, 1, 0.5),
+		},
+		Mimic = {
+			Range = 55,
+			FullIntensityDistance = 12,
+			Intensity = 0.25,
+			Roughness = 32,
+			MagnitudeScale = 5,
+			PositionInfluence = Vector3.new(0.2, 0.2, 0.1),
+			RotationInfluence = Vector3.new(0.5, 0.5, 0.25),
+		},
 	},
 }

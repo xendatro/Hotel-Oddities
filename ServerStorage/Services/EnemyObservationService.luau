@@ -2,26 +2,22 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ENEMY_TAG = "Enemy"
-local OBSERVABLE_TAG = "Observable" -- the enemies a client's view report is allowed to name
+local OBSERVABLE_TAG = "Observable"
 local MAX_REPORTED_ENEMIES = 16
 local MAX_REPORT_DISTANCE = 300
 local MIN_REPORT_INTERVAL = 0.025
 local MAX_REPORT_AGE = 0.2
--- Studs a reported camera may sit from the character it belongs to. First person puts it inside their
--- head; the allowance is for a zoomed-out third-person one, and for nothing else -- a client claiming
--- to be looking from across the building is claiming to see places it has no business seeing.
 local MAX_CAMERA_DISTANCE = 40
-local HEAD_OFFSET = 1.5 -- studs from an R15 root up to roughly where that character's head sits
-local UNIT_TOLERANCE = 0.01 -- slack on a reported look direction's length before it stops being one
+local HEAD_OFFSET = 1.5
+local UNIT_TOLERANCE = 0.01
 
 type Observation = {
 	Models: { [Model]: boolean },
-	Eye: Vector3?, -- where they reported looking from, when the claim was plausible
-	Look: Vector3?, -- and which way, as a unit vector
+	Eye: Vector3?,
+	Look: Vector3?,
 	ReceivedAt: number,
 }
 
---- One player's camera, reduced to what a "would they see something there" question needs.
 export type View = {
 	Eye: Vector3,
 	Look: Vector3,
@@ -85,7 +81,6 @@ UpdateView.OnServerEvent:Connect(function(player: Player, reportedModels: any, r
 	}
 end)
 
--- This player's latest report, while it is recent enough to still describe where they are looking.
 local function getFresh(player: Player): Observation?
 	local observation = Observations[player]
 	if observation and os.clock() - observation.ReceivedAt <= MAX_REPORT_AGE then
@@ -99,24 +94,10 @@ function EnemyObservationService:IsObservedBy(player: Player, model: Model): boo
 	return observation ~= nil and observation.Models[model] == true
 end
 
---- Whether this player's client is currently keeping the server up to date on what it can see.
----
---- False after a frame hitch, a jittery connection, or anything else that lets a report age out, and
---- the distinction matters to callers that must not read silence as blindness. `IsObservedBy` cannot
---- make that call for them -- a stale report names no models at all, so it is indistinguishable from
---- an honest "I can see nothing" -- so a caller that would act on the difference asks here first and
---- answers the question itself.
 function EnemyObservationService:IsReporting(player: Player): boolean
 	return getFresh(player) ~= nil
 end
 
---- Degrees between the middle of `player`'s screen and `model`, or nil while they are not looking at
---- it at all. Zero is dead center. Distance is not considered: this is where the thing sits in their
---- view, not how big it looms in it.
----
---- A report that names the model but gives no usable camera to have seen it from counts as dead
---- center, so a client that strips its own camera out of the report is answering for the worst case
---- rather than escaping the question.
 function EnemyObservationService:GetViewAngle(player: Player, model: Model): number?
 	local observation = getFresh(player)
 	if not observation or not observation.Models[model] then return nil end
@@ -129,17 +110,6 @@ function EnemyObservationService:GetViewAngle(player: Player, model: Model): num
 	return math.deg(math.acos(math.clamp(offset.Unit:Dot(look), -1, 1)))
 end
 
---- Where one player is looking from and which way, or nil for a player with no character.
----
---- Falls back to the top of their character and the way it faces when no fresh report is in hand,
---- for the same reason `GetEyes` does: a client that stops reporting should be treated as seeing
---- from where the server already knew it was, not as blind. Callers that need to know the difference
---- do not exist yet -- everything asking this wants the best available answer.
----
---- Note what the fallback costs and what it does not. Every client fires `UpdateView` on a timer
---- whether or not it can see anything, so a fresh report is the normal case; and the camera in it
---- has already been checked against `MAX_CAMERA_DISTANCE` by the time it is stored, so a player
---- cannot claim to be looking from across the building.
 function EnemyObservationService:GetView(player: Player): (Vector3?, Vector3?)
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -153,8 +123,6 @@ function EnemyObservationService:GetView(player: Player): (Vector3?, Vector3?)
 	return root.Position + Vector3.new(0, HEAD_OFFSET, 0), root.CFrame.LookVector
 end
 
---- Every living player's camera, as `GetView` reports it. What a placement that must not happen in
---- front of anybody asks, rather than asking after one player at a time and forgetting the rest.
 function EnemyObservationService:GetViews(): { View }
 	local views = {}
 
@@ -172,11 +140,6 @@ function EnemyObservationService:GetViews(): { View }
 	return views
 end
 
---- Whether `point` falls inside the `cone`-degree wedge somebody with this view is looking down.
----
---- Aim only: a point behind a wall is still within the cone, because the cheap half of "can they see
---- it" is the half worth asking first. A caller that means the whole question follows this with a
---- raycast of its own, which also lets it choose what that ray is allowed to be stopped by.
 function EnemyObservationService.IsWithinCone(view: View, point: Vector3, cone: number): boolean
 	if cone >= 360 then return true end
 
@@ -185,9 +148,6 @@ function EnemyObservationService.IsWithinCone(view: View, point: Vector3, cone: 
 	return math.deg(math.acos(math.clamp(offset.Unit:Dot(view.Look.Unit), -1, 1))) <= cone / 2
 end
 
---- Where every living player is looking from. A reported camera is used while it is fresh, and the top
---- of the character otherwise -- so a client that reports nothing, or reports somewhere it could not
---- possibly be, is treated as seeing from where the server already knew it was rather than as blind.
 function EnemyObservationService:GetEyes(): { Vector3 }
 	local eyes = {}
 

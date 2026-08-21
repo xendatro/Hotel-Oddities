@@ -1,16 +1,9 @@
---- Preloads every asset the game references, as early as a client can ask for anything.
----
---- Runs in the background rather than gating the join: PreloadAsync only warms the cache, so
---- nothing needs to wait on it -- the point is that textures, meshes and sounds are already local
---- by the time something first shows them, instead of popping in mid-round.
-
 local ContentProvider = game:GetService("ContentProvider")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterGui = game:GetService("StarterGui")
 local SoundService = game:GetService("SoundService")
 local Lighting = game:GetService("Lighting")
 
---- Instance classes that actually carry content ids; sweeping everything else is wasted work.
 local CONTENT_CLASSES = {
 	"MeshPart", "SpecialMesh", "Decal", "Texture",
 	"ImageLabel", "ImageButton", "Sound", "Animation",
@@ -36,7 +29,6 @@ task.spawn(function()
 		local batch = queue
 		queue = {}
 		total += #batch
-		-- A bad id in a batch must not abandon the rest of the sweep.
 		pcall(function()
 			ContentProvider:PreloadAsync(batch)
 		end)
@@ -49,12 +41,18 @@ task.spawn(function()
 		end
 	end
 
-	-- Ids referenced only from code never appear in the instance sweep.
 	local configs = ReplicatedStorage:WaitForChild("Configs")
 	local ok, effectsConfig = pcall(require, configs:WaitForChild("EffectsHUDConfig"))
 	if ok then
 		for _, id in effectsConfig.Icons do
 			if id ~= "" then enqueue(id) end
+		end
+	end
+
+	local okAnimations, animationConfig = pcall(require, configs:WaitForChild("AnimationConfig"))
+	if okAnimations then
+		for _, id in animationConfig.Animations do
+			enqueue(`rbxassetid://{id}`)
 		end
 	end
 

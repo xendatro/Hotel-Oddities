@@ -1,14 +1,3 @@
---- Temporary hand controls for the enemy system, in place of the old startup drop that put one of
---- every enemy on the tagged spawn whether or not anybody wanted them there.
----
---- Chat commands, all of which answer in the server output rather than in chat:
----   /spawn <enemy>  -- one of that enemy, using any placement rules specific to it
----   /spawn all      -- one of each
----   /despawn        -- clear every live enemy
----   /enemies        -- what is alive, and what can be spawned
----
---- Delete this file and the `EnemyCommands` flag once the enemy work is finished.
-
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
@@ -21,7 +10,7 @@ local EnemyService = require(ServerStorage.Services.EnemyService)
 local SistersService = require(ServerStorage.Services.SistersService)
 local WatcherService = require(ServerStorage.Services.WatcherService)
 
-local DEFAULT_SPAWN_DISTANCE = 20 -- studs in front of the caller: far enough to watch it approach
+local DEFAULT_SPAWN_DISTANCE = 20
 
 local EnemyCommandService = {}
 
@@ -29,7 +18,6 @@ if not (FLAGS.Enemies and FLAGS.EnemyCommands) then
 	return EnemyCommandService
 end
 
--- Every enemy id, spelled as `EnemyConfigs` spells it.
 local function enemyIds(): { string }
 	local ids = {}
 	for enemyId in EnemyConfigs do
@@ -39,7 +27,6 @@ local function enemyIds(): { string }
 	return ids
 end
 
--- The properly-cased id matching `name`, so the command does not care how it was typed.
 local function findEnemyId(name: string): string?
 	for _, enemyId in enemyIds() do
 		if enemyId:lower() == name:lower() then
@@ -49,9 +36,6 @@ local function findEnemyId(name: string): string?
 	return nil
 end
 
--- In front of the caller and turned to face them, which is where you want something you are about to
--- watch -- or behind them, for a negative distance, which is where you have to put something whose
--- whole behaviour is undone by being looked at. Nil while they have no character to stand near.
 local function spawnCFrame(player: Player, distance: number): CFrame?
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -62,11 +46,9 @@ local function spawnCFrame(player: Player, distance: number): CFrame?
 	return CFrame.lookAt(Vector3.new(spot.X, origin.Y, spot.Z), origin)
 end
 
--- Spawns one of `enemyId` for this caller, reporting whether it managed it. Chaos plans a remote
--- hallway route and warning first, and the Sisters a remote corridor to walk out of. A Watcher goes
--- through its own corner-placement service.
 local function spawnOne(player: Player, enemyId: string): boolean
 	if enemyId == "Chaos" then
+		if ChaosService:SpawnInHallway(player) then return true end
 		if ChaosService:Spawn() then return true end
 		warn(`[enemies] no MazeFloor route starts at least {EnemyConfigs.Chaos.SpawnPlayerDistance} studs from every player`)
 		return false
@@ -79,8 +61,6 @@ local function spawnOne(player: Player, enemyId: string): boolean
 	end
 
 	if enemyId == "Watcher" then
-		-- Watchers must never be placed in a generic position: that can put one in front of the
-		-- caller and breaks the enemy's central promise that it is never seen arriving.
 		if WatcherService:SpawnNear(player) then return true end
 		warn(`[enemies] no valid Watcher location found near {player.Name}; nothing spawned`)
 		return false
@@ -121,7 +101,7 @@ function Commands.spawn(player: Player, argument: string?)
 
 	local enemyId = argument and findEnemyId(argument)
 	if not enemyId then
-		warn(`[enemies] no enemy called "{argument or ""}" -- try: {table.concat(enemyIds(), ", ")}, all`)
+		warn(`[enemies] no enemy called "{argument or ""}" -- try one of: {table.concat(enemyIds(), ", ")}`)
 		return
 	end
 
@@ -135,6 +115,29 @@ function Commands.despawn()
 	local pendingChaos = ChaosService:CancelPending()
 	EnemyService:DespawnAll()
 	warn(`[enemies] despawned {count}; cancelled {pendingChaos} pending Chaos warnings`)
+end
+
+local VentCycle: { [Player]: number } = {}
+
+function Commands.vent(player: Player)
+	local character = player.Character
+	if not character then
+		warn(`[enemies] {player.Name} has no character to teleport`)
+		return
+	end
+
+	local vents = CeilingVentService:GetVents()
+	if #vents == 0 then
+		warn("[enemies] no usable ceiling vents registered")
+		return
+	end
+
+	local index = (VentCycle[player] or 0) % #vents + 1
+	VentCycle[player] = index
+	local vent = vents[index]
+	character:PivotTo(CFrame.new(vent.Floor + Vector3.yAxis * 4))
+	local status = if vent.Triggered then "already sprung" else "armed"
+	warn(`[enemies] {player.Name} -> vent {index}/{#vents} ({status}): {vent.Vent:GetFullName()}`)
 end
 
 function Commands.enemies()
@@ -161,8 +164,11 @@ local function watch(player: Player)
 end
 
 Players.PlayerAdded:Connect(watch)
+Players.PlayerRemoving:Connect(function(player: Player)
+	VentCycle[player] = nil
+end)
 for _, player in Players:GetPlayers() do
-	watch(player) -- already in before this service loaded
+	watch(player)
 end
 
 return EnemyCommandService

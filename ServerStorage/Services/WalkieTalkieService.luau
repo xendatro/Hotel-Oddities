@@ -6,6 +6,7 @@ local CollectionService = game:GetService("CollectionService")
 local VoiceChatService = game:GetService("VoiceChatService")
 
 local Config = require(ReplicatedStorage.Configs.WalkieTalkieConfig)
+local VoiceActivityService = require(ServerStorage.Services.VoiceActivityService)
 local NoiseService = require(ServerStorage.Services.NoiseService)
 
 local Communication = ReplicatedStorage:WaitForChild("Communication"):WaitForChild("WalkieTalkie")
@@ -25,6 +26,7 @@ local VoiceActivity = ensureRemote("VoiceActivity")
 
 local WalkieTalkieService = {}
 
+type AmbientRoute = { Fader: AudioFader, SourceWire: Wire, MixerWire: Wire }
 type State = {
 	Player: Player,
 	Tool: Tool,
@@ -44,23 +46,22 @@ type State = {
 	Source: AudioDeviceInput?,
 	SourceWire: Wire?,
 	OutputWires: { [Player]: { Output: AudioDeviceOutput, Wire: Wire } },
-	AmbientWires: { [AudioEmitter]: Wire },
+	AmbientRoutes: { [AudioEmitter]: AmbientRoute },
 	Connections: { RBXScriptConnection },
 	LastActiveAt: number,
 	Speaking: boolean,
 }
 
 type RelayBucket = { StartedAt: number, Count: number }
-type VoiceState = { Active: boolean, LastActiveAt: number, LastNoiseAt: number }
-type RelaySoundState = { Radio: State, LastNoiseAt: number }
+type RelaySoundState = { Radio: State, Id: string, Wire: Wire, LastNoiseAt: number }
 
 local States: { [Player]: State } = {}
 local Modes: { [Player]: string } = {}
 local FriendCache: { [string]: boolean } = {}
 local AmbientSources: { [AudioEmitter]: AudioPlayer } = {}
 local RelayBuckets: { [Player]: RelayBucket } = {}
-local VoiceStates: { [Player]: VoiceState } = {}
 local RelaySounds: { [AudioPlayer]: RelaySoundState } = {}
+local RelayIds: { [Player]: { [string]: AudioPlayer } } = {}
 local DeathConnections: { [Player]: RBXScriptConnection } = {}
 local CharacterConnections: { [Player]: RBXScriptConnection } = {}
 local AmbientNoiseAt: { [AudioEmitter]: number } = {}
@@ -116,14 +117,10 @@ local function getPlayerPosition(player: Player): Vector3?
 	return character:GetPivot().Position
 end
 
-local function emitPlayerNoise(player: Player, radius: number)
-	local position = getPlayerPosition(player)
-	if position then NoiseService:Emit(position, radius, player) end
-end
-
-local function emitRadioNoise(state: State, source: Player?)
+local function emitRadioNoise(state: State, source: Player?, strength: number?)
 	local position = getWorldPosition(state.Emitter) or getPlayerPosition(state.Player)
-	if position then NoiseService:Emit(position, Config.RadioNoiseRadius, source or state.Player) end
+	local radius = Config.RadioNoiseRadius * math.clamp(strength or 1, 0, 1)
+	if position and radius > 0 then NoiseService:Emit(position, radius, source or state.Player) end
 end
 
 local function cloneSoundPlayer(name: string, parent: Instance): AudioPlayer?
@@ -190,15 +187,38 @@ local function updateSpeaking(state: State, active: boolean)
 end
 
 local function disconnectAmbient(state: State, emitter: AudioEmitter)
-	local wires = state.AmbientWires[emitter]
-	if not wires then return end
-	wires:Destroy()
-	state.AmbientWires[emitter] = nil
+	local route = state.AmbientRoutes[emitter]
+	if not route then return end
+	route.SourceWire:Destroy()
+	route.MixerWire:Destroy()
+	route.Fader:Destroy()
+	state.AmbientRoutes[emitter] = nil
+end
+
+local function getAmbientPickupVolume(state: State, emitter: AudioEmitter): number
+	local emitterPosition = getWorldPosition(emitter)
+	local playerPosition = getPlayerPosition(state.Player)
+	if not emitterPosition or not playerPosition then return 0 end
+	local distanceAlpha = math.clamp((emitterPosition - playerPosition).Magnitude / Config.AmbientRange, 0, 1)
+	return (1 - distanceAlpha) ^ Config.AmbientPickupFalloff
 end
 
 local function connectAmbient(state: State, emitter: AudioEmitter, source: AudioPlayer)
-	if state.AmbientWires[emitter] then return end
-	state.AmbientWires[emitter] = connect(source, state.AmbientMixer, state.Audio)
+	local route = state.AmbientRoutes[emitter]
+	if route then
+		route.Fader.Volume = getAmbientPickupVolume(state, emitter)
+		return
+	end
+
+	local fader = Instance.new("AudioFader")
+	fader.Name = `AmbientPickup_{emitter.Name}`
+	fader.Volume = getAmbientPickupVolume(state, emitter)
+	fader.Parent = state.Audio
+	state.AmbientRoutes[emitter] = {
+		Fader = fader,
+		SourceWire = connect(source, fader, state.Audio),
+		MixerWire = connect(fader, state.AmbientMixer, state.Audio),
+	}
 end
 
 local function refreshAmbientSources()
@@ -319,6 +339,21 @@ local function playDeathBurst(sourcePlayer: Player)
 	player:Play()
 end
 
+local function stopRelaySound(source: AudioPlayer)
+	local relay = RelaySounds[source]
+	if not relay then return end
+	RelaySounds[source] = nil
+
+	local playerRelays = RelayIds[relay.Radio.Player]
+	if playerRelays and playerRelays[relay.Id] == source then
+		playerRelays[relay.Id] = nil
+	end
+
+	if source.IsPlaying then source:Stop() end
+	if relay.Wire.Parent then relay.Wire:Destroy() end
+	if source.Parent then source:Destroy() end
+end
+
 local function relayBucketAllows(player: Player): boolean
 	local now = os.clock()
 	local bucket = RelayBuckets[player]
@@ -348,43 +383,48 @@ function WalkieTalkieService:RegisterAmbientEmitter(emitter: AudioEmitter)
 	refreshAmbientSources()
 end
 
-function WalkieTalkieService:TransmitSound(player: Player, name: string)
+function WalkieTalkieService:StartSound(player: Player, relayId: string, name: string, looped: boolean)
 	local state = States[player]
 	if not state or not relayBucketAllows(player) then return end
 
 	local template = findRadioSoundTemplate(name)
 	if not template then return end
+
+	local playerRelays = RelayIds[player]
+	if not playerRelays then
+		playerRelays = {}
+		RelayIds[player] = playerRelays
+	end
+	local existing = playerRelays[relayId]
+	if existing then stopRelaySound(existing) end
+
 	local source = template:Clone()
 	source.Name = `RadioSound_{name}`
-	source.Looping = false
+	source.Looping = looped
 	source.Parent = state.Audio
 	emitRadioNoise(state)
 	local wire = connect(source, state.AmbientMixer, state.Audio)
-	RelaySounds[source] = { Radio = state, LastNoiseAt = os.clock() }
+	RelaySounds[source] = { Radio = state, Id = relayId, Wire = wire, LastNoiseAt = os.clock() }
+	playerRelays[relayId] = source
 	source.Ended:Once(function()
-		RelaySounds[source] = nil
-		if wire.Parent then wire:Destroy() end
-		if source.Parent then source:Destroy() end
+		stopRelaySound(source)
 	end)
 	source:Play()
 end
 
-function WalkieTalkieService:SetVoiceActivity(player: Player, active: boolean)
-	local now = os.clock()
-	local voiceState = VoiceStates[player]
-	if not voiceState then
-		voiceState = { Active = false, LastActiveAt = -math.huge, LastNoiseAt = -math.huge }
-		VoiceStates[player] = voiceState
-	end
-	voiceState.Active = active
-	if active then
-		voiceState.LastActiveAt = now
-		if now - voiceState.LastNoiseAt >= Config.NoiseInterval then
-			emitPlayerNoise(player, Config.VoiceNoiseRadius)
-			voiceState.LastNoiseAt = now
-		end
-	end
+function WalkieTalkieService:StopSound(player: Player, relayId: string)
+	local playerRelays = RelayIds[player]
+	local source = playerRelays and playerRelays[relayId]
+	if source then stopRelaySound(source) end
+end
 
+function WalkieTalkieService:SetLooping(player: Player, relayId: string, looped: boolean)
+	local playerRelays = RelayIds[player]
+	local source = playerRelays and playerRelays[relayId]
+	if source and source.Parent then source.Looping = looped end
+end
+
+function WalkieTalkieService:SetVoiceActivity(player: Player, active: boolean)
 	local state = States[player]
 	if state then updateSpeaking(state, active) end
 end
@@ -397,22 +437,6 @@ local function queueRebuild()
 		for _, state in States do
 			ensureOutputs(state)
 		end
-	end)
-end
-
-local function tuneVoiceInput(instance: Instance)
-	if instance:IsA("AudioDeviceInput") then
-		instance.Volume = Config.NormalVoiceVolume
-	end
-end
-
-local function watchVoiceInput(player: Player)
-	local source = player:FindFirstChild("AudioDeviceInput")
-	if source then tuneVoiceInput(source) end
-	player.ChildAdded:Connect(function(child)
-		if child.Name ~= "AudioDeviceInput" then return end
-		tuneVoiceInput(child)
-		queueRebuild()
 	end)
 end
 
@@ -454,7 +478,6 @@ local function connectSource(state: State)
 	if state.SourceWire then state.SourceWire:Destroy() end
 
 	state.Source = source
-	source.Volume = Config.NormalVoiceVolume
 	state.SourceWire = connect(source, state.Compressor, state.Tool)
 	queueRebuild()
 end
@@ -464,13 +487,13 @@ local function teardown(state: State)
 		connection:Disconnect()
 	end
 	for source, relay in RelaySounds do
-		if relay.Radio == state then RelaySounds[source] = nil end
+		if relay.Radio == state then stopRelaySound(source) end
 	end
 	for _, route in state.OutputWires do
 		route.Wire:Destroy()
 		route.Output:Destroy()
 	end
-	for emitter in state.AmbientWires do
+	for emitter in state.AmbientRoutes do
 		disconnectAmbient(state, emitter)
 	end
 	if state.ActivePlayer and state.ActivePlayer.IsPlaying then state.ActivePlayer:Stop() end
@@ -480,7 +503,7 @@ end
 
 local function handlePlayerDeath(player: Player)
 	local state = States[player]
-	local voiceState = VoiceStates[player]
+	local voiceState = VoiceActivityService:GetState(player)
 	local now = os.clock()
 	local active = (state ~= nil and state.Speaking)
 		or (voiceState ~= nil and (voiceState.Active or now - voiceState.LastActiveAt <= Config.DeathActiveGrace))
@@ -573,10 +596,33 @@ function WalkieTalkieService:Equip(player: Player, tool: Tool)
 	ambientMixer.Layout = Enum.AudioChannelLayout.Mono
 	local ambientFader = createEffect("AudioFader", "RadioAmbientVolume", audio) :: AudioFader
 	ambientFader.Volume = Config.RadioAmbientVolume
+	local taggedCompressor = createEffect("AudioCompressor", "TaggedCompressor", audio) :: AudioCompressor
+	taggedCompressor.Threshold = Config.Effects.Compressor.Threshold
+	taggedCompressor.Ratio = Config.Effects.Compressor.Ratio
+	taggedCompressor.Attack = Config.Effects.Compressor.Attack
+	taggedCompressor.Release = Config.Effects.Compressor.Release
+	taggedCompressor.MakeupGain = Config.Effects.Compressor.MakeupGain
+	local taggedBandpass = createEffect("AudioFilter", "TaggedBandpass", audio) :: AudioFilter
+	taggedBandpass.FilterType = Enum.AudioFilterType.Bandpass
+	taggedBandpass.Frequency = Config.Effects.Tagged.Bandpass.Frequency
+	taggedBandpass.Q = Config.Effects.Tagged.Bandpass.Q
+	local taggedEqualizer = createEffect("AudioEqualizer", "TaggedTone", audio) :: AudioEqualizer
+	taggedEqualizer.LowGain = Config.Effects.Tagged.Equalizer.LowGain
+	taggedEqualizer.MidGain = Config.Effects.Tagged.Equalizer.MidGain
+	taggedEqualizer.HighGain = Config.Effects.Tagged.Equalizer.HighGain
+	local taggedDistortion = createEffect("AudioDistortion", "TaggedStatic", audio) :: AudioDistortion
+	taggedDistortion.Level = Config.Effects.Tagged.DistortionLevel
+	local taggedLimiter = createEffect("AudioLimiter", "TaggedLimiter", audio) :: AudioLimiter
+	taggedLimiter.MaxLevel = Config.Effects.Limiter.MaxLevel
+	taggedLimiter.Release = Config.Effects.Limiter.Release
 	local activeFader = createEffect("AudioFader", "RadioActiveVolume", audio) :: AudioFader
 	activeFader.Volume = Config.Effects.Static.ActiveVolume
 	local radioOutputFader = createEffect("AudioFader", "RadioOutputVolume", audio) :: AudioFader
 	radioOutputFader.Volume = Config.RadioOutputVolume
+	local physicalMixer = createEffect("AudioChannelMixer", "RadioPhysicalMix", audio) :: AudioChannelMixer
+	physicalMixer.Layout = Enum.AudioChannelLayout.Mono
+	local physicalFader = createEffect("AudioFader", "RadioPhysicalVolume", audio) :: AudioFader
+	physicalFader.Volume = Config.RadioPhysicalVolume
 	local activePlayer = cloneSoundPlayer("RadioActive", audio)
 	if activePlayer then
 		activePlayer.Looping = false
@@ -585,7 +631,6 @@ function WalkieTalkieService:Equip(player: Player, tool: Tool)
 
 	local emitter = Instance.new("AudioEmitter")
 	emitter.Name = "RadioEmitter"
-	-- Keep the default listener group so the handheld radio can be heard in the world.
 	emitter.AudioInteractionGroup = ""
 	emitter.AcousticSimulationEnabled = true
 	emitter.OcclusionEnabled = Enum.SimulationMode.Enabled
@@ -601,11 +646,19 @@ function WalkieTalkieService:Equip(player: Player, tool: Tool)
 	connect(equalizer, distortion, audio)
 	connect(distortion, limiter, audio)
 	connect(ambientMixer, ambientFader, audio)
-	connect(ambientFader, compressor, audio)
+	connect(ambientFader, taggedCompressor, audio)
+	connect(taggedCompressor, taggedBandpass, audio)
+	connect(taggedBandpass, taggedEqualizer, audio)
+	connect(taggedEqualizer, taggedDistortion, audio)
+	connect(taggedDistortion, taggedLimiter, audio)
 	connect(limiter, mixer, audio, nil, "Input")
+	connect(taggedLimiter, mixer, audio, nil, "Input")
 	connect(activeFader, mixer, audio, nil, "Center")
 	connect(mixer, radioOutputFader, audio)
-	connect(radioOutputFader, emitter, audio)
+	connect(taggedLimiter, physicalMixer, audio, nil, "Input")
+	connect(activeFader, physicalMixer, audio, nil, "Center")
+	connect(physicalMixer, physicalFader, audio)
+	connect(physicalFader, emitter, audio)
 
 	local state: State = {
 		Player = player,
@@ -626,7 +679,7 @@ function WalkieTalkieService:Equip(player: Player, tool: Tool)
 		Source = nil,
 		SourceWire = nil,
 		OutputWires = {},
-		AmbientWires = {},
+		AmbientRoutes = {},
 		Connections = {},
 		LastActiveAt = -math.huge,
 		Speaking = false,
@@ -634,11 +687,11 @@ function WalkieTalkieService:Equip(player: Player, tool: Tool)
 	States[player] = state
 	RadioEquippedAt[player] = os.clock()
 	LastRadioPosition[player] = getWorldPosition(emitter) or getPlayerPosition(player)
-	local voiceState = VoiceStates[player]
+	local voiceState = VoiceActivityService:GetState(player)
 	if voiceState then
 		if voiceState.Active then
 			updateSpeaking(state, true)
-		elseif os.clock() - voiceState.LastActiveAt <= Config.VoiceActivity.TransmissionGrace then
+		elseif os.clock() - voiceState.LastActiveAt <= Config.TransmissionGrace then
 			playActiveTransmission(state)
 		end
 	end
@@ -686,8 +739,16 @@ if RunService:IsServer() then
 		if type(mode) == "string" then WalkieTalkieService:SetMode(player, mode) end
 	end)
 
-	TransmitSound.OnServerEvent:Connect(function(player: Player, name: any)
-		if type(name) == "string" then WalkieTalkieService:TransmitSound(player, name) end
+	TransmitSound.OnServerEvent:Connect(function(player: Player, action: any, relayId: any, name: any, looped: any)
+		if action == "Start" and type(relayId) == "string" and type(name) == "string" and type(looped) == "boolean" then
+			WalkieTalkieService:StartSound(player, relayId, name, looped)
+		elseif action == "Stop" and type(relayId) == "string" then
+			WalkieTalkieService:StopSound(player, relayId)
+		elseif action == "Loop" and type(relayId) == "string" and type(looped) == "boolean" then
+			WalkieTalkieService:SetLooping(player, relayId, looped)
+		elseif type(action) == "string" then
+			WalkieTalkieService:StartSound(player, tostring(os.clock()), action, false)
+		end
 	end)
 
 	VoiceActivity.OnServerEvent:Connect(function(player: Player, active: any)
@@ -709,22 +770,13 @@ RunService.Heartbeat:Connect(function(deltaTime)
 	for player, state in States do
 		local position = getWorldPosition(state.Emitter) or getPlayerPosition(player)
 		if position then LastRadioPosition[player] = position end
-	end
-
-	for player, voiceState in VoiceStates do
-		if voiceState.Active and now - voiceState.LastActiveAt > Config.VoiceActivity.Timeout then
-			voiceState.Active = false
-			local state = States[player]
-			if state then updateSpeaking(state, false) end
-		elseif voiceState.Active and now - voiceState.LastNoiseAt >= Config.NoiseInterval then
-			emitPlayerNoise(player, Config.VoiceNoiseRadius)
-			voiceState.LastNoiseAt = now
-		end
+		local voiceState = VoiceActivityService:GetState(player)
+		if state.Speaking and (not voiceState or not voiceState.Active) then updateSpeaking(state, false) end
 	end
 
 	for source, relay in RelaySounds do
 		if not source.Parent then
-			RelaySounds[source] = nil
+			stopRelaySound(source)
 		elseif now - relay.LastNoiseAt >= Config.NoiseInterval then
 			emitRadioNoise(relay.Radio)
 			relay.LastNoiseAt = now
@@ -733,16 +785,18 @@ RunService.Heartbeat:Connect(function(deltaTime)
 
 	for emitter, source in AmbientSources do
 		local owner: State? = nil
+		local route: AmbientRoute? = nil
 		for _, state in States do
-			if state.AmbientWires[emitter] then
+			if state.AmbientRoutes[emitter] then
 				owner = state
+				route = state.AmbientRoutes[emitter]
 				break
 			end
 		end
-		if owner and source.IsPlaying then
+		if owner and route and source.IsPlaying then
 			local lastNoiseAt = AmbientNoiseAt[emitter] or -math.huge
 			if now - lastNoiseAt >= Config.NoiseInterval then
-				emitRadioNoise(owner)
+				emitRadioNoise(owner, nil, route.Fader.Volume)
 				AmbientNoiseAt[emitter] = now
 			end
 		else
@@ -759,7 +813,6 @@ end)
 Players.PlayerAdded:Connect(function(player)
 	Modes[player] = "All"
 	player:SetAttribute("WalkieTalkieMode", "All")
-	watchVoiceInput(player)
 	watchCharacter(player)
 	queueRebuild()
 end)
@@ -772,7 +825,7 @@ Players.PlayerRemoving:Connect(function(player)
 	States[player] = nil
 	Modes[player] = nil
 	RelayBuckets[player] = nil
-	VoiceStates[player] = nil
+	RelayIds[player] = nil
 	RadioEquippedAt[player] = nil
 	LastRadioPosition[player] = nil
 	DeathConnections[player] = nil
@@ -790,7 +843,6 @@ end)
 for _, player in Players:GetPlayers() do
 	Modes[player] = "All"
 	player:SetAttribute("WalkieTalkieMode", "All")
-	watchVoiceInput(player)
 	watchCharacter(player)
 end
 

@@ -5,19 +5,6 @@ local RunService = game:GetService("RunService")
 
 local LookConfig = require(ReplicatedStorage.Configs.LookConfig)
 
---- Client half of look replication. Two jobs:
----
---- **Reporting.** At a modest cadence this sends where the local camera is aimed -- pitch, plus
---- the yaw left over between camera and body -- and the server stamps it onto the character as
---- attributes.
----
---- **Rendering.** Every other character carrying those attributes (other players, and any enemy
---- model the server tilts through the same channel, which today is a mirroring Mimic) gets its
---- Neck and Waist Motor6Ds nudged so the head and torso visibly follow the reported direction.
---- The tilt is layered onto `Transform` with the same un-apply/re-apply pair the Mimic's head
---- turn uses, so it stacks with whatever animation is playing instead of fighting it, and the two
---- systems stay out of each other's joints by construction: a mimic only carries look attributes
---- while it is mirroring, which is exactly when its own head-turn sits at identity.
 local LookService = {}
 
 if not RunService:IsClient() then
@@ -33,8 +20,6 @@ local Update = ReplicatedStorage
 	:WaitForChild("Communication")
 	:WaitForChild("Look")
 	:WaitForChild("Update") :: RemoteEvent
-
---- Reporting ---------------------------------------------------------------------------------------
 
 local lastSentPitch, lastSentYaw = 0, 0
 local nextSendAt = 0
@@ -52,7 +37,6 @@ local function report()
 	local look = camera.CFrame.LookVector
 	local pitch = math.asin(math.clamp(look.Y, -1, 1))
 
-	-- Whatever horizontal angle the body has not already turned through is what the head carries.
 	local yaw = 0
 	local flatLook = Vector3.new(look.X, 0, look.Z)
 	local flatBody = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
@@ -73,8 +57,6 @@ local function report()
 	Update:FireServer(pitch, yaw)
 end
 
---- Rendering ---------------------------------------------------------------------------------------
-
 type Applied = {
 	Neck: CFrame,
 	Waist: CFrame,
@@ -84,8 +66,6 @@ type Applied = {
 
 local applied: { [Model]: Applied } = {}
 
--- Characters here rig with AnimationConstraints, not Motor6Ds; both carry the Transform this
--- layers onto, so accept either rather than assuming the rig format.
 local function getMotor(model: Model, partName: string, motorName: string): any?
 	local part = model:FindFirstChild(partName)
 	local motor = part and part:FindFirstChild(motorName)
@@ -95,8 +75,6 @@ local function getMotor(model: Model, partName: string, motorName: string): any?
 	return nil
 end
 
---- Every model this client should be tilting right now: other players' characters, plus any
---- enemy model the server has stamped look attributes onto.
 local function collectTargets(): { Model }
 	local targets = {}
 
@@ -117,8 +95,6 @@ local function collectTargets(): { Model }
 	return targets
 end
 
--- Take last frame's contribution back off before the animation system writes this frame's pose,
--- for the joints animations happen not to touch this frame.
 RunService.PreAnimation:Connect(function()
 	for model, state in applied do
 		if model:IsDescendantOf(workspace) then
@@ -150,7 +126,6 @@ RunService.PreSimulation:Connect(function(deltaTime: number)
 		targetPitch = math.clamp(targetPitch, -LookConfig.MaxPitch, LookConfig.MaxPitch)
 		targetYaw = math.clamp(targetYaw, -LookConfig.MaxYaw, LookConfig.MaxYaw)
 
-		-- A dead body has no gaze.
 		local humanoid = model:FindFirstChildOfClass("Humanoid")
 		if humanoid and humanoid.Health <= 0 then
 			targetPitch, targetYaw = 0, 0
@@ -165,7 +140,6 @@ RunService.PreSimulation:Connect(function(deltaTime: number)
 		state.Pitch += (targetPitch - state.Pitch) * alpha
 		state.Yaw += (targetYaw - state.Yaw) * alpha
 
-		-- Positive X here tips the head back; a positive (upward) reported pitch maps straight onto it.
 		local neckConfig, waistConfig = LookConfig.Neck, LookConfig.Waist
 		state.Neck = CFrame.Angles(state.Pitch * neckConfig.Pitch, state.Yaw * neckConfig.Yaw, 0)
 		state.Waist = CFrame.Angles(state.Pitch * waistConfig.Pitch, state.Yaw * waistConfig.Yaw, 0)
@@ -175,7 +149,6 @@ RunService.PreSimulation:Connect(function(deltaTime: number)
 		seen[model] = true
 	end
 
-	-- Models that stopped carrying attributes still need one last frame of bookkeeping dropped.
 	for model in applied do
 		if not seen[model] then
 			applied[model] = nil

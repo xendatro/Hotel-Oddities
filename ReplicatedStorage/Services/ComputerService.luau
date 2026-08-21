@@ -1,38 +1,3 @@
---- The computers the player can break into. Every `HackComputer`-tagged model is registered here,
---- the one the cursor is resting on is worked out each frame exactly as the drawers do it, and
---- pressing the key hands the screen over to the minigame framework.
----
---- Hacking is PER PLAYER, so everything about a computer's state is local to this client: the set of
---- models THIS player has broken into is held here, the server sends it as a whole snapshot down the
---- `Sync` remote whenever it changes, and it is this file that paints the Neon screen part blue or
---- green. Two players at the same monitor genuinely see different colours, and one of them finishing
---- changes nothing on the other's screen, prompt or counter.
----
---- A win is marked here the instant the minigame reports it, before the server has answered, so the
---- screen turns green under the player's hand rather than a round trip later. The next snapshot
---- reconciles it either way -- if the server refused the claim the colour goes back.
----
---- A computer this player has already hacked is inert: it is skipped by the raycast entirely, so it
---- stops offering a prompt the moment the win lands rather than when the player next looks away.
----
---- What the rest of the client may call:
----   ComputerService:IsHacked(model): boolean
----   ComputerService.Changed: RBXScriptSignal   -- the local set changed; the HUD counts off this
----   ComputerService:GetFocused(): Model?
----   ComputerService:IsSessionOpen(): boolean
----   ComputerService:Activate(): boolean
----
---- A session is a small, reversible takeover of the client: the camera goes scriptable and rides out
---- to face the screen, the character's controls are switched off, and the mouse is handed back so it
---- can point at a gui. Every one of those is undone by a single `restore`, which is written to be
---- safe to call twice -- the EXIT button, the Q key, winning, dying and the model being destroyed
---- all end up there and none of them can be relied on to arrive alone.
----
---- The minigame framework (`MinigameService`) is required lazily and inside a pcall. It is a sibling
---- service written on its own schedule, and both of them are booted by the same loop over
---- ReplicatedStorage.Services in no particular order; this one has to register computers and draw
---- their screens whether or not the other has loaded yet.
-
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -61,19 +26,12 @@ local FOCUS_JOB = "ComputerFocus"
 local PROMPT_JOB = "ComputerPrompt"
 local SESSION_JOB = "ComputerSession"
 local HIGHLIGHT_FADE_SPEED = 16
---- Seconds after a session ends before the same computer can start another one. Stops a held key
---- from re-entering the moment the exit finishes.
 local REOPEN_COOLDOWN = 0.35
---- Seconds between attempts to find the minigame framework while it is not there.
 local MINIGAMES_RETRY = 1
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- Waited for with a timeout rather than indefinitely, exactly as the drawers do it: a place file
--- without the server service should cost this client its hacking, not its whole boot. Everything
--- below treats "no snapshot yet" as "nothing hacked", so the service is usable before either of
--- these arrives and simply corrects itself when the first snapshot lands.
 local communication = ReplicatedStorage:WaitForChild("Communication", 30)
 local folder = communication and communication:WaitForChild(ComputerConfig.Remotes.Folder, 30)
 local CompleteRemote = folder and folder:WaitForChild(ComputerConfig.Remotes.Complete, 30)
@@ -81,15 +39,11 @@ local SyncRemote = folder and folder:WaitForChild(ComputerConfig.Remotes.Sync, 3
 
 type State = {
 	Model: Model,
-	--- The idle display on the screen. Absent while the screen part itself is.
 	Gui: SurfaceGui?,
 	Plate: Frame?,
 	Label: TextLabel?,
 	Block: Frame?,
-	--- The assigned game's title, once the framework has been asked for it. False means "asked, and
-	--- the framework was not there", so it is not asked again every cycle.
 	Title: string | false | nil,
-	--- Held only while the screen part has not arrived yet; see `buildIdleWhenReady`.
 	Pending: RBXScriptConnection?,
 }
 
@@ -97,15 +51,12 @@ type Session = {
 	Model: Model,
 	Screen: BasePart,
 	Camera: Camera,
-	--- Everything the takeover overwrote, put back in `restore`.
 	SavedCFrame: CFrame,
 	SavedType: Enum.CameraType,
 	SavedMouseIcon: boolean,
 	SavedMouseBehavior: Enum.MouseBehavior,
 	SavedCursorEnabled: boolean,
 	Tween: Tween?,
-	--- Set once the ride out has landed, and held there for the rest of the session so nothing else
-	--- can nudge the camera off the screen.
 	Pinned: CFrame?,
 	Closed: boolean,
 	Connections: { RBXScriptConnection },
@@ -117,13 +68,8 @@ local highlightAlpha = 0
 local session: Session? = nil
 local lastClosed = 0
 
---- The computers THIS player has broken into. The server's snapshots are the source of truth; a win
---- writes into it optimistically and the next snapshot agrees or takes it back. Models are held
---- weakly so a torn-down maze does not stay pinned by a set nobody will look at again.
 local HackedSet: { [Model]: true } = (setmetatable({}, { __mode = "k" }) :: any) :: { [Model]: true }
 
---- Fired after any change to that set, with no arguments -- the HUD recounts rather than being told
---- what moved, which is the same thing for five computers and cannot go stale.
 local changed = Instance.new("BindableEvent")
 ComputerService.Changed = changed.Event
 
@@ -138,19 +84,31 @@ highlight.Enabled = false
 highlight.Adornee = nil
 highlight.Parent = workspace
 
---- The minigame framework -----------------------------------------------------------------------
+local function resetHighlight()
+	focused = nil
+	highlightAlpha = 0
+	highlight.Enabled = false
+	highlight.Adornee = nil
+	if highlight.Parent ~= workspace then
+		highlight.Parent = workspace
+	end
+end
+
+local function ensureHighlight()
+	if highlight.Parent ~= workspace then
+		highlight.Parent = workspace
+	end
+	if highlight.Adornee and not highlight.Adornee:IsDescendantOf(workspace) then
+		highlight.Adornee = nil
+		focused = nil
+		highlightAlpha = 0
+	end
+end
 
 local minigames: any = nil
 local nextMinigamesTry = 0
 local minigamesWarned = false
 
---- The framework, or nil while it does not exist. Required on demand rather than at the top of the
---- file: MinigameService is a sibling service written on its own schedule, and a missing or broken
---- one must cost this service a prompt that does nothing, not its whole registration pass.
----
---- Retried on a timer rather than latched off after one miss, because "not there" and "not there
---- YET" look identical from here -- a module still replicating would otherwise disable hacking for
---- the whole session.
 local function getMinigames(): any?
 	if minigames then return minigames end
 
@@ -174,9 +132,6 @@ local function getMinigames(): any?
 	return minigames
 end
 
---- Registration ---------------------------------------------------------------------------------
-
---- The glowing face of `model`, or nil while the models are still being fitted with one.
 local function screenOf(model: Model): BasePart?
 	local instance: Instance? = model
 	for _, name in ComputerConfig.ScreenPath do
@@ -191,11 +146,6 @@ local function isHacked(model: Model): boolean
 	return HackedSet[model] == true
 end
 
---- Colours the Neon face for what THIS player has done to this computer.
----
---- Written locally on every client rather than once on the server, because there is no one answer:
---- the same monitor is green for the player who cracked it and blue for the player beside them. A
---- Color3 written on the client never replicates, so nobody else's screen moves.
 local function paintScreen(model: Model)
 	local screen = screenOf(model)
 	if not screen then return end
@@ -205,29 +155,20 @@ local function paintScreen(model: Model)
 		else ComputerConfig.Colors.ScreenLocked
 end
 
---- The second line the idle screen alternates onto: what the framework has decided this computer
---- runs. Asked for once and remembered, since the answer cannot change while the maze stands.
 local function titleFor(state: State): string
 	if type(state.Title) == "string" then return state.Title :: string end
-	-- False means the framework was there and had no answer; that will not change, so stop asking.
 	if state.Title == false then return IDLE.FallbackText end
 
 	local framework = getMinigames()
 	if not framework then return IDLE.FallbackText end
 
 	local ok, id = pcall(function()
-		-- Resolved rather than dealt: on a phone the computer dealt Minesweeper actually plays Memory,
-		-- and a screen advertising a game the player is never going to be given is worse than one that
-		-- says nothing. Asked once, so a device that changes hands mid-session keeps the first answer.
 		return framework:ResolvedFor(state.Model)
 	end)
 	state.Title = if ok and type(id) == "string" then `{id:upper()}.EXE` else false
 	return if type(state.Title) == "string" then state.Title :: string else IDLE.FallbackText
 end
 
---- Draws the little "there is something here" display on the screen part itself. Display only: it
---- takes no input, and the real minigame arrives as a separate gui adorned to the same part. Answers
---- whether there was a screen to draw on, which is what the retry below waits for.
 local function buildIdle(state: State): boolean
 	if state.Gui then return true end
 
@@ -263,8 +204,6 @@ local function buildIdle(state: State): boolean
 	label.Text = IDLE.LockedText
 	label.Parent = plate
 
-	-- The blinking block under the words, which is the whole reason this reads as a terminal rather
-	-- than as a sign.
 	local block = Instance.new("Frame")
 	block.Name = "Block"
 	block.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -283,7 +222,6 @@ local function buildIdle(state: State): boolean
 	return true
 end
 
---- Repaints the idle display for whatever the local set now says.
 local function refreshIdle(state: State)
 	local label, plate, block = state.Label, state.Plate, state.Block
 	if not label or not plate or not block then return end
@@ -300,17 +238,8 @@ local function refreshIdle(state: State)
 	end
 end
 
---- The last step of ScreenPath -- the name of the part the idle display is drawn on.
 local SCREEN_NAME = ComputerConfig.ScreenPath[#ComputerConfig.ScreenPath]
 
---- Builds the idle display now if the screen part is there, and otherwise waits for it to turn up and
---- builds it then.
----
---- It usually is not there. With streaming on, a computer registers the moment its tag replicates and
---- the model's parts arrive afterwards, in whatever order the stream feels like -- so the first look
---- finds nothing, and a service that gave up there would leave every screen in the hotel dark for the
---- rest of the session. The listener is per-computer and comes down the moment it has done its job, or
---- when the computer is unregistered, whichever is first.
 local function buildIdleWhenReady(state: State)
 	if buildIdle(state) then return end
 
@@ -319,7 +248,6 @@ local function buildIdleWhenReady(state: State)
 		if not buildIdle(state) then return end
 
 		refreshIdle(state)
-		-- The part only exists as of now, so the colour written at registration went nowhere.
 		paintScreen(state.Model)
 
 		local pending = state.Pending
@@ -330,8 +258,6 @@ local function buildIdleWhenReady(state: State)
 	end)
 end
 
---- Declared ahead of everything that reaches for it: unregistering a computer, leaving, winning and
---- dying are all written before the one function that undoes a session.
 local restore: () -> ()
 
 local function register(model: Model): State?
@@ -349,8 +275,6 @@ local function register(model: Model): State?
 
 	buildIdleWhenReady(state)
 	refreshIdle(state)
-	-- A place file can have been saved with a green screen part on it, and a snapshot can already have
-	-- arrived for a computer that has only just streamed in. Either way the colour is settled here.
 	paintScreen(model)
 
 	States[model] = state
@@ -376,18 +300,12 @@ local function unregister(model: Model, state: State?)
 	end
 end
 
---- The local set --------------------------------------------------------------------------------
-
---- Puts every registered computer back in step with the set, and lets the HUD know. Cheap enough to
---- run over the lot rather than tracking which model moved: a hotel holds five of them.
 local function applyState()
 	for model, state in States do
 		refreshIdle(state)
 		paintScreen(model)
 	end
 
-	-- A computer that has just become hacked must stop offering its prompt this frame rather than the
-	-- next time the player looks away from it.
 	if focused and isHacked(focused) then
 		focused = nil
 	end
@@ -395,9 +313,6 @@ local function applyState()
 	changed:Fire()
 end
 
---- Replaces the set with the server's, which is the whole array of models this player has hacked.
---- Anything the server did not name is unhacked, so a rejected optimistic win is undone here without
---- the server having to say anything about it.
 local function applySnapshot(snapshot: any)
 	if type(snapshot) ~= "table" then return end
 
@@ -405,8 +320,6 @@ local function applySnapshot(snapshot: any)
 
 	table.clear(HackedSet)
 	for _, model in list do
-		-- A computer streamed out of this client does not arrive as an instance at all; there is
-		-- nothing on screen to colour, and the next snapshot will carry it again.
 		if typeof(model) == "Instance" and model:IsA("Model") then
 			HackedSet[model] = true
 		end
@@ -415,9 +328,6 @@ local function applySnapshot(snapshot: any)
 	applyState()
 end
 
---- Marks a computer hacked before the server has confirmed it. The win is the player's own and has
---- already been celebrated on their screen; making them wait a round trip for the colour would read
---- as the game not having noticed.
 local function markHacked(model: Model)
 	if HackedSet[model] then return end
 	HackedSet[model] = true
@@ -428,9 +338,6 @@ if SyncRemote then
 	(SyncRemote :: RemoteEvent).OnClientEvent:Connect(applySnapshot)
 end
 
---- Targeting ------------------------------------------------------------------------------------
-
---- The tagged model a part belongs to, if any.
 local function computerOf(part: BasePart): Model?
 	local instance: Instance? = part
 	while instance and instance ~= workspace do
@@ -466,8 +373,6 @@ local function findFocus(): Model?
 		if not result then return nil end
 
 		local model = computerOf(result.Instance)
-		-- A hacked computer is not looked past, it is simply not offered: the desk it sits on is
-		-- still solid, and walking round it should not suddenly find a drawer through the monitor.
 		if model then
 			return if isHacked(model) then nil else model
 		end
@@ -482,6 +387,7 @@ local function findFocus(): Model?
 end
 
 local function renderFocus(deltaTime: number)
+	ensureHighlight()
 	focused = if session then nil else findFocus()
 
 	if focused then
@@ -505,10 +411,6 @@ local function renderFocus(deltaTime: number)
 	highlight.OutlineTransparency = 1 - (1 - HIGHLIGHT.OutlineTransparency) * highlightAlpha
 end
 
---- The idle screens -----------------------------------------------------------------------------
-
--- One clock for every screen in the hotel rather than one timer each, so a row of computers blinks
--- together. It costs a loop over at most a handful of models a frame.
 RunService.Heartbeat:Connect(function()
 	local now = os.clock()
 	local showTitle = (now % (IDLE.CycleTime * 2)) >= IDLE.CycleTime
@@ -526,10 +428,6 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
---- The prompt -----------------------------------------------------------------------------------
-
--- Cloned rather than shared: the drawers own the original, and two systems fading one CanvasGroup
--- in opposite directions would flicker. A place file without the Cursor gui simply gets no prompt.
 local cursor = playerGui:WaitForChild("Cursor", 30) :: ScreenGui?
 local template = cursor and cursor:WaitForChild(UI.Container, 30)
 local container: CanvasGroup? = nil
@@ -567,10 +465,6 @@ if container then
 	end
 end
 
---- Lays the prompt out around a badge of the given width: padding, badge, gap, word, padding. The
---- word gets a fixed column rather than one measured from itself, so nothing moves as the badge
---- swaps between the keyboard and console labels. The group is the pill plus the room its outline
---- needs, since a CanvasGroup clips to its own bounds.
 local function layout(keyWidth: number)
 	if not (container and promptPill and promptKey and promptAction) then return end
 
@@ -583,8 +477,6 @@ local function layout(keyWidth: number)
 	promptAction.Position = UDim2.new(0, left, 0.5, 0)
 	promptAction.Size = UDim2.fromOffset(UI.TextWidth, UI.KeySize)
 end
-
---- Input ----------------------------------------------------------------------------------------
 
 local pressFlash = 0
 local touching = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
@@ -634,8 +526,6 @@ UserInputService.LastInputTypeChanged:Connect(function(inputType: Enum.UserInput
 	end
 end)
 
---- Drawing the prompt ---------------------------------------------------------------------------
-
 local promptAlpha = 0
 local shownGamepad: boolean? = nil
 
@@ -676,10 +566,6 @@ local function renderPrompt(deltaTime: number)
 	promptKey.BackgroundColor3 = COLORS.Key:Lerp(COLORS.KeyPressed, pressFlash)
 end
 
---- Sessions -------------------------------------------------------------------------------------
-
---- The character's own controls, if the PlayerModule is where it always is. Wrapped because a
---- module that has not replicated yet must cost a locked player, not a thrown error mid-takeover.
 local function controls(): any?
 	local scripts = player:FindFirstChild("PlayerScripts")
 	local module = scripts and scripts:FindFirstChild("PlayerModule")
@@ -703,16 +589,6 @@ local function setControlsEnabled(enabled: boolean)
 	end)
 end
 
---- How far out along the screen's normal the camera has to stand for the face to fill
---- `CAMERA.FillFraction` of the viewport's LIMITING side.
----
---- Worked out per session rather than authored as one number, because there is no one number: the
---- field of view is the vertical angle, so the horizontal half-angle depends on the shape of the
---- window, and a phone held upright and a widescreen monitor want distances that differ by half again.
---- Both candidates are computed and the larger wins -- the one that keeps the whole screen in shot.
---- The part's own depth is added back because the distance is measured from its centre while the glass
---- the player is reading sits in front of that, and the result is floored so a tiny screen part or a
---- daft field of view cannot push the camera inside the monitor.
 local function cameraDistance(screen: BasePart, camera: Camera): number
 	local size = screen.Size
 
@@ -730,9 +606,6 @@ local function cameraDistance(screen: BasePart, camera: Camera): number
 	return math.max(math.max(byHeight, byWidth) + size.Z, CAMERA.MinDistance)
 end
 
---- Runs after the camera every frame for as long as a session is up. The default camera module and
---- the first-person service both want the mouse locked and hidden, and they want it again every
---- frame, so it is taken back from them every frame rather than once on the way in.
 local function renderSession()
 	local current = session
 	if not current then return end
@@ -751,9 +624,6 @@ local function onExitAction(_action: string, inputState: Enum.UserInputState): E
 	return Enum.ContextActionResult.Sink
 end
 
---- Puts back everything a session took. Safe to call from anywhere and safe to call twice: winning,
---- leaving, dying and the computer being destroyed all end here, and more than one of them can be
---- true in the same frame.
 function restore()
 	local current = session
 	if not current or current.Closed then return end
@@ -765,9 +635,6 @@ function restore()
 		connection:Disconnect()
 	end
 
-	-- Close is idempotent and never calls OnExit back, which is what lets every way out of a session
-	-- -- the button, the key, winning, dying, the maze being rebuilt -- come through here and leave
-	-- exactly one teardown behind.
 	if minigames then
 		pcall(function()
 			minigames:Close()
@@ -783,8 +650,6 @@ function restore()
 
 	local camera = current.Camera
 	if camera.Parent then
-		-- Put the old view back before handing control over, so the frame in which the camera module
-		-- takes the wheel is already looking the right way.
 		camera.CFrame = current.SavedCFrame
 		camera.CameraType = current.SavedType
 	end
@@ -804,9 +669,6 @@ function restore()
 end
 
 local function onWin(model: Model)
-	-- Marked here first and told to the server second: the screen is green, the prompt is gone and the
-	-- counter has ticked before the remote has even left, and the server's snapshot lands behind it
-	-- agreeing. Nobody else's screen moves -- this computer is only hacked for this player.
 	markHacked(model)
 	if CompleteRemote then
 		(CompleteRemote :: RemoteEvent):FireServer(model)
@@ -814,25 +676,18 @@ local function onWin(model: Model)
 	restore()
 end
 
---- Reading the state ----------------------------------------------------------------------------
-
---- Whether THIS player has broken into `model`.
 function ComputerService:IsHacked(model: Model): boolean
 	return isHacked(model)
 end
 
---- The computer the cursor is resting on, or nil.
 function ComputerService:GetFocused(): Model?
 	return focused
 end
 
---- Whether a minigame is up on this client.
 function ComputerService:IsSessionOpen(): boolean
 	return session ~= nil
 end
 
---- Hands the screen of the computer being looked at over to the minigame framework. Answers whether
---- a session actually started, which is what the prompt flashes on.
 function ComputerService:Activate(): boolean
 	local model = focused
 	if not model or session or not States[model] then return false end
@@ -867,9 +722,6 @@ function ComputerService:Activate(): boolean
 	session = current
 	focused = nil
 
-	-- Front is the face the gui is drawn on, and a part's LookVector points straight out of it, so
-	-- this is the one place the camera can stand and see the whole canvas square-on. How far out is
-	-- measured against this player's actual viewport, now, rather than assumed.
 	local distance = cameraDistance(screen, camera)
 	local target = CFrame.lookAt(screen.Position + screen.CFrame.LookVector * distance, screen.Position)
 
@@ -896,12 +748,9 @@ function ComputerService:Activate(): boolean
 	end
 	local state = States[model]
 	if state and state.Gui then
-		-- The framework's own gui is about to adorn this part; two guis on one face is one too many.
 		state.Gui.Enabled = false
 	end
 
-	-- A death, a teleport or a maze rebuild during a minigame all leave the player stranded in a
-	-- scriptable camera otherwise, so each of them is wired straight to the same restore.
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
@@ -931,15 +780,14 @@ function ComputerService:Activate(): boolean
 	return true
 end
 
---- Stepping -------------------------------------------------------------------------------------
-
 layout(UI.KeySize)
 
 RunService:BindToRenderStep(FOCUS_JOB, Enum.RenderPriority.Camera.Value + 3, renderFocus)
 RunService:BindToRenderStep(PROMPT_JOB, Enum.RenderPriority.Last.Value, renderPrompt)
 
+player.CharacterRemoving:Connect(resetHighlight)
+player.CharacterAdded:Connect(resetHighlight)
+
 TagService:Listen(ComputerConfig.Tag, register, unregister, workspace)
 
 return ComputerService
-
-

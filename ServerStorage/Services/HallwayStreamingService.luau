@@ -1,4 +1,5 @@
 local CollectionService = game:GetService("CollectionService")
+local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -27,7 +28,6 @@ local CONNECTOR_MARGIN = 2
 local CONNECTOR_ALONG_MARGIN = 20
 local CONNECTOR_CROSS_MARGIN = 32
 local CONNECTION_VERTICAL_MARGIN = 4
--- Half-width an asset may reach across its corridor before it stops being that corridor's to own.
 local ASSET_CROSS_LIMIT = 24
 
 type Rect = {
@@ -75,11 +75,14 @@ type Group = {
 
 type PlayerState = {
 	Persistent: { [Model]: boolean },
+	Desired: { [Model]: boolean },
+	RetryAt: { [Model]: number },
 	CurrentGroup: string?,
 	Grace: { [string]: number },
 	HorizontalSpeed: number,
 	TeleportDesired: { [Model]: boolean }?,
 	TeleportDesiredExpires: number?,
+	LastMissingReport: number,
 }
 
 local GeneratedRoot: Folder?
@@ -91,12 +94,15 @@ local ConnectorGroups: { [Model]: { [string]: boolean } } = {}
 local GlobalModels: { Model } = {}
 local EnemyPlacements: { EnemyPlacement } = {}
 local PlayersState: { [Player]: PlayerState } = {}
+local ModelsByStreamingId: { [string]: Model } = {}
 local Ready = false
 local ReadyEvent = Instance.new("BindableEvent")
 local PendingTeleports: { [Player]: { Token: number, Done: BindableEvent } } = {}
 local TeleportToken = 0
 local Accumulator = 0
 local Active = false
+local ExpectedModelsRemote: RemoteEvent?
+local ReportMissingRemote: RemoteEvent?
 
 local function horizontal(vector: Vector3): Vector3
 	return Vector3.new(vector.X, 0, vector.Z)
@@ -123,18 +129,23 @@ local function getGeneratedRoot(): Folder
 	return folder
 end
 
-local function setPersistentMode(model: Model)
-	if model:HasTag(Config.ModelTag) then return end
+local function setPersistentMode(model: Model): boolean
+	local streamingId = model:GetAttribute(Config.ModelIdAttribute)
+	if type(streamingId) ~= "string" or (ModelsByStreamingId[streamingId] and ModelsByStreamingId[streamingId] ~= model) then
+		streamingId = HttpService:GenerateGUID(false)
+		model:SetAttribute(Config.ModelIdAttribute, streamingId)
+	end
+	ModelsByStreamingId[streamingId] = model
+	if not model:HasTag(Config.ModelTag) then model:AddTag(Config.ModelTag) end
+	if model.ModelStreamingMode == Enum.ModelStreamingMode.PersistentPerPlayer then return true end
 
-	-- The tag is how a client tells which of these models it has actually received; a name lookup
-	-- over the whole workspace is far too slow to run every frame of a teleport wait.
-	model:AddTag(Config.ModelTag)
 	local ok, err = pcall(function()
 		model.ModelStreamingMode = Enum.ModelStreamingMode.PersistentPerPlayer
 	end)
 	if not ok then
 		warn(`[HallwayStreamingService] Could not set PersistentPerPlayer on {model:GetFullName()}: {err}`)
 	end
+	return ok
 end
 
 local function rectFromPart(part: BasePart): Rect
@@ -323,8 +334,6 @@ local function buildGroups(spans: { any })
 		end
 	end
 
-	-- Keep the exact crossing point. A whole neighbor list loses which junction led to which
-	-- corridor and ends up loading preview chunks at every junction on that corridor.
 	for firstIndex, first in Groups do
 		for secondIndex = firstIndex + 1, #Groups do
 			local second = Groups[secondIndex]
@@ -368,7 +377,6 @@ end
 
 local GlobalModel: Model?
 
---- One model every player keeps, for assets that cannot belong to a single chunk.
 local function getGlobalModel(): Model
 	if GlobalModel and GlobalModel.Parent then return GlobalModel end
 
@@ -397,7 +405,6 @@ local function getAssetPosition(instance: Instance): Vector3
 	return Vector3.zero
 end
 
---- World axis-aligned size, so a rotated part is measured by the space it actually occupies.
 local function getAssetExtents(instance: Instance): Vector3
 	if instance:IsA("Model") then return instance:GetExtentsSize() end
 	if not instance:IsA("BasePart") then return Vector3.zero end
@@ -457,10 +464,6 @@ local function nearestSegment(
 	return nearest
 end
 
---- A whole corridor is always loaded together, so an asset may run as far along a span as it likes.
---- Across the span it may not: a wall running the length of one corridor sits broadside to the
---- perpendicular corridor whose centre happens to be nearest, and picking that one leaves a gap in
---- the wall the perpendicular corridor never fills.
 local function chooseOwningSegment(position: Vector3, extents: Vector3): Segment?
 	local nearest: Segment? = nil
 	local best = math.huge
@@ -501,8 +504,6 @@ local function assignMapAssets(mazeRoot: Instance)
 	for _, root in roots do
 		if not root.Parent or root:IsDescendantOf(getGeneratedRoot()) or isIgnored(root) then continue end
 
-		-- A map-wide asset such as the carpet union covers every corridor at once. Parenting it to
-		-- the chunk nearest its centre deletes it from the whole map whenever that chunk is out.
 		local extents = getAssetExtents(root)
 		if math.max(extents.X, extents.Z) > Config.GlobalAssetSize then
 			root.Parent = getGlobalModel()
@@ -512,7 +513,6 @@ local function assignMapAssets(mazeRoot: Instance)
 
 		local segment = chooseOwningSegment(getAssetPosition(root), extents)
 		if not segment then
-			-- Too wide for any corridor to own it: keeping it always means keeping it correct.
 			root.Parent = getGlobalModel()
 			global += 1
 			continue
@@ -605,8 +605,6 @@ local function addWholeGroup(desired: { [Model]: boolean }, group: Group)
 	for _, connector in group.Connectors do desired[connector.Model] = true end
 end
 
---- The slice of a crossing corridor a junction exposes. Corridor walls narrow the view cone with
---- distance, so a far junction only ever shows the wall opposite its opening.
 local function addJunctionCap(desired: { [Model]: boolean }, group: Group, position: Vector3)
 	local along = (position - group.Span.Start):Dot(group.Span.Axis)
 	local first, last = along - Config.CapLength, along + Config.CapLength
@@ -637,8 +635,6 @@ local function buildDesired(player: Player, state: PlayerState, position: Vector
 		end
 	end
 
-	-- Corridors the player is close enough to walk into load whole, so turning a corner never waits
-	-- on replication. Warm groups do not expand again; a branch of a branch stays capped.
 	local warmDistance = branchWarmDistance(player, state)
 	local seeds = {}
 	for groupId in fullGroups do table.insert(seeds, groupId) end
@@ -652,8 +648,6 @@ local function buildDesired(player: Player, state: PlayerState, position: Vector
 			end
 		end
 
-		-- A nearby room only matters if it lies on this sightline. Checking every connector by
-		-- world distance also warms halls through the wall in dense parts of the maze.
 		for _, connector in group.Connectors do
 			if connectorDistance(position, connector) <= warmDistance then
 				for otherId in ConnectorGroups[connector.Model] or {} do
@@ -668,9 +662,6 @@ local function buildDesired(player: Player, state: PlayerState, position: Vector
 		if group then addWholeGroup(desired, group) end
 	end
 
-	-- Every junction on a loaded corridor is a gap in its wall, and the far end of a corridor is
-	-- capped by the corridor it runs into. Distance does not close either of them, so cap by
-	-- topology rather than by radius or the player sees the skybox down long sightlines.
 	for groupId in fullGroups do
 		local group = GroupsById[groupId]
 		if not group then continue end
@@ -684,8 +675,6 @@ local function buildDesired(player: Player, state: PlayerState, position: Vector
 	return desired
 end
 
---- Where an enemy stands does not depend on which player is being updated, so resolve every
---- enemy once a tick rather than once per player per tick.
 local function refreshEnemyPlacements()
 	table.clear(EnemyPlacements)
 	for _, instance in CollectionService:GetTagged(ENEMY_TAG) do
@@ -715,17 +704,84 @@ local function addEnemyModels(desired: { [Model]: boolean })
 	end
 end
 
-local function applyDesired(player: Player, state: PlayerState, desired: { [Model]: boolean })
-	for model in state.Persistent do
-		if desired[model] then continue end
-		pcall(function() model:RemovePersistentPlayer(player) end)
-		state.Persistent[model] = nil
+local function desiredChanged(first: { [Model]: boolean }, second: { [Model]: boolean }): boolean
+	for model in first do
+		if not second[model] then return true end
 	end
+	for model in second do
+		if not first[model] then return true end
+	end
+	return false
+end
+
+local function getStreamingIds(desired: { [Model]: boolean }): { string }
+	local ids = {}
+	for model in desired do
+		local streamingId = model:GetAttribute(Config.ModelIdAttribute)
+		if type(streamingId) == "string" and model:IsDescendantOf(workspace) then
+			table.insert(ids, streamingId)
+		end
+	end
+	table.sort(ids)
+	return ids
+end
+
+local function sendExpectedModels(player: Player, state: PlayerState)
+	if ExpectedModelsRemote then
+		ExpectedModelsRemote:FireClient(player, getStreamingIds(state.Desired))
+	end
+end
+
+local function applyDesired(player: Player, state: PlayerState, desired: { [Model]: boolean })
+	local changed = desiredChanged(state.Desired, desired)
+	state.Desired = table.clone(desired)
+	local now = os.clock()
+
+	for model in state.Persistent do
+		if desired[model] then
+			state.RetryAt[model] = nil
+			continue
+		end
+		if not model.Parent then
+			state.Persistent[model] = nil
+			state.RetryAt[model] = nil
+			continue
+		end
+		if (state.RetryAt[model] or 0) > now then continue end
+
+		local ok, err = pcall(function() model:RemovePersistentPlayer(player) end)
+		if ok then
+			state.Persistent[model] = nil
+			state.RetryAt[model] = nil
+		else
+			state.RetryAt[model] = now + Config.PersistenceRetryInterval
+			warn(`[HallwayStreamingService] Could not remove {model:GetFullName()} for {player.Name}: {err}`)
+		end
+	end
+
+	for model in state.RetryAt do
+		if not desired[model] and not state.Persistent[model] then state.RetryAt[model] = nil end
+	end
+
 	for model in desired do
 		if state.Persistent[model] then continue end
-		pcall(function() model:AddPersistentPlayer(player) end)
-		state.Persistent[model] = true
+		if (state.RetryAt[model] or 0) > now then continue end
+		if not setPersistentMode(model) then
+			state.RetryAt[model] = now + Config.PersistenceRetryInterval
+			continue
+		end
+
+		local ok, err = pcall(function() model:AddPersistentPlayer(player) end)
+		if ok then
+			state.Persistent[model] = true
+			state.RetryAt[model] = nil
+		else
+			state.RetryAt[model] = now + Config.PersistenceRetryInterval
+			warn(`[HallwayStreamingService] Could not persist {model:GetFullName()} for {player.Name}: {err}`)
+		end
 	end
+
+	if changed then sendExpectedModels(player, state) end
 end
 
 local function addHeldTeleportModels(state: PlayerState, desired: { [Model]: boolean })
@@ -768,7 +824,7 @@ local function getModelNames(desired: { [Model]: boolean }): { string }
 	return names
 end
 
-local function ensureRemotes(): (RemoteEvent, RemoteEvent, RemoteEvent)
+local function ensureRemotes(): (RemoteEvent, RemoteEvent, RemoteEvent, RemoteEvent, RemoteEvent)
 	local communication = ReplicatedStorage:FindFirstChild("Communication")
 	if not communication then
 		communication = Instance.new("Folder")
@@ -791,15 +847,64 @@ local function ensureRemotes(): (RemoteEvent, RemoteEvent, RemoteEvent)
 		return remote
 	end
 
-	return get("PrepareTeleport"), get("ClientReady"), get("TeleportFailed")
+	return get("PrepareTeleport"), get("ClientReady"), get("TeleportFailed"), get("ExpectedModels"), get("ReportMissing")
 end
 
-local PrepareTeleportRemote, ClientReadyRemote, TeleportFailedRemote = ensureRemotes()
+local PrepareTeleportRemote: RemoteEvent
+local ClientReadyRemote: RemoteEvent
+local TeleportFailedRemote: RemoteEvent
+PrepareTeleportRemote, ClientReadyRemote, TeleportFailedRemote, ExpectedModelsRemote, ReportMissingRemote = ensureRemotes()
 
 ClientReadyRemote.OnServerEvent:Connect(function(player: Player, token: any, ready: any)
 	local pending = PendingTeleports[player]
 	if not pending or pending.Token ~= token then return end
 	pending.Done:Fire(ready == true)
+end)
+
+local reportMissingRemote = ReportMissingRemote :: RemoteEvent
+reportMissingRemote.OnServerEvent:Connect(function(player: Player, missing: any)
+	local state = PlayersState[player]
+	if not state or type(missing) ~= "table" then return end
+	local now = os.clock()
+	if now - state.LastMissingReport < Config.MissingReportCooldown then return end
+	state.LastMissingReport = now
+	if #missing == 0 then
+		sendExpectedModels(player, state)
+		return
+	end
+
+	local seen = {}
+	for index = 1, math.min(#missing, Config.MaxMissingReport) do
+		local streamingId = missing[index]
+		if type(streamingId) ~= "string" or seen[streamingId] then continue end
+		seen[streamingId] = true
+
+		local model = ModelsByStreamingId[streamingId]
+		if not model or not state.Desired[model] or not model:IsDescendantOf(workspace) then continue end
+
+		local removed, removeError = pcall(function() model:RemovePersistentPlayer(player) end)
+		if not removed then
+			state.RetryAt[model] = now + Config.PersistenceRetryInterval
+			warn(`[HallwayStreamingService] Could not reset {model:GetFullName()} for {player.Name}: {removeError}`)
+			continue
+		end
+
+		state.Persistent[model] = nil
+		state.RetryAt[model] = nil
+		if not setPersistentMode(model) then
+			state.RetryAt[model] = now + Config.PersistenceRetryInterval
+			continue
+		end
+
+		local added, addError = pcall(function() model:AddPersistentPlayer(player) end)
+		if added then
+			state.Persistent[model] = true
+		else
+			state.RetryAt[model] = now + Config.PersistenceRetryInterval
+			warn(`[HallwayStreamingService] Could not restore {model:GetFullName()} for {player.Name}: {addError}`)
+		end
+	end
+	sendExpectedModels(player, state)
 end)
 
 local function waitForClient(player: Player, token: number, names: { string }): boolean
@@ -831,15 +936,16 @@ function HallwayStreamingService:PrepareTeleport(player: Player, position: Vecto
 	local state = PlayersState[player]
 	if not state then return false end
 
-	-- Keep normal updates tied to the character's real position while the target streams. Moving
-	-- CurrentGroup early lets the heartbeat switch it back and unload the target before the wait ends.
 	local targetState: PlayerState = {
 		Persistent = {},
+		Desired = {},
+		RetryAt = {},
 		CurrentGroup = nil,
 		Grace = {},
 		HorizontalSpeed = 0,
 		TeleportDesired = nil,
 		TeleportDesiredExpires = nil,
+		LastMissingReport = 0,
 	}
 	chooseCurrentGroup(targetState, position, nil, true)
 	local targetDesired = buildDesired(player, targetState, position)
@@ -895,11 +1001,14 @@ end
 local function addPlayer(player: Player)
 	PlayersState[player] = {
 		Persistent = {},
+		Desired = {},
+		RetryAt = {},
 		CurrentGroup = nil,
 		Grace = {},
 		HorizontalSpeed = 0,
 		TeleportDesired = nil,
 		TeleportDesiredExpires = nil,
+		LastMissingReport = 0,
 	}
 	player.CharacterAdded:Connect(function(character)
 		task.defer(function()

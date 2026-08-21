@@ -1,7 +1,3 @@
---- @class Chaser
---- The plain hunter. Wanders its spawn area until a player crosses the cone in front of it, then
---- runs them down. Ducking into a `Room` breaks its line and sends it straight back to its patrol.
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
@@ -43,7 +39,6 @@ local function despawn(changeState: StateMachine.ChangeState, npc: any)
 	return NPC.SharedStates.Despawn(changeState, npc)
 end
 
---- Runs `target` down until it is caught, reaches a safe room, or outruns `GiveUpRange`.
 local function chase(_changeState: StateMachine.ChangeState, npc: any, target: Player)
 	npc.Target = target
 	npc.Model:SetAttribute(CHASE_TARGET_ATTRIBUTE, target.UserId)
@@ -52,10 +47,22 @@ local function chase(_changeState: StateMachine.ChangeState, npc: any, target: P
 
 	local lastKnown = npc.RootPart.Position
 	local safeRoom = nil :: Model?
+	local unseenSince = nil :: number?
 	local result = npc:Pursue(function()
 		if RoomService:IsInRoom(target) then
 			safeRoom = RoomService:GetRoom(target)
 			return nil
+		end
+		local loseSightTime = npc.Config.ChaseLoseSightTime
+		if loseSightTime then
+			if npc:HasPursuitSight(target) then
+				unseenSince = nil
+			else
+				unseenSince = unseenSince or os.clock()
+				if os.clock() - unseenSince >= loseSightTime then
+					return nil
+				end
+			end
 		end
 		local position = npc:GetTargetPosition(target)
 		if position then
@@ -63,7 +70,7 @@ local function chase(_changeState: StateMachine.ChangeState, npc: any, target: P
 		end
 		return position
 	end, nil, nil, function()
-		return npc:HasLineOfSightToPlayer(target)
+		return npc:HasPursuitSight(target)
 	end)
 
 	if result == "Reached" then
@@ -75,7 +82,6 @@ local function chase(_changeState: StateMachine.ChangeState, npc: any, target: P
 	return "Search", npc, lastKnown
 end
 
---- Lands the killing blow, or drops back to chasing if the target slipped out of reach first.
 local function attack(_changeState: StateMachine.ChangeState, npc: any, target: Player)
 	local position = npc:GetTargetPosition(target)
 	if not position then
@@ -92,7 +98,6 @@ local function attack(_changeState: StateMachine.ChangeState, npc: any, target: 
 	return "Idle", npc
 end
 
---- Drops the target and resumes patrolling as soon as the chase ends.
 local function search(_changeState: StateMachine.ChangeState, npc: any, _lastKnown: Vector3)
 	clearChaseTarget(npc)
 	npc.Target = nil
@@ -105,6 +110,8 @@ local function roomReaction(changeState: StateMachine.ChangeState, npc: any, roo
 	clearChaseTarget(npc)
 	return NPC.SharedStates.RoomReaction(changeState, npc, room)
 end
+
+Chaser.Chase = chase
 
 function Chaser.new(model: Model, config)
 	return NPC.new(model, config, Chaser)
@@ -124,9 +131,7 @@ function Chaser:BuildStateMachine(): StateMachine.StateMachine
 		RoomReaction = roomReaction,
 		Stunned = stunned,
 	}, {
-		-- Spotting a player pulls the chaser off anything idle, but never out of a swing.
 		Perception = { "Idle", "Wander", "Patrol", "Search" },
-		-- A trap or a paper ball lands whatever it is doing, but cannot re-stun a stunned chaser.
 		Impact = { "Idle", "Wander", "Patrol", "Search", "Chase", "Attack", "RoomReaction" },
 	}, {
 		Perception = function()

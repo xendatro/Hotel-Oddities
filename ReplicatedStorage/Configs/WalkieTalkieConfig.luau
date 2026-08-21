@@ -1,26 +1,17 @@
---- Shared tuning for the walkie-talkie voice route.
-
 return {
 	--- Local sound from a held radio. Direct radio output is not distance limited.
 	PhysicalRange = 30,
 	AmbientRange = 30,
+	AmbientPickupFalloff = 2,
 	RadioAllowedTag = "RadioAllowed",
 	DeathActiveGrace = 0.75,
-	-- The default voice route is raised slightly; radio routes are then attenuated below it.
-	NormalVoiceVolume = 1.25,
-	RadioOutputVolume = 0.42,
-	RadioAmbientVolume = 0.65,
-	VoiceNoiseRadius = 45,
+	TransmissionGrace = 0.5,
+	-- This keeps radio speech near its old level after normal voice was raised to 1.65.
+	RadioOutputVolume = 0.32,
+	RadioPhysicalVolume = 0,
+	RadioAmbientVolume = 0.25,
 	RadioNoiseRadius = 35,
 	NoiseInterval = 0.2,
-	VoiceActivity = {
-		Threshold = 0.05,
-		Release = 0.18,
-		PollInterval = 1 / 30,
-		Heartbeat = 0.2,
-		Timeout = 0.75,
-		TransmissionGrace = 0.5,
-	},
 
 	--- The player filter is shared by incoming and outgoing radio audio.
 	Modes = {
@@ -46,6 +37,18 @@ return {
 			HighGain = -14,
 		},
 		DistortionLevel = 0.35,
+		Tagged = {
+			Bandpass = {
+				Frequency = 1550,
+				Q = 1.2,
+			},
+			Equalizer = {
+				LowGain = -28,
+				MidGain = 8,
+				HighGain = -20,
+			},
+			DistortionLevel = 0.52,
+		},
 		Limiter = {
 			MaxLevel = -1,
 			Release = 0.08,

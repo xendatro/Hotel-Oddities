@@ -2,9 +2,6 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local ServerTool = require(ServerStorage.Classes.ServerTool)
 
---- @class Flashlight
---- A reusable light. Its model already carries the click sound and spotlight, so toggling them on
---- the server keeps the beam and click visible to everyone without inventing duplicate assets.
 local Flashlight = ServerTool.extend("Flashlight")
 
 function Flashlight.new(tool: Tool)

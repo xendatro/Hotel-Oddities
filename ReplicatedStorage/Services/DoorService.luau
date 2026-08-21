@@ -17,9 +17,6 @@ local communication = ReplicatedStorage:WaitForChild("Communication", 30)
 local oddities = communication and communication:WaitForChild("Oddities", 30)
 local MapDoors = oddities and oddities:WaitForChild("MapDoors", 30)
 
--- Every live slab, stepped together. Doors are animated locally, so this runs against ALL players'
--- characters rather than just the local one: a door another player walks through has to open here
--- too, or two clients disagree about the hotel.
 local Active: { [any]: true } = {}
 local sincePoll = 0
 
@@ -48,8 +45,6 @@ local function livingPositions(): { Vector3 }
 	return positions
 end
 
--- Enemy models are server-created and tagged, and the tag replicates, so a client can place them
--- without being told about each one.
 local function enemyPositions(): ({ Vector3 }, { [string]: boolean })
 	local positions = {}
 	local forcedDoorways = {}
@@ -65,7 +60,6 @@ local function enemyPositions(): ({ Vector3 }, { [string]: boolean })
 	return positions, forcedDoorways
 end
 
--- Nearest of `positions` to a slab's middle, skipping anything on another floor.
 local function nearestTo(positions: { Vector3 }, center: Vector3): (Vector3?, number)
 	local nearest: Vector3? = nil
 	local nearestDistance = math.huge
@@ -83,7 +77,6 @@ local function nearestTo(positions: { Vector3 }, center: Vector3): (Vector3?, nu
 	return nearest, nearestDistance
 end
 
--- Walks up to the model the slab belongs to, and answers whether that model is one this system owns.
 local function inSwingingDoorway(part: BasePart): boolean
 	local instance: Instance? = part.Parent
 
@@ -194,8 +187,6 @@ local function poll()
 	for door in Active do
 		local center = door.Center
 
-		-- Settled first: a held door ignores whoever is on the other side of it, so there is no point
-		-- asking whether they are close enough to open it.
 		local _, enemyDistance = nearestTo(enemies, center)
 		local forceLimit = door.Forced and DoorConfig.EnemyReleaseDistance or DoorConfig.EnemyForceDistance
 		local doorway = doorwayFor(door.Part)
@@ -220,8 +211,6 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 	end
 end)
 
--- Keyed off the slab rather than the model around it: a model may hold two slabs that each need
--- their own swing, and the model's own tags are shared with other systems.
 TagService:Listen("DoorPart", function(part: BasePart)
 	if not inSwingingDoorway(part) then return end
 

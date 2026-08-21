@@ -2,10 +2,6 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local ServerTool = require(ServerStorage.Classes.ServerTool)
 
---- @class Visor
---- Worn rather than carried. While the tool is out its handle goes invisible and a copy of the
---- visor is added to the character as an accessory, so every player sees it sitting on the wearer's
---- face instead of in their hand.
 local Visor = ServerTool.extend("Visor")
 
 local WORN_NAME = "VisorWorn"
@@ -21,7 +17,6 @@ function Visor.new(tool: Tool)
 	return self
 end
 
---- The accessory the tool carries as a template. Cloned per equip; the template itself is never worn.
 function Visor:_GetTemplate(): Accessory?
 	local template = self.Tool:FindFirstChild(self.Config.FaceAccessory or "Accessory")
 	return if template and template:IsA("Accessory") then template else nil
@@ -93,8 +88,6 @@ function Visor:_Wear()
 	local accessory = template:Clone()
 	accessory.Name = WORN_NAME
 
-	-- `AddAccessory` only recognises a part called `Handle`, whatever the template happens to name
-	-- its visual.
 	local handle = accessory:FindFirstChildWhichIsA("BasePart")
 	if not handle then
 		accessory:Destroy()
@@ -104,8 +97,6 @@ function Visor:_Wear()
 	handle.CanCollide = false
 	handle.Massless = true
 
-	-- Match the standard attachment in an R15 head. Without this, AddAccessory uses its legacy hat
-	-- weld and puts the visor at HatAttachment on top of the head.
 	local attachment = handle:FindFirstChild("FaceFrontAttachment")
 	if not attachment or not attachment:IsA("Attachment") then
 		if attachment then attachment:Destroy() end

@@ -7,17 +7,6 @@ local Vanished = require(ReplicatedStorage.Modules.Vanished)
 
 local Other = ReplicatedStorage.Props.Other
 
---- @class SpellBook
---- A one-shot vanish. Reading it roots the caster for the length of the cast, and for that whole
---- window their character is `Vanished`: no enemy's perception will target them, and nothing in the
---- hotel can hurt them, down to the things that sweep a corridor without looking at anybody. So the
---- cast is both the cost and the escape.
----
---- Everything the cast changes about the world (walk speed, the tag, two cloned effect models) is
---- undone in `OnCleanup`, which the chassis runs whether the cast finished, threw, timed out on a
---- missing animation marker, or the caster died halfway through. The previous version undid all of
---- it on the last line of the routine instead, so any of those endings left the player rooted and
---- permanently untargetable.
 local SpellBook = ServerTool.extend("SpellBook")
 
 function SpellBook.new(tool: Tool)
@@ -48,17 +37,13 @@ function SpellBook:OnActivated()
 
 	self:_startEffects()
 
-	-- Bounded: a missing or unreachable `BookEnd` marker ends the cast rather than hanging it.
 	self:WaitForMarker(track, "BookEnd", self.Config.MaxCastTime)
 
-	-- Only charge for a cast the caster actually lived through.
 	if self:IsAlive() then
 		self:Consume(1)
 	end
 end
 
--- The book's particles ride the mesh; a second model carries the effect on the caster. Both are
--- tracked on self so cleanup can find them no matter how the cast ends.
 function SpellBook:_startEffects()
 	local effects = Other:FindFirstChild("BookEffects")
 	local dummy = Other:FindFirstChild("VFXDummy")
@@ -76,8 +61,6 @@ function SpellBook:_startEffects()
 				effect.Enabled = true
 			end
 
-			-- Ends on its own when the flag clears, so nothing has to cancel this thread. Cancelling
-			-- a thread that already returned is itself an error, which the old version risked.
 			while self.FollowActive do
 				local mesh = self.Tool:FindFirstChild("Meshes/Unrigged")
 				if mesh and self.Effects then
@@ -138,8 +121,6 @@ function SpellBook:OnCleanup()
 	self.CastSpeed = nil
 end
 
---- The tool can be destroyed mid-cast -- spent, dropped, or lost on death -- so teardown has to
---- undo the same state the cast does.
 function SpellBook:OnDestroy()
 	self:OnCleanup()
 end

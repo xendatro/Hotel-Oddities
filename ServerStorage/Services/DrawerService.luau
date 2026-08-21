@@ -1,9 +1,3 @@
---- The server's half of the drawers: one boolean per drawer, so everyone in the hotel sees the same
---- desk. The slide itself is drawn on each client from this attribute; nothing here moves a part.
----
---- A request is only honoured for a living player standing in front of the drawer they named, at a
---- rate a hand can actually press. Anything else is dropped without comment.
-
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -14,8 +8,6 @@ local AudioService = require(ReplicatedStorage.Services.AudioService)
 local DrawerService = {}
 
 local REACH = DrawerConfig.Targeting.ServerReach
---- Seconds between one player's toggles. The client's own cooldown is shorter, so a player pressing
---- as fast as they can is never refused by this.
 local MIN_INTERVAL = 0.1
 
 local Toggle = ReplicatedStorage.Communication.Drawer.Toggle :: RemoteEvent
@@ -30,8 +22,6 @@ local function characterPosition(player: Player): Vector3?
 	return root.Position
 end
 
---- Opens or shuts `model` for everyone. Also the way anything else on the server -- an oddity, a
---- round reset -- gets at a drawer.
 function DrawerService:SetOpen(model: Model, open: boolean)
 	if model:GetAttribute(DrawerConfig.Attribute) == open then return end
 	model:SetAttribute(DrawerConfig.Attribute, open)

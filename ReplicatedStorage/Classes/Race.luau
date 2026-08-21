@@ -3,22 +3,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Race = {}
 Race.__index = Race
 
---[[
-functions dict:
-{
-	id = function() end,
-	id2 = function() end
-}
-]]
-
 function Race.new(functions)
 	local self = setmetatable({}, Race)
-	
+
 	self.Functions = functions
 	self.MainThread = nil
 	self.Threads = {}
 	self.State = "Ready"
-	
+
 	return self
 end
 
@@ -32,7 +24,7 @@ function Race:Fire()
 	local finishedId = nil
 	local threads = self.Threads
 	for id, f in self.Functions do
-		local thread: thread = nil	
+		local thread: thread = nil
 		thread = task.defer(function()
 			local success, err = pcall(f)
 			table.remove(threads, table.find(threads, thread))

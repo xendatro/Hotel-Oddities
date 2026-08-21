@@ -2,10 +2,7 @@ local _MarketplaceService = game:GetService("MarketplaceService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
---local SoundService = require(ReplicatedStorage.Services.SoundService)
---local RobuxPurchaseLoadingService = require(ReplicatedStorage.Services.RobuxPurchaseLoadingService)
 
--- Share the native MarketplaceService API with this wrapper.
 local extend = require(ReplicatedStorage.Modules.extend)
 
 local CACHE = {}
@@ -48,7 +45,6 @@ end
 local PromptProductPurchase = getPromptRemote("PromptProductPurchase")
 local PromptGamePassPurchase = getPromptRemote("PromptGamePassPurchase")
 
--- Create or reference GamePassSync RemoteEvent for Replication
 local GamePassSync
 if RunService:IsServer() then
 	GamePassSync = script:FindFirstChild("GamePassSync")
@@ -61,7 +57,6 @@ else
 	GamePassSync = script:WaitForChild("GamePassSync")
 end
 
---Automatically types ReceiptInfo for you
 export type ReceiptInfo = {
 	PurchaseId: number,
 	PlayerId: number,
@@ -113,7 +108,6 @@ local function forEachProductId(products, callback)
 	end
 end
 
---Prompts a user to purchase a product with the given productId.
 function MarketplaceService:PromptProductPurchase(player: Player, productId: number)
 	if RunService:IsServer() then
 		PromptProductPurchase:FireClient(player, productId)
@@ -121,36 +115,27 @@ function MarketplaceService:PromptProductPurchase(player: Player, productId: num
 		if productPurchased then
 			productPurchased:Disconnect()
 		end
-		--RobuxPurchaseLoadingService:Start()
 		_MarketplaceService:PromptProductPurchase(player, productId)
 		productPurchased = _MarketplaceService.PromptProductPurchaseFinished:Once(function(_, _, isPurchased)
 			if isPurchased then
-				--SoundService:Play("RobuxPurchase")
 			end
-			--RobuxPurchaseLoadingService:Stop()
 		end)
 	end
 end
 
---Prompts a user to purchase a pass with the given gamePassId.
 function MarketplaceService:PromptGamePassPurchase(player: Player, gamePassId: number)
 	if RunService:IsServer() then
 		PromptGamePassPurchase:FireClient(player, gamePassId)
 	else
-		--RobuxPurchaseLoadingService:Start()
 		_MarketplaceService:PromptGamePassPurchase(player, gamePassId)
 		_MarketplaceService.PromptGamePassPurchaseFinished:Once(function(_, _, wasPurchased)
 			if wasPurchased then
-				--SoundService:Play("RobuxPurchase")
 			end
-			--RobuxPurchaseLoadingService:Stop()
 		end)
 	end
 end
 
 function MarketplaceService:UserOwnsGamePass(player: Player|number, gamePassId: number): boolean
-	-- A pass with no id yet is a placeholder in the config, not a pass anyone can own. Answering
-	-- anything but false here would hand every player whatever it gates.
 	if typeof(gamePassId) ~= "number" or gamePassId <= 0 then
 		return false
 	end
@@ -178,7 +163,6 @@ function MarketplaceService:UserOwnsGamePass(player: Player|number, gamePassId: 
 	end
 
 	if RunService:IsClient() then
-		-- Ask server and yield until we get a response
 		local bindable = Instance.new("BindableEvent")
 		local connection
 		connection = GamePassSync.OnClientEvent:Connect(function(action, targetPlayer, passId, owns)
@@ -189,7 +173,6 @@ function MarketplaceService:UserOwnsGamePass(player: Player|number, gamePassId: 
 
 		GamePassSync:FireServer("CheckGamePass", player, gamePassId)
 
-		-- 10-second timeout failsafe so client doesn't yield forever if something goes wrong
 		task.delay(10, function()
 			if connection.Connected then
 				bindable:Fire(false)
@@ -203,7 +186,6 @@ function MarketplaceService:UserOwnsGamePass(player: Player|number, gamePassId: 
 		return owns
 	end
 
-	-- Server-Side Request to Roblox
 	local success, result
 	local tries = 0
 	repeat
@@ -224,7 +206,6 @@ function MarketplaceService:UserOwnsGamePass(player: Player|number, gamePassId: 
 	end
 	CACHE[player][gamePassId] = owns
 
-	-- Broadcast status to clients so they know the ownership result
 	GamePassSync:FireAllClients("UpdatePass", player, gamePassId, owns)
 
 	return owns
@@ -235,7 +216,7 @@ function MarketplaceService:GetProductInfo(id: number, infoType: Enum.InfoType?)
 		return _MarketplaceService:GetProductInfoAsync(id, infoType)
 	else
 		return PRODUCTS[id]
-	end 
+	end
 end
 
 _MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player: Player, gamePassId, wasPurchased)
@@ -245,13 +226,11 @@ _MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player: Play
 	end
 	CACHE[player][gamePassId] = true
 
-	-- If ran on the server, broadcast purchase completion to all clients
 	if RunService:IsServer() then
 		GamePassSync:FireAllClients("UpdatePass", player, gamePassId, true)
 	end
 end)
 
--- Cleans data up when a player leaves (Works seamlessly on both Client and Server)
 Players.PlayerRemoving:Connect(function(player)
 	if CACHE[player] then
 		CACHE[player] = nil
@@ -266,7 +245,6 @@ if RunService:IsClient() then
 		MarketplaceService:PromptProductPurchase(Players.LocalPlayer, productId)
 	end)
 
-	-- Handle Replication Syncs from the Server
 	GamePassSync.OnClientEvent:Connect(function(action, arg1, arg2, arg3)
 		if action == "FullSync" then
 			local serverCache = arg1
@@ -286,7 +264,6 @@ if RunService:IsClient() then
 		end
 	end)
 
-	-- Request full gamepass state when joining
 	GamePassSync:FireServer("RequestSync")
 
 	forEachProductId(MarketplaceIds.Products, function(id)
@@ -308,11 +285,6 @@ if RunService:IsClient() then
 	extend(MarketplaceService, _MarketplaceService)
 	return MarketplaceService:: typeof(MarketplaceService) & typeof(_MarketplaceService)
 end
-
-
------------------------------
--- SERVER ONLY CODE BELOW ---
------------------------------
 
 local Functions = {}
 
@@ -342,28 +314,22 @@ _MarketplaceService.ProcessReceipt = function(receiptInfo: ReceiptInfo)
 	return Enum.ProductPurchaseDecision.NotProcessedYet
 end
 
--- Server Sync Management
 GamePassSync.OnServerEvent:Connect(function(client, action, targetPlayer, passId)
 	if action == "RequestSync" then
-		-- Syncing the latest complete gamepass cache with a newly joined client
 		GamePassSync:FireClient(client, "FullSync", CACHE)
 	elseif action == "CheckGamePass" then
-		-- A client wants to check a pass, verify it. 
 		if CACHE[targetPlayer] and CACHE[targetPlayer][passId] ~= nil then
 			GamePassSync:FireClient(client, "UpdatePass", targetPlayer, passId, CACHE[targetPlayer][passId])
 		else
-			-- Checking missing locally caches the result & automatically broadcasts via UpdatePass
 			MarketplaceService:UserOwnsGamePass(targetPlayer, passId)
 		end
 	end
 end)
 
--- Initialize tracking for a player's core gamepasses setup in "MarketplaceIds.Passes" config
 local function initPlayerCache(player)
 	if not CACHE[player] then CACHE[player] = {} end
 	if MarketplaceIds.Passes then
 		for _, passId in pairs(MarketplaceIds.Passes) do
-			-- A pass that has no id yet is a placeholder, not something to ask Roblox about ten times.
 			if typeof(passId) ~= "number" or passId <= 0 then continue end
 			task.spawn(function()
 				MarketplaceService:UserOwnsGamePass(player, passId)
@@ -373,11 +339,9 @@ local function initPlayerCache(player)
 end
 
 Players.PlayerAdded:Connect(initPlayerCache)
--- Catch any players that joined before the logic connected
 for _, player in ipairs(Players:GetPlayers()) do
 	task.spawn(initPlayerCache, player)
 end
-
 
 extend(MarketplaceService, _MarketplaceService)
 local metatable = getmetatable(MarketplaceService)

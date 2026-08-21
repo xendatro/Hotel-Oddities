@@ -7,8 +7,6 @@ local Hallways = require(ReplicatedStorage.Modules.Hallways)
 
 local MapOddityService = {}
 
--- Studio edit mode can require server modules while syncing or inspecting the place.
--- Do not create remotes, start schedulers, or mutate map parts until the game is running.
 if RunService:IsStudio() and not RunService:IsRunning() then
 	function MapOddityService:Trigger(_position: Vector3, _kind: string?): (boolean, string?, string?)
 		return false, nil, "map oddities are disabled in Studio edit mode"
@@ -210,8 +208,6 @@ local function queryParts(effect: ActiveEffect)
 		applyPart(effect, part)
 	end
 
-	-- GetPartBoundsInBox skips parts with CanQuery disabled. The fallback keeps those decorations
-	-- included, while applyPart still enforces the same majority-in-hallway test.
 	for _, instance in workspace:GetDescendants() do
 		if instance:IsA("BasePart") and not seen[instance] and not instance.CanQuery then
 			applyPart(effect, instance)
@@ -275,7 +271,7 @@ function MapOddityService:Clear(token: number?): boolean
 	return #effects > 0
 end
 
-local function start(span: Hallways.StraightSpan, kind: string): boolean
+local function start(span: Hallways.StraightSpan, kind: string, durationOverride: number?): boolean
 	nextToken += 1
 	local boxCFrame, boxSize = boxForSpan(span)
 	local effect: ActiveEffect = {
@@ -289,10 +285,11 @@ local function start(span: Hallways.StraightSpan, kind: string): boolean
 		LightClaim = nil,
 	}
 	active[effect.Token] = effect
-	local duration = randomRange(
-		math.max(setting(kind, "MinDuration", 45), 0),
-		math.max(setting(kind, "MaxDuration", 120), 0)
-	)
+	local duration = durationOverride
+		or randomRange(
+			math.max(setting(kind, "MinDuration", 45), 0),
+			math.max(setting(kind, "MaxDuration", 120), 0)
+		)
 
 	if kind == "Transparency" then
 		queryParts(effect)
@@ -353,7 +350,6 @@ local function playerInSpan(span: Hallways.StraightSpan): boolean
 	return false
 end
 
---- Starts one map oddity at the hallway containing `position`.
 function MapOddityService:Trigger(position: Vector3, kind: string?): (boolean, string?, string?)
 	if not Config.Enabled then return false, nil, "map oddities are disabled" end
 
@@ -369,6 +365,14 @@ function MapOddityService:Trigger(position: Vector3, kind: string?): (boolean, s
 	end
 	if not start(span, chosen) then return false, nil, "could not start that oddity" end
 	return true, chosen, nil
+end
+
+function MapOddityService:Warn(position: Vector3, duration: number): boolean
+	if not Config.Enabled or duration <= 0 then return false end
+
+	local span = spanAt(position)
+	if not span then return false end
+	return start(span, "HallwayChaos", duration)
 end
 
 function MapOddityService:GetActive(): { [number]: ActiveEffect }

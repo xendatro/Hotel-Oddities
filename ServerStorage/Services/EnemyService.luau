@@ -10,18 +10,11 @@ local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyService = {}
 local ActiveEnemies = {}
 
---- Every enemy rig in the world sits in this group, and the group does not collide with itself.
---- Enemies do not collide with players or with one another, but remain solid to the hotel geometry.
---- The server uses an `OverlapParams` query for pursuit state; the client's touch listener owns the
---- actual contact death so health is not decided by server-side physics.
 EnemyService.CollisionGroup = "Enemies"
 local PLAYER_COLLISION_GROUP = "Players"
 local FURNITURE_TAG = "Furniture"
 local FURNITURE_COLLISION_GROUP = "Furniture"
 
---- Registers the group if it is not already there. Idempotent, and safe to call from anywhere that
---- puts a rig in the world without going through `Spawn` -- the second sister is cloned after her
---- pair has already spawned.
 function EnemyService:EnsureCollisionGroup()
 	if not PhysicsService:IsCollisionGroupRegistered(self.CollisionGroup) then
 		PhysicsService:RegisterCollisionGroup(self.CollisionGroup)
@@ -32,7 +25,6 @@ function EnemyService:EnsureCollisionGroup()
 	if not PhysicsService:IsCollisionGroupRegistered(FURNITURE_COLLISION_GROUP) then
 		PhysicsService:RegisterCollisionGroup(FURNITURE_COLLISION_GROUP)
 	end
-
 	PhysicsService:CollisionGroupSetCollidable(self.CollisionGroup, self.CollisionGroup, false)
 	PhysicsService:CollisionGroupSetCollidable(self.CollisionGroup, PLAYER_COLLISION_GROUP, false)
 	PhysicsService:CollisionGroupSetCollidable(self.CollisionGroup, FURNITURE_COLLISION_GROUP, false)
@@ -115,22 +107,22 @@ local function getActiveFolder(): Folder
 	return activeFolder
 end
 
---- Puts a freshly parented rig into the state every enemy starts in: simulated by the server, and in
---- the enemy collision group so it cannot get wedged against another one.
 local function prepare(model: Model)
-	for _, descendant in model:GetDescendants() do
+	local function prepareDescendant(descendant: Instance)
 		if descendant:IsA("BasePart") then
 			descendant.CollisionGroup = EnemyService.CollisionGroup
-			if descendant:CanSetNetworkOwnership() then
-				descendant:SetNetworkOwner(nil)
-			end
 		end
 	end
+
+	for _, descendant in model:GetDescendants() do
+		prepareDescendant(descendant)
+		if descendant:IsA("BasePart") and descendant:CanSetNetworkOwnership() then
+			pcall(descendant.SetNetworkOwner, descendant, nil)
+		end
+	end
+	model.DescendantAdded:Connect(prepareDescendant)
 end
 
---- Puts one `enemyId` in the world at `spawnCFrame`. Anything after those is handed to that class's
---- constructor, for an enemy whose spawner knows something it cannot work out for itself -- a Watcher
---- is placed on a corner that had to be found before there was a model to place.
 function EnemyService:Spawn(enemyId: string, spawnCFrame: CFrame, ...: any)
 	if not FLAGS.Enemies then return nil end
 
@@ -138,14 +130,8 @@ function EnemyService:Spawn(enemyId: string, spawnCFrame: CFrame, ...: any)
 	local enemyClass = require(ServerStorage.Classes.Enemies:WaitForChild(enemyId))
 	local model = ReplicatedStorage:WaitForChild("Enemies"):WaitForChild(config.Model):Clone() :: Model
 
-	-- Every enemy carries the id it was spawned under, which is what a death is reported as. A class
-	-- cannot work this out for itself: `CeilingDweller` is a `Chaser` with another model on it, and
-	-- the pair of Sisters is one enemy with two rigs.
 	model:PivotTo(spawnCFrame)
 	model:SetAttribute("EnemyId", enemyId)
-	-- Carried on the model because the thing that acts on it is the client's touch handler, which has
-	-- no reach into server tuning. Set it before parenting so a client never sees the Enemy tag without
-	-- the flag that tells its touch handler to ignore contact. Absent rather than false on killers.
 	model:SetAttribute("Harmless", config.Harmless or nil)
 	model.Parent = getActiveFolder()
 	EnemyService:EnsureCollisionGroup()

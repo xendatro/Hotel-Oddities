@@ -1,10 +1,10 @@
---- Server-owned sounds that enemies may react to. A noise is a short-lived fact about a position,
---- not necessarily a `Sound` Instance: footsteps publish here directly, and a shovel, door or trap
---- can do the same later without making an enemy inspect client audio.
-
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local CrouchConfig = require(ReplicatedStorage.Configs.CrouchConfig)
+
+local STEALTH = CrouchConfig.Stealth
 local DEFAULT_WALK_SPEED = 16
 local WALK_RADIUS = 45
 local SPRINT_RADIUS = 80
@@ -26,6 +26,7 @@ local NoiseService = {}
 
 local RecentNoises: { Noise } = {}
 local LastFootstepAt: { [Player]: number } = {}
+local Observers: { (Noise) -> () } = {}
 local Sequence = 0
 local Accumulator = 0
 
@@ -39,7 +40,6 @@ local function discardExpired(now: number)
 	end
 end
 
---- Publishes one noise. `source` is nil for world sounds that do not belong to a player.
 function NoiseService:Emit(position: Vector3, radius: number, source: Player?): Noise
 	local now = os.clock()
 	Sequence += 1
@@ -53,10 +53,22 @@ function NoiseService:Emit(position: Vector3, radius: number, source: Player?): 
 		CreatedAt = now,
 	}
 	table.insert(RecentNoises, noise)
+	for _, observer in Observers do
+		task.spawn(observer, noise)
+	end
 	return noise
 end
 
---- Newest still-live noise after `sequence` that reaches `origin` and satisfies `predicate`.
+function NoiseService:Observe(observer: (Noise) -> ()): () -> ()
+	table.insert(Observers, observer)
+	return function()
+		local index = table.find(Observers, observer)
+		if index then
+			table.remove(Observers, index)
+		end
+	end
+end
+
 function NoiseService:GetLatest(
 	origin: Vector3,
 	sequence: number,
@@ -90,13 +102,23 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 		if humanoid.FloorMaterial == Enum.Material.Air then continue end
 		if horizontalMagnitude(root.AssemblyLinearVelocity) < MOVEMENT_SPEED_MIN then continue end
 
-		local sprinting = humanoid.WalkSpeed > DEFAULT_WALK_SPEED
+		local crouching = character:GetAttribute(STEALTH.Attribute) == true
+		if crouching and STEALTH.NoiseRadius <= 0 then
+			LastFootstepAt[player] = os.clock()
+			continue
+		end
+
+		local sprinting = not crouching and humanoid.WalkSpeed > DEFAULT_WALK_SPEED
 		local interval = if sprinting then SPRINT_INTERVAL else WALK_INTERVAL
 		local now = os.clock()
 		if now - (LastFootstepAt[player] or 0) < interval then continue end
 
 		LastFootstepAt[player] = now
-		NoiseService:Emit(root.Position, if sprinting then SPRINT_RADIUS else WALK_RADIUS, player)
+		local radius = if crouching
+			then STEALTH.NoiseRadius
+			elseif sprinting then SPRINT_RADIUS
+			else WALK_RADIUS
+		NoiseService:Emit(root.Position, radius, player)
 	end
 end)
 

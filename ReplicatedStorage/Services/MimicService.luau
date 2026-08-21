@@ -1,22 +1,11 @@
---- Client half of the `Mimic`. While one is stalking you, the server hands your own machine the job
---- of moving it: yours is the only one that knows your input on the frame you make it, and the only
---- one that renders the answer on the same frame it simulates it. Anything the server drives instead
---- arrives on your screen as a stepped approximation of both, which is exactly what a mimic cannot
---- afford to look like.
----
---- What it replays is your keys, not your velocity, and it holds them the way you held them. The game
---- is first person, so it also faces you the whole time and sidesteps without turning -- which is
---- what your own character does when you press A, and nothing like what an NPC usually does.
----
---- The server grants network ownership of the rig alongside the request, decides when the act ends,
---- and takes the rig back to run the chase itself. Nothing here is trusted with damage.
-
 local CollectionService = game:GetService("CollectionService")
+local ContentProvider = game:GetService("ContentProvider")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local AnimationConfig = require(ReplicatedStorage.Configs.AnimationConfig)
+local AudioService = require(ReplicatedStorage.Services.AudioService)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local MimicConfig = require(ReplicatedStorage.Configs.MimicConfig)
 local MimicMotion = require(ReplicatedStorage.Modules.MimicMotion)
@@ -33,10 +22,22 @@ local Mirror = ReplicatedStorage
 	:WaitForChild("Communication")
 	:WaitForChild("Enemies")
 	:WaitForChild("Mirror") :: RemoteEvent
+local Reveal = ReplicatedStorage
+	:WaitForChild("Communication")
+	:WaitForChild("Enemies")
+	:WaitForChild("MimicReveal") :: RemoteEvent
 
 local CHARACTER_TIMEOUT = 10
 
 local localPlayer = Players.LocalPlayer
+
+task.spawn(function()
+	local flyAnimation = Instance.new("Animation")
+	flyAnimation.AnimationId = `rbxassetid://{AnimationConfig.Animations.Fly}`
+	local sting = ReplicatedStorage:WaitForChild("Sounds"):WaitForChild("MimicSting")
+	local stingPlayer = sting:FindFirstChild("Player")
+	pcall(ContentProvider.PreloadAsync, ContentProvider, { flyAnimation, stingPlayer or sting })
+end)
 
 type Job = {
 	Model: Model,
@@ -57,51 +58,11 @@ type Job = {
 	SpinHeight: number?,
 }
 
-type HeadTurn = {
-	Applied: CFrame,
-	Start: CFrame,
-	Target: CFrame,
-	StartedAt: number,
-	Duration: number,
-}
-
 local trail: MotionTrail.MotionTrail? = nil
 local job: Job? = nil
-local appliedHeadTurns: { [Model]: HeadTurn } = {}
 
 local function flatten(vector: Vector3): Vector3
 	return Vector3.new(vector.X, 0, vector.Z)
-end
-
-local function viewerPosition(): Vector3?
-	local character = localPlayer.Character
-	if not character then return nil end
-
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if not humanoid or humanoid.Health <= 0 then return nil end
-
-	local head = character:FindFirstChild("Head")
-	if head and head:IsA("BasePart") then return head.Position end
-	local root = character:FindFirstChild("HumanoidRootPart")
-	if root and root:IsA("BasePart") then return root.Position + Vector3.yAxis * 2.5 end
-	return nil
-end
-
-local function headRotation(model: Model, target: Vector3): CFrame
-	local root = model:FindFirstChild("HumanoidRootPart")
-	if not root or not root:IsA("BasePart") then return CFrame.identity end
-
-	local relative = root.CFrame:VectorToObjectSpace(target - root.Position)
-	local horizontal = flatten(relative)
-	if horizontal.Magnitude < 1e-3 then return CFrame.identity end
-
-	local yaw = math.clamp(math.atan2(-relative.X, -relative.Z), -math.rad(80), math.rad(80))
-	local pitch = math.clamp(
-		math.atan2(relative.Y, horizontal.Magnitude),
-		-math.rad(35),
-		math.rad(35)
-	)
-	return CFrame.Angles(-pitch, yaw, 0)
 end
 
 local function randomRange(minimum: number, maximum: number): number
@@ -114,9 +75,6 @@ local function angleBetween(from: Vector3, to: Vector3): number
 	return math.deg(math.acos(math.clamp(a.Unit:Dot(b.Unit), -1, 1)))
 end
 
--- Whether the mimic can travel `direction` without walking into a wall. The person it is stalking is
--- not a wall: at these distances they are inside the probe, and treating them as one leaves the mimic
--- frozen in front of you the moment it gets close.
 local function isClear(root: BasePart, character: Model, direction: Vector3): boolean
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
@@ -171,8 +129,6 @@ end
 local function drive(active: Job, own: MotionTrail.MotionTrail, deltaTime: number)
 	local humanoid, root = active.Humanoid, active.RootPart
 
-	-- The server zeroes the speed to hold a mimic still -- a stun, or the moment before it despawns.
-	-- Driving through that would leave it swivelling on the spot while it is meant to be frozen.
 	if humanoid.WalkSpeed <= 0 or humanoid.Health <= 0 then
 		if active.Animator then
 			active.Animator:SetMovementSpeed(0)
@@ -186,8 +142,6 @@ local function drive(active: Job, own: MotionTrail.MotionTrail, deltaTime: numbe
 	local animator = active.Animator
 	if not animator then return end
 
-	-- Every path out of here from this point has to say what the rig is doing, or the animator is left
-	-- holding whatever it was told last: a mimic that stopped mid-stride and stayed there.
 	local offset = flatten(own.RootPart.Position - root.Position)
 	if offset.Magnitude < 1e-3 then
 		animator:SetMovementSpeed(0)
@@ -195,9 +149,6 @@ local function drive(active: Job, own: MotionTrail.MotionTrail, deltaTime: numbe
 	end
 	local targetForward = offset.Unit
 
-	-- Locked on, it has no will of its own: no closing the gap, no shifting its weight, nothing but
-	-- your keys played back late. Standing perfectly still while you stand still is the point -- it is
-	-- what someone copying you would do, and it is what makes testing it inconclusive.
 	local clock = os.clock()
 	local sample = own:At(active.Delay)
 	local wantForward, wantRight = 0, 0
@@ -234,16 +185,11 @@ local function drive(active: Job, own: MotionTrail.MotionTrail, deltaTime: numbe
 
 	local character = own.RootPart.Parent :: Model
 	if direction.Magnitude > 1e-3 and not isClear(root, character, direction) then
-		direction = Vector3.zero -- it would sooner stand than scrape along a wall
+		direction = Vector3.zero
 	end
 	humanoid:Move(direction)
-	-- This rig is moved directly on the owning client, so Humanoid.Running is not a reliable source
-	-- for its locomotion state. Feed the same command to the animator explicitly.
 	animator:SetMovementSpeed(direction.Magnitude * humanoid.WalkSpeed)
 
-	-- Waiting on you with nothing to copy, it amuses itself. The animator drops the emote the moment
-	-- the rig takes a step, so the timer only has to keep them apart, not police the overlap -- and it
-	-- restarts while moving so one never lands the instant it comes to a stop.
 	if direction.Magnitude > 1e-3 then
 		active.NextEmoteAt = clock + randomRange(MimicConfig.EmoteDelayMin, MimicConfig.EmoteDelayMax)
 	elseif clock >= active.NextEmoteAt then
@@ -251,9 +197,6 @@ local function drive(active: Job, own: MotionTrail.MotionTrail, deltaTime: numbe
 		active.NextEmoteAt = clock + randomRange(MimicConfig.EmoteDelayMin, MimicConfig.EmoteDelayMax)
 	end
 
-	-- First person: it looks where its camera would be pointed, which is at you. It never turns to
-	-- follow its own feet, so a sidestep is a sidestep rather than a pirouette. Its aim lags by the
-	-- same beat its keys do, and wanders while it holds you.
 	local watching = if sample then sample.Position else own.RootPart.Position
 	local lookDirection = if active.BehindTurnAt and clock < active.BehindTurnAt
 		then root.CFrame.LookVector
@@ -262,104 +205,197 @@ local function drive(active: Job, own: MotionTrail.MotionTrail, deltaTime: numbe
 	root.CFrame = MimicMotion.Turn(root.CFrame, look, deltaTime)
 end
 
-RunService.PreAnimation:Connect(function()
-	for model, state in appliedHeadTurns do
-		if model:IsDescendantOf(workspace) then
-			local neck = getNeck(model)
-			if neck then neck.Transform = state.Applied:Inverse() * neck.Transform end
-		else
-			appliedHeadTurns[model] = nil
-		end
+local function lockRotation(neck: Motor6D, targetPosition: Vector3): CFrame?
+	local torso = neck.Part0
+	local head = neck.Part1
+	if not torso or not head then return nil end
+	if (targetPosition - head.Position).Magnitude < 1e-3 then return nil end
+
+	local desired = CFrame.lookAt(head.Position, targetPosition)
+	return ((torso.CFrame * neck.C0):Inverse() * desired * neck.C1).Rotation
+end
+
+local function playerHeadPosition(userId: number): Vector3?
+	local player = Players:GetPlayerByUserId(userId)
+	local character = player and player.Character
+	if not character then return nil end
+
+	local head = character:FindFirstChild("Head")
+	if head and head:IsA("BasePart") then return head.Position end
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if root and root:IsA("BasePart") then return root.Position + Vector3.yAxis * 1.5 end
+	return nil
+end
+
+type HeadLock = {
+	Weight: number,
+	Applied: CFrame,
+	Start: CFrame?,
+}
+local headLocks: { [Model]: HeadLock } = {}
+
+local TWITCH_REST_MIN = 0.5
+local TWITCH_REST_MAX = 1.2
+local TWITCH_ANGLE = math.rad(30)
+local TWITCH_SNAPS_MIN = 2
+local TWITCH_SNAPS_MAX = 4
+local TWITCH_SNAP_MIN = 0.025
+local TWITCH_SNAP_MAX = 0.055
+local TWITCH_HOLD_MIN = 0.08
+local TWITCH_HOLD_MAX = 0.16
+
+type Twitch = {
+	NextBurstAt: number,
+	SnapsLeft: number,
+	NextSnapAt: number,
+	HoldUntil: number,
+	Offset: CFrame,
+}
+local twitches: { [Model]: Twitch } = {}
+
+local function updateTwitch(model: Model, neck: Motor6D, now: number)
+	local twitch = twitches[model]
+	if not twitch then
+		twitch = {
+			NextBurstAt = now + randomRange(TWITCH_REST_MIN, TWITCH_REST_MAX),
+			SnapsLeft = 0,
+			NextSnapAt = 0,
+			HoldUntil = 0,
+			Offset = CFrame.identity,
+		}
+		twitches[model] = twitch
 	end
-end)
+
+	if twitch.SnapsLeft > 0 then
+		if now >= twitch.NextSnapAt then
+			twitch.SnapsLeft -= 1
+			twitch.Offset = CFrame.Angles(
+				(math.random() - 0.5) * TWITCH_ANGLE,
+				(math.random() - 0.5) * TWITCH_ANGLE * 2,
+				(math.random() - 0.5) * TWITCH_ANGLE
+			)
+			twitch.NextSnapAt = now + randomRange(TWITCH_SNAP_MIN, TWITCH_SNAP_MAX)
+			if twitch.SnapsLeft == 0 then
+				twitch.HoldUntil = now + randomRange(TWITCH_HOLD_MIN, TWITCH_HOLD_MAX)
+			end
+		end
+	elseif twitch.Offset ~= CFrame.identity then
+		if now >= twitch.HoldUntil then
+			twitch.Offset = CFrame.identity
+			twitch.NextBurstAt = now + randomRange(TWITCH_REST_MIN, TWITCH_REST_MAX)
+		end
+	elseif now >= twitch.NextBurstAt then
+		twitch.SnapsLeft = math.random(TWITCH_SNAPS_MIN, TWITCH_SNAPS_MAX)
+		twitch.NextSnapAt = now
+	end
+
+	if twitch.Offset ~= CFrame.identity then
+		neck.Transform = twitch.Offset * neck.Transform
+	end
+end
 
 RunService.PreSimulation:Connect(function(deltaTime: number)
-	local seen = {}
 	local now = os.clock()
 	for _, model in CollectionService:GetTagged("Enemy") do
-		if not model:GetAttribute("MimicHeadTurn") then continue end
-		local neck = getNeck(model)
-		if not neck then seen[model] = true continue end
+		if not model:IsA("Model") then continue end
+		local userId = model:GetAttribute("MimicHeadLockUserId")
 
-		local target = model:GetAttribute("MimicHeadTurnTarget")
-		-- AFK head turns are local: every client sees the mimic acknowledge its own player, while the
-		-- server keeps the actual chase decision shared and authoritative.
-		local viewerTurn = model:GetAttribute("MimicHeadTurnToViewer") == true
-		if viewerTurn then
-			local position = viewerPosition()
-			local range = model:GetAttribute("MimicHeadTurnRange")
-			local root = model:FindFirstChild("HumanoidRootPart")
-			if type(range) ~= "number" then range = math.huge end
-			if position and root and root:IsA("BasePart")
-				and flatten(position - root.Position).Magnitude <= range
-			then
-				target = headRotation(model, position)
+		if model:GetAttribute("EnemyId") == "Mimic"
+			and model:GetAttribute("ChaseTargetUserId") ~= nil
+			and type(userId) ~= "number"
+		then
+			local neck = getNeck(model)
+			if neck then
+				updateTwitch(model, neck, now)
+			end
+		elseif twitches[model] then
+			twitches[model] = nil
+		end
+
+		local state = headLocks[model]
+		if type(userId) == "number" then
+			local neck = getNeck(model)
+			if not neck then continue end
+			if not state then
+				state = { Weight = 0, Applied = neck.Transform.Rotation, Start = neck.Transform.Rotation }
+				headLocks[model] = state
+			end
+
+			state.Weight = math.min(state.Weight + deltaTime / MimicConfig.HeadSnapDuration, 1)
+			local position = playerHeadPosition(userId)
+			if position then
+				local rotation = lockRotation(neck, position)
+				if rotation then
+					local start = state.Start
+					if state.Weight < 1 and start then
+						local axis, angle = (start:Inverse() * rotation):ToAxisAngle()
+						if angle < 0.35 then
+							axis = Vector3.yAxis
+						end
+						state.Applied = start * CFrame.fromAxisAngle(axis, (angle - 2 * math.pi) * state.Weight)
+					else
+						state.Start = nil
+						state.Applied = rotation
+					end
+				end
+			end
+			neck.Transform = if state.Start then state.Applied else neck.Transform:Lerp(state.Applied, state.Weight)
+		elseif state then
+			state.Weight -= deltaTime / MimicConfig.HeadUnlockTime
+			local neck = if model:IsDescendantOf(workspace) then getNeck(model) else nil
+			if state.Weight <= 0 or not neck then
+				headLocks[model] = nil
 			else
-				target = CFrame.identity
+				neck.Transform = neck.Transform:Lerp(state.Applied, state.Weight)
 			end
-		elseif typeof(target) ~= "CFrame" then
-			target = CFrame.identity
 		end
-
-		local duration = model:GetAttribute("MimicHeadTurnDuration")
-		if type(duration) ~= "number" then duration = MimicConfig.HeadTurnDefaultDuration end
-
-		local state = appliedHeadTurns[model]
-		if not state then
-			state = {
-				Applied = CFrame.identity,
-				Start = CFrame.identity,
-				Target = target :: CFrame,
-				StartedAt = now,
-				Duration = duration,
-			}
-			appliedHeadTurns[model] = state
-		end
-
-		if viewerTurn then
-			-- The viewer target can move every frame, so smooth toward it directly instead of
-			-- restarting a duration tween for every small CFrame change.
-			state.Start = state.Applied
-			state.StartedAt = now
-			state.Target = target :: CFrame
-			state.Duration = duration
-			local alpha = 1 - math.exp(-4.6 * deltaTime / math.max(duration, 1e-3))
-			state.Applied = state.Applied:Lerp(target :: CFrame, alpha)
-		elseif target ~= state.Target then
-			if now >= state.StartedAt + state.Duration then
-				state.Start = state.Applied
-				state.StartedAt = now
-			end
-			state.Target = target :: CFrame
-			state.Duration = duration
-		elseif duration ~= state.Duration then
-			if now >= state.StartedAt + state.Duration then
-				state.Start = state.Applied
-				state.StartedAt = now
-			end
-			state.Duration = duration
-		end
-
-		if not viewerTurn then
-			local progress = math.clamp((now - state.StartedAt) / state.Duration, 0, 1)
-			local eased = progress * 0.88 + progress * progress * (3 - 2 * progress) * 0.12
-			state.Applied = state.Start:Lerp(state.Target, eased)
-		end
-
-		neck.Transform = state.Applied * neck.Transform
-		seen[model] = true
 	end
 
-	for model in appliedHeadTurns do
-		if not seen[model] then
-			appliedHeadTurns[model] = nil
+	for model in headLocks do
+		if not model:IsDescendantOf(workspace) then
+			headLocks[model] = nil
+		end
+	end
+	for model in twitches do
+		if not model:IsDescendantOf(workspace) then
+			twitches[model] = nil
 		end
 	end
 end)
 
--- Whoever is driving the rig has to animate it: the humanoid's speed is known here on the frame it
--- changes, where the server hears about it a replication later -- long enough for a short step to be
--- finished before its clip starts. The server stops its own animator as it hands the rig over.
+local stingReverb: AudioReverb? = nil
+local function getStingReverb(): AudioReverb
+	if stingReverb then return stingReverb end
+
+	local reverb = Instance.new("AudioReverb")
+	reverb.Name = "MimicStingReverb"
+	reverb.DecayTime = MimicConfig.RevealReverbDecayTime
+	reverb.WetLevel = MimicConfig.RevealReverbWetLevel
+	reverb.DryLevel = MimicConfig.RevealReverbDryLevel
+	reverb.Parent = workspace:WaitForChild("Sounds")
+	AudioService:Wire(reverb, AudioService:GetOutput())
+	stingReverb = reverb
+	return reverb
+end
+
+Reveal.OnClientEvent:Connect(function(_model: Model?)
+	local reverb = getStingReverb()
+	AudioService:Play2DSound(
+		"MimicSting",
+		false,
+		"SFX",
+		{ Volume = MimicConfig.RevealSoundVolume },
+		reverb
+	)
+	AudioService:Play2DSound(
+		"MimicSting",
+		false,
+		"SFX",
+		{ Volume = MimicConfig.RevealSubVolume, PlaybackSpeed = MimicConfig.RevealSubSpeed },
+		reverb
+	)
+end)
+
 local function release()
 	local active = job
 	job = nil
@@ -373,16 +409,11 @@ Mirror.OnClientEvent:Connect(function(model: Model?, mode: string?)
 		release()
 		return
 	end
-	-- Already on it, and on the same act: keep the rhythm it has built up. A change of act is a
-	-- different job on the same rig -- the spin does not animate and the mirroring does -- so that one
-	-- is rebuilt rather than carried over.
 	if job and job.Model == model and job.Mode == (mode or "Mirror") then return end
 
 	release()
 	local humanoid = model:WaitForChild("Humanoid") :: Humanoid
 	local rootPart = model:WaitForChild("HumanoidRootPart") :: BasePart
-	-- The set is read here rather than sent with the handoff: `EnemyConfigs` is server-only, but what a
-	-- Mimic animates with is authored shared, so this side can look its own up by name.
 	local animator = nil
 	if mode ~= "Spin" then
 		animator = NpcAnimator.new(model, AnimationConfig.Sets.Mimic)
@@ -395,7 +426,6 @@ Mirror.OnClientEvent:Connect(function(model: Model?, mode: string?)
 		RootPart = rootPart,
 		Animator = animator,
 		Mode = mode or "Mirror",
-		-- Rolled per encounter, so it is never the same beat behind you twice.
 		Delay = randomRange(MimicConfig.ReactionDelayMin, MimicConfig.ReactionDelayMax),
 		Seed = math.random() * 100,
 		Forward = MimicMotion.NewKey(),
@@ -412,7 +442,6 @@ local function onCharacter(character: Model)
 
 	local humanoid = character:WaitForChild("Humanoid", CHARACTER_TIMEOUT) :: Humanoid?
 	local rootPart = character:WaitForChild("HumanoidRootPart", CHARACTER_TIMEOUT) :: BasePart?
-	-- Respawning during that wait leaves this character stale; the newer one has its own call coming.
 	if not humanoid or not rootPart or localPlayer.Character ~= character then return end
 
 	trail = MotionTrail.new(humanoid, rootPart)
@@ -436,9 +465,6 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 		return
 	end
 
-	-- Dying, or waiting on a respawn, is a pause rather than the end of the job. The server decides
-	-- when the act is over and says so; dropping it here instead would hand the rig back to nobody --
-	-- the server has already let go of it, so it would stand frozen for the rest of the stalk.
 	if not own or own.Humanoid.Health <= 0 then
 		if active.Animator then
 			active.Animator:SetMovementSpeed(0)

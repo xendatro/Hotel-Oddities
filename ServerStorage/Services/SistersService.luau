@@ -1,5 +1,3 @@
---- Places the Sisters on complete straight hallway runs built from the union of authored floor parts.
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
@@ -89,8 +87,6 @@ function SistersService:Spawn(): any?
 	return if route then spawnRoute(route) else nil
 end
 
---- Spawns in the complete straight hallway containing the caller. `HallwayRoomFloor` connectors
---- extend that hallway through floor seams; the farther end is used so the pair does not land nearby.
 function SistersService:SpawnInHallway(player: Player): any?
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?

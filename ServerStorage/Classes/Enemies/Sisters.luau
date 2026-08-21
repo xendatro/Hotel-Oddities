@@ -1,8 +1,3 @@
---- @class Sisters
---- Two of them, abreast, walking one fixed straight route from a physical hallway end to another.
---- They never choose a corner. At the far edge of the complete hallway they keep walking, fall out of the
---- corridor, and disappear.
-
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -67,9 +62,6 @@ local function prepare(model: Model)
 	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 end
 
---- @param startTip Vector3 -- the physical edge the pair is placed at
---- @param direction Vector3 -- the fixed direction they walk
---- @param destinationTip Vector3 -- the opposite physical edge of the complete straight hallway
 function Sisters.new(model: Model, config, startTip: Vector3, direction: Vector3, destinationTip: Vector3)
 	local self = setmetatable({}, Sisters)
 

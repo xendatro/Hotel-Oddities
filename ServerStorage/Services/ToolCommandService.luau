@@ -14,12 +14,6 @@ local ALLOWED_USER_IDS = {
 
 local MAX_AMOUNT = 100
 
---- Restricted inventory command.
----
----   /give <tool> [amount]
----   /give <player> <tool> [amount]
----
---- Tool names may contain spaces. A target can be an exact username, display name, or user ID.
 local ToolCommandService = {}
 
 local function findTool(name: string): Tool?
@@ -69,7 +63,6 @@ function ToolCommandService:Execute(sender: Player, argument: string?): boolean
 	local target = sender
 	local tool = findTool(itemText)
 
-	-- If the whole argument is not a tool, treat its first word as an optional player target.
 	if not tool then
 		local targetText, remaining = itemText:match("^(%S+)%s+(.+)$")
 		local requestedTarget = targetText and findPlayer(targetText)

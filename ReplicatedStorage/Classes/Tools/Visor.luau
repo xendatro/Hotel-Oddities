@@ -4,8 +4,6 @@ local TweenService = game:GetService("TweenService")
 
 local ClientTool = require(ReplicatedStorage.Classes.ClientTool)
 
---- @class Visor (client)
---- Tints the world while the visor is out so the player can tell the shield is active.
 local Visor = ClientTool.extend("Visor")
 
 local NEUTRAL = {

@@ -1,13 +1,3 @@
---- The prompt under the cursor: what key opens the drawer being looked at, and whether that would
---- open it or shut it. It lives in the Cursor ScreenGui beside the dot, appears only while a drawer
---- is actually in front of the player, and slides up into place rather than blinking on.
----
---- Touch has no cursor to rest on anything, so it gets a ContextActionService button instead --
---- bound while a drawer is focused and dropped the moment it is not, so the screen stays clear.
----
---- Nothing here decides anything. DrawerService works out what is being looked at and what pressing
---- the key would do; this draws it and passes the press back.
-
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -46,12 +36,6 @@ local keyScale = key:WaitForChild("Scale") :: UIScale
 local keyLabel = key:WaitForChild("Label") :: TextLabel
 local action = pill:WaitForChild("Action") :: TextLabel
 
---- Layout --------------------------------------------------------------------------------------
-
---- Lays the prompt out around a badge of the given width: padding, badge, gap, word, padding. The
---- word gets a fixed column rather than one measured from itself, so Open becoming Close moves
---- nothing -- a prompt that resized itself under the cursor read as a wobble. The group is the pill
---- plus the room its outline needs, since a CanvasGroup clips to its own bounds.
 local function layout(keyWidth: number)
 	local left = UI.PillPaddingLeft + keyWidth + UI.KeyGap
 	local width = left + UI.TextWidth + UI.PillPaddingRight
@@ -62,8 +46,6 @@ local function layout(keyWidth: number)
 	action.Position = UDim2.new(0, left, 0.5, 0)
 	action.Size = UDim2.fromOffset(UI.TextWidth, UI.KeySize)
 end
-
---- Input ---------------------------------------------------------------------------------------
 
 local pressFlash = 0
 local touching = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
@@ -118,11 +100,7 @@ UserInputService.LastInputTypeChanged:Connect(function(inputType: Enum.UserInput
 	end
 end)
 
---- Drawing -------------------------------------------------------------------------------------
-
 local alpha = 0
---- What the prompt is currently saying. Held so the words are not rewritten every frame, and so a
---- drawer sliding shut under the cursor updates them the moment its state flips.
 local shownOpen: boolean? = nil
 local shownGamepad: boolean? = nil
 
@@ -145,8 +123,6 @@ local function render(deltaTime: number)
 	container.Visible = alpha > 0
 	if alpha <= 0 then return end
 
-	-- Only ever rewritten for a drawer that is actually there. A prompt fading out should finish
-	-- saying what it said, rather than flipping to Open as the drawer it is leaving slides shut.
 	if focused and open ~= shownOpen then
 		shownOpen = open
 		action.Text = if open then UI.CloseText else UI.OpenText
@@ -159,7 +135,6 @@ local function render(deltaTime: number)
 	end
 
 	container.GroupTransparency = 1 - alpha
-	-- Rises the last few pixels into place as it fades in, and drops back out the same way.
 	container.Position = UDim2.new(0.5, 0, 0.5, UI.TopMargin + math.round((1 - alpha) * UI.Rise))
 	scale.Scale = UI.EnterScale + (1 - UI.EnterScale) * alpha
 

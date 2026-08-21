@@ -5,8 +5,6 @@ local MapOddityService = require(ServerStorage.Services.MapOddityService)
 
 local MapOddityCommandService = {}
 
--- `/mapoddity` affects the complete hallway containing the caller; `clear` ends all active effects.
-
 local EFFECTS = {
 	transparency = "Transparency",
 	translucent = "Transparency",

@@ -7,10 +7,6 @@ local TagService = require(ReplicatedStorage.Services.TagService)
 local Hit = ReplicatedStorage.Communication.Ball.Hit
 local Other = ReplicatedStorage.Props.Other
 
---- @class Ball
---- The paper ball: a thrown stun. Aiming is a raycast filtered to enemies only, so the throw either
---- connects or never leaves the player's hand -- there is no wasted ball. Flight and impact are
---- simulated on the thrower's client; the server re-checks the hit before it counts.
 local Ball = ClientTool.extend("Ball")
 
 function Ball.new(tool: Tool)
@@ -25,7 +21,6 @@ function Ball:OnEquipped()
 	end
 end
 
--- The enemy model under the crosshair, or nil if the player is not aiming at one.
 function Ball:_findTarget(): Model?
 	if not self.Mouse then return nil end
 
@@ -54,8 +49,6 @@ function Ball:OnActivated()
 	local character = self.Character
 	self.ThrowTrack:Play()
 
-	-- Face the target for the length of the throw. Stops on its own via the flag, and bails the
-	-- moment the enemy leaves the world -- pivoting toward a destroyed model would throw.
 	self.Facing = true
 	task.spawn(function()
 		while self.Facing do
@@ -65,18 +58,14 @@ function Ball:OnActivated()
 		end
 	end)
 
-	-- Bounded, so a missing "Throw" marker cannot strand the player mid-animation.
 	local reached = self:WaitForMarker(self.ThrowTrack, "Throw", 5)
 	if not reached or not enemy.Parent or not self:IsAlive() then return end
 
-	-- Only spend once the throw is actually committed. The old version spent the ball the instant
-	-- a target was found, so a throw interrupted before release still cost one.
 	self:Consume(1)
 	self:PlaySound(self.Config.Sound, self.Tool:FindFirstChild("Ball"))
 
 	self:_throw(self.Tool:GetPivot(), enemy)
 
-	-- The last of the stack takes the visible ball with it.
 	if self:GetQuantity() <= 0 then
 		local visible = self.Tool:FindFirstChild("Ball")
 		if visible then
@@ -87,8 +76,6 @@ function Ball:OnActivated()
 	self:WaitForTrack(self.ThrowTrack, 5)
 end
 
---- Flies a cloned ball to the enemy, then reports the hit for the server to validate. Rigged enemies
---- aim at their head; prop enemies such as the Eye fall back to the model pivot.
 function Ball:_throw(origin: CFrame, enemy: Model)
 	local template = Other:FindFirstChild("Ball")
 	local head = enemy:FindFirstChild("Head") :: BasePart?

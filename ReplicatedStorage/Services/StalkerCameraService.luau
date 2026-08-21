@@ -1,7 +1,3 @@
---- Client half of the Stalker's reveal. Once its patience runs out, the server names the Stalker and
---- this service takes the camera after Roblox's own camera step: first easing the view around, then
---- holding it on the charge until the server releases it or the target dies.
-
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")

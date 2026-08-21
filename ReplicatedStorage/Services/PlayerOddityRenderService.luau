@@ -74,8 +74,6 @@ HeadStare.OnClientEvent:Connect(function(duration: any)
 	end
 end)
 
--- Remove last frame's contribution before the animation system writes the next one. This keeps the
--- oddity additive and lets normal head motion resume as soon as the eased turn reaches identity.
 RunService.PreAnimation:Connect(function()
 	for model, state in turns do
 		if state.Neck.Parent and model:IsDescendantOf(workspace) then

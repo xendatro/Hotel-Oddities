@@ -11,18 +11,8 @@ local Communication = ReplicatedStorage.Communication.Inventory
 local CAPACITY = InventoryConfig.HotbarSlots + InventoryConfig.BackpackSlots
 local SAVED_ATTRIBUTES = { "uses" }
 
---- Owns what every player is carrying: the stacks themselves and the order they sit in.
----
---- Tools stack rather than duplicate -- one Tool instance per kind, carrying a `quantity`
---- attribute -- so a player holding three bandages holds one Tool. That makes a tool's name a
---- unique key within one player's inventory, which is what lets slots be tracked by name safely.
----
---- Slot order lives HERE, not on the client. The client may reorder optimistically for
---- responsiveness, but the server's list is what any later join, respawn or save reads back, and
---- every reorder request is re-validated before it is accepted.
 local InventoryService = {}
 
--- [player] = { [slotIndex] = toolName }, sparse: a hole is an empty slot.
 local Order: { [Player]: { [number]: string } } = {}
 local Ready: { [Player]: boolean } = {}
 local AttributeConnections: { [Tool]: RBXScriptConnection } = {}
@@ -86,7 +76,6 @@ local function trackAttributes(player: Player, tool: Tool)
 	end)
 end
 
---- The player's Tool of that name, whether stowed or equipped, or nil if they have none.
 function InventoryService:Get(player: Player, toolName: string): Tool?
 	local backpack = player:FindFirstChildOfClass("Backpack")
 	local tool = backpack and backpack:FindFirstChild(toolName)
@@ -100,7 +89,6 @@ function InventoryService:Get(player: Player, toolName: string): Tool?
 	return nil
 end
 
---- Every tool the player is carrying, stowed or equipped, keyed by name.
 function InventoryService:GetAll(player: Player): { [string]: Tool }
 	local found = {}
 
@@ -118,7 +106,6 @@ function InventoryService:GetAll(player: Player): { [string]: Tool }
 	return found
 end
 
---- Total number of items carried, counting stacks.
 function InventoryService:GetQuantity(player: Player): number
 	local total = 0
 	for _, tool in InventoryService:GetAll(player) do
@@ -127,7 +114,6 @@ function InventoryService:GetQuantity(player: Player): number
 	return total
 end
 
---- The slot a tool occupies, or nil if it has none yet.
 function InventoryService:GetSlot(player: Player, toolName: string): number?
 	for index, name in getOrder(player) do
 		if name == toolName then return index end
@@ -135,7 +121,6 @@ function InventoryService:GetSlot(player: Player, toolName: string): number?
 	return nil
 end
 
---- The player's slot layout, safe for the caller to keep.
 function InventoryService:GetOrder(player: Player): { [number]: string }
 	return table.clone(getOrder(player))
 end
@@ -149,7 +134,6 @@ function InventoryService:Wait(player: Player, timeout: number?): boolean
 	return true
 end
 
--- Lowest free slot, or nil when the inventory is completely full.
 local function findFreeSlot(player: Player): number?
 	local order = getOrder(player)
 	for index = 1, CAPACITY do
@@ -158,12 +142,6 @@ local function findFreeSlot(player: Player): number?
 	return nil
 end
 
---- Pushes the player's current layout and stack counts to their client.
----
---- The payload is a DENSE list whose entries each name their own slot, never a table indexed by
---- slot. An inventory with a gap in it -- slots 1, 2 and 5 filled -- is a sparse array, and remote
---- serialisation silently truncates those at the first hole, so everything past the first empty
---- slot would simply never arrive.
 function InventoryService:Sync(player: Player)
 	local tools = InventoryService:GetAll(player)
 	local payload = {}
@@ -183,8 +161,6 @@ function InventoryService:Sync(player: Player)
 	Communication.Update:FireClient(player, payload)
 end
 
---- Grants `n` of a tool, creating the Tool instance and claiming a slot on the player's first one.
---- Returns false when no template of that name exists or the inventory is full.
 function InventoryService:Add(player: Player, toolName: string, n: number): boolean
 	if n <= 0 then return false end
 	local tool = InventoryService:Get(player, toolName)
@@ -217,7 +193,52 @@ function InventoryService:Add(player: Player, toolName: string, n: number): bool
 	return true
 end
 
---- Consumes `n` of a tool, destroying it and freeing its slot once the stack empties.
+function InventoryService:EnsureSingle(player: Player, toolName: string): boolean
+	if not InventoryService:Wait(player, 10) then return false end
+
+	local tools = {}
+	for _, container in { player:FindFirstChildOfClass("Backpack"), player.Character } do
+		if not container then continue end
+		for _, child in container:GetChildren() do
+			if child:IsA("Tool") and child.Name == toolName then
+				table.insert(tools, child)
+			end
+		end
+	end
+
+	local tool = tools[1]
+	if not tool then
+		return InventoryService:Add(player, toolName, 1)
+	end
+
+	for index = 2, #tools do
+		tools[index]:Destroy()
+	end
+	tool:SetAttribute("quantity", 1)
+
+	local order = getOrder(player)
+	local firstSlot
+	for slot, name in order do
+		if name == toolName then
+			if firstSlot then
+				order[slot] = nil
+			else
+				firstSlot = slot
+			end
+		end
+	end
+	if not firstSlot then
+		local slot = findFreeSlot(player)
+		if not slot then return false end
+		order[slot] = toolName
+	end
+
+	trackAttributes(player, tool)
+	InventoryService:Sync(player)
+	save(player)
+	return true
+end
+
 function InventoryService:Remove(player: Player, toolName: string, n: number)
 	local tool = InventoryService:Get(player, toolName)
 	if not tool then return end
@@ -237,7 +258,6 @@ function InventoryService:Remove(player: Player, toolName: string, n: number)
 	save(player)
 end
 
---- Consumes the player's whole stack of a tool and returns how many were taken.
 function InventoryService:RemoveAll(player: Player, toolName: string): number
 	local tool = InventoryService:Get(player, toolName)
 	if not tool then return 0 end
@@ -247,7 +267,6 @@ function InventoryService:RemoveAll(player: Player, toolName: string): number
 	return amount
 end
 
---- Strips everything the player is carrying and empties their layout.
 function InventoryService:Clear(player: Player)
 	for _, tool in InventoryService:GetAll(player) do
 		tool:Destroy()
@@ -257,15 +276,12 @@ function InventoryService:Clear(player: Player)
 	save(player)
 end
 
---- Moves whatever is in `from` into `to`, swapping if `to` is occupied. Returns whether it applied.
---- Syncs on success, like every other mutating method here -- a caller should never have to
---- remember to push the change itself.
 function InventoryService:Move(player: Player, from: number, to: number): boolean
 	if from == to then return false end
 	if from < 1 or from > CAPACITY or to < 1 or to > CAPACITY then return false end
 
 	local order = getOrder(player)
-	if order[from] == nil then return false end -- nothing to move
+	if order[from] == nil then return false end
 
 	order[from], order[to] = order[to], order[from]
 	InventoryService:Sync(player)
@@ -273,10 +289,6 @@ function InventoryService:Move(player: Player, from: number, to: number): boolea
 	return true
 end
 
--- Drops slots whose tool no longer exists and gives a slot to any tool that somehow lacks one.
--- Running this on spawn is what replaces FFM's "purge, then purge again 1.5s later" guesswork:
--- the layout is rebuilt from what is actually there instead of from connections that may never
--- have fired.
 local function reconcile(player: Player)
 	local tools = InventoryService:GetAll(player)
 	local order = getOrder(player)
@@ -290,8 +302,6 @@ local function reconcile(player: Player)
 		end
 	end
 
-	-- Alphabetical rather than hash order, so a tool that arrived without a slot lands in the same
-	-- place every time instead of the layout reshuffling on each rejoin.
 	local unplaced = {}
 	for toolName in tools do
 		if not placed[toolName] then
@@ -353,6 +363,7 @@ local function restore(player: Player)
 
 	Ready[player] = true
 	reconcile(player)
+	InventoryService:EnsureSingle(player, "Walkie Talkie")
 end
 
 local function watchCharacter(player: Player, character: Model)
@@ -360,8 +371,6 @@ local function watchCharacter(player: Player, character: Model)
 	if not humanoid or not humanoid:IsA("Humanoid") then return end
 
 	humanoid.Died:Once(function()
-		-- Revives and Keep Items take their snapshots in their own Died callbacks. Delaying the clear
-		-- lets every snapshot finish before the authoritative inventory is emptied and saved.
 		task.delay(0.1, function()
 			if player.Parent == Players then InventoryService:Clear(player) end
 		end)
@@ -374,15 +383,15 @@ local function watchPlayer(player: Player)
 	end
 	player.CharacterAdded:Connect(function(character)
 		task.spawn(watchCharacter, player, character)
-		if Ready[player] then task.defer(reconcile, player) end
+		if Ready[player] then
+			task.defer(reconcile, player)
+			task.defer(InventoryService.EnsureSingle, InventoryService, player, "Walkie Talkie")
+		end
 	end)
 	task.spawn(restore, player)
 end
 
--- Client-driven consumption. Tools whose activation plays out on the client (the ball, the shovel)
--- report the spend here; server-side tools call :Remove directly.
 ReplicatedStorage.Communication.Backpack.Delete.OnServerEvent:Connect(function(player: Player, toolName: any, n: any)
-	-- Never trust the client's amount: a negative n would otherwise INCREASE the stack.
 	if type(toolName) ~= "string" then return end
 	n = tonumber(n)
 	if not n then return end
@@ -392,8 +401,6 @@ ReplicatedStorage.Communication.Backpack.Delete.OnServerEvent:Connect(function(p
 	InventoryService:Remove(player, toolName, n)
 end)
 
--- Reordering is a request, not an instruction: the client moves its own frames immediately so the
--- drag feels instant, but the authoritative swap happens here and is echoed back to correct it.
 Communication.Move.OnServerEvent:Connect(function(player: Player, from: any, to: any)
 	from, to = tonumber(from), tonumber(to)
 	if not from or not to then
@@ -405,19 +412,11 @@ Communication.Move.OnServerEvent:Connect(function(player: Player, from: any, to:
 		return
 	end
 
-	-- A rejected move still needs an answer: the client already swapped its own frames to keep the
-	-- drag responsive, so silence would leave it showing a layout the server never agreed to.
 	if not InventoryService:Move(player, from, to) then
 		InventoryService:Sync(player)
 	end
 end)
 
--- A client asking for its state. The first Sync a player is sent can easily land before their UI
--- has connected its handler, so the UI asks once on startup rather than trusting that race.
---
--- Reconciles rather than merely syncing, which makes the answer self-healing: a Tool that reached
--- a backpack without going through :Add -- StarterGear, an admin command, anything written later --
--- has no slot yet, and a plain Sync would leave it invisible forever.
 Communication.Update.OnServerEvent:Connect(function(player: Player)
 	reconcile(player)
 end)

@@ -1,12 +1,5 @@
---- One place for anything that wants to widen or narrow the camera without owning its field of
---- view. Callers name their contribution and the offsets add up, so a sprint and a speed drink at
---- the same time do not fight over one number.
----
---- The total is removed before it is re-applied every frame, which is what lets this compose with
---- camera scripts and interface tweens that pick their own base field of view: whatever they wrote
---- since the last frame survives, and only this service's own share is replaced.
-
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
 local CameraFovService = {}
 
@@ -39,8 +32,9 @@ local function render()
 	if not camera then return end
 
 	local base = camera.FieldOfView - lastApplied
-	lastApplied = total
-	camera.FieldOfView = base + lastApplied
+	local written = math.clamp(base + total, 1, 120)
+	lastApplied = written - base
+	camera.FieldOfView = written
 end
 
 local function setBound(value: boolean)
@@ -54,8 +48,6 @@ local function setBound(value: boolean)
 	end
 end
 
---- Sets `name`'s contribution in degrees, replacing whatever it was before. Zero removes it. This
---- is instant: a caller that wants its offset to ease in owns that easing and keeps calling.
 function CameraFovService:SetOffset(name: string, degrees: number)
 	local value = if math.abs(degrees) < 1e-3 then nil else degrees
 	if Offsets[name] == value then return end
@@ -68,9 +60,41 @@ function CameraFovService:SetOffset(name: string, degrees: number)
 	setBound(next(Offsets) ~= nil)
 end
 
---- What every contribution currently adds up to, in degrees.
 function CameraFovService:GetOffset(): number
 	return total
+end
+
+local ActiveTweens: { [string]: { Tween: Tween, Value: NumberValue, Connection: RBXScriptConnection } } = {}
+
+function CameraFovService:TweenOffset(name: string, degrees: number, tweenInfo: TweenInfo)
+	local existing = ActiveTweens[name]
+	if existing then
+		ActiveTweens[name] = nil
+		existing.Tween:Cancel()
+		existing.Connection:Disconnect()
+		existing.Value:Destroy()
+	end
+
+	local value = Instance.new("NumberValue")
+	value.Value = Offsets[name] or 0
+	local connection = value.Changed:Connect(function(current: number)
+		self:SetOffset(name, current)
+	end)
+
+	local tween = TweenService:Create(value, tweenInfo, { Value = degrees })
+	local entry = { Tween = tween, Value = value, Connection = connection }
+	ActiveTweens[name] = entry
+	tween.Completed:Once(function(playbackState: Enum.PlaybackState)
+		if ActiveTweens[name] == entry then
+			ActiveTweens[name] = nil
+			connection:Disconnect()
+			value:Destroy()
+			if playbackState == Enum.PlaybackState.Completed then
+				self:SetOffset(name, degrees)
+			end
+		end
+	end)
+	tween:Play()
 end
 
 workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()

@@ -1,9 +1,3 @@
---- Places and retires decorative/ambush vents using the danger field.
----
---- The model is the same tagged Vent used by CeilingVentService. This service only owns when a model
---- enters or leaves Workspace; the tagged vent service still owns its door and everything that drops
---- from it.
-
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -164,8 +158,6 @@ local function overlapsWorldGeometry(cframe: CFrame, size: Vector3): boolean
 			table.insert(params.FilterDescendantsInstances, player.Character)
 		end
 	end
-	-- Queryable map parts include lights and other decorative models, not just solid walls. Existing
-	-- vents remain in the query as well, so a model cannot be placed through another vent.
 	return #workspace:GetPartBoundsInBox(cframe, size, params) > 0
 end
 
@@ -196,8 +188,6 @@ local function trySpawn(): boolean
 	local template = Template :: Model
 	local templateBoundsCFrame, templateBounds = template:GetBoundingBox()
 	local relativeBounds = template:GetPivot():ToObjectSpace(templateBoundsCFrame)
-	-- The authored vent and a slab may have different quarter-turns. Use a square footprint for the
-	-- pre-check so a rotated model cannot slip through the beam test with a swapped X/Z extent.
 	local footprint = math.max(templateBounds.X, templateBounds.Z)
 	local placementSize = Vector3.new(footprint, templateBounds.Y, footprint)
 	local slabMargin = Vector3.new(footprint / 2 + 0.5, 0, footprint / 2 + 0.5)
@@ -225,8 +215,6 @@ local function trySpawn(): boolean
 	vent.Name = "ProgrammaticVent"
 	vent:SetAttribute(PROGRAMMATIC_ATTRIBUTE, true)
 	vent:PivotTo(target)
-	-- Recheck the exact cloned bounds immediately before parenting. This closes the small race where a
-	-- player moves into the sightline during the candidate scan.
 	local boundsCFrame, actualBounds = vent:GetBoundingBox()
 	if overlapsWorldGeometry(boundsCFrame, actualBounds)
 		or isNearPlayer(point.Position)

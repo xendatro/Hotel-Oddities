@@ -1,15 +1,3 @@
---- Client half of the danger map's tuning tools: a heatmap you can walk around inside, and sliders
---- for the handful of numbers that decide what it looks like. Temporary -- delete alongside the
---- server half, the `DangerDebug` flag and the `Danger` remote folder once a seed has been picked.
----
---- The field is a pure function of position, so none of this needs the server. Sliders move a local
---- copy of the settings, the heatmap redraws from it immediately, and only pressing Apply sends the
---- numbers over for the population to be rebuilt against. That means seed-shopping is instant: roll,
---- look, roll again, and only commit to the one whose bad wings sit somewhere interesting.
----
---- Toggle the panel with F4. While it is open the cursor is released from first person, so the
---- sliders and buttons can actually be used; closing it gives the camera the mouse back.
-
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -24,20 +12,20 @@ local MAZE_FLOOR_TAG = "MazeFloor"
 local START_TAG = "Start"
 
 local TOGGLE_KEY = Enum.KeyCode.F4
-local HEATMAP_SPACING = 24 -- studs; far coarser than the spawn pool, or the part count is unusable
+local HEATMAP_SPACING = 24
 local HEATMAP_LIMIT = 4000
-local HEATMAP_BATCH = 250 -- parts built between yields, so a redraw does not freeze the frame
-local REDRAW_DEBOUNCE = 0.15 -- seconds of a slider standing still before the map is rebuilt
+local HEATMAP_BATCH = 250
+local REDRAW_DEBOUNCE = 0.15
 local MARKER_SIZE = Vector3.new(6, 0.2, 6)
-local MARKER_HEIGHT = 0.6 -- studs above the floor, clear of z-fighting with it
+local MARKER_HEIGHT = 0.6
 
 local PANEL_WIDTH = 300
 local ROW_HEIGHT = 34
-local READOUT_INTERVAL = 0.1 -- seconds between samples of the field under the player
+local READOUT_INTERVAL = 0.1
 
-local TAG_WAIT_TIMEOUT = 20 -- seconds to wait for the map's tags before building against nothing
+local TAG_WAIT_TIMEOUT = 20
 local TAG_POLL_INTERVAL = 0.25
-local TAG_SETTLE_POLLS = 4 -- unchanged counts in a row that mean the map has finished arriving
+local TAG_SETTLE_POLLS = 4
 
 local DangerDebugService = {}
 
@@ -47,10 +35,6 @@ end
 
 local LocalPlayer = Players.LocalPlayer
 
--- Resolved on its own thread rather than at the top of the file. The client bootstrap requires every
--- service in a single synchronous loop, so a `WaitForChild` here that never resolves would stop every
--- other client service from loading at all -- and a temporary debug panel must not be able to take
--- the game down with it if its remote folder has not been authored yet.
 local SetConfig: RemoteEvent? = nil
 
 local Settings: DangerField.FieldSettings
@@ -58,8 +42,8 @@ local Extent = 1
 local Floors: { BasePart } = {}
 local MarkerFolder: Folder? = nil
 local HeatmapOn = false
-local Generation = 0 -- so a redraw started while another is still batching abandons the older one
-local GateOn = true -- whether the heatmap shows the gated field or the raw noise
+local Generation = 0
+local GateOn = true
 
 local function getFloors(): { BasePart }
 	local floors = {}
@@ -81,8 +65,6 @@ local function rebuildSettings()
 	Settings = DangerField.BuildSettings(if startPart then startPart.Position else centre, extent)
 end
 
---- Green through to red. Hue runs a third of the way round the wheel, which puts calm at green, the
---- middle at yellow and the worst of it at red -- the reading everybody already has for a heatmap.
 local function dangerColor(danger: number): Color3
 	return Color3.fromHSV((1 - math.clamp(danger, 0, 1)) * 0.33, 1, 1)
 end
@@ -141,9 +123,6 @@ end
 
 local RedrawPending = false
 
---- Coalesces redraws. A slider fires on every frame of a drag, and each redraw re-bakes the whole
---- field, so calling `drawHeatmap` directly from one turns a two-second drag into a hundred full
---- bakes and a locked client.
 local function requestRedraw()
 	if RedrawPending then return end
 	RedrawPending = true
@@ -154,7 +133,6 @@ local function requestRedraw()
 	end)
 end
 
---- One labelled slider. `apply` receives the new value; the caller decides what that means.
 local function buildSlider(
 	parent: Instance,
 	order: number,
@@ -188,9 +166,6 @@ local function buildSlider(
 	track.BorderSizePixel = 0
 	track.Parent = row
 
-	-- Clamped, because a value outside the slider's range is a real possibility -- `DangerConfig` is
-	-- hand-edited and nothing reconciles it against these bounds -- and an unclamped fill does not
-	-- merely look wrong, it draws a bar several times the width of the screen across everything.
 	local fill = Instance.new("Frame")
 	fill.Size = UDim2.fromScale(math.clamp((initial - minimum) / (maximum - minimum), 0, 1), 1)
 	fill.BackgroundColor3 = Color3.fromRGB(190, 90, 90)
@@ -235,14 +210,6 @@ end
 
 local function buildButton(parent: Instance, order: number, text: string, activated: () -> ()): TextButton
 	local button = Instance.new("TextButton")
-	-- The game is played in first person, which pins the cursor to the middle of the screen and leaves
-	-- every control in this panel impossible to click or drag. A *visible* modal button overrides that
-	-- lock for exactly as long as it is on screen, so opening the panel frees the mouse and closing it
-	-- hands the camera straight back -- no state to restore and nothing to get stuck holding.
-	--
-	-- Every button rather than one nominated for the job: one is enough to free the cursor, but "one
-	-- specific button must exist or the whole panel silently stops working" is not a property worth
-	-- leaving in a file whose header says to delete parts of it.
 	button.Modal = true
 	button.Size = UDim2.new(1, 0, 0, 26)
 	button.LayoutOrder = order
@@ -261,8 +228,6 @@ local function build()
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "DangerDebug"
 	gui.ResetOnSpawn = false
-	-- Respecting the inset rather than ignoring it: the panel is pinned to the top-left, which is
-	-- exactly where Roblox puts its own topbar, and ignoring it filed the title away underneath.
 	gui.IgnoreGuiInset = false
 	gui.Enabled = false
 	gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
@@ -297,12 +262,6 @@ local function build()
 	title.Text = `danger map -- extent {math.floor(Extent)} studs`
 	title.Parent = panel
 
-	-- What the field says where you are standing, live. The sliders describe the shape of the hotel's
-	-- danger in the abstract; this is the single number every other system actually reads, and having
-	-- it under the crosshair while walking is the difference between tuning the map and guessing at
-	-- it. Both factors are broken out because a reading of zero has two completely different causes --
-	-- a cold pocket in the noise, or standing inside the entrance's safe radius -- and the gate term
-	-- is the only thing that tells them apart.
 	local readout = Instance.new("TextLabel")
 	readout.Size = UDim2.new(1, 0, 0, 30)
 	readout.LayoutOrder = 1
@@ -336,10 +295,6 @@ local function build()
 		end
 	end)
 
-	-- Whole studs, because the seed is a number you shop for rather than interpolate through: every
-	-- step is a completely different hotel and there is no sense in which 4.5 sits between 4 and 5.
-	-- The range has to actually contain whatever `DangerConfig` was left on, or the slider opens
-	-- already unable to represent the seed the game is running.
 	buildSlider(panel, 2, "Seed", 1, math.max(2000, Settings.Seed), Settings.Seed, 1, function(value)
 		Settings.Seed = value
 		requestRedraw()
@@ -435,21 +390,6 @@ local function build()
 	end)
 end
 
--- Held back until the map has actually been tagged. The client bootstrap requires every service in
--- one synchronous loop and only tags the world *after* that loop finishes, so at module scope there
--- is not a single `MazeFloor` in the game yet. Measuring then gives the empty-list extent of one
--- stud, every fraction in `DangerConfig` resolves against it -- a feature scale of a sixth of a stud,
--- a safe radius of a twentieth of one -- and the sliders are built around ranges that describe
--- nothing. The heatmap then bakes across a list of no floors and draws nothing at all, which from
--- the outside is indistinguishable from the panel being missing entirely.
---
--- Waiting for the count to settle rather than merely to become non-zero. The floors stream in, so the
--- first tagged part arrives well before the last: measuring on the first one gave an extent of 459
--- studs against a true 723, and every fraction resolved against it was wrong by that ratio -- which is
--- worse than the empty case, because it looks entirely plausible.
---
--- Building anyway on timeout rather than giving up: a panel with a wrong extent can still be fixed
--- from its own "reload map from tags" button, and one that never appeared cannot.
 task.spawn(function()
 	local deadline = os.clock() + TAG_WAIT_TIMEOUT
 	local previous, settled = -1, 0

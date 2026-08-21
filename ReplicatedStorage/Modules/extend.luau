@@ -2,10 +2,10 @@ return function(t: {}, ...: {} | Instance)
 	local extensions = table.pack(...)
 	local function findTarget(index: string)
 		for _, extension in ipairs(extensions) do
-			local success, extensionType = pcall(function() 
+			local success, extensionType = pcall(function()
 				if typeof(extension) == "table" and extension[index] == nil then
 					error()
-				else 
+				else
 					local a = extension[index]
 				end
 				return type(extension)

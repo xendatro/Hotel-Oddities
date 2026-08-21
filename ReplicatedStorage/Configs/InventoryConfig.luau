@@ -1,6 +1,3 @@
---- Every tunable the inventory reads. The UI is built in code from these values rather than from a
---- StarterGui asset, so restyling the whole thing means editing this table and nothing else.
-
 return {
 	--- Slots along the bottom of the screen, each bound to a number key.
 	HotbarSlots = 9,
@@ -22,10 +19,6 @@ return {
 		Enum.KeyCode.Nine,
 	},
 
-	--- How far a press has to travel before it counts as a drag instead of a tap. Measured from
-	--- where the finger or cursor went DOWN to where it is now -- never from the slot's position,
-	--- which is what makes a stationary tap on a moving layout register as a drag by accident.
-	--- Touch gets the larger figure because fingers wobble on contact.
 	DragThreshold = 8,
 	TouchDragThreshold = 16,
 

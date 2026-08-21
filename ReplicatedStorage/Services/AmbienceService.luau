@@ -16,9 +16,6 @@ end
 local AMBIENCE_FOLDER = ReplicatedStorage:WaitForChild("Sounds"):WaitForChild("Ambience")
 local ENEMY_TAG = "Enemy"
 
--- The bed ducks as an enemy closes in. A fader of its own between the players and the speakers
--- means the ducking is one number, independent of whatever volume each clip was authored at and of
--- the Ambience bus underneath it.
 local Duck = Instance.new("AudioFader")
 Duck.Name = "AmbienceDuck"
 Duck.Parent = workspace:WaitForChild("Sounds")

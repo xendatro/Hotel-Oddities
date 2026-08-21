@@ -2,8 +2,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Templates = ReplicatedStorage:WaitForChild("Sounds")
 
---- @class Sound
---- Attaches a named AudioEmitter template to a tagged world object.
 local Sound = {}
 Sound.__index = Sound
 

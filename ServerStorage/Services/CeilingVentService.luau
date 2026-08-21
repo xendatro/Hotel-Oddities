@@ -1,20 +1,10 @@
---- Turns tagged ceiling vents into reusable CeilingDweller ambushes.
----
---- A vent is any instance in workspace tagged `CeilingVent` with a descendant BasePart named
---- `Door`. Players underneath it get spaced chances to spring it, so walking through may or may not
---- wake it while lingering eventually will. Once sprung, its door swings around the authored part
---- pivot and one CeilingDweller drops from the opening; its class delegates to the Chaser state
---- machine from there. The vent remains spent while the enemy is active. Once every player has left
---- and nobody can see the vent, that particular enemy is despawned, the door closes, and the
---- approach trigger is armed again.
-
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
-local TweenService = game:GetService("TweenService")
 
+local AudioService = require(ReplicatedStorage.Services.AudioService)
 local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local TagService = require(ReplicatedStorage.Services.TagService)
@@ -34,7 +24,7 @@ local DEFAULT_TRIGGER_HEIGHT = 20
 local DEFAULT_TRIGGER_CHANCE = 0.35
 local DEFAULT_RETRY_INTERVAL = 0.75
 
-local function getCameraEvent(): RemoteEvent
+local function getEnemyEvent(name: string): RemoteEvent
 	local communication = ReplicatedStorage:FindFirstChild("Communication")
 	if not communication then
 		communication = Instance.new("Folder")
@@ -47,38 +37,28 @@ local function getCameraEvent(): RemoteEvent
 		enemies.Name = "Enemies"
 		enemies.Parent = communication
 	end
-	local event = enemies:FindFirstChild("CeilingDwellerCamera")
+	local event = enemies:FindFirstChild(name)
 	if not event then
 		event = Instance.new("RemoteEvent")
-		event.Name = "CeilingDwellerCamera"
+		event.Name = name
 		event.Parent = enemies
 	end
 	return event :: RemoteEvent
 end
 
-local CameraEvent = getCameraEvent()
+local CameraEvent = getEnemyEvent("CeilingDwellerCamera")
+local DoorEvent = getEnemyEvent("CeilingVentDoor")
 
--- What a vent's authored `TriggerChance` is multiplied by, from the calmest ground to the worst. The
--- floor is not zero on purpose: vents are placed by hand rather than by the danger map, so some of
--- them will land in quiet pockets, and a vent that never opens is a prop rather than an ambush. At
--- 0.2 a cold one is a rare surprise instead of scenery.
---
--- Note what this knob actually does. Because the roll repeats every `RetryInterval` while somebody is
--- underneath, lowering the per-roll chance does not make a vent safe -- it makes it survivable to
--- walk under. That is the right shape: walking through may or may not wake it, lingering still gets
--- you, and danger decides how long lingering is.
 local MINIMUM_DANGER_SCALE = 0.2
 
 local OPEN_ANGLE = math.rad(-100)
 local DOOR_MOVE_TIME = 0.45
+local DOOR_OPEN_TIME = 0.65
+local OPEN_CUE_POINT = 0.6
 local DROP_RAY_START_OFFSET = 2.5
 local DROP_RAY_DISTANCE = 100
 local MINIMUM_FLOOR_NORMAL = 0.5
 
--- This mirrors the broad horizontal pre-check used by EnemyObservationService. The server does not
--- receive camera orientation, so character facing is intentionally conservative: if somebody is
--- facing the vent and has clear sight of it, it stays open even if their camera might be pitched
--- elsewhere.
 local VIEW_ARC = 110
 local MAX_VIEW_DISTANCE = 300
 local ENGAGEMENT_STATES = {
@@ -181,38 +161,20 @@ local function getDropSurface(state: VentState): (Vector3?, Vector3?)
 	params.FilterDescendantsInstances = floors
 	params.RespectCanCollide = true
 
-	-- Begin below the vent/roof slab and only admit authored maze floors. The vent, roof, characters,
-	-- props and live enemies therefore cannot become an accidental landing surface.
 	local origin = state.SpawnPosition - Vector3.yAxis * DROP_RAY_START_OFFSET
 	local result = workspace:Raycast(origin, -Vector3.yAxis * DROP_RAY_DISTANCE, params)
 	if not result or result.Normal.Y < MINIMUM_FLOOR_NORMAL then return nil, nil end
 	return result.Position, result.Normal
 end
 
-local function moveDoor(state: VentState, target: CFrame): boolean
+local function moveDoor(state: VentState, target: CFrame, duration: number?, easing: string?): boolean
 	if not state.Alive or not state.Door.Parent then return false end
 
-	local value = Instance.new("CFrameValue")
-	value.Value = state.Door:GetPivot()
+	local moveTime = duration or DOOR_MOVE_TIME
+	DoorEvent:FireAllClients(state.Door, target, moveTime, easing or "Quad")
+	task.wait(moveTime)
 
-	local changed = value:GetPropertyChangedSignal("Value"):Connect(function()
-		if state.Alive and state.Door.Parent then
-			state.Door:PivotTo(value.Value)
-		end
-	end)
-
-	local tween = TweenService:Create(
-		value,
-		TweenInfo.new(DOOR_MOVE_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-		{ Value = target }
-	)
-	tween:Play()
-	tween.Completed:Wait()
-
-	changed:Disconnect()
-	value:Destroy()
 	if not state.Alive or not state.Door.Parent then return false end
-
 	state.Door:PivotTo(target)
 	return true
 end
@@ -256,9 +218,8 @@ local function isEnemyEngaged(state: VentState): boolean
 end
 
 local function canReset(state: VentState): boolean
-	-- Looking away from the vent is never enough to erase an enemy that is still hunting somebody.
-	-- Chaser clears Target as it enters Search, which is the first disengaged state eligible here.
 	if isEnemyEngaged(state) then return false end
+	if state.Enemy and state.Enemy.Active and state.Enemy:IsObserved() then return false end
 
 	for _, player in Players:GetPlayers() do
 		local root = getAliveRoot(player)
@@ -279,8 +240,6 @@ local function reset(state: VentState)
 	state.Resetting = true
 
 	task.spawn(function()
-		-- The vent stays Triggered throughout teardown. It cannot roll another approach until its
-		-- own enemy is inactive and the panel has reached the authored closed pivot.
 		if state.Enemy then
 			state.Enemy:Despawn()
 			state.Enemy = nil
@@ -295,13 +254,6 @@ local function reset(state: VentState)
 	end)
 end
 
---- This vent's real odds per roll: what it was authored with, scaled by how bad the ground it hangs
---- over is, and zeroed while the director cannot afford what would come out of it.
----
---- The budget check is what stops the vents making a nonsense of the population. A Dweller is one of
---- the most expensive things in the game -- it commits from about ten studs instead of sixty, so
---- there is no room close enough to run to -- and a vent that fires regardless of what is already
---- hunting you could drop one on top of a Stalker and a Chaser without anything having agreed to it.
 local function triggerChance(state: VentState): number
 	if not EnemyDirectorService:CanAfford(ENEMY_ID) then return 0 end
 
@@ -316,10 +268,15 @@ local function trigger(state: VentState, player: Player, forced: boolean?)
 	state.Triggered = true
 
 	task.spawn(function()
+		AudioService:Play3DSound("VentOpen", state.Door, false, "SFX")
 		if player.Parent == Players then
-			CameraEvent:FireClient(player, "Open", DOOR_MOVE_TIME)
+			task.delay(DOOR_OPEN_TIME * OPEN_CUE_POINT, function()
+				if player.Parent == Players then
+					CameraEvent:FireClient(player, "Open", DOOR_OPEN_TIME * (1 - OPEN_CUE_POINT))
+				end
+			end)
 		end
-		local opened = moveDoor(state, state.DoorPivot * CFrame.Angles(OPEN_ANGLE, 0, 0))
+		local opened = moveDoor(state, state.DoorPivot * CFrame.Angles(OPEN_ANGLE, 0, 0), DOOR_OPEN_TIME, "Bounce")
 		if not opened or not state.Alive or not state.Vent:IsDescendantOf(workspace) then return end
 
 		local spawnCFrame = getSpawnCFrame(state, player)
@@ -334,15 +291,27 @@ local function trigger(state: VentState, player: Player, forced: boolean?)
 		end
 
 		state.Enemy = EnemyService:Spawn(ENEMY_ID, spawnCFrame, player, floorPosition, floorNormal)
-		-- Counted against the Pursuit budget so a Dweller crowds out other spawns for as long as it is
-		-- about, but registered as self-managed: the vent owns its own teardown and reset, and the
-		-- director's distance sweep must not reach in and take it out from under that.
 		EnemyDirectorService:Adopt(state.Enemy, ENEMY_ID, true)
 		state.ReadyToReset = true
 	end)
 end
 
---- Opens the closest usable vent for a hand-spawn command, ignoring approach range and roll chance.
+function CeilingVentService:GetVents(): { { Vent: Instance, Floor: Vector3, Triggered: boolean } }
+	local vents = {}
+	for _, state in TagService:GetAllApplied(CEILING_VENT_TAG) do
+		if state.Alive then
+			local floorPosition = getDropSurface(state)
+			if floorPosition then
+				table.insert(vents, { Vent = state.Vent, Floor = floorPosition, Triggered = state.Triggered })
+			end
+		end
+	end
+	table.sort(vents, function(a, b)
+		return a.Vent:GetFullName() < b.Vent:GetFullName()
+	end)
+	return vents
+end
+
 function CeilingVentService:SpawnFromNearest(player: Player): boolean
 	local root = getAliveRoot(player)
 	if not root then return false end
@@ -367,12 +336,28 @@ function CeilingVentService:SpawnFromNearest(player: Player): boolean
 	return true
 end
 
+local function disablePhysicsQueries(vent: Instance)
+	local function disable(instance: Instance)
+		if instance:IsA("BasePart") then
+			instance.CanCollide = false
+			instance.CanQuery = false
+			instance.CanTouch = false
+		end
+	end
+	disable(vent)
+	for _, descendant in vent:GetDescendants() do
+		disable(descendant)
+	end
+end
+
 TagService:Listen(CEILING_VENT_TAG, function(vent: Instance)
 	local door = vent:FindFirstChild(DOOR_NAME, true)
 	if not door or not door:IsA("BasePart") then
 		warn(`CeilingVentService: {vent:GetFullName()} has no descendant BasePart named "{DOOR_NAME}"`)
 		return nil
 	end
+
+	disablePhysicsQueries(vent)
 
 	return {
 		Vent = vent,
@@ -424,9 +409,6 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 		local now = os.clock()
 		for _, player in Players:GetPlayers() do
 			local root = getAliveRoot(player)
-			-- A vent is one of the things that gets to decline: what is in it has not committed to
-			-- anything yet, and dropping on somebody nothing in the hotel can find would be the vanish
-			-- summoning the ambush it is meant to be an escape from.
 			local isNearby = root ~= nil and not Vanished.Is(player.Character) and isUnderVent(state, root)
 			if not isNearby then
 				state.NextRollAt[player] = nil

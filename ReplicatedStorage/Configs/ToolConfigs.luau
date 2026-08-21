@@ -1,12 +1,3 @@
---- Every tool in the game, and every number that used to be hardcoded inside its class.
----
---- This table is the registry: `ToolService` (server) and `ToolClientService` (client) each walk it
---- at boot, look for a matching module under their own `Classes/Tools` folder, and wire the tag.
---- Adding a tool means adding an entry here and dropping in one or two files -- there is no list of
---- tools to keep in sync anywhere else.
----
---- A tool may have a server half, a client half, or both. Whichever module exists gets loaded.
-
 export type ToolConfig = {
 	Tag: string,
 	Sound: string?,
@@ -36,11 +27,9 @@ return {
 		Tag = "SpellBook",
 		Sound = "SpellBook",
 		RevealLimbs = true,
-		--- How long the caster stays untargetable if the animation never reaches its end marker.
-		--- Without this a missing marker would strand them rooted and invisible forever.
 		MaxCastTime = 12,
-		EffectDelay = 1, -- before the book's own particles appear
-		ReaderDelay = 1.8, -- before the effect on the caster appears
+		EffectDelay = 1,
+		ReaderDelay = 1.8,
 	},
 
 	Trap = {
@@ -59,8 +48,6 @@ return {
 		StunDuration = 3,
 		--- How far the aiming raycast reaches, in studs.
 		Range = 60,
-		--- Ceiling the server puts on a reported hit, generous enough to allow for the thrower
-		--- having moved during the throw but tight enough that a distant claim is refused.
 		ServerRange = 80,
 		FlightSpeed = 90,
 		FlightSteps = 50,
@@ -70,7 +57,7 @@ return {
 		Tag = "Shovel",
 		Sound = "Shovel",
 		RevealLimbs = true,
-		DigDepth = 100, -- how far down to look for ground before refusing to dig
+		DigDepth = 100,
 		HoleStartScale = 0.1,
 		HoleEndScale = 0.792,
 		HoleGrowTime = 2,
@@ -81,25 +68,13 @@ return {
 	Pathfinder = {
 		Tag = "Pathfinder",
 		Cooldown = 0.35,
-		--- Markers standing at once, and the size of a plain stack -- one number, because the two
-		--- versions of the tool run out against it differently. The plain one spends a use per
-		--- placement and empties before the cap is ever reached; the gamepass one spends nothing, so
-		--- its 21st placement recycles the oldest marker instead.
 		MaxInWorld = 20,
-		--- Charges on one Pathfinder, and the denominator the on-screen counter reads against. These
-		--- are NOT stack quantity: one Pathfinder is one device carrying this many markers, so it is
-		--- granted like any other single item and only leaves the inventory once it is empty.
 		Uses = 20,
 		--- Shown beside the count while the tool is equipped.
 		Caption = "MARKERS",
-		--- Refuses to place within this many studs of an existing marker; the nearby one flares
-		--- instead. Stops a double tap from burning two on the same square of carpet.
 		MinSpacing = 8,
 		--- How far below the player to look for a floor before refusing to place in midair.
 		SnapDistance = 12,
-		--- Newest marker is drawn in NewColor and the trail fades back toward OldColor behind it.
-		--- Everything else about how one looks belongs to the `PathfinderMarker` prop in
-		--- ReplicatedStorage.Props.Other, including its size and how far off its dot stays drawn.
 		NewColor = Color3.fromRGB(120, 235, 255),
 		OldColor = Color3.fromRGB(64, 104, 142),
 		PlaceTime = 0.18,
@@ -129,8 +104,6 @@ return {
 
 	Visor = {
 		Tag = "Visor",
-		--- Passive while equipped: `Eye` skips damage on anyone holding this out.
-		--- The child of the tool holding the worn visor; cloned onto the head instead of held.
 		FaceAccessory = "Accessory",
 		--- Local pose of the visor's FaceFrontAttachment.
 		FaceAttachment = CFrame.new(0, -0.2, -0.45),

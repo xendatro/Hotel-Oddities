@@ -48,6 +48,9 @@ local Kill = game:GetService("ReplicatedStorage")
 	:WaitForChild("Death")
 	:WaitForChild("Kill") :: RemoteEvent
 
+local Strike = game:GetService("ReplicatedStorage")
+	.Communication.Death:WaitForChild("Strike") :: RemoteEvent
+
 local function playKillAnimation(enemy: Model)
 	local tracks = attackTracks[enemy]
 	if not tracks then
@@ -79,17 +82,14 @@ local function getHumanoid(): Humanoid?
 	return currentCharacter:FindFirstChildOfClass("Humanoid")
 end
 
-local function tryKill(enemy: Model, hit: BasePart)
-	if dead or not character or not hit:IsDescendantOf(character) then return end
+local function kill(enemy: Model)
+	if dead or not character then return end
 	if isInSafeRoom() then return end
 	if not enemy:IsDescendantOf(workspace) then return end
 	if Vanished.Is(character) then return end
 	if enemy:GetAttribute("EnemyId") == "Mimic" and enemy:GetAttribute("MimicAttackActive") ~= true then
 		return
 	end
-	-- Some enemies are scenery. A Watcher stands in corridors people walk down and has no attack at
-	-- all, so brushing past one is not a death. Read at contact as the final guard; the server stamps
-	-- the attribute before parenting, so it arrives with the model before the Enemy tag is added.
 	if enemy:GetAttribute("Harmless") then return end
 
 	local humanoid = getHumanoid()
@@ -99,6 +99,11 @@ local function tryKill(enemy: Model, hit: BasePart)
 	playKillAnimation(enemy)
 	Kill:FireServer(enemy)
 	humanoid.Health = 0
+end
+
+local function tryKill(enemy: Model, hit: BasePart)
+	if not character or not hit:IsDescendantOf(character) then return end
+	kill(enemy)
 end
 
 local function watchPart(enemy: Model, part: Instance, partConnections: { RBXScriptConnection })
@@ -148,6 +153,12 @@ CollectionService:GetInstanceRemovedSignal("Enemy"):Connect(unwatchEnemy)
 for _, enemy in CollectionService:GetTagged("Enemy") do
 	watchEnemy(enemy)
 end
+
+Strike.OnClientEvent:Connect(function(enemy: Instance?)
+	if enemy and enemy:IsA("Model") then
+		kill(enemy)
+	end
+end)
 
 Kill.OnClientEvent:Connect(function(_victim: Player, enemy: Instance?)
 	if enemy and enemy:IsA("Model") and enemy:IsDescendantOf(workspace) then

@@ -1,13 +1,3 @@
---- Owns what a player is told when they die. Everything that can kill somebody records the enemy id
---- behind it here; this watches every character's Humanoid and, when one dies, sends the last id
---- recorded for that player to their own client, which resolves the name and the hint out of
---- `DeathConfig`.
----
---- A record rather than a kill callback, because the killing blow and the death are not the same
---- event: an enemy sets `Health = 0` and `Humanoid.Died` follows on its own. Recording also survives
---- damage that only nearly kills -- `Eye` bills by the second -- which is what `CauseMemory` is for.
---- Past that window a record stops being credible and the death reads as the hotel's own.
-
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
@@ -36,6 +26,16 @@ else
 	Kill.Parent = ReplicatedStorage.Communication.Death
 end
 
+local existingStrike = ReplicatedStorage.Communication.Death:FindFirstChild("Strike")
+local Strike: RemoteEvent
+if existingStrike and existingStrike:IsA("RemoteEvent") then
+	Strike = existingStrike
+else
+	Strike = Instance.new("RemoteEvent")
+	Strike.Name = "Strike"
+	Strike.Parent = ReplicatedStorage.Communication.Death
+end
+
 local DeathService = {}
 
 type Record = {
@@ -50,7 +50,7 @@ Kill.OnServerEvent:Connect(function(player: Player, enemy: Instance?)
 	if RoomService:IsInRoom(player) then return end
 	if not enemy or not enemy:IsA("Model") or not enemy:IsDescendantOf(workspace) then return end
 	if not enemy:HasTag("Enemy") then return end
-	if enemy:GetAttribute("Harmless") then return end -- it has no way to have done that
+	if enemy:GetAttribute("Harmless") then return end
 	if enemy:GetAttribute("EnemyId") == "Mimic" and enemy:GetAttribute("MimicAttackActive") ~= true then
 		return
 	end
@@ -61,13 +61,9 @@ Kill.OnServerEvent:Connect(function(player: Player, enemy: Instance?)
 	end
 end)
 
---- Names `causeId` as the thing that just hurt `player`. Called on every damaging hit rather than
---- only on fatal ones, so a chip-damage enemy still gets the credit when its last tick lands.
 function DeathService:RecordCause(player: Player, causeId: string?)
 	if not causeId then return end
 
-	-- Refreshed in place where the cause has not changed: `Eye` bills its watchers twenty times a
-	-- second, and none of that should be a fresh table.
 	local record = Records[player]
 	if record and record.CauseId == causeId then
 		record.At = os.clock()
@@ -76,7 +72,21 @@ function DeathService:RecordCause(player: Player, causeId: string?)
 	Records[player] = { CauseId = causeId, At = os.clock() }
 end
 
---- The enemy id to blame for a death happening now, or nil where nothing recent claimed it.
+function DeathService:Strike(player: Player, enemy: Model, causeId: string?)
+	if not enemy:IsDescendantOf(workspace) then return end
+
+	self:RecordCause(player, causeId or enemy:GetAttribute("EnemyId") :: string?)
+	Killers[player] = enemy
+	Strike:FireClient(player, enemy)
+end
+
+function DeathService:ClearCause(player: Player, causeId: string)
+	local record = Records[player]
+	if record and record.CauseId == causeId then
+		Records[player] = nil
+	end
+end
+
 function DeathService:GetCause(player: Player): string?
 	local record = Records[player]
 	if not record or os.clock() - record.At > DeathConfig.CauseMemory then return nil end
@@ -91,9 +101,6 @@ local function watchCharacter(player: Player, character: Model)
 		local killer = Killers[player]
 		Killers[player] = nil
 		local cause = DeathService:GetCause(player)
-		-- The client reports contact kills and sets Health to zero in the same frame. If the
-		-- Humanoid.Died signal reaches the server first, use the already validated model as a
-		-- final attribution fallback instead of treating the death as the hotel's own.
 		if not cause and killer then
 			local killerId = killer:GetAttribute("EnemyId")
 			if type(killerId) == "string" then
@@ -101,17 +108,10 @@ local function watchCharacter(player: Player, character: Model)
 			end
 		end
 		Kill:FireAllClients(player, killer)
-		-- Save the death immediately, but wait for the client's death screen to finish before opening
-		-- the player's own purchase prompt. Friend cards still open immediately below.
 		local token = ReviveService:Offer(player, character)
 		FriendReviveService:Offer(player)
 		Show:FireClient(player, cause, token)
 
-		-- Dying to something teaches you more about it than any amount of looking, and it is the only
-		-- way to learn anything at all about the two that ambush you. Granted from here rather than
-		-- from whatever landed the blow because this is where a death is already attributed, and the
-		-- attribution is the hard part -- see `GetCause` for why it is a memory rather than a callback.
-		-- Nothing happens for a death nothing claimed: falling down a lift shaft is the hotel's own.
 		EnemyDiscoveryService:GrantDeath(player, cause)
 
 		Records[player] = nil
@@ -121,7 +121,6 @@ end
 
 Complete.OnServerEvent:Connect(function(player: Player, token: any)
 	if type(token) ~= "number" then return end
-	-- ReviveService:Prompt(player, token)
 end)
 
 local function watchPlayer(player: Player)

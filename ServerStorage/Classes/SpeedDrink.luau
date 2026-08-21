@@ -4,8 +4,6 @@ local ServerStorage = game:GetService("ServerStorage")
 local ServerTool = require(ServerStorage.Classes.ServerTool)
 local SpeedBoostService = require(ServerStorage.Services.SpeedBoostService)
 
---- Shared server body for the two speed drinks. The boost lives in SpeedBoostService rather than
---- on this object because consuming the last can destroys the Tool while its effect should continue.
 local SpeedDrink = ServerTool.extend("SpeedDrink")
 
 function SpeedDrink.extend(className: string)
@@ -24,8 +22,6 @@ local function findDescendant(tool: Tool, name: string?): Instance?
 	return tool:FindFirstChild(name, true)
 end
 
--- Clone sounds away from the can. The last use destroys the tool, which would otherwise cut its
--- drink sound off on the same frame it starts.
 local function playEmbeddedSound(tool: Tool, name: string?, parent: BasePart?)
 	local source = findDescendant(tool, name)
 	if not source or not source:IsA("AudioEmitter") or not parent then return end
@@ -51,7 +47,6 @@ function SpeedDrink:OnActivated()
 		task.wait(self.Config.UseDelay)
 	end
 
-	-- Putting the can away, dying, or losing it during the short opening beat cancels the use.
 	if not self:IsAlive() then return end
 
 	local effectTemplate = findDescendant(self.Tool, self.Config.Visual)
@@ -59,7 +54,6 @@ function SpeedDrink:OnActivated()
 		effectTemplate = nil
 	end
 
-	-- Clone what must outlive the tool before Consume can destroy it.
 	local effect = effectTemplate and effectTemplate:Clone() or nil
 	playEmbeddedSound(self.Tool, self.Config.DrinkSound, root)
 	if not self:Consume(1) then

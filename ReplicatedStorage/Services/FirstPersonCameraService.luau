@@ -1,5 +1,3 @@
---- Adds a small, speed-matched step motion after Roblox positions the first-person camera.
-
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -25,9 +23,6 @@ type CharacterState = {
 local characterState = nil :: CharacterState?
 local phase = 0
 local weight = 0
---- How large the step motion currently is against the distances in the config. Eased rather than
---- read straight off this frame's speed, so crossing a doorway or clipping a wall does not punch
---- the camera.
 local amplitude = 1
 
 local function bindCharacter(character: Model)
@@ -67,8 +62,6 @@ local function render(deltaTime: number)
 		local speedRatio = horizontalSpeed / CameraBobConfig.ReferenceWalkSpeed
 		phase += TAU * CameraBobConfig.StepsPerSecond * speedRatio * deltaTime
 
-		-- Sprinting is faster steps *and* heavier ones. Rate alone reads as the same walk on fast
-		-- forward, so the distances travel with the speed too.
 		local target = math.clamp(
 			1 + (speedRatio - 1) * CameraBobConfig.AmplitudeSpeedInfluence,
 			CameraBobConfig.MinAmplitudeScale,

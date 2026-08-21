@@ -23,6 +23,8 @@ local streaming = ReplicatedStorage
 local PrepareTeleport = streaming:WaitForChild("PrepareTeleport") :: RemoteEvent
 local ClientReady = streaming:WaitForChild("ClientReady") :: RemoteEvent
 local TeleportFailed = streaming:WaitForChild("TeleportFailed") :: RemoteEvent
+local ExpectedModels = streaming:WaitForChild("ExpectedModels") :: RemoteEvent
+local ReportMissing = streaming:WaitForChild("ReportMissing") :: RemoteEvent
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "StreamingMessageGui"
@@ -73,8 +75,6 @@ local function showMessage(message: string)
 	end)
 end
 
---- Only the server's streamed models carry the tag, so this set is small and costs nothing to
---- rebuild each frame -- unlike a recursive name search of the whole workspace.
 local function arrivedModelNames(): { [string]: boolean }
 	local arrived = {}
 	for _, model in CollectionService:GetTagged(Config.ModelTag) do
@@ -82,6 +82,50 @@ local function arrivedModelNames(): { [string]: boolean }
 	end
 	return arrived
 end
+
+local function arrivedModelIds(): { [string]: boolean }
+	local arrived = {}
+	for _, model in CollectionService:GetTagged(Config.ModelTag) do
+		if not model:IsDescendantOf(workspace) then continue end
+		local streamingId = model:GetAttribute(Config.ModelIdAttribute)
+		if type(streamingId) == "string" then arrived[streamingId] = true end
+	end
+	return arrived
+end
+
+local expectedIds: { [string]: boolean } = {}
+local receivedExpected = false
+local expectedChangedAt = 0
+
+ExpectedModels.OnClientEvent:Connect(function(ids: any)
+	if type(ids) ~= "table" then return end
+	table.clear(expectedIds)
+	for _, streamingId in ids do
+		if type(streamingId) == "string" then expectedIds[streamingId] = true end
+	end
+	receivedExpected = true
+	expectedChangedAt = os.clock()
+end)
+
+task.spawn(function()
+	while true do
+		task.wait(Config.ReconcileInterval)
+		if not receivedExpected then
+			ReportMissing:FireServer({})
+			continue
+		end
+		if os.clock() - expectedChangedAt < Config.ReconcileGraceTime then continue end
+
+		local arrived = arrivedModelIds()
+		local missing = {}
+		for streamingId in expectedIds do
+			if arrived[streamingId] then continue end
+			table.insert(missing, streamingId)
+			if #missing >= Config.MaxMissingReport then break end
+		end
+		if #missing > 0 then ReportMissing:FireServer(missing) end
+	end
+end)
 
 PrepareTeleport.OnClientEvent:Connect(function(token: number, names: { string }, timeout: number?)
 	local deadline = os.clock() + (timeout or Config.ClientReadyTimeout)

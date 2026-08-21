@@ -8,19 +8,14 @@ local InventoryService = require(ServerStorage.Services.InventoryService)
 local Signal = ReplicatedStorage.Communication.Tools.Signal
 local ToolClasses = ServerStorage.Classes.Tools
 
---- Registers every tool that has a server half and routes messages from client halves to the right
---- instance. Walks `ToolConfigs` at boot, so a new tool needs no edit here and none in the Tagger.
 local ToolService = {}
 
--- [Tool instance] = the class instance driving it.
 local Instances: { [Tool]: any } = {}
 
---- The live server half driving `tool`, if it has one.
 function ToolService:FromTool(tool: Instance?): any?
 	return tool and Instances[tool] or nil
 end
 
---- Every live instance of a named tool. Handy for effects that need to sweep all of one kind.
 function ToolService:GetAllOf(toolName: string): { any }
 	local found = {}
 	for tool, instance in Instances do
@@ -36,14 +31,10 @@ for toolName, config in ToolConfigs do
 	if module then
 		local class = require(module)
 
-		-- Global scope: tools move between a player's Backpack and their Character, so there is no
-		-- single ancestor to scope the listen to.
 		TagService:Listen(config.Tag, function(tool: Tool)
 			local instance = class.new(tool)
 			Instances[tool] = instance
 
-			-- A tagged Tool can be rebuilt after Roblox has already moved it into the Character and
-			-- fired Equipped. Recover that missed event once normal event delivery has had a chance.
 			task.delay(0.05, function()
 				if Instances[tool] ~= instance or instance.Character then return end
 				local character = tool.Parent
@@ -65,9 +56,6 @@ for toolName, config in ToolConfigs do
 	end
 end
 
--- A client half talking to its server half. The tool is resolved through the player's own
--- inventory, which validates ownership as a side effect: a player who does not hold that tool has
--- nothing to resolve, so the message is dropped before it reaches any handler.
 Signal.OnServerEvent:Connect(function(player: Player, toolName: any, eventName: any, ...)
 	if type(toolName) ~= "string" or type(eventName) ~= "string" then return end
 
