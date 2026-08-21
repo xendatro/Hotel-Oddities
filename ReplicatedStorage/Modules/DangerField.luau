@@ -45,7 +45,8 @@ end
 function DangerField.SampleGate(position: Vector3, settings: FieldSettings): number
 	local offset = position - settings.StartPosition
 	local distance = Vector3.new(offset.X, 0, offset.Z).Magnitude
-	return math.clamp((distance - settings.SafeRadius) / math.max(settings.RampLength, 1), 0, 1)
+	local linear = math.clamp((distance - settings.SafeRadius) / math.max(settings.RampLength, 1), 0, 1)
+	return linear * linear * (3 - 2 * linear)
 end
 
 function DangerField.Sample(position: Vector3, settings: FieldSettings): number

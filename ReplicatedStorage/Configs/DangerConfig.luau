@@ -15,7 +15,7 @@ export type FieldSettings = {
 return {
 	Seed = 1337,
 
-	FeatureScaleFraction = 1 / 6,
+	FeatureScaleFraction = 1 / 2,
 
 	Octaves = 2,
 	Persistence = 0.5,
@@ -28,8 +28,8 @@ return {
 
 	FloorSeparation = 1.25,
 
-	SafeRadiusFraction = 0.05,
-	RampLengthFraction = 0.22,
+	SafeRadiusFraction = 0.14,
+	RampLengthFraction = 0.38,
 
 	PointSpacing = 10,
 
