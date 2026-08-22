@@ -28,18 +28,21 @@ local overlay = gui:FindFirstChild("Overlay")
 local hero = overlay and overlay:FindFirstChild("Hero")
 local title = overlay and overlay:FindFirstChild("Title")
 local loadingLabel = overlay and overlay:FindFirstChild("Loading")
+local loadingGradientInstance = loadingLabel and loadingLabel:FindFirstChild("UIGradient")
 
 if not (
 	overlay
 		and hero
 		and title
 		and loadingLabel
+		and loadingGradientInstance
 		and overlay:IsA("Frame")
 		and hero:IsA("ImageLabel")
 		and title:IsA("TextLabel")
 		and loadingLabel:IsA("TextLabel")
+		and loadingGradientInstance:IsA("UIGradient")
 	) then
-	warn("[ElevatorLoadingUIService] revised loading UI is missing Overlay, Hero, Title, or Loading")
+	warn("[ElevatorLoadingUIService] revised loading UI is missing Overlay, Hero, Title, Loading, or Loading.UIGradient")
 	return ElevatorLoadingUIService
 end
 
@@ -47,15 +50,50 @@ local overlayFrame = overlay :: Frame
 local heroImage = hero :: ImageLabel
 local titleLabel = title :: TextLabel
 local loadingText = loadingLabel :: TextLabel
+local loadingGradient = loadingGradientInstance :: UIGradient
 local baseOverlayTransparency = overlayFrame.BackgroundTransparency
 local baseHeroTransparency = heroImage.ImageTransparency
 local baseTitleTransparency = titleLabel.TextTransparency
 local baseLoadingTransparency = loadingText.TextTransparency
 local random = Random.new()
 local panTween: Tween? = nil
+local shimmerTween: Tween? = nil
 local fadeTweens: { Tween } = {}
 local panToken = 0
+local shimmerToken = 0
 local activeToken: number? = nil
+
+local function stopShimmer()
+	shimmerToken += 1
+	if shimmerTween then
+		shimmerTween:Cancel()
+		shimmerTween = nil
+	end
+	loadingGradient.Offset = Vector2.new(-1, 0)
+end
+
+local function startShimmer()
+	stopShimmer()
+	local token = shimmerToken
+
+	local function sweep()
+		if token ~= shimmerToken or not gui.Enabled then return end
+		loadingGradient.Offset = Vector2.new(-1, 0)
+		shimmerTween = TweenService:Create(
+			loadingGradient,
+			TweenInfo.new(0.8, Enum.EasingStyle.Linear),
+			{ Offset = Vector2.new(1, 0) }
+		)
+		shimmerTween.Completed:Connect(function(playbackState)
+			if playbackState == Enum.PlaybackState.Completed and token == shimmerToken then
+				task.delay(0.8, sweep)
+			end
+		end)
+		shimmerTween:Play()
+	end
+
+	sweep()
+end
 
 local function randomPanPoint(): Vector2
 	local extraX = math.max(heroImage.Size.X.Scale - 1, 0)
@@ -108,6 +146,7 @@ local function fadeIn(token: number)
 	gui.Enabled = true
 	activeToken = token
 	startPan()
+	startShimmer()
 
 	local info = TweenInfo.new(ElevatorConfig.FadeInTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 	local overlayTween = TweenService:Create(overlayFrame, info, { BackgroundTransparency = baseOverlayTransparency })
@@ -137,6 +176,7 @@ local function fadeOut(token: number)
 	if activeToken ~= token then return end
 	cancelFade()
 	stopPan()
+	stopShimmer()
 
 	local info = TweenInfo.new(ElevatorConfig.FadeOutTime, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 	local overlayTween = TweenService:Create(overlayFrame, info, { BackgroundTransparency = 1 })
