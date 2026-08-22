@@ -49,7 +49,8 @@ end
 
 local function playerFromTouch(hit: BasePart): Player?
 	local character = hit:FindFirstAncestorOfClass("Model")
-	return if character then Players:GetPlayerFromCharacter(character) else nil
+	if not character or hit.Parent ~= character then return nil end
+	return Players:GetPlayerFromCharacter(character)
 end
 
 function ElevatorService:SendToMap(player: Player, instant: boolean?): boolean

@@ -5,6 +5,7 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local ElevatorConfig = require(ReplicatedStorage.Configs.ElevatorConfig)
+local AudioService = require(ReplicatedStorage.Services.AudioService)
 
 local ElevatorDoorService = {}
 
@@ -63,6 +64,11 @@ local function setOpen(state: ElevatorState, open: boolean)
 	if state.Opened == open then return end
 	state.Opened = open
 	cancelTweens(state)
+
+	local soundParent = state.Part1 or state.Part2
+	if soundParent then
+		AudioService:Play3DSound("Elevator", soundParent, false, "SFX")
+	end
 
 	local info = TweenInfo.new(ElevatorConfig.DoorTime, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 	if state.Part1 and state.Closed1 then

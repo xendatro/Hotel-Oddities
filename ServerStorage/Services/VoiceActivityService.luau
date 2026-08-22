@@ -26,7 +26,7 @@ local States: { [Player]: State } = {}
 local CharacterConnections: { [Player]: RBXScriptConnection } = {}
 
 local function tuneInput(instance: Instance)
-	if instance:IsA("AudioDeviceInput") then instance.Volume = Config.NormalVoiceVolume end
+	if instance:IsA("AudioDeviceInput") then instance.Volume = Config.Volume end
 end
 
 local function tuneVoiceEmitter(instance: Instance)
@@ -35,6 +35,12 @@ local function tuneVoiceEmitter(instance: Instance)
 	pcall(function() instance.OcclusionEnabled = Enum.SimulationMode.Disabled end)
 	pcall(function() instance.DiffractionEnabled = Enum.SimulationMode.Disabled end)
 	pcall(function() instance.ReverbEnabled = Enum.SimulationMode.Disabled end)
+	instance.DistanceAttenuationBounds = NumberRange.new(Config.Distance.Minimum, Config.Distance.Maximum)
+	instance.DistanceAttenuationMode = Enum.DistanceAttenuationMode.Custom
+	instance:SetDistanceAttenuation({
+		[Config.Distance.Minimum] = 1,
+		[Config.Distance.Maximum] = 0,
+	})
 end
 
 local function watchCharacter(player: Player, character: Model)

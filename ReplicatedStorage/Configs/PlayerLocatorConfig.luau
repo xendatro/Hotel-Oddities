@@ -14,9 +14,9 @@ return {
 	ArriveDistance = 4,
 
 	Highlight = {
-		FillColor = Color3.fromRGB(120, 235, 255),
-		FillTransparency = 0.6,
-		OutlineColor = Color3.fromRGB(236, 236, 240),
+		FillColor = Color3.fromRGB(214, 176, 110),
+		FillTransparency = 0.68,
+		OutlineColor = Color3.fromRGB(243, 232, 205),
 		OutlineTransparency = 0,
 	},
 
@@ -43,7 +43,9 @@ return {
 
 		NameSize = 20,
 		IdleNameSize = 17,
-		DistanceSize = 15,
+		DistanceSize = 16,
+		--- Space between the name and the distance, so the two do not read as one word.
+		PlateGap = 12,
 		ShowDistance = true,
 		DistanceFormat = "%dm",
 	},
@@ -56,7 +58,9 @@ return {
 		ReleaseSlack = 1.35,
 
 		InTime = 0.26,
-		OutTime = 0.15,
+		OutTime = 0.24,
+		--- The plate tucks away ahead of the bubble rather than with it.
+		PlateOutTime = 0.12,
 		RestScale = 0.5,
 
 		PulsePeriod = 1.7,
@@ -72,13 +76,24 @@ return {
 	},
 
 	Colors = {
-		Ring = Color3.fromRGB(120, 235, 255),
-		RingCooldown = Color3.fromRGB(146, 148, 158),
-		Halo = Color3.fromRGB(120, 235, 255),
-		Plate = Color3.fromRGB(12, 13, 17),
-		PlateStroke = Color3.fromRGB(120, 235, 255),
-		Name = Color3.fromRGB(238, 242, 248),
-		Distance = Color3.fromRGB(120, 235, 255),
-		DistanceCooldown = Color3.fromRGB(172, 174, 184),
+		Ring = Color3.fromRGB(74, 57, 40),
+		RingCooldown = Color3.fromRGB(140, 130, 116),
+		--- The soft wash behind the headshot: warm lamplight, not a screen glow.
+		Halo = Color3.fromRGB(217, 199, 160),
+		--- Aged paper, the same stock the index and its notes are printed on.
+		Plate = Color3.fromRGB(227, 213, 176),
+		PlateStroke = Color3.fromRGB(74, 57, 40),
+		--- The name reads as ink on the open plate and as pale chalk when the plate is gone.
+		Name = Color3.fromRGB(46, 35, 24),
+		NameIdle = Color3.fromRGB(240, 230, 206),
+		NameStroke = Color3.fromRGB(20, 15, 10),
+		Distance = Color3.fromRGB(96, 24, 18),
+		DistanceCooldown = Color3.fromRGB(112, 102, 90),
+	},
+
+	--- Serif throughout, as on the index pages. A hand reads badly at the distance's size.
+	Fonts = {
+		Name = Enum.Font.Merriweather,
+		Distance = Enum.Font.Merriweather,
 	},
 }

@@ -70,6 +70,10 @@ local LastRadioPosition: { [Player]: Vector3 } = {}
 local RebuildQueued = false
 local ensureOutputs: (state: State) -> ()
 
+local function isFiniteNumber(value: any): boolean
+	return type(value) == "number" and value == value and math.abs(value) < math.huge
+end
+
 local function voiceEligible(player: Player): boolean
 	local success, enabled = pcall(
 		VoiceChatService.IsVoiceEnabledForUserIdAsync,
@@ -199,8 +203,8 @@ local function getAmbientPickupVolume(state: State, emitter: AudioEmitter): numb
 	local emitterPosition = getWorldPosition(emitter)
 	local playerPosition = getPlayerPosition(state.Player)
 	if not emitterPosition or not playerPosition then return 0 end
-	local distanceAlpha = math.clamp((emitterPosition - playerPosition).Magnitude / Config.AmbientRange, 0, 1)
-	return (1 - distanceAlpha) ^ Config.AmbientPickupFalloff
+	local distanceAlpha = math.clamp((emitterPosition - playerPosition).Magnitude / Config.TaggedSoundDistance, 0, 1)
+	return (1 - distanceAlpha) ^ Config.TaggedSoundPickupFalloff
 end
 
 local function connectAmbient(state: State, emitter: AudioEmitter, source: AudioPlayer)
@@ -231,7 +235,7 @@ local function refreshAmbientSources()
 				local playerPosition = getPlayerPosition(state.Player)
 				if playerPosition then
 					local distance = (playerPosition - emitterPosition).Magnitude
-					if distance <= Config.AmbientRange and distance < closestDistance then
+					if distance <= Config.TaggedSoundDistance and distance < closestDistance then
 						owner = state
 						closestDistance = distance
 					end
@@ -269,7 +273,7 @@ local function playDeathBurst(sourcePlayer: Player)
 	end
 	local fader = Instance.new("AudioFader")
 	fader.Name = "RadioDeathVolume"
-	fader.Volume = Config.Effects.Static.DeathVolume * Config.RadioOutputVolume
+	fader.Volume = Config.Effects.Static.DeathVolume * Config.VoiceVolume
 	fader.Parent = folder
 	local wires: { Wire } = {}
 	local outputs: { AudioDeviceOutput } = {}
@@ -383,7 +387,15 @@ function WalkieTalkieService:RegisterAmbientEmitter(emitter: AudioEmitter)
 	refreshAmbientSources()
 end
 
-function WalkieTalkieService:StartSound(player: Player, relayId: string, name: string, looped: boolean)
+function WalkieTalkieService:StartSound(
+	player: Player,
+	relayId: string,
+	name: string,
+	looped: boolean,
+	timePosition: number?,
+	playbackSpeed: number?,
+	volume: number?
+)
 	local state = States[player]
 	if not state or not relayBucketAllows(player) then return end
 
@@ -401,6 +413,9 @@ function WalkieTalkieService:StartSound(player: Player, relayId: string, name: s
 	local source = template:Clone()
 	source.Name = `RadioSound_{name}`
 	source.Looping = looped
+	source.TimePosition = math.max(timePosition or 0, 0)
+	source.PlaybackSpeed = math.clamp(playbackSpeed or source.PlaybackSpeed, 0.05, 20)
+	source.Volume = math.clamp(volume or source.Volume, 0, 10)
 	source.Parent = state.Audio
 	emitRadioNoise(state)
 	local wire = connect(source, state.AmbientMixer, state.Audio)
@@ -410,6 +425,23 @@ function WalkieTalkieService:StartSound(player: Player, relayId: string, name: s
 		stopRelaySound(source)
 	end)
 	source:Play()
+end
+
+function WalkieTalkieService:SyncSound(
+	player: Player,
+	relayId: string,
+	timePosition: number,
+	playbackSpeed: number,
+	volume: number
+)
+	if not relayBucketAllows(player) then return end
+	local playerRelays = RelayIds[player]
+	local source = playerRelays and playerRelays[relayId]
+	if not source or not source.Parent then return end
+
+	source.TimePosition = math.max(timePosition, 0)
+	source.PlaybackSpeed = math.clamp(playbackSpeed, 0.05, 20)
+	source.Volume = math.clamp(volume, 0, 10)
 end
 
 function WalkieTalkieService:StopSound(player: Player, relayId: string)
@@ -594,8 +626,8 @@ function WalkieTalkieService:Equip(player: Player, tool: Tool)
 	mixer.Layout = Enum.AudioChannelLayout.Mono
 	local ambientMixer = createEffect("AudioChannelMixer", "RadioAmbientMix", audio) :: AudioChannelMixer
 	ambientMixer.Layout = Enum.AudioChannelLayout.Mono
-	local ambientFader = createEffect("AudioFader", "RadioAmbientVolume", audio) :: AudioFader
-	ambientFader.Volume = Config.RadioAmbientVolume
+	local ambientFader = createEffect("AudioFader", "RadioTaggedSoundVolume", audio) :: AudioFader
+	ambientFader.Volume = Config.TaggedSoundVolume
 	local taggedCompressor = createEffect("AudioCompressor", "TaggedCompressor", audio) :: AudioCompressor
 	taggedCompressor.Threshold = Config.Effects.Compressor.Threshold
 	taggedCompressor.Ratio = Config.Effects.Compressor.Ratio
@@ -615,10 +647,12 @@ function WalkieTalkieService:Equip(player: Player, tool: Tool)
 	local taggedLimiter = createEffect("AudioLimiter", "TaggedLimiter", audio) :: AudioLimiter
 	taggedLimiter.MaxLevel = Config.Effects.Limiter.MaxLevel
 	taggedLimiter.Release = Config.Effects.Limiter.Release
+	local voiceFader = createEffect("AudioFader", "RadioVoiceVolume", audio) :: AudioFader
+	voiceFader.Volume = Config.VoiceVolume
 	local activeFader = createEffect("AudioFader", "RadioActiveVolume", audio) :: AudioFader
-	activeFader.Volume = Config.Effects.Static.ActiveVolume
+	activeFader.Volume = Config.Effects.Static.ActiveVolume * Config.VoiceVolume
 	local radioOutputFader = createEffect("AudioFader", "RadioOutputVolume", audio) :: AudioFader
-	radioOutputFader.Volume = Config.RadioOutputVolume
+	radioOutputFader.Volume = 1
 	local physicalMixer = createEffect("AudioChannelMixer", "RadioPhysicalMix", audio) :: AudioChannelMixer
 	physicalMixer.Layout = Enum.AudioChannelLayout.Mono
 	local physicalFader = createEffect("AudioFader", "RadioPhysicalVolume", audio) :: AudioFader
@@ -634,10 +668,12 @@ function WalkieTalkieService:Equip(player: Player, tool: Tool)
 	emitter.AudioInteractionGroup = ""
 	emitter.AcousticSimulationEnabled = true
 	emitter.OcclusionEnabled = Enum.SimulationMode.Enabled
+	emitter.DistanceAttenuationBounds = NumberRange.new(0, Config.PhysicalDistance)
+	emitter.DistanceAttenuationMode = Enum.DistanceAttenuationMode.Custom
 	emitter:SetDistanceAttenuation({
 		[0] = 1,
-		[Config.PhysicalRange * 0.8] = 0.65,
-		[Config.PhysicalRange] = 0,
+		[Config.PhysicalDistance * 0.8] = 0.65,
+		[Config.PhysicalDistance] = 0,
 	})
 	emitter.Parent = handle
 
@@ -651,7 +687,8 @@ function WalkieTalkieService:Equip(player: Player, tool: Tool)
 	connect(taggedBandpass, taggedEqualizer, audio)
 	connect(taggedEqualizer, taggedDistortion, audio)
 	connect(taggedDistortion, taggedLimiter, audio)
-	connect(limiter, mixer, audio, nil, "Input")
+	connect(limiter, voiceFader, audio)
+	connect(voiceFader, mixer, audio, nil, "Input")
 	connect(taggedLimiter, mixer, audio, nil, "Input")
 	connect(activeFader, mixer, audio, nil, "Center")
 	connect(mixer, radioOutputFader, audio)
@@ -739,13 +776,44 @@ if RunService:IsServer() then
 		if type(mode) == "string" then WalkieTalkieService:SetMode(player, mode) end
 	end)
 
-	TransmitSound.OnServerEvent:Connect(function(player: Player, action: any, relayId: any, name: any, looped: any)
-		if action == "Start" and type(relayId) == "string" and type(name) == "string" and type(looped) == "boolean" then
-			WalkieTalkieService:StartSound(player, relayId, name, looped)
+	TransmitSound.OnServerEvent:Connect(function(
+		player: Player,
+		action: any,
+		relayId: any,
+		value1: any,
+		value2: any,
+		value3: any,
+		value4: any,
+		value5: any
+	)
+		if action == "Start"
+			and type(relayId) == "string"
+			and type(value1) == "string"
+			and type(value2) == "boolean"
+			and isFiniteNumber(value3)
+			and isFiniteNumber(value4)
+			and isFiniteNumber(value5)
+		then
+			WalkieTalkieService:StartSound(
+				player,
+				relayId,
+				value1,
+				value2,
+				value3,
+				value4,
+				value5
+			)
 		elseif action == "Stop" and type(relayId) == "string" then
 			WalkieTalkieService:StopSound(player, relayId)
-		elseif action == "Loop" and type(relayId) == "string" and type(looped) == "boolean" then
-			WalkieTalkieService:SetLooping(player, relayId, looped)
+		elseif action == "Loop" and type(relayId) == "string" and type(value1) == "boolean" then
+			WalkieTalkieService:SetLooping(player, relayId, value1)
+		elseif action == "Sync"
+			and type(relayId) == "string"
+			and isFiniteNumber(value1)
+			and isFiniteNumber(value2)
+			and isFiniteNumber(value3)
+		then
+			WalkieTalkieService:SyncSound(player, relayId, value1, value2, value3)
 		elseif type(action) == "string" then
 			WalkieTalkieService:StartSound(player, tostring(os.clock()), action, false)
 		end

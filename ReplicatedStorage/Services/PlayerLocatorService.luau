@@ -25,6 +25,9 @@ local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
 local gui = playerGui:WaitForChild("PlayerLocator")
+--- Every reference below is taken once. A reset on respawn would replace the gui and strand them all.
+gui.ResetOnSpawn = false
+
 local frame = gui and gui:WaitForChild("Mode")
 local modeLabel = frame and frame:FindFirstChild("Mode")
 local toggle = frame and frame:FindFirstChild("Toggle")
@@ -135,6 +138,13 @@ end
 
 local cursorDot: GuiObject? = findCursorDot()
 
+local function aimDot(): GuiObject?
+	local dot = cursorDot
+	if dot and dot.Parent then return dot end
+	cursorDot = findCursorDot()
+	return cursorDot
+end
+
 local function aimsAtCentre(): boolean
 	if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then return true end
 	return not UserInputService.MouseIconEnabled
@@ -148,7 +158,7 @@ local function aimPoint(camera: Camera): Vector2
 		return UserInputService:GetMouseLocation() - inset
 	end
 
-	local dot = cursorDot
+	local dot = aimDot()
 	if dot and dot.Visible and dot.AbsoluteSize.X > 0 then
 		return dot.AbsolutePosition + dot.AbsoluteSize / 2
 	end

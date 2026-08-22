@@ -32,12 +32,8 @@ local States: { [Model]: LightState } = {}
 local RedModels: { [Model]: LightState } = {}
 local warningActive = false
 local clearStartedAt = 0
-local pendingEvaluation = false
+local evaluationVersion = 0
 local timeSinceCheck = CHECK_INTERVAL
-
-local warningSources = Instance.new("Folder")
-warningSources.Name = "ChaosWarningSources"
-warningSources.Parent = workspace
 
 local function isRed(light: Instance): boolean
 	return light:IsA("Light") and light.Color == RED
@@ -103,26 +99,8 @@ local function nearestSource(root: BasePart, requireSightline: boolean): (BasePa
 	return closest, closestDistance
 end
 
-local function playWarning(source: BasePart)
-	local anchor = Instance.new("Part")
-	anchor.Name = "ChaosIncomingSource"
-	anchor.Anchored = true
-	anchor.CanCollide = false
-	anchor.CanQuery = false
-	anchor.CanTouch = false
-	anchor.Transparency = 1
-	anchor.Size = Vector3.one
-	anchor.CFrame = CFrame.new(source.Position)
-	anchor.Parent = warningSources
-
-	local player = AudioService:Play3DSound("ChaosIncoming", anchor, false, "SFX")
-	local function destroyAnchor()
-		if anchor.Parent then
-			anchor:Destroy()
-		end
-	end
-	player.Ended:Once(destroyAnchor)
-	player.Destroying:Once(destroyAnchor)
+local function playWarning()
+	AudioService:Play2DSound("ChaosIncoming", false, "SFX")
 end
 
 local function getRoot(): BasePart?
@@ -157,10 +135,11 @@ local function updateRed(state: LightState)
 end
 
 local function scheduleEvaluation()
-	if pendingEvaluation then return end
-	pendingEvaluation = true
+	evaluationVersion += 1
+	local version = evaluationVersion
 	task.delay(SOURCE_SETTLE_TIME, function()
-		pendingEvaluation = false
+		if version ~= evaluationVersion then return end
+
 		local root = getRoot()
 		if not root then return end
 
@@ -169,7 +148,7 @@ local function scheduleEvaluation()
 			clearStartedAt = 0
 			if not warningActive then
 				warningActive = true
-				playWarning(source)
+				playWarning()
 			end
 		end
 	end)
@@ -282,13 +261,9 @@ RunService.Heartbeat:Connect(function(deltaTime)
 		return
 	end
 
-	local source = nearestSource(root, not warningActive)
+	local source = nearestSource(root, true)
 	if source then
 		clearStartedAt = 0
-		if not warningActive then
-			warningActive = true
-			playWarning(source)
-		end
 		return
 	end
 

@@ -3,6 +3,7 @@ local RunService = game:GetService("RunService")
 
 local Templates = ReplicatedStorage:WaitForChild("Sounds")
 local Buses = workspace:WaitForChild("Sounds")
+local WalkieTalkieConfig = require(ReplicatedStorage.Configs.WalkieTalkieConfig)
 
 local AudioService = {}
 
@@ -36,16 +37,26 @@ local function requestRadioRelay(template: Instance, player: AudioPlayer)
 
 	nextRadioRelayId += 1
 	local relayId = tostring(nextRadioRelayId)
-	remote:FireServer("Start", relayId, name, player.Looping)
+	remote:FireServer(
+		"Start",
+		relayId,
+		name,
+		player.Looping,
+		player.TimePosition,
+		player.PlaybackSpeed,
+		player.Volume
+	)
 
 	local stopped = false
 	local isPlayingConnection: RBXScriptConnection?
 	local loopingConnection: RBXScriptConnection?
+	local syncConnection: RBXScriptConnection?
 	local function stopRelay()
 		if stopped then return end
 		stopped = true
 		if isPlayingConnection then isPlayingConnection:Disconnect() end
 		if loopingConnection then loopingConnection:Disconnect() end
+		if syncConnection then syncConnection:Disconnect() end
 		if remote.Parent then remote:FireServer("Stop", relayId) end
 	end
 
@@ -54,6 +65,21 @@ local function requestRadioRelay(template: Instance, player: AudioPlayer)
 	end)
 	loopingConnection = player:GetPropertyChangedSignal("Looping"):Connect(function()
 		if not stopped and remote.Parent then remote:FireServer("Loop", relayId, player.Looping) end
+	end)
+	local syncAccumulator = 0
+	syncConnection = RunService.Heartbeat:Connect(function(deltaTime)
+		syncAccumulator += deltaTime
+		if stopped or syncAccumulator < WalkieTalkieConfig.RelaySyncInterval then return end
+		syncAccumulator = 0
+		if remote.Parent and player.IsPlaying then
+			remote:FireServer(
+				"Sync",
+				relayId,
+				player.TimePosition,
+				player.PlaybackSpeed,
+				player.Volume
+			)
+		end
 	end)
 	player.Ended:Once(stopRelay)
 	player.Destroying:Once(stopRelay)
@@ -164,8 +190,8 @@ function AudioService:Play3DSound(
 	settings: {[string]: any}?
 ): AudioPlayer
 	local player = self:Create3DSound(template, parent, looped, soundGroup, settings)
-	if RunService:IsClient() then requestRadioRelay(resolve3DTemplate(template), player) end
 	player:Play()
+	if RunService:IsClient() then requestRadioRelay(resolve3DTemplate(template), player) end
 	return player
 end
 
@@ -184,8 +210,8 @@ function AudioService:Play2D(
 	player.Parent = Buses
 	self:Wire(player, target or self:GetOutput())
 	bindLifetime(player, player, bindBus(player, self:GetBus(soundGroup)))
-	if RunService:IsClient() then requestRadioRelay(template, player) end
 	player:Play()
+	if RunService:IsClient() then requestRadioRelay(template, player) end
 	return player
 end
 

@@ -1,17 +1,17 @@
 return {
 	--- Local sound from a held radio. Direct radio output is not distance limited.
-	PhysicalRange = 30,
-	AmbientRange = 30,
-	AmbientPickupFalloff = 2,
+	PhysicalDistance = 30,
+	TaggedSoundDistance = 30,
+	TaggedSoundPickupFalloff = 2,
 	RadioAllowedTag = "RadioAllowed",
 	DeathActiveGrace = 0.75,
 	TransmissionGrace = 0.5,
-	-- This keeps radio speech near its old level after normal voice was raised to 1.65.
-	RadioOutputVolume = 0.32,
+	VoiceVolume = 0.32,
+	TaggedSoundVolume = 0.06,
 	RadioPhysicalVolume = 0,
-	RadioAmbientVolume = 0.25,
 	RadioNoiseRadius = 35,
 	NoiseInterval = 0.2,
+	RelaySyncInterval = 0.15,
 
 	--- The player filter is shared by incoming and outgoing radio audio.
 	Modes = {

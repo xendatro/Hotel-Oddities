@@ -218,7 +218,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		Animations = AnimationConfig.Sets.Blind,
 
 		WalkSpeed = 8,
-		ChaseSpeed = 19,
+		ChaseSpeed = 21,
 		RepathInterval = 0.25,
 		RepathDistance = 4,
 		AgentParams = {
@@ -257,7 +257,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		DeterminationDecay = 0.45,
 		TrailSilenceTime = 0.65,
 
-		PursueRange = 15,
+		PursueRange = 17,
 		PursuitGiveUpRange = 30,
 
 		HearingCooldown = 1,

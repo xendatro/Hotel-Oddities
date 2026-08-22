@@ -12,9 +12,16 @@ local MARKER = PlayerLocatorConfig.Marker
 local FOCUS = PlayerLocatorConfig.Focus
 local PRESS = PlayerLocatorConfig.Press
 local COLORS = PlayerLocatorConfig.Colors
+local FONTS = PlayerLocatorConfig.Fonts
 
 local IN_INFO = TweenInfo.new(FOCUS.InTime, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local OUT_INFO = TweenInfo.new(FOCUS.OutTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+--- Fades hold their ink and leave at the end, so the marker finishes moving before it is gone.
+local OUT_FADE_INFO = TweenInfo.new(FOCUS.OutTime, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+--- The bubble leaves the way it arrived: a small swell, then away.
+local OUT_SCALE_INFO = TweenInfo.new(FOCUS.OutTime, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+local PLATE_OUT_INFO = TweenInfo.new(FOCUS.PlateOutTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local PLATE_FADE_INFO = TweenInfo.new(FOCUS.PlateOutTime, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 local PRESS_INFO = TweenInfo.new(PRESS.Time, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local CONFIRM_INFO = TweenInfo.new(PRESS.ConfirmTime, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local TINT_INFO = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -70,6 +77,7 @@ local function build(player: Player, parent: Instance)
 	bubble.BackgroundTransparency = 1
 	bubble.GroupTransparency = 1
 	bubble.Visible = false
+	bubble.ZIndex = 2
 	bubble.Parent = root
 
 	local bubbleScale = Instance.new("UIScale")
@@ -125,17 +133,29 @@ local function build(player: Player, parent: Instance)
 	plate.BackgroundColor3 = COLORS.Plate
 	plate.BackgroundTransparency = 1
 	plate.BorderSizePixel = 0
+	plate.ZIndex = 1
+	--- A label pinned on by hand never sits quite square.
+	plate.Rotation = -1.5
 	plate.Parent = root
 
 	local plateCorner = Instance.new("UICorner")
-	plateCorner.CornerRadius = UDim.new(0, 10)
+	plateCorner.CornerRadius = UDim.new(0, 3)
 	plateCorner.Parent = plate
 
 	local plateStroke = Instance.new("UIStroke")
 	plateStroke.Color = COLORS.PlateStroke
-	plateStroke.Thickness = 1
+	plateStroke.Thickness = 2
 	plateStroke.Transparency = 1
 	plateStroke.Parent = plate
+
+	--- A little dirt down the sheet, so the plate reads as stock rather than a flat swatch.
+	local plateGrain = Instance.new("UIGradient")
+	plateGrain.Rotation = 90
+	plateGrain.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(224, 214, 192)),
+	})
+	plateGrain.Parent = plate
 
 	local padding = Instance.new("UIPadding")
 	padding.PaddingLeft = UDim.new(0, 10)
@@ -149,7 +169,7 @@ local function build(player: Player, parent: Instance)
 	layout.VerticalAlignment = Enum.VerticalAlignment.Center
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, 7)
+	layout.Padding = UDim.new(0, MARKER.PlateGap)
 	layout.Parent = plate
 
 	local name = Instance.new("TextLabel")
@@ -157,9 +177,10 @@ local function build(player: Player, parent: Instance)
 	name.LayoutOrder = 1
 	name.AutomaticSize = Enum.AutomaticSize.XY
 	name.BackgroundTransparency = 1
-	name.Font = Enum.Font.GothamBold
+	name.Font = FONTS.Name
 	name.TextSize = MARKER.IdleNameSize
-	name.TextColor3 = COLORS.Name
+	name.TextColor3 = COLORS.NameIdle
+	name.TextStrokeColor3 = COLORS.NameStroke
 	name.TextStrokeTransparency = 0.35
 	name.Text = player.DisplayName
 	name.Parent = plate
@@ -169,7 +190,7 @@ local function build(player: Player, parent: Instance)
 	distance.LayoutOrder = 2
 	distance.AutomaticSize = Enum.AutomaticSize.XY
 	distance.BackgroundTransparency = 1
-	distance.Font = Enum.Font.GothamMedium
+	distance.Font = FONTS.Distance
 	distance.TextSize = MARKER.DistanceSize
 	distance.TextColor3 = COLORS.Distance
 	distance.TextTransparency = 1
@@ -264,29 +285,35 @@ function LocatorMarker:SetFocused(focused: boolean)
 		tween(self.BubbleScale, IN_INFO, { Scale = 1 })
 		tween(self.Plate, IN_INFO, {
 			Position = UDim2.new(0.5, 0, 0, MARKER.NameFocusY),
-			BackgroundTransparency = 0.15,
+			BackgroundTransparency = 0.05,
 		})
-		tween(self.PlateStroke, IN_INFO, { Transparency = 0.55 })
-		tween(self.Name, IN_INFO, { TextSize = MARKER.NameSize, TextStrokeTransparency = 1 })
+		tween(self.PlateStroke, IN_INFO, { Transparency = 0.15 })
+		tween(self.Name, IN_INFO, {
+			TextSize = MARKER.NameSize,
+			TextColor3 = COLORS.Name,
+			TextStrokeTransparency = 1,
+		})
 		if MARKER.ShowDistance then
 			self.Distance.Visible = true
-			tween(self.Distance, IN_INFO, { TextTransparency = 0.1 })
+			tween(self.Distance, IN_INFO, { TextTransparency = 0 })
 		end
 		return
 	end
 
 	self.Button.Interactable = false
-	tween(self.BubbleScale, OUT_INFO, { Scale = FOCUS.RestScale })
-	tween(self.Plate, OUT_INFO, {
-		Position = UDim2.new(0.5, 0, 0, MARKER.NameIdleY),
-		BackgroundTransparency = 1,
+	tween(self.BubbleScale, OUT_SCALE_INFO, { Scale = FOCUS.RestScale })
+	tween(self.Plate, PLATE_OUT_INFO, { Position = UDim2.new(0.5, 0, 0, MARKER.NameIdleY) })
+	tween(self.Plate, PLATE_FADE_INFO, { BackgroundTransparency = 1 })
+	tween(self.PlateStroke, PLATE_FADE_INFO, { Transparency = 1 })
+	tween(self.Name, PLATE_OUT_INFO, {
+		TextSize = MARKER.IdleNameSize,
+		TextColor3 = COLORS.NameIdle,
+		TextStrokeTransparency = 0.35,
 	})
-	tween(self.PlateStroke, OUT_INFO, { Transparency = 1 })
-	tween(self.Name, OUT_INFO, { TextSize = MARKER.IdleNameSize, TextStrokeTransparency = 0.35 })
-	tween(self.Distance, OUT_INFO, { TextTransparency = 1 })
+	tween(self.Distance, PLATE_FADE_INFO, { TextTransparency = 1 })
 
 	local bubble = self.Bubble
-	local fade = tween(bubble, OUT_INFO, { GroupTransparency = 1 })
+	local fade = tween(bubble, OUT_FADE_INFO, { GroupTransparency = 1 })
 	fade.Completed:Once(function()
 		if not self.Focused then
 			bubble.Visible = false
