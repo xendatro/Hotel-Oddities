@@ -21,7 +21,7 @@ return {
 	},
 
 	Marker = {
-		Size = Vector2.new(260, 210),
+		Size = Vector2.new(260, 310),
 		--- Raises the marker from the root part to just over the head.
 		Offset = Vector3.new(0, 3, 0),
 		MaxDistance = 1000,
@@ -31,9 +31,10 @@ return {
 		MaxScale = 1.35,
 
 		--- Where the bubble's centre and the name sit inside that box, in pixels from its top.
-		BubbleCentre = 78,
-		NameIdleY = 74,
-		NameFocusY = 158,
+		--- The box runs taller than the art needs so the confirm flare and halo pulse stay inside it.
+		BubbleCentre = 128,
+		NameIdleY = 124,
+		NameFocusY = 208,
 
 		BubbleSize = 118,
 		--- The soft ring of colour behind the headshot, as a multiple of the bubble.
@@ -59,8 +60,6 @@ return {
 
 		InTime = 0.26,
 		OutTime = 0.24,
-		--- The plate tucks away ahead of the bubble rather than with it.
-		PlateOutTime = 0.12,
 		RestScale = 0.5,
 
 		PulsePeriod = 1.7,

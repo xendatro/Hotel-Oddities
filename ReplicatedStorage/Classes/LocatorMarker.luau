@@ -15,13 +15,12 @@ local COLORS = PlayerLocatorConfig.Colors
 local FONTS = PlayerLocatorConfig.Fonts
 
 local IN_INFO = TweenInfo.new(FOCUS.InTime, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-local OUT_INFO = TweenInfo.new(FOCUS.OutTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 --- Fades hold their ink and leave at the end, so the marker finishes moving before it is gone.
 local OUT_FADE_INFO = TweenInfo.new(FOCUS.OutTime, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+--- The close mirrors the open: the same spring, run in reverse.
+local OUT_MOVE_INFO = TweenInfo.new(FOCUS.InTime, Enum.EasingStyle.Back, Enum.EasingDirection.In)
 --- The bubble leaves the way it arrived: a small swell, then away.
 local OUT_SCALE_INFO = TweenInfo.new(FOCUS.OutTime, Enum.EasingStyle.Back, Enum.EasingDirection.In)
-local PLATE_OUT_INFO = TweenInfo.new(FOCUS.PlateOutTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local PLATE_FADE_INFO = TweenInfo.new(FOCUS.PlateOutTime, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 local PRESS_INFO = TweenInfo.new(PRESS.Time, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local CONFIRM_INFO = TweenInfo.new(PRESS.ConfirmTime, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local TINT_INFO = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -49,6 +48,9 @@ local function build(player: Player, parent: Instance)
 	billboard.AlwaysOnTop = true
 	billboard.ResetOnSpawn = false
 	billboard.ClipsDescendants = false
+	--- Sibling keeps the whole plate subtree under the bubble instead of letting
+	--- label Z-indices accumulate past it.
+	billboard.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	billboard.LightInfluence = 0
 	billboard.Size = UDim2.fromOffset(MARKER.Size.X, MARKER.Size.Y)
 	billboard.StudsOffsetWorldSpace = MARKER.Offset
@@ -68,16 +70,19 @@ local function build(player: Player, parent: Instance)
 	rootScale.Parent = root
 
 	local bubbleSpan = math.ceil(MARKER.BubbleSize * MARKER.HaloScale)
+	--- The group clips its children to its own rect, so it runs a flare's width
+	--- larger than the halo to keep the confirm swell and pulse inside.
+	local groupSpan = math.ceil(bubbleSpan * PRESS.ConfirmScale) + 4
 
 	local bubble = Instance.new("CanvasGroup")
 	bubble.Name = "Bubble"
 	bubble.AnchorPoint = Vector2.new(0.5, 0.5)
 	bubble.Position = UDim2.new(0.5, 0, 0, MARKER.BubbleCentre)
-	bubble.Size = UDim2.fromOffset(bubbleSpan, bubbleSpan)
+	bubble.Size = UDim2.fromOffset(groupSpan, groupSpan)
 	bubble.BackgroundTransparency = 1
 	bubble.GroupTransparency = 1
 	bubble.Visible = false
-	bubble.ZIndex = 2
+	bubble.ZIndex = 4
 	bubble.Parent = root
 
 	local bubbleScale = Instance.new("UIScale")
@@ -137,6 +142,9 @@ local function build(player: Player, parent: Instance)
 	--- A label pinned on by hand never sits quite square.
 	plate.Rotation = -1.5
 	plate.Parent = root
+
+	local plateScale = Instance.new("UIScale")
+	plateScale.Parent = plate
 
 	local plateCorner = Instance.new("UICorner")
 	plateCorner.CornerRadius = UDim.new(0, 3)
@@ -208,6 +216,7 @@ local function build(player: Player, parent: Instance)
 		Headshot = headshot,
 		Button = button,
 		Plate = plate,
+		PlateScale = plateScale,
 		PlateStroke = plateStroke,
 		Name = name,
 		Distance = distance,
@@ -287,11 +296,13 @@ function LocatorMarker:SetFocused(focused: boolean)
 			Position = UDim2.new(0.5, 0, 0, MARKER.NameFocusY),
 			BackgroundTransparency = 0.05,
 		})
+		tween(self.PlateScale, IN_INFO, { Scale = 1 })
 		tween(self.PlateStroke, IN_INFO, { Transparency = 0.15 })
 		tween(self.Name, IN_INFO, {
 			TextSize = MARKER.NameSize,
 			TextColor3 = COLORS.Name,
 			TextStrokeTransparency = 1,
+			TextTransparency = 0,
 		})
 		if MARKER.ShowDistance then
 			self.Distance.Visible = true
@@ -302,15 +313,17 @@ function LocatorMarker:SetFocused(focused: boolean)
 
 	self.Button.Interactable = false
 	tween(self.BubbleScale, OUT_SCALE_INFO, { Scale = FOCUS.RestScale })
-	tween(self.Plate, PLATE_OUT_INFO, { Position = UDim2.new(0.5, 0, 0, MARKER.NameIdleY) })
-	tween(self.Plate, PLATE_FADE_INFO, { BackgroundTransparency = 1 })
-	tween(self.PlateStroke, PLATE_FADE_INFO, { Transparency = 1 })
-	tween(self.Name, PLATE_OUT_INFO, {
+	tween(self.Plate, OUT_MOVE_INFO, { Position = UDim2.new(0.5, 0, 0, MARKER.NameIdleY) })
+	tween(self.Plate, OUT_FADE_INFO, { BackgroundTransparency = 1 })
+	tween(self.PlateScale, OUT_MOVE_INFO, { Scale = 0.05 })
+	tween(self.PlateStroke, OUT_FADE_INFO, { Transparency = 1 })
+	tween(self.Name, OUT_MOVE_INFO, {
 		TextSize = MARKER.IdleNameSize,
 		TextColor3 = COLORS.NameIdle,
 		TextStrokeTransparency = 0.35,
 	})
-	tween(self.Distance, PLATE_FADE_INFO, { TextTransparency = 1 })
+	tween(self.Name, OUT_FADE_INFO, { TextTransparency = 1 })
+	tween(self.Distance, OUT_FADE_INFO, { TextTransparency = 1 })
 
 	local bubble = self.Bubble
 	local fade = tween(bubble, OUT_FADE_INFO, { GroupTransparency = 1 })
@@ -318,6 +331,8 @@ function LocatorMarker:SetFocused(focused: boolean)
 		if not self.Focused then
 			bubble.Visible = false
 			self.Distance.Visible = false
+			self.Name.TextTransparency = 0
+			self.Distance.TextTransparency = 1
 		end
 	end)
 end
