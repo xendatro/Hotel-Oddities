@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local PlayerLocatorConfig = require(ReplicatedStorage.Configs.PlayerLocatorConfig)
+local AudioService = require(ReplicatedStorage.Services.AudioService)
 
 local LocatorMarker = {}
 LocatorMarker.__index = LocatorMarker
@@ -288,6 +289,7 @@ function LocatorMarker:SetFocused(focused: boolean)
 	self.Focused = focused
 
 	if focused then
+		AudioService:Play2DSound("PlayerLocatorHover", false, "SFX")
 		self.Bubble.Visible = true
 		self.Button.Interactable = true
 		tween(self.Bubble, IN_INFO, { GroupTransparency = 0 })
@@ -311,6 +313,7 @@ function LocatorMarker:SetFocused(focused: boolean)
 		return
 	end
 
+	AudioService:Play2DSound("PlayerLocatorHover", false, "SFX")
 	self.Button.Interactable = false
 	tween(self.BubbleScale, OUT_SCALE_INFO, { Scale = FOCUS.RestScale })
 	tween(self.Plate, OUT_MOVE_INFO, { Position = UDim2.new(0.5, 0, 0, MARKER.NameIdleY) })
