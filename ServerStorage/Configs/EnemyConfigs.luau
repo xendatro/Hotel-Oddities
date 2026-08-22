@@ -450,6 +450,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 	Ghost = {
 		Model = "Ghost",
 		Animations = AnimationConfig.Sets.Ghost,
+		Harmless = true,
 
 		WalkSpeed = 0,
 		DriftSpeed = 7,
