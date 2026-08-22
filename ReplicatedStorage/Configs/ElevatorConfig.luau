@@ -11,7 +11,7 @@ return {
 	CloseDistance = 25,
 	MaxHeightDifference = 16,
 	PollInterval = 0.1,
-	MinimumLoadingTime = 6,
+	MinimumLoadingTime = 8,
 	FadeInTime = 0.8,
 	FadeOutTime = 0.8,
 	FadeTimeout = 3,

@@ -43,6 +43,7 @@ local Visible = false
 local ShownAt = 0
 local DeathToken = 0
 local HidingAt = nil :: number?
+local HideScheduledAt = nil :: number?
 local BurstUntil = 0
 local NextBurstAt = 0
 local NextJitterAt = 0
@@ -238,6 +239,7 @@ end
 local function teardown()
 	Visible = false
 	HidingAt = nil
+	HideScheduledAt = nil
 	RunService:UnbindFromRenderStep(RENDER_JOB)
 	ScreenGui.Enabled = false
 
@@ -349,6 +351,7 @@ function DeathScreenService:Show(causeId: string?, token: number)
 	ShownAt = os.clock()
 	DeathToken = token
 	HidingAt = nil
+	HideScheduledAt = nil
 	NextBurstAt = ShownAt + SCREEN.FadeInTime
 	NextJitterAt = 0
 	Visible = true
@@ -370,6 +373,18 @@ function DeathScreenService:IsVisible(): boolean
 	return Visible
 end
 
+function DeathScreenService:GetTimeUntilEnd(): number?
+	if not Visible then return nil end
+
+	local endAt = if HidingAt
+		then HidingAt + SCREEN.FadeOutTime
+		elseif HideScheduledAt
+		then HideScheduledAt + SCREEN.FadeOutTime
+		else nil
+
+	return if endAt then math.max(endAt - os.clock(), 0) else nil
+end
+
 function DeathScreenService:Hide()
 	if not Visible or HidingAt then return end
 
@@ -379,7 +394,9 @@ function DeathScreenService:Hide()
 	)
 
 	local token = ShownAt
-	task.delay(math.max(0, hold - (os.clock() - ShownAt)), function()
+	local hideAt = ShownAt + hold
+	HideScheduledAt = hideAt
+	task.delay(math.max(0, hideAt - os.clock()), function()
 		if Visible and not HidingAt and ShownAt == token then
 			HidingAt = os.clock()
 		end

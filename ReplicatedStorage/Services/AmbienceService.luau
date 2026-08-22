@@ -5,7 +5,9 @@ local RunService = game:GetService("RunService")
 
 local AmbienceConfig = require(ReplicatedStorage.Configs.AmbienceConfig)
 local AudioService = require(ReplicatedStorage.Services.AudioService)
+local DeathScreenService = require(ReplicatedStorage.Services.DeathScreenService)
 local HallwayGraph = require(ReplicatedStorage.Modules.HallwayGraph)
+local LobbyService = require(ReplicatedStorage.Services.LobbyService)
 
 local AmbienceService = {}
 
@@ -15,6 +17,9 @@ end
 
 local AMBIENCE_FOLDER = ReplicatedStorage:WaitForChild("Sounds"):WaitForChild("Ambience")
 local ENEMY_TAG = "Enemy"
+local DEATH_AMBIENCE = "DeathAmbience"
+local AMBIENCE_BUS = "Ambience"
+local DEATH_FADE_TIME = 1
 
 local Duck = Instance.new("AudioFader")
 Duck.Name = "AmbienceDuck"
@@ -29,6 +34,8 @@ for _, child in AMBIENCE_FOLDER:GetChildren() do
 end
 
 local playing: AudioPlayer?
+local deathPlaying: Sound?
+local deathBaseVolume = 1
 local sourceIndex = 0
 local volumeMultiplier = 1
 local accumulator = math.huge
@@ -45,10 +52,12 @@ local function getNextSource(): AudioPlayer?
 end
 
 local function playNext()
+	if playing or DeathScreenService:IsVisible() or LobbyService:IsPlayerOnLobbyFloor() then return end
+
 	local source = getNextSource()
 	if not source then return end
 
-	local player = AudioService:Play2D(source, false, "Ambience", nil, Duck)
+	local player = AudioService:Play2D(source, false, AMBIENCE_BUS, nil, Duck)
 	playing = player
 
 	player.Ended:Connect(function()
@@ -57,6 +66,35 @@ local function playNext()
 			playNext()
 		end
 	end)
+end
+
+local function stopNormalAmbience()
+	if not playing then return end
+	AudioService:StopSound(playing)
+	playing = nil
+end
+
+local function startDeathAmbience()
+	if deathPlaying then return end
+	deathPlaying = AudioService:Play2DSound(DEATH_AMBIENCE, true, AMBIENCE_BUS) :: Sound
+	deathBaseVolume = deathPlaying.Volume
+end
+
+local function stopDeathAmbience()
+	if not deathPlaying then return end
+	AudioService:StopSound(deathPlaying)
+	deathPlaying = nil
+	deathBaseVolume = 1
+end
+
+local function updateDeathAmbience()
+	if not deathPlaying then return end
+
+	local timeUntilEnd = DeathScreenService:GetTimeUntilEnd()
+	local volumeMultiplier = if timeUntilEnd
+		then math.clamp(timeUntilEnd / DEATH_FADE_TIME, 0, 1)
+		else 1
+	deathPlaying.Volume = deathBaseVolume * volumeMultiplier
 end
 
 local function getAliveRoot(): BasePart?
@@ -80,15 +118,31 @@ local function getNearestEnemyDistance(position: Vector3): number
 	return nearest
 end
 
-local function updateVolume(deltaTime: number)
+local function updatePlayback(deathVisible: boolean, lobbyVisible: boolean)
+	if deathVisible then
+		startDeathAmbience()
+	else
+		stopDeathAmbience()
+	end
+
+	if deathVisible or lobbyVisible then
+		stopNormalAmbience()
+	elseif not playing then
+		playNext()
+	end
+end
+
+local function updateVolume(deltaTime: number, ambienceBlocked: boolean)
 	local root = getAliveRoot()
 	local nearestDistance = if root then getNearestEnemyDistance(root.Position) else math.huge
-	local targetMultiplier = math.clamp(
-		(nearestDistance - AmbienceConfig.SilentDistance)
-			/ (AmbienceConfig.FullVolumeDistance - AmbienceConfig.SilentDistance),
-		0,
-		1
-	)
+	local targetMultiplier = if ambienceBlocked
+		then 0
+		else math.clamp(
+			(nearestDistance - AmbienceConfig.SilentDistance)
+				/ (AmbienceConfig.FullVolumeDistance - AmbienceConfig.SilentDistance),
+			0,
+			1
+		)
 
 	local fadeTime = math.max(AmbienceConfig.FadeTime, 0.01)
 	local alpha = math.clamp(deltaTime / fadeTime, 0, 1)
@@ -96,15 +150,20 @@ local function updateVolume(deltaTime: number)
 	Duck.Volume = volumeMultiplier
 end
 
-RunService.Heartbeat:Connect(function(deltaTime: number)
+RunService.Heartbeat:Connect(function(deltaTime)
+	local deathVisible = DeathScreenService:IsVisible()
+	local lobbyVisible = LobbyService:IsPlayerOnLobbyFloor()
+	updatePlayback(deathVisible, lobbyVisible)
+	updateDeathAmbience()
+
 	accumulator += deltaTime
 	if accumulator < AmbienceConfig.UpdateInterval then return end
 
 	local elapsed = accumulator
 	accumulator = 0
-	updateVolume(elapsed)
+	updateVolume(elapsed, deathVisible or lobbyVisible)
 end)
 
-playNext()
+updatePlayback(DeathScreenService:IsVisible(), LobbyService:IsPlayerOnLobbyFloor())
 
 return AmbienceService
