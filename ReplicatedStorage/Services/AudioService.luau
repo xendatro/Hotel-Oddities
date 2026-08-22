@@ -1,5 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
 
 local Templates = ReplicatedStorage:WaitForChild("Sounds")
 local Buses = workspace:WaitForChild("Sounds")
@@ -93,6 +94,7 @@ end
 
 local Output: AudioDeviceOutput? = nil
 type Audio3DTemplate = string | AudioEmitter
+type Audio2DPlayback = AudioPlayer | Sound
 
 local function resolve3DTemplate(template: Audio3DTemplate): AudioEmitter
 	return if typeof(template) == "string" then Templates[template] :: AudioEmitter else template
@@ -106,12 +108,25 @@ local function bindBus(player: AudioPlayer, bus: AudioFader): RBXScriptConnectio
 	end)
 end
 
-local function bindLifetime(root: Instance, player: AudioPlayer, connection: RBXScriptConnection)
+local function bindLegacyBus(sound: Sound, bus: AudioFader): RBXScriptConnection
+	local baseVolume = sound.Volume
+	sound.Volume = baseVolume * bus.Volume
+	return bus:GetPropertyChangedSignal("Volume"):Connect(function()
+		sound.Volume = baseVolume * bus.Volume
+	end)
+end
+
+local function bindLifetime(root: Instance, player: Audio2DPlayback, connection: RBXScriptConnection)
 	root.Destroying:Once(function()
 		connection:Disconnect()
 	end)
 
-	if not player.Looping then
+	local property = "Looping"
+	if player:IsA("Sound") then
+		property = "Looped"
+	end
+
+	if not player[property] then
 		player.Ended:Once(function()
 			root:Destroy()
 		end)
@@ -201,7 +216,18 @@ function AudioService:Play2D(
 	soundGroup: string,
 	settings: {[string]: any}?,
 	target: Instance?
-): AudioPlayer
+): Audio2DPlayback
+	if template:IsA("Sound") then
+		local sound = template:Clone()
+		sound.Looped = looped
+		applySettings(sound, nil, settings)
+
+		sound.Parent = target or SoundService
+		bindLifetime(sound, sound, bindLegacyBus(sound, self:GetBus(soundGroup)))
+		sound:Play()
+		return sound
+	end
+
 	local source = if template:IsA("AudioPlayer") then template else template.Player :: AudioPlayer
 	local player = source:Clone()
 	player.Looping = looped
@@ -221,12 +247,17 @@ function AudioService:Play2DSound(
 	soundGroup: string,
 	settings: {[string]: any}?,
 	target: Instance?
-): AudioPlayer
+): Audio2DPlayback
 	local template = Templates:FindFirstChild(name)
 	for _, candidate in Templates:GetChildren() do
 		if candidate.Name ~= name then continue end
-		local source = if candidate:IsA("AudioPlayer") then candidate else candidate:FindFirstChild("Player")
-		if source and source:IsA("AudioPlayer") and source.Asset ~= "" then
+		local source = if candidate:IsA("Sound") or candidate:IsA("AudioPlayer")
+			then candidate
+			else candidate:FindFirstChild("Player")
+		if source and source:IsA("Sound") and source.SoundId ~= "" then
+			template = candidate
+			break
+		elseif source and source:IsA("AudioPlayer") and source.Asset ~= "" then
 			template = candidate
 			break
 		end
@@ -234,7 +265,7 @@ function AudioService:Play2DSound(
 	return self:Play2D(template, looped, soundGroup, settings, target)
 end
 
-function AudioService:StopSound(player: AudioPlayer)
+function AudioService:StopSound(player: Audio2DPlayback)
 	player:Stop()
 
 	local root = player.Parent

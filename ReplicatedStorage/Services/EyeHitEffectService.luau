@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
+local AudioService = require(ReplicatedStorage.Services.AudioService)
 local CameraFovService = require(ReplicatedStorage.Services.CameraFovService)
 local EyeConfig = require(ReplicatedStorage.Configs.EyeConfig)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
@@ -83,6 +84,7 @@ end
 eyeHit.OnClientEvent:Connect(function()
 	pulseFlash()
 	pulseFov()
+	AudioService:Play2DSound("EyeDamage", false, "SFX")
 end)
 
 return EyeHitEffectService
