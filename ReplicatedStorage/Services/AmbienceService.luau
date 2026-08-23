@@ -38,7 +38,6 @@ local deathPlaying: Sound?
 local deathBaseVolume = 1
 local sourceIndex = 0
 local volumeMultiplier = 1
-local eyeMuffle = 1
 local accumulator = math.huge
 
 local function getNextSource(): AudioPlayer?
@@ -148,12 +147,7 @@ local function updateVolume(deltaTime: number, ambienceBlocked: boolean)
 	local fadeTime = math.max(AmbienceConfig.FadeTime, 0.01)
 	local alpha = math.clamp(deltaTime / fadeTime, 0, 1)
 	volumeMultiplier += (targetMultiplier - volumeMultiplier) * alpha
-	Duck.Volume = volumeMultiplier * eyeMuffle
-end
-
-function AmbienceService:SetEyeMuffle(multiplier: number)
-	eyeMuffle = math.clamp(multiplier, 0, 1)
-	Duck.Volume = volumeMultiplier * eyeMuffle
+	Duck.Volume = volumeMultiplier
 end
 
 RunService.Heartbeat:Connect(function(deltaTime)
