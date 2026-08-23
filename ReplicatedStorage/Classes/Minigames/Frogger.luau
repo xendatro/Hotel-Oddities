@@ -8,9 +8,10 @@ local START_ROW = ROWS
 local MEDIAN_ROW = 5
 local CROSSINGS_TO_WIN = 2
 local HOP_COOLDOWN = 0.1
-local HIT_FORGIVENESS = 0.26
+local HIT_FORGIVENESS = 0.2
 local MESSAGE_TIME = 0.8
 local LENGTH_SCALE = 0.55
+local TRAFFIC_SPEED_SCALE = 1.35
 
 export type Theme = {
 	Font: Enum.Font,
@@ -183,7 +184,7 @@ function Frogger:_buildLanes()
 		local lane: Lane = {
 			Row = definition.Row,
 			Direction = definition.Direction,
-			Speed = definition.Speed,
+			Speed = definition.Speed * TRAFFIC_SPEED_SCALE,
 			Length = length,
 			Span = count * definition.Gap,
 			Color = colors[(index - 1) % #colors + 1],
@@ -344,6 +345,8 @@ end
 
 function Frogger:_splat()
 	if self.Api.Sound then self.Api.Sound("Splat") end
+	self.Crossings = 0
+	self:_refreshLabels()
 	self:_say("SPLAT!", self.Theme.Danger)
 	self:_toStart()
 	if self.Api.Fail then self.Api.Fail("SPLAT") end

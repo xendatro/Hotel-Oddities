@@ -5,6 +5,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
+local DebugPanel = require(ReplicatedStorage.Classes.DebugPanel)
 local DangerField = require(ReplicatedStorage.Modules.DangerField)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 
@@ -225,54 +226,9 @@ local function buildButton(parent: Instance, order: number, text: string, activa
 end
 
 local function build()
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "DangerDebug"
-	gui.ResetOnSpawn = false
-	gui.IgnoreGuiInset = false
-	gui.Enabled = false
-	gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-
-	local panel = Instance.new("Frame")
-	panel.Position = UDim2.new(0, 12, 0, 12)
-	panel.Size = UDim2.new(0, PANEL_WIDTH, 0, 560)
-	panel.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
-	panel.BackgroundTransparency = 0.1
-	panel.BorderSizePixel = 0
-	panel.Parent = gui
-
-	local padding = Instance.new("UIPadding")
-	padding.PaddingTop = UDim.new(0, 10)
-	padding.PaddingLeft = UDim.new(0, 10)
-	padding.PaddingRight = UDim.new(0, 10)
-	padding.Parent = panel
-
-	local layout = Instance.new("UIListLayout")
-	layout.Padding = UDim.new(0, 6)
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Parent = panel
-
-	local title = Instance.new("TextLabel")
-	title.Size = UDim2.new(1, 0, 0, 18)
-	title.LayoutOrder = 0
-	title.BackgroundTransparency = 1
-	title.Font = Enum.Font.Code
-	title.TextSize = 14
-	title.TextColor3 = Color3.fromRGB(255, 170, 170)
-	title.TextXAlignment = Enum.TextXAlignment.Left
-	title.Text = `danger map -- extent {math.floor(Extent)} studs`
-	title.Parent = panel
-
-	local readout = Instance.new("TextLabel")
-	readout.Size = UDim2.new(1, 0, 0, 30)
-	readout.LayoutOrder = 1
-	readout.BackgroundTransparency = 1
-	readout.Font = Enum.Font.Code
-	readout.TextSize = 12
-	readout.TextColor3 = Color3.new(1, 1, 1)
-	readout.TextXAlignment = Enum.TextXAlignment.Left
-	readout.TextYAlignment = Enum.TextYAlignment.Top
-	readout.Text = "here: --"
-	readout.Parent = panel
+	local debugPanel = DebugPanel.new(`danger map -- extent {math.floor(Extent)} studs`, TOGGLE_KEY)
+	local gui = debugPanel.Gui
+	local readout = debugPanel:AddLabel("here: --")
 
 	task.spawn(function()
 		while readout.Parent do
@@ -295,56 +251,56 @@ local function build()
 		end
 	end)
 
-	buildSlider(panel, 2, "Seed", 1, math.max(2000, Settings.Seed), Settings.Seed, 1, function(value)
+	debugPanel:AddSlider("Seed", 1, math.max(2000, Settings.Seed), Settings.Seed, 1, function(value)
 		Settings.Seed = value
 		requestRedraw()
 	end)
 
-	buildSlider(panel, 3, "FeatureScale", Extent * 0.04, Extent * 0.5, Settings.FeatureScale, 1, function(value)
+	debugPanel:AddSlider("FeatureScale", Extent * 0.04, Extent * 0.5, Settings.FeatureScale, 1, function(value)
 		Settings.FeatureScale = value
 		requestRedraw()
 	end)
 
-	buildSlider(panel, 4, "Contrast", 1, 4, Settings.Contrast, 0.1, function(value)
+	debugPanel:AddSlider("Contrast", 1, 4, Settings.Contrast, 0.1, function(value)
 		Settings.Contrast = value
 		requestRedraw()
 	end)
 
-	buildSlider(panel, 5, "NoiseGain", 0.5, 3, Settings.NoiseGain, 0.05, function(value)
+	debugPanel:AddSlider("NoiseGain", 0.5, 3, Settings.NoiseGain, 0.05, function(value)
 		Settings.NoiseGain = value
 		requestRedraw()
 	end)
 
-	buildSlider(panel, 6, "SafeRadius", 0, Extent * 0.3, Settings.SafeRadius, 1, function(value)
+	debugPanel:AddSlider("SafeRadius", 0, Extent * 0.3, Settings.SafeRadius, 1, function(value)
 		Settings.SafeRadius = value
 		requestRedraw()
 	end)
 
-	buildSlider(panel, 7, "RampLength", 1, Extent * 0.6, Settings.RampLength, 1, function(value)
+	debugPanel:AddSlider("RampLength", 1, Extent * 0.6, Settings.RampLength, 1, function(value)
 		Settings.RampLength = value
 		requestRedraw()
 	end)
 
-	buildSlider(panel, 8, "Octaves", 1, 4, Settings.Octaves, 1, function(value)
+	debugPanel:AddSlider("Octaves", 1, 4, Settings.Octaves, 1, function(value)
 		Settings.Octaves = value
 		requestRedraw()
 	end)
 
 	local heatmapButton
-	heatmapButton = buildButton(panel, 9, "heatmap: off", function()
+	heatmapButton = debugPanel:AddButton("heatmap: off", function()
 		HeatmapOn = not HeatmapOn
 		heatmapButton.Text = `heatmap: {if HeatmapOn then "on" else "off"}`
 		drawHeatmap()
 	end)
 
 	local gateButton
-	gateButton = buildButton(panel, 10, "showing: gated field", function()
+	gateButton = debugPanel:AddButton("showing: gated field", function()
 		GateOn = not GateOn
 		gateButton.Text = `showing: {if GateOn then "gated field" else "raw noise"}`
 		drawHeatmap()
 	end)
 
-	buildButton(panel, 11, "apply to server", function()
+	debugPanel:AddButton("apply to server", function()
 		if not SetConfig then
 			warn("[danger] no Communication/Danger/SetConfig remote yet; sliders are local only")
 			return
@@ -363,31 +319,14 @@ local function build()
 		})
 	end)
 
-	buildButton(panel, 12, "reload map from tags", function()
+	debugPanel:AddButton("reload map from tags", function()
 		rebuildSettings()
-		title.Text = `danger map -- extent {math.floor(Extent)} studs`
+		debugPanel:SetTitle(`danger map -- extent {math.floor(Extent)} studs`)
 		drawHeatmap()
 	end)
 
-	local hint = Instance.new("TextLabel")
-	hint.Size = UDim2.new(1, 0, 0, 60)
-	hint.LayoutOrder = 13
-	hint.BackgroundTransparency = 1
-	hint.Font = Enum.Font.Code
-	hint.TextSize = 11
-	hint.TextColor3 = Color3.fromRGB(150, 150, 160)
-	hint.TextXAlignment = Enum.TextXAlignment.Left
-	hint.TextYAlignment = Enum.TextYAlignment.Top
-	hint.TextWrapped = true
-	hint.Text = "sliders redraw locally. apply sends them to the server, which rebakes and clears "
-		.. "everything the director owns. copy the numbers you settle on into DangerConfig."
-	hint.Parent = panel
-
-	UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
-		if not processed and input.KeyCode == TOGGLE_KEY then
-			gui.Enabled = not gui.Enabled
-		end
-	end)
+	debugPanel:AddLabel("sliders redraw locally. apply sends them to the server, which rebakes and clears "
+		.. "everything the director owns. copy the numbers you settle on into DangerConfig.")
 end
 
 task.spawn(function()

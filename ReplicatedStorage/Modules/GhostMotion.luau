@@ -1,4 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 
 local Bob = require(ReplicatedStorage.Modules.Bob)
 local GhostConfig = require(ReplicatedStorage.Configs.GhostConfig)
@@ -10,6 +11,7 @@ export type Leg = { Origin: CFrame, Target: CFrame, Duration: number, StartedAt:
 local GhostMotion = {}
 
 GhostMotion.LegAttribute = "DriftStartedAt"
+GhostMotion.FadeAttribute = "FadeStartedAt"
 
 function GhostMotion.NewLeg(origin: CFrame, goal: Vector3, speed: number, startedAt: number): Leg
 	local offset = goal - origin.Position
@@ -56,6 +58,19 @@ function GhostMotion.Read(model: Model): Leg?
 		Duration = model:GetAttribute("DriftDuration") :: number,
 		StartedAt = startedAt,
 	}
+end
+
+function GhostMotion.PublishFade(model: Model, startedAt: number)
+	model:SetAttribute(GhostMotion.FadeAttribute, startedAt)
+end
+
+function GhostMotion.ReadFade(model: Model): number?
+	return model:GetAttribute(GhostMotion.FadeAttribute) :: number?
+end
+
+function GhostMotion.FadeAlpha(startedAt: number, now: number): number
+	local elapsed = math.clamp((now - startedAt) / GhostConfig.FadeTime, 0, 1)
+	return TweenService:GetValue(elapsed, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 end
 
 return GhostMotion

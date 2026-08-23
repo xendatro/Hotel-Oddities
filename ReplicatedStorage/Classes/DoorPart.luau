@@ -114,7 +114,7 @@ function DoorPart:_setOpen(
 	self.Target = open and OPEN_ANGLE * self.Sign or 0
 
 	if wasOpen ~= open then
-		local settings = if playbackSpeed then { PlaybackSpeed = playbackSpeed } else nil
+		local settings = { PlaybackSpeed = playbackSpeed or DoorConfig.SwingSpeed }
 		local player = AudioService:Play3DSound(open and "DoorOpen" or "DoorClose", self.Part, false, "SFX", settings)
 		self.AnimationPlayer = player
 		self.AnimationEnded = false

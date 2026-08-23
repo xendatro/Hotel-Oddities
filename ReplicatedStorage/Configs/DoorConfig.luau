@@ -5,9 +5,12 @@ return {
 	OpenAngle = 100,
 
 	--- Studs from the middle of the slab at which a player pushes it open.
-	OpenDistance = 6,
+	OpenDistance = 4,
 	CloseDistance = 10,
 	MaxHeightDifference = 8,
+
+	--- Playback rate of the door sound, which is also what drives the swing. Above 1 is faster.
+	SwingSpeed = 1.4,
 
 	--- Carried by every live enemy model; see `NPC:Start`.
 	EnemyTag = "Enemy",

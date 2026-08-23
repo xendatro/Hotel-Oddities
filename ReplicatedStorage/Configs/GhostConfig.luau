@@ -3,4 +3,6 @@ return {
 
 	BobHeight = 0.5,
 	BobPeriod = 3.5,
+
+	FadeTime = 0.75,
 }

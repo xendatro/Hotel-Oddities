@@ -112,6 +112,8 @@ local function watchModel(
 		return model:GetAttribute(STEALTH.Attribute) == true
 	end
 
+	local stepVolume = WalkSoundConfig.EnemyStepVolume[model:GetAttribute("EnemyId")]
+
 	local function playFootstep()
 		local template = FootstepTemplates[math.random(#FootstepTemplates)]
 		local settings = if isCrouching()
@@ -121,6 +123,12 @@ local function watchModel(
 				DistanceAttenuationBounds = NumberRange.new(0, STEALTH.StepMaxDistance),
 			}
 			else audioSettings
+
+		if stepVolume and not isCrouching() then
+			local source = template:FindFirstChild("Player") :: AudioPlayer?
+			settings = table.clone(settings or {})
+			settings.Volume = (if source then source.Volume else 1) * stepVolume
+		end
 		local audioPlayer = AudioService:Play3DSound(template, rootPart, false, "SFX", settings)
 		if trackRootMovement then
 			configureEnemyAttenuation(audioPlayer)

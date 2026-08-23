@@ -39,17 +39,17 @@ return {
 	PatrolDangerWeight = 0.6,
 
 	ProgrammaticVents = {
-		MaxAlive = 20,
-		InitialAlive = 10,
+		MaxAlive = 5,
+		InitialAlive = 5,
 		InitialSpawnInterval = 1,
 		SpawnInterval = 10,
-		SpawnChance = 0.16,
-		DangerChance = 0.36,
-		DangerBias = 1.2,
 		PlacementAttempts = 24,
 		MinimumSpacing = 28,
 		DespawnInterval = 5,
-		DespawnGrace = 180,
+		--- Seconds a vent may exist before it is culled. It is only ever removed
+		--- while unseen, so a watched vent outlives this until nobody is looking.
+		--- CeilingVentService also derives its arm time from this.
+		Lifetime = 180,
 	},
 
 	PatrolVisitMemory = 30,

@@ -19,7 +19,8 @@ local AMBIENCE_FOLDER = ReplicatedStorage:WaitForChild("Sounds"):WaitForChild("C
 local AMBIENCE_BUS = "SFX"
 local AMBIENCE_FULL_DISTANCE = 8
 local AMBIENCE_SILENT_DISTANCE = SOUND_DISTANCE
-local AMBIENCE_FADE_TIME = 1
+local AMBIENCE_FADE_IN_TIME = 1
+local AMBIENCE_FADE_OUT_TIME = 0.2
 local SPAN_EPSILON = 0.75
 local SOURCE_SETTLE_TIME = 0.08
 local REARM_TIME = 0.75
@@ -103,9 +104,8 @@ local function hasSightline(root: BasePart, source: BasePart): boolean
 end
 
 local function nearestSource(root: BasePart, requireSightline: boolean): (BasePart?, number)
-	local closest: BasePart? = nil
-	local closestDistance = SOUND_DISTANCE
 	local position = root.Position
+	local candidates: { { Part: BasePart, Distance: number } } = {}
 
 	for model, state in RedModels do
 		if model.Parent == nil then
@@ -118,16 +118,23 @@ local function nearestSource(root: BasePart, requireSightline: boolean): (BasePa
 			end
 
 			local distance = (part.Position - position).Magnitude
-			if distance < closestDistance
-				and (not requireSightline or hasSightline(root, part))
-			then
-				closest = part
-				closestDistance = distance
+			if distance < SOUND_DISTANCE then
+				table.insert(candidates, { Part = part, Distance = distance })
 			end
 		end
 	end
 
-	return closest, closestDistance
+	table.sort(candidates, function(first, second)
+		return first.Distance < second.Distance
+	end)
+
+	for _, candidate in candidates do
+		if not requireSightline or hasSightline(root, candidate.Part) then
+			return candidate.Part, candidate.Distance
+		end
+	end
+
+	return nil, SOUND_DISTANCE
 end
 
 local function playWarning()
@@ -365,9 +372,11 @@ local function updateAmbience(deltaTime: number)
 		ensureAmbienceSounds()
 	end
 
-	local fadeTime = math.max(AMBIENCE_FADE_TIME, 0.01)
-	local alpha = math.clamp(deltaTime / fadeTime, 0, 1)
-	AmbienceVolume += (targetVolume - AmbienceVolume) * alpha
+	local fadeTime = if targetVolume < AmbienceVolume
+		then AMBIENCE_FADE_OUT_TIME
+		else AMBIENCE_FADE_IN_TIME
+	local maxChange = deltaTime / math.max(fadeTime, 0.01)
+	AmbienceVolume += math.clamp(targetVolume - AmbienceVolume, -maxChange, maxChange)
 
 	local busVolume = AudioService:GetBus(AMBIENCE_BUS).Volume
 	for _, sound in AmbienceSounds do

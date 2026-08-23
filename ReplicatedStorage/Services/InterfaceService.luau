@@ -219,6 +219,7 @@ controller.Fired:Connect(function(data)
 	end
 
 	tweenEffects(activeGui ~= nil)
+	InterfaceService:SetMouseUnlocked(activeGui ~= nil)
 end)
 
 local mouseUnlockGui = Instance.new("ScreenGui")
@@ -245,7 +246,7 @@ local mouseUnlocked = false
 local lockedMouseBehavior = UserInputService.MouseBehavior
 local lockedMouseIconEnabled = UserInputService.MouseIconEnabled
 
-local function setMouseUnlocked(unlocked: boolean)
+function InterfaceService:SetMouseUnlocked(unlocked: boolean)
 	if mouseUnlocked == unlocked then return end
 	mouseUnlocked = unlocked
 
@@ -266,7 +267,8 @@ end
 
 UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
 	if processed or input.KeyCode ~= Enum.KeyCode.Q then return end
-	setMouseUnlocked(not mouseUnlocked)
+	if interfaceOpen then return end
+	InterfaceService:SetMouseUnlocked(not mouseUnlocked)
 end)
 
 function InterfaceService:Open(pageId: string)

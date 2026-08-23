@@ -60,6 +60,7 @@ type Rectangle = {
 type BranchConnection = {
 	Span: Hallways.StraightSpan,
 	Along: number,
+	SpanAlong: number,
 	Hallways: { Hallways.Hallway },
 }
 
@@ -356,6 +357,7 @@ local function branchConnections(span: Hallways.StraightSpan): { BranchConnectio
 			table.insert(connections, {
 				Span = other,
 				Along = (intersection - other.Center):Dot(other.Axis),
+				SpanAlong = (intersection - span.Center):Dot(span.Axis),
 				Hallways = hallwaysInSpan(other),
 			})
 		end
@@ -373,7 +375,8 @@ end
 function LightService:DisableHallway(
 	position: Vector3,
 	preferredDirection: Vector3?,
-	connectedDistance: number?
+	connectedDistance: number?,
+	spanDistance: number?
 ): LightClaim
 	local claim: LightClaim = {
 		Models = {},
@@ -384,15 +387,31 @@ function LightService:DisableHallway(
 
 	local seen: { [Model]: boolean } = {}
 	local spanHallways = hallwaysInSpan(span)
-	local rooms = connectedRooms(spanHallways)
+	local origin = (position - span.Center):Dot(span.Axis)
+	local reach = if spanDistance and spanDistance > 0 then spanDistance else nil
+
+	local nearHallways = spanHallways
+	if reach then
+		nearHallways = {}
+		for _, hallway in spanHallways do
+			local hallwayAlong = (hallway.Center - span.Center):Dot(span.Axis)
+			if math.abs(hallwayAlong - origin) <= reach + hallway.HalfLength then
+				table.insert(nearHallways, hallway)
+			end
+		end
+	end
+
+	local rooms = connectedRooms(nearHallways)
 	local branches = branchConnections(span)
 	local branchRange = math.max(connectedDistance or 0, 0)
 
 	for _, model in LightService:GetModels() do
 		local modelPosition = model:GetPivot().Position
 		local isConnected = containsAnyHallway(spanHallways, modelPosition)
+			and (not reach or math.abs((modelPosition - span.Center):Dot(span.Axis) - origin) <= reach)
 		if not isConnected and branchRange > 0 then
 			for _, connection in branches do
+				if reach and math.abs(connection.SpanAlong - origin) > reach then continue end
 				local modelAlong = (modelPosition - connection.Span.Center):Dot(connection.Span.Axis)
 				if containsAnyHallway(connection.Hallways, modelPosition)
 					and math.abs(modelAlong - connection.Along) <= branchRange
@@ -415,6 +434,15 @@ function LightService:DisableHallway(
 		if isConnected then addModel(claim, seen, model) end
 	end
 
+	return claim
+end
+
+function LightService:DisableModel(model: Model): LightClaim
+	local claim: LightClaim = {
+		Models = { model },
+		Released = false,
+	}
+	disable(model)
 	return claim
 end
 

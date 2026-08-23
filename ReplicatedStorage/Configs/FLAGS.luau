@@ -4,4 +4,5 @@ return {
 	Director = true,
 	DangerDebug = true,
 	BlindTrace = true,
+	VoiceDebug = true,
 }

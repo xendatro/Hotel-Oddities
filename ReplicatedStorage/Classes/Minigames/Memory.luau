@@ -26,6 +26,7 @@ local COLUMNS = 4
 local ROWS = 4
 local CARDS = COLUMNS * ROWS
 local PAIRS = CARDS // 2
+local MAX_MOVES = 20
 
 local GLYPHS: { Glyph } = {
 	{ Char = "🐸", Color = "Primary" },
@@ -179,7 +180,7 @@ function Memory:_updateHeader()
 	if not self.PairsLabel then return end
 
 	self.PairsLabel.Text = `PAIRS {self.Found}/{PAIRS}`
-	self.MovesLabel.Text = `MOVES {self.Moves}`
+	self.MovesLabel.Text = `MOVES {self.Moves}/{MAX_MOVES}`
 
 	if self.Won then
 		self.Message.Text = "MATCHED"
@@ -205,6 +206,15 @@ function Memory:_flipBack()
 
 	self.Pending = nil
 	self:_updateHeader()
+end
+
+function Memory:_fail()
+	if self.Won then return end
+
+	self:Reset()
+	if self.Api.Fail then
+		self.Api.Fail("TOO MANY MOVES")
+	end
 end
 
 function Memory:_tap(index: number)
@@ -239,7 +249,14 @@ function Memory:_tap(index: number)
 
 		if self.Found >= PAIRS then
 			self:_win()
+		elseif self.Moves >= MAX_MOVES then
+			self:_fail()
 		end
+		return
+	end
+
+	if self.Moves >= MAX_MOVES then
+		self:_fail()
 		return
 	end
 
@@ -311,7 +328,7 @@ function Memory:_build()
 	movesLabel.Size = UDim2.fromOffset(220, HEADER_HEIGHT)
 	movesLabel.BackgroundTransparency = 1
 	movesLabel.Font = theme.Font
-	movesLabel.Text = "MOVES 0"
+	movesLabel.Text = `MOVES 0/{MAX_MOVES}`
 	movesLabel.TextSize = 26
 	movesLabel.TextColor3 = theme.TextDim
 	movesLabel.TextXAlignment = Enum.TextXAlignment.Right
@@ -371,7 +388,7 @@ function Memory:Start(saved: any?)
 		self.Found //= 2
 
 		if typeof(saved.Moves) == "number" then
-			self.Moves = math.max(0, math.floor(saved.Moves))
+			self.Moves = math.clamp(math.floor(saved.Moves), 0, MAX_MOVES - 1)
 		end
 
 		local up: number? = nil

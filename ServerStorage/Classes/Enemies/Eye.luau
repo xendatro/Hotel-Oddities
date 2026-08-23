@@ -14,6 +14,7 @@ local EYE_TAG = "Eye"
 local OBSERVABLE_TAG = "Observable"
 local STUNNED_ATTRIBUTE = "Stunned"
 local DAMAGE_INTERVAL = 0.05
+local IDLE_ANIMATION_NAME = "eye_idle"
 
 local Eye = {}
 Eye.__index = Eye
@@ -109,6 +110,7 @@ function Eye.new(model: Model, config)
 	self.Model = model
 	self.Config = config
 	self.Active = false
+	self.AnimationTrack = nil :: AnimationTrack?
 	self.DamageProgress = {}
 	self.StateMachine = StateMachine.new({
 		Stare = stare,
@@ -135,6 +137,15 @@ function Eye:Start()
 		end
 	end
 
+	local controller = self.Model:WaitForChild("AnimationController") :: AnimationController
+	local animator = controller:WaitForChild("Animator") :: Animator
+	local animations = ReplicatedStorage:WaitForChild("Animations")
+	local animation = animations:WaitForChild(IDLE_ANIMATION_NAME) :: Animation
+	local track = animator:LoadAnimation(animation)
+	track.Looped = true
+	track:Play()
+	self.AnimationTrack = track
+
 	self.Model:AddTag(ENEMY_TAG)
 	self.Model:AddTag(EYE_TAG)
 	self.Model:AddTag(OBSERVABLE_TAG)
@@ -146,6 +157,12 @@ function Eye:Despawn()
 	if not self.Active then return end
 	self.Active = false
 	ByModel[self.Model] = nil
+
+	if self.AnimationTrack then
+		self.AnimationTrack:Stop()
+		self.AnimationTrack:Destroy()
+		self.AnimationTrack = nil
+	end
 
 	self.Model:RemoveTag(ENEMY_TAG)
 	self.Model:RemoveTag(EYE_TAG)

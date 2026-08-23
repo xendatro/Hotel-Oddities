@@ -68,7 +68,6 @@ local function attack(_changeState: StateMachine.ChangeState, npc: any, target: 
 		return "Idle", npc
 	end
 
-	npc:FaceTowards(position)
 	if not npc:IsTouchingPlayer(target) then
 		return "Chase", npc, target
 	end

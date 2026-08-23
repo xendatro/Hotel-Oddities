@@ -2,22 +2,27 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyService = require(ServerStorage.Services.EnemyService)
+local Peek = require(ServerStorage.Classes.Enemies.Behaviors.Peek)
 local PeekSpotService = require(ServerStorage.Services.PeekSpotService)
-local Watcher = require(ServerStorage.Classes.Enemies.Watcher)
 
 local HAND_SPAWN_MIN_DISTANCE = 60
 
-local WatcherService = {}
+local StalkerService = {}
 
-function WatcherService:FindSpot(player: Player): PeekSpotService.PeekSpot?
-	return PeekSpotService:Find(player, Watcher.GetFindOptions(EnemyConfigs.Watcher))
+local DEFAULT_ENEMY_ID = "Stalker"
+
+function StalkerService:FindSpot(player: Player, enemyId: string?): PeekSpotService.PeekSpot?
+	local config = EnemyConfigs[enemyId or DEFAULT_ENEMY_ID]
+	return PeekSpotService:Find(player, Peek.GetFindOptions(config))
 end
 
-function WatcherService:SpawnNear(player: Player, anyDirection: boolean?)
-	local spot = self:FindSpot(player)
+function StalkerService:SpawnPeeking(player: Player, enemyId: string?, anyDirection: boolean?)
+	local id = enemyId or DEFAULT_ENEMY_ID
+	local config = EnemyConfigs[id]
+	local spot = self:FindSpot(player, id)
 
 	if not spot and anyDirection then
-		local options = Watcher.GetFindOptions(EnemyConfigs.Watcher)
+		local options = Peek.GetFindOptions(config)
 		options.RearArc = 360
 		spot = PeekSpotService:Find(player, options)
 
@@ -30,7 +35,7 @@ function WatcherService:SpawnNear(player: Player, anyDirection: boolean?)
 	if not spot then return nil end
 
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not root or (spot.Stand - root.Position).Magnitude < EnemyConfigs.Watcher.MinPeekDistance then
+	if not root or (spot.Stand - root.Position).Magnitude < config.MinPeekDistance then
 		return nil
 	end
 
@@ -40,7 +45,7 @@ function WatcherService:SpawnNear(player: Player, anyDirection: boolean?)
 	if (facing - spot.Stand).Magnitude < 1e-3 then
 		facing = spot.Stand + spot.Facing
 	end
-	return EnemyService:Spawn("Watcher", CFrame.lookAt(spot.Stand, facing), spot, player)
+	return EnemyService:Spawn(id, CFrame.lookAt(spot.Stand, facing), spot, player)
 end
 
-return WatcherService
+return StalkerService

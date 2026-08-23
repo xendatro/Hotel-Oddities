@@ -26,7 +26,7 @@ ActiveFolder.Parent = workspace
 
 type ManagedVent = {
 	Model: Model,
-	InvisibleSince: number?,
+	ExpiresAt: number,
 }
 
 local Managed: { ManagedVent } = {}
@@ -192,10 +192,9 @@ local function trySpawn(): boolean
 	local placementSize = Vector3.new(footprint, templateBounds.Y, footprint)
 	local slabMargin = Vector3.new(footprint / 2 + 0.5, 0, footprint / 2 + 0.5)
 	local beams = getStationBeams()
-	local point = DangerMapService:PickPoint(Config.DangerBias, function(candidate)
-		if math.random() > math.clamp(Config.SpawnChance + candidate.Danger * Config.DangerChance, 0, 1) then
-			return false
-		end
+	--- Bias 0 weights every point equally, so placement is uniform across the map.
+	--- Danger no longer decides where a vent goes, only how fast it arms.
+	local point = DangerMapService:PickPoint(0, function(candidate)
 		if isTooClose(candidate.Position) or isNearPlayer(candidate.Position) then return false end
 
 		local slab = findSlab(candidate.Position, slabMargin)
@@ -224,22 +223,28 @@ local function trySpawn(): boolean
 		return false
 	end
 	vent.Parent = ActiveFolder
-	table.insert(Managed, { Model = vent })
+	table.insert(Managed, { Model = vent, ExpiresAt = os.clock() + Config.Lifetime })
 	return true
 end
 
-local function canRemove(entry: ManagedVent): boolean
+local function canRemove(entry: ManagedVent, now: number): boolean
 	local model = entry.Model
 	if not model.Parent then return true end
+
 	local state = nil
 	if table.find(TagService:GetListenedTags(), VENT_TAG) then
 		state = TagService:GetApplied(VENT_TAG, model)
 	end
-	if state and (state.Triggered or state.Resetting or state.Enemy ~= nil) then return false end
+
+	-- Mid-drop: the door is opening or the dweller has not landed yet.
+	if state and state.Triggered and not state.Spent then return false end
+	-- A spent vent can never fire again, so it goes as soon as nobody can see it.
+	local expired = (state ~= nil and state.Spent) or now >= entry.ExpiresAt
+	if not expired then return false end
+
 	if isNearPlayer(model:GetPivot().Position) then return false end
 	local boundsCFrame, boundsSize = model:GetBoundingBox()
-	if isVisible(visualPoints(boundsCFrame, boundsSize)) then return false end
-	return true
+	return not isVisible(visualPoints(boundsCFrame, boundsSize))
 end
 
 local function sweepDespawn(now: number)
@@ -249,12 +254,7 @@ local function sweepDespawn(now: number)
 			table.remove(Managed, index)
 			continue
 		end
-		if not canRemove(entry) then
-			entry.InvisibleSince = nil
-			continue
-		end
-		entry.InvisibleSince = entry.InvisibleSince or now
-		if now - entry.InvisibleSince >= Config.DespawnGrace then
+		if canRemove(entry, now) then
 			entry.Model:Destroy()
 			table.remove(Managed, index)
 		end

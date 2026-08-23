@@ -43,13 +43,10 @@ local Sets: { [string]: AnimationSet } = {
 
 	Stalker = {
 		Walk = Animations.SneakyWalk,
-	},
-
-	Mimic = {
 		UseRigIdle = true,
 	},
 
-	Watcher = {
+	Mimic = {
 		UseRigIdle = true,
 	},
 

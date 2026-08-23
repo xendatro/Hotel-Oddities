@@ -1,4 +1,7 @@
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local SprintConfig = require(ReplicatedStorage.Configs.SprintConfig)
 
 local SpeedBoostService = {}
 
@@ -22,14 +25,69 @@ type State = {
 	Died: RBXScriptConnection?,
 }
 
+type BaseState = {
+	Character: Model,
+	Humanoid: Humanoid,
+	Speed: number,
+	Changed: RBXScriptConnection?,
+}
+
 local States: { [Player]: State } = {}
+local BaseStates: { [Player]: BaseState } = {}
 local Multipliers: { [Player]: number } = {}
 local nextToken = 0
 
+local function isClose(left: number, right: number): boolean
+	return math.abs(left - right) <= 0.01
+end
+
 local function clearAttributes(player: Player)
 	player:SetAttribute("SpeedBoostFov", nil)
+	player:SetAttribute("SpeedBoostSpeed", nil)
+	player:SetAttribute("SpeedBoostBaseSpeed", nil)
 	player:SetAttribute("SpeedBoostEndsAt", nil)
 	player:SetAttribute("SpeedBoostName", nil)
+end
+
+local function disconnectBaseState(player: Player)
+	local state = BaseStates[player]
+	if not state then return end
+
+	BaseStates[player] = nil
+	if state.Changed then state.Changed:Disconnect() end
+end
+
+local function bindBaseState(player: Player, character: Model)
+	disconnectBaseState(player)
+
+	task.spawn(function()
+		local humanoid = character:WaitForChild("Humanoid") :: Humanoid
+		if player.Character ~= character then return end
+
+		local state: BaseState = {
+			Character = character,
+			Humanoid = humanoid,
+			Speed = humanoid.WalkSpeed,
+			Changed = nil,
+		}
+		BaseStates[player] = state
+
+		state.Changed = humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+			if BaseStates[player] ~= state or States[player] then return end
+
+			local speed = humanoid.WalkSpeed
+			if speed <= 0 or isClose(speed, state.Speed * SprintConfig.SpeedMultiplier) then return end
+			state.Speed = speed
+		end)
+	end)
+end
+
+local function getBaseSpeed(player: Player, character: Model, humanoid: Humanoid): number
+	local state = BaseStates[player]
+	if state and state.Character == character and state.Humanoid == humanoid then
+		return state.Speed
+	end
+	return humanoid.WalkSpeed
 end
 
 local function destroySource(source: Source)
@@ -83,15 +141,19 @@ local function refresh(player: Player)
 	local boosted = source and source.Speed * (Multipliers[player] or 1)
 	local desired = boosted and math.max(state.BaseSpeed, boosted) or state.BaseSpeed
 
-	if not state.Suppressed then
-		writeSpeed(state, desired)
-	end
-
 	if source then
+		player:SetAttribute("SpeedBoostBaseSpeed", state.BaseSpeed)
+		player:SetAttribute("SpeedBoostSpeed", desired)
 		player:SetAttribute("SpeedBoostFov", source.Fov)
 		player:SetAttribute("SpeedBoostEndsAt", source.ExpiresAt)
 		player:SetAttribute("SpeedBoostName", name)
-	else
+	end
+
+	if not source and not state.Suppressed then
+		writeSpeed(state, desired)
+	end
+
+	if not source then
 		clearAttributes(player)
 		if not state.Suppressed then
 			disconnectState(player, false)
@@ -103,7 +165,7 @@ local function createState(player: Player, character: Model, humanoid: Humanoid)
 	local state: State = {
 		Character = character,
 		Humanoid = humanoid,
-		BaseSpeed = humanoid.WalkSpeed,
+		BaseSpeed = getBaseSpeed(player, character, humanoid),
 		Sources = {},
 		LastApplied = humanoid.WalkSpeed,
 		Suppressed = false,
@@ -119,6 +181,14 @@ local function createState(player: Player, character: Model, humanoid: Humanoid)
 		local speed = humanoid.WalkSpeed
 		if speed <= 0 then
 			state.Suppressed = true
+			return
+		end
+
+		if next(state.Sources) then
+			if state.Suppressed then
+				state.Suppressed = false
+				refresh(player)
+			end
 			return
 		end
 
@@ -212,8 +282,23 @@ function SpeedBoostService:Apply(
 end
 
 Players.PlayerRemoving:Connect(function(player)
+	disconnectBaseState(player)
 	disconnectState(player, false)
 	Multipliers[player] = nil
 end)
+
+local function bindPlayer(player: Player)
+	player.CharacterAdded:Connect(function(character)
+		bindBaseState(player, character)
+	end)
+	if player.Character then
+		bindBaseState(player, player.Character)
+	end
+end
+
+for _, player in Players:GetPlayers() do
+	bindPlayer(player)
+end
+Players.PlayerAdded:Connect(bindPlayer)
 
 return SpeedBoostService

@@ -4,6 +4,7 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
+local HeartbeatConfig = require(ReplicatedStorage.Configs.HeartbeatConfig)
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local HearingService = require(ServerStorage.Services.HearingService)
 local NPC = require(ServerStorage.Classes.NPC)
@@ -24,6 +25,9 @@ end
 
 local PERCEPTION_INTERVAL = 0.1
 local CONTACT_GRACE = 0.15
+--- Share of its speed the coast never falls below, so the last stud still gets walked.
+local COAST_MINIMUM_SPEED = 0.2
+local PURSUIT_ATTRIBUTE = HeartbeatConfig.PursuitAttribute
 
 local Blind = NPC.extend("Blind")
 
@@ -74,33 +78,8 @@ local function registerContact(npc: any, player: Player)
 	npc.LastNoiseAt = now
 	npc.Target = player
 	npc.HeardSource = player
+	npc.HeardDistance = 0
 	npc.HeardPosition = npc:GetTargetPosition(player) or npc.RootPart.Position
-end
-
-local function estimatePosition(npc: any, noise): Vector3
-	if not npc.HearingErrorDirection
-		or npc.HearingErrorScale == nil
-		or npc.HeardSource ~= noise.Source then
-		local angle = math.random() * math.pi * 2
-		npc.HearingErrorDirection = Vector3.new(math.cos(angle), 0, math.sin(angle))
-		npc.HearingErrorScale = npc.Config.HearingErrorMinScale
-			+ math.random() * (1 - npc.Config.HearingErrorMinScale)
-	end
-
-	local config = npc.Config
-	local distance = (noise.Position - npc.RootPart.Position).Magnitude
-	local errorAlpha = math.clamp(
-		(distance - config.HearingAccurateRange)
-			/ (config.HearingErrorMaxDistance - config.HearingAccurateRange),
-		0,
-		1
-	)
-	local maximumError = math.min(
-		config.HearingErrorMax * errorAlpha,
-		math.max(distance - config.InvestigateRange, 0)
-	)
-	local uncertainty = 1 - npc.Determination
-	return noise.Position + npc.HearingErrorDirection * maximumError * npc.HearingErrorScale * uncertainty
 end
 
 local function notice(npc: any)
@@ -120,8 +99,12 @@ local function coastPast(npc: any): boolean
 	local base = npc.Humanoid.WalkSpeed
 	if range <= 0 or base <= 0 then return false end
 
-	local look = npc.RootPart.CFrame.LookVector
-	local heading = Vector3.new(look.X, 0, look.Z)
+	local velocity = npc.RootPart.AssemblyLinearVelocity
+	local heading = Vector3.new(velocity.X, 0, velocity.Z)
+	if heading.Magnitude < 1 then
+		local look = npc.RootPart.CFrame.LookVector
+		heading = Vector3.new(look.X, 0, look.Z)
+	end
 	if heading.Magnitude < 1e-3 then return false end
 	heading = heading.Unit
 
@@ -136,7 +119,7 @@ local function coastPast(npc: any): boolean
 	local heardAt = npc.LastNoiseAt
 	trace(npc, string.format("running out %.1f studs past the sound at %.1f", room, base))
 
-	local deadline = os.clock() + (room / base) * 3 + 0.5
+	local deadline = os.clock() + (room / base) * 4 + 0.5
 	local interrupted = false
 
 	while npc.Active and os.clock() < deadline do
@@ -145,7 +128,7 @@ local function coastPast(npc: any): boolean
 		local progress = math.clamp(travelled / room, 0, 1)
 		if progress >= 1 then break end
 
-		npc:SetSpeed(base * math.cos(progress * math.pi / 2))
+		npc:SetSpeed(base * math.max(1 - progress, COAST_MINIMUM_SPEED))
 		npc.Humanoid:MoveTo(stop)
 
 		if npc.LastNoiseAt ~= heardAt then
@@ -160,9 +143,16 @@ local function coastPast(npc: any): boolean
 	return interrupted
 end
 
+local function followsTrail(npc: any, noise, distance: number, now: number): boolean
+	if not npc.HeardNoise or npc.HeardSource == noise.Source then return true end
+	if now - (npc.LastNoiseAt or 0) >= npc.Config.TrailSilenceTime then return true end
+	return distance < (npc.HeardDistance or math.huge)
+end
+
 local function hear(npc: any, noise, distance: number)
 	if not npc.Active then return end
 	local now = os.clock()
+	if not followsTrail(npc, noise, distance, now) then return end
 
 	local hadTrail = npc.HeardNoise ~= nil
 	local changedSource = hadTrail and npc.HeardSource ~= noise.Source
@@ -173,9 +163,10 @@ local function hear(npc: any, noise, distance: number)
 	end
 
 	addDetermination(npc, noise, distance, now)
-	npc.HeardPosition = estimatePosition(npc, noise)
+	npc.HeardPosition = noise.Position
 	npc.HeardNoise = noise
 	npc.HeardSource = noise.Source
+	npc.HeardDistance = distance
 	npc.Target = noise.Source
 
 	local close = noise.Source ~= nil and distance <= (npc.Config.PursueRange or 0)
@@ -227,7 +218,8 @@ local function investigate(_changeState: StateMachine.ChangeState, npc: any)
 		local heard = npc.HeardSource
 		return heard ~= nil and npc:IsValidTarget(heard) and npc:IsTouchingPlayer(heard)
 	end, function()
-		return true
+		local heard = npc.HeardSource
+		return heard ~= nil and npc:IsValidTarget(heard) and npc:HasPursuitSight(heard)
 	end)
 
 	if safeRoom then
@@ -276,7 +268,7 @@ local function pursue(_changeState: StateMachine.ChangeState, npc: any, target: 
 		lastKnown = position
 		return position
 	end, nil, nil, function()
-		return true
+		return npc:HasPursuitSight(target)
 	end)
 
 	trace(npc, `Pursue ended result={result} reason={reason}`)
@@ -286,6 +278,10 @@ local function pursue(_changeState: StateMachine.ChangeState, npc: any, target: 
 	end
 	if safeRoom then
 		return "RoomReaction", npc, safeRoom
+	end
+
+	if coastPast(npc) then
+		return "Investigate", npc
 	end
 	return "Search", npc, lastKnown
 end
@@ -315,8 +311,6 @@ local function attack(_changeState: StateMachine.ChangeState, npc: any, target: 
 		return "Search", npc, npc.RootPart.Position
 	end
 
-	local position = npc:GetTargetPosition(target) :: Vector3
-	npc:FaceTowards(position)
 	npc:Attack(target)
 	trace(npc, `Attack landed, holding AttackCooldown={npc.Config.AttackCooldown}s`)
 	task.wait(npc.Config.AttackCooldown)
@@ -337,8 +331,7 @@ local function search(_changeState: StateMachine.ChangeState, npc: any, lastKnow
 	npc.HeardNoise = nil
 	npc.HeardPosition = nil
 	npc.HeardSource = nil
-	npc.HearingErrorDirection = nil
-	npc.HearingErrorScale = nil
+	npc.HeardDistance = nil
 	npc.Determination = 0
 	npc.LastNoiseAt = nil
 	npc.DeterminationUpdatedAt = nil
@@ -355,8 +348,7 @@ function Blind.new(model: Model, config)
 	self.HeardNoise = nil
 	self.HeardPosition = nil
 	self.HeardSource = nil
-	self.HearingErrorDirection = nil
-	self.HearingErrorScale = nil
+	self.HeardDistance = nil
 	self.Determination = 0
 	self.LastNoiseAt = nil
 	self.DeterminationUpdatedAt = nil
@@ -390,14 +382,6 @@ function Blind:BuildStateMachine(): StateMachine.StateMachine
 					return if npc.Active then npc.RootPart.Position else nil
 				end,
 
-				GetCooldown = function()
-					local config = npc.Config
-					if isHighlyCertain(npc) and config.PursuitHearingCooldown then
-						return config.PursuitHearingCooldown
-					end
-					return config.HearingCooldown or PERCEPTION_INTERVAL
-				end,
-
 				Accepts = function(noise)
 					return noise.Source == nil or npc:IsValidTarget(noise.Source)
 				end,
@@ -414,7 +398,13 @@ function Blind:BuildStateMachine(): StateMachine.StateMachine
 			while true do
 				task.wait(PERCEPTION_INTERVAL)
 				updateDetermination(npc, os.clock())
-				if npc.StateMachine.State == "Investigate" then
+
+				local state = npc.StateMachine.State
+				npc.Model:SetAttribute(
+					PURSUIT_ATTRIBUTE,
+					if state == "Pursue" or state == "Attack" then true else nil
+				)
+				if state == "Investigate" then
 					setInvestigateSpeed(npc)
 				end
 			end

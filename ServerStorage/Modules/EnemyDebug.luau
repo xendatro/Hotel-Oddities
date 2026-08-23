@@ -2,22 +2,22 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyService = require(ServerStorage.Services.EnemyService)
-local WatcherService = require(ServerStorage.Services.WatcherService)
-local Watcher = require(ServerStorage.Classes.Enemies.Watcher)
+local StalkerService = require(ServerStorage.Services.StalkerService)
+local Peek = require(ServerStorage.Classes.Enemies.Behaviors.Peek)
 local PeekSpotService = require(ServerStorage.Services.PeekSpotService)
 
 local EnemyDebug = {}
 
-function EnemyDebug.SpawnWatcherNear(player: Player): any?
-	return WatcherService:SpawnNear(player)
+function EnemyDebug.SpawnPeekingStalker(player: Player, enemyId: string?): any?
+	return StalkerService:SpawnPeeking(player, enemyId)
 end
 
-function EnemyDebug.FindWatcherSpot(player: Player): any?
-	return WatcherService:FindSpot(player)
+function EnemyDebug.FindPeekSpot(player: Player, enemyId: string?): any?
+	return StalkerService:FindSpot(player, enemyId)
 end
 
-function EnemyDebug.DebugWatcherCorner(player: Player, position: Vector3): any?
-	return PeekSpotService:DebugCorner(player, Watcher.GetFindOptions(EnemyConfigs.Watcher), position)
+function EnemyDebug.DebugPeekCorner(player: Player, position: Vector3): any?
+	return PeekSpotService:DebugCorner(player, Peek.GetFindOptions(EnemyConfigs.Stalker), position)
 end
 
 function EnemyDebug.SpawnAt(player: Player, enemyId: string): any?

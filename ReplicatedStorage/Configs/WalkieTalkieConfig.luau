@@ -10,7 +10,6 @@ return {
 	TaggedSoundVolume = 0.06,
 	RadioPhysicalVolume = 0,
 	RadioNoiseRadius = 35,
-	NoiseInterval = 0.2,
 	RelaySyncInterval = 0.15,
 
 	--- The player filter is shared by incoming and outgoing radio audio.

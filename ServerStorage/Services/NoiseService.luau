@@ -8,11 +8,13 @@ local STEALTH = CrouchConfig.Stealth
 local DEFAULT_WALK_SPEED = 16
 local WALK_RADIUS = 45
 local SPRINT_RADIUS = 80
-local WALK_INTERVAL = 0.45
-local SPRINT_INTERVAL = 0.3
-local MOVEMENT_SPEED_MIN = 1
+--- Movement stick or WASD held this far. Moving at all is the noise; there is no step timer.
+local MOVE_INPUT_MIN = 0.05
 local UPDATE_INTERVAL = 0.05
 local NOISE_LIFETIME = 1
+--- One player only makes so much sound: their footsteps, voice and radio share this
+--- interval. A louder noise still cuts in early rather than being masked by a quiet one.
+local SOURCE_INTERVAL = 0.4
 
 export type Noise = {
 	Position: Vector3,
@@ -25,14 +27,10 @@ export type Noise = {
 local NoiseService = {}
 
 local RecentNoises: { Noise } = {}
-local LastFootstepAt: { [Player]: number } = {}
+local LastEmit: { [Player]: { At: number, Radius: number } } = {}
 local Observers: { (Noise) -> () } = {}
 local Sequence = 0
 local Accumulator = 0
-
-local function horizontalMagnitude(vector: Vector3): number
-	return Vector3.new(vector.X, 0, vector.Z).Magnitude
-end
 
 local function discardExpired(now: number)
 	while RecentNoises[1] and now - RecentNoises[1].CreatedAt > NOISE_LIFETIME do
@@ -40,8 +38,16 @@ local function discardExpired(now: number)
 	end
 end
 
-function NoiseService:Emit(position: Vector3, radius: number, source: Player?): Noise
+function NoiseService:Emit(position: Vector3, radius: number, source: Player?): Noise?
 	local now = os.clock()
+	if source then
+		local last = LastEmit[source]
+		if last and now - last.At < SOURCE_INTERVAL and radius <= last.Radius then
+			return nil
+		end
+		LastEmit[source] = { At = now, Radius = radius }
+	end
+
 	Sequence += 1
 	discardExpired(now)
 
@@ -100,20 +106,14 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		if not (humanoid and root and humanoid.Health > 0) then continue end
 		if humanoid.FloorMaterial == Enum.Material.Air then continue end
-		if horizontalMagnitude(root.AssemblyLinearVelocity) < MOVEMENT_SPEED_MIN then continue end
+		if humanoid.MoveDirection.Magnitude < MOVE_INPUT_MIN then continue end
 
 		local crouching = character:GetAttribute(STEALTH.Attribute) == true
-		if crouching and STEALTH.NoiseRadius <= 0 then
-			LastFootstepAt[player] = os.clock()
-			continue
-		end
+		if crouching and STEALTH.NoiseRadius <= 0 then continue end
 
-		local sprinting = not crouching and humanoid.WalkSpeed > DEFAULT_WALK_SPEED
-		local interval = if sprinting then SPRINT_INTERVAL else WALK_INTERVAL
-		local now = os.clock()
-		if now - (LastFootstepAt[player] or 0) < interval then continue end
-
-		LastFootstepAt[player] = now
+		local boosted = player:GetAttribute("SpeedBoostSpeed")
+		local unsprinted = if type(boosted) == "number" then boosted else DEFAULT_WALK_SPEED
+		local sprinting = not crouching and humanoid.WalkSpeed > unsprinted + 0.01
 		local radius = if crouching
 			then STEALTH.NoiseRadius
 			elseif sprinting then SPRINT_RADIUS
@@ -123,7 +123,7 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 end)
 
 Players.PlayerRemoving:Connect(function(player: Player)
-	LastFootstepAt[player] = nil
+	LastEmit[player] = nil
 end)
 
 return NoiseService

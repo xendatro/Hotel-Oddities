@@ -1,3 +1,4 @@
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
@@ -127,18 +128,72 @@ local function distanceToRoute(position: Vector3, route: { Vector3 }): (number, 
 	return nearestDistance, nearestTravel
 end
 
+local function livingRootPositions(): { Vector3 }
+	local positions = {}
+	for _, player in Players:GetPlayers() do
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if root and humanoid and humanoid.Health > 0 then
+			table.insert(positions, root.Position)
+		end
+	end
+	return positions
+end
+
+local function anyPlayerNear(position: Vector3, range: number): boolean
+	for _, playerPosition in livingRootPositions() do
+		if (playerPosition - position).Magnitude <= range then return true end
+	end
+	return false
+end
+
+local function anyPlayerNearSpan(span: Hallways.StraightSpan, range: number): boolean
+	for _, playerPosition in livingRootPositions() do
+		local along = math.clamp((playerPosition - span.Start):Dot(span.Axis), 0, span.Length)
+		if (playerPosition - (span.Start + span.Axis * along)).Magnitude <= range then
+			return true
+		end
+	end
+	return false
+end
+
+local function deferWarning(
+	token: WarningToken,
+	delay: number,
+	expiresAt: number,
+	isNearPlayer: () -> boolean,
+	fire: (number) -> ()
+)
+	task.delay(delay, function()
+		local recheck = math.max(Config.WarnCullRecheckInterval or 1, 0.1)
+		while not token.Cancelled do
+			local remaining = expiresAt - os.clock()
+			if remaining <= 0 then return end
+			if isNearPlayer() then
+				fire(remaining)
+				return
+			end
+			task.wait(math.min(recheck, remaining))
+		end
+	end)
+end
+
 local function scheduleWarnings(route: { Vector3 }, token: WarningToken): number
+	local scheduledAt = os.clock()
 	local warningCount = 0
 	for _, light in LightService:GetModels() do
-		local distance, travel = distanceToRoute(light:GetPivot().Position, route)
+		local lightPosition = light:GetPivot().Position
+		local distance, travel = distanceToRoute(lightPosition, route)
 		if distance > Config.LightRouteRange then continue end
 
 		warningCount += 1
 		local arrival = Config.SpawnDelay + travel / Config.WalkSpeed
 		local delay = math.max(0, arrival - Config.WarningTime)
-		task.delay(delay, function()
-			if token.Cancelled then return end
-			LightService:WarnRed(light, arrival - delay)
+		deferWarning(token, delay, scheduledAt + arrival, function()
+			return anyPlayerNear(lightPosition, Config.WarnRedCullRange or math.huge)
+		end, function(remaining: number)
+			LightService:WarnRed(light, remaining)
 		end)
 	end
 
@@ -164,9 +219,10 @@ local function scheduleWarnings(route: { Vector3 }, token: WarningToken): number
 
 		local arrival = Config.SpawnDelay + travelled / Config.WalkSpeed
 		local delay = math.max(0, arrival - Config.WarningTime)
-		task.delay(delay, function()
-			if token.Cancelled then return end
-			MapOddityService:Warn(point, arrival - delay)
+		deferWarning(token, delay, scheduledAt + arrival, function()
+			return anyPlayerNearSpan(span, Config.WarnHallwayCullRange or math.huge)
+		end, function(remaining: number)
+			MapOddityService:Warn(point, remaining)
 		end)
 	end
 

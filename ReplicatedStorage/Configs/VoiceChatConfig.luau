@@ -5,7 +5,6 @@ return {
 		Maximum = 45,
 	},
 	NoiseRadius = 45,
-	NoiseInterval = 0.2,
 	Activity = {
 		Threshold = 0.05,
 		Release = 0.18,

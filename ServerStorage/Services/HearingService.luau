@@ -1,4 +1,3 @@
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
@@ -9,18 +8,12 @@ local HearingService = {}
 
 export type Ear = {
 	GetPosition: () -> Vector3?,
-	GetCooldown: (source: Player?) -> number,
 	Accepts: (noise: NoiseService.Noise) -> boolean,
 	OnHeard: (noise: NoiseService.Noise, distance: number) -> (),
 	IsAlive: () -> boolean,
 }
 
-type Registration = {
-	Ear: Ear,
-	LastHeardAt: { [any]: number },
-}
-
-local Ears: { [any]: Registration } = {}
+local Ears: { [any]: Ear } = {}
 
 local communication = ReplicatedStorage:FindFirstChild("Communication")
 if not communication then
@@ -44,7 +37,7 @@ if not Travel then
 end
 
 function HearingService:AddEar(key: any, ear: Ear): () -> ()
-	Ears[key] = { Ear = ear, LastHeardAt = {} }
+	Ears[key] = ear
 	return function()
 		Ears[key] = nil
 	end
@@ -65,10 +58,7 @@ local function announce(origin: Vector3, key: any, duration: number)
 end
 
 local function offer(noise: NoiseService.Noise)
-	local now = os.clock()
-
-	for key, registration in Ears do
-		local ear = registration.Ear
+	for key, ear in Ears do
 		if not ear.IsAlive() then
 			Ears[key] = nil
 			continue
@@ -81,11 +71,6 @@ local function offer(noise: NoiseService.Noise)
 		if distance > noise.Radius then continue end
 		if not ear.Accepts(noise) then continue end
 
-		local sourceKey = noise.Source or "World"
-		local cooldown = ear.GetCooldown(noise.Source)
-		if now - (registration.LastHeardAt[sourceKey] or -math.huge) < cooldown then continue end
-		registration.LastHeardAt[sourceKey] = now
-
 		local duration = travelTime(distance)
 		announce(noise.Position, key, duration)
 		task.delay(duration, function()
@@ -94,12 +79,6 @@ local function offer(noise: NoiseService.Noise)
 		end)
 	end
 end
-
-Players.PlayerRemoving:Connect(function(player: Player)
-	for _, registration in Ears do
-		registration.LastHeardAt[player] = nil
-	end
-end)
 
 NoiseService:Observe(offer)
 

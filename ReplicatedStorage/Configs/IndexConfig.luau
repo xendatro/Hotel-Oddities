@@ -183,7 +183,7 @@ return {
 			Id = "Stalker",
 			Name = "Stalker",
 			Model = "Stalker",
-			Description = "It keeps station behind you and never closes the gap, right up until it does.",
+			Description = "It leans out of the far end of a corridor to be caught looking, then keeps station behind you and never closes the gap, right up until it does.",
 		},
 		{
 			Id = "Sisters",
@@ -206,12 +206,6 @@ return {
 					},
 				},
 			},
-		},
-		{
-			Id = "Watcher",
-			Name = "Watcher",
-			Model = "Watcher",
-			Description = "It waits at the far ends of corridors, leaning out just far enough to be caught.",
 		},
 		{
 			Id = "Ghost",

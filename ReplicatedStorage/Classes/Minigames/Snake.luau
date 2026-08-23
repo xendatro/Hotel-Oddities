@@ -95,7 +95,6 @@ function Snake.new(root: Frame, api: Api)
 
 	self.Body = {} :: { Cell }
 	self.Direction = { X = 1, Y = 0 }
-	self.Pending = { X = 1, Y = 0 }
 	self.Pellet = { X = 0, Y = 0 } :: Cell
 	self.Pellets = 0
 	self.Best = 0
@@ -292,7 +291,6 @@ function Snake:_respawn()
 	end
 
 	self.Direction = { X = 1, Y = 0 }
-	self.Pending = { X = 1, Y = 0 }
 	self.Grow = 0
 	self.Clock = 0
 	self:_placePellet()
@@ -301,7 +299,7 @@ end
 function Snake:_turn(x: number, y: number)
 	if self.State ~= "playing" then return end
 	if x == -self.Direction.X and y == -self.Direction.Y then return end
-	self.Pending = { X = x, Y = y }
+	self.Direction = { X = x, Y = y }
 end
 
 function Snake:_interval(): number
@@ -322,8 +320,6 @@ function Snake:_crash()
 end
 
 function Snake:_tick()
-	self.Direction = self.Pending
-
 	local head = self.Body[1]
 	local x = head.X + self.Direction.X
 	local y = head.Y + self.Direction.Y

@@ -1,6 +1,7 @@
 return {
 	LightRange = 80,
 	ConnectedHallwayLightRange = 15,
+	DarkDistance = 60,
 
 	TurnRate = 16,
 

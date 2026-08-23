@@ -8,7 +8,7 @@ local CeilingVentService = require(ServerStorage.Services.CeilingVentService)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyService = require(ServerStorage.Services.EnemyService)
 local SistersService = require(ServerStorage.Services.SistersService)
-local WatcherService = require(ServerStorage.Services.WatcherService)
+local StalkerService = require(ServerStorage.Services.StalkerService)
 
 local DEFAULT_SPAWN_DISTANCE = 20
 
@@ -60,12 +60,6 @@ local function spawnOne(player: Player, enemyId: string): boolean
 		return false
 	end
 
-	if enemyId == "Watcher" then
-		if WatcherService:SpawnNear(player) then return true end
-		warn(`[enemies] no valid Watcher location found near {player.Name}; nothing spawned`)
-		return false
-	end
-
 	if enemyId == "CeilingDweller" then
 		if CeilingVentService:SpawnFromNearest(player) then return true end
 		warn(`[enemies] no usable ceiling vent found for {player.Name}`)
@@ -108,6 +102,14 @@ function Commands.spawn(player: Player, argument: string?)
 	if spawnOne(player, enemyId) then
 		warn(`[enemies] spawned {enemyId} for {player.Name}`)
 	end
+end
+
+function Commands.peek(player: Player)
+	if StalkerService:SpawnPeeking(player, nil, true) then
+		warn(`[enemies] spawned a watching Stalker at a corner for {player.Name}`)
+		return
+	end
+	warn(`[enemies] no valid peek corner found near {player.Name}; nothing spawned`)
 end
 
 function Commands.despawn()

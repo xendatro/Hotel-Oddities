@@ -58,7 +58,8 @@ function Creep:Start()
 	self.LightClaim = LightService:DisableHallway(
 		self.RootPart.Position,
 		self.RootPart.CFrame.LookVector,
-		self.Config.ConnectedHallwayLightRange
+		self.Config.ConnectedHallwayLightRange,
+		self.Config.DarkDistance
 	)
 
 	self.Destroying = self.Model.Destroying:Connect(function()

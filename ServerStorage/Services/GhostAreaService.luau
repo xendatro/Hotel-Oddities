@@ -1,8 +1,11 @@
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local Hallways = require(ReplicatedStorage.Modules.Hallways)
+
+local POINT_ATTEMPTS = 12
 
 local GhostAreaService = {}
 
@@ -19,6 +22,31 @@ local function getRandomPointOver(hallway: Hallways.Hallway): Vector3
 	return surface + hallway.Axis * along + hallway.Across * across
 end
 
+local function chooseHallway(hallways: { Hallways.Hallway }, total: number): Hallways.Hallway
+	local roll = math.random() * total
+	for _, hallway in hallways do
+		roll -= getArea(hallway)
+		if roll <= 0 then return hallway end
+	end
+	return hallways[#hallways]
+end
+
+local function toHoverPoint(point: Vector3, fallback: Hallways.Hallway): Vector3
+	local floor = Hallways.Nearest(point) or fallback
+	return Vector3.new(point.X, floor.FloorY + Config.HoverHeight, point.Z)
+end
+
+function GhostAreaService:IsPlayerNear(position: Vector3): boolean
+	for _, player in Players:GetPlayers() do
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if root and root:IsA("BasePart") and (root.Position - position).Magnitude <= Config.VanishDistance then
+			return true
+		end
+	end
+	return false
+end
+
 function GhostAreaService:GetRandomPoint(): Vector3?
 	local hallways = Hallways.All()
 	if #hallways == 0 then return nil end
@@ -28,19 +56,12 @@ function GhostAreaService:GetRandomPoint(): Vector3?
 		total += getArea(hallway)
 	end
 
-	local chosen = hallways[#hallways]
-	local roll = math.random() * total
-	for _, hallway in hallways do
-		roll -= getArea(hallway)
-		if roll <= 0 then
-			chosen = hallway
-			break
-		end
+	for _ = 1, POINT_ATTEMPTS do
+		local chosen = chooseHallway(hallways, total)
+		local point = toHoverPoint(getRandomPointOver(chosen), chosen)
+		if not self:IsPlayerNear(point) then return point end
 	end
-
-	local point = getRandomPointOver(chosen)
-	local floor = Hallways.Nearest(point) or chosen
-	return Vector3.new(point.X, floor.FloorY + Config.HoverHeight, point.Z)
+	return nil
 end
 
 return GhostAreaService

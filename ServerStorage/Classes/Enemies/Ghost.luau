@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
+local GhostConfig = require(ReplicatedStorage.Configs.GhostConfig)
 local GhostMotion = require(ReplicatedStorage.Modules.GhostMotion)
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local GhostAreaService = require(ServerStorage.Services.GhostAreaService)
@@ -28,11 +29,11 @@ function Ghost:_pickGoal(): Vector3?
 	return fallback
 end
 
-function Ghost:FloatTo(goal: Vector3)
+function Ghost:FloatTo(goal: Vector3): boolean
 	local origin = self.RootPart.CFrame
 	if (goal - origin.Position).Magnitude < MINIMUM_TRIP then
 		task.wait()
-		return
+		return false
 	end
 
 	local leg = GhostMotion.NewLeg(origin, goal, self.Config.DriftSpeed, workspace:GetServerTimeNow())
@@ -44,7 +45,9 @@ function Ghost:FloatTo(goal: Vector3)
 		RunService.Heartbeat:Wait()
 		now = workspace:GetServerTimeNow()
 		self.RootPart.CFrame = GhostMotion.Evaluate(leg, now)
+		if GhostAreaService:IsPlayerNear(self.RootPart.Position) then return true end
 	until now - leg.StartedAt >= leg.Duration
+	return false
 end
 
 local function drift(_changeState: StateMachine.ChangeState, npc: any)
@@ -54,8 +57,16 @@ local function drift(_changeState: StateMachine.ChangeState, npc: any)
 		return "Drift", npc
 	end
 
-	npc:FloatTo(goal)
+	if npc:FloatTo(goal) then
+		return "Vanish", npc
+	end
 	return "Drift", npc
+end
+
+local function vanish(_changeState: StateMachine.ChangeState, npc: any)
+	GhostMotion.PublishFade(npc.Model, workspace:GetServerTimeNow())
+	task.wait(GhostConfig.FadeTime)
+	return "Despawn", npc
 end
 
 function Ghost.new(model: Model, config)
@@ -76,6 +87,7 @@ end
 function Ghost:BuildStateMachine(): StateMachine.StateMachine
 	return StateMachine.new({
 		Drift = drift,
+		Vanish = vanish,
 		Despawn = NPC.SharedStates.Despawn,
 	}, {
 		Impact = {},

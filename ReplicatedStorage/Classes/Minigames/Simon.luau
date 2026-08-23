@@ -2,7 +2,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local PADS = 4
-local WIN_LENGTH = 6
+local WIN_LENGTH = 7
 local MISTAKES_TO_DEMOTE = 3
 local LIT_TIME = 0.42
 local GAP_TIME = 0.16

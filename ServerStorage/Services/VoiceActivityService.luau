@@ -19,7 +19,6 @@ local VoiceActivityService = {}
 export type State = {
 	Active: boolean,
 	LastActiveAt: number,
-	LastNoiseAt: number,
 }
 
 local States: { [Player]: State } = {}
@@ -77,6 +76,13 @@ local function emitVoiceNoise(player: Player)
 	if position then NoiseService:Emit(position, Config.NoiseRadius, player) end
 end
 
+function VoiceActivityService:ApplyVolume()
+	for _, player in Players:GetPlayers() do
+		local source = player:FindFirstChild("AudioDeviceInput")
+		if source then tuneInput(source) end
+	end
+end
+
 function VoiceActivityService:GetState(player: Player): State?
 	return States[player]
 end
@@ -85,17 +91,14 @@ function VoiceActivityService:SetActive(player: Player, active: boolean)
 	local now = os.clock()
 	local state = States[player]
 	if not state then
-		state = { Active = false, LastActiveAt = -math.huge, LastNoiseAt = -math.huge }
+		state = { Active = false, LastActiveAt = -math.huge }
 		States[player] = state
 	end
 
 	state.Active = active
 	if active then
 		state.LastActiveAt = now
-		if now - state.LastNoiseAt >= Config.NoiseInterval then
-			emitVoiceNoise(player)
-			state.LastNoiseAt = now
-		end
+		emitVoiceNoise(player)
 	end
 end
 
@@ -108,9 +111,8 @@ RunService.Heartbeat:Connect(function()
 	for player, state in States do
 		if state.Active and now - state.LastActiveAt > Config.Activity.Timeout then
 			state.Active = false
-		elseif state.Active and now - state.LastNoiseAt >= Config.NoiseInterval then
+		elseif state.Active then
 			emitVoiceNoise(player)
-			state.LastNoiseAt = now
 		end
 	end
 end)

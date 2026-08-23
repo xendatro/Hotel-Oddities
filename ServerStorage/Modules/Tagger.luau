@@ -6,6 +6,7 @@ local TagService = require(ReplicatedStorage.Services.TagService)
 local Classes = ServerStorage.Classes
 local TrapObject = require(Classes.TrapObject)
 local Sound = require(Classes.Sound)
+local Animation = require(ReplicatedStorage.Classes.Animation)
 
 return function()
 	task.defer(function()
@@ -13,6 +14,9 @@ return function()
 			if o then o:Destroy() end
 		end, workspace)
 		TagService:Listen("Sound", function(o) return Sound.new(o) end, function(_, o)
+			if o then o:Destroy() end
+		end, workspace)
+		TagService:Listen("Animation", function(o) return Animation.new(o) end, function(_, o)
 			if o then o:Destroy() end
 		end, workspace)
 	end)

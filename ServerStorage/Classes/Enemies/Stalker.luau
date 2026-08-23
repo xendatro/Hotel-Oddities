@@ -7,6 +7,8 @@ local EnemyDiscoveryService = require(ServerStorage.Services.EnemyDiscoveryServi
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local HideSpotService = require(ServerStorage.Services.HideSpotService)
 local NPC = require(ServerStorage.Classes.NPC)
+local Peek = require(ServerStorage.Classes.Enemies.Behaviors.Peek)
+local PeekSpotService = require(ServerStorage.Services.PeekSpotService)
 
 local FaceStalker = ReplicatedStorage
 	:WaitForChild("Communication")
@@ -301,7 +303,6 @@ local function attack(_changeState: StateMachine.ChangeState, npc: any, target: 
 		return "Search", npc, npc.RootPart.Position
 	end
 
-	npc:FaceTowards(position)
 	if (npc.RootPart.Position - position).Magnitude > npc.Config.AttackRange
 		and not npc:IsTouchingPlayer(target)
 	then
@@ -394,12 +395,30 @@ end
 
 local function stunned(changeState: StateMachine.ChangeState, npc: any, duration: number)
 	releaseCamera(npc)
+	Peek.Exit(npc)
 	return NPC.SharedStates.Stunned(changeState, npc, duration)
 end
 
-function Stalker.new(model: Model, config)
+function Stalker:OnPeekFinished(reason: string, player: Player?)
+	local held = reason == "Done"
+		and player
+		and math.random() < (self.Config.StalkChance or 0)
+		and self:IsValidTarget(player)
+
+	if held then
+		return "Stalk", self, player
+	end
+	return "Despawn", self
+end
+
+function Stalker.new(model: Model, config, spot: PeekSpotService.PeekSpot?, player: Player?)
 	local self = NPC.new(model, config, Stalker)
 	self.RevealTarget = nil
+	self.Spot = spot
+	self.Audience = player
+	if spot then
+		self.StateMachine:SetStartState("Seek", self)
+	end
 	return self
 end
 
@@ -411,13 +430,14 @@ end
 
 function Stalker:Despawn()
 	releaseCamera(self)
+	Peek.Exit(self)
 	NPC.Despawn(self)
 end
 
 function Stalker:BuildStateMachine(): StateMachine.StateMachine
 	local npc = self
 
-	return StateMachine.new({
+	local states = {
 		Idle = NPC.SharedStates.Idle,
 		Wander = NPC.SharedStates.Wander,
 		Patrol = NPC.SharedStates.Patrol,
@@ -429,10 +449,21 @@ function Stalker:BuildStateMachine(): StateMachine.StateMachine
 		Search = search,
 		Flee = flee,
 		Stunned = stunned,
-	}, {
-		Perception = { "Idle", "Wander", "Patrol", "Search" },
-		Seen = { "Idle", "Wander", "Patrol", "Search" },
-		Impact = { "Idle", "Wander", "Patrol", "Search", "Stalk", "Reveal", "Flee", "Chase", "Attack" },
+	}
+	for stateId, state in Peek.States do
+		states[stateId] = state
+	end
+
+	local calm = { "Idle", "Wander", "Patrol", "Search" }
+	local stunnable = { "Idle", "Wander", "Patrol", "Search", "Stalk", "Reveal", "Flee", "Chase", "Attack" }
+	for _, stateId in Peek.StateNames do
+		table.insert(stunnable, stateId)
+	end
+
+	return StateMachine.new(states, {
+		Perception = calm,
+		Seen = calm,
+		Impact = stunnable,
 	}, {
 		Perception = function()
 			while true do

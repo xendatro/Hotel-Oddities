@@ -30,18 +30,39 @@ if not Update then
 end
 
 local lastReportAt: { [Player]: number } = {}
+local pending: { [Player]: boolean } = {}
+local scheduled: { [Player]: boolean } = {}
 
-Update.OnServerEvent:Connect(function(player: Player, crouched: any)
-	if type(crouched) ~= "boolean" then return end
-
-	local now = os.clock()
-	if now - (lastReportAt[player] or 0) < MIN_REPORT_INTERVAL then return end
-	lastReportAt[player] = now
+local function apply(player: Player, crouched: boolean)
+	lastReportAt[player] = os.clock()
 
 	local character = player.Character
 	if not character then return end
 
 	character:SetAttribute(ATTRIBUTE, crouched or nil)
+end
+
+Update.OnServerEvent:Connect(function(player: Player, crouched: any)
+	if type(crouched) ~= "boolean" then return end
+
+	local wait = MIN_REPORT_INTERVAL - (os.clock() - (lastReportAt[player] or -math.huge))
+	if wait <= 0 then
+		apply(player, crouched)
+		return
+	end
+
+	pending[player] = crouched
+	if scheduled[player] then return end
+
+	scheduled[player] = true
+	task.delay(wait, function()
+		scheduled[player] = nil
+		local value = pending[player]
+		pending[player] = nil
+		if value ~= nil then
+			apply(player, value)
+		end
+	end)
 end)
 
 Players.PlayerAdded:Connect(function(player: Player)
@@ -52,6 +73,8 @@ end)
 
 Players.PlayerRemoving:Connect(function(player: Player)
 	lastReportAt[player] = nil
+	pending[player] = nil
+	scheduled[player] = nil
 end)
 
 return CrouchService

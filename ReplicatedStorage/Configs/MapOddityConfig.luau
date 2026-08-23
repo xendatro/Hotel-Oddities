@@ -21,6 +21,14 @@ return {
 			LightIntervalMin = 0.06,
 			LightIntervalMax = 0.24,
 		},
+		ChaosWarning = {
+			--- Chaos pre-arrival warning (doors + lantern sway); never rolls ambiently on its own.
+			Ambient = false,
+			OpeningSpeed = 1.2,
+			ClosingSpeed = 1.2,
+			DoorIntervalMin = 0.3,
+			DoorIntervalMax = 1.1,
+		},
 	},
 
 	HallwayTransparency = 0.02,

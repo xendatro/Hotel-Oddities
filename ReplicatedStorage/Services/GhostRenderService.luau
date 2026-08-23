@@ -176,6 +176,7 @@ type Render = {
 	VisualHead: BasePart?,
 	VisualNeck: Neck?,
 	Leg: GhostMotion.Leg?,
+	FadeStartedAt: number?,
 	Phase: number,
 	Connection: RBXScriptConnection?,
 	RootConnection: RBXScriptConnection?,
@@ -193,6 +194,7 @@ local function track(model: Model): Render
 		VisualHead = nil,
 		VisualNeck = nil,
 		Leg = GhostMotion.Read(model),
+		FadeStartedAt = GhostMotion.ReadFade(model),
 		Phase = Bob.NewPhase(),
 		Connection = nil,
 		RootConnection = nil,
@@ -216,6 +218,8 @@ local function track(model: Model): Render
 	render.Connection = model.AttributeChanged:Connect(function(attribute: string)
 		if attribute == GhostMotion.LegAttribute then
 			render.Leg = GhostMotion.Read(model)
+		elseif attribute == GhostMotion.FadeAttribute then
+			render.FadeStartedAt = GhostMotion.ReadFade(model)
 		end
 	end)
 
@@ -280,7 +284,6 @@ TagService:Listen(GHOST_TAG, track, function(model: Instance, render: Render)
 	if render.VisualModel then
 		render.VisualModel:Destroy()
 	end
-	setLocalTransparency(model :: Model, 0)
 	Ghosts[model :: Model] = nil
 end, workspace)
 
@@ -301,8 +304,9 @@ local function aimHeadAt(render: Render, targetPosition: Vector3)
 		local attachment0 = neck.Attachment0
 		local attachment1 = neck.Attachment1
 		local part0 = attachment0.Parent :: BasePart
-		attachment0.CFrame = part0.CFrame:ToObjectSpace(desiredHeadCFrame * attachment1.CFrame)
-			* neck.Transform:Inverse()
+		neck.Transform = (part0.CFrame * attachment0.CFrame):ToObjectSpace(
+			desiredHeadCFrame * attachment1.CFrame
+		)
 	end
 end
 
@@ -312,21 +316,30 @@ RunService:BindToRenderStep(RENDER_BIND_NAME, Enum.RenderPriority.Camera.Value +
 	local character = LocalPlayer.Character
 	local playerHead = character and character:FindFirstChild("Head") :: BasePart?
 
-	for _, render in Ghosts do
+	for model, render in Ghosts do
 		local rootPart, leg = render.RootPart, render.Leg
-		local rootCFrame = nil :: CFrame?
-		if rootPart then
-			rootCFrame = rootPart.CFrame
-		end
-		if rootPart and leg then
-			rootCFrame = GhostMotion.Evaluate(leg, now) + GhostMotion.Bob(clock, render.Phase)
-			rootPart.CFrame = rootCFrame
-		end
-		if rootCFrame and render.VisualRootPart then
-			render.VisualRootPart.CFrame = rootCFrame
+		local rootCFrame = if leg
+			then GhostMotion.Evaluate(leg, now) + GhostMotion.Bob(clock, render.Phase)
+			else rootPart and rootPart.CFrame
+		if rootCFrame then
+			if rootPart then
+				rootPart.CFrame = rootCFrame
+			end
+			if render.VisualRootPart then
+				render.VisualRootPart.CFrame = rootCFrame
+			end
 		end
 		if playerHead then
 			aimHeadAt(render, playerHead.Position)
+		end
+
+		local fadeStartedAt = render.FadeStartedAt
+		if fadeStartedAt then
+			local alpha = GhostMotion.FadeAlpha(fadeStartedAt, now)
+			setLocalTransparency(
+				render.VisualModel or model,
+				GHOST_TRANSPARENCY + (HIDDEN_TRANSPARENCY - GHOST_TRANSPARENCY) * alpha
+			)
 		end
 	end
 end)

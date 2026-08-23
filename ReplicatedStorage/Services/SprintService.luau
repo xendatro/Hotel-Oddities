@@ -19,6 +19,8 @@ local HOLD_ACTION = "SprintHold"
 local TOUCH_ACTION = "SprintToggle"
 local STEP_JOB = "SprintStep"
 local MOVEMENT_THRESHOLD = 0.05
+local SPEED_BOOST_SPEED_ATTRIBUTE = "SpeedBoostSpeed"
+local SPEED_BOOST_BASE_SPEED_ATTRIBUTE = "SpeedBoostBaseSpeed"
 
 local player = Players.LocalPlayer
 
@@ -28,6 +30,7 @@ type CharacterState = {
 	LastWritten: number,
 	Suppressed: boolean,
 	Writing: boolean,
+	LastBoostedSpeed: number?,
 	Connections: { RBXScriptConnection },
 }
 
@@ -58,11 +61,32 @@ local function writeSpeed(state: CharacterState, speed: number)
 	state.LastWritten = speed
 end
 
+local function getBoostedSpeed(state: CharacterState): number?
+	local value = player:GetAttribute(SPEED_BOOST_SPEED_ATTRIBUTE)
+	if type(value) ~= "number" then return nil end
+
+	state.LastBoostedSpeed = value
+	return value
+end
+
+local function isLastBoostedSpeed(state: CharacterState, speed: number): boolean
+	local boosted = state.LastBoostedSpeed
+	if not boosted then return false end
+
+	local factor = externalFactor()
+	return math.abs(speed - boosted * factor) <= 0.01
+		or math.abs(speed - boosted * factor * SprintConfig.SpeedMultiplier) <= 0.01
+end
+
 local function applySpeed()
 	local state = characterState
 	if not state or state.Suppressed or state.BaseSpeed <= 0 then return end
 
 	local desired = state.BaseSpeed * externalFactor()
+	local boosted = getBoostedSpeed(state)
+	if boosted then
+		desired = math.max(desired, boosted)
+	end
 	if sprinting then
 		desired *= SprintConfig.SpeedMultiplier
 	end
@@ -82,10 +106,16 @@ local function onWalkSpeedChanged(state: CharacterState)
 
 	if state.Suppressed then
 		state.Suppressed = false
-		if math.abs(speed - state.LastWritten) > 0.01 then
-			state.BaseSpeed = speed
-		end
-	elseif math.abs(speed - state.LastWritten) <= 0.01 then
+		applySpeed()
+		return
+	end
+
+	if getBoostedSpeed(state) or isLastBoostedSpeed(state, speed) then
+		applySpeed()
+		return
+	end
+
+	if math.abs(speed - state.LastWritten) <= 0.01 then
 		return
 	else
 		state.BaseSpeed = speed
@@ -160,6 +190,10 @@ end
 
 function SprintService:SetSprintBlocked(name: string, blocked: boolean)
 	sprintBlocks[name] = if blocked then true else nil
+	if blocked then
+		held = false
+		toggled = false
+	end
 end
 
 local function unbindCharacter()
@@ -182,12 +216,17 @@ local function bindCharacter(character: Model)
 	local humanoid = character:WaitForChild("Humanoid") :: Humanoid
 	if player.Character ~= character then return end
 
+	local baseSpeedAttribute = player:GetAttribute(SPEED_BOOST_BASE_SPEED_ATTRIBUTE)
+	local boostedSpeedAttribute = player:GetAttribute(SPEED_BOOST_SPEED_ATTRIBUTE)
 	local state: CharacterState = {
 		Humanoid = humanoid,
-		BaseSpeed = humanoid.WalkSpeed,
+		BaseSpeed = if type(baseSpeedAttribute) == "number"
+			then baseSpeedAttribute
+			else humanoid.WalkSpeed,
 		LastWritten = humanoid.WalkSpeed,
 		Suppressed = humanoid.WalkSpeed <= 0,
 		Writing = false,
+		LastBoostedSpeed = if type(boostedSpeedAttribute) == "number" then boostedSpeedAttribute else nil,
 		Connections = {},
 	}
 	characterState = state
@@ -198,11 +237,17 @@ local function bindCharacter(character: Model)
 	table.insert(state.Connections, humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
 		onWalkSpeedChanged(state)
 	end))
+	table.insert(state.Connections, player:GetAttributeChangedSignal(SPEED_BOOST_SPEED_ATTRIBUTE):Connect(function()
+		if characterState == state then
+			applySpeed()
+		end
+	end))
 	table.insert(state.Connections, humanoid.Died:Connect(unbindCharacter))
 end
 
 local function onHold(_action: string, inputState: Enum.UserInputState): Enum.ContextActionResult
 	if inputState == Enum.UserInputState.Begin then
+		if next(sprintBlocks) ~= nil then return Enum.ContextActionResult.Pass end
 		held = true
 	elseif inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel then
 		held = false
@@ -212,6 +257,7 @@ end
 
 local function onToggle(_action: string, inputState: Enum.UserInputState): Enum.ContextActionResult
 	if inputState == Enum.UserInputState.Begin then
+		if next(sprintBlocks) ~= nil then return Enum.ContextActionResult.Pass end
 		toggled = not toggled
 	end
 	return Enum.ContextActionResult.Pass

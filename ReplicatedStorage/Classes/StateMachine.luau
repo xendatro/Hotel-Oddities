@@ -77,6 +77,12 @@ function StateMachine:_runEvaluator(evaluatorId: string, vow: Vow)
 	end)
 end
 
+function StateMachine:SetStartState(stateId: string, ...: any)
+	if self.MachineState ~= "Ready" then return end
+	self.State = stateId
+	self.Parameters = table.pack(stateId, ...)
+end
+
 function StateMachine:AddState(stateId: string, func: StateFunction)
 	assert(self.States[stateId] == nil, `State {stateId} cannot be added; already exists in machine`)
 	self.States[stateId] = func

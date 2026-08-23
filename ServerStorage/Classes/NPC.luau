@@ -19,9 +19,6 @@ local WAYPOINT_REACHED_DISTANCE = 1.25
 local POLL_OVERSHOOT_ALLOWANCE = 1.5
 local MAX_REACH_FRACTION = 0.75
 local DEFAULT_WAYPOINT_SPACING = 4
-local WAYPOINT_PROGRESS = 0.5
-local WAYPOINT_STALL_GRACE = 1.5
-local MOVE_REFRESH_INTERVAL = 4
 local MOVEMENT_POLL_INTERVAL = 0.05
 local CONTACT_PADDING = 0.25
 local CONTACT_ROOT_DISTANCE = 2.25
@@ -474,11 +471,9 @@ end
 function NPC:_walkPath(
 	path: Path,
 	shouldAbandon: (() -> boolean)?,
-	getNextDestination: (() -> Vector3?)?,
-	smoothCorners: boolean?
+	getNextDestination: (() -> Vector3?)?
 ): string
 	local waypoints = self:GetMovementWaypoints(path)
-	local reachDistance = self:_getReachDistance()
 	local remaining = if getNextDestination then remainingDistances(waypoints) else nil
 	local blockedAt = nil :: number?
 	local blockedConnection = path.Blocked:Connect(function(index)
@@ -498,21 +493,8 @@ function NPC:_walkPath(
 			self.Humanoid.Jump = true
 		end
 
-		local goal = waypoint.Position
-		local goalDistance = self:GetWaypointDistance(goal)
-		local nextWaypoint = waypoints[index + 1]
-		local turnAheadDistance = if smoothCorners
-			then self.Config.PatrolTurnAheadDistance or 0
-			else 0
-		local turningEarly = false
-
-		self.Humanoid:MoveTo(goal)
-		local closest = goalDistance
-		local progressedAt = os.clock()
-		local refreshAt = os.clock() + MOVE_REFRESH_INTERVAL
-
 		if remaining then
-			local left = closest + (remaining :: { number })[index]
+			local left = self:GetWaypointDistance(waypoint.Position) + (remaining :: { number })[index]
 			if left / math.max(self.Humanoid.WalkSpeed, 1e-3) <= PREFETCH_LEAD then
 				local destination = (getNextDestination :: () -> Vector3?)()
 				if destination then
@@ -522,43 +504,16 @@ function NPC:_walkPath(
 			end
 		end
 
-		while true do
-			local distance = self:GetWaypointDistance(goal)
-			if distance <= reachDistance then break end
-			if shouldAbandon and shouldAbandon() then return finish("Abandoned") end
-			if blockedAt and blockedAt >= index then return finish("Blocked") end
-
-			if distance < closest - WAYPOINT_PROGRESS then
-				closest, progressedAt = distance, os.clock()
-			elseif os.clock() - progressedAt >= WAYPOINT_STALL_GRACE then
-				return finish("Blocked")
-			end
-
-			if not turningEarly
-				and nextWaypoint
-				and nextWaypoint.Action ~= Enum.PathWaypointAction.Jump
-				and self:GetWaypointDistance(waypoint.Position) <= turnAheadDistance
-				and self:HasMovementClearance(nextWaypoint.Position)
-			then
-				goal = nextWaypoint.Position
-				turningEarly = true
-				closest = self:GetWaypointDistance(goal)
-				progressedAt = os.clock()
-				self.Humanoid:MoveTo(goal)
-			end
-
-			if os.clock() >= refreshAt then
-				refreshAt = os.clock() + MOVE_REFRESH_INTERVAL
-				self.Humanoid:MoveTo(goal)
-			end
-			task.wait(MOVEMENT_POLL_INTERVAL)
+		self.Humanoid:MoveTo(waypoint.Position)
+		if not self.Humanoid.MoveToFinished:Wait() then
+			return finish("Blocked")
 		end
 	end
 	return finish("Reached")
 end
 
 function NPC:WalkPatrolPath(path: Path, getNextDestination: (() -> Vector3?)?): string
-	return self:_walkPath(path, nil, getNextDestination, true)
+	return self:_walkPath(path, nil, getNextDestination)
 end
 
 function NPC:WalkTo(destination: Vector3): boolean

@@ -40,10 +40,6 @@ export type EnemyConfig = {
 	InvestigateSpeed: number?,
 	AlertSpeed: number?,
 	SearchTime: number?,
-	HearingAccurateRange: number?,
-	HearingErrorMaxDistance: number?,
-	HearingErrorMax: number?,
-	HearingErrorMinScale: number?,
 	AlertThreshold: number?,
 	FrenzyThreshold: number?,
 	DeterminationPerNoiseMin: number?,
@@ -53,8 +49,6 @@ export type EnemyConfig = {
 	TrailSilenceTime: number?,
 	PursueRange: number?,
 	PursuitGiveUpRange: number?,
-	HearingCooldown: number?,
-	PursuitHearingCooldown: number?,
 	NoticeTurnTime: number?,
 	OvershootRange: number?,
 	OvershootMinimum: number?,
@@ -62,7 +56,9 @@ export type EnemyConfig = {
 	ObservationRange: number?,
 	ObservationHold: number?,
 
-	-- Watcher-specific
+	-- Peeking
+	SpawnPeeking: boolean?,
+	StalkChance: number?,
 	MinPeekDistance: number?,
 	MaxPeekDistance: number?,
 	RearArc: number?,
@@ -114,10 +110,12 @@ export type EnemyConfig = {
 	MinGoalDistance: number?,
 	HoverHeight: number?,
 	DriftMargin: number?,
+	VanishDistance: number?,
 
 	-- Creep-specific
 	LightRange: number?,
 	ConnectedHallwayLightRange: number?,
+	DarkDistance: number?,
 	DespawnRange: number?,
 
 	HitDamage: number?,
@@ -136,6 +134,9 @@ export type EnemyConfig = {
 	SpawnDelay: number?,
 	WarningTime: number?,
 	LightRouteRange: number?,
+	WarnRedCullRange: number?,
+	WarnHallwayCullRange: number?,
+	WarnCullRecheckInterval: number?,
 
 	-- Sisters-specific
 	SideSpacing: number?,
@@ -243,12 +244,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		InvestigateRange = 2.5,
 		InvestigateSpeed = 10,
 		AlertSpeed = 14,
-		SearchTime = 1,
-		HearingAccurateRange = 12,
-		HearingErrorMaxDistance = 45,
-		HearingErrorMax = 10,
-		HearingErrorMinScale = 0.65,
-
+		SearchTime = 0.2,
 		AlertThreshold = 0.35,
 		FrenzyThreshold = 0.75,
 		DeterminationPerNoiseMin = 0.18,
@@ -260,12 +256,9 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		PursueRange = 17,
 		PursuitGiveUpRange = 30,
 
-		HearingCooldown = 1,
-		PursuitHearingCooldown = 0.4,
-
 		NoticeTurnTime = 0.25,
 
-		OvershootRange = 7,
+		OvershootRange = 12,
 		OvershootMinimum = 1.5,
 
 		Budget = "Pursuit",
@@ -422,6 +415,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		AttackCooldown = 1.5,
 
 		ObservationRange = 250,
+		ObservationHold = 0.35,
 
 		FollowDistance = 7,
 		FollowSlack = 2.5,
@@ -433,14 +427,43 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 		FleeTime = 15,
 
+		-- Every director spawn starts at a corner in watching mode. `/spawn stalker` ignores this
+		-- and drops it behind you already hunting.
+		SpawnPeeking = true,
+
+		-- Odds that surviving a whole uncaught peek turns it into a hunt. Everything else despawns,
+		-- so this is the ratio of stalks to watches -- keep it low.
+		StalkChance = 0.25,
+
+		-- Keep it far enough away that a player cannot walk into it by accident.
+		MinPeekDistance = 80,
+		MaxPeekDistance = 160,
+		RearArc = 300,
+
+		ViewCone = 140,
+		PeekWaitTime = 12,
+
+		LeanTime = 1.1,
+		RetreatTime = 0.3,
+
+		-- One lean, held this long, then the StalkChance roll. Raise PeekCount to get the old
+		-- lean-hide-rest-repeat cycle back.
+		HoldTimeMin = 15,
+		HoldTimeMax = 15,
+		RestTimeMin = 8,
+		RestTimeMax = 20,
+		PeekCountMin = 1,
+		PeekCountMax = 1,
+		RetryInterval = 1.5,
+
 		FleeCoverRange = 70,
 		FleeCoverMinDistance = 12,
 
-		Budget = "Pursuit",
-		Cost = 5,
-		SpawnWeight = 4,
-		DangerBias = 2.5,
-		MaxAlive = 1,
+		Budget = "Presence",
+		Cost = 1,
+		SpawnWeight = 8,
+		DangerBias = 2,
+		MaxAlive = 2,
 		SpawnGrace = 3,
 
 		CommandSpawnDistance = 14,
@@ -458,45 +481,10 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 		HoverHeight = 5.5,
 		DriftMargin = 10,
+		VanishDistance = 65,
 		SpawnInterval = 20,
 		MaxAlive = 3,
 
-	},
-
-	Watcher = {
-		Model = "Watcher",
-		Animations = AnimationConfig.Sets.Watcher,
-
-		WalkSpeed = 0,
-		Harmless = true,
-
-		ObservationRange = 200,
-		ObservationHold = 0.35,
-
-		-- Keep the Watcher far enough away that a player cannot walk into it by accident.
-		MinPeekDistance = 60,
-		MaxPeekDistance = 120,
-		RearArc = 300,
-
-		ViewCone = 140,
-		PeekWaitTime = 12,
-
-		LeanTime = 1.1,
-		RetreatTime = 0.3,
-
-		HoldTimeMin = 4,
-		HoldTimeMax = 9,
-		RestTimeMin = 8,
-		RestTimeMax = 20,
-		PeekCountMin = 3,
-		PeekCountMax = 6,
-		RetryInterval = 1.5,
-
-		Budget = "Presence",
-		Cost = 1,
-		SpawnWeight = 8,
-		DangerBias = 2,
-		MaxAlive = 2,
 	},
 
 	Creep = {
@@ -505,6 +493,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		WalkSpeed = 0,
 		LightRange = CreepConfig.LightRange,
 		ConnectedHallwayLightRange = CreepConfig.ConnectedHallwayLightRange,
+		DarkDistance = CreepConfig.DarkDistance,
 		DespawnRange = 96,
 		CommandSpawnDistance = 128,
 
@@ -517,6 +506,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 	Eye = {
 		Model = "Eye",
+		Harmless = true,
 
 		WalkSpeed = 0,
 
@@ -546,7 +536,17 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		SpawnDelay = 4,
 		KillRange = 12,
 		WarningTime = 15,
-		LightRouteRange = 40,
+		-- Lights within this many studs of Chaos's route turn red. Keep near hallway
+		-- half-width so red means "this hallway, right here" (10-20).
+		LightRouteRange = 13,
+		-- Red route lights only turn on while a living player is within this many studs
+		-- of the light. Keep well above a hallway span length so the tell reads from afar (150-300).
+		WarnRedCullRange = 200,
+		-- Hallway flicker + door chaos only runs while a player is within this many studs of the
+		-- closest point on the span. The expensive effect, so it can sit tighter (100-200).
+		WarnHallwayCullRange = 150,
+		-- Seconds between re-checks while a scheduled warning waits for a player to come into range.
+		WarnCullRecheckInterval = 1,
 		RouteHeight = 3,
 
 		Budget = "Pursuit",

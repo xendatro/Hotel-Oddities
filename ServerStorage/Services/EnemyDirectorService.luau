@@ -14,7 +14,7 @@ local EnemyObservationService = require(ServerStorage.Services.EnemyObservationS
 local EnemyService = require(ServerStorage.Services.EnemyService)
 local GhostAreaService = require(ServerStorage.Services.GhostAreaService)
 local SistersService = require(ServerStorage.Services.SistersService)
-local WatcherService = require(ServerStorage.Services.WatcherService)
+local StalkerService = require(ServerStorage.Services.StalkerService)
 
 local ENEMY_TAG = "Enemy"
 local SPAWN_ROOT_HEIGHT = 3
@@ -318,10 +318,10 @@ local function spawnFor(enemyId: string, anchor: Player): boolean
 		return sisters ~= nil
 	end
 
-	if enemyId == "Watcher" then
-		local watcher = WatcherService:SpawnNear(anchor)
-		register(watcher, enemyId, config)
-		return watcher ~= nil
+	if config.SpawnPeeking then
+		local peeker = StalkerService:SpawnPeeking(anchor, enemyId)
+		register(peeker, enemyId, config)
+		return peeker ~= nil
 	end
 
 	local enemy = placeOnFloor(enemyId, config, anchor)

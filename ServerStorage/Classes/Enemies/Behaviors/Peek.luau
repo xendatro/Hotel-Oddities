@@ -4,7 +4,6 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
-local NPC = require(ServerStorage.Classes.NPC)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local PeekSpotService = require(ServerStorage.Services.PeekSpotService)
 
@@ -12,7 +11,9 @@ local POLL = 0.1
 local SEEN_HOLD_TIME = 0.7
 local ABANDON_DISTANCE_SCALE = 0.6
 
-local Watcher = NPC.extend("Watcher")
+local Peek = {}
+
+Peek.StateNames = { "Seek", "Lurk", "Peek", "Retreat", "Rest" }
 
 local function randomBetween(minimum: number, maximum: number): number
 	return math.random() * (maximum - minimum) + minimum
@@ -26,7 +27,7 @@ local function getAliveRoot(player: Player?): BasePart?
 	return nil
 end
 
-function Watcher.GetFindOptions(config): PeekSpotService.FindOptions
+function Peek.GetFindOptions(config): PeekSpotService.FindOptions
 	return {
 		MinDistance = config.MinPeekDistance,
 		MaxDistance = config.MaxPeekDistance,
@@ -35,23 +36,54 @@ function Watcher.GetFindOptions(config): PeekSpotService.FindOptions
 	}
 end
 
-function Watcher:_placeAt(spot: PeekSpotService.PeekSpot, player: Player, lean: number)
-	local target = getAliveRoot(player)
-	self.RootPart.CFrame = PeekSpotService.PoseAt(spot, lean, target and target.Position)
-	self.Lean = lean
+function Peek.Enter(npc: any)
+	if npc.Peeking then return end
+	npc.Peeking = true
+	npc.Target = nil
+	npc.Lean = 0
+	npc.PeeksLeft = math.random(npc.Config.PeekCountMin, npc.Config.PeekCountMax)
+
+	npc:StopMoving()
+	npc:SetSpeed(0)
+	npc.Animator:SetMovementTrack(nil)
+	npc.Humanoid.EvaluateStateMachine = false
+	npc.RootPart.Anchored = true
 end
 
-function Watcher:_slide(
+function Peek.Exit(npc: any)
+	if not npc.Peeking then return end
+	npc.Peeking = false
+	npc.Lean = 0
+	npc.Spot, npc.Audience = nil, nil
+
+	npc.RootPart.Anchored = false
+	npc.Humanoid.EvaluateStateMachine = true
+	npc:SetSpeed(npc.Config.WalkSpeed)
+end
+
+local function finish(npc: any, reason: string, player: Player?)
+	Peek.Exit(npc)
+	return npc:OnPeekFinished(reason, player)
+end
+
+local function placeAt(npc: any, spot: PeekSpotService.PeekSpot, player: Player, lean: number)
+	local target = getAliveRoot(player)
+	npc.RootPart.CFrame = PeekSpotService.PoseAt(spot, lean, target and target.Position)
+	npc.Lean = lean
+end
+
+local function slide(
+	npc: any,
 	spot: PeekSpotService.PeekSpot,
 	player: Player,
 	duration: number,
 	targetLean: number,
 	shouldStop: (() -> boolean)?
 ): boolean
-	local startLean = self.Lean or 0
+	local startLean = npc.Lean or 0
 	local travel = math.abs(targetLean - startLean)
 	if travel < 1e-3 then
-		self:_placeAt(spot, player, targetLean)
+		placeAt(npc, spot, player, targetLean)
 		return true
 	end
 
@@ -60,14 +92,15 @@ function Watcher:_slide(
 
 	while true do
 		local alpha = math.clamp((os.clock() - startedAt) / scaled, 0, 1)
-		self:_placeAt(spot, player, startLean + (targetLean - startLean) * alpha)
+		placeAt(npc, spot, player, startLean + (targetLean - startLean) * alpha)
 		if alpha >= 1 then return true end
 		if shouldStop and shouldStop() then return false end
 		RunService.Heartbeat:Wait()
 	end
 end
 
-function Watcher:_hold(
+local function hold(
+	npc: any,
 	spot: PeekSpotService.PeekSpot,
 	player: Player,
 	duration: number,
@@ -77,18 +110,18 @@ function Watcher:_hold(
 
 	while os.clock() < expiresAt do
 		if shouldStop and shouldStop() then return false end
-		self:_placeAt(spot, player, 1)
+		placeAt(npc, spot, player, 1)
 		RunService.Heartbeat:Wait()
 	end
 	return true
 end
 
-function Watcher:_isArcOnScreen(spot: PeekSpotService.PeekSpot): boolean
+local function isArcOnScreen(npc: any, spot: PeekSpotService.PeekSpot): boolean
 	local views = EnemyObservationService:GetViews()
 	for _, lean in { 0.5, 1 } do
 		for _, point in PeekSpotService.LeanPoints(spot, lean) do
 			for _, view in views do
-				if EnemyObservationService.IsWithinCone(view, point, self.Config.ViewCone) then
+				if EnemyObservationService.IsWithinCone(view, point, npc.Config.ViewCone) then
 					return true
 				end
 			end
@@ -97,9 +130,9 @@ function Watcher:_isArcOnScreen(spot: PeekSpotService.PeekSpot): boolean
 	return false
 end
 
-function Watcher:_getAudience(): Player?
+local function getAudience(npc: any): Player?
 	local nearest, nearestDistance = nil, math.huge
-	local origin = self.RootPart.Position
+	local origin = npc.RootPart.Position
 
 	for _, player in Players:GetPlayers() do
 		local root = getAliveRoot(player)
@@ -114,8 +147,10 @@ function Watcher:_getAudience(): Player?
 end
 
 local function seek(_changeState: StateMachine.ChangeState, npc: any)
+	Peek.Enter(npc)
+
 	if npc:IsObserved() then
-		return "Despawn", npc
+		return finish(npc, "Seen")
 	end
 
 	local spot, player = npc.Spot, npc.Audience
@@ -125,20 +160,20 @@ local function seek(_changeState: StateMachine.ChangeState, npc: any)
 	end
 
 	if not spot then
-		player = npc:_getAudience()
-		spot = player and PeekSpotService:Find(player, Watcher.GetFindOptions(npc.Config))
+		player = player or getAudience(npc)
+		spot = player and PeekSpotService:Find(player, Peek.GetFindOptions(npc.Config))
 	end
 
 	if not (player and spot) then
-		npc.AttemptsLeft -= 1
-		if npc.AttemptsLeft <= 0 then
-			return "Despawn", npc
+		npc.PeeksLeft -= 1
+		if npc.PeeksLeft <= 0 then
+			return finish(npc, "Lost")
 		end
 		task.wait(npc.Config.RetryInterval)
 		return "Seek", npc
 	end
 
-	npc:_placeAt(spot, player, 0)
+	placeAt(npc, spot, player, 0)
 	return "Lurk", npc, spot, player
 end
 
@@ -153,7 +188,7 @@ local function lurk(
 
 	while true do
 		if npc:IsObserved() then
-			return "Despawn", npc
+			return finish(npc, "Seen", player)
 		end
 
 		local root = getAliveRoot(player)
@@ -167,13 +202,13 @@ local function lurk(
 			return "Seek", npc
 		end
 
-		if not npc:_isArcOnScreen(spot) then break end
+		if not isArcOnScreen(npc, spot) then break end
 
-		npc:_placeAt(spot, player, 0)
+		placeAt(npc, spot, player, 0)
 		task.wait(POLL)
 	end
 
-	if not PeekSpotService:IsStillValid(spot, player, Watcher.GetFindOptions(npc.Config)) then
+	if not PeekSpotService:IsStillValid(spot, player, Peek.GetFindOptions(npc.Config)) then
 		return "Seek", npc
 	end
 
@@ -190,10 +225,10 @@ local function peek(
 		return npc:IsObserved()
 	end
 
-	local caught = not npc:_slide(spot, player, npc.Config.LeanTime, 1, isCaught)
+	local caught = not slide(npc, spot, player, npc.Config.LeanTime, 1, isCaught)
 	if not caught then
-		local hold = randomBetween(npc.Config.HoldTimeMin, npc.Config.HoldTimeMax)
-		caught = not npc:_hold(spot, player, hold, isCaught)
+		local duration = randomBetween(npc.Config.HoldTimeMin, npc.Config.HoldTimeMax)
+		caught = not hold(npc, spot, player, duration, isCaught)
 	end
 
 	return "Retreat", npc, spot, player, caught
@@ -208,57 +243,36 @@ local function retreat(
 )
 	if caught then
 		task.wait(SEEN_HOLD_TIME)
-		npc:_slide(spot, player, npc.Config.RetreatTime, 0)
-		return "Despawn", npc
+		slide(npc, spot, player, npc.Config.RetreatTime, 0)
+		return finish(npc, "Seen", player)
 	end
-	npc:_slide(spot, player, npc.Config.RetreatTime, 0)
+	slide(npc, spot, player, npc.Config.RetreatTime, 0)
 
-	npc.AttemptsLeft -= 1
-	if npc.AttemptsLeft <= 0 then
-		return "Despawn", npc
+	npc.PeeksLeft -= 1
+	if npc.PeeksLeft <= 0 then
+		return finish(npc, "Done", player)
 	end
-	return "Rest", npc
+	return "Rest", npc, player
 end
 
-local function rest(_changeState: StateMachine.ChangeState, npc: any)
+local function rest(_changeState: StateMachine.ChangeState, npc: any, player: Player?)
 	local expiresAt = os.clock() + randomBetween(npc.Config.RestTimeMin, npc.Config.RestTimeMax)
 
 	while os.clock() < expiresAt do
 		if npc:IsObserved() then
-			return "Despawn", npc
+			return finish(npc, "Seen", player)
 		end
 		task.wait(POLL)
 	end
 	return "Seek", npc
 end
 
-function Watcher.new(model: Model, config, spot: PeekSpotService.PeekSpot?, player: Player?)
-	local self = NPC.new(model, config, Watcher)
-	self.Spot = spot
-	self.Audience = player
-	self.Lean = 0
-	return self
-end
+Peek.States = {
+	Seek = seek,
+	Lurk = lurk,
+	Peek = peek,
+	Retreat = retreat,
+	Rest = rest,
+}
 
-function Watcher:Start()
-	self.Humanoid.EvaluateStateMachine = false
-	self.RootPart.Anchored = true
-	self.Humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-	self.AttemptsLeft = math.random(self.Config.PeekCountMin, self.Config.PeekCountMax)
-	NPC.Start(self)
-end
-
-function Watcher:BuildStateMachine(): StateMachine.StateMachine
-	return StateMachine.new({
-		Seek = seek,
-		Lurk = lurk,
-		Peek = peek,
-		Retreat = retreat,
-		Rest = rest,
-		Despawn = NPC.SharedStates.Despawn,
-	}, {
-		Impact = {},
-	}, {}, "Seek", self)
-end
-
-return Watcher
+return Peek
