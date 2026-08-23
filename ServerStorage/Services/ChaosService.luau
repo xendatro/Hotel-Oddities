@@ -233,7 +233,7 @@ local function scheduleWarnings(route: { Vector3 }, token: WarningToken, spawnAt
 		deferWarning(token, delay, arrivalAt, function()
 			return anyPlayerNear(lightPosition, Config.WarnRedCullRange or math.huge)
 		end, function(remaining: number)
-			LightService:WarnRed(light, remaining)
+			LightService:WarnRed(light, remaining + (Config.LightPassDelay or 0))
 		end)
 	end
 

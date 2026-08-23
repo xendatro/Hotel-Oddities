@@ -6,6 +6,8 @@ local Aim = require(ReplicatedStorage.Modules.Aim)
 local Bob = require(ReplicatedStorage.Modules.Bob)
 local EyeConfig = require(ReplicatedStorage.Configs.EyeConfig)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
+local Sightline = require(ReplicatedStorage.Modules.Sightline)
+local EyeHitEffectService = require(ReplicatedStorage.Services.EyeHitEffectService)
 local TagService = require(ReplicatedStorage.Services.TagService)
 local Vanished = require(ReplicatedStorage.Modules.Vanished)
 
@@ -48,9 +50,13 @@ RunService:BindToRenderStep(RENDER_BIND_NAME, Enum.RenderPriority.Camera.Value +
 
 	local character = localPlayer.Character
 	local tracking = not Vanished.Is(character)
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid") :: Humanoid?
+	local threatened = tracking and humanoid ~= nil and humanoid.Health > 0
+	local frustum = Sightline.Frustum(camera)
 
 	local clock = os.clock()
 	local cameraPosition = camera.CFrame.Position
+	local gazeStrength = 0
 	for model, render in Eyes do
 		local position = render.Anchor
 			+ Bob.Offset(clock, render.Phase, EyeConfig.BobHeight, EyeConfig.BobPeriod)
@@ -70,7 +76,24 @@ RunService:BindToRenderStep(RENDER_BIND_NAME, Enum.RenderPriority.Camera.Value +
 		end
 
 		model:PivotTo(rotation + position)
+
+		local offset = position - cameraPosition
+		local distance = offset.Magnitude
+		if threatened
+			and frustum
+			and distance > MINIMUM_DIRECTION
+			and distance <= EyeConfig.GazeRange
+			and not model:GetAttribute(STUNNED_ATTRIBUTE)
+			and Sightline.CanSee(camera, frustum, character, model)
+		then
+			local angle = math.deg(math.acos(math.clamp(offset.Unit:Dot(camera.CFrame.LookVector), -1, 1)))
+			local centered = math.clamp(1 - angle / EyeConfig.GazeFalloffAngle, 0, 1)
+			local strength = EyeConfig.GazeEdgeIntensity
+				+ (1 - EyeConfig.GazeEdgeIntensity) * centered * centered
+			gazeStrength = math.max(gazeStrength, strength)
+		end
 	end
+	EyeHitEffectService:UpdateGaze(gazeStrength, deltaTime)
 end)
 
 return EyeRenderService

@@ -38,7 +38,6 @@ local function build()
 	screenGui = Instance.new("ScreenGui")
 	screenGui.Name = "InventoryGui"
 	screenGui.ResetOnSpawn = false
-	screenGui.IgnoreGuiInset = true
 	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	screenGui.DisplayOrder = 10
 	screenGui.Parent = playerGui

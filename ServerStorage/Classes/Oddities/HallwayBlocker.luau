@@ -1,8 +1,12 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local Gaze = require(ServerStorage.Modules.Gaze)
 local HallwayRegion = require(ServerStorage.Modules.HallwayRegion)
 local HallwayOddity = require(ServerStorage.Classes.HallwayOddity)
+local Hallways = require(ReplicatedStorage.Modules.Hallways)
+
+local Gate = ReplicatedStorage.Props.Other.Gate :: Model
 
 local BLOCKER_FOLDER_NAME = "HallwayBlockers"
 
@@ -42,7 +46,7 @@ end
 
 function HallwayBlocker.new(config: { [string]: any }?)
 	local self = HallwayOddity.new(config, HallwayBlocker)
-	self.Blocker = nil :: BasePart?
+	self.Blocker = nil :: Model?
 	return self
 end
 
@@ -60,27 +64,16 @@ function HallwayBlocker.Pick(class: any): HallwayRegion.Span?
 end
 
 function HallwayBlocker:OnStart(): boolean
-	local height = math.max(self:Setting("BlockerHeight", self.BoxSize.Y), 1)
-	local thickness = math.max(self:Setting("BlockerThickness", 1.5), 0.1)
-	local widthPadding = self:Setting("BlockerWidthPadding", 0)
-
-	local blocker = Instance.new("Part")
+	local span = self.Span :: HallwayRegion.Span
+	local hallway = Hallways.Nearest(span.Center)
+	local floorY = hallway and hallway.FloorY or span.Center.Y
+	local blocker = Gate:Clone()
 	blocker.Name = "HallwayBlocker"
-	blocker.Anchored = true
-	blocker.CanCollide = true
-	blocker.CanQuery = true
-	blocker.CanTouch = false
-	blocker.AudioCanCollide = true
-	blocker.CastShadow = false
-	blocker.Size = Vector3.new(self.BoxSize.X + widthPadding * 2, height, thickness)
-	blocker.CFrame = self.BoxCFrame * CFrame.new(0, (height - self.BoxSize.Y) / 2, 0)
-	blocker.Transparency = math.clamp(self:Setting("BlockerTransparency", 0.18), 0, 1)
+	blocker:PivotTo(self.BoxCFrame)
 
-	local color = self.Config.BlockerColor
-	if typeof(color) == "Color3" then blocker.Color = color end
-	local material = self.Config.BlockerMaterial
-	if typeof(material) == "EnumItem" then blocker.Material = material end
-
+	local boundsCFrame, boundsSize = blocker:GetBoundingBox()
+	local bottomY = boundsCFrame.Position.Y - boundsSize.Y / 2
+	blocker:PivotTo(blocker:GetPivot() + Vector3.new(0, floorY - bottomY, 0))
 	blocker.Parent = blockerFolder()
 	self.Blocker = blocker
 	table.insert(ActiveSpans, self.Span :: HallwayRegion.Span)

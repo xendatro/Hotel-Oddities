@@ -134,6 +134,7 @@ export type EnemyConfig = {
 	-- Chaos-specific
 	SpawnDelay: number?,
 	WarningTime: number?,
+	LightPassDelay: number?,
 	LightRouteRange: number?,
 	WarnRedCullRange: number?,
 	WarnHallwayCullRange: number?,
@@ -521,6 +522,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		SpawnDelay = 4,
 		KillRange = 12,
 		WarningTime = 15,
+		LightPassDelay = 1.5,
 		-- Lights within this many studs of Chaos's route turn red. Keep near hallway
 		-- half-width so red means "this hallway, right here" (10-20).
 		LightRouteRange = 13,
