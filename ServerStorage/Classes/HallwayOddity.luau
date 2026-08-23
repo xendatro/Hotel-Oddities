@@ -25,7 +25,14 @@ function HallwayOddity.Resolve(class: any, position: Vector3): HallwayRegion.Spa
 end
 
 function HallwayOddity.Pick(class: any): HallwayRegion.Span?
-	return if class.RequiresPlayer then HallwayRegion.RandomOccupied() else HallwayRegion.RandomDistant()
+	if class.RequiresPlayer then return HallwayRegion.RandomOccupied() end
+
+	local occupiedChance = class.Settings and class.Settings.OccupiedChance
+	if type(occupiedChance) == "number" then
+		return HallwayRegion.RandomBiased(occupiedChance)
+	end
+
+	return HallwayRegion.RandomDistant()
 end
 
 function HallwayOddity:CanStart(span: HallwayRegion.Span?): (boolean, string?)

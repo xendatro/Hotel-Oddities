@@ -3,11 +3,13 @@ return {
 
 	Effects = {
 		LanternFall = {
-			--- Model name of the wall lanterns that can drop. Ceiling fixtures are left alone.
+			--- Tag the candidates are drawn from, narrowed to this model name so ceiling
+			--- fixtures are left alone.
+			Tag = "Floor1Light",
 			ModelName = "HallwayLantern",
 
 			--- How many lanterns are armed and watched at once, out of the whole map. 1-8.
-			ArmedCount = 3,
+			ArmedCount = 2,
 
 			--- Chance a qualifying approach drops the lantern. Rarity comes from ArmedCount being
 			--- tiny against the whole map, so this stays at 1; lower it only to make drops rarer
@@ -64,9 +66,50 @@ return {
 			CollisionGroup = "FallenProp",
 
 			--- Debug: outline the armed lanterns through walls so they can be found. Turn off for release.
-			DebugHighlight = true,
+			DebugHighlight = false,
 
 			--- Debug: warn to the server log on every arm, approach, drop and repair. Turn off for release.
+			DebugLog = true,
+		},
+
+		PaintingFall = {
+			--- Tag the candidates are drawn from; every model carrying it qualifies, so no
+			--- ModelName narrowing. 134 hallway frames.
+			Tag = "PictureFrame",
+
+			--- How many paintings are armed and watched at once, out of the whole map. 1-8.
+			ArmedCount = 1,
+
+			ApproachChance = 1,
+			TriggerDistance = 25,
+			ArmDistance = 45,
+			SameFloorTolerance = 8,
+			ApproachDot = 0.5,
+			ApproachMinSpeed = 4,
+
+			--- With only 134 frames on the map these bands have to be looser than the lanterns'
+			--- or nothing qualifies.
+			CandidateMinDistance = 55,
+			CandidateMaxDistance = 220,
+			CandidateSpacing = 60,
+			CandidateSamples = 48,
+
+			MinGroundTime = 45,
+			FixClearDistance = 24,
+			FixViewCone = 120,
+			FixViewDistance = 160,
+			PollInterval = 0.2,
+			CollisionGroup = "FallenProp",
+
+			--- Studs per second the painting is thrown off the wall toward the hallway centre,
+			--- plus the upward part of that shove. 0-30 / 0-12.
+			ShoveSpeed = 14,
+			ShoveLift = 4,
+
+			--- Random tumble given to the shove, in mass-scaled angular impulse. 0-20.
+			ShoveSpin = 5,
+
+			DebugHighlight = false,
 			DebugLog = true,
 		},
 	},

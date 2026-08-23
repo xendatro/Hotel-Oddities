@@ -59,6 +59,11 @@ function DoorPart:IsOpen(): boolean
 	return self.Target ~= 0
 end
 
+function DoorPart:IsInside(position: Vector3): boolean
+	if not self.Outward then return false end
+	return horizontal(position - self.Center):Dot(self.Outward) < 0
+end
+
 function DoorPart:_swingSign(from: Vector3): number
 	local radians = math.rad(OPEN_ANGLE)
 	local plus = self.Hinge + CFrame.Angles(0, radians, 0):VectorToWorldSpace(self.Arm)
@@ -127,6 +132,7 @@ function DoorPart:_setOpen(
 			end
 		end)
 	end
+	self:_applyCollision()
 end
 
 function DoorPart:SetOpen(open: boolean, from: Vector3?)
@@ -200,7 +206,6 @@ function DoorPart:SetForced(forced: boolean)
 	if self.Forced == forced then return end
 	self.Forced = forced
 
-	self.Part.CanCollide = forced or self.ClosedCanCollide
 	if forced then
 		for _, claim in self.OddityClaims do
 			claim.Blocked = true
@@ -212,6 +217,7 @@ function DoorPart:SetForced(forced: boolean)
 		end
 		self:_applyOddity()
 	end
+	self:_applyCollision()
 end
 
 function DoorPart:Step(deltaTime: number)
@@ -241,6 +247,7 @@ function DoorPart:Step(deltaTime: number)
 			self.AnimationPlayer = nil
 			self.Angle = self.Target
 			self:_Apply()
+			self:_applyCollision()
 		end
 		return
 	end
@@ -252,6 +259,7 @@ function DoorPart:Step(deltaTime: number)
 			self.Velocity = 0
 			self:_Apply()
 		end
+		self:_applyCollision()
 		return
 	end
 
@@ -270,6 +278,12 @@ function DoorPart:Step(deltaTime: number)
 	end
 
 	self:_Apply()
+	self:_applyCollision()
+end
+
+function DoorPart:_applyCollision()
+	local closing = self.Target == 0 and self.AnimationPlayer ~= nil
+	self.Part.CanCollide = if closing then false else self.Forced or self.ClosedCanCollide
 end
 
 function DoorPart:_Apply()

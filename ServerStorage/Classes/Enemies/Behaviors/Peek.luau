@@ -8,7 +8,6 @@ local EnemyObservationService = require(ServerStorage.Services.EnemyObservationS
 local PeekSpotService = require(ServerStorage.Services.PeekSpotService)
 
 local POLL = 0.1
-local SEEN_HOLD_TIME = 0.7
 local ABANDON_DISTANCE_SCALE = 0.6
 
 local Peek = {}
@@ -221,8 +220,18 @@ local function peek(
 	spot: PeekSpotService.PeekSpot,
 	player: Player
 )
+	local abandonDistance = npc.Config.MinPeekDistance * ABANDON_DISTANCE_SCALE
+	local walkedUp = false
+
 	local function isCaught()
-		return npc:IsObserved()
+		if npc:IsObserved() then return true end
+
+		local root = getAliveRoot(player)
+		if not root or (root.Position - spot.Stand).Magnitude < abandonDistance then
+			walkedUp = true
+			return true
+		end
+		return false
 	end
 
 	local caught = not slide(npc, spot, player, npc.Config.LeanTime, 1, isCaught)
@@ -231,7 +240,7 @@ local function peek(
 		caught = not hold(npc, spot, player, duration, isCaught)
 	end
 
-	return "Retreat", npc, spot, player, caught
+	return "Retreat", npc, spot, player, caught, walkedUp
 end
 
 local function retreat(
@@ -239,10 +248,13 @@ local function retreat(
 	npc: any,
 	spot: PeekSpotService.PeekSpot,
 	player: Player,
-	caught: boolean
+	caught: boolean,
+	walkedUp: boolean?
 )
 	if caught then
-		task.wait(SEEN_HOLD_TIME)
+		if not walkedUp then
+			task.wait(npc.Config.SeenHoldTime or 0)
+		end
 		slide(npc, spot, player, npc.Config.RetreatTime, 0)
 		return finish(npc, "Seen", player)
 	end

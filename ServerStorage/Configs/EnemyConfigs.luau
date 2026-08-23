@@ -66,6 +66,7 @@ export type EnemyConfig = {
 	PeekWaitTime: number?,
 	LeanTime: number?,
 	RetreatTime: number?,
+	SeenHoldTime: number?,
 	HoldTimeMin: number?,
 	HoldTimeMax: number?,
 	RestTimeMin: number?,
@@ -86,9 +87,10 @@ export type EnemyConfig = {
 	BystanderNoticeTime: number?,
 	BystanderTurnTime: number?,
 	BystanderChaseTurnFraction: number?,
-	AfkAmbientChance: number?,
-	AfkAmbientRollMin: number?,
-	AfkAmbientRollMax: number?,
+	AfkPatrolTimeMin: number?,
+	AfkPatrolTimeMax: number?,
+	AfkIdleTimeMin: number?,
+	AfkIdleTimeMax: number?,
 	AfkNoticeRange: number?,
 	AfkNoticeTime: number?,
 	AfkTurnTime: number?,
@@ -123,7 +125,6 @@ export type EnemyConfig = {
 	EdgeDamage: number?,
 	FalloffAngle: number?,
 	FalloffExponent: number?,
-	Lifetime: number?,
 
 	-- Shared by the corridor hazards Chaos and Sisters
 	SpawnPlayerDistance: number?,
@@ -160,9 +161,6 @@ export type EnemyConfig = {
 	FleeCoverRange: number?,
 	FleeCoverMinDistance: number?,
 
-	Budget: string?,
-	Cost: number?,
-	SpawnWeight: number?,
 	DangerBias: number?,
 	MaxAlive: number?,
 	SpawnGrace: number?,
@@ -206,9 +204,6 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		AttackRange = 4.5,
 		AttackCooldown = 1.5,
 
-		Budget = "Pursuit",
-		Cost = 3,
-		SpawnWeight = 10,
 		DangerBias = 1,
 		MaxAlive = 2,
 		SpawnGrace = 2,
@@ -261,9 +256,6 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		OvershootRange = 12,
 		OvershootMinimum = 1.5,
 
-		Budget = "Pursuit",
-		Cost = 1,
-		SpawnWeight = 8,
 		DangerBias = 1,
 		MaxAlive = 2,
 		SpawnGrace = 2,
@@ -301,9 +293,6 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		ObservationRange = 200,
 		ObservationHold = 0.08,
 
-		Budget = "Pursuit",
-		Cost = 4,
-		SpawnWeight = 2,
 		DangerBias = 3.5,
 		MaxAlive = 1,
 		SpawnGrace = 2,
@@ -352,9 +341,12 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		BystanderNoticeTime = 0.35,
 		BystanderTurnTime = 1.25,
 		BystanderChaseTurnFraction = 0.5,
-		AfkAmbientChance = 0.25,
-		AfkAmbientRollMin = 6,
-		AfkAmbientRollMax = 12,
+		--- The ambient AFK cycle: patrol this long, stand around this long, repeat.
+		--- Ranged so two Mimics on the map do not fall into lockstep.
+		AfkPatrolTimeMin = 135,
+		AfkPatrolTimeMax = 165,
+		AfkIdleTimeMin = 25,
+		AfkIdleTimeMax = 35,
 		AfkNoticeRange = 18,
 		AfkNoticeTime = 10,
 		AfkTurnTime = 7.5,
@@ -364,7 +356,8 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 		AfkFaceWallChance = 0.45,
 		AfkSettleTurnRate = 2.2,
-		AfkDriftChance = 0.6,
+		--- Always step off the centre line, so it never stands exactly mid-hallway.
+		AfkDriftChance = 1,
 		AfkDriftMin = 2,
 		AfkDriftMax = 5.5,
 
@@ -375,16 +368,13 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		PatrolTurnAheadDistance = 5,
 		CommandSpawnDistance = 48,
 
-		Budget = "Pursuit",
-		Cost = 4,
-		SpawnWeight = 4,
 		DangerBias = 2,
-		MaxAlive = 1,
+		MaxAlive = 2,
 		SpawnGrace = 3,
 	},
 
 	Stalker = {
-		Model = "Stalker",
+		Model = "Ceiling Dweller",
 		Animations = AnimationConfig.Sets.Stalker,
 
 		WalkSpeed = 16,
@@ -433,11 +423,13 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 		-- Odds that surviving a whole uncaught peek turns it into a hunt. Everything else despawns,
 		-- so this is the ratio of stalks to watches -- keep it low.
-		StalkChance = 0.25,
+		StalkChance = 0.5,
 
-		-- Keep it far enough away that a player cannot walk into it by accident.
-		MinPeekDistance = 80,
-		MaxPeekDistance = 160,
+		-- Keep it far enough away that a player cannot walk into it by accident. The upper end is
+		-- pinned to DiscoveryConfig's Stalker sight range (160) so every peek it can make is one
+		-- you can also earn the index card from.
+		MinPeekDistance = 45,
+		MaxPeekDistance = 100,
 		RearArc = 300,
 
 		ViewCone = 140,
@@ -445,11 +437,14 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 		LeanTime = 1.1,
 		RetreatTime = 0.3,
+		-- Beat before it ducks back once you catch it. Keep it short or it reads as posing rather
+		-- than being caught; 0 makes it start pulling back the same frame you look.
+		SeenHoldTime = 0.4,
 
 		-- One lean, held this long, then the StalkChance roll. Raise PeekCount to get the old
 		-- lean-hide-rest-repeat cycle back.
-		HoldTimeMin = 15,
-		HoldTimeMax = 15,
+		HoldTimeMin = 10,
+		HoldTimeMax = 10,
 		RestTimeMin = 8,
 		RestTimeMax = 20,
 		PeekCountMin = 1,
@@ -459,9 +454,6 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		FleeCoverRange = 70,
 		FleeCoverMinDistance = 12,
 
-		Budget = "Presence",
-		Cost = 1,
-		SpawnWeight = 8,
 		DangerBias = 2,
 		MaxAlive = 2,
 		SpawnGrace = 3,
@@ -483,7 +475,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		DriftMargin = 10,
 		VanishDistance = 65,
 		SpawnInterval = 20,
-		MaxAlive = 3,
+		MaxAlive = 6,
 
 	},
 
@@ -497,9 +489,6 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		DespawnRange = 96,
 		CommandSpawnDistance = 128,
 
-		Budget = "Presence",
-		Cost = 1,
-		SpawnWeight = 10,
 		DangerBias = 3,
 		MaxAlive = 3,
 	},
@@ -519,11 +508,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		FalloffAngle = 45,
 		FalloffExponent = 2,
 
-		Lifetime = 60,
 
-		Budget = "Presence",
-		Cost = 3,
-		SpawnWeight = 5,
 		DangerBias = 3,
 		MaxAlive = 1,
 	},
@@ -549,9 +534,6 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		WarnCullRecheckInterval = 1,
 		RouteHeight = 3,
 
-		Budget = "Pursuit",
-		Cost = 3,
-		SpawnWeight = 3,
 		DangerBias = 3,
 		MaxAlive = 1,
 	},
@@ -569,9 +551,6 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		WalkOffDistance = 10,
 		DespawnPastEnd = 6,
 
-		Budget = "Pursuit",
-		Cost = 2,
-		SpawnWeight = 2,
 		DangerBias = 3,
 		MaxAlive = 1,
 
@@ -587,9 +566,7 @@ local ceilingDwellerConfig = table.clone(EnemyConfigs.Chaser)
 ceilingDwellerConfig.Model = "Ceiling Dweller"
 ceilingDwellerConfig.Animations = AnimationConfig.Sets.CeilingDweller
 
-ceilingDwellerConfig.Cost = 4
 ceilingDwellerConfig.MaxAlive = 1
-ceilingDwellerConfig.SpawnWeight = nil
 ceilingDwellerConfig.DangerBias = nil
 ceilingDwellerConfig.RunSpeed = 25
 ceilingDwellerConfig.ChaseSpeed = 22

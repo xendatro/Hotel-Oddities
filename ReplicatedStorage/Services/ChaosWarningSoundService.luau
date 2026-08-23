@@ -68,7 +68,7 @@ local AmbienceSounds: { AmbienceSound } = {}
 local AmbienceVolume = 0
 
 local function isRed(light: Instance): boolean
-	return light:IsA("Light") and light.Color == RED
+	return light:IsA("Light") and light.Enabled and light.Color == RED
 end
 
 local function sourcePart(light: Instance): BasePart?
@@ -196,7 +196,9 @@ local function registerLight(state: LightState, light: Instance)
 	if not light:IsA("Light") or state.LightConnections[light] then return end
 
 	state.Lights[light] = true
-	local connection = light:GetPropertyChangedSignal("Color"):Connect(function()
+	local connection = light.Changed:Connect(function(property: string)
+		if property ~= "Color" and property ~= "Enabled" then return end
+
 		local wasRed = state.Red
 		updateRed(state)
 		if state.Red and not wasRed then

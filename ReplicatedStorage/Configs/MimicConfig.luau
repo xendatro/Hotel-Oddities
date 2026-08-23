@@ -40,6 +40,22 @@ return {
 
 	WallProbeDistance = 4,
 
+	--- How close the Approach encounter walks before it stops and just looks at
+	--- you. It only ever gets this close from behind: once you have it in view
+	--- inside StrikeRange the encounter has already turned into a real chase.
+	ApproachStopDistance = 5,
+
+	--- The AlignOrientation that points the body somewhere its feet are not
+	--- going. Torque is how hard it can turn, Responsiveness how sharply it
+	--- settles -- higher is snappier, lower reads as a person turning.
+	FacingTorque = 60000,
+	FacingResponsiveness = 25,
+
+	--- Withdraw gives ground until it has this much room, then holds.
+	WithdrawGap = 30,
+	--- Shadow trails you at this distance and never closes.
+	ShadowGap = 22,
+
 	BehindAngle = 115,
 	BehindTurnDelayMin = 0.45,
 	BehindTurnDelayMax = 1.3,

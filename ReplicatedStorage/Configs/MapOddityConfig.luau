@@ -14,12 +14,35 @@ return {
 			OpeningSpeed = 0.75,
 		},
 		HallwayChaos = {
+			--- Fires on a fixed cadence rather than a dice roll: one hallway every RollInterval
+			--- seconds, always. Seconds. 30-600.
+			RollInterval = 300,
+			InitialDelay = 120,
+			TriggerChance = 1,
+
+			--- Share of picks taken from hallways that currently hold a living player; the rest
+			--- are uniform over every hallway on the map. 0-1.
+			OccupiedChance = 0.7,
+
 			OpeningSpeed = 1.2,
 			ClosingSpeed = 1.2,
 			DoorIntervalMin = 0.3,
 			DoorIntervalMax = 1.1,
 			LightIntervalMin = 0.06,
 			LightIntervalMax = 0.24,
+		},
+		HallwayBlocker = {
+			TriggerChance = 0.2,
+			DangerWeight = 0.35,
+			GazeCone = 100,
+			GazeDistance = 300,
+			MinDuration = 45,
+			MaxDuration = 90,
+			BlockerHeight = 24,
+			BlockerThickness = 1.5,
+			BlockerTransparency = 0.18,
+			BlockerColor = Color3.fromRGB(18, 23, 28),
+			BlockerMaterial = Enum.Material.Glass,
 		},
 		ChaosWarning = {
 			--- Chaos pre-arrival warning (doors + lantern sway); never rolls ambiently on its own.

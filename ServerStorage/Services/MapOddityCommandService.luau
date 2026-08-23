@@ -20,6 +20,10 @@ local EFFECTS = {
 	hallwaychaos = "HallwayChaos",
 	hallwayflicker = "HallwayChaos",
 	insanity = "HallwayChaos",
+	block = "HallwayBlocker",
+	blocker = "HallwayBlocker",
+	hallwayblock = "HallwayBlocker",
+	hallwayblocker = "HallwayBlocker",
 }
 
 local function run(player: Player, argument: string?)
@@ -35,7 +39,7 @@ local function run(player: Player, argument: string?)
 
 	local effect = if command == nil or command == "" then "Transparency" else EFFECTS[command]
 	if not effect then
-		warn("[map oddity] use /mapoddity, /mapoddity doors, /mapoddity chaos, or /mapoddity clear")
+		warn("[map oddity] use /mapoddity, /mapoddity doors, /mapoddity chaos, /mapoddity blocker, or /mapoddity clear")
 		return
 	end
 

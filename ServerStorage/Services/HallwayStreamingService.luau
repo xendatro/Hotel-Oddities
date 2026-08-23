@@ -430,6 +430,23 @@ local function distanceToSegment(position: Vector3, segment: Segment): number
 	return across + segmentOutside + vertical * 0.5
 end
 
+local function nearestSegmentInGroup(position: Vector3, group: Group): Segment?
+	local segments = group.Segments
+	if #segments == 0 then return nil end
+
+	local along = (position - group.Span.Start):Dot(group.Span.Axis)
+	local first, last = 1, #segments
+	while first < last do
+		local middle = math.floor((first + last) / 2)
+		if segments[middle].EndAlong >= along then
+			last = middle
+		else
+			first = middle + 1
+		end
+	end
+	return segments[first]
+end
+
 local function nearestSegment(
 	position: Vector3,
 	preferredDirection: Vector3?,
@@ -446,7 +463,9 @@ local function nearestSegment(
 	end
 	local selectionSlack = if direction or preferredGroupId then Config.CorridorSelectionSlack else 1e-3
 
-	for _, segment in Segments do
+	for _, group in Groups do
+		local segment = nearestSegmentInGroup(position, group)
+		if not segment then continue end
 		local distance = distanceToSegment(position, segment)
 		local alignment = if direction then math.abs(segment.Span.Axis:Dot(direction)) else 0
 		local closer = distance < best - selectionSlack
@@ -467,7 +486,9 @@ end
 local function chooseOwningSegment(position: Vector3, extents: Vector3): Segment?
 	local nearest: Segment? = nil
 	local best = math.huge
-	for _, segment in Segments do
+	for _, group in Groups do
+		local segment = nearestSegmentInGroup(position, group)
+		if not segment then continue end
 		local across = segment.Span.Across
 		local halfAcross = (math.abs(across.X) * extents.X + math.abs(across.Z) * extents.Z) / 2
 		if halfAcross > ASSET_CROSS_LIMIT then continue end
@@ -734,8 +755,19 @@ end
 
 local function applyDesired(player: Player, state: PlayerState, desired: { [Model]: boolean })
 	local changed = desiredChanged(state.Desired, desired)
-	state.Desired = table.clone(desired)
 	local now = os.clock()
+	if changed then
+		state.Desired = table.clone(desired)
+	else
+		local retryDue = false
+		for _, retryAt in state.RetryAt do
+			if retryAt <= now then
+				retryDue = true
+				break
+			end
+		end
+		if not retryDue then return end
+	end
 
 	for model in state.Persistent do
 		if desired[model] then

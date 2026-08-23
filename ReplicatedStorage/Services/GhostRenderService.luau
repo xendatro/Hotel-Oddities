@@ -242,12 +242,18 @@ local function track(model: Model): Render
 
 	task.spawn(function()
 		local visual = createVisual(model)
-		if Ghosts[model] ~= render then return end
+		if Ghosts[model] ~= render then
+			visual:Destroy()
+			return
+		end
 
 		local rootPart = visual:WaitForChild("HumanoidRootPart") :: BasePart
 		local head = visual:WaitForChild("Head") :: BasePart
 		local neck = head:WaitForChild("Neck") :: Neck
-		if Ghosts[model] ~= render then return end
+		if Ghosts[model] ~= render then
+			visual:Destroy()
+			return
+		end
 
 		render.VisualModel = visual
 		render.VisualRootPart = rootPart

@@ -21,6 +21,11 @@ local COLORS = StatsHUDConfig.Colors
 local localPlayer = Players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui")
 
+local DebugSnapshot = ReplicatedStorage
+	:WaitForChild("Communication")
+	:WaitForChild("Enemies")
+	:WaitForChild("DebugSnapshot") :: RemoteEvent
+
 local function band(value: number, good: number, fair: number, higherIsBetter: boolean): Color3
 	if higherIsBetter then
 		if value >= good then return COLORS.Good end
@@ -79,7 +84,8 @@ local panel = Instance.new("Frame")
 panel.Name = "Stats"
 panel.AnchorPoint = Vector2.new(0, 1)
 panel.Position = UDim2.new(0, StatsHUDConfig.EdgeMargin, 1, -StatsHUDConfig.EdgeMargin)
-panel.Size = UDim2.fromOffset(StatsHUDConfig.PanelWidth, StatsHUDConfig.RowHeight * 3)
+panel.Size = UDim2.fromOffset(StatsHUDConfig.PanelWidth, 0)
+panel.AutomaticSize = Enum.AutomaticSize.Y
 panel.BackgroundColor3 = COLORS.Background
 panel.BackgroundTransparency = StatsHUDConfig.BackgroundTransparency
 panel.BorderSizePixel = 0
@@ -97,6 +103,111 @@ layout.Parent = panel
 local fpsRow = buildRow(panel, 1, "FPS")
 local pingRow = buildRow(panel, 2, "PING")
 local dangerRow = buildRow(panel, 3, "DANGER")
+
+local EnemyConfig = StatsHUDConfig.Enemies
+
+local enemySection = Instance.new("Frame")
+enemySection.Name = "Enemies"
+enemySection.LayoutOrder = 4
+enemySection.Size = UDim2.new(1, 0, 0, 0)
+enemySection.AutomaticSize = Enum.AutomaticSize.Y
+enemySection.BackgroundTransparency = 1
+enemySection.Parent = panel
+
+local enemyLayout = Instance.new("UIListLayout")
+enemyLayout.SortOrder = Enum.SortOrder.LayoutOrder
+enemyLayout.Parent = enemySection
+
+local enemyHeading = Instance.new("TextLabel")
+enemyHeading.Name = "Heading"
+enemyHeading.LayoutOrder = -1
+enemyHeading.Size = UDim2.new(1, 0, 0, StatsHUDConfig.RowHeight)
+enemyHeading.BackgroundTransparency = 1
+enemyHeading.Font = Enum.Font.Code
+enemyHeading.TextSize = StatsHUDConfig.TextSize
+enemyHeading.TextColor3 = EnemyConfig.HeadingColor
+enemyHeading.TextXAlignment = Enum.TextXAlignment.Left
+enemyHeading.Text = "ENEMIES 0"
+enemyHeading.Parent = enemySection
+
+local enemyRows: { TextLabel } = {}
+
+local function getEnemyRow(index: number): TextLabel
+	local existing = enemyRows[index]
+	if existing then return existing end
+
+	local label = Instance.new("TextLabel")
+	label.Name = `Enemy{index}`
+	label.LayoutOrder = index
+	label.Size = UDim2.new(1, 0, 0, EnemyConfig.RowHeight)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.Code
+	label.TextSize = EnemyConfig.TextSize
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.TextTruncate = Enum.TextTruncate.AtEnd
+	label.Parent = enemySection
+
+	enemyRows[index] = label
+	return label
+end
+
+local function stateColor(state: string?): Color3
+	if state and EnemyConfig.Hunting[state] then return COLORS.Bad end
+	if state and EnemyConfig.Watching[state] then return COLORS.Fair end
+	return EnemyConfig.IdleColor
+end
+
+--- The server owns this list. Counting tagged models on the client would miss
+--- everything streaming has not sent us and would count a Sisters pair twice.
+local Snapshot: { { Id: string, State: string, Position: Vector3 } } = {}
+
+DebugSnapshot.OnClientEvent:Connect(function(entries: any)
+	if type(entries) == "table" then Snapshot = entries end
+end)
+
+local function collectEnemies(): { { Id: string, State: string, Distance: number } }
+	local character = localPlayer.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+
+	local entries = {}
+	for _, entry in Snapshot do
+		table.insert(entries, {
+			Id = entry.Id,
+			State = entry.State,
+			Distance = if root then (entry.Position - root.Position).Magnitude else math.huge,
+		})
+	end
+
+	table.sort(entries, function(a, b)
+		if a.Id ~= b.Id then return a.Id < b.Id end
+		return a.Distance < b.Distance
+	end)
+	return entries
+end
+
+local function refreshEnemies()
+	local entries = collectEnemies()
+	enemyHeading.Text = `ENEMIES {#entries}`
+
+	for index, entry in entries do
+		local row = getEnemyRow(index)
+		local distance = if entry.Distance < math.huge then tostring(math.floor(entry.Distance)) else "?"
+		row.Text = `{entry.Id} {entry.State} {distance}`
+		row.TextColor3 = stateColor(entry.State)
+		row.Visible = true
+	end
+
+	for index = #entries + 1, #enemyRows do
+		enemyRows[index].Visible = false
+	end
+end
+
+task.spawn(function()
+	while screenGui.Parent do
+		refreshEnemies()
+		task.wait(EnemyConfig.Interval)
+	end
+end)
 
 local frames, elapsed = 0, 0
 

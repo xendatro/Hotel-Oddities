@@ -75,6 +75,16 @@ end
 
 function Ghost:Start()
 	self.Humanoid.EvaluateStateMachine = false
+
+	-- It is driven entirely by assigning RootPart.CFrame, which overwrites
+	-- position but never velocity, so left unanchored it banks gravity the whole
+	-- time it is alive and launches the moment a leg ends.
+	for _, descendant in self.Model:GetDescendants() do
+		if descendant:IsA("BasePart") then
+			descendant.Anchored = true
+		end
+	end
+
 	self.Model:AddTag(GHOST_TAG)
 	NPC.Start(self)
 end

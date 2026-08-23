@@ -1,8 +1,10 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
 
 local Config = require(ReplicatedStorage.Configs.MapOddityConfig)
 local Hallways = require(ReplicatedStorage.Modules.Hallways)
+local DangerMapService = require(ServerStorage.Services.DangerMapService)
 
 local HallwayRegion = {}
 
@@ -98,6 +100,66 @@ function HallwayRegion.RandomDistant(): Span?
 
 	local choices = if #distant > 0 then distant else spans
 	return choices[math.random(1, #choices)]
+end
+
+local function weightedChoice(spans: { Span }, dangerWeight: number): Span?
+	if #spans == 0 then return nil end
+
+	local total = 0
+	local weights = table.create(#spans)
+	for index, span in spans do
+		local danger = math.clamp(DangerMapService:GetDanger(span.Center), 0, 1)
+		local weight = 1 + danger * math.max(dangerWeight, 0)
+		weights[index] = weight
+		total += weight
+	end
+
+	local roll = math.random() * total
+	for index, weight in weights do
+		roll -= weight
+		if roll <= 0 then return spans[index] end
+	end
+	return spans[#spans]
+end
+
+function HallwayRegion.RandomDistantWeighted(
+	dangerWeight: number,
+	accept: ((Span) -> boolean)?
+): Span?
+	local distant = {}
+	local choices = {}
+
+	for _, span in Hallways.StraightSpans() do
+		if accept and not accept(span) then continue end
+		table.insert(choices, span)
+
+		local farEnough = true
+		for _, player in Players:GetPlayers() do
+			local root = livingRoot(player)
+			if root and (root.Position - span.Center).Magnitude < Config.MinimumPlayerDistance then
+				farEnough = false
+				break
+			end
+		end
+		if farEnough then table.insert(distant, span) end
+	end
+
+	return weightedChoice(if #distant > 0 then distant else choices, dangerWeight)
+end
+
+function HallwayRegion.RandomBiased(occupiedChance: number): Span?
+	local spans = Hallways.StraightSpans()
+	if #spans == 0 then return nil end
+
+	if math.random() <= occupiedChance then
+		local occupied = {}
+		for _, span in spans do
+			if HallwayRegion.HasPlayer(span) then table.insert(occupied, span) end
+		end
+		if #occupied > 0 then return occupied[math.random(1, #occupied)] end
+	end
+
+	return spans[math.random(1, #spans)]
 end
 
 function HallwayRegion.RandomOccupied(): Span?

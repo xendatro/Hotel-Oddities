@@ -34,6 +34,14 @@ type State = {
 
 local localPlayer = Players.LocalPlayer
 local States: { [Model]: State } = {}
+local FrozenModels: { Model } = {}
+local FrozenIndices: { [Model]: number } = {}
+
+local function addFrozen(instance: Instance)
+	if not instance:IsA("Model") or FrozenIndices[instance] then return end
+	table.insert(FrozenModels, instance)
+	FrozenIndices[instance] = #FrozenModels
+end
 
 local function trackList(model: Model): { AnimationTrack }
 	local humanoid = model:FindFirstChildOfClass("Humanoid")
@@ -75,6 +83,25 @@ local function forget(model: Model)
 	reconcile(state)
 	States[model] = nil
 	EnemyObservationService:SetSeen(model, nil)
+end
+
+local function removeFrozen(instance: Instance)
+	if not instance:IsA("Model") then return end
+	local index = FrozenIndices[instance]
+	if not index then return end
+
+	local last = FrozenModels[#FrozenModels]
+	FrozenModels[index] = last
+	FrozenModels[#FrozenModels] = nil
+	FrozenIndices[instance] = nil
+	if last ~= instance then FrozenIndices[last] = index end
+	forget(instance)
+end
+
+CollectionService:GetInstanceAddedSignal(ObservedFreezeConfig.Tag):Connect(addFrozen)
+CollectionService:GetInstanceRemovedSignal(ObservedFreezeConfig.Tag):Connect(removeFrozen)
+for _, instance in CollectionService:GetTagged(ObservedFreezeConfig.Tag) do
+	addFrozen(instance)
 end
 
 local function stateFor(model: Model): State?
@@ -223,18 +250,16 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 	local camera = workspace.CurrentCamera
 	local frustum = camera and Sightline.Frustum(camera)
 
-	local live: { [Model]: boolean } = {}
 	if character and camera and frustum then
-		for _, model in CollectionService:GetTagged(ObservedFreezeConfig.Tag) do
-			if model:IsA("Model") and model:IsDescendantOf(workspace) then
-				live[model] = true
+		for _, model in FrozenModels do
+			if model:IsDescendantOf(workspace) then
 				step(model, camera, frustum, character, deltaTime)
+			else
+				forget(model)
 			end
 		end
-	end
-
-	for model in States do
-		if not live[model] then
+	else
+		for model in States do
 			forget(model)
 		end
 	end

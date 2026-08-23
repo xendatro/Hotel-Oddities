@@ -39,6 +39,7 @@ export type StateMachine = typeof(setmetatable(
 		Evaluators: { [string]: EvaluatorFunction },
 		EvaluatorThreads: { [string]: Vow },
 		MachineState: MachineState,
+		OnStateChanged: ((string) -> ())?,
 	},
 	StateMachine
 	))
@@ -75,6 +76,13 @@ function StateMachine:_runEvaluator(evaluatorId: string, vow: Vow)
 			task.wait(RECOVERY_DELAY)
 		end
 	end)
+end
+
+function StateMachine:_setState(stateId: string)
+	self.State = stateId
+	if self.OnStateChanged then
+		self.OnStateChanged(stateId)
+	end
 end
 
 function StateMachine:SetStartState(stateId: string, ...: any)
@@ -136,14 +144,14 @@ function StateMachine:Start()
 				local resolved = result :: Packed
 				self.Parameters = resolved
 				if resolved[1] ~= nil then
-					self.State = resolved[1]
+					self:_setState(resolved[1])
 				end
 			else
 				warn(`StateMachine: state "{tostring(stateId)}" failed, recovering to "{self.RecoveryParameters[1]}" -- {result}`)
 				task.wait(RECOVERY_DELAY)
 				if self.MachineState ~= "Active" then break end
 				self.Parameters = self.RecoveryParameters
-				self.State = self.RecoveryParameters[1]
+				self:_setState(self.RecoveryParameters[1])
 			end
 		end
 	end)

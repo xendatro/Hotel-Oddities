@@ -166,7 +166,7 @@ end
 function InventorySlot:SetTool(toolName: string, quantity: number, icon: string?)
 	local changed = self.ToolName ~= toolName
 	self.ToolName = toolName
-	self.Frame.Visible = true
+	self.Frame.BackgroundTransparency = TRANSPARENCY.Slot
 
 	if changed then
 		renderTool(self.Icon, toolName)
@@ -177,7 +177,7 @@ end
 
 function InventorySlot:SetEmpty()
 	self.ToolName = nil
-	self.Frame.Visible = false
+	self.Frame.BackgroundTransparency = TRANSPARENCY.SlotEmpty
 
 	clearViewport(self.Icon)
 	self.Label.Text = ""
@@ -189,12 +189,16 @@ function InventorySlot:IsEmpty(): boolean
 	return self.ToolName == nil
 end
 
+local function idleColor(slot): Color3
+	return if slot.ToolName then COLORS.Slot else COLORS.SlotEmpty
+end
+
 function InventorySlot:SetEquipped(equipped: boolean)
-	self.Frame.BackgroundColor3 = equipped and COLORS.SlotEquipped or COLORS.Slot
+	self.Frame.BackgroundColor3 = equipped and COLORS.SlotEquipped or idleColor(self)
 end
 
 function InventorySlot:SetDropTarget(active: boolean)
-	self.Frame.BackgroundColor3 = active and COLORS.SlotDropTarget or COLORS.Slot
+	self.Frame.BackgroundColor3 = active and COLORS.SlotDropTarget or idleColor(self)
 end
 
 function InventorySlot:Destroy()

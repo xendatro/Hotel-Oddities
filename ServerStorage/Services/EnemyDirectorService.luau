@@ -1,9 +1,8 @@
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
-
-local CollectionService = game:GetService("CollectionService")
 
 local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
@@ -13,27 +12,28 @@ local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local EnemyService = require(ServerStorage.Services.EnemyService)
 local GhostAreaService = require(ServerStorage.Services.GhostAreaService)
+local HallwayGraphService = require(ServerStorage.Services.HallwayGraphService)
 local SistersService = require(ServerStorage.Services.SistersService)
 local StalkerService = require(ServerStorage.Services.StalkerService)
 
 local ENEMY_TAG = "Enemy"
 local SPAWN_ROOT_HEIGHT = 3
 local SIGHT_EYE_HEIGHT = 4
-local RESERVATION_TIMEOUT = 20
+local CHAOS_PENDING_TIMEOUT = 20
+
+type ResidentSpec = {
+	Count: number,
+	Lifetime: number?,
+	Respawn: number?,
+	Placement: string?,
+}
 
 type Managed = {
 	Enemy: any,
 	EnemyId: string,
 	Config: EnemyConfigs.EnemyConfig,
-	FarSince: number?,
 	SelfManaged: boolean?,
-}
-
-type Reservation = {
-	EnemyId: string,
-	Config: EnemyConfigs.EnemyConfig,
-	ExpiresAt: number,
-	Filled: boolean,
+	ExpiresAt: number?,
 }
 
 local EnemyDirectorService = {}
@@ -46,6 +46,10 @@ function EnemyDirectorService:Adopt(_enemy: any, _enemyId: string, _selfManaged:
 
 function EnemyDirectorService:Reset() end
 
+function EnemyDirectorService:GetPopulation()
+	return { Residents = {}, Enemies = {} }
+end
+
 if not (FLAGS.Enemies and FLAGS.Director) then
 	return EnemyDirectorService
 end
@@ -53,27 +57,22 @@ end
 local Config = DangerConfig.Director
 
 local Population: { Managed } = {}
-local Reservations: { Reservation } = {}
-local NextPursuitSpawn: { [Player]: number } = {}
-local NextPresenceSpawn: { [Player]: number } = {}
+local NextResidentSpawn: { [string]: number } = {}
 local NextGhostSpawn = 0
+local NextChaosSpawn = 0
+local NextStalkerSpawn: { [Player]: number } = {}
+local ChaosPendingUntil = 0
 
 local TickAccumulator = 0
 local DespawnAccumulator = 0
 
-local Roster: { [string]: { string } } = { Pursuit = {}, Presence = {} }
-for enemyId, config in EnemyConfigs do
-	if config.SpawnWeight and config.SpawnWeight > 0 and config.Budget then
-		local budget = Roster[config.Budget]
-		if budget then
-			table.insert(budget, enemyId)
-		else
-			warn(`[director] {enemyId} names an unknown budget "{config.Budget}"; it will never spawn`)
-		end
+local Residents: { [string]: ResidentSpec } = Config.Residents or {}
+for enemyId, spec in Residents do
+	if not EnemyConfigs[enemyId] then
+		warn(`[director] residents name an unknown enemy "{enemyId}"; it will never spawn`)
+	elseif type(spec) ~= "table" or type(spec.Count) ~= "number" then
+		warn(`[director] resident "{enemyId}" has no numeric Count; it will never spawn`)
 	end
-end
-for _, ids in Roster do
-	table.sort(ids)
 end
 
 local function horizontal(vector: Vector3): Vector3
@@ -110,44 +109,19 @@ local function isEnemyAlive(entry: Managed): boolean
 end
 
 local function prunePopulation()
+	local now = os.clock()
+
 	for index = #Population, 1, -1 do
-		if not isEnemyAlive(Population[index]) then
+		local entry = Population[index]
+		if not isEnemyAlive(entry) then
+			local spec = Residents[entry.EnemyId]
+			if spec then
+				NextResidentSpawn[entry.EnemyId] = now
+					+ (spec.Respawn or Config.ResidentRespawnDelay or 0)
+			end
 			table.remove(Population, index)
 		end
 	end
-
-	local now = os.clock()
-	for index = #Reservations, 1, -1 do
-		local reservation = Reservations[index]
-		if reservation.Filled or now >= reservation.ExpiresAt then
-			table.remove(Reservations, index)
-		end
-	end
-end
-
-local function budgetCeiling(budget: string): number
-	local playerCount = #getLivingPlayers()
-	if playerCount == 0 then return 0 end
-
-	if budget == "Pursuit" then
-		return math.min(Config.PursuitPerPlayer * playerCount, Config.PursuitCap)
-	end
-	return math.min(Config.PresencePerPlayer * playerCount, Config.PresenceCap)
-end
-
-local function budgetSpent(budget: string): number
-	local total = 0
-	for _, entry in Population do
-		if entry.Config.Budget == budget then
-			total += entry.Config.Cost or 0
-		end
-	end
-	for _, reservation in Reservations do
-		if reservation.Config.Budget == budget then
-			total += reservation.Config.Cost or 0
-		end
-	end
-	return total
 end
 
 local function countAlive(enemyId: string): number
@@ -157,38 +131,7 @@ local function countAlive(enemyId: string): number
 			count += 1
 		end
 	end
-	for _, reservation in Reservations do
-		if reservation.EnemyId == enemyId then
-			count += 1
-		end
-	end
 	return count
-end
-
-local function rollEnemy(budget: string): string?
-	local remaining = budgetCeiling(budget) - budgetSpent(budget)
-	if remaining <= 0 then return nil end
-
-	local eligible = {}
-	local total = 0
-	for _, enemyId in Roster[budget] do
-		local config = EnemyConfigs[enemyId]
-		local cost = config.Cost or 0
-		local cap = config.MaxAlive or math.huge
-		if cost <= remaining and countAlive(enemyId) < cap then
-			total += config.SpawnWeight :: number
-			table.insert(eligible, { EnemyId = enemyId, Ceiling = total })
-		end
-	end
-	if total <= 0 then return nil end
-
-	local roll = math.random() * total
-	for _, candidate in eligible do
-		if roll <= candidate.Ceiling then
-			return candidate.EnemyId
-		end
-	end
-	return eligible[#eligible].EnemyId
 end
 
 local function minimumSpawnDistance(config: EnemyConfigs.EnemyConfig): number
@@ -230,38 +173,183 @@ local function isVisibleToAnybody(position: Vector3, filter: { Instance }): bool
 	return false
 end
 
+local function playerPositions(living: { Player }): { Vector3 }
+	local positions = {}
+	for _, player in living do
+		local root = getAliveRoot(player)
+		if root then
+			table.insert(positions, root.Position)
+		end
+	end
+	return positions
+end
+
+local function enemyPositions(): { Vector3 }
+	local positions = {}
+	for _, model in CollectionService:GetTagged(ENEMY_TAG) do
+		if model:IsA("Model") and model.Parent then
+			table.insert(positions, model:GetPivot().Position)
+		end
+	end
+	return positions
+end
+
+local function nearestDistance(position: Vector3, points: { Vector3 }): number
+	local nearest = math.huge
+	for _, point in points do
+		nearest = math.min(nearest, (position - point).Magnitude)
+	end
+	return nearest
+end
+
+local function scorePoint(
+	position: Vector3,
+	danger: number,
+	bias: number,
+	minimum: number,
+	players: { Vector3 },
+	enemies: { Vector3 }
+): number
+	local weights = Config.Placement
+
+	local toPlayer = nearestDistance(position, players)
+	local proximity = 1
+		- math.clamp((toPlayer - minimum) / math.max(weights.PlayerFalloff, 1), 0, 1)
+
+	local toEnemy = nearestDistance(position, enemies)
+	local spacing = math.clamp(toEnemy / math.max(weights.EnemySpacing, 1), 0, 1)
+
+	return weights.DangerWeight * math.clamp(danger, 0, 1) ^ math.max(bias, 0.01)
+		+ weights.PlayerProximityWeight * proximity
+		+ weights.EnemySpacingWeight * spacing
+end
+
+local function spawnAt(enemyId: string, position: Vector3, facing: Vector3): any?
+	local origin = position + Vector3.yAxis * SPAWN_ROOT_HEIGHT
+	local look = if facing.Magnitude > 1e-3 then facing.Unit else Vector3.zAxis
+	return EnemyService:Spawn(enemyId, CFrame.lookAt(origin, origin + look))
+end
+
 local function placeOnFloor(enemyId: string, config: EnemyConfigs.EnemyConfig, anchor: Player): any?
+	local living = getLivingPlayers()
+	local players = playerPositions(living)
+	if #players == 0 then return nil end
+
+	local points = DangerMapService:GetPoints()
+	if #points == 0 then return nil end
+
+	local minimum = minimumSpawnDistance(config)
+	local bias = config.DangerBias or 1
+	local enemies = enemyPositions()
+	local filter = buildSightFilter()
+
+	local best, bestScore = nil, -math.huge
+	for _ = 1, Config.PlacementAttempts do
+		local candidate = points[math.random(#points)]
+		local toPlayer = nearestDistance(candidate.Position, players)
+		if toPlayer < minimum or toPlayer > Config.MaxSpawnDistance then continue end
+
+		local score =
+			scorePoint(candidate.Position, candidate.Danger, bias, minimum, players, enemies)
+		if score <= bestScore then continue end
+		if isVisibleToAnybody(candidate.Position, filter) then continue end
+
+		best, bestScore = candidate, score
+	end
+
+	if not best then return nil end
+
+	local anchorRoot = getAliveRoot(anchor)
+	local reference = if anchorRoot then anchorRoot.Position else players[1]
+	return spawnAt(enemyId, best.Position, horizontal(best.Position - reference))
+end
+
+--- Walks the hallway graph out from the player, so "far enough away" is measured
+--- in corridors rather than straight through the walls, and hands back every
+--- node inside the band along with the neighbour that leads back to the player.
+local function hallwayCandidates(from: Vector3): ({ any }, { [any]: any })
+	local start = HallwayGraphService:FindNearestNode(from)
+	if not start then return {}, {} end
+
+	local distances = { [start] = 0 }
+	local previous = {}
+	local queue = { start }
+	local index = 1
+
+	local found = {}
+	local seen = {}
+
+	while index <= #queue do
+		local node = queue[index]
+		index += 1
+
+		local travelled = distances[node]
+		if travelled > Config.HallwayMaxWalk then continue end
+
+		if travelled >= Config.HallwayMinWalk and not seen[node] then
+			seen[node] = true
+			table.insert(found, node)
+		end
+
+		for neighbor in node.Neighbors do
+			local step = travelled + (neighbor.Position - node.Position).Magnitude
+			if step < (distances[neighbor] or math.huge) then
+				distances[neighbor] = step
+				previous[neighbor] = node
+				table.insert(queue, neighbor)
+			end
+		end
+	end
+
+	return found, previous
+end
+
+local function placeInHallway(enemyId: string, config: EnemyConfigs.EnemyConfig, anchor: Player): any?
 	local anchorRoot = getAliveRoot(anchor)
 	if not anchorRoot then return nil end
 
-	local minimum = minimumSpawnDistance(config)
+	local candidates, previous = hallwayCandidates(anchorRoot.Position)
+	if #candidates == 0 then return nil end
+
 	local living = getLivingPlayers()
+	local players = playerPositions(living)
+	local enemies = enemyPositions()
 	local filter = buildSightFilter()
 
-	local point = DangerMapService:PickPoint(config.DangerBias or 1, function(candidate)
-		local toAnchor = (candidate.Position - anchorRoot.Position).Magnitude
-		if toAnchor < minimum or toAnchor > Config.MaxSpawnDistance then return false end
+	local minimum = minimumSpawnDistance(config)
+	local bias = config.DangerBias or 1
 
-		for _, player in living do
-			local root = getAliveRoot(player)
-			if root and (candidate.Position - root.Position).Magnitude < minimum then
-				return false
-			end
-		end
+	local best, bestScore = nil, -math.huge
+	for _, node in candidates do
+		if nearestDistance(node.Position, players) < minimum then continue end
 
-		return not isVisibleToAnybody(candidate.Position, filter)
-	end, Config.PlacementAttempts)
+		local danger = DangerMapService:GetDanger(node.Position)
+		local score = scorePoint(node.Position, danger, bias, minimum, players, enemies)
+		if score <= bestScore then continue end
+		if isVisibleToAnybody(node.Position, filter) then continue end
 
-	if not point then return nil end
+		best, bestScore = node, score
+	end
 
-	local origin = point.Position + Vector3.yAxis * SPAWN_ROOT_HEIGHT
-	local away = horizontal(point.Position - anchorRoot.Position)
-	local facing = if away.Magnitude > 1e-3 then away.Unit else anchorRoot.CFrame.LookVector
+	if not best then return nil end
 
-	return EnemyService:Spawn(enemyId, CFrame.lookAt(origin, origin + facing))
+	-- Face back up the corridor the player would come down, so turning the
+	-- corner puts them nose to nose with it.
+	local back = previous[best]
+	local facing = if back
+		then horizontal(back.Position - best.Position)
+		else horizontal(anchorRoot.Position - best.Position)
+
+	return spawnAt(enemyId, best.Position, facing)
 end
 
-local function register(enemy: any, enemyId: string, config: EnemyConfigs.EnemyConfig, selfManaged: boolean?)
+local function register(
+	enemy: any,
+	enemyId: string,
+	config: EnemyConfigs.EnemyConfig,
+	selfManaged: boolean?,
+	spec: ResidentSpec?
+)
 	if not enemy then return end
 
 	if config.SpawnGrace then
@@ -272,106 +360,111 @@ local function register(enemy: any, enemyId: string, config: EnemyConfigs.EnemyC
 		Enemy = enemy,
 		EnemyId = enemyId,
 		Config = config,
-		FarSince = nil,
 		SelfManaged = selfManaged,
+		ExpiresAt = if spec and spec.Lifetime then os.clock() + spec.Lifetime else nil,
 	})
-end
-
-function EnemyDirectorService:CanAfford(enemyId: string): boolean
-	local config = EnemyConfigs[enemyId]
-	if not config or not config.Budget then return true end
-
-	prunePopulation()
-	if countAlive(enemyId) >= (config.MaxAlive or math.huge) then return false end
-	return (config.Cost or 0) <= budgetCeiling(config.Budget) - budgetSpent(config.Budget)
-end
-
-function EnemyDirectorService:Adopt(enemy: any, enemyId: string, selfManaged: boolean?)
-	register(enemy, enemyId, EnemyConfigs[enemyId], selfManaged)
-end
-
-local function spawnFor(enemyId: string, anchor: Player): boolean
-	local config = EnemyConfigs[enemyId]
-
-	if enemyId == "Chaos" then
-		local reservation: Reservation = {
-			EnemyId = enemyId,
-			Config = config,
-			ExpiresAt = os.clock() + (config.SpawnDelay or 0) + RESERVATION_TIMEOUT,
-			Filled = false,
-		}
-		table.insert(Reservations, reservation)
-
-		local scheduled = ChaosService:Spawn(function(chaos: any)
-			reservation.Filled = true
-			register(chaos, enemyId, config)
-		end)
-		if not scheduled then
-			reservation.Filled = true
-		end
-		return scheduled
-	end
-
-	if enemyId == "Sisters" then
-		local sisters = SistersService:Spawn()
-		register(sisters, enemyId, config)
-		return sisters ~= nil
-	end
-
-	if config.SpawnPeeking then
-		local peeker = StalkerService:SpawnPeeking(anchor, enemyId)
-		register(peeker, enemyId, config)
-		return peeker ~= nil
-	end
-
-	local enemy = placeOnFloor(enemyId, config, anchor)
-	register(enemy, enemyId, config)
-	return enemy ~= nil
 end
 
 local function spawnGhost(now: number)
 	local config = EnemyConfigs.Ghost
 	if now < NextGhostSpawn or countAlive("Ghost") >= (config.MaxAlive or 1) then return end
 	NextGhostSpawn = now + (config.SpawnInterval or 20)
+
 	local point = GhostAreaService:GetRandomPoint()
 	if not point then return end
+
 	local enemy = EnemyService:Spawn("Ghost", CFrame.lookAt(point, point + Vector3.zAxis))
 	register(enemy, "Ghost", config, true)
+end
+
+local function tickChaos(now: number)
+	if now < NextChaosSpawn or now < ChaosPendingUntil then return end
+	if #getLivingPlayers() == 0 then return end
+
+	local config = EnemyConfigs.Chaos
+	if countAlive("Chaos") >= (config.MaxAlive or 1) then return end
+
+	NextChaosSpawn = now + Config.ChaosInterval
+	ChaosPendingUntil = now + (config.SpawnDelay or 0) + CHAOS_PENDING_TIMEOUT
+
+	local scheduled = ChaosService:Spawn(function(chaos: any)
+		ChaosPendingUntil = 0
+		register(chaos, "Chaos", config)
+	end)
+
+	if not scheduled then
+		ChaosPendingUntil = 0
+		NextChaosSpawn = now + Config.TickInterval
+	end
 end
 
 local function intervalFor(danger: number, quiet: number, busy: number, floor: number): number
 	return math.max(floor, quiet + (busy - quiet) * math.clamp(danger, 0, 1))
 end
 
-local function tickPlayer(player: Player, now: number)
+--- One timer per player on its own danger-scaled clock, taking its old share of
+--- the roll each firing, exactly as it behaved inside the pool: if the roll
+--- misses, or there is no room, or no corner to lean from, that turn is simply
+--- lost. It retreats on its own, and the lifetime is only there to clear one
+--- that has got stuck.
+local function tickStalker(player: Player, now: number)
 	local root = getAliveRoot(player)
 	if not root then return end
+	if now < (NextStalkerSpawn[player] or 0) then return end
 
-	local danger = DangerMapService:GetDanger(root.Position)
+	NextStalkerSpawn[player] = now + intervalFor(
+		DangerMapService:GetDanger(root.Position),
+		Config.StalkerQuietInterval,
+		Config.StalkerBusyInterval,
+		Config.StalkerFloorInterval
+	)
 
-	if now >= (NextPursuitSpawn[player] or 0) then
-		NextPursuitSpawn[player] = now + intervalFor(
-			danger,
-			Config.PursuitQuietInterval,
-			Config.PursuitBusyInterval,
-			Config.PursuitFloorInterval
-		)
-		local enemyId = rollEnemy("Pursuit")
-		if enemyId then
-			spawnFor(enemyId, player)
-		end
+	if math.random() > Config.StalkerChance then return end
+
+	local config = EnemyConfigs.Stalker
+	if countAlive("Stalker") >= (config.MaxAlive or 1) then return end
+
+	register(StalkerService:SpawnPeeking(player, "Stalker"), "Stalker", config, nil, {
+		Count = 1,
+		Lifetime = Config.StalkerLifetime,
+	})
+end
+
+local function spawnResident(enemyId: string, spec: ResidentSpec, anchor: Player): any?
+	local config = EnemyConfigs[enemyId]
+
+	if enemyId == "Sisters" then
+		return SistersService:Spawn()
 	end
 
-	if now >= (NextPresenceSpawn[player] or 0) then
-		NextPresenceSpawn[player] = now + intervalFor(
-			danger,
-			Config.PresenceQuietInterval,
-			Config.PresenceBusyInterval,
-			Config.PresenceFloorInterval
-		)
-		local enemyId = rollEnemy("Presence")
-		if enemyId then
-			spawnFor(enemyId, player)
+	if spec.Placement == "Peek" or config.SpawnPeeking then
+		return StalkerService:SpawnPeeking(anchor, enemyId)
+	end
+
+	if spec.Placement == "Hallway" then
+		return placeInHallway(enemyId, config, anchor)
+	end
+
+	return placeOnFloor(enemyId, config, anchor)
+end
+
+local function topUpResidents(now: number)
+	local living = getLivingPlayers()
+	if #living == 0 then return end
+
+	for enemyId, spec in Residents do
+		local config = EnemyConfigs[enemyId]
+		if not config or type(spec) ~= "table" or type(spec.Count) ~= "number" then continue end
+		if countAlive(enemyId) >= spec.Count then continue end
+		if now < (NextResidentSpawn[enemyId] or 0) then continue end
+
+		local anchor = living[math.random(#living)]
+		local enemy = spawnResident(enemyId, spec, anchor)
+		if enemy then
+			register(enemy, enemyId, config, nil, spec)
+			NextResidentSpawn[enemyId] = nil
+		else
+			NextResidentSpawn[enemyId] = now + Config.TickInterval
 		end
 	end
 end
@@ -392,43 +485,38 @@ local function isEngaged(enemy: any): boolean
 	return machine ~= nil and ENGAGED_STATES[machine.State] == true
 end
 
+--- An expired enemy does not vanish in front of anybody: it waits until nobody
+--- can see it, so staring one down keeps it on the map.
 local function sweepDespawns(now: number)
-	local despawnDistance = DangerMapService:GetExtent() * DangerConfig.DespawnDistanceFraction
-	local living = getLivingPlayers()
 	local filter = buildSightFilter()
 
 	for _, entry in Population do
-		if not isEnemyAlive(entry) or entry.SelfManaged then continue end
+		if entry.SelfManaged or not entry.ExpiresAt then continue end
+		if now < entry.ExpiresAt or not isEnemyAlive(entry) then continue end
 
 		local enemy = entry.Enemy
-		local model = enemy.Model :: Model
-		local position = model:GetPivot().Position
+		if isEngaged(enemy) then continue end
 
-		local nearest = math.huge
-		for _, player in living do
-			local root = getAliveRoot(player)
-			if root then
-				nearest = math.min(nearest, (position - root.Position).Magnitude)
-			end
-		end
+		local position = (enemy.Model :: Model):GetPivot().Position
+		if isVisibleToAnybody(position, filter) then continue end
 
-		local cullable = nearest > despawnDistance
-			and not isEngaged(enemy)
-			and not isVisibleToAnybody(position, filter)
-
-		if not cullable then
-			entry.FarSince = nil
-			continue
-		end
-
-		entry.FarSince = entry.FarSince or now
-		if now - entry.FarSince >= DangerConfig.DespawnGrace then
-			enemy:Despawn()
-		end
+		enemy:Despawn()
 	end
 end
 
-function EnemyDirectorService:GetPopulation(): { Budget: { [string]: number }, Enemies: { string } }
+function EnemyDirectorService:CanAfford(enemyId: string): boolean
+	local config = EnemyConfigs[enemyId]
+	if not config then return true end
+
+	prunePopulation()
+	return countAlive(enemyId) < (config.MaxAlive or math.huge)
+end
+
+function EnemyDirectorService:Adopt(enemy: any, enemyId: string, selfManaged: boolean?)
+	register(enemy, enemyId, EnemyConfigs[enemyId], selfManaged)
+end
+
+function EnemyDirectorService:GetPopulation(): { Residents: { [string]: string }, Enemies: { string } }
 	prunePopulation()
 
 	local names = {}
@@ -437,15 +525,12 @@ function EnemyDirectorService:GetPopulation(): { Budget: { [string]: number }, E
 	end
 	table.sort(names)
 
-	return {
-		Budget = {
-			Pursuit = budgetSpent("Pursuit"),
-			PursuitCeiling = budgetCeiling("Pursuit"),
-			Presence = budgetSpent("Presence"),
-			PresenceCeiling = budgetCeiling("Presence"),
-		},
-		Enemies = names,
-	}
+	local counts = {}
+	for enemyId, spec in Residents do
+		counts[enemyId] = `{countAlive(enemyId)}/{spec.Count}`
+	end
+
+	return { Residents = counts, Enemies = names }
 end
 
 function EnemyDirectorService:Reset()
@@ -455,10 +540,11 @@ function EnemyDirectorService:Reset()
 		end
 	end
 	table.clear(Population)
-	table.clear(Reservations)
-	table.clear(NextPursuitSpawn)
-	table.clear(NextPresenceSpawn)
+	table.clear(NextResidentSpawn)
 	NextGhostSpawn = 0
+	NextChaosSpawn = 0
+	table.clear(NextStalkerSpawn)
+	ChaosPendingUntil = 0
 end
 
 RunService.Heartbeat:Connect(function(deltaTime: number)
@@ -470,8 +556,10 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 	if TickAccumulator >= Config.TickInterval then
 		TickAccumulator = 0
 		prunePopulation()
+		topUpResidents(now)
+		tickChaos(now)
 		for _, player in Players:GetPlayers() do
-			tickPlayer(player, now)
+			tickStalker(player, now)
 		end
 		if #getLivingPlayers() > 0 then spawnGhost(now) end
 	end
@@ -483,8 +571,7 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 end)
 
 Players.PlayerRemoving:Connect(function(player: Player)
-	NextPursuitSpawn[player] = nil
-	NextPresenceSpawn[player] = nil
+	NextStalkerSpawn[player] = nil
 end)
 
 return EnemyDirectorService

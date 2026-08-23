@@ -38,7 +38,7 @@ local DEFAULT_APPROACH_MIN_SPEED = 6
 --- Dot of travel direction against direction to the vent; 0.6 is a ~53 degree cone.
 local DEFAULT_APPROACH_DOT = 0.6
 
---- Ignore the shared Pursuit budget, so an armed vent always fires on contact.
+--- Ignore the shared Guest budget, so an armed vent always fires on contact.
 --- One dweller at a time is still enforced locally.
 local IGNORE_BUDGET = true
 

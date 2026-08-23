@@ -1,5 +1,6 @@
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
+local PhysicsService = game:GetService("PhysicsService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -10,6 +11,10 @@ local ROOM_LABEL = "Room"
 local POLL_INTERVAL = 0.1
 local BLOCKER_FOLDER = "RoomBlockers"
 local ROOM_FOLDER_NAME = "Rooms"
+local ROOM_BLOCKER_COLLISION_GROUP = "RoomBlocker"
+local ENEMY_COLLISION_GROUP = "Enemies"
+local PLAYER_COLLISION_GROUP = "Players"
+local FURNITURE_COLLISION_GROUP = "Furniture"
 local WALL_INSET = 1
 local MAX_INSET_FRACTION = 0.25
 local SAFE_PAD = 0.5
@@ -25,6 +30,22 @@ type Room = {
 
 local PlayerRooms: { [Player]: Model } = {}
 local Accumulator = 0
+
+for _, groupName in {
+	ROOM_BLOCKER_COLLISION_GROUP,
+	ENEMY_COLLISION_GROUP,
+	PLAYER_COLLISION_GROUP,
+	FURNITURE_COLLISION_GROUP,
+} do
+	if not PhysicsService:IsCollisionGroupRegistered(groupName) then
+		PhysicsService:RegisterCollisionGroup(groupName)
+	end
+end
+PhysicsService:CollisionGroupSetCollidable(ROOM_BLOCKER_COLLISION_GROUP, ENEMY_COLLISION_GROUP, true)
+PhysicsService:CollisionGroupSetCollidable(ROOM_BLOCKER_COLLISION_GROUP, "Default", false)
+PhysicsService:CollisionGroupSetCollidable(ROOM_BLOCKER_COLLISION_GROUP, PLAYER_COLLISION_GROUP, false)
+PhysicsService:CollisionGroupSetCollidable(ROOM_BLOCKER_COLLISION_GROUP, FURNITURE_COLLISION_GROUP, false)
+PhysicsService:CollisionGroupSetCollidable(ROOM_BLOCKER_COLLISION_GROUP, ROOM_BLOCKER_COLLISION_GROUP, false)
 
 local Blockers = Instance.new("Folder")
 Blockers.Name = BLOCKER_FOLDER
@@ -79,10 +100,12 @@ TagService:Listen(ROOM_TAG, function(model: Model): Room
 	local blocker = Instance.new("Part")
 	blocker.Name = `{model.Name}Blocker`
 	blocker.Anchored = true
-	blocker.CanCollide = false
-	blocker.CanQuery = false
+	blocker.CanCollide = true
+	blocker.CanQuery = true
 	blocker.CanTouch = false
+	blocker.AudioCanCollide = false
 	blocker.CastShadow = false
+	blocker.CollisionGroup = ROOM_BLOCKER_COLLISION_GROUP
 	blocker.Transparency = 1
 	blocker.Size = boundsSize
 	blocker.CFrame = boundsCFrame

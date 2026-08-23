@@ -19,6 +19,11 @@ local Animations = {
 	Punch2 = 101989469398162,
 	SneakyWalk = 94066930953679,
 	Fly = 124677133774216,
+
+	--- Roblox's stock R15 tool carry. It keys the right arm only, so it layers
+	--- over walking instead of replacing it. Swap for a custom one if the radio
+	--- should be held differently.
+	ToolHold = 507768375,
 }
 
 local Sets: { [string]: AnimationSet } = {

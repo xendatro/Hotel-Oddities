@@ -7,6 +7,8 @@ local Bob = require(ReplicatedStorage.Modules.Bob)
 local EyeConfig = require(ReplicatedStorage.Configs.EyeConfig)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local TagService = require(ReplicatedStorage.Services.TagService)
+local EyeEncounterEffectService = require(ReplicatedStorage.Modules.EyeEncounterEffect)
+local Sightline = require(ReplicatedStorage.Modules.Sightline)
 local Vanished = require(ReplicatedStorage.Modules.Vanished)
 
 local EYE_TAG = "Eye"
@@ -26,6 +28,7 @@ type Render = {
 	Anchor: Vector3,
 	Phase: number,
 	Aimed: boolean,
+	Seen: boolean,
 }
 
 local Eyes: { [Model]: Render } = {}
@@ -35,6 +38,7 @@ TagService:Listen(EYE_TAG, function(model: Instance): Render
 		Anchor = (model :: Model):GetPivot().Position,
 		Phase = Bob.NewPhase(),
 		Aimed = false,
+		Seen = false,
 	}
 	Eyes[model :: Model] = render
 	return render
@@ -48,10 +52,19 @@ RunService:BindToRenderStep(RENDER_BIND_NAME, Enum.RenderPriority.Camera.Value +
 
 	local character = localPlayer.Character
 	local tracking = not Vanished.Is(character)
+	local frustum = Sightline.Frustum(camera)
 
 	local clock = os.clock()
 	local cameraPosition = camera.CFrame.Position
+	local anySeen = false
 	for model, render in Eyes do
+		local seen = tracking
+			and frustum ~= nil
+			and Sightline.CanSee(camera, frustum :: Sightline.Frustum, character, model)
+		seen = seen and not model:GetAttribute(STUNNED_ATTRIBUTE)
+		anySeen = anySeen or seen
+		render.Seen = seen
+
 		local position = render.Anchor
 			+ Bob.Offset(clock, render.Phase, EyeConfig.BobHeight, EyeConfig.BobPeriod)
 		local rotation = model:GetPivot().Rotation
@@ -71,6 +84,7 @@ RunService:BindToRenderStep(RENDER_BIND_NAME, Enum.RenderPriority.Camera.Value +
 
 		model:PivotTo(rotation + position)
 	end
+	EyeEncounterEffectService:Update(anySeen, deltaTime)
 end)
 
 return EyeRenderService

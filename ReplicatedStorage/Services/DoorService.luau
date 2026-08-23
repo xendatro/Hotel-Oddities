@@ -32,17 +32,12 @@ type MapOpening = {
 
 local MapOpenings: { [number]: MapOpening } = {}
 
-local function livingPositions(): { Vector3 }
-	local positions = {}
-	for _, player in Players:GetPlayers() do
-		local character = player.Character
-		local root = character and character:FindFirstChild("HumanoidRootPart")
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		if root and humanoid and humanoid.Health > 0 then
-			table.insert(positions, root.Position)
-		end
-	end
-	return positions
+local function localPlayerPosition(): Vector3?
+	local character = Players.LocalPlayer.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not root or not humanoid or humanoid.Health <= 0 then return nil end
+	return root.Position
 end
 
 local function enemyPositions(): ({ Vector3 }, { [string]: boolean })
@@ -181,19 +176,26 @@ if MapDoors and MapDoors:IsA("RemoteEvent") then
 end
 
 local function poll()
-	local positions = livingPositions()
+	local playerPosition = localPlayerPosition()
 	local enemies, forcedDoorways = enemyPositions()
 
 	for door in Active do
 		local center = door.Center
 
-		local _, enemyDistance = nearestTo(enemies, center)
+		local enemyPosition, enemyDistance = nearestTo(enemies, center)
 		local forceLimit = door.Forced and DoorConfig.EnemyReleaseDistance or DoorConfig.EnemyForceDistance
 		local doorway = doorwayFor(door.Part)
 		local forceForReaction = doorway ~= nil and forcedDoorways[doorway.Name] == true
-		door:SetForced(forceForReaction or enemyDistance <= forceLimit)
+		local lockedFromInside = playerPosition ~= nil
+			and door:IsInside(playerPosition :: Vector3)
+			and (forceForReaction or enemyDistance <= forceLimit)
+		door:SetForced(lockedFromInside)
 
-		local nearest, nearestDistance = nearestTo(positions, center)
+		local nearest = playerPosition
+		local nearestDistance = if playerPosition then (playerPosition - center).Magnitude else math.huge
+		if not lockedFromInside and enemyPosition and enemyDistance < nearestDistance then
+			nearest, nearestDistance = enemyPosition, enemyDistance
+		end
 		local limit = door:IsOpen() and DoorConfig.CloseDistance or DoorConfig.OpenDistance
 		door:SetOpen(nearest ~= nil and nearestDistance <= limit, nearest)
 	end

@@ -10,6 +10,17 @@ return {
 	MimicFovDelay = 0.25,
 
 	ChaseShakes = {
+		Chaos = {
+			AllPlayers = true,
+			Range = 110,
+			FullIntensityDistance = 10,
+			FalloffExponent = 2,
+			Intensity = 0.95,
+			Roughness = 28,
+			MagnitudeScale = 5,
+			PositionInfluence = Vector3.new(0.32, 0.32, 0.18),
+			RotationInfluence = Vector3.new(1.2, 1.2, 0.55),
+		},
 		-- The plain hunter is the full takeover: heavy, everything moving.
 		Chaser = {
 			Range = 55,

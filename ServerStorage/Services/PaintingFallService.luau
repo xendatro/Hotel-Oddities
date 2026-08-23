@@ -4,10 +4,10 @@ local FixtureCommand = require(ServerStorage.Modules.FixtureCommand)
 local FixturePool = require(ServerStorage.Modules.FixturePool)
 local OddityService = require(ServerStorage.Services.OddityService)
 
-local Class = OddityService:Get("Prop", "LanternFall")
+local Class = OddityService:Get("Prop", "PaintingFall")
 if not Class then return {} end
 
-local LanternFallService = FixturePool.new(Class, "lantern")
-FixtureCommand.Bind(LanternFallService, "lantern", { "lantern", "lanterns" })
+local PaintingFallService = FixturePool.new(Class, "painting")
+FixtureCommand.Bind(PaintingFallService, "painting", { "painting", "paintings" })
 
-return LanternFallService
+return PaintingFallService

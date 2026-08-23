@@ -248,7 +248,13 @@ function HallwayGraph:CountExits(node: RouteNode): number
 	return count
 end
 
-function HallwayGraph:FindPath(from: RouteNode, to: RouteNode): { RouteNode }?
+--- edgeCost lets a caller price an edge by something other than its length; it
+--- must stay positive or the search stops behaving like Dijkstra.
+function HallwayGraph:FindPath(
+	from: RouteNode,
+	to: RouteNode,
+	edgeCost: ((RouteNode, RouteNode) -> number)?
+): { RouteNode }?
 	if from == to then return { from } end
 
 	local distances: { [RouteNode]: number } = { [from] = 0 }
@@ -280,7 +286,10 @@ function HallwayGraph:FindPath(from: RouteNode, to: RouteNode): { RouteNode }?
 		local currentDistance = distances[current]
 		for neighbor in current.Neighbors do
 			if settled[neighbor] then continue end
-			local distance = currentDistance + horizontal(current.Position - neighbor.Position).Magnitude
+			local step = if edgeCost
+				then edgeCost(current, neighbor)
+				else horizontal(current.Position - neighbor.Position).Magnitude
+			local distance = currentDistance + step
 			if distance < (distances[neighbor] or math.huge) then
 				distances[neighbor] = distance
 				previous[neighbor] = current

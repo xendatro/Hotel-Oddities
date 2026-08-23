@@ -243,10 +243,15 @@ mouseUnlockBlocker.Size = UDim2.fromScale(1, 1)
 mouseUnlockBlocker.Parent = mouseUnlockGui
 
 local mouseUnlocked = false
+local mouseUnlockForced = false
 local lockedMouseBehavior = UserInputService.MouseBehavior
 local lockedMouseIconEnabled = UserInputService.MouseIconEnabled
 
-function InterfaceService:SetMouseUnlocked(unlocked: boolean)
+function InterfaceService:SetMouseUnlocked(unlocked: boolean, force: boolean?)
+	if force ~= nil then
+		mouseUnlockForced = force
+	end
+	if not unlocked and mouseUnlockForced then return end
 	if mouseUnlocked == unlocked then return end
 	mouseUnlocked = unlocked
 
@@ -267,7 +272,7 @@ end
 
 UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
 	if processed or input.KeyCode ~= Enum.KeyCode.Q then return end
-	if interfaceOpen then return end
+	if interfaceOpen or mouseUnlockForced then return end
 	InterfaceService:SetMouseUnlocked(not mouseUnlocked)
 end)
 

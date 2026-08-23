@@ -117,12 +117,7 @@ function Eye.new(model: Model, config)
 		Stunned = stunned,
 	}, {
 		Impact = { "Stare" },
-	}, {
-		Lifetime = function()
-			task.wait(self.Config.Lifetime)
-			self:Despawn()
-		end,
-	}, "Stare", self)
+	}, {}, "Stare", self)
 
 	return self
 end

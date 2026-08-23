@@ -1,4 +1,3 @@
-local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -7,6 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local InventoryConfig = require(ReplicatedStorage.Configs.InventoryConfig)
 local InventorySlot = require(ReplicatedStorage.Classes.InventorySlot)
+local InterfaceService = require(ReplicatedStorage.Services.InterfaceService)
 
 local InventoryUIService = {}
 
@@ -25,12 +25,20 @@ local Slots: { InventorySlot.InventorySlot } = {}
 local Snapshot: { [number]: { Name: string, Quantity: number, Icon: string? } } = {}
 
 local screenGui, hotbar, panel, panelGrid
-local drag = nil :: { Slot: any, Origin: Vector2, Started: boolean, Ghost: ImageButton?, Target: any? }?
+local drag = nil :: {
+	Slot: any,
+	Origin: Vector2,
+	PointerOffset: Vector2,
+	Started: boolean,
+	Ghost: ImageButton?,
+	Target: any?,
+}?
 
 local function build()
 	screenGui = Instance.new("ScreenGui")
 	screenGui.Name = "InventoryGui"
 	screenGui.ResetOnSpawn = false
+	screenGui.IgnoreGuiInset = true
 	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	screenGui.DisplayOrder = 10
 	screenGui.Parent = playerGui
@@ -113,6 +121,7 @@ end
 
 function InventoryUIService:Refresh()
 	local equipped = equippedToolName()
+	local showEmpty = panel.Visible
 
 	for index = 1, CAPACITY do
 		local slot = Slots[index]
@@ -124,7 +133,15 @@ function InventoryUIService:Refresh()
 		else
 			slot:SetEmpty()
 		end
+
+		slot.Frame.Visible = showEmpty or entry ~= nil
 	end
+end
+
+local function setBackpackVisible(visible: boolean)
+	panel.Visible = visible
+	InventoryUIService:Refresh()
+	InterfaceService:SetMouseUnlocked(visible, visible)
 end
 
 local function toggleEquip(slot)
@@ -144,11 +161,6 @@ local function toggleEquip(slot)
 	end
 
 	InventoryUIService:Refresh()
-end
-
-local function toScreenSpace(position: Vector3): Vector2
-	local inset = GuiService:GetGuiInset()
-	return Vector2.new(position.X + inset.X, position.Y + inset.Y)
 end
 
 local function slotAt(point: Vector2)
@@ -181,8 +193,10 @@ local function beginDrag(position: Vector3)
 	local ghost = source.Frame:Clone()
 	ghost.Name = "DragGhost"
 	ghost.Size = UDim2.fromOffset(source.Frame.AbsoluteSize.X, source.Frame.AbsoluteSize.Y)
-	ghost.AnchorPoint = Vector2.new(0.5, 0.5)
-	ghost.Position = UDim2.fromOffset(position.X, position.Y)
+	ghost.Position = UDim2.fromOffset(
+		position.X - drag.PointerOffset.X,
+		position.Y - drag.PointerOffset.Y
+	)
 	ghost.BackgroundTransparency = InventoryConfig.Transparency.Dragging
 	ghost.ZIndex = 50
 	ghost.Parent = screenGui
@@ -193,9 +207,12 @@ end
 
 local function updateDrag(position: Vector3)
 	if not drag.Ghost then return end
-	drag.Ghost.Position = UDim2.fromOffset(position.X, position.Y)
+	drag.Ghost.Position = UDim2.fromOffset(
+		position.X - drag.PointerOffset.X,
+		position.Y - drag.PointerOffset.Y
+	)
 
-	local hovered = slotAt(toScreenSpace(position))
+	local hovered = slotAt(Vector2.new(position.X, position.Y))
 	if hovered == drag.Target then return end
 
 	if drag.Target and drag.Target ~= drag.Slot then
@@ -219,7 +236,7 @@ local function endDrag(position: Vector3)
 	end
 	source.Frame.BackgroundTransparency = InventoryConfig.Transparency.Slot
 
-	local target = started and slotAt(toScreenSpace(position)) or nil
+	local target = started and slotAt(Vector2.new(position.X, position.Y)) or nil
 	drag = nil
 
 	if not started then
@@ -249,9 +266,11 @@ local function setUpConnections()
 			end
 			if slot:IsEmpty() then return end
 
+			local pointer = Vector2.new(input.Position.X, input.Position.Y)
 			drag = {
 				Slot = slot,
-				Origin = Vector2.new(input.Position.X, input.Position.Y),
+				Origin = pointer,
+				PointerOffset = pointer - slot.Frame.AbsolutePosition,
 				Started = false,
 			}
 		end)
@@ -288,12 +307,14 @@ local function setUpConnections()
 	end)
 
 	UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
-		if processed or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+		if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
 
 		if input.KeyCode == InventoryConfig.ToggleKey then
-			panel.Visible = not panel.Visible
+			setBackpackVisible(not panel.Visible)
 			return
 		end
+
+		if processed then return end
 
 		for index, keyCode in InventoryConfig.HotbarKeys do
 			if input.KeyCode == keyCode and Slots[index] then

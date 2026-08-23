@@ -1,3 +1,4 @@
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -74,6 +75,9 @@ local Lamps: { [Model]: Lamp } = {}
 local Watched: { [Model]: boolean } = {}
 local FlickerHallway: Hallways.Hallway? = nil
 local RED_COLOR = Color3.fromRGB(255, 0, 0)
+local RED_ATTRIBUTE = "ChaosRed"
+local LightModels: { Model } = {}
+local LightModelsDirty = true
 
 local function horizontal(vector: Vector3): Vector3
 	return Vector3.new(vector.X, 0, vector.Z)
@@ -456,7 +460,9 @@ function LightService:Release(claim: LightClaim)
 end
 
 function LightService:GetModels(): { Model }
-	local models = {}
+	if not LightModelsDirty then return LightModels end
+
+	table.clear(LightModels)
 	local seen: { [Model]: boolean } = {}
 	for _, instance in TagService:GetTaggedOfPredicate(FLOOR_1_LIGHT_TAG, function(tagged: Instance)
 		return tagged:IsDescendantOf(workspace)
@@ -466,10 +472,11 @@ function LightService:GetModels(): { Model }
 			else instance:FindFirstAncestorOfClass("Model")
 		if model and not seen[model] then
 			seen[model] = true
-			table.insert(models, model)
+			table.insert(LightModels, model)
 		end
 	end
-	return models
+	LightModelsDirty = false
+	return LightModels
 end
 
 function LightService:WarnRed(model: Model, duration: number)
@@ -484,6 +491,7 @@ function LightService:WarnRed(model: Model, duration: number)
 
 	local red: Red = { ExpiresAt = os.clock() + duration }
 	lamp.Red = red
+	model:SetAttribute(RED_ATTRIBUTE, true)
 	apply(model)
 
 	task.spawn(function()
@@ -496,6 +504,7 @@ function LightService:WarnRed(model: Model, duration: number)
 		local current = Lamps[model]
 		if not current or current.Red ~= red then return end
 		current.Red = nil
+		model:SetAttribute(RED_ATTRIBUTE, nil)
 		apply(model)
 		releaseIfIdle(model)
 	end)
@@ -714,15 +723,30 @@ local function startAmbientFlickering()
 				math.random(AMBIENT_FLICKERS_MIN, AMBIENT_FLICKERS_MAX),
 				#models
 			)
-			for _ = 1, flickerCount do
-				local model = table.remove(models, math.random(1, #models))
-				flickerModel(model, AMBIENT_FLICKER_DURATION_MIN
+			if flickerCount > 0 then
+				local firstIndex = math.random(#models)
+				flickerModel(models[firstIndex], AMBIENT_FLICKER_DURATION_MIN
 					+ math.random() * (AMBIENT_FLICKER_DURATION_MAX - AMBIENT_FLICKER_DURATION_MIN))
+
+				if flickerCount > 1 then
+					local secondIndex = math.random(#models - 1)
+					if secondIndex >= firstIndex then secondIndex += 1 end
+					flickerModel(models[secondIndex], AMBIENT_FLICKER_DURATION_MIN
+						+ math.random() * (AMBIENT_FLICKER_DURATION_MAX - AMBIENT_FLICKER_DURATION_MIN))
+				end
 			end
 		end
 	end)
 end
 
+CollectionService:GetInstanceAddedSignal(FLOOR_1_LIGHT_TAG):Connect(function()
+	LightModelsDirty = true
+end)
+CollectionService:GetInstanceRemovedSignal(FLOOR_1_LIGHT_TAG):Connect(function()
+	LightModelsDirty = true
+end)
+
+LightService:GetModels()
 startAmbientFlickering()
 
 return LightService

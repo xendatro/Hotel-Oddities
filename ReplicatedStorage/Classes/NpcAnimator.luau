@@ -96,6 +96,9 @@ function NpcAnimator.new(model: Model, set: AnimationConfig.AnimationSet?)
 	self.Override = nil :: AnimationTrack?
 	self.OverrideAssetId = nil :: number?
 	self.OverrideTracks = {} :: { [number]: AnimationTrack }
+	self.Hold = nil :: AnimationTrack?
+	self.HoldAssetId = nil :: number?
+	self.HoldTracks = {} :: { [number]: AnimationTrack }
 	self.Set = set or {}
 
 	self.Animate = model.Animate
@@ -212,12 +215,42 @@ function NpcAnimator:StopOverride()
 	track:Stop(TRANSITION_TIME)
 end
 
+--- A hold is a pose that layers over whatever the body is already doing rather
+--- than replacing it -- the tool-carry arm, for instance. It survives Reload and
+--- is left alone by StopOverride, so it stays put across an identity swap.
+function NpcAnimator:PlayHold(assetId: number)
+	if self.Hold and self.HoldAssetId == assetId then return end
+	self:StopHold()
+
+	local track = self.HoldTracks[assetId]
+	if not track then
+		track = self.Animator:LoadAnimation(makeAnimation(assetId))
+		track.Priority = Enum.AnimationPriority.Action
+		track.Looped = true
+		self.HoldTracks[assetId] = track
+	end
+
+	self.Hold = track
+	self.HoldAssetId = assetId
+	track:Play(TRANSITION_TIME)
+end
+
+function NpcAnimator:StopHold()
+	local track = self.Hold
+	if not track then return end
+
+	self.Hold = nil
+	self.HoldAssetId = nil
+	track:Stop(TRANSITION_TIME)
+end
+
 function NpcAnimator:ClearForeignTracks()
 	local mine = {}
 	for _, track in self.Tracks do mine[track] = true end
 	for _, track in self.Emotes do mine[track] = true end
 	for _, track in self.Attacks do mine[track] = true end
 	for _, track in self.OverrideTracks do mine[track] = true end
+	for _, track in self.HoldTracks do mine[track] = true end
 
 	for _, track in self.Animator:GetPlayingAnimationTracks() do
 		if not mine[track] then

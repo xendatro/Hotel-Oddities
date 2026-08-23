@@ -48,9 +48,8 @@ end
 
 local function spawnOne(player: Player, enemyId: string): boolean
 	if enemyId == "Chaos" then
-		if ChaosService:SpawnInHallway(player) then return true end
-		if ChaosService:Spawn() then return true end
-		warn(`[enemies] no MazeFloor route starts at least {EnemyConfigs.Chaos.SpawnPlayerDistance} studs from every player`)
+		if ChaosService:SpawnThrough(player) then return true end
+		warn(`[enemies] no random MazeFloor route can pass through {player.Name}'s position`)
 		return false
 	end
 

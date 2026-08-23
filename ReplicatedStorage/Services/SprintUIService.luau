@@ -101,6 +101,20 @@ end
 local shown = 1
 local alpha = 0
 local fullTime = 0
+local forced = false
+
+function SprintUIService:SetForcedVisible(value: boolean)
+	forced = value
+end
+
+function SprintUIService:GetBar()
+	return {
+		Group = group,
+		Track = track,
+		Fill = fill,
+		Stroke = stroke,
+	}
+end
 
 local function render(deltaTime: number)
 	local fraction = SprintService:GetStaminaFraction()
@@ -112,7 +126,7 @@ local function render(deltaTime: number)
 	local full = fraction >= 1 and shown >= 0.999 and not exhausted
 	fullTime = if full then fullTime + deltaTime else 0
 
-	local target = if not full or fullTime < UI.FullHoldTime then 1 else 0
+	local target = if forced or not full or fullTime < UI.FullHoldTime then 1 else 0
 	if alpha < target then
 		alpha = math.min(alpha + deltaTime / UI.FadeInTime, target)
 	elseif alpha > target then

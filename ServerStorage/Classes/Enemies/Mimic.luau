@@ -10,6 +10,7 @@ local MimicMotion = require(ReplicatedStorage.Modules.MimicMotion)
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local Chaser = require(ServerStorage.Classes.Enemies.Chaser)
 local EnemyDiscoveryService = require(ServerStorage.Services.EnemyDiscoveryService)
+local HallwayGraphService = require(ServerStorage.Services.HallwayGraphService)
 local NPC = require(ServerStorage.Classes.NPC)
 local RoomService = require(ServerStorage.Services.RoomService)
 
@@ -35,7 +36,18 @@ local Reveal = ReplicatedStorage
 
 local Mimic = NPC.extend("Mimic", Chaser)
 
-local ENCOUNTER_MODES = { "Mirror", "Emote", "Spin", "Afk" }
+--- "Afk" must stay last: RollEncounterMode(false) drops the final entry to keep
+--- the ambient AFK pose out of the draw. Every mode is still dispatched by name
+--- in `stalk`, so adding one back to this list is all it takes.
+--- TEMPORARY: only the constraint-driven modes, for testing.
+--- Also written and dispatched: "Mirror", "Spin", "Approach", "Emote"
+local ENCOUNTER_MODES = { "Withdraw", "Shadow", "Wallface", "Turnaway", "Passerby", "Blocker", "Afk" }
+local RADIO_TOOL_NAME = "Walkie Talkie"
+--- Roblox's own fonts draw the verified tick at this private-use codepoint, which
+--- is the only way to put one on a Humanoid nameplate: HasVerifiedBadge is a
+--- Player property and an NPC has no Player.
+local VERIFIED_GLYPH = 0xE000
+
 local HEAD_LOCK_ATTRIBUTE = "MimicHeadLockUserId"
 local ATTACK_ACTIVE_ATTRIBUTE = "MimicAttackActive"
 local CHASE_TARGET_ATTRIBUTE = "ChaseTargetUserId"
@@ -233,6 +245,7 @@ local function watchBystander(npc: any, excluded: Player, state: any): (string?,
 end
 
 local function finishEncounter(npc: any, nextState: string, ...: any)
+	npc:ClearFacing()
 	npc.EncounterMode = nil
 	npc._revealed = false
 	npc.Model:SetAttribute(CHASE_TARGET_ATTRIBUTE, nil)
@@ -298,6 +311,177 @@ local function mirror(_changeState: StateMachine.ChangeState, npc: any, target: 
 		if bystanderState then return "Chase", npc, bystanderTarget end
 		task.wait(SUPERVISE_INTERVAL)
 	end
+end
+
+--- A reachable node on the hallway graph, scored by the caller. Routing to a
+--- graph node rather than a point in space is what keeps these from walking into
+--- walls: every node is somewhere the pathfinder can actually reach.
+local function graphGoal(npc: any, score: (Vector3) -> number): Vector3?
+	local start = HallwayGraphService:FindNearestNode(npc.RootPart.Position)
+	if not start then return nil end
+
+	local best, bestScore = nil, -math.huge
+	local function consider(node: any)
+		if node == start then return end
+		local value = score(node.Position)
+		if value > bestScore then best, bestScore = node, value end
+	end
+
+	-- Two hops out, so it has somewhere to go even from a dead end.
+	for neighbor in start.Neighbors do
+		consider(neighbor)
+		for far in neighbor.Neighbors do
+			consider(far)
+		end
+	end
+
+	return best and best.Position
+end
+
+--- Gives ground as you advance, walking backwards down the hallway with its eyes
+--- on you the whole way. The feet go one direction and the body faces another,
+--- which is the whole reason the facing constraint exists.
+local function withdraw(_changeState: StateMachine.ChangeState, npc: any, target: Player)
+	npc.Target = target
+	npc:SetAttackActive(false)
+	npc:StopMirroring()
+	npc:SetHeadLock(nil)
+	npc.Animator:Resume()
+	npc:SetSpeed(npc.Config.RetreatSpeed or npc.Config.WalkSpeed)
+
+	local encounter = newEncounter(npc)
+	local outcome = nil :: string?
+	local goal = nil :: Vector3?
+
+	local function watch(): Vector3?
+		local result = updateEncounter(npc, target, encounter)
+		if result then
+			outcome = result
+			return nil
+		end
+
+		local position = npc:GetTargetPosition(target)
+		if not position then
+			outcome = "Idle"
+			return nil
+		end
+
+		npc:SetFacing(position - npc.RootPart.Position)
+
+		if flatten(npc.RootPart.Position - position).Magnitude >= MimicConfig.WithdrawGap then
+			goal = nil
+			return nil
+		end
+
+		if not goal or flatten(npc.RootPart.Position - goal).Magnitude < 4 then
+			goal = graphGoal(npc, function(candidate: Vector3)
+				return (candidate - position).Magnitude
+			end)
+		end
+		return goal
+	end
+
+	while outcome == nil do
+		if watch() == nil and outcome ~= nil then break end
+		if goal then
+			npc:Pursue(watch, 4)
+		else
+			npc:StopMoving()
+			task.wait(SUPERVISE_INTERVAL)
+		end
+	end
+
+	npc:ClearFacing()
+	if outcome == "Chase" then return "Chase", npc, target end
+	if outcome == "Search" then return "Search", npc, encounter.LastKnown end
+	return finishEncounter(npc, "Idle")
+end
+
+--- Keeps pace with you at arm's length and never closes, facing you the entire
+--- time even when its route takes it sideways.
+local function shadow(_changeState: StateMachine.ChangeState, npc: any, target: Player)
+	npc.Target = target
+	npc:SetAttackActive(false)
+	npc:StopMirroring()
+	npc:SetHeadLock(nil)
+	npc.Animator:Resume()
+	npc:SetSpeed(npc.Config.WalkSpeed)
+
+	local encounter = newEncounter(npc)
+	local outcome = nil :: string?
+
+	local function watch(): Vector3?
+		local result = updateEncounter(npc, target, encounter)
+		if result then
+			outcome = result
+			return nil
+		end
+
+		local position = npc:GetTargetPosition(target)
+		if not position then
+			outcome = "Idle"
+			return nil
+		end
+
+		npc:SetFacing(position - npc.RootPart.Position)
+		return position
+	end
+
+	while outcome == nil do
+		local result = npc:Pursue(watch, MimicConfig.ShadowGap)
+		if outcome ~= nil then break end
+
+		-- Arrived at the gap it wants. Hold it until you move off again.
+		if result == "Reached" then
+			npc:StopMoving()
+			task.wait(SUPERVISE_INTERVAL)
+		end
+	end
+
+	npc:ClearFacing()
+	if outcome == "Chase" then return "Chase", npc, target end
+	if outcome == "Search" then return "Search", npc, encounter.LastKnown end
+	return finishEncounter(npc, "Idle")
+end
+
+--- Walks straight over to you, the way a player who wanted something would.
+--- Movement is left entirely to Pursue -- the same router the chase uses -- so it
+--- takes real corners instead of pressing into walls, and nothing here touches
+--- the CFrame or AutoRotate.
+local function approach(_changeState: StateMachine.ChangeState, npc: any, target: Player)
+	npc.Target = target
+	npc:SetAttackActive(false)
+	npc:StopMirroring()
+	npc:SetHeadLock(nil)
+	npc.Animator:Resume()
+	npc:SetSpeed(npc.Config.WalkSpeed)
+
+	local encounter = newEncounter(npc)
+	local outcome = nil :: string?
+
+	local function watch(): Vector3?
+		local result = updateEncounter(npc, target, encounter)
+		if result then
+			outcome = result
+			return nil
+		end
+		return npc:GetTargetPosition(target)
+	end
+
+	local result = npc:Pursue(watch, MimicConfig.ApproachStopDistance)
+
+	-- It got where it was going without the encounter ending, which means you
+	-- have not turned round yet. Stand there and look at you until you do.
+	while result == "Reached" and outcome == nil do
+		npc:StopMoving()
+		npc:SetHeadLock(target)
+		if watch() == nil then break end
+		task.wait(SUPERVISE_INTERVAL)
+	end
+
+	if outcome == "Chase" then return "Chase", npc, target end
+	if outcome == "Search" then return "Search", npc, encounter.LastKnown end
+	return finishEncounter(npc, "Idle")
 end
 
 local function lookAndPerform(
@@ -435,6 +619,187 @@ local function turnSlowly(npc: any, direction: Vector3)
 	end
 end
 
+--- The standing encounters: no route, no MoveTo, just a facing that changes.
+--- `pose` is asked for a direction each tick and hands back nil to end.
+local function standing(npc: any, target: Player, pose: (Vector3) -> Vector3?)
+	local encounter = newEncounter(npc)
+	local outcome = nil :: string?
+
+	npc.Target = target
+	npc:SetAttackActive(false)
+	npc:StopMirroring()
+	npc:SetHeadLock(nil)
+	npc.Animator:Resume()
+	npc:SetSpeed(npc.Config.WalkSpeed)
+	npc:StopMoving()
+
+	while true do
+		local result = updateEncounter(npc, target, encounter)
+		if result then
+			outcome = result
+			break
+		end
+
+		local position = npc:GetTargetPosition(target)
+		if not position then break end
+
+		local direction = pose(position)
+		if not direction then break end
+		npc:SetFacing(direction)
+
+		npc:StopMoving()
+		task.wait(SUPERVISE_INTERVAL)
+	end
+
+	npc:ClearFacing()
+	if outcome == "Chase" then return "Chase", npc, target end
+	if outcome == "Search" then return "Search", npc, encounter.LastKnown end
+	return finishEncounter(npc, "Idle")
+end
+
+--- Stands looking at a wall with its back to you, the way somebody who alt-tabbed
+--- mid-sentence does. It never acknowledges you at all.
+local function wallface(_changeState: StateMachine.ChangeState, npc: any, target: Player)
+	local wall = findWallDirection(npc, target)
+	return standing(npc, target, function()
+		return wall
+	end)
+end
+
+--- Faces you until you look straight at it, then turns away and pretends it was
+--- looking at something else. Turns back the moment you look elsewhere.
+local function turnaway(_changeState: StateMachine.ChangeState, npc: any, target: Player)
+	return standing(npc, target, function(position: Vector3)
+		local toward = position - npc.RootPart.Position
+		return if npc:IsObserved() then -toward else toward
+	end)
+end
+
+--- Walks past you and keeps going, as though it had somewhere else to be. This
+--- one deliberately does not hold a facing: its body follows its feet, which is
+--- exactly what a player on their way somewhere looks like.
+local function passerby(_changeState: StateMachine.ChangeState, npc: any, target: Player)
+	npc.Target = target
+	npc:SetAttackActive(false)
+	npc:StopMirroring()
+	npc:SetHeadLock(nil)
+	npc:ClearFacing()
+	npc.Animator:Resume()
+	npc:SetSpeed(npc.Config.WalkSpeed)
+
+	local encounter = newEncounter(npc)
+	local outcome = nil :: string?
+	local goal = nil :: Vector3?
+
+	local function watch(): Vector3?
+		local result = updateEncounter(npc, target, encounter)
+		if result then
+			outcome = result
+			return nil
+		end
+
+		local position = npc:GetTargetPosition(target)
+		if not position then
+			outcome = "Idle"
+			return nil
+		end
+
+		if not goal then
+			local origin = npc.RootPart.Position
+			local through = flatten(position - origin)
+			if through.Magnitude < 1e-3 then
+				outcome = "Idle"
+				return nil
+			end
+			through = through.Unit
+
+			-- Furthest node in roughly the direction of you and beyond.
+			goal = graphGoal(npc, function(candidate: Vector3)
+				local offset = flatten(candidate - origin)
+				if offset.Magnitude < 1e-3 then return -math.huge end
+				return offset:Dot(through)
+			end)
+		end
+		return goal
+	end
+
+	while outcome == nil do
+		if watch() == nil then break end
+		if npc:Pursue(watch, 4) == "Reached" then goal = nil end
+	end
+
+	if outcome == "Chase" then return "Chase", npc, target end
+	if outcome == "Search" then return "Search", npc, encounter.LastKnown end
+	return finishEncounter(npc, "Idle")
+end
+
+--- Gets in front of where you are heading and waits there facing you, so that
+--- rounding the next corner puts it already standing in it.
+local function blocker(_changeState: StateMachine.ChangeState, npc: any, target: Player)
+	npc.Target = target
+	npc:SetAttackActive(false)
+	npc:StopMirroring()
+	npc:SetHeadLock(nil)
+	npc.Animator:Resume()
+	npc:SetSpeed(npc.Config.WalkSpeed)
+
+	local encounter = newEncounter(npc)
+	local outcome = nil :: string?
+	local goal = nil :: Vector3?
+
+	local function watch(): Vector3?
+		local result = updateEncounter(npc, target, encounter)
+		if result then
+			outcome = result
+			return nil
+		end
+
+		local position = npc:GetTargetPosition(target)
+		if not position then
+			outcome = "Idle"
+			return nil
+		end
+
+		npc:SetFacing(position - npc.RootPart.Position)
+
+		if not goal then
+			local root = target.Character and target.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+			local heading = root and flatten(root.AssemblyLinearVelocity)
+			if not heading or heading.Magnitude < 1 then
+				heading = root and flatten(root.CFrame.LookVector)
+			end
+			if not heading or heading.Magnitude < 1e-3 then return nil end
+			heading = heading.Unit
+
+			goal = graphGoal(npc, function(candidate: Vector3)
+				local offset = flatten(candidate - position)
+				if offset.Magnitude < 1e-3 then return -math.huge end
+				return offset:Dot(heading) - offset.Magnitude * 0.25
+			end)
+		end
+		return goal
+	end
+
+	while outcome == nil do
+		if watch() == nil and outcome ~= nil then break end
+		if goal then
+			if npc:Pursue(watch, 4) == "Reached" then
+				-- In position. Hold it and let them come to you.
+				npc:StopMoving()
+				task.wait(SUPERVISE_INTERVAL)
+			end
+		else
+			npc:StopMoving()
+			task.wait(SUPERVISE_INTERVAL)
+		end
+	end
+
+	npc:ClearFacing()
+	if outcome == "Chase" then return "Chase", npc, target end
+	if outcome == "Search" then return "Search", npc, encounter.LastKnown end
+	return finishEncounter(npc, "Idle")
+end
+
 local function afkIdle(_changeState: StateMachine.ChangeState, npc: any)
 	npc.Target = nil
 	npc:SetAttackActive(false)
@@ -452,10 +817,19 @@ local function afkIdle(_changeState: StateMachine.ChangeState, npc: any)
 		turnSlowly(npc, findWallDirection(npc, nil))
 	end
 
-	while true do
+	-- It gives up and walks on rather than standing here forever. Without this the
+	-- only exits are a player wandering close or a room filling up, so a Mimic
+	-- that went AFK in a quiet corridor never patrolled again.
+	local until_ = os.clock() + randomRange(npc.Config.AfkIdleTimeMin, npc.Config.AfkIdleTimeMax)
+
+	while os.clock() < until_ do
 		if isNearOccupiedRoom(npc) then return finishEncounter(npc, "Patrol") end
 		task.wait(SUPERVISE_INTERVAL)
 	end
+
+	npc._nextAfkRollAt = os.clock()
+		+ randomRange(npc.Config.AfkPatrolTimeMin, npc.Config.AfkPatrolTimeMax)
+	return finishEncounter(npc, "Patrol")
 end
 
 local function findAfkPlayers(npc: any): { Player }
@@ -550,6 +924,13 @@ local function stalk(changeState: StateMachine.ChangeState, npc: any, target: Pl
 	if not target then return finishEncounter(npc, "Idle") end
 	if npc.EncounterMode == "Emote" then return lookAndPerform(changeState, npc, target, "Emote") end
 	if npc.EncounterMode == "Spin" then return lookAndPerform(changeState, npc, target, "Spin") end
+	if npc.EncounterMode == "Approach" then return approach(changeState, npc, target) end
+	if npc.EncounterMode == "Withdraw" then return withdraw(changeState, npc, target) end
+	if npc.EncounterMode == "Shadow" then return shadow(changeState, npc, target) end
+	if npc.EncounterMode == "Wallface" then return wallface(changeState, npc, target) end
+	if npc.EncounterMode == "Turnaway" then return turnaway(changeState, npc, target) end
+	if npc.EncounterMode == "Passerby" then return passerby(changeState, npc, target) end
+	if npc.EncounterMode == "Blocker" then return blocker(changeState, npc, target) end
 	return mirror(changeState, npc, target)
 end
 
@@ -660,7 +1041,9 @@ function Mimic.new(model: Model, config)
 	self._floatBob = nil :: RBXScriptConnection?
 	self._chaseFace = nil :: Model?
 	self.Model:SetAttribute(ATTACK_ACTIVE_ATTRIBUTE, false)
-	self._nextAfkRollAt = os.clock() + randomRange(3, 6)
+	self._nextAfkRollAt = os.clock()
+		+ randomRange(config.AfkPatrolTimeMin, config.AfkPatrolTimeMax) * math.random()
+	self._facingAlign = nil :: AlignOrientation?
 	self._appliedIdentity = nil :: Player?
 	self._swapping = false
 	self.Model:SetAttribute(HEAD_LOCK_ATTRIBUTE, nil)
@@ -897,6 +1280,97 @@ function Mimic:PickIdentity(): Player?
 	return if #candidates > 0 then candidates[math.random(#candidates)] else nil
 end
 
+--- The whole point of the Mimic is that there is nothing to check, so it copies
+--- the two tells a player would otherwise trust: the verified badge beside the
+--- name, and the radio in the hand of somebody you are on the air with.
+function Mimic:_facingConstraint(): AlignOrientation
+	local align = self._facingAlign
+	if align then return align end
+
+	local attachment = Instance.new("Attachment")
+	attachment.Name = "MimicFacing"
+	attachment.Parent = self.RootPart
+
+	align = Instance.new("AlignOrientation")
+	align.Name = "MimicFacing"
+	align.Mode = Enum.OrientationAlignmentMode.OneAttachment
+	align.Attachment0 = attachment
+	align.RigidityEnabled = false
+	align.MaxTorque = MimicConfig.FacingTorque
+	align.Responsiveness = MimicConfig.FacingResponsiveness
+	align.Enabled = false
+	align.Parent = self.RootPart
+
+	self._facingAlign = align
+	return align
+end
+
+--- Point the body somewhere its feet are not going. This is a constraint, so the
+--- solver settles it inside the physics step alongside the walk controller;
+--- assigning RootPart.CFrame instead fights that controller every frame, which
+--- is what made the first attempt at these encounters stutter.
+function Mimic:SetFacing(direction: Vector3?)
+	local flat = direction and Vector3.new(direction.X, 0, direction.Z)
+	if not flat or flat.Magnitude < 1e-3 then return end
+
+	local align = self:_facingConstraint()
+	align.CFrame = CFrame.lookAt(Vector3.zero, flat.Unit)
+	align.Enabled = true
+	self.Humanoid.AutoRotate = false
+end
+
+function Mimic:ClearFacing()
+	if self._facingAlign then
+		self._facingAlign.Enabled = false
+	end
+	self.Humanoid.AutoRotate = true
+end
+
+function Mimic:_copyBadge(identity: Player)
+	local name = identity.DisplayName
+	if identity.HasVerifiedBadge then
+		name ..= " " .. utf8.char(VERIFIED_GLYPH)
+	end
+	self.Humanoid.DisplayName = name
+end
+
+function Mimic:_copyRadio(identity: Player)
+	local existing = self.Model:FindFirstChild(RADIO_TOOL_NAME)
+
+	local character = identity.Character
+	local held = character and character:FindFirstChild(RADIO_TOOL_NAME)
+	if not (held and held:IsA("Tool")) then
+		if existing then existing:Destroy() end
+		self.Animator:StopHold()
+		return
+	end
+	if existing then
+		self.Animator:PlayHold(AnimationConfig.Animations.ToolHold)
+		return
+	end
+
+	local template = ReplicatedStorage:FindFirstChild("Tools")
+	template = template and template:FindFirstChild(RADIO_TOOL_NAME)
+	if not (template and template:IsA("Tool")) then return end
+
+	local copy = template:Clone()
+	-- A prop, not a working radio: nothing inside it should run, and it must not
+	-- drag the rig around once the Humanoid welds it to the hand.
+	for _, descendant in copy:GetDescendants() do
+		if descendant:IsA("BaseScript") then
+			descendant:Destroy()
+		elseif descendant:IsA("BasePart") then
+			descendant.CanCollide = false
+			descendant.Massless = true
+		end
+	end
+	copy.Parent = self.Model
+
+	-- Parenting it in makes the Humanoid weld it to the hand, but an NPC has no
+	-- Animate script to raise the arm, so without this it dangles at the hip.
+	self.Animator:PlayHold(AnimationConfig.Animations.ToolHold)
+end
+
 function Mimic:AssumeIdentity(player: Player)
 	self.Identity = player
 	if self._swapping then return end
@@ -906,13 +1380,15 @@ function Mimic:AssumeIdentity(player: Player)
 		while self.Active and self.Identity and self.Identity ~= self._appliedIdentity do
 			local identity = self.Identity :: Player
 			self.Model.Name = identity.Name
-			self.Humanoid.DisplayName = identity.DisplayName
+			self:_copyBadge(identity)
 
 			local description = getDescription(identity)
 			if description then
 				pcall(self.Humanoid.ApplyDescription, self.Humanoid, description)
 				self.Animator:Reload()
 			end
+
+			self:_copyRadio(identity)
 			self._appliedIdentity = identity
 		end
 		self._swapping = false
@@ -948,18 +1424,29 @@ end
 function Mimic:BuildStateMachine(): StateMachine.StateMachine
 	local npc = self
 
+	-- Cancelling a state kills its thread outright, so an encounter interrupted
+	-- mid-stride never reaches its own ClearFacing. Every state that expects to
+	-- walk normally drops the constraint on the way in, which makes that
+	-- self-healing rather than something to remember at each exit.
+	local function walkingFreely(state: (...any) -> ...any)
+		return function(...)
+			npc:ClearFacing()
+			return state(...)
+		end
+	end
+
 	return StateMachine.new({
-		Idle = loiter,
-		AfkIdle = afkIdle,
-		Wander = NPC.SharedStates.Wander,
-		Patrol = NPC.SharedStates.Patrol,
+		Idle = walkingFreely(loiter),
+		AfkIdle = walkingFreely(afkIdle),
+		Wander = walkingFreely(NPC.SharedStates.Wander),
+		Patrol = walkingFreely(NPC.SharedStates.Patrol),
 		Despawn = NPC.SharedStates.Despawn,
 		Stalk = stalk,
-		Chase = chase,
-		Attack = attack,
-		Search = search,
-		RoomReaction = roomReaction,
-		Stunned = stunned,
+		Chase = walkingFreely(chase),
+		Attack = walkingFreely(attack),
+		Search = walkingFreely(search),
+		RoomReaction = walkingFreely(roomReaction),
+		Stunned = walkingFreely(stunned),
 	}, {
 		Perception = { "Idle", "Wander", "Patrol", "Search", "AfkIdle" },
 		Impact = { "Idle", "AfkIdle", "Wander", "Patrol", "Search", "Stalk", "Chase", "Attack", "RoomReaction" },
@@ -996,12 +1483,11 @@ function Mimic:BuildStateMachine(): StateMachine.StateMachine
 					and not isNearOccupiedRoom(npc)
 					and os.clock() >= npc._nextAfkRollAt
 				then
-					npc._nextAfkRollAt = os.clock()
-						+ randomRange(npc.Config.AfkAmbientRollMin, npc.Config.AfkAmbientRollMax)
-					if math.random() < npc.Config.AfkAmbientChance then
-						npc.EncounterMode = "Afk"
-						npc.StateMachine:SetState("AfkIdle", "Perception", npc)
-					end
+					-- Straight cycle rather than a repeated roll: it patrols for
+					-- AfkPatrolTime, stands around for AfkIdleTime, and afkIdle
+					-- sets the next one on its way out.
+					npc.EncounterMode = "Afk"
+					npc.StateMachine:SetState("AfkIdle", "Perception", npc)
 				end
 			end
 		end,

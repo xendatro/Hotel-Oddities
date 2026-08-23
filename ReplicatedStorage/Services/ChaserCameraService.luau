@@ -52,8 +52,18 @@ local function getChasingModels(): {Instance}
 	return TagService:GetTaggedOfPredicate(ENEMY_TAG, isChasingLocalPlayer)
 end
 
+local function getCameraEffectModels(): { Instance }
+	return TagService:GetTaggedOfPredicate(ENEMY_TAG, function(instance: Instance)
+		if not instance:IsA("Model") then return false end
+
+		local enemyId = instance:GetAttribute(ENEMY_ID_ATTRIBUTE)
+		local entry = if enemyId then ChaserCameraConfig.ChaseShakes[enemyId] else nil
+		return isChasingLocalPlayer(instance) or entry ~= nil and entry.AllPlayers == true
+	end)
+end
+
 function ChaserCameraService:IsActive(): boolean
-	return ceilingFovIntensity > 0.02 or next(Shakes) ~= nil or #getChasingModels() > 0
+	return ceilingFovIntensity > 0.02 or next(Shakes) ~= nil or #getCameraEffectModels() > 0
 end
 
 local mimicChaseSince: { [Model]: number } = {}
@@ -77,9 +87,10 @@ local function render(deltaTime: number)
 	local shakeTargets: { [string]: number } = {}
 	local chasingMimics: { [Model]: boolean } = {}
 	if alive then
-		for _, instance in getChasingModels() do
+		for _, instance in getCameraEffectModels() do
 			local model = instance :: Model
-			if isCeilingDweller(model) then
+			local chasingLocalPlayer = isChasingLocalPlayer(model)
+			if chasingLocalPlayer and isCeilingDweller(model) then
 				if model:GetAttribute(ENEMY_ID_ATTRIBUTE) == MIMIC_ID then
 					chasingMimics[model] = true
 					local since = mimicChaseSince[model] or os.clock()
@@ -94,9 +105,10 @@ local function render(deltaTime: number)
 
 			local enemyId = model:GetAttribute(ENEMY_ID_ATTRIBUTE)
 			local entry = if enemyId then ChaserCameraConfig.ChaseShakes[enemyId] else nil
-			if entry then
+			if entry and (chasingLocalPlayer or entry.AllPlayers == true) then
 				local distance = (model:GetPivot().Position - camera.CFrame.Position).Magnitude
-				local target = entry.Intensity * getProximityIntensity(distance, entry.Range, entry.FullIntensityDistance)
+				local proximity = getProximityIntensity(distance, entry.Range, entry.FullIntensityDistance)
+				local target = entry.Intensity * proximity ^ (entry.FalloffExponent or 1)
 				shakeTargets[enemyId] = math.max(shakeTargets[enemyId] or 0, target)
 			end
 		end

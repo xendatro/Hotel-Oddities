@@ -27,6 +27,33 @@ local lastSentAt = -math.huge
 local pending = false
 
 local Overrides: { [Model]: boolean } = {}
+local ObservableModels: { Model } = {}
+local ObservableIndices: { [Model]: number } = {}
+
+local function addObservable(instance: Instance)
+	if not instance:IsA("Model") or ObservableIndices[instance] then return end
+	table.insert(ObservableModels, instance)
+	ObservableIndices[instance] = #ObservableModels
+end
+
+local function removeObservable(instance: Instance)
+	if not instance:IsA("Model") then return end
+	local index = ObservableIndices[instance]
+	if not index then return end
+
+	local last = ObservableModels[#ObservableModels]
+	ObservableModels[index] = last
+	ObservableModels[#ObservableModels] = nil
+	ObservableIndices[instance] = nil
+	Overrides[instance] = nil
+	if last ~= instance then ObservableIndices[last] = index end
+end
+
+CollectionService:GetInstanceAddedSignal(OBSERVABLE_TAG):Connect(addObservable)
+CollectionService:GetInstanceRemovedSignal(OBSERVABLE_TAG):Connect(removeObservable)
+for _, instance in CollectionService:GetTagged(OBSERVABLE_TAG) do
+	addObservable(instance)
+end
 
 local function send()
 	local character = localPlayer.Character
@@ -35,9 +62,7 @@ local function send()
 	if not (character and camera and frustum) then return end
 
 	local observed = {}
-	for _, model in CollectionService:GetTagged(OBSERVABLE_TAG) do
-		if not model:IsA("Model") then continue end
-
+	for _, model in ObservableModels do
 		local override = Overrides[model]
 		local seen = if override ~= nil then override else Sightline.CanSee(camera, frustum, character, model)
 		if seen then

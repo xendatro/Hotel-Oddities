@@ -21,6 +21,8 @@ end
 
 type Render = {
 	RootPart: BasePart?,
+	Parts: { BasePart },
+	Added: RBXScriptConnection?,
 	Backdrop: Part?,
 	Hallway: Hallways.Hallway?,
 	Height: number,
@@ -86,6 +88,8 @@ end
 local function track(model: Model): Render
 	local render: Render = {
 		RootPart = nil,
+		Parts = {},
+		Added = nil,
 		Backdrop = nil,
 		Hallway = nil,
 		Height = CreepConfig.BackdropHeight,
@@ -93,6 +97,17 @@ local function track(model: Model): Render
 		Aimed = false,
 	}
 	Creeps[model] = render
+
+	local function consider(child: Instance)
+		if child:IsA("BasePart") and not table.find(render.Parts, child) then
+			table.insert(render.Parts, child)
+		end
+	end
+
+	for _, child in model:GetChildren() do
+		consider(child)
+	end
+	render.Added = model.ChildAdded:Connect(consider)
 
 	task.spawn(function()
 		local rootPart = model:FindFirstChildWhichIsA("BasePart", true) :: BasePart?
@@ -117,6 +132,10 @@ local function track(model: Model): Render
 end
 
 TagService:Listen(CREEP_TAG, track, function(model: Instance, render: Render)
+	if render.Added then
+		render.Added:Disconnect()
+		render.Added = nil
+	end
 	if render.Backdrop then
 		render.Backdrop:Destroy()
 	end
@@ -168,16 +187,20 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 		local rootPart, backdrop = render.RootPart, render.Backdrop
 		if not rootPart or not backdrop then continue end
 
-		local position = rootPart.Position
-		local offset = eye - position
-		if offset.Magnitude < MINIMUM_DIRECTION then continue end
+		for _, part in render.Parts do
+			local position = part.Position
+			if (eye - position).Magnitude < MINIMUM_DIRECTION then continue end
 
-		local goal = Aim.Toward(position, eye)
-		local rotation = if render.Aimed
-			then Aim.Ease(rootPart.CFrame.Rotation, goal, CreepConfig.TurnRate, deltaTime)
-			else goal
+			local goal = Aim.Toward(position, eye)
+			local rotation = if render.Aimed
+				then Aim.Ease(part.CFrame.Rotation, goal, CreepConfig.TurnRate, deltaTime)
+				else goal
+			part.CFrame = rotation + position
+		end
 		render.Aimed = true
-		rootPart.CFrame = rotation + position
+
+		local position = rootPart.Position
+		if (eye - position).Magnitude < MINIMUM_DIRECTION then continue end
 
 		local placed = if render.Hallway
 			then placeInHallway(render, backdrop, position, eye)

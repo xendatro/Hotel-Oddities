@@ -8,7 +8,7 @@ local MapDoors = OddityRemotes.Event("MapDoors")
 
 local HallwayChaos = HallwayOddity.extend("HallwayChaos", HallwayOddity)
 
-HallwayChaos.RequiresPlayer = true
+HallwayChaos.RequiresPlayer = false
 
 function HallwayChaos.new(config: { [string]: any }?)
 	local self = HallwayOddity.new(config, HallwayChaos)

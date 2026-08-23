@@ -13,14 +13,6 @@ local RoomService = require(ServerStorage.Services.RoomService)
 local traceStart = os.clock()
 local function trace(npc: any, message: string)
 	if not FLAGS.BlindTrace then return end
-	print(string.format(
-		"[Blind] %6.2fs %-10s spd=%5.1f det=%.2f | %s",
-		os.clock() - traceStart,
-		tostring(npc.StateMachine and npc.StateMachine.State),
-		npc.Humanoid.WalkSpeed,
-		npc.Determination or 0,
-		message
-	))
 end
 
 local PERCEPTION_INTERVAL = 0.1

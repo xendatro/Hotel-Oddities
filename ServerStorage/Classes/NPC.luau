@@ -40,6 +40,7 @@ local FALLBACK_FIELD_OF_VIEW = 100
 local ROOM_REACTION_DURATION = 3.5
 local ROOM_REACTION_TURN_TIME = 0.45
 local FORCED_DOORWAY_ATTRIBUTE = "ForcedDoorway"
+local STATE_ATTRIBUTE = "State"
 
 local NETWORK_OWNER_REFRESH = 0.5
 
@@ -47,6 +48,11 @@ local PATROL_NODE_HEIGHT = 3
 local PATROL_BLOCKED_WAIT = 0.4
 local PATROL_BLOCKED_MEMORY = 12
 local PATROL_REPLAN_FAILURES = 3
+local PATROL_EDGE_STALL = 1.25
+local PATROL_EMERGENCY_AFTER = 3
+local PATROL_EMERGENCY_TRIES = 12
+local PATROL_EMERGENCY_STEP = 8
+local PATROL_EMERGENCY_WALK = 0.6
 
 local ENEMY_TAG = "Enemy"
 local OBSERVABLE_TAG = "Observable"
@@ -142,6 +148,11 @@ function NPC:Start()
 	self:SetNetworkOwner(nil)
 	self:_watchNetworkOwner()
 	self.Animator:Start()
+
+	self.Model:SetAttribute(STATE_ATTRIBUTE, self.StateMachine.State)
+	self.StateMachine.OnStateChanged = function(stateId: string)
+		self.Model:SetAttribute(STATE_ATTRIBUTE, stateId)
+	end
 	self.StateMachine:Start()
 end
 
@@ -471,7 +482,8 @@ end
 function NPC:_walkPath(
 	path: Path,
 	shouldAbandon: (() -> boolean)?,
-	getNextDestination: (() -> Vector3?)?
+	getNextDestination: (() -> Vector3?)?,
+	lateralOffset: number?
 ): string
 	local waypoints = self:GetMovementWaypoints(path)
 	local remaining = if getNextDestination then remainingDistances(waypoints) else nil
@@ -504,7 +516,15 @@ function NPC:_walkPath(
 			end
 		end
 
-		self.Humanoid:MoveTo(waypoint.Position)
+		local target = waypoint.Position
+		if lateralOffset and index < #waypoints then
+			local ahead = horizontal(waypoint.Position - waypoints[index - 1].Position)
+			if ahead.Magnitude > 1e-3 then
+				target += ahead.Unit:Cross(Vector3.yAxis) * lateralOffset
+			end
+		end
+
+		self.Humanoid:MoveTo(target)
 		if not self.Humanoid.MoveToFinished:Wait() then
 			return finish("Blocked")
 		end
@@ -512,8 +532,41 @@ function NPC:_walkPath(
 	return finish("Reached")
 end
 
-function NPC:WalkPatrolPath(path: Path, getNextDestination: (() -> Vector3?)?): string
-	return self:_walkPath(path, nil, getNextDestination)
+function NPC:WalkPatrolPath(path: Path, getNextDestination: (() -> Vector3?)?, lateralOffset: number?): string
+	return self:_walkPath(path, nil, getNextDestination, lateralOffset)
+end
+
+function NPC:WalkGraphEdge(destination: Vector3, lateralOffset: number?): boolean
+	local target = destination
+	if lateralOffset then
+		local ahead = horizontal(destination - self.RootPart.Position)
+		if ahead.Magnitude > 1e-3 then
+			target += ahead.Unit:Cross(Vector3.yAxis) * lateralOffset
+		end
+	end
+
+	local reach = self:_getReachDistance()
+	local budget = horizontal(target - self.RootPart.Position).Magnitude
+		/ math.max(self.Humanoid.WalkSpeed, 1) * 2 + 2
+	local deadline = os.clock() + budget
+	local anchor, anchorAt = self.RootPart.Position, os.clock()
+
+	self.Humanoid:MoveTo(target)
+	while os.clock() < deadline do
+		task.wait(MOVEMENT_POLL_INTERVAL)
+		if horizontal(target - self.RootPart.Position).Magnitude <= reach then
+			return true
+		end
+
+		local position = self.RootPart.Position
+		if horizontal(position - anchor).Magnitude > 1 then
+			anchor, anchorAt = position, os.clock()
+		elseif os.clock() - anchorAt > PATROL_EDGE_STALL then
+			return false
+		end
+		self.Humanoid:MoveTo(target)
+	end
+	return false
 end
 
 function NPC:WalkTo(destination: Vector3): boolean
@@ -958,22 +1011,18 @@ local function chooseDestination(current: any, memory: any, minimumDistance: num
 			end
 		end
 
-		local weight = 1 + DangerMapService:GetDanger(node.Position) * DangerConfig.PatrolDangerWeight
-
-		local visitedAt = memory.Visited[node]
-		if visitedAt then
-			local age = memory.Step - visitedAt
-			if age < DangerConfig.PatrolVisitMemory then
-				weight *= 1 - DangerConfig.PatrolVisitPenalty * (1 - age / DangerConfig.PatrolVisitMemory)
-			end
-		end
-
-		total += weight
+		-- A node is drawn in direct proportion to its danger, so a node at 80%
+		-- comes up twice as often as one at 40% and dead-safe ground never
+		-- comes up at all.
+		total += DangerMapService:GetDanger(node.Position)
 		table.insert(candidates, node)
 		table.insert(cumulative, total)
 	end
 
-	if total <= 0 then return nil end
+	if #candidates == 0 then return nil end
+
+	-- Nowhere dangerous to go: fall back to picking evenly rather than stalling.
+	if total <= 0 then return candidates[math.random(#candidates)] end
 
 	local roll = math.random() * total
 	local low, high = 1, #cumulative
@@ -988,9 +1037,40 @@ local function chooseDestination(current: any, memory: any, minimumDistance: num
 	return candidates[low]
 end
 
-local function markVisited(memory: any, node: any)
-	memory.Step += 1
-	memory.Visited[node] = memory.Step
+--- Prices a hallway by its length discounted by the danger along it, so a
+--- patrol takes the shortest route it can find through the nastiest ground
+--- rather than simply the shortest route.
+local function patrolEdgeCost(from: any, to: any): number
+	local length = horizontal(from.Position - to.Position).Magnitude
+	local danger = (DangerMapService:GetDanger(from.Position)
+		+ DangerMapService:GetDanger(to.Position)) / 2
+	return length * (1 - DangerConfig.PathDangerWeight * math.clamp(danger, 0, 1))
+end
+
+local function emergencyEscape(npc: any): boolean
+	npc:SetSpeed(npc.Config.WalkSpeed)
+	for _ = 1, PATROL_EMERGENCY_TRIES do
+		task.wait()
+		local angle = math.random() * math.pi * 2
+		local step = npc.RootPart.Position
+			+ Vector3.new(math.cos(angle), 0, math.sin(angle)) * PATROL_EMERGENCY_STEP
+		npc.Humanoid:MoveTo(step)
+		task.wait(PATROL_EMERGENCY_WALK)
+		npc:StopMoving()
+
+		local node = HallwayGraphService:FindNearestNode(npc.RootPart.Position)
+		if node then
+			local probe = npc:_computePath(
+				npc:_pathOrigin(),
+				node.Position + Vector3.yAxis * PATROL_NODE_HEIGHT
+			)
+			if probe then
+				probe:Destroy()
+				return true
+			end
+		end
+	end
+	return false
 end
 
 function NPC.SharedStates.Patrol(changeState: StateMachine.ChangeState, npc: any)
@@ -1005,11 +1085,12 @@ function NPC.SharedStates.Patrol(changeState: StateMachine.ChangeState, npc: any
 
 	local memory = npc._patrol
 	if not memory then
-		memory = { Visited = {}, Blocked = {}, Step = 0 }
+		memory = { Blocked = {} }
 		npc._patrol = memory
 	end
 
 	local minimumTrip = DangerMapService:GetExtent() * DangerConfig.PatrolMinTripFraction
+	local stuckStreak = 0
 
 	while true do
 		task.wait()
@@ -1018,7 +1099,7 @@ function NPC.SharedStates.Patrol(changeState: StateMachine.ChangeState, npc: any
 			or chooseDestination(current, memory, 0)
 		if not destination then return "Idle", npc end
 
-		local route = HallwayGraphService:FindPath(current, destination)
+		local route = HallwayGraphService:FindPath(current, destination, patrolEdgeCost)
 		if not route then
 			memory.Blocked[destination] = os.clock() + PATROL_BLOCKED_MEMORY
 			continue
@@ -1031,38 +1112,55 @@ function NPC.SharedStates.Patrol(changeState: StateMachine.ChangeState, npc: any
 			task.wait()
 
 			local nextNode = route[index]
-			local path = npc:ComputePath(nextNode.Position + Vector3.yAxis * PATROL_NODE_HEIGHT)
-			local reached = false
+			local goal = nextNode.Position + Vector3.yAxis * PATROL_NODE_HEIGHT
+			local upcoming = route[index + 1]
+			local nextGoal = upcoming and upcoming.Position + Vector3.yAxis * PATROL_NODE_HEIGHT
 
+			local lateral = (math.random() - 0.5) * (DangerConfig.PatrolCarpetWidth or 0)
+			local path = npc:TakePrefetchedPath(goal)
+			local reached
 			if path then
-				local upcoming = route[index + 1]
-				local nextGoal = upcoming and upcoming.Position + Vector3.yAxis * PATROL_NODE_HEIGHT
 				reached = npc:WalkPatrolPath(path, nextGoal and function()
 					return nextGoal
-				end) == "Reached"
+				end, lateral) == "Reached"
 				path:Destroy()
+			else
+				if nextGoal then
+					npc:PrefetchPath(nextGoal, goal)
+				end
+				reached = npc:WalkGraphEdge(goal, lateral)
 			end
 
 			if reached then
 				current = nextNode
-				markVisited(memory, current)
 				index += 1
 				failures = 0
+				stuckStreak = 0
 			else
 				memory.Blocked[nextNode] = os.clock() + PATROL_BLOCKED_MEMORY
+
+				stuckStreak += 1
+				if stuckStreak >= PATROL_EMERGENCY_AFTER then
+					emergencyEscape(npc)
+					stuckStreak = 0
+					local freed = HallwayGraphService:FindNearestNode(npc.RootPart.Position)
+					if not freed then return "Idle", npc end
+					current = freed
+					break
+				end
+
 				task.wait(PATROL_BLOCKED_WAIT)
 
 				local reacquired = HallwayGraphService:FindNearestNode(npc.RootPart.Position)
 				if not reacquired then return "Idle", npc end
 				if reacquired ~= current then
 					current = reacquired
-					markVisited(memory, current)
 				end
 
 				failures += 1
 				if failures >= PATROL_REPLAN_FAILURES then break end
 
-				local replanned = HallwayGraphService:FindPath(current, destination)
+				local replanned = HallwayGraphService:FindPath(current, destination, patrolEdgeCost)
 				if not replanned then break end
 				route, index = replanned, 2
 			end

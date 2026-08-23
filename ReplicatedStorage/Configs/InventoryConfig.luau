@@ -29,6 +29,7 @@ return {
 
 	Colors = {
 		Slot = Color3.fromRGB(28, 28, 32),
+		SlotEmpty = Color3.fromRGB(20, 20, 24),
 		SlotEquipped = Color3.fromRGB(72, 92, 128),
 		SlotDisabled = Color3.fromRGB(52, 34, 34),
 		SlotDropTarget = Color3.fromRGB(58, 78, 58),
@@ -40,6 +41,7 @@ return {
 
 	Transparency = {
 		Slot = 0.15,
+		SlotEmpty = 0.45,
 		Panel = 0.1,
 		Dragging = 0.35,
 	},

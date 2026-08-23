@@ -1,11 +1,77 @@
 local Sightline = {}
 
+type PartCache = {
+	Parts: { BasePart },
+	Indices: { [BasePart]: number },
+	Added: RBXScriptConnection,
+	Removing: RBXScriptConnection,
+	Destroying: RBXScriptConnection,
+}
+
 export type Frustum = {
 	TanX: number,
 	TanY: number,
 	SideX: number,
 	SideY: number,
 }
+
+local PartCaches: { [Model]: PartCache } = {}
+local CachedIgnore: Instance? = nil
+local SightParams = RaycastParams.new()
+SightParams.FilterType = Enum.RaycastFilterType.Exclude
+SightParams.RespectCanCollide = true
+
+local function addPart(cache: PartCache, instance: Instance)
+	if not instance:IsA("BasePart") or cache.Indices[instance] then return end
+	table.insert(cache.Parts, instance)
+	cache.Indices[instance] = #cache.Parts
+end
+
+local function removePart(cache: PartCache, instance: Instance)
+	if not instance:IsA("BasePart") then return end
+	local index = cache.Indices[instance]
+	if not index then return end
+
+	local last = cache.Parts[#cache.Parts]
+	cache.Parts[index] = last
+	cache.Parts[#cache.Parts] = nil
+	cache.Indices[instance] = nil
+	if last ~= instance then cache.Indices[last] = index end
+end
+
+local function partsFor(model: Model): { BasePart }
+	local existing = PartCaches[model]
+	if existing then return existing.Parts end
+
+	local cache = {
+		Parts = {},
+		Indices = {},
+	} :: any
+	for _, descendant in model:GetDescendants() do
+		addPart(cache, descendant)
+	end
+	cache.Added = model.DescendantAdded:Connect(function(instance)
+		addPart(cache, instance)
+	end)
+	cache.Removing = model.DescendantRemoving:Connect(function(instance)
+		removePart(cache, instance)
+	end)
+	cache.Destroying = model.Destroying:Connect(function()
+		cache.Added:Disconnect()
+		cache.Removing:Disconnect()
+		PartCaches[model] = nil
+	end)
+	PartCaches[model] = cache
+	return cache.Parts
+end
+
+local function raycastParams(ignore: Instance?): RaycastParams
+	if ignore ~= CachedIgnore then
+		CachedIgnore = ignore
+		SightParams.FilterDescendantsInstances = if ignore then { ignore } else {}
+	end
+	return SightParams
+end
 
 function Sightline.Frustum(camera: Camera): Frustum?
 	local viewportSize = camera.ViewportSize
@@ -35,17 +101,11 @@ function Sightline.CanSee(camera: Camera, frustum: Frustum, ignore: Instance?, m
 		return false
 	end
 
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = if ignore then { ignore } else {}
-	params.RespectCanCollide = true
-
 	local origin = camera.CFrame.Position
-	for _, descendant in model:GetDescendants() do
-		if descendant:IsA("BasePart")
-			and Sightline.Intersects(camera, frustum, descendant.Position, descendant.Size.Magnitude / 2)
-		then
-			local direction = descendant.Position - origin
+	local params = raycastParams(ignore)
+	for _, part in partsFor(model) do
+		if Sightline.Intersects(camera, frustum, part.Position, part.Size.Magnitude / 2) then
+			local direction = part.Position - origin
 			if direction.Magnitude < 1e-3 then
 				return true
 			end
