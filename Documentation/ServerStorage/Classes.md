@@ -1,0 +1,433 @@
+# ServerStorage / Classes
+
+Roblox class-syntax classes, server only. Connections live in `self.Connections`, built by a local `setUpConnections`.
+
+### EnemyBase.luau
+Minimal base class for non-humanoid enemies (props, hazards, static horrors) that are driven by a StateMachine rather than pathfinding. It owns the active flag, the tag set applied to the model while alive, and a deferred despawn that can linger before destroying the model.
+- API: `EnemyBase.extend(className: string) -> class` — makes a subclass table inheriting EnemyBase.
+- API: `EnemyBase.new(model: Model, config: any, class: any?) -> self` — sets `Model`, `Config`, `Active = false`.
+- API: `EnemyBase:Start()` — guards re-entry, adds `self.Tags` to the model, calls `OnStart`, starts `self.StateMachine`.
+- API: `EnemyBase:Despawn()` — removes tags, calls `OnDespawn` for a linger time, then defers stopping the machine and `DestroyModels`.
+- API: `EnemyBase:OnStart()` — hook, no-op by default.
+- API: `EnemyBase:OnDespawn() -> number?` — hook returning seconds to linger before destruction; default `nil`.
+- API: `EnemyBase:DestroyModels()` — destroys `self.Model`; override for multi-model enemies.
+- Subclass: constructor must call `EnemyBase.new(model, config, TheClass)` and assign `self.StateMachine` (Start/Despawn call it unconditionally); optionally set `Class.Tags` and override `OnStart` / `OnDespawn` / `DestroyModels`. `EnemyService:Spawn` assigns `self.EnemyId` after construction and calls `:Start()`.
+- Tags: applies `Enemy` (default `EnemyBase.Tags`)
+- Requires: `ReplicatedStorage.Classes.StateMachine` (indirectly, via the subclass)
+
+### NPC.luau
+The full humanoid-enemy base: pathfinding with prefetch, direct-pursuit/lane-clearance movement, line-of-sight and observation checks, target acquisition, network-ownership management, and a library of shared state functions (Idle/Wander/Patrol/Attack/Stunned/RoomReaction/Despawn). Danger-weighted hallway-graph patrol and safe-room reactions live here too.
+- API: `NPC.extend(className: string, parent: any?) -> class` — subclass table, optionally inheriting another NPC subclass.
+- API: `NPC.new(model: Model, config: EnemyConfigs.EnemyConfig, class: any?) -> self` — needs `model.Humanoid` and `model.HumanoidRootPart`; builds `NpcAnimator` and calls `BuildStateMachine`.
+- API: `NPC.FromModel(model: Instance?) -> any?` — reverse lookup for live NPCs (registered only while active).
+- API: `NPC:BuildStateMachine() -> StateMachine` — default Idle/Wander/Patrol/Despawn machine; the main override point.
+- API: `NPC:Start()` — tags the model, applies WalkSpeed, takes network ownership, starts animator and machine, mirrors state to the `State` attribute.
+- API: `NPC:Despawn()` — untags, tears down ownership watchers, defers machine stop, animator destroy and model destroy.
+- API: `NPC:SetSpeed(speed: number)` — sets `Humanoid.WalkSpeed`.
+- API: `NPC:StopMoving()` — `MoveTo` its own position.
+- API: `NPC:SetForcedDoorway(doorway: Model?)` — writes the `ForcedDoorway` attribute.
+- API: `NPC:SetNetworkOwner(player: Player?)` — pins every descendant part's owner; refreshed on a loop.
+- API: `NPC:FaceTowards(position: Vector3)` — instant flat snap of root CFrame.
+- API: `NPC:TurnTowardsSmooth(position: Vector3, duration: number?)` — lerped turn over Heartbeat.
+- API: `NPC:ReactAtRoomDoor(room: Model, movementSpeed: number?, shouldCancel: (() -> boolean)?) -> boolean` — walk to a safe-room door, turn, play the cheer emote.
+- API: `NPC:PrefetchPath(destination: Vector3, origin: Vector3?)` — starts an async path compute other calls can claim.
+- API: `NPC:ComputePath(destination: Vector3, tolerance: number?) -> Path?` — consumes a matching prefetch or computes synchronously.
+- API: `NPC:TakePrefetchedPath(destination: Vector3, tolerance: number?) -> Path?` — non-blocking claim of a finished prefetch.
+- API: `NPC:GetMovementWaypoints(path: Path) -> { PathWaypoint }` — override point for waypoint filtering.
+- API: `NPC:GetWaypointDistance(position: Vector3) -> number` — distance from root to a waypoint corrected for hip height.
+- API: `NPC:GetClearRun(direction: Vector3, distance: number) -> number` — blockcast-measured free run in a direction.
+- API: `NPC:HasMovementClearance(destination: Vector3) -> boolean` — agent-sized blockcast, ignoring players.
+- API: `NPC:MoveTowards(destination: Vector3) -> boolean` — move as far as the lane allows; false when too obstructed.
+- API: `NPC:MoveThrough(destination: Vector3, beyond: Vector3?)` — move to an overshot point so the NPC does not brake at waypoints.
+- API: `NPC:AdvanceWaypoint(waypoints: { PathWaypoint }, index: number) -> number` — skips waypoints already effectively reached.
+- API: `NPC:WalkPatrolEdge(destination: Vector3, lateralOffset: number?) -> boolean` — stepped `MoveTo` walk with per-step timeout.
+- API: `NPC:WalkTo(destination: Vector3, shouldAbandon: (() -> boolean)?) -> boolean` — compute and walk one path.
+- API: `NPC:Pursue(getGoal: () -> Vector3?, arriveDistance: number?, hasArrived: (() -> boolean)?, canMoveDirectly: (() -> boolean)?) -> string` — the main chase loop; returns `"Reached"` or `"Lost"`.
+- API: `NPC:HasLineOfSight(part: BasePart) -> boolean` — single raycast ignoring both models.
+- API: `NPC:HasLineOfSightToPlayer(player: Player) -> boolean` — alive + not vanished + clear ray.
+- API: `NPC:HasPursuitSight(player: Player) -> boolean` — lenient multi-origin, multi-limb sight test used during chases.
+- API: `NPC:GiveUpOn(player: Player?)` — blacklists a player as a target for 12s.
+- API: `NPC:IsValidTarget(player: Player) -> boolean` — alive, not vanished, not safe-roomed, within `GiveUpRange`.
+- API: `NPC:GetTargetPosition(player: Player) -> Vector3?` — root position if still a valid target.
+- API: `NPC:IsTouchingPlayer(player: Player) -> boolean` — bounding-box overlap plus per-part check.
+- API: `NPC:CanSee(player: Player) -> boolean` — detection range, field-of-view cone and line of sight.
+- API: `NPC:IsObservedBy(player: Player) -> boolean` — that player's camera is looking at the model.
+- API: `NPC:IsObserved() -> boolean` — any player, with `ObservationHold` grace.
+- API: `NPC:CanAcquire() -> boolean` — honours the `AcquireAfter` cooldown.
+- API: `NPC:GetNearestVisibleTarget() -> Player?` — nearest player passing `CanSee`.
+- API: `NPC:GetNearestTarget() -> Player?` — nearest player passing `IsValidTarget`.
+- API: `NPC:Attack(player: Player)` — routes the kill through `DeathService:Strike` with `self.EnemyId`.
+- API: `NPC:BeginChase(target: Player)` — sets target, resumes animation, applies `ChaseSpeed`.
+- API: `NPC:MakePerceptionEvaluator(interval: number, findTarget: (npc) -> Player?) -> () -> ()` — builds an evaluator loop that pushes into `Chase`.
+- API: `NPC.SharedStates` — reusable state functions: `Attack`, `Idle`, `Wander`, `Patrol`, `Stunned`, `RoomReaction`, `Despawn`.
+- Subclass: `Class = NPC.extend(name)`, `Class.new` calls `NPC.new(model, config, Class)`, and `Class:BuildStateMachine()` returns the state table/triggers/evaluators. Overriding `Start`/`Despawn` must call `NPC.Start(self)` / `NPC.Despawn(self)`. Config supplies WalkSpeed, ChaseSpeed, DetectionRange, FieldOfView, GiveUpRange, AgentParams, IdleTime*, IdleNextState, AttackCooldown, and optional ObservationRange/ObservationHold, RespectsSafeRooms, Repath*/Commit*/DirectPursuit* tuning. Optional hooks a subclass may define: `AttackLostState`, `StopMirroring`, `_laneProbeDrop`.
+- Tags: applies `Enemy`; applies `Observable` when `Config.ObservationRange` is set
+- Requires: `Classes.StateMachine`, `Classes.NpcAnimator`, `Classes.Race`, `Modules.Vanished`, `Configs.DangerConfig`, `DangerMapService`, `HallwayGraphService`, `RoomService`, `EnemyObservationService`, `DeathService`
+
+### Healer.luau
+Server tool that restores health on activation. Consumes one unit from the inventory, plays the configured sound at the character's primary part, then heals up to `MaxHealth`.
+- API: `Healer.extend(className: string) -> class`
+- API: `Healer.new(tool: Tool, class: any?) -> self`
+- API: `Healer:OnActivated()` — the heal; overrides the ToolBase hook.
+- Requires: `ServerStorage.Classes.ServerTool`; `ToolConfigs[toolName].HealAmount` / `.Sound`
+
+### FixtureFall.luau
+Prop oddity that unanchors a fixture so it falls: it welds every part to the largest one, moves them to a non-colliding group, and remembers original CFrames/collision groups so `OnStop` can restore them exactly. Also provides the shared "is it safe to fix yet" test used by repair interactions (ground timer, player distance, and nobody looking).
+- API: `FixtureFall.new(config: { [string]: any }?, class: any?) -> self`
+- API: `FixtureFall:OnStart() -> boolean` — drops the fixture; false if there are no parts or the model is already `OddityBusy`.
+- API: `FixtureFall:OnStop()` — destroys welds, re-anchors and restores every part, clears `OddityBusy`.
+- API: `FixtureFall:GroundedFor() -> number` — seconds since it fell.
+- API: `FixtureFall.DescribeNotFixed(oddity, pivot: Vector3, gazeTarget, timerLabel: string, gazeIgnore: { Instance }?) -> string?` — reusable reason string, or nil when fixable.
+- API: `FixtureFall:WhyNotFixed() -> string?` — the above applied to this model.
+- API: `FixtureFall:IsReadyToFix() -> boolean`
+- Requires: `ServerStorage.Classes.PropOddity`, `ServerStorage.Modules.Gaze`; optional subclass hooks `OnFall`, `OnLoose`, `OnRestore`
+- Notes: settings read via `Oddity:Setting` — `CollisionGroup`, `MinGroundTime`, `FixClearDistance`, `FixViewCone`, `FixViewDistance`
+
+### HallwayOddity.luau
+Base class for map-scope oddities that occupy a hallway span rather than a single prop. It resolves and picks hallway spans, caches the span's bounding box, and offers a helper for broadcasting door actions to all clients.
+- API: `HallwayOddity.new(config: { [string]: any }?, class: any?) -> self`
+- API: `HallwayOddity.Resolve(class, position: Vector3) -> HallwayRegion.Span?` — span at a position.
+- API: `HallwayOddity.Pick(class) -> HallwayRegion.Span?` — occupied / biased / distant span depending on `RequiresPlayer` and `Settings.OccupiedChance`.
+- API: `HallwayOddity:CanStart(span: HallwayRegion.Span?) -> (boolean, string?)`
+- API: `HallwayOddity:Start(span: HallwayRegion.Span, duration: number?) -> boolean` — caches `BoxCFrame`/`BoxSize`, then `Oddity.Start`.
+- API: `HallwayOddity:FireMapDoors(action: string, ...)` — fires `Oddities/MapDoors` to all clients with this oddity's token.
+- Remotes: `Oddities/MapDoors` (fired)
+- Requires: `ServerStorage.Classes.Oddity`, `ServerStorage.Modules.HallwayRegion`, `ServerStorage.Modules.OddityRemotes`
+- Notes: class fields `Scope = "Map"`, `ConfigName = "MapOddityConfig"`, `RequiresPlayer`, `IncludeRoomFloors`
+
+### ServerTool.luau
+Server-side base class for tools; a thin `ToolBase` subclass whose only addition is inventory consumption. Everything else (equip/unequip/activate lifecycle, cooldown, animation-marker waits, sound, client signalling) is inherited.
+- API: `ServerTool.extend(className: string) -> class`
+- API: `ServerTool.new(tool: Tool, class: any?) -> self` — delegates to `ToolBase.new`.
+- API: `ServerTool:Consume(n: number?) -> boolean` — removes `n` (default 1) of `self.Name` from the holder's inventory; false when there is no owning player.
+- Subclass: `Class = ServerTool.extend(name)`, `Class.new(tool, class)` forwards to `ServerTool.new(tool, class or Class)`, then override the ToolBase hooks — usually `OnActivated`, sometimes `OnEquipped` / `OnUnequipped` / `OnCleanup` / `OnDestroy`. `self.Config` is `ToolConfigs[tool.Name]`; `self.Character` / `self.Humanoid` are only populated after an Equipped event.
+- Requires: `ReplicatedStorage.Classes.ToolBase`, `ServerStorage.Services.InventoryService`
+
+### Sound.luau
+Attaches an ambient `AudioEmitter` to a tagged instance: reads the instance's `Sound` attribute, finds the matching emitter template under `ReplicatedStorage.Sounds`, and clones it onto the nearest BasePart. Warns and does nothing when the template is missing.
+- API: `Sound.new(instance: Instance) -> self` — clones the emitter; `self.Emitter` is nil when setup failed.
+- API: `Sound:Destroy()` — destroys the cloned emitter.
+
+### SpeedDrink.luau
+Server tool that grants a temporary speed boost. Plays an open sound, waits `UseDelay`, plays a drink sound, consumes one, then hands a cloned visual effect to `SpeedBoostService` for the boost's duration.
+- API: `SpeedDrink.extend(className: string) -> class`
+- API: `SpeedDrink.new(tool: Tool, class: any?) -> self`
+- API: `SpeedDrink:OnActivated()` — the whole drink sequence.
+- Requires: `ServerStorage.Classes.ServerTool`, `ServerStorage.Services.SpeedBoostService`
+- Notes: config keys `OpenSound`, `DrinkSound`, `Visual`, `UseDelay`, `WalkSpeed`, `Duration`, `FovBoost` (sounds and visual are descendants of the Tool, not global assets)
+
+### TrapObject.luau
+Bear-trap style placeable that snaps shut on the first NPC to touch it. Springing stuns the NPC, plays the trap animation until its "Finished" marker, plays the close sound, and schedules the trap for removal.
+- API: `TrapObject.new(trap: Model) -> self` — connects Touched on every descendant part plus Destroying.
+- API: `TrapObject:Spring(model: Instance?)` — fires once (`Closed` attribute guards re-entry); ignores anything that is not a live NPC.
+- API: `TrapObject:Destroy()` — disconnects all connections.
+- Requires: `ServerStorage.Classes.NPC` (for `NPC.FromModel`), `StunService`, `AudioService`, `ToolConfigs.Trap`
+
+## Enemies
+
+### Enemies\Blind.luau
+A deaf-to-sight, hearing-driven hunter: it registers an "ear" with `HearingService` and builds *Determination* from noises, which decays in silence and controls its speed tier (Investigate / Alert / Chase). Distinct behaviours are the flinch-and-turn "notice", coasting past a noise position after overshooting, and only killing when highly certain.
+- API: `Blind.new(model: Model, config) -> self` — adds the heard-noise and determination fields.
+- API: `Blind:BuildStateMachine() -> StateMachine` — Investigate/Pursue/Attack/Search plus the shared Idle/Wander/Patrol/Despawn/Stunned; evaluators `Hearing` and `Contact`.
+- Requires: `ServerStorage.Classes.NPC`, `HearingService`, `Configs.HeartbeatConfig`
+- Notes: overrides `NPC.new` and `BuildStateMachine`; writes the heartbeat `PursuitAttribute` on the model while pursuing or attacking
+
+### Enemies\CeilingDweller.luau
+A Chaser that spawns on the ceiling and physically drops onto the floor before behaving normally: `Start` tweens the model down with collisions and humanoid states disabled, cues the victim's client camera ("Drop" then "Scream"), and only then hands off to `NPC.Start`.
+- API: `CeilingDweller.new(model: Model, config, initialTarget: Player?, dropFloorPosition: Vector3?, dropFloorNormal: Vector3?) -> self`
+- API: `CeilingDweller:BuildStateMachine() -> StateMachine` — reuses `Chaser.BuildStateMachine`.
+- API: `CeilingDweller:Start()` — the drop sequence, then `NPC.Start`.
+- Remotes: `Enemies/CeilingDwellerCamera` (fired)
+- Requires: `ServerStorage.Classes.Enemies.Chaser`, `TweenProxyService`
+- Notes: overrides `Start` and `BuildStateMachine`; the state machine is pre-set to `Chase` before the drop so it lands already hunting
+
+### Enemies\Chaos.luau
+Not an NPC at all — a fast-moving hazard that sweeps a precomputed route of points, killing any player whose distance to the travelled segment is within `KillRange` and granting a discovery event on near misses. It pivots the model along the route each Heartbeat rather than pathfinding.
+- API: `Chaos.new(model: Model, config, route: { Vector3 }, warningToken) -> self` — root part is `model.Chaos`; two-state Run/Despawn machine.
+- API: `Chaos:TravelRoute()` — lerps along each route leg, sweeping for kills.
+- API: `Chaos:OnStart()` — anchors the root.
+- API: `Chaos:OnDespawn() -> number?` — cancels the warning token, disables particles, lingers for their lifetime.
+- Tags: applies `Enemy`, `Chaos`
+- Requires: `ServerStorage.Classes.EnemyBase`, `DeathService`, `EnemyDiscoveryService`, `RoomService`, `MathService.DistanceToSegment`
+- Notes: extends EnemyBase; overrides `OnStart` / `OnDespawn`
+
+### Enemies\Chaser.luau
+The plain sight-based pursuer and the template most humanoid enemies build on: see a player, chase, attack, and fall back to Patrol. It publishes `ChaseTargetUserId` for clients, reacts at safe-room doors when the target escapes into one, and randomly re-skins the model from `Config.Variants` (skin colour and hair) at construction.
+- API: `Chaser.new(model: Model, config) -> self` — applies the visual variant first.
+- API: `Chaser:BuildStateMachine() -> StateMachine` — Idle/Wander/Patrol/Chase/Attack/Search/RoomReaction/Stunned/Despawn with a `Perception` evaluator.
+- API: `Chaser.Chase(changeState, npc, target: Player, allowRoomReaction: boolean?)` — the chase state, exported so subclasses (Mimic) can call it.
+- Requires: `ServerStorage.Classes.NPC`, `RoomService`
+- Notes: sets `Chaser.AttackLostState = "Search"`; overrides `BuildStateMachine`; every calm state clears the chase-target attribute
+
+### Enemies\Creep.luau
+An ambient, stationary eye-cluster: it clones its eye plate into a randomly scattered pattern from a weighted variant table, kills the hallway lights around itself via `LightService`, and simply despawns (granting discovery) when a player walks within `DespawnRange`. It never moves or attacks.
+- API: `Creep.new(model: Model, config) -> self` — picks a variant, scatters eye plates, builds an Ambient state with a Proximity evaluator.
+- API: `Creep:OnStart()` — anchors the root and claims the hallway light disable.
+- API: `Creep:OnDespawn() -> number?` — releases the light claim.
+- Tags: applies `Enemy`, `Creep`
+- Requires: `ServerStorage.Classes.EnemyBase`, `LightService`, `EnemyDiscoveryService`, `Configs.CreepConfig`
+- Notes: extends EnemyBase; overrides `OnStart` / `OnDespawn`
+
+### Enemies\Eye.luau
+A static staring hazard that damages players for looking at it: damage accrues per player from the view angle (centre hurts more than edge, with a falloff exponent) and is applied in discrete hits, telling the client each time. A `Visor` tool, a safe room, or being vanished makes a player immune; a stun pauses the stare.
+- API: `Eye.new(model: Model, config) -> self` — Stare/Stunned machine, per-player damage progress table.
+- API: `Eye.FromModel(model: Instance?) -> any?` — reverse lookup for live Eyes.
+- API: `Eye:GetViewAngle(player: Player) -> number?` — nil when out of range or not vulnerable.
+- API: `Eye:OnStart()` — anchors parts, plays the looping `eye_idle` track, registers in the lookup.
+- API: `Eye:OnDespawn() -> number?` — unregisters and stops the animation.
+- Remotes: `Enemies/EyeHit` (fired)
+- Tags: applies `Enemy`, `Eye`, `Observable`
+- Requires: `ServerStorage.Classes.EnemyBase`, `EnemyObservationService`, `EyeHitService`, `DeathService`, `RoomService`
+- Notes: extends EnemyBase; overrides `OnStart` / `OnDespawn`; `Eye:_burnWatchers` clears the death cause again if the hit did not actually kill
+
+### Enemies\Ghost.luau
+An NPC that ignores pathfinding entirely and floats along published `GhostMotion` legs so clients can interpolate the same motion. Its distinguishing behaviour is Lurk: it fades out, plants itself at a danger-biased unobserved hallway spot, and re-fades and hides for a while the moment anyone looks at it; drifting near a player makes it Vanish.
+- API: `Ghost.new(model: Model, config) -> self`
+- API: `Ghost:Start()` — anchors every part, disables the humanoid state machine, adds the `Ghost` tag, then `NPC.Start`.
+- API: `Ghost:Despawn()` — removes the tag, then `NPC.Despawn`.
+- API: `Ghost:BuildStateMachine() -> StateMachine` — Drift/Lurk/Vanish/Despawn.
+- API: `Ghost:FloatTo(goal: Vector3) -> boolean` — flies one leg; true if it ended up near a player.
+- Tags: applies `Ghost` (plus `Enemy` from NPC)
+- Requires: `ServerStorage.Classes.NPC`, `Modules.GhostMotion`, `Modules.Hallways`, `ServerStorage.Modules.Gaze`, `GhostAreaService`, `DangerMapService`, `Configs.GhostConfig`
+- Notes: overrides `Start`, `Despawn`, `BuildStateMachine`; has no Chase/Attack states at all
+
+### Enemies\Mimic.luau
+The most elaborate enemy: it copies a random living player's appearance, name, verified badge and held walkie-talkie, then runs one of many "encounter modes" (Mirror, Withdraw, Shadow, Wallface, Turnaway, Passerby, Blocker, Afk, Emote, Spin, Approach) that all read as another player behaving oddly — including handing network ownership to the victim so the client mirrors its own movement. Getting too close, fleeing, or turning away trips it into a chase, where it reveals a built-from-parts monster face, floats, and on a kill assumes the victim's identity.
+- API: `Mimic.new(model: Model, config) -> self`
+- API: `Mimic:Start()` — `NPC.Start`, preloads the Fly override, picks and assumes an identity.
+- API: `Mimic:Despawn()` — clears reveal/float/mirroring, then `NPC.Despawn`.
+- API: `Mimic:BuildStateMachine() -> StateMachine` — Idle(loiter)/AfkIdle/Wander/Patrol/Stalk/Chase/Attack/Search/Stunned/Despawn with a `Perception` evaluator.
+- API: `Mimic:RollEncounterMode(allowAfk: boolean?) -> string`
+- API: `Mimic:PickIdentity() -> Player?` — prefers a player who cannot currently see it.
+- API: `Mimic:AssumeIdentity(player: Player)` — applies name, badge, HumanoidDescription and radio copy on a background thread.
+- API: `Mimic:StartMirroring(target: Player)` / `Mimic:StartSpinning(target: Player)` / `Mimic:StopMirroring()` — hand control of the model to a client and take it back.
+- API: `Mimic:SetHeadLock(target: Player?)` / `Mimic:SetAttackActive(active: boolean)` — attributes clients read.
+- API: `Mimic:SetFacing(direction: Vector3?)` / `Mimic:ClearFacing()` — AlignOrientation-based facing while walking.
+- API: `Mimic:StartFloat()` / `Mimic:StopFloat()` — hip-height rise with a sine bob; shows/hides the chase face.
+- API: `Mimic:ShowChaseFace()` / `Mimic:HideChaseFace()` — builds the welded eyes/mouth/teeth model procedurally.
+- Remotes: `Enemies/Mirror` (fired), `Enemies/MimicReveal` (fired)
+- Requires: `ServerStorage.Classes.NPC` extended from `Enemies.Chaser`, `Modules.MimicMotion`, `Configs.MimicConfig`, `Configs.AnimationConfig`, `HallwayGraphService`, `RoomService`, `EnemyDiscoveryService`
+- Notes: overrides `Start`, `Despawn`, `BuildStateMachine`; delegates the actual chase to `Chaser.Chase(..., false)`; sets `_laneProbeDrop` while floating so lane checks account for the raised hips
+
+### Enemies\Sisters.luau
+A pair of anchored figures that walk a fixed hallway route in lockstep, driven by a tweened NumberValue rather than a humanoid. It clones itself into a twin at start, kills anything the swept segment passes through, tracks the nearest player with glitchy neck-attachment head twitches, and flickers hallway lights as it goes; if it goes unseen long enough it may simply forget to exist and despawn.
+- API: `Sisters.new(model: Model, config, startTip: Vector3, direction: Vector3, destinationTip: Vector3) -> self`
+- API: `Sisters:Start()` — clones the twin, prepares both models, tweens the pair down the hallway.
+- API: `Sisters:Despawn()` — cancels the tween, untags, destroys both animators and models.
+- API: `Sisters:Patrol()` — the per-Heartbeat loop (kill sweep, head tracking, forget roll).
+- API: `Sisters:GetCenter() -> Vector3` — midpoint of the pair.
+- Tags: applies `Enemy`, `Sisters`
+- Requires: `Classes.NpcAnimator`, `Classes.StateMachine`, `EnemyService` (collision group), `LightService`, `DeathService`, `EnemyObservationService`, `RoomService`
+- Notes: standalone class — it extends neither EnemyBase nor NPC, but exposes the same `new` / `Start` / `Despawn` / `EnemyId` contract `EnemyService:Spawn` needs
+
+### Enemies\Stalker.luau
+Follows a player from behind without ever being seen: it tails at `FollowDistance` while unobserved, and being looked at throws it into a Flee state that sprint-routes to a hide spot, rejecting any path that would carry it through a player's view cone. If it survives its stalk timer it Reveals — seizing the victim's camera, turning to face them, and killing. It also owns the shared Peek behaviour states.
+- API: `Stalker.new(model: Model, config, spot: PeekSpotService.PeekSpot?, player: Player?) -> self` — passing a spot starts it in `Seek` (peek mode) instead of Idle.
+- API: `Stalker:Start()` — hides the name display, sets the walk track, then `NPC.Start`.
+- API: `Stalker:Despawn()` — releases the camera and exits Peek, then `NPC.Despawn`.
+- API: `Stalker:BuildStateMachine() -> StateMachine` — Idle/Wander/Patrol/Stalk/Reveal/Flee/Stunned/Despawn plus all `Peek.States`.
+- API: `Stalker:OnPeekFinished(reason: string, player: Player?)` — the Peek callback; a completed peek may roll into a stalk based on local danger.
+- Remotes: `Enemies/FaceStalker` (fired)
+- Requires: `ServerStorage.Classes.NPC`, `Enemies.Behaviors.Peek`, `PeekSpotService`, `HideSpotService`, `DangerMapService`, `EnemyObservationService`
+- Notes: overrides `Start`, `Despawn`, `BuildStateMachine`; warns to output when a retreat ends `NoPath`/`Stuck`/`Obstructed`
+
+### Enemies\WeepingAngel.luau
+Chases normally but freezes solid the instant any player observes it, and resumes the moment it is unobserved. Every non-Frozen state is wrapped in a `released` helper that clears the frozen attribute, and the perception evaluator runs at 0.05s so the freeze feels instantaneous.
+- API: `WeepingAngel.new(model: Model, config) -> self` — tags the model for the shared observed-freeze system.
+- API: `WeepingAngel:BuildStateMachine() -> StateMachine` — Idle/Patrol/Frozen/Chase/Attack/Stunned/Despawn, starting in Patrol.
+- Tags: applies `ObservedFreezeConfig.Tag` (plus `Enemy` from NPC)
+- Requires: `ServerStorage.Classes.NPC`, `Configs.ObservedFreezeConfig`
+- Notes: overrides `BuildStateMachine` only; Chase and Attack both re-check `IsObserved` and bail to Frozen
+
+### Enemies\Behaviors\Peek.luau
+A shared, non-class behaviour module: a set of state functions letting any NPC hide at a `PeekSpotService` spot, lean out into view, hold, and pull back a fixed number of times. It anchors the NPC and poses it by CFrame rather than walking, and abandons if the player closes in, looks directly at it, or the arc leaves every player's screen.
+- API: `Peek.StateNames` — ordered list `{ "Seek", "Lurk", "Peek", "Retreat", "Rest" }` for trigger tables.
+- API: `Peek.States` — map of those ids to state functions, to be merged into the host's state table.
+- API: `Peek.GetFindOptions(config) -> PeekSpotService.FindOptions` — builds find options from the enemy config.
+- API: `Peek.Enter(npc: any)` — anchors the root, stops movement, rolls `PeeksLeft`.
+- API: `Peek.Exit(npc: any)` — unanchors, restores the humanoid state machine and walk speed.
+- Requires: `PeekSpotService`, `EnemyObservationService`; the host NPC must implement `OnPeekFinished(reason: string, player: Player?)` and supply config keys `PeekCountMin/Max`, `MinPeekDistance`, `MaxPeekDistance`, `RearArc`, `ViewCone`, `PeekWaitTime`, `LeanTime`, `HoldTimeMin/Max`, `RetreatTime`, `RestTimeMin/Max`, `RetryInterval`, `SeenHoldTime`
+
+### Oddity.luau
+Root of the whole oddity hierarchy: a self-contained, timed anomaly with a numeric `Token`, a merged settings table, and a run window. `Oddity.extend(kind, parent)` builds subclasses; the two intermediate bases are `PropOddity` (`Scope = "Prop"`, context is a `Model`) and `PlayerOddity` (`Scope = "Player"`, context is a `Player`), alongside `HallwayOddity` (`Scope = "Map"`, context is a hallway span). Concrete oddities live in `Classes\Oddities\`, are auto-registered by `OddityService` at require time, and must satisfy the contract: a `.new(config)` returning `Base.new(config, Class)`, an optional `OnStart(context) -> boolean?` (return `false` to abort) and `OnStop()` hook, an optional static `Pick(class)` that chooses a context for ambient auto-spawning, and an optional static `IsAvailable(class)` / `CanStart(context)` gate; `OddityService:Start` instantiates the class with its config, checks `CanStart`, calls `Start`, and `Start` schedules its own `Stop` after the duration.
+- API: `Oddity.extend(kind: string, parent: any?) -> class` — makes a subclass table with `ClassName`/`Kind` set
+- API: `Oddity.new(config: { [string]: any }?, class: any?)` — assigns the next `Token`, empty callback list, inactive
+- API: `Oddity:OnStopped(callback: (any) -> ())` — queue a one-shot callback fired on stop
+- API: `Oddity:Setting(name: string, fallback: number) -> number` — numeric config lookup with default
+- API: `Oddity:RandomDuration() -> number` — random value between `MinDuration` (45) and `MaxDuration` (120)
+- API: `Oddity:CanStart(context: any) -> (boolean, string?)` — base always allows; subclasses override
+- API: `Oddity:Start(context: any, duration: number?) -> boolean` — pcalls `OnStart`, then `task.delay`s `Stop` when duration > 0
+- API: `Oddity:Stop() -> boolean` — pcalls `OnStop`, runs and clears the stop callbacks
+- API: `Oddity:Elapsed() -> number` — seconds since start, 0 when inactive
+- API: `Oddity:Remaining() -> number` — seconds left, 0 when inactive
+
+### PropOddity.luau
+Intermediate base for oddities that act on a single prop `Model` in the workspace; the start context is the model itself and the default duration is 0 (runs until something stops it). Reads settings from `PropOddityConfig` and is never ambient, so props are driven by their own pool/services rather than `OddityService`'s auto-spawn loop.
+- API: `PropOddity.new(config: { [string]: any }?, class: any?)` — adds `self.Model`
+- API: `PropOddity:CanStart(model: Model?) -> (boolean, string?)` — rejects non-models and models outside workspace
+- API: `PropOddity:Start(model: Model, duration: number?) -> boolean` — stores the model, defaults duration to 0
+- Requires: `Classes\Oddity`; `Configs\PropOddityConfig` via `ConfigName`
+
+### PlayerOddity.luau
+Intermediate base for oddities that afflict one player; the start context is the `Player`, and the oddity auto-stops when that player's humanoid dies. Reads settings from `PlayerOddityConfig` and is not ambient — `PlayerOddityService` picks and starts these.
+- API: `PlayerOddity.new(config: { [string]: any }?, class: any?)` — adds `Player`, `Character`, `Humanoid`, `Died`
+- API: `PlayerOddity.IsAvailable(class: any) -> boolean` — static availability gate, base returns true
+- API: `PlayerOddity:CanStart(player: Player?) -> (boolean, string?)` — requires a living humanoid
+- API: `PlayerOddity:Start(player: Player, duration: number?) -> boolean` — caches character/humanoid, hooks `Humanoid.Died`
+- API: `PlayerOddity:Stop() -> boolean` — disconnects the death hook, then base stop
+- Requires: `Classes\Oddity`, `ReplicatedStorage\Services\CharacterService`; `Configs\PlayerOddityConfig` via `ConfigName`
+
+## Oddities
+
+### Oddities\ChaosWarning.luau
+Extends `HallwayOddity`. Fires the client `MapDoors` remote so every door in the hallway box (room floors included) slams open and shut in chaos mode as a telegraph, with no light effects.
+- API: `ChaosWarning.new(config: { [string]: any }?)`
+- API: `ChaosWarning:OnStart() -> boolean` — sends `Start` with opening/closing speeds and door intervals, tagged `"ChaosWarning"`
+- API: `ChaosWarning:OnStop()` — sends `Stop`
+- Remotes: `Oddities/MapDoors` (fired)
+- Requires: `Classes\HallwayOddity`
+
+### Oddities\DoorsOpen.luau
+Extends `HallwayOddity`. Swings all doors in an occupied hallway span open once and holds them, requiring a living player in the span.
+- API: `DoorsOpen.new(config: { [string]: any }?)`
+- API: `DoorsOpen:OnStart() -> boolean` — sends `Start` with `OpeningSpeed` (0.75)
+- API: `DoorsOpen:OnStop()` — sends `Stop`
+- Remotes: `Oddities/MapDoors` (fired)
+- Requires: `Classes\HallwayOddity`
+
+### Oddities\HallwayBlocker.luau
+Extends `HallwayOddity`. Clones the `Gate` prop into a hallway span and drops it to the floor so the corridor is walled off, then destroys it on stop. Picking prefers spans nobody is looking at, skips spans already blocked, and keeps clear of junctions with three or more exits.
+- API: `HallwayBlocker.new(config: { [string]: any }?)` — adds `self.Blocker`
+- API: `HallwayBlocker.Pick(class: any) -> HallwayRegion.Span?` — weighted-distant span, unseen preferred
+- API: `HallwayBlocker:OnStart() -> boolean` — clones/aligns the gate, records the span as active
+- API: `HallwayBlocker:OnStop()` — destroys the gate, frees the span
+- Requires: `Classes\HallwayOddity`, `Modules\Gaze`, `Modules\HallwayRegion`, `Services\HallwayGraphService`, `ReplicatedStorage\Modules\Hallways`, `ReplicatedStorage.Props.Other.Gate`
+
+### Oddities\HallwayChaos.luau
+Extends `HallwayOddity`. Full panic event in one hallway: lights flicker chaotically along the span for the whole duration while every door in the box slams open and shut.
+- API: `HallwayChaos.new(config: { [string]: any }?)` — adds `self.LightClaim`
+- API: `HallwayChaos:OnStart() -> boolean` — claims a chaos flicker, fires `MapDoors` `Start` in `"Chaos"` mode
+- API: `HallwayChaos:OnStop()` — releases the flicker claim, fires `MapDoors` `Stop`
+- Remotes: `Oddities/MapDoors` (fired)
+- Requires: `Classes\HallwayOddity`, `Services\LightService`
+
+### Oddities\LanternFall.luau
+Extends `FixtureFall` (via `PropOddity`). Unanchors a ceiling lantern so it falls, killing its light while it is down and restoring the light plus the `Floor1Light` tag when the fixture is put back.
+- API: `LanternFall.new(config: { [string]: any }?)` — adds `self.LightClaim`
+- API: `LanternFall:OnFall(model: Model)` — disables the model's lights, removes tag `Floor1Light`
+- API: `LanternFall:OnRestore(model: Model)` — re-adds the tag and releases the light claim
+- Tags: applies/removes `Floor1Light`
+- Requires: `Classes\FixtureFall`, `Services\LightService`
+
+### Oddities\PaintingDweller.luau
+Extends `PropOddity`. Spawns a humanoid rig hidden behind a painting's `Canvas`, tweens it forward through a hole decal so it lunges out of the wall, flickers nearby lights and shakes nearby players' cameras, then attacks any living non-vanished player who comes within reach until it retreats and is destroyed on stop. Only paintings whose canvas has empty space (no hallway, no room) behind it are eligible.
+- API: `PaintingDweller.new(config: { [string]: any }?)` — adds rig, canvas, decal, GUI and animation state
+- API: `PaintingDweller:IsCandidate(model: Model) -> boolean` — anchored wide canvas with dead space behind it
+- API: `PaintingDweller:OnStart() -> boolean` — builds the rig, hides decals, plays the pop tween, starts the attack poll
+- API: `PaintingDweller:GroundedFor() -> number` — seconds since the pop
+- API: `PaintingDweller:WhyNotFixed() -> string?` — reason the fixture cannot be reset yet
+- API: `PaintingDweller:IsReadyToFix() -> boolean`
+- API: `PaintingDweller:OnStop()` — retreat tween, destroys the rig, restores decals and clears `OddityBusy`
+- Remotes: `Oddities/PaintingDwellerPop` (fired to nearby players)
+- Tags: reads `Room`
+- Requires: `Classes\PropOddity`, `Classes\FixtureFall` (for `DescribeNotFixed`), `Services\DeathService`, `Services\LightService`, `Modules\OddityRemotes`, `ReplicatedStorage\Services\CharacterService`, `ReplicatedStorage\Modules\Hallways`, `ReplicatedStorage\Modules\Vanished`, `ReplicatedStorage.Enemies` rig templates
+
+### Oddities\PaintingFall.luau
+Extends `FixtureFall` (via `PropOddity`). Knocks a wall painting loose and shoves it away from the hallway centre line with a lift and a random spin so it clatters onto the floor.
+- API: `PaintingFall.new(config: { [string]: any }?)`
+- API: `PaintingFall:OnLoose(model: Model, root: BasePart)` — applies the linear and angular impulses
+- Requires: `Classes\FixtureFall`, `ReplicatedStorage\Modules\Hallways`, `ReplicatedStorage\Services\MathService`
+
+### Oddities\PlayerHeadStare.luau
+Extends `PlayerOddity`. Tells one player's client to run the head-stare effect for the duration; only available when at least `MinimumPlayersForHeadStare` (default 3) players are alive.
+- API: `PlayerHeadStare.new(config: { [string]: any }?)`
+- API: `PlayerHeadStare.IsAvailable(class: any) -> boolean` — living-player count gate
+- API: `PlayerHeadStare:CanStart(player: Player?) -> (boolean, string?)` — base check plus the population gate
+- API: `PlayerHeadStare:OnStart() -> boolean` — fires the remote with the duration
+- API: `PlayerHeadStare:OnStop()` — fires the remote with 0 to cancel
+- Remotes: `Oddities/HeadStare` (fired to the victim)
+- Requires: `Classes\PlayerOddity`, `Modules\OddityRemotes`, `ReplicatedStorage\Services\CharacterService`
+
+### Oddities\PlayerSize.luau
+Extends `PlayerOddity`. Rescales the victim's character by a random multiplier from the config's `SizeOptions` list and restores the original scale on stop.
+- API: `PlayerSize.new(config: { [string]: any }?)` — adds `self.OriginalScale`
+- API: `PlayerSize:OnStart() -> boolean` — aborts when `SizeOptions` is missing or empty
+- API: `PlayerSize:OnStop()` — restores the original scale
+- Requires: `Classes\PlayerOddity`
+
+### Oddities\PlayerTransparency.luau
+Extends `PlayerOddity`. Makes every fully opaque part of the victim's character slightly see-through (including parts added while it runs) and restores them on stop.
+- API: `PlayerTransparency.new(config: { [string]: any }?)` — adds the original-transparency map and `DescendantAdded` hook
+- API: `PlayerTransparency:OnStart() -> boolean` — applies `OddTransparency` (0.1) and watches for new parts
+- API: `PlayerTransparency:OnStop()` — disconnects and restores
+- Requires: `Classes\PlayerOddity`
+
+### Oddities\Transparency.luau
+Extends `HallwayOddity`. Fades every eligible world part that sits mostly inside a hallway box to near-invisible, so the corridor's geometry seems to vanish; skips character parts and anything tagged `TransparencyIgnore`, and uses a module-level refcount so overlapping instances restore correctly.
+- API: `Transparency.new(config: { [string]: any }?)` — adds the claimed-part set and the `DescendantAdded` hook
+- API: `Transparency:OnStart() -> boolean` — box query plus a non-queryable sweep, then watches new parts
+- API: `Transparency:OnStop()` — decrements claims and restores parts whose last claim dropped
+- Tags: reads `TransparencyIgnore`
+- Requires: `Classes\HallwayOddity`
+
+## Tools
+
+### Tools\Bandage.luau
+Server half of the Bandage tool: a bare `Healer` subclass, so activation consumes one and heals `HealAmount` from `ToolConfigs`.
+- API: `Bandage.new(tool: Tool)`
+- Requires: `Classes\Healer` (extends `ServerTool`)
+
+### Tools\Energy Drink.luau
+Server half of the Energy Drink tool: a bare `SpeedDrink` subclass, so activation consumes one and applies the configured walk-speed and FOV boost.
+- API: `EnergyDrink.new(tool: Tool)`
+- Requires: `Classes\SpeedDrink` (extends `ServerTool`)
+
+### Tools\Flashlight.luau
+Server half of the flashlight: activation toggles the `SpotLight` in the handle and plays the handle's click emitter; the light is forced off when unequipped or destroyed.
+- API: `Flashlight.new(tool: Tool)` — starts disabled
+- API: `Flashlight:SetEnabled(enabled: boolean)` — sets `self.Enabled` and the handle spotlight
+- API: `Flashlight:OnActivated()` — toggle plus click sound
+- API: `Flashlight:OnUnequipped()` / `Flashlight:OnDestroy()` — force off
+- Requires: `Classes\ServerTool`
+
+### Tools\Medkit.luau
+Server half of the Medkit tool: a bare `Healer` subclass, identical behaviour to Bandage with its own config values.
+- API: `Medkit.new(tool: Tool)`
+- Requires: `Classes\Healer` (extends `ServerTool`)
+
+### Tools\Pathfinder.luau
+Server half of the Pathfinder: tracks a `uses` attribute on the tool and spends one each time a marker is placed, consuming an inventory item and resetting the counter when it hits zero. Players who own the `Pathfinder` perk spend nothing.
+- API: `Pathfinder.new(tool: Tool)` — seeds the `uses` attribute and registers the `Placed` handler
+- Requires: `Classes\ServerTool`, `Services\PerkService`, `Services\InventoryService` (via `ServerTool:Consume`)
+
+### Tools\Soda.luau
+Server half of the Soda tool: a bare `SpeedDrink` subclass with its own config values.
+- API: `Soda.new(tool: Tool)`
+- Requires: `Classes\SpeedDrink` (extends `ServerTool`)
+
+### Tools\SpellBook.luau
+Server half of the spell book: on activation it tags the caster as vanished, freezes their walk speed, plays the `Book` animation with book particle effects that follow the tool and a VFX dummy welded in the caster's place, waits for the `BookEnd` marker, then consumes one book. Cleanup stops the track, destroys the effects and dummy, untags and unfreezes the caster.
+- API: `SpellBook.new(tool: Tool)`
+- API: `SpellBook:OnActivated()` — the cast sequence
+- API: `SpellBook:OnCleanup()` / `SpellBook:OnDestroy()` — tear down effects and restore the caster
+- Tags: applies `Vanished.Tag`
+- Requires: `Classes\ServerTool`, `ReplicatedStorage\Modules\Vanished`, `ReplicatedStorage.Props.Other` (`BookEffects`, `VFXDummy`)
+
+### Tools\Trap.luau
+Server half of the bear trap: activation consumes one, plays the placement sound and clones the `Trap` prop at the player's pivot, destroying the oldest placed trap once more than `MaxInWorld` exist.
+- API: `Trap.new(tool: Tool)`
+- API: `Trap:OnActivated()` — place and prune
+- Requires: `Classes\ServerTool`, `ReplicatedStorage.Props.Other.Trap`
+
+### Tools\Visor.luau
+Server half of the visor: equipping clones the tool's face `Accessory` onto the character (renamed `VisorWorn`, with a `FaceFrontAttachment` at the configured CFrame), hides the tool handle, and hides every other face accessory including ones added later; unequipping or destruction restores all of it.
+- API: `Visor.new(tool: Tool)` — caches the handle's transparency/shadow state
+- API: `Visor:OnEquipped()` — wear the visor
+- API: `Visor:OnUnequipped()` / `Visor:OnDestroy()` — remove and restore
+- Requires: `Classes\ServerTool`
+
+### Tools\Walkie Talkie.luau
+Server half of the walkie talkie: registers and unregisters the owning player with `WalkieTalkieService` on equip, unequip and destruction.
+- API: `WalkieTalkie.new(tool: Tool)`
+- API: `WalkieTalkie:OnEquipped()` / `WalkieTalkie:OnUnequipped()` / `WalkieTalkie:OnDestroy()`
+- Requires: `Classes\ServerTool`, `Services\WalkieTalkieService`
