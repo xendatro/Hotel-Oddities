@@ -1,9 +1,9 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
-local ChatCommands = {}
+local ChatCommandService = {}
 
-ChatCommands.AdminUserIds = {
+ChatCommandService.AdminUserIds = {
 	[265199502] = true,
 	[1936118388] = true,
 }
@@ -16,11 +16,11 @@ type Options = {
 
 local Commands: { [string]: { Name: string, AdminOnly: boolean, Handler: (player: Player, argument: string?) -> () } } = {}
 
-function ChatCommands.IsAllowed(player: Player): boolean
-	return RunService:IsStudio() or ChatCommands.AdminUserIds[player.UserId] == true
+function ChatCommandService.IsAllowed(player: Player): boolean
+	return RunService:IsStudio() or ChatCommandService.AdminUserIds[player.UserId] == true
 end
 
-function ChatCommands.FindPlayer(name: string): Player?
+function ChatCommandService.FindPlayer(name: string): Player?
 	local lowered = name:lower()
 	local userId = tonumber(name)
 	for _, player in Players:GetPlayers() do
@@ -34,7 +34,7 @@ function ChatCommands.FindPlayer(name: string): Player?
 	return nil
 end
 
-function ChatCommands.Register(name: string, options: Options)
+function ChatCommandService.Register(name: string, options: Options)
 	local entry = {
 		Name = name:lower(),
 		AdminOnly = options.AdminOnly == true,
@@ -51,7 +51,7 @@ local function onChatted(player: Player, message: string)
 	local entry = name and Commands[name:lower()]
 	if not entry then return end
 
-	if entry.AdminOnly and not ChatCommands.IsAllowed(player) then
+	if entry.AdminOnly and not ChatCommandService.IsAllowed(player) then
 		warn(`[{entry.Name}] {player.Name} ({player.UserId}) is not allowed to use /{entry.Name}`)
 		return
 	end
@@ -70,4 +70,4 @@ for _, player in Players:GetPlayers() do
 	watch(player)
 end
 
-return ChatCommands
+return ChatCommandService

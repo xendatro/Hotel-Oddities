@@ -1,15 +1,15 @@
 local TweenService = game:GetService("TweenService")
 
-local TweenUtil = {}
+local TweenProxyService = {}
 
-function TweenUtil.CancelAll(tweens: { Tween })
+function TweenProxyService.CancelAll(tweens: { Tween })
 	for _, tween in tweens do
 		tween:Cancel()
 	end
 	table.clear(tweens)
 end
 
-function TweenUtil.Proxy(className: string, initialValue: any, goalValue: any, tweenInfo: TweenInfo, apply: (value: any) -> ()): Tween
+function TweenProxyService.Proxy(className: string, initialValue: any, goalValue: any, tweenInfo: TweenInfo, apply: (value: any) -> ()): Tween
 	local proxy = Instance.new(className)
 	proxy.Value = initialValue
 	local connection = proxy.Changed:Connect(function(value)
@@ -26,12 +26,12 @@ function TweenUtil.Proxy(className: string, initialValue: any, goalValue: any, t
 	return tween
 end
 
-function TweenUtil.ScaleModel(model: Model, from: number, to: number, tweenInfo: TweenInfo): Tween
-	return TweenUtil.Proxy("NumberValue", from, to, tweenInfo, function(value)
+function TweenProxyService.ScaleModel(model: Model, from: number, to: number, tweenInfo: TweenInfo): Tween
+	return TweenProxyService.Proxy("NumberValue", from, to, tweenInfo, function(value)
 		if model.Parent then
 			model:ScaleTo(value)
 		end
 	end)
 end
 
-return TweenUtil
+return TweenProxyService

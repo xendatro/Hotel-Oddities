@@ -1,12 +1,12 @@
 local Players = game:GetService("Players")
 
-local GuiUtil = {}
+local GuiBuilderService = {}
 
-function GuiUtil.GetPlayerGui(): PlayerGui
+function GuiBuilderService.GetPlayerGui(): PlayerGui
 	return Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
 end
 
-function GuiUtil.CreateScreenGui(name: string, displayOrder: number?, ignoreGuiInset: boolean?): ScreenGui
+function GuiBuilderService.CreateScreenGui(name: string, displayOrder: number?, ignoreGuiInset: boolean?): ScreenGui
 	local gui = Instance.new("ScreenGui")
 	gui.Name = name
 	gui.ResetOnSpawn = false
@@ -17,18 +17,18 @@ function GuiUtil.CreateScreenGui(name: string, displayOrder: number?, ignoreGuiI
 	if ignoreGuiInset then
 		gui.IgnoreGuiInset = true
 	end
-	gui.Parent = GuiUtil.GetPlayerGui()
+	gui.Parent = GuiBuilderService.GetPlayerGui()
 	return gui
 end
 
-function GuiUtil.Corner(parent: GuiObject, radius: UDim): UICorner
+function GuiBuilderService.Corner(parent: GuiObject, radius: UDim): UICorner
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = radius
 	corner.Parent = parent
 	return corner
 end
 
-function GuiUtil.Stroke(parent: GuiObject, color: Color3, thickness: number): UIStroke
+function GuiBuilderService.Stroke(parent: GuiObject, color: Color3, thickness: number): UIStroke
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = color
 	stroke.Thickness = thickness
@@ -37,4 +37,4 @@ function GuiUtil.Stroke(parent: GuiObject, color: Color3, thickness: number): UI
 	return stroke
 end
 
-return GuiUtil
+return GuiBuilderService

@@ -1,18 +1,18 @@
 local Players = game:GetService("Players")
 
-local CharacterUtil = {}
+local CharacterService = {}
 
-function CharacterUtil.GetHumanoid(character: Model?): Humanoid?
+function CharacterService.GetHumanoid(character: Model?): Humanoid?
 	if not character then return nil end
 	return character:FindFirstChildOfClass("Humanoid")
 end
 
-function CharacterUtil.IsAlive(character: Model?): boolean
-	local humanoid = CharacterUtil.GetHumanoid(character)
+function CharacterService.IsAlive(character: Model?): boolean
+	local humanoid = CharacterService.GetHumanoid(character)
 	return humanoid ~= nil and humanoid.Health > 0
 end
 
-function CharacterUtil.GetAliveRootFromCharacter(character: Model?): BasePart?
+function CharacterService.GetAliveRootFromCharacter(character: Model?): BasePart?
 	if not character then return nil end
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	local root = character:FindFirstChild("HumanoidRootPart")
@@ -20,23 +20,23 @@ function CharacterUtil.GetAliveRootFromCharacter(character: Model?): BasePart?
 	return root :: BasePart
 end
 
-function CharacterUtil.GetAliveRoot(player: Player): BasePart?
-	return CharacterUtil.GetAliveRootFromCharacter(player.Character)
+function CharacterService.GetAliveRoot(player: Player): BasePart?
+	return CharacterService.GetAliveRootFromCharacter(player.Character)
 end
 
-function CharacterUtil.GetAliveHumanoid(player: Player): Humanoid?
+function CharacterService.GetAliveHumanoid(player: Player): Humanoid?
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if not humanoid or humanoid.Health <= 0 then return nil end
 	return humanoid
 end
 
-function CharacterUtil.GetPosition(player: Player): Vector3?
-	local root = CharacterUtil.GetAliveRoot(player)
+function CharacterService.GetPosition(player: Player): Vector3?
+	local root = CharacterService.GetAliveRoot(player)
 	return if root then root.Position else nil
 end
 
-function CharacterUtil.ForEachPlayer(callback: (player: Player) -> ()): RBXScriptConnection
+function CharacterService.ForEachPlayer(callback: (player: Player) -> ()): RBXScriptConnection
 	local connection = Players.PlayerAdded:Connect(callback)
 	for _, player in Players:GetPlayers() do
 		task.spawn(callback, player)
@@ -44,10 +44,10 @@ function CharacterUtil.ForEachPlayer(callback: (player: Player) -> ()): RBXScrip
 	return connection
 end
 
-function CharacterUtil.CleanupOnLeave(map: { [Player]: any }): RBXScriptConnection
+function CharacterService.CleanupOnLeave(map: { [Player]: any }): RBXScriptConnection
 	return Players.PlayerRemoving:Connect(function(player)
 		map[player] = nil
 	end)
 end
 
-return CharacterUtil
+return CharacterService

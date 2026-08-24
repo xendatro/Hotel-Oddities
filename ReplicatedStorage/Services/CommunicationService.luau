@@ -1,7 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local Remotes = {}
+local CommunicationService = {}
 
 local FolderName = "Communication"
 
@@ -17,19 +17,19 @@ local function getCommunication(): Folder
 	return ReplicatedStorage:WaitForChild(FolderName) :: Folder
 end
 
-function Remotes.Get(folderName: string, remoteName: string): any
+function CommunicationService.Get(folderName: string, remoteName: string): any
 	local communication = getCommunication()
 	local folder = communication:WaitForChild(folderName)
 	return folder:WaitForChild(remoteName)
 end
 
-function Remotes.Find(folderName: string, remoteName: string): any
+function CommunicationService.Find(folderName: string, remoteName: string): any
 	local communication = ReplicatedStorage:FindFirstChild(FolderName)
 	local folder = communication and communication:FindFirstChild(folderName)
 	return if folder then folder:FindFirstChild(remoteName) else nil
 end
 
-function Remotes.Ensure(folderName: string, remoteName: string, className: string?): any
+function CommunicationService.Ensure(folderName: string, remoteName: string, className: string?): any
 	local communication = getCommunication()
 	local folder = communication:FindFirstChild(folderName)
 	if not folder then
@@ -46,4 +46,4 @@ function Remotes.Ensure(folderName: string, remoteName: string, className: strin
 	return remote
 end
 
-return Remotes
+return CommunicationService
