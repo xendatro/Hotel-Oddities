@@ -1,7 +1,7 @@
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 
-local Vanished = require(game:GetService("ReplicatedStorage").Modules.Vanished)
+local Vanished = require(game:GetService("ReplicatedStorage").Services.VanishedService)
 local AnimationConfig = require(game:GetService("ReplicatedStorage").Configs.AnimationConfig)
 local CharacterService = require(game:GetService("ReplicatedStorage").Services.CharacterService)
 local CommunicationService = require(game:GetService("ReplicatedStorage").Services.CommunicationService)

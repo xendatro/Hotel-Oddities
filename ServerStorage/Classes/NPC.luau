@@ -12,11 +12,11 @@ local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local DeathService = require(ServerStorage.Services.DeathService)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
-local HallwayGraphService = require(ServerStorage.Services.HallwayGraphService)
+local HallwayGraphService = require(ReplicatedStorage.Services.HallwayGraphService)
 local NpcAnimator = require(ReplicatedStorage.Classes.NpcAnimator)
 local Race = require(ReplicatedStorage.Classes.Race)
 local RoomService = require(ServerStorage.Services.RoomService)
-local Vanished = require(ReplicatedStorage.Modules.Vanished)
+local Vanished = require(ReplicatedStorage.Services.VanishedService)
 
 local WAYPOINT_REACHED_DISTANCE = 1.25
 local POLL_OVERSHOOT_ALLOWANCE = 1.5

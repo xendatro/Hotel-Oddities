@@ -1,7 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
-local Bob = require(ReplicatedStorage.Modules.Bob)
+local Bob = require(ReplicatedStorage.Services.BobService)
 local GhostConfig = require(ReplicatedStorage.Configs.GhostConfig)
 
 local MINIMUM_HEADING = 1e-3

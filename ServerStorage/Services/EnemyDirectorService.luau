@@ -14,7 +14,7 @@ local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local EnemyService = require(ServerStorage.Services.EnemyService)
 local GhostAreaService = require(ServerStorage.Services.GhostAreaService)
-local HallwayGraphService = require(ServerStorage.Services.HallwayGraphService)
+local HallwayGraphService = require(ReplicatedStorage.Services.HallwayGraphService)
 local SistersService = require(ServerStorage.Services.SistersService)
 local StalkerService = require(ServerStorage.Services.StalkerService)
 

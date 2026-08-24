@@ -6,11 +6,11 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local Config = require(ReplicatedStorage.Configs.StreamingConfig)
-local Hallways = require(ReplicatedStorage.Modules.Hallways)
+local Hallways = require(ReplicatedStorage.Services.HallwaysService)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local MathService = require(ReplicatedStorage.Services.MathService)
-local HallwayGraph = require(ServerStorage.Services.HallwayGraphService)
+local HallwayGraph = require(ReplicatedStorage.Services.HallwayGraphService)
 
 local HallwayStreamingService = {}
 

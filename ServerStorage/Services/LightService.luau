@@ -3,7 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local AudioService = require(ReplicatedStorage.Services.AudioService)
-local Hallways = require(ReplicatedStorage.Modules.Hallways)
+local Hallways = require(ReplicatedStorage.Services.HallwaysService)
 local TagService = require(ReplicatedStorage.Services.TagService)
 local MathService = require(ReplicatedStorage.Services.MathService)
 

@@ -11,7 +11,7 @@ end
 local AudioService = require(ReplicatedStorage.Services.AudioService)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
-local Hallways = require(ReplicatedStorage.Modules.Hallways)
+local Hallways = require(ReplicatedStorage.Services.HallwaysService)
 
 local AMBIENCE_BUS = "SFX"
 local AMBIENCE_SILENT_DISTANCE = 60

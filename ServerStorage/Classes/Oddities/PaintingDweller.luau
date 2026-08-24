@@ -7,13 +7,13 @@ local TweenService = game:GetService("TweenService")
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local DeathService = require(ServerStorage.Services.DeathService)
 local FixtureFall = require(ServerStorage.Classes.FixtureFall)
-local Hallways = require(ReplicatedStorage.Modules.Hallways)
+local Hallways = require(ReplicatedStorage.Services.HallwaysService)
 local LightService = require(ServerStorage.Services.LightService)
-local OddityRemotes = require(ServerStorage.Modules.OddityRemotes)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local PropOddity = require(ServerStorage.Classes.PropOddity)
-local Vanished = require(ReplicatedStorage.Modules.Vanished)
+local Vanished = require(ReplicatedStorage.Services.VanishedService)
 
-local PopRemote = OddityRemotes.Event("PaintingDwellerPop")
+local PopRemote = CommunicationService.Ensure("Oddities", "PaintingDwellerPop")
 
 local PaintingDweller = PropOddity.extend("PaintingDweller", PropOddity)
 

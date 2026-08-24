@@ -4,7 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local DebugPanel = require(ReplicatedStorage.Classes.DebugPanel)
-local DangerField = require(ReplicatedStorage.Modules.DangerField)
+local DangerField = require(ReplicatedStorage.Services.DangerFieldService)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 

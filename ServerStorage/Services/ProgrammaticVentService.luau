@@ -5,7 +5,7 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
-local PerfLog = require(ReplicatedStorage.Modules.PerfLog)
+local PerfLog = require(ReplicatedStorage.Services.PerfLoggerService)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local MathService = require(ReplicatedStorage.Services.MathService)
 local DangerMapService = require(ServerStorage.Services.DangerMapService)

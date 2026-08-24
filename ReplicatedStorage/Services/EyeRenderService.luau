@@ -2,16 +2,16 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local Aim = require(ReplicatedStorage.Modules.Aim)
-local Bob = require(ReplicatedStorage.Modules.Bob)
+local Aim = require(ReplicatedStorage.Services.AimService)
+local Bob = require(ReplicatedStorage.Services.BobService)
 local EyeConfig = require(ReplicatedStorage.Configs.EyeConfig)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
-local Sightline = require(ReplicatedStorage.Modules.Sightline)
+local Sightline = require(ReplicatedStorage.Services.SightlineService)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local EyeHitEffectService = require(ReplicatedStorage.Services.EyeHitEffectService)
 local MathService = require(ReplicatedStorage.Services.MathService)
 local TagService = require(ReplicatedStorage.Services.TagService)
-local Vanished = require(ReplicatedStorage.Modules.Vanished)
+local Vanished = require(ReplicatedStorage.Services.VanishedService)
 
 local EYE_TAG = "Eye"
 local STUNNED_ATTRIBUTE = "Stunned"

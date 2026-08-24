@@ -1,10 +1,11 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
-local HallwayRegion = require(ServerStorage.Modules.HallwayRegion)
+local HallwayRegion = require(ServerStorage.Services.HallwayRegionService)
 local Oddity = require(ServerStorage.Classes.Oddity)
-local OddityRemotes = require(ServerStorage.Modules.OddityRemotes)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 
-local MapDoors = OddityRemotes.Event("MapDoors")
+local MapDoors = CommunicationService.Ensure("Oddities", "MapDoors")
 
 local HallwayOddity = Oddity.extend("HallwayOddity")
 

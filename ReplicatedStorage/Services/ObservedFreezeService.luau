@@ -6,7 +6,7 @@ local RunService = game:GetService("RunService")
 local EnemyObservationService = require(ReplicatedStorage.Services.EnemyObservationService)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local ObservedFreezeConfig = require(ReplicatedStorage.Configs.ObservedFreezeConfig)
-local Sightline = require(ReplicatedStorage.Modules.Sightline)
+local Sightline = require(ReplicatedStorage.Services.SightlineService)
 
 local WRITE_EPSILON = 1e-3
 local VISIBILITY_INTERVAL = 0.05

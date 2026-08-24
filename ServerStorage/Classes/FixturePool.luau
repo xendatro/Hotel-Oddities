@@ -4,9 +4,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
-local Hallways = require(ReplicatedStorage.Modules.Hallways)
+local Hallways = require(ReplicatedStorage.Services.HallwaysService)
 local OddityService = require(ServerStorage.Services.OddityService)
-local Vanished = require(ReplicatedStorage.Modules.Vanished)
+local Vanished = require(ReplicatedStorage.Services.VanishedService)
 
 local LIST_REFRESH = 60
 

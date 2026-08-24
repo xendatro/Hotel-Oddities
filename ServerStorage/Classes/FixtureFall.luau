@@ -2,7 +2,7 @@ local PhysicsService = game:GetService("PhysicsService")
 local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
 
-local Gaze = require(ServerStorage.Modules.Gaze)
+local Gaze = require(ServerStorage.Services.GazeService)
 local PropOddity = require(ServerStorage.Classes.PropOddity)
 
 local PLAYER_COLLISION_GROUP = "Players"

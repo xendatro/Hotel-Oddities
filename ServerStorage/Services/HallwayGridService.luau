@@ -1,8 +1,8 @@
 local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local HallwayGraph = require(ServerStorage.Services.HallwayGraphService)
-local Hallways = require(ReplicatedStorage.Modules.Hallways)
+local HallwayGraph = require(ReplicatedStorage.Services.HallwayGraphService)
+local Hallways = require(ReplicatedStorage.Services.HallwaysService)
 local MathService = require(ReplicatedStorage.Services.MathService)
 
 local MAX_ALONG_SIGHT = 0.5

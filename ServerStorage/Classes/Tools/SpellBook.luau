@@ -3,7 +3,7 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local ServerTool = require(ServerStorage.Classes.ServerTool)
-local Vanished = require(ReplicatedStorage.Modules.Vanished)
+local Vanished = require(ReplicatedStorage.Services.VanishedService)
 
 local Other = ReplicatedStorage.Props.Other
 

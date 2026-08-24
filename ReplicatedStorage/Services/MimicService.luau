@@ -10,7 +10,7 @@ local CommunicationService = require(ReplicatedStorage.Services.CommunicationSer
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local MathService = require(ReplicatedStorage.Services.MathService)
 local MimicConfig = require(ReplicatedStorage.Configs.MimicConfig)
-local MimicMotion = require(ReplicatedStorage.Modules.MimicMotion)
+local MimicMotion = require(ReplicatedStorage.Services.MimicMotionService)
 local MotionTrail = require(ReplicatedStorage.Classes.MotionTrail)
 local NpcAnimator = require(ReplicatedStorage.Classes.NpcAnimator)
 

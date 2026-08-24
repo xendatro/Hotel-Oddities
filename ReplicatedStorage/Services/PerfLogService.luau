@@ -3,7 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
-local PerfLog = require(ReplicatedStorage.Modules.PerfLog)
+local PerfLog = require(ReplicatedStorage.Services.PerfLoggerService)
 
 local PerfLogService = {}
 

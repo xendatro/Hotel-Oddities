@@ -9,7 +9,7 @@ local EnemyBase = require(ServerStorage.Classes.EnemyBase)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local EyeHit = require(ServerStorage.Services.EyeHitService).Remote
 local RoomService = require(ServerStorage.Services.RoomService)
-local Vanished = require(ReplicatedStorage.Modules.Vanished)
+local Vanished = require(ReplicatedStorage.Services.VanishedService)
 
 local STUNNED_ATTRIBUTE = "Stunned"
 local DAMAGE_INTERVAL = 0.05

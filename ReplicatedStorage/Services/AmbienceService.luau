@@ -7,7 +7,7 @@ local AmbienceConfig = require(ReplicatedStorage.Configs.AmbienceConfig)
 local AudioService = require(ReplicatedStorage.Services.AudioService)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local DeathScreenService = require(ReplicatedStorage.Services.DeathScreenService)
-local HallwayGraph = require(ReplicatedStorage.Modules.HallwayGraph)
+local HallwayGraph = require(ReplicatedStorage.Services.HallwayGraphService)
 local LobbyService = require(ReplicatedStorage.Services.LobbyService)
 
 local AmbienceService = {}

@@ -2,7 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local FixtureFall = require(ServerStorage.Classes.FixtureFall)
-local Hallways = require(ReplicatedStorage.Modules.Hallways)
+local Hallways = require(ReplicatedStorage.Services.HallwaysService)
 local MathService = require(ReplicatedStorage.Services.MathService)
 
 local PaintingFall = FixtureFall.extend("PaintingFall", FixtureFall)

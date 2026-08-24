@@ -4,8 +4,8 @@ local ServerStorage = game:GetService("ServerStorage")
 local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyService = require(ServerStorage.Services.EnemyService)
-local HallwayGraphService = require(ServerStorage.Services.HallwayGraphService)
-local Hallways = require(ReplicatedStorage.Modules.Hallways)
+local HallwayGraphService = require(ReplicatedStorage.Services.HallwayGraphService)
+local Hallways = require(ReplicatedStorage.Services.HallwaysService)
 
 type StraightSpan = Hallways.StraightSpan
 

@@ -2,7 +2,7 @@ local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
-local DangerField = require(ReplicatedStorage.Modules.DangerField)
+local DangerField = require(ReplicatedStorage.Services.DangerFieldService)
 
 local MAZE_FLOOR_TAG = "MazeFloor"
 local START_TAG = "Start"

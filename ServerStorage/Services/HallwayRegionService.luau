@@ -3,7 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local Config = require(ReplicatedStorage.Configs.MapOddityConfig)
-local Hallways = require(ReplicatedStorage.Modules.Hallways)
+local Hallways = require(ReplicatedStorage.Services.HallwaysService)
 local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 

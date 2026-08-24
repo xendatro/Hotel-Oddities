@@ -2,10 +2,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
-local Aim = require(ReplicatedStorage.Modules.Aim)
+local Aim = require(ReplicatedStorage.Services.AimService)
 local CreepConfig = require(ReplicatedStorage.Configs.CreepConfig)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
-local Hallways = require(ReplicatedStorage.Modules.Hallways)
+local Hallways = require(ReplicatedStorage.Services.HallwaysService)
 local TagService = require(ReplicatedStorage.Services.TagService)
 
 local CREEP_TAG = "Creep"

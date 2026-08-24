@@ -9,7 +9,7 @@ if not RunService:IsClient() then
 end
 
 local CameraShaker = require(ReplicatedStorage.Classes.CameraShaker)
-local PerfLog = require(ReplicatedStorage.Modules.PerfLog)
+local PerfLog = require(ReplicatedStorage.Services.PerfLoggerService)
 
 local function ShakeCamera(shakeCf)
 	local camera = workspace.CurrentCamera

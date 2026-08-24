@@ -5,7 +5,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local CollectionService = game:GetService("CollectionService")
 
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
-local PerfLog = require(ReplicatedStorage.Modules.PerfLog)
+local PerfLog = require(ReplicatedStorage.Services.PerfLoggerService)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 

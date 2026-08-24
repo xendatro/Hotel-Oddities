@@ -3,9 +3,9 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 local AnimationConfig = require(ReplicatedStorage.Configs.AnimationConfig)
-local Bob = require(ReplicatedStorage.Modules.Bob)
+local Bob = require(ReplicatedStorage.Services.BobService)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
-local GhostMotion = require(ReplicatedStorage.Modules.GhostMotion)
+local GhostMotion = require(ReplicatedStorage.Services.GhostMotionService)
 local TagService = require(ReplicatedStorage.Services.TagService)
 
 local GHOST_TAG = "Ghost"

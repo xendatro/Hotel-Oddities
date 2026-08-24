@@ -3,7 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
-local Hallways = require(ReplicatedStorage.Modules.Hallways)
+local Hallways = require(ReplicatedStorage.Services.HallwaysService)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 
 local POINT_ATTEMPTS = 12

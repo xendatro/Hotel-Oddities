@@ -3,10 +3,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
-local OddityRemotes = require(ServerStorage.Modules.OddityRemotes)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local PlayerOddity = require(ServerStorage.Classes.PlayerOddity)
 
-local HeadStare = OddityRemotes.Event("HeadStare")
+local HeadStare = CommunicationService.Ensure("Oddities", "HeadStare")
 
 local PlayerHeadStare = PlayerOddity.extend("HeadStare", PlayerOddity)
 

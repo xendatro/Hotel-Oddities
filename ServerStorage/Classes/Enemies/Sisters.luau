@@ -13,7 +13,7 @@ local EnemyObservationService = require(ServerStorage.Services.EnemyObservationS
 local EnemyService = require(ServerStorage.Services.EnemyService)
 local LightService = require(ServerStorage.Services.LightService)
 local RoomService = require(ServerStorage.Services.RoomService)
-local Vanished = require(ReplicatedStorage.Modules.Vanished)
+local Vanished = require(ReplicatedStorage.Services.VanishedService)
 
 local ENEMY_TAG = "Enemy"
 local SISTERS_TAG = "Sisters"

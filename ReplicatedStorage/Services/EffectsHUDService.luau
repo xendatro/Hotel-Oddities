@@ -5,7 +5,7 @@ local RunService = game:GetService("RunService")
 
 local EffectsHUDConfig = require(ReplicatedStorage.Configs.EffectsHUDConfig)
 local ToolConfigs = require(ReplicatedStorage.Configs.ToolConfigs)
-local Vanished = require(ReplicatedStorage.Modules.Vanished)
+local Vanished = require(ReplicatedStorage.Services.VanishedService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 

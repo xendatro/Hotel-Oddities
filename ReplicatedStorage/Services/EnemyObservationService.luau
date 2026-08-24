@@ -5,7 +5,7 @@ local RunService = game:GetService("RunService")
 
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local ObservedFreezeConfig = require(ReplicatedStorage.Configs.ObservedFreezeConfig)
-local Sightline = require(ReplicatedStorage.Modules.Sightline)
+local Sightline = require(ReplicatedStorage.Services.SightlineService)
 
 local REPORT_INTERVAL = 0.05
 local OBSERVABLE_TAG = "Observable"

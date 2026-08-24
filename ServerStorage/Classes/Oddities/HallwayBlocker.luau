@@ -1,11 +1,11 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
-local Gaze = require(ServerStorage.Modules.Gaze)
-local HallwayGraph = require(ServerStorage.Services.HallwayGraphService)
-local HallwayRegion = require(ServerStorage.Modules.HallwayRegion)
+local Gaze = require(ServerStorage.Services.GazeService)
+local HallwayGraph = require(ReplicatedStorage.Services.HallwayGraphService)
+local HallwayRegion = require(ServerStorage.Services.HallwayRegionService)
 local HallwayOddity = require(ServerStorage.Classes.HallwayOddity)
-local Hallways = require(ReplicatedStorage.Modules.Hallways)
+local Hallways = require(ReplicatedStorage.Services.HallwaysService)
 
 local Gate = ReplicatedStorage.Props.Other.Gate :: Model
 

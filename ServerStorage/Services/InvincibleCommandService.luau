@@ -2,7 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
-local Vanished = require(ReplicatedStorage.Modules.Vanished)
+local Vanished = require(ReplicatedStorage.Services.VanishedService)
 local ChatCommandService = require(ServerStorage.Services.ChatCommandService)
 
 local ON_WORDS = { on = true, yes = true, ["true"] = true, enable = true, enabled = true }

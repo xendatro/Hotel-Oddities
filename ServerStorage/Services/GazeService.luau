@@ -3,7 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
-local Vanished = require(ReplicatedStorage.Modules.Vanished)
+local Vanished = require(ReplicatedStorage.Services.VanishedService)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 
 local DEFAULT_CONE = 100
