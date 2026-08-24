@@ -1,4 +1,4 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local MimicConfig = require(ReplicatedStorage.Configs.MimicConfig)
 local MotionTrail = require(ReplicatedStorage.Classes.MotionTrail)

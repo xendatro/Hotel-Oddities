@@ -164,9 +164,10 @@ local function getEnemyRow(index: number): TextLabel
 	return label
 end
 
-local function stateColor(state: string?): Color3
+local function stateColor(id: string, state: string?): Color3
 	if state and EnemyConfig.Hunting[state] then return COLORS.Bad end
 	if state and EnemyConfig.Watching[state] then return COLORS.Fair end
+	if EnemyConfig.AlwaysWarn[id] then return COLORS.Fair end
 	return EnemyConfig.IdleColor
 end
 
@@ -212,7 +213,7 @@ local function refreshEnemies()
 		local row = getEnemyRow(index)
 		local distance = if entry.Distance < math.huge then tostring(math.floor(entry.Distance)) else "?"
 		row.Text = `{entry.Id} {entry.State} {distance}`
-		row.TextColor3 = stateColor(entry.State)
+		row.TextColor3 = stateColor(entry.Id, entry.State)
 		row.Visible = true
 	end
 

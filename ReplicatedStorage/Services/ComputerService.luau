@@ -485,18 +485,18 @@ function ComputerService:Activate(model: Model?): boolean
 	focused = nil
 
 	local distance = cameraDistance(screen, camera)
-	local target = CFrame.lookAt(screen.Position + screen.CFrame.LookVector * distance, screen.Position)
+	local goal = CFrame.lookAt(screen.Position + screen.CFrame.LookVector * distance, screen.Position)
 
 	camera.CameraType = Enum.CameraType.Scriptable
 	local tween = TweenService:Create(
 		camera,
 		TweenInfo.new(CAMERA.TweenTime, CAMERA.EasingStyle, CAMERA.EasingDirection),
-		{ CFrame = target }
+		{ CFrame = goal }
 	)
 	current.Tween = tween
 	table.insert(current.Connections, tween.Completed:Connect(function()
 		if session == current then
-			current.Pinned = target
+			current.Pinned = goal
 		end
 	end))
 	tween:Play()

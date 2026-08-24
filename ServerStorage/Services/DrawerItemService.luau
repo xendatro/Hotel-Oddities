@@ -27,6 +27,14 @@ local function isCode(instance: Instance): boolean
 	return instance:IsA("Script") or instance:IsA("LocalScript") or instance:IsA("ModuleScript")
 end
 
+local function disableLights(model: Model)
+	for _, descendant in model:GetDescendants() do
+		if descendant:IsA("Light") then
+			descendant.Enabled = false
+		end
+	end
+end
+
 local function makeDisplay(template: Tool): Model?
 	local display = Instance.new("Model")
 	display.Name = `DrawerItem_{template.Name}`
@@ -44,6 +52,7 @@ local function makeDisplay(template: Tool): Model?
 		end
 		clone.Parent = display
 	end
+	disableLights(display)
 
 	display:PivotTo(CFrame.new())
 

@@ -40,6 +40,9 @@ return {
 			Rest = true,
 			Flee = true,
 		},
+		AlwaysWarn = {
+			Chaos = true,
+		},
 		IdleColor = Color3.fromRGB(120, 120, 130),
 		HeadingColor = Color3.fromRGB(200, 200, 210),
 	},
