@@ -630,3 +630,11 @@ Client walkie-talkie mode control. Reuses the `PlayerLocator` GUI's mode frame f
 - API: `WalkieTalkieService:IsEnabled() -> boolean`
 - Remotes: `WalkieTalkie/SetMode` (fired)
 - Requires: `Configs.WalkieTalkieConfig`, `GuiBuilderService`; shares the `PlayerLocator` ScreenGui with `PlayerLocatorService`
+
+### WallstickService.luau
+Client front end for the vendored Wallstick controller. Always listens on the replication channel so other players' wall-stuck characters render correctly; wall-sticking for the local character is opt-in via `Enable`, which runs an auto-stick raycast loop under the character's feet each `PreSimulation` (like the upstream demo, resetting to normal gravity after a long fall) and tears down on death or character removal. Guarded to be inert on the server.
+- API: `WallstickService.Enable(options: { tilt: boolean?, spin: boolean? }?) -> Wallstick?` — starts wall-sticking for the local character; returns the active (or existing) instance
+- API: `WallstickService.Disable()` — destroys the session and restores normal character physics
+- API: `WallstickService.IsEnabled() -> boolean`, `WallstickService.Get() -> Wallstick?`
+- Remotes: `Wallstick/Replicator`, `Wallstick/Sync` (via `Classes.Wallstick.Replication`)
+- Requires: `Classes.Wallstick` (+ its `RaycastHelper` and `Replication` children); expects `workspace.Wallstick` from the server `WallstickService`

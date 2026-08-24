@@ -10,12 +10,12 @@ Wrapper around Roblox's BadgeService that awards only badge ids listed in BadgeC
 - Requires: `ServerStorage.Configs.BadgeConfigs`, `CharacterService.ForEachPlayer` / `.CleanupOnLeave`
 
 ### CeilingVentService.luau
-Watches players approaching parts tagged `CeilingVent` and, when one walks under an armed vent while uncrouched, looking at it and moving toward it, opens the vent door and drops a CeilingDweller through it. Also culls unengaged, unobserved dwellers and exposes a debug list of vents. Entirely inert unless `FLAGS.Enemies`.
+Watches players approaching parts tagged `CeilingVent` and, when one walks under an armed vent while uncrouched, looking at it and moving toward it, opens the vent door and drops a CeilingDweller through it. Before a vent arms it now telegraphs: 10 seconds (`WALK_IN_LEAD`) before the vent's `ArmAt` time, a harmless CeilingDweller rig (tags and `EnemyId` stripped) spawns on the ceiling at an out-of-sight hallway-graph node, walks upside-down along the ceiling to the vent via `SurfaceWalker`, the door opens, it climbs up through the opening and the door closes; the vent cannot trigger until this walk-in is done (skipped gracefully when no path, hidden start point or model is available, and cancelled by a forced spawn). Also culls unengaged, unobserved dwellers and exposes a debug list of vents. Entirely inert unless `FLAGS.Enemies`.
 - API: `CeilingVentService:GetVents() -> { { Vent: Instance, Floor: Vector3, Triggered: boolean } }` — vents with a solved floor drop point, sorted by full name
-- API: `CeilingVentService:SpawnFromNearest(player: Player) -> boolean` — force-triggers the closest untriggered vent
+- API: `CeilingVentService:SpawnFromNearest(player: Player) -> boolean` — force-triggers the closest untriggered vent, cancelling any in-progress walk-in
 - Remotes: `Enemies/CeilingDwellerCamera` (fired), `Enemies/CeilingVentDoor` (fired)
 - Tags: listens `CeilingVent`; reads `MazeFloor` for the drop raycast
-- Requires: `Services.VanishedService`, `CrouchConfig`, `DangerConfig.ProgrammaticVents`, `DangerMapService`, `EnemyService`, `EnemyDirectorService`, `TagService`
+- Requires: `Services.VanishedService`, `CrouchConfig`, `DangerConfig.ProgrammaticVents`, `DangerMapService`, `EnemyService`, `EnemyDirectorService`, `TagService`, `HallwayGraphService`, `NpcAnimator`, `TweenProxyService`, `EnemyConfigs.CeilingDweller`, `Classes.SurfaceWalker`
 
 ### ChaosService.luau
 Plans a long looping hallway route through the graph, schedules red-light and hallway-oddity warnings timed to the enemy's arrival at each point, then spawns the Chaos enemy to walk that route. Warnings are culled while no player is near and can be cancelled wholesale before the spawn fires.
@@ -529,3 +529,8 @@ Builds a full per-player radio audio graph on the equipped Walkie Talkie — com
 - Remotes: `WalkieTalkie/SetMode`, `WalkieTalkie/TransmitSound`, `WalkieTalkie/VoiceActivity` (all listened; created with `.Ensure`)
 - Tags: reads `WalkieTalkieConfig.RadioAllowedTag` on AudioEmitters/AudioPlayers
 - Requires: `WalkieTalkieConfig`, `VoiceActivityService` (speaking state), `NoiseService:Emit`, `VoiceChatService:IsVoiceEnabledForUserIdAsync`
+
+### WallstickService.luau
+Server bootstrap for the vendored Wallstick controller: registers the `WallstickCollision`/`WallstickNoCollision` collision groups (non-collidable with every other group; the fake-world group collides only with itself), builds the persistent `workspace.Wallstick` model with its far-away `Origin` part and `StreamingFoci` folder, creates a client-owned streaming-focus part (AlignPosition/AlignOrientation, added as a replication focus under StreamingEnabled) for every player, and starts the replication listener that rebroadcasts each client's stick part/offset to everyone.
+- Remotes: `Wallstick/Replicator`, `Wallstick/Sync` (created and listened via `Classes.Wallstick.Replication`)
+- Requires: `EnemyService:EnsureCollisionGroup`, `CharacterService.ForEachPlayer`, `Classes.Wallstick.Replication`

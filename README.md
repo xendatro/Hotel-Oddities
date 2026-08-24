@@ -62,6 +62,8 @@ extend it instead of writing a second copy.
 | `ToolBase` / `ClientTool` / `ServerTool` | `ReplicatedStorage\Classes`, `ServerStorage\Classes` | Base classes for the two halves of every tool |
 | `EnemyBase` | `ServerStorage\Classes` | Base class every enemy extends |
 | `NPC` | `ServerStorage\Classes` | Base class for pathfinding humanoid enemies |
+| `SurfaceWalker` | `ServerStorage\Classes` | Walks any humanoid rig/NPC along walls or ceilings kinematically |
+| `Wallstick` / `WallstickService` | `ReplicatedStorage\Classes`, `ReplicatedStorage\Services` | Player wall/ceiling sticking (vendored EgoMoose controller) |
 | `Oddity` / `PropOddity` / `PlayerOddity` / `HallwayOddity` / `FixtureFall` | `ServerStorage\Classes` | The oddity hierarchy every concrete oddity extends |
 | `FixturePool` / `CrossingPool` | `ServerStorage\Classes` | Arming and approach detection for oddities triggered by walking toward a fixture or a hallway point |
 
@@ -159,6 +161,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\VoiceDebugService.luau — Debug panel of sliders for local proximity-voice and radio volumes.
 - ReplicatedStorage\Services\WalkSoundService.luau — Footstep engine timing steps from locomotion animations for players and tagged enemies.
 - ReplicatedStorage\Services\WalkieTalkieService.luau — Walkie-talkie mode toggle, own-emitter muting and voice-eligibility gate.
+- ReplicatedStorage\Services\WallstickService.luau — Client opt-in wall-sticking for the local character plus replication rendering of other players' wall-stuck characters.
 
 ### ReplicatedStorage\Classes
 
@@ -186,6 +189,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\Vow.luau — Cancellable single-function thread wrapper backing the state machine.
 - ReplicatedStorage\Classes\Watch.luau — Turns an NPC's neck and waist to look at the local player.
 - ReplicatedStorage\Classes\CameraShaker\ — Vendored third-party camera shake library used through ShakeService.
+- ReplicatedStorage\Classes\Wallstick\ — Vendored EgoMoose Rbx-Wallstick surface-sticking controller (modernized constraints), driven through WallstickService.
 - ReplicatedStorage\Classes\Minigames\MinigameBase.luau — Base class every terminal minigame extends, providing themed GUI builders, input helpers, heartbeat and win/fail plumbing.
 - ReplicatedStorage\Classes\Minigames\AimTrainer.luau — Click-the-target minigame; 20 hits on shrinking timers, 3 misses wipe the run.
 - ReplicatedStorage\Classes\Minigames\Frogger.luau — Frogger minigame; cross six lanes of traffic twice without being hit.
@@ -280,7 +284,7 @@ become Services or Classes.
 ### ServerStorage\Services
 
 - ServerStorage\Services\BadgeService.luau — Awards and caches Roblox badges limited to the ids listed in BadgeConfigs.
-- ServerStorage\Services\CeilingVentService.luau — Springs ceiling vents on approaching players and drops a CeilingDweller through them.
+- ServerStorage\Services\CeilingVentService.luau — Springs ceiling vents on approaching players and drops a CeilingDweller through them, after a telegraphed ceiling walk-in where the dweller crawls into the vent.
 - ServerStorage\Services\ChaosService.luau — Plans a looping hallway route with timed light and oddity warnings, then spawns Chaos to walk it.
 - ServerStorage\Services\ChaseFlickerService.luau — Flickers the lights around a player being chased by a CeilingDweller or Mimic.
 - ServerStorage\Services\ChatCommandService.luau — Shared registry and dispatcher for `/` chat commands with an admin gate.
@@ -349,6 +353,7 @@ become Services or Classes.
 - ServerStorage\Services\VoiceActivityService.luau — Tunes voice chat audio and emits noise at whoever is speaking so enemies can hear them.
 - ServerStorage\Services\VoiceDebugService.luau — Studio-only remote for live-tweaking voice and radio volumes behind the VoiceDebug flag.
 - ServerStorage\Services\WalkieTalkieService.luau — Builds the per-player radio audio graph, privacy modes, sound relays and radio noise.
+- ServerStorage\Services\WallstickService.luau — Server bootstrap for Wallstick: collision groups, the workspace Wallstick model, per-player streaming foci and the replication listener.
 
 ### ServerStorage\Classes
 
@@ -362,6 +367,7 @@ become Services or Classes.
 - ServerStorage\Classes\ServerTool.luau — Server-side tool base class; ToolBase plus inventory consumption.
 - ServerStorage\Classes\Sound.luau — Attaches an ambient AudioEmitter clone to a tagged instance from its Sound attribute.
 - ServerStorage\Classes\SpeedDrink.luau — Server tool that plays a drink sequence and grants a temporary speed boost.
+- ServerStorage\Classes\SurfaceWalker.luau — Kinematic wall/ceiling locomotion for any humanoid rig or NPC; walks a rig along surface contact points with animation.
 - ServerStorage\Classes\TrapObject.luau — Placeable trap that snaps shut and stuns the first NPC to touch it.
 - ServerStorage\Classes\Enemies\Blind.luau — Hearing-driven hunter whose determination builds from noise and decays in silence.
 - ServerStorage\Classes\Enemies\CeilingDweller.luau — Chaser that drops from the ceiling onto its victim before hunting normally.
@@ -416,3 +422,6 @@ become Services or Classes.
 ### StarterPlayer
 
 - StarterPlayer\StarterPlayerScripts\Init.local.luau — Client bootstrap; requires every ReplicatedStorage Service and runs the client Tagger.
+- StarterPlayer\StarterCharacterScripts\Animate\ — Wallstick's replacement character Animate script; can re-target animations to follow another humanoid.
+- StarterPlayer\StarterPlayerScripts\RbxCharacterSounds\ — Wallstick's replacement character sounds script; can make a player's sounds follow another rig.
+- StarterPlayer\StarterPlayerScripts\PlayerModule\ — Vendored patched PlayerModule whose GravityCameraModifier lets the camera tilt and spin with arbitrary gravity.

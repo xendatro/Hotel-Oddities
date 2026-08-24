@@ -153,6 +153,15 @@ Bear-trap style placeable that snaps shut on the first NPC to touch it. Springin
 - API: `TrapObject:Destroy()` — disconnects all connections.
 - Requires: `ServerStorage.Classes.NPC` (for `NPC.FromModel`), `StunService`, `AudioService`, `ToolConfigs.Trap`
 
+### SurfaceWalker.luau
+Kinematic surface locomotion for any humanoid rig -- the NPC-side counterpart to the player Wallstick. Takes a rig, an optional `NpcAnimator`, and a surface normal (e.g. `-Vector3.yAxis` for a ceiling), anchors the root, disables collisions and platform-stands the humanoid, then pivots the rig along a polyline of surface contact points at constant speed with frame-rate-independent turn smoothing, feet planted on the surface and the walk/run animation driven through the animator. Works for any NPC (`SurfaceWalker.new(npc.Model, npc.Animator, normal)`) or bare rig; restores all saved physics state on `Destroy`.
+- API: `SurfaceWalker.new(model: Model, animator: any?, surfaceNormal: Vector3) -> self`
+- API: `SurfaceWalker:PlaceAt(contact: Vector3, direction: Vector3?)` -- snap the rig onto the surface at a contact point
+- API: `SurfaceWalker:WalkAlong(points: { Vector3 }, speed: number, gait: ("Walk" | "Run")?) -> boolean` -- yields until the path completes; false if stopped, destroyed or deparented mid-walk
+- API: `SurfaceWalker:Stop()` -- cancels the current walk
+- API: `SurfaceWalker:Destroy()` -- disconnects and restores collision/anchoring/humanoid state
+- Requires: `Services.MathService` (`ExpAlpha`)
+
 ## Enemies
 
 ### Enemies\Blind.luau

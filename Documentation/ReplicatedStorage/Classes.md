@@ -226,6 +226,14 @@ RigMotion subclass that turns an NPC's neck and waist to look at the local playe
 - API: `Watch:RemoveApplied()` — undoes last frame's neck/waist transforms
 - Requires: `Classes.RigMotion`, `Configs.WatchConfig`, `Services.MathService`
 
+### Wallstick\ (init.luau, CharacterHelper.luau, GravityCamera.luau, Replication.luau, RotationSpring.luau, Trove.luau, RaycastHelper.luau)
+Vendored EgoMoose Rbx-Wallstick (June 2026 upstream): sticks the local player's character to any surface -- walls, ceilings, moving parts -- by simulating a hidden "fake" character in a de-rotated geometry world under `workspace.Wallstick` and CFraming the real character to match every physics step. Uses modern `AlignPosition`/`AlignOrientation` constraints; the upstream's one deprecated call (`FindPartsInRegion3WithIgnoreList`) was replaced with `GetPartBoundsInBox`, `Replication.luau` was adapted to `CommunicationService` remotes instead of TypedRemote, and `Trove`/`RaycastHelper` are vendored as children. Client-only; other players' stuck characters render through the replication channel. Drive it through `Services.WallstickService` rather than constructing directly.
+- API: `Wallstick.new(options: { parent: Instance, origin: CFrame, retainWorldVelocity: boolean, camera: { tilt: boolean, spin: boolean } }) -> Wallstick`
+- API: `Wallstick:set(part: BasePart, normal: Vector3, teleportCF: CFrame?)` / `:setAndPivot(part, normal, position)` / `:setAndTeleport(part, normal, position)` -- stick to a surface
+- API: `Wallstick:getPart() -> BasePart`, `:getNormal(worldSpace: boolean) -> Vector3`, `:getFallDistance() -> number`, `:Destroy()`
+- Remotes: `Wallstick/Replicator`, `Wallstick/Sync` (via `Replication.luau`)
+- Requires: `Services.CommunicationService`; expects the patched `PlayerModule`, `Animate` and `RbxCharacterSounds` under `StarterPlayer` plus the server `WallstickService` collision groups and streaming foci
+
 ### CameraShaker\ (init.luau, CameraShakeInstance.luau, CameraShakePresets.luau)
 Vendored third-party camera shake library (Sleitnick's CameraShaker); used through ShakeService — not modified in this project.
 
