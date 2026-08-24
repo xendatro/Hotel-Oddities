@@ -14,7 +14,9 @@ type Options = {
 	Handler: (player: Player, argument: string?) -> (),
 }
 
-local Commands: { [string]: { Name: string, AdminOnly: boolean, Handler: (player: Player, argument: string?) -> () } } = {}
+type Entry = { Name: string, AdminOnly: boolean, Handler: (player: Player, argument: string?) -> () }
+
+local Commands: { [string]: { Entry } } = {}
 
 function ChatCommandService.IsAllowed(player: Player): boolean
 	return RunService:IsStudio() or ChatCommandService.AdminUserIds[player.UserId] == true
@@ -35,28 +37,37 @@ function ChatCommandService.FindPlayer(name: string): Player?
 end
 
 function ChatCommandService.Register(name: string, options: Options)
-	local entry = {
+	local entry: Entry = {
 		Name = name:lower(),
 		AdminOnly = options.AdminOnly == true,
 		Handler = options.Handler,
 	}
-	Commands[entry.Name] = entry
+	local names = { entry.Name }
 	for _, alias in options.Aliases or {} do
-		Commands[alias:lower()] = entry
+		table.insert(names, alias:lower())
+	end
+	for _, key in names do
+		local entries = Commands[key]
+		if not entries then
+			entries = {}
+			Commands[key] = entries
+		end
+		table.insert(entries, entry)
 	end
 end
 
 local function onChatted(player: Player, message: string)
 	local name, argument = message:match("^/(%S+)%s*(.*)$")
-	local entry = name and Commands[name:lower()]
-	if not entry then return end
+	local entries = name and Commands[name:lower()]
+	if not entries then return end
 
-	if entry.AdminOnly and not ChatCommandService.IsAllowed(player) then
-		warn(`[{entry.Name}] {player.Name} ({player.UserId}) is not allowed to use /{entry.Name}`)
-		return
+	for _, entry in entries do
+		if entry.AdminOnly and not ChatCommandService.IsAllowed(player) then
+			warn(`[{entry.Name}] {player.Name} ({player.UserId}) is not allowed to use /{entry.Name}`)
+			continue
+		end
+		entry.Handler(player, if argument ~= "" then argument else nil)
 	end
-
-	entry.Handler(player, if argument ~= "" then argument else nil)
 end
 
 local function watch(player: Player)

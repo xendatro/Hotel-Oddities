@@ -30,7 +30,7 @@ Background loop that flickers the lights in the hallway containing a chased play
 
 ### ChatCommandService.luau
 Shared registry for `/command` chat commands: other modules call `.Register` and this service parses every player's chat, matches the command name or alias, enforces the admin gate and invokes the handler. Handlers receive `(player, argument)` where `argument` is the trimmed remainder of the message or `nil` when empty; admin-only commands are allowed in Studio or for the hardcoded `AdminUserIds`. Registered by `ComputerCommandService` (`/hack`, admin), `EnemyCommandService` (`/spawn`, `/peek`, `/despawn`, `/vent`, `/enemies`, non-admin), plus `InvincibleCommandService`, `MapCommandService`, `MapOddityCommandService`, `LanternSwingCommandService`, `PlayerOddityCommandService`, `ToolCommandService` and `Modules.FixtureCommand`.
-- API: `ChatCommandService.Register(name: string, options: { Aliases: { string }?, AdminOnly: boolean?, Handler: (player: Player, argument: string?) -> () })` — names and aliases are lowercased; re-registering a name overwrites it
+- API: `ChatCommandService.Register(name: string, options: { Aliases: { string }?, AdminOnly: boolean?, Handler: (player: Player, argument: string?) -> () })` — names and aliases are lowercased; registering the same name again adds another handler and every handler for a matched name runs
 - API: `ChatCommandService.IsAllowed(player: Player) -> boolean` — true in Studio or for an id in `AdminUserIds`
 - API: `ChatCommandService.FindPlayer(name: string) -> Player?` — matches Name, DisplayName or UserId, case-insensitively
 - API: `ChatCommandService.AdminUserIds` — mutable `{ [number]: true }` table of allowed user ids
