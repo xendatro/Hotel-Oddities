@@ -22,7 +22,7 @@ local SPAN_EPSILON = 0.75
 local ROOM_CONNECTION_GAP = 1.5
 
 type Baseline = {
-	Lights: { [Light]: { Enabled: boolean, Color: Color3 } },
+	Lights: { [Light]: { Enabled: boolean } },
 	Neon: { [BasePart]: boolean },
 	Particles: { [ParticleEmitter]: boolean },
 }
@@ -74,7 +74,6 @@ local LightService = {}
 local Lamps: { [Model]: Lamp } = {}
 local Watched: { [Model]: boolean } = {}
 local FlickerHallway: Hallways.Hallway? = nil
-local RED_COLOR = Color3.fromRGB(255, 0, 0)
 local RED_ATTRIBUTE = "ChaosRed"
 local LightModels: { Model } = {}
 local LightModelsDirty = true
@@ -168,7 +167,7 @@ local function captureBaseline(model: Model): Baseline
 
 	for _, descendant in model:GetDescendants() do
 		if descendant:IsA("Light") then
-			baseline.Lights[descendant] = { Enabled = descendant.Enabled, Color = descendant.Color }
+			baseline.Lights[descendant] = { Enabled = descendant.Enabled }
 		elseif descendant:IsA("BasePart")
 			and (descendant.Material == Enum.Material.Neon or descendant:HasTag(NEON_OFF_TAG))
 		then
@@ -187,11 +186,9 @@ local function apply(model: Model)
 
 	local flicker = lamp.Flicker
 	local dark = lamp.OffClaims > 0 or (flicker ~= nil and flicker.Dark)
-	local red = lamp.Red ~= nil
 
 	for light, base in lamp.Baseline.Lights do
 		light.Enabled = base.Enabled and not dark
-		light.Color = if red then RED_COLOR else base.Color
 	end
 	for part in lamp.Baseline.Neon do
 		if dark then

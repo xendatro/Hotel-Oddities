@@ -21,6 +21,7 @@ local LastPickup: { [Player]: number } = {}
 local LastDrawer: Model? = nil
 local LastItemName: string? = nil
 local NextRefillAt = 0
+local REFILL_CHECK_INTERVAL = 1
 
 local function isCode(instance: Instance): boolean
 	return instance:IsA("Script") or instance:IsA("LocalScript") or instance:IsA("ModuleScript")
@@ -344,7 +345,10 @@ fillInitial()
 RunService.Heartbeat:Connect(function()
 	local now = os.clock()
 	if now < NextRefillAt then return end
-	if cleanItems() >= targetCount() then return end
+	if cleanItems() >= targetCount() then
+		NextRefillAt = now + REFILL_CHECK_INTERVAL
+		return
+	end
 
 	local drawer = chooseDrawer()
 	local toolName = chooseItemName()

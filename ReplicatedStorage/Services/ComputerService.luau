@@ -12,20 +12,15 @@ if not RunService:IsClient() then
 end
 
 local ComputerConfig = require(ReplicatedStorage.Configs.ComputerConfig)
+local Interaction = require(ReplicatedStorage.Services.InteractionService)
 local TagService = require(ReplicatedStorage.Services.TagService)
 
-local TARGETING = ComputerConfig.Targeting
-local HIGHLIGHT = ComputerConfig.Highlight
 local INPUT = ComputerConfig.Input
 local CAMERA = ComputerConfig.Camera
 local IDLE = ComputerConfig.IdleScreen
 local UI = ComputerConfig.UI
-local COLORS = UI.Colors
 
-local FOCUS_JOB = "ComputerFocus"
-local PROMPT_JOB = "ComputerPrompt"
 local SESSION_JOB = "ComputerSession"
-local HIGHLIGHT_FADE_SPEED = 16
 local REOPEN_COOLDOWN = 0.35
 local MINIGAMES_RETRY = 1
 
@@ -64,7 +59,6 @@ type Session = {
 
 local States: { [Model]: State } = {}
 local focused: Model? = nil
-local highlightAlpha = 0
 local session: Session? = nil
 local lastClosed = 0
 
@@ -72,38 +66,6 @@ local HackedSet: { [Model]: true } = (setmetatable({}, { __mode = "k" }) :: any)
 
 local changed = Instance.new("BindableEvent")
 ComputerService.Changed = changed.Event
-
-local highlight = Instance.new("Highlight")
-highlight.Name = "ComputerHighlight"
-highlight.FillColor = HIGHLIGHT.FillColor
-highlight.OutlineColor = HIGHLIGHT.OutlineColor
-highlight.DepthMode = HIGHLIGHT.DepthMode
-highlight.FillTransparency = 1
-highlight.OutlineTransparency = 1
-highlight.Enabled = false
-highlight.Adornee = nil
-highlight.Parent = workspace
-
-local function resetHighlight()
-	focused = nil
-	highlightAlpha = 0
-	highlight.Enabled = false
-	highlight.Adornee = nil
-	if highlight.Parent ~= workspace then
-		highlight.Parent = workspace
-	end
-end
-
-local function ensureHighlight()
-	if highlight.Parent ~= workspace then
-		highlight.Parent = workspace
-	end
-	if highlight.Adornee and not highlight.Adornee:IsDescendantOf(workspace) then
-		highlight.Adornee = nil
-		focused = nil
-		highlightAlpha = 0
-	end
-end
 
 local minigames: any = nil
 local nextMinigamesTry = 0
@@ -278,11 +240,23 @@ local function register(model: Model): State?
 	paintScreen(model)
 
 	States[model] = state
+	Interaction:Register(model, {
+		Prompt = UI.HackText,
+		TextWidth = UI.TextWidth,
+		Reach = ComputerConfig.Targeting.Reach,
+		CanSelect = function(target: Model)
+			return not session and not isHacked(target)
+		end,
+		OnActivated = function(target: Model)
+			return ComputerService:Activate(target)
+		end,
+	})
 	return state
 end
 
 local function unregister(model: Model, state: State?)
 	States[model] = nil
+	Interaction:Unregister(model)
 	if not state then return end
 
 	if state.Pending then
@@ -291,9 +265,6 @@ local function unregister(model: Model, state: State?)
 	end
 	if state.Gui then
 		state.Gui:Destroy()
-	end
-	if focused == model then
-		focused = nil
 	end
 	if session and session.Model == model then
 		restore()
@@ -338,79 +309,6 @@ if SyncRemote then
 	(SyncRemote :: RemoteEvent).OnClientEvent:Connect(applySnapshot)
 end
 
-local function computerOf(part: BasePart): Model?
-	local instance: Instance? = part
-	while instance and instance ~= workspace do
-		if instance:IsA("Model") and States[instance] then
-			return instance
-		end
-		instance = instance.Parent
-	end
-	return nil
-end
-
-local function alive(): Model?
-	local character = player.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	return if humanoid and humanoid.Health > 0 then character else nil
-end
-
-local function findFocus(): Model?
-	local camera = workspace.CurrentCamera
-	local character = alive()
-	if not camera or not character then return nil end
-
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	local ignored: { Instance } = { character }
-	params.FilterDescendantsInstances = ignored
-
-	local origin = camera.CFrame.Position
-	local direction = camera.CFrame.LookVector * TARGETING.Reach
-
-	for _ = 1, TARGETING.MaxPassthrough + 1 do
-		local result = workspace:Raycast(origin, direction, params)
-		if not result then return nil end
-
-		local model = computerOf(result.Instance)
-		if model then
-			return if isHacked(model) then nil else model
-		end
-
-		if result.Instance.CanCollide or result.Instance.Transparency < 1 then return nil end
-
-		table.insert(ignored, result.Instance)
-		params.FilterDescendantsInstances = ignored
-	end
-
-	return nil
-end
-
-local function renderFocus(deltaTime: number)
-	ensureHighlight()
-	focused = if session then nil else findFocus()
-
-	if focused then
-		highlight.Adornee = focused
-		highlight.Enabled = true
-	end
-
-	local target = if focused then 1 else 0
-	highlightAlpha += (target - highlightAlpha) * (1 - math.exp(-HIGHLIGHT_FADE_SPEED * deltaTime))
-	if math.abs(target - highlightAlpha) < 1e-3 then highlightAlpha = target end
-
-	if highlightAlpha <= 0 then
-		if highlight.Enabled then
-			highlight.Enabled = false
-			highlight.Adornee = nil
-		end
-		return
-	end
-
-	highlight.FillTransparency = 1 - (1 - HIGHLIGHT.FillTransparency) * highlightAlpha
-	highlight.OutlineTransparency = 1 - (1 - HIGHLIGHT.OutlineTransparency) * highlightAlpha
-end
-
 RunService.Heartbeat:Connect(function()
 	local now = os.clock()
 	local showTitle = (now % (IDLE.CycleTime * 2)) >= IDLE.CycleTime
@@ -429,142 +327,6 @@ RunService.Heartbeat:Connect(function()
 end)
 
 local cursor = playerGui:WaitForChild("Cursor", 30) :: ScreenGui?
-local template = cursor and cursor:WaitForChild(UI.Container, 30)
-local container: CanvasGroup? = nil
-
-if template then
-	local clone = template:Clone() :: CanvasGroup
-	clone.Name = UI.Prompt
-	clone.Visible = false
-	clone.GroupTransparency = 1
-	clone.Parent = cursor
-	container = clone
-else
-	warn(`ComputerService: no {UI.Container} under the Cursor gui; the hack prompt will not draw`)
-end
-
-local promptScale: UIScale? = nil
-local promptPill: Frame? = nil
-local promptKey: Frame? = nil
-local promptKeyScale: UIScale? = nil
-local promptKeyLabel: TextLabel? = nil
-local promptAction: TextLabel? = nil
-
-if container then
-	promptScale = container:FindFirstChild("Scale") :: UIScale
-	promptPill = container:FindFirstChild("Pill") :: Frame
-	promptKey = promptPill and promptPill:FindFirstChild("Key") :: Frame
-	promptKeyScale = promptKey and promptKey:FindFirstChild("Scale") :: UIScale
-	promptKeyLabel = promptKey and promptKey:FindFirstChild("Label") :: TextLabel
-	promptAction = promptPill and promptPill:FindFirstChild("Action") :: TextLabel
-
-	if not (promptScale and promptPill and promptKey and promptKeyScale and promptKeyLabel and promptAction) then
-		warn(`ComputerService: the {UI.Container} prompt is not shaped as expected; the hack prompt will not draw`)
-		container:Destroy()
-		container = nil
-	end
-end
-
-local function layout(keyWidth: number)
-	if not (container and promptPill and promptKey and promptAction) then return end
-
-	local left = UI.PillPaddingLeft + keyWidth + UI.KeyGap
-	local width = left + UI.TextWidth + UI.PillPaddingRight
-
-	container.Size = UDim2.fromOffset(width + UI.Padding * 2, UI.PillHeight + UI.Padding * 2)
-	promptPill.Size = UDim2.fromOffset(width, UI.PillHeight)
-	promptKey.Size = UDim2.fromOffset(keyWidth, UI.KeySize)
-	promptAction.Position = UDim2.new(0, left, 0.5, 0)
-	promptAction.Size = UDim2.fromOffset(UI.TextWidth, UI.KeySize)
-end
-
-local pressFlash = 0
-local touching = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-local usingGamepad = UserInputService.GamepadEnabled and not UserInputService.KeyboardEnabled
-local bound = false
-
-local function onHackAction(_action: string, inputState: Enum.UserInputState): Enum.ContextActionResult
-	if inputState == Enum.UserInputState.Begin and ComputerService:Activate() then
-		pressFlash = 1
-	end
-	return Enum.ContextActionResult.Pass
-end
-
-local function setBound(shouldBind: boolean)
-	if shouldBind == bound then return end
-	bound = shouldBind
-
-	if not shouldBind then
-		ContextActionService:UnbindAction(INPUT.TouchAction)
-		return
-	end
-
-	ContextActionService:BindAction(INPUT.TouchAction, onHackAction, touching, table.unpack(INPUT.Keys))
-	if not touching then return end
-
-	ContextActionService:SetTitle(INPUT.TouchAction, UI.HackText:upper())
-	ContextActionService:SetPosition(INPUT.TouchAction, INPUT.TouchButtonPosition)
-	local button = ContextActionService:GetButton(INPUT.TouchAction)
-	if button then
-		button.Size = INPUT.TouchButtonSize
-	end
-end
-
-UserInputService.LastInputTypeChanged:Connect(function(inputType: Enum.UserInputType)
-	if inputType == Enum.UserInputType.Touch then
-		touching = true
-	elseif inputType.Name:find("Gamepad") then
-		touching = false
-		usingGamepad = true
-	elseif inputType == Enum.UserInputType.Keyboard
-		or inputType == Enum.UserInputType.MouseButton1
-		or inputType == Enum.UserInputType.MouseButton2
-		or inputType == Enum.UserInputType.MouseMovement
-	then
-		touching = false
-		usingGamepad = false
-	end
-end)
-
-local promptAlpha = 0
-local shownGamepad: boolean? = nil
-
-local function renderPrompt(deltaTime: number)
-	setBound(focused ~= nil)
-	if not (container and promptScale and promptKey and promptKeyScale and promptKeyLabel and promptAction) then
-		return
-	end
-
-	local target = if focused and not touching then 1 else 0
-	if promptAlpha < target then
-		promptAlpha = math.min(promptAlpha + deltaTime / UI.FadeInTime, target)
-	elseif promptAlpha > target then
-		promptAlpha = math.max(promptAlpha - deltaTime / UI.FadeOutTime, target)
-	end
-
-	pressFlash *= math.exp(-UI.PressDecay * deltaTime)
-	if pressFlash < 1e-3 then pressFlash = 0 end
-
-	container.Visible = promptAlpha > 0
-	if promptAlpha <= 0 then return end
-
-	if promptAction.Text ~= UI.HackText then
-		promptAction.Text = UI.HackText
-	end
-	if usingGamepad ~= shownGamepad then
-		shownGamepad = usingGamepad
-		local text = if usingGamepad then INPUT.GamepadLabel else INPUT.KeyboardLabel
-		promptKeyLabel.Text = text
-		layout(if #text <= 1 then UI.KeySize else UI.KeyWideSize)
-	end
-
-	container.GroupTransparency = 1 - promptAlpha
-	container.Position = UDim2.new(0.5, 0, 0.5, UI.TopMargin + math.round((1 - promptAlpha) * UI.Rise))
-	promptScale.Scale = UI.EnterScale + (1 - UI.EnterScale) * promptAlpha
-
-	promptKeyScale.Scale = 1 - UI.PressScale * pressFlash
-	promptKey.BackgroundColor3 = COLORS.Key:Lerp(COLORS.KeyPressed, pressFlash)
-end
 
 local function controls(): any?
 	local scripts = player:FindFirstChild("PlayerScripts")
@@ -688,14 +450,14 @@ function ComputerService:IsSessionOpen(): boolean
 	return session ~= nil
 end
 
-function ComputerService:Activate(): boolean
-	local model = focused
-	if not model or session or not States[model] then return false end
-	if isHacked(model) or os.clock() - lastClosed < REOPEN_COOLDOWN then return false end
+function ComputerService:Activate(model: Model?): boolean
+	local target = model or focused
+	if not target or session or not States[target] then return false end
+	if isHacked(target) or os.clock() - lastClosed < REOPEN_COOLDOWN then return false end
 
-	local screen = screenOf(model)
+	local screen = screenOf(target)
 	if not screen then
-		warn(`ComputerService: {model:GetFullName()} has no screen part to play on`)
+		warn(`ComputerService: {target:GetFullName()} has no screen part to play on`)
 		return false
 	end
 
@@ -706,7 +468,7 @@ function ComputerService:Activate(): boolean
 	if not framework then return false end
 
 	local current: Session = {
-		Model = model,
+		Model = target,
 		Screen = screen,
 		Camera = camera,
 		SavedCFrame = camera.CFrame,
@@ -746,7 +508,7 @@ function ComputerService:Activate(): boolean
 	if cursor and UI.HideCursorInSession then
 		cursor.Enabled = false
 	end
-	local state = States[model]
+	local state = States[target]
 	if state and state.Gui then
 		state.Gui.Enabled = false
 	end
@@ -757,17 +519,17 @@ function ComputerService:Activate(): boolean
 		table.insert(current.Connections, humanoid.Died:Connect(restore))
 	end
 	table.insert(current.Connections, player.CharacterRemoving:Connect(restore))
-	table.insert(current.Connections, model.AncestryChanged:Connect(function()
-		if not model:IsDescendantOf(workspace) then
+	table.insert(current.Connections, target.AncestryChanged:Connect(function()
+		if not target:IsDescendantOf(workspace) then
 			restore()
 		end
 	end))
 
 	local ok, err = pcall(function()
-		framework:Open(model, screen, {
+		framework:Open(target, screen, {
 			OnExit = restore,
 			OnComplete = function()
-				onWin(model)
+				onWin(target)
 			end,
 		})
 	end)
@@ -780,13 +542,9 @@ function ComputerService:Activate(): boolean
 	return true
 end
 
-layout(UI.KeySize)
-
-RunService:BindToRenderStep(FOCUS_JOB, Enum.RenderPriority.Camera.Value + 3, renderFocus)
-RunService:BindToRenderStep(PROMPT_JOB, Enum.RenderPriority.Last.Value, renderPrompt)
-
-player.CharacterRemoving:Connect(resetHighlight)
-player.CharacterAdded:Connect(resetHighlight)
+Interaction.Selected:Connect(function(model: Model?)
+	focused = if model and States[model] then model else nil
+end)
 
 TagService:Listen(ComputerConfig.Tag, register, unregister, workspace)
 

@@ -8,6 +8,7 @@ if not RunService:IsClient() then
 	return LanternSwayService
 end
 
+local ChaosLightService = require(ReplicatedStorage.Services.ChaosLightService)
 local Config = require(ReplicatedStorage.Configs.LanternSwayConfig)
 
 local LIGHT_TAG = "Floor1Light"
@@ -319,6 +320,9 @@ local function onHeartbeat(deltaTime: number)
 	for index = #StateList, 1, -1 do
 		local state = StateList[index]
 		local model = state.Model
+		if not ChaosLightService:IsRed(model) then
+			state.Releasing = true
+		end
 
 		if model.Parent == nil then
 			teardown(state)
@@ -356,7 +360,7 @@ local function startLoop()
 end
 
 local function evaluate(model: Model)
-	if model:GetAttribute(RED_ATTRIBUTE) then
+	if ChaosLightService:IsRed(model) then
 		bindLantern(model)
 		startLoop()
 	else

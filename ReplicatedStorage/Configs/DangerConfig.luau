@@ -15,7 +15,7 @@ export type FieldSettings = {
 return {
 	Seed = 1337,
 
-	FeatureScaleFraction = 1 / 2,
+	FeatureScaleFraction = 1,
 
 	Octaves = 2,
 	Persistence = 0.5,

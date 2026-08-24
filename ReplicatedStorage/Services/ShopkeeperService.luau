@@ -1,4 +1,3 @@
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -9,17 +8,12 @@ if not RunService:IsClient() then
 end
 
 local InterfaceService = require(ReplicatedStorage.Services.InterfaceService)
+local Interaction = require(ReplicatedStorage.Services.InteractionService)
 local ShopkeeperConfig = require(ReplicatedStorage.Configs.ShopkeeperConfig)
 local TagService = require(ReplicatedStorage.Services.TagService)
 
-local TARGETING = ShopkeeperConfig.Targeting
-local HIGHLIGHT = ShopkeeperConfig.Highlight
 local PAGE_ATTRIBUTE = ShopkeeperConfig.PageAttribute
-local FOCUS_JOB = "ShopkeeperFocus"
 local OPEN_COOLDOWN = 0.15
-local HIGHLIGHT_FADE_SPEED = 16
-
-local player = Players.LocalPlayer
 
 type State = {
 	PageId: string,
@@ -30,54 +24,10 @@ type State = {
 
 local States: { [Model]: State } = {}
 local focused: Model? = nil
-local highlightAlpha = 0
 local lastOpen = 0
 
 local smileAnimation = Instance.new("Animation")
 smileAnimation.AnimationId = `rbxassetid://{ShopkeeperConfig.SmileAnimationId}`
-
-local raycastParams = RaycastParams.new()
-raycastParams.FilterType = Enum.RaycastFilterType.Include
-
-local highlight = Instance.new("Highlight")
-highlight.Name = "ShopkeeperHighlight"
-highlight.FillColor = HIGHLIGHT.FillColor
-highlight.OutlineColor = HIGHLIGHT.OutlineColor
-highlight.DepthMode = HIGHLIGHT.DepthMode
-highlight.FillTransparency = 1
-highlight.OutlineTransparency = 1
-highlight.Enabled = false
-highlight.Adornee = nil
-highlight.Parent = workspace
-
-local function refreshRaycastFilter()
-	local models = {}
-	for model in States do
-		table.insert(models, model)
-	end
-	raycastParams.FilterDescendantsInstances = models
-end
-
-local function resetHighlight()
-	focused = nil
-	highlightAlpha = 0
-	highlight.Enabled = false
-	highlight.Adornee = nil
-	if highlight.Parent ~= workspace then
-		highlight.Parent = workspace
-	end
-end
-
-local function ensureHighlight()
-	if highlight.Parent ~= workspace then
-		highlight.Parent = workspace
-	end
-	if highlight.Adornee and not highlight.Adornee:IsDescendantOf(workspace) then
-		highlight.Adornee = nil
-		focused = nil
-		highlightAlpha = 0
-	end
-end
 
 local function startSmile(model: Model, state: State)
 	if state.SmileTrack then return end
@@ -122,85 +72,33 @@ local function register(instance: Instance): State?
 	end)
 
 	States[model] = state
-	refreshRaycastFilter()
+	Interaction:Register(model, {
+		Prompt = function(target: Model): string?
+			local current = States[target]
+			return if current and current.PageId ~= "" then `Open {current.PageId}` else nil
+		end,
+		TextWidth = ShopkeeperConfig.UI.TextWidth,
+		Reach = ShopkeeperConfig.Targeting.Reach,
+		IgnoreOcclusion = true,
+		OnActivated = function(target: Model)
+			return ShopkeeperService:Open(target)
+		end,
+	})
 	startSmile(model, state)
 	return state
 end
 
-local function unregister(model: Instance, state: State?)
-	if not model:IsA("Model") then return end
+local function unregister(model: Model, state: State?)
 	States[model] = nil
-	refreshRaycastFilter()
+	Interaction:Unregister(model)
+	if not state then return end
 
-	if state then
-		if state.SmileTrack then
-			state.SmileTrack:Stop(0)
-			state.SmileTrack:Destroy()
-		end
-		state.AttributeConnection:Disconnect()
-		state.DescendantConnection:Disconnect()
+	if state.SmileTrack then
+		state.SmileTrack:Stop(0)
+		state.SmileTrack:Destroy()
 	end
-	if focused == model then
-		focused = nil
-	end
-end
-
-local function alive(): Model?
-	local character = player.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	return if humanoid and humanoid.Health > 0 then character else nil
-end
-
-local function shopkeeperOf(instance: Instance): Model?
-	while instance and instance ~= workspace do
-		if instance:IsA("Model") and States[instance] then
-			return instance
-		end
-		instance = instance.Parent
-	end
-	return nil
-end
-
-local function findFocus(): Model?
-	local camera = workspace.CurrentCamera
-	local character = alive()
-	if not camera or not character then return nil end
-
-	local result = workspace:Raycast(
-		camera.CFrame.Position,
-		camera.CFrame.LookVector * TARGETING.Reach,
-		raycastParams
-	)
-	if not result then return nil end
-
-	local model = shopkeeperOf(result.Instance)
-	local state = model and States[model]
-	return if model ~= character and state and state.PageId ~= "" then model else nil
-end
-
-local function render(deltaTime: number)
-	ensureHighlight()
-	focused = findFocus()
-
-	if focused then
-		highlight.Adornee = focused
-		highlight.Enabled = true
-	end
-
-	local target = if focused then 1 else 0
-	highlightAlpha += (target - highlightAlpha) * (1 - math.exp(-HIGHLIGHT_FADE_SPEED * deltaTime))
-	if math.abs(target - highlightAlpha) < 1e-3 then highlightAlpha = target end
-
-	if highlightAlpha <= 0 then
-		if highlight.Enabled then
-			highlight.Enabled = false
-			highlight.Adornee = nil
-		end
-		return
-	end
-
-	highlight.FillTransparency = 1 - (1 - HIGHLIGHT.FillTransparency) * highlightAlpha
-	highlight.OutlineTransparency = 1 - (1 - HIGHLIGHT.OutlineTransparency) * highlightAlpha
+	state.AttributeConnection:Disconnect()
+	state.DescendantConnection:Disconnect()
 end
 
 function ShopkeeperService:GetFocused(): Model?
@@ -213,9 +111,9 @@ function ShopkeeperService:GetPageId(model: Model?): string?
 	return if state and state.PageId ~= "" then state.PageId else nil
 end
 
-function ShopkeeperService:Open(): boolean
-	local model = focused
-	local state = model and States[model]
+function ShopkeeperService:Open(model: Model?): boolean
+	local target = model or focused
+	local state = target and States[target]
 	if not state or state.PageId == "" then return false end
 
 	local now = os.clock()
@@ -226,10 +124,9 @@ function ShopkeeperService:Open(): boolean
 	return true
 end
 
-RunService:BindToRenderStep(FOCUS_JOB, Enum.RenderPriority.Camera.Value + 3, render)
-
-player.CharacterRemoving:Connect(resetHighlight)
-player.CharacterAdded:Connect(resetHighlight)
+Interaction.Selected:Connect(function(model: Model?)
+	focused = if model and States[model] then model else nil
+end)
 
 TagService:Listen(ShopkeeperConfig.Tag, register, unregister, workspace)
 

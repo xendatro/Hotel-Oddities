@@ -99,7 +99,6 @@ return {
 		UseDelay = 0.35,
 		OpenSound = "OpenSound",
 		DrinkSound = "DrinkSound",
-		Visual = "Fire",
 	},
 
 	Visor = {
