@@ -1,21 +1,9 @@
-type Theme = {
-	Font: Enum.Font,
-	Background: Color3,
-	Panel: Color3,
-	Grid: Color3,
-	Primary: Color3,
-	Accent: Color3,
-	Danger: Color3,
-	Text: Color3,
-	TextDim: Color3,
-}
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-type Api = {
-	Complete: () -> (),
-	Fail: ((reason: string?) -> ())?,
-	Theme: Theme,
-	Sound: ((name: string, pitch: number?) -> ())?,
-}
+local MinigameBase = require(ReplicatedStorage.Classes.Minigames.MinigameBase)
+
+export type Theme = MinigameBase.Theme
+export type Api = MinigameBase.Api
 
 type Glyph = {
 	Char: string,
@@ -52,17 +40,7 @@ local HEADER_GAP = 16
 
 local FLIP_BACK_TIME = 0.7
 
-local Memory = {}
-Memory.__index = Memory
-
-local function addStroke(parent: GuiObject, color: Color3, thickness: number): UIStroke
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = color
-	stroke.Thickness = thickness
-	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	stroke.Parent = parent
-	return stroke
-end
+local Memory = MinigameBase.extend("Memory", "MEMORY.EXE", true)
 
 local function newLayout(): { number }
 	local layout: { number } = {}
@@ -108,16 +86,11 @@ local function isValidSave(saved: any): boolean
 	return true
 end
 
-function Memory.new(root: Frame, api: Api): any
-	local self = setmetatable({}, Memory)
-
-	self.Root = root
-	self.Api = api
-	self.Theme = api.Theme
+function Memory.new(root: Frame, api: Api)
+	local self = MinigameBase.new(root, api, Memory)
 
 	self.Buttons = {} :: { TextButton }
 	self.Strokes = {} :: { UIStroke }
-	self.Connections = {} :: { RBXScriptConnection }
 
 	self.Layout = {} :: { number }
 	self.Matched = {} :: { boolean }
@@ -127,7 +100,6 @@ function Memory.new(root: Frame, api: Api): any
 	self.Locked = false
 	self.Found = 0
 	self.Moves = 0
-	self.Won = false
 	self.Generation = 0
 
 	return self
@@ -182,7 +154,7 @@ function Memory:_updateHeader()
 	self.PairsLabel.Text = `PAIRS {self.Found}/{PAIRS}`
 	self.MovesLabel.Text = `MOVES {self.Moves}/{MAX_MOVES}`
 
-	if self.Won then
+	if self.Completed then
 		self.Message.Text = "MATCHED"
 		self.Message.TextColor3 = self.Theme.Accent
 	elseif self.Locked then
@@ -209,23 +181,19 @@ function Memory:_flipBack()
 end
 
 function Memory:_fail()
-	if self.Won then return end
+	if self.Completed then return end
 
 	self:Reset()
-	if self.Api.Fail then
-		self.Api.Fail("TOO MANY MOVES")
-	end
+	self:FailRun("TOO MANY MOVES")
 end
 
 function Memory:_tap(index: number)
-	if self.Won or self.Locked then return end
+	if self.Completed or self.Locked then return end
 	if self.Matched[index] or self.FaceUp[index] then return end
 
 	self.FaceUp[index] = true
 	self:_paint(index)
-	if self.Api.Sound then
-		self.Api.Sound("Flip", if self.Pending then 1.12 else 1)
-	end
+	self:PlaySound("Flip", if self.Pending then 1.12 else 1)
 
 	local first = self.Pending
 	if not first then
@@ -240,9 +208,7 @@ function Memory:_tap(index: number)
 		self.Matched[first] = true
 		self.Matched[index] = true
 		self.Found += 1
-		if self.Api.Sound then
-			self.Api.Sound("Chime", 1 + (self.Found - 1) * 0.06)
-		end
+		self:PlaySound("Chime", 1 + (self.Found - 1) * 0.06)
 		self:_paint(first)
 		self:_paint(index)
 		self:_updateHeader()
@@ -260,7 +226,7 @@ function Memory:_tap(index: number)
 		return
 	end
 
-	if self.Api.Sound then self.Api.Sound("Buzz") end
+	self:PlaySound("Buzz")
 
 	self.Locked = true
 	self:_paint(first)
@@ -275,8 +241,9 @@ function Memory:_tap(index: number)
 end
 
 function Memory:_win()
-	if self.Won then return end
-	self.Won = true
+	if self.Completed then return end
+	self.Completed = true
+	self.State = "won"
 
 	self.Generation += 1
 	self.Locked = false
@@ -296,43 +263,27 @@ function Memory:_build()
 	header.BackgroundTransparency = 1
 	header.Parent = root
 
-	local pairsLabel = Instance.new("TextLabel")
+	local pairsLabel = self:NewLabel(header, `PAIRS 0/{PAIRS}`, 26)
 	pairsLabel.Name = "Pairs"
 	pairsLabel.Size = UDim2.fromOffset(220, HEADER_HEIGHT)
-	pairsLabel.BackgroundTransparency = 1
-	pairsLabel.Font = theme.Font
-	pairsLabel.Text = `PAIRS 0/{PAIRS}`
-	pairsLabel.TextSize = 26
-	pairsLabel.TextColor3 = theme.Text
 	pairsLabel.TextXAlignment = Enum.TextXAlignment.Left
-	pairsLabel.Parent = header
 	self.PairsLabel = pairsLabel
 
-	local message = Instance.new("TextLabel")
+	local message = self:NewLabel(header, "", 28)
 	message.Name = "Message"
 	message.AnchorPoint = Vector2.new(0.5, 0)
 	message.Position = UDim2.fromScale(0.5, 0)
 	message.Size = UDim2.fromOffset(300, HEADER_HEIGHT)
-	message.BackgroundTransparency = 1
-	message.Font = theme.Font
-	message.Text = ""
-	message.TextSize = 28
 	message.TextColor3 = theme.TextDim
-	message.Parent = header
 	self.Message = message
 
-	local movesLabel = Instance.new("TextLabel")
+	local movesLabel = self:NewLabel(header, `MOVES 0/{MAX_MOVES}`, 26)
 	movesLabel.Name = "Moves"
 	movesLabel.AnchorPoint = Vector2.new(1, 0)
 	movesLabel.Position = UDim2.fromScale(1, 0)
 	movesLabel.Size = UDim2.fromOffset(220, HEADER_HEIGHT)
-	movesLabel.BackgroundTransparency = 1
-	movesLabel.Font = theme.Font
-	movesLabel.Text = `MOVES 0/{MAX_MOVES}`
-	movesLabel.TextSize = 26
 	movesLabel.TextColor3 = theme.TextDim
 	movesLabel.TextXAlignment = Enum.TextXAlignment.Right
-	movesLabel.Parent = header
 	self.MovesLabel = movesLabel
 
 	local board = Instance.new("Frame")
@@ -363,14 +314,11 @@ function Memory:_build()
 		card.Parent = board
 
 		self.Buttons[index] = card
-		self.Strokes[index] = addStroke(card, theme.Panel, 3)
+		self.Strokes[index] = self:AddStroke(card, theme.Panel, 3)
 
-		table.insert(
-			self.Connections,
-			card.Activated:Connect(function()
-				self:_tap(index)
-			end)
-		)
+		self:Track(card.Activated:Connect(function()
+			self:_tap(index)
+		end))
 	end
 end
 
@@ -411,7 +359,7 @@ function Memory:Start(saved: any?)
 end
 
 function Memory:Serialize(): any?
-	if self.Won or #self.Layout ~= CARDS then return nil end
+	if self.Completed or #self.Layout ~= CARDS then return nil end
 	if self.Moves == 0 and self.Found == 0 and not self.Pending then return nil end
 
 	local layout, matched, faceUp = {}, {}, {}
@@ -439,20 +387,16 @@ function Memory:Reset()
 	self.Locked = false
 	self.Found = 0
 	self.Moves = 0
-	self.Won = false
+	self.Completed = false
+	self.State = "playing"
 
 	self:_repaint()
 end
 
-function Memory:Destroy()
+function Memory:OnDestroy()
 	self.Generation += 1
-	self.Won = true
+	self.Completed = true
 	self.Locked = true
-
-	for _, connection in self.Connections do
-		connection:Disconnect()
-	end
-	table.clear(self.Connections)
 
 	table.clear(self.Buttons)
 	table.clear(self.Strokes)
@@ -461,14 +405,6 @@ function Memory:Destroy()
 	self.MovesLabel = nil
 	self.Message = nil
 	self.Board = nil
-	self.Root:ClearAllChildren()
 end
 
-return {
-	Id = "Memory",
-	Title = "MEMORY.EXE",
-	SupportsReset = true,
-	new = function(root: Frame, api: Api)
-		return Memory.new(root, api)
-	end,
-}
+return Memory

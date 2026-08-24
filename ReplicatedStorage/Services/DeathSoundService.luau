@@ -1,4 +1,3 @@
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -9,12 +8,14 @@ if not RunService:IsClient() then
 end
 
 local AudioService = require(ReplicatedStorage.Services.AudioService)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 
 local DIED_VOLUME = 2
 
 local function watchCharacter(player: Player, character: Model)
-	local humanoid = character:WaitForChild("Humanoid") :: Humanoid
-	local rootPart = character:WaitForChild("HumanoidRootPart") :: BasePart
+	local humanoid = character:WaitForChild("Humanoid", 5) :: Humanoid?
+	local rootPart = character:WaitForChild("HumanoidRootPart", 5) :: BasePart?
+	if not humanoid or not rootPart then return end
 	if player.Character ~= character or character.Parent == nil then return end
 
 	task.spawn(function()
@@ -41,9 +42,6 @@ local function watchPlayer(player: Player)
 	end
 end
 
-for _, player in Players:GetPlayers() do
-	watchPlayer(player)
-end
-Players.PlayerAdded:Connect(watchPlayer)
+CharacterService.ForEachPlayer(watchPlayer)
 
 return DeathSoundService

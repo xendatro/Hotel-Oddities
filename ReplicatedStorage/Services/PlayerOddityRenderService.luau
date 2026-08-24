@@ -3,6 +3,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Configs.PlayerOddityConfig)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 
 local PlayerOddityRenderService = {}
 
@@ -10,12 +13,7 @@ if not RunService:IsClient() or not Config.Enabled then
 	return PlayerOddityRenderService
 end
 
-local communication = ReplicatedStorage:WaitForChild("Communication", 30)
-local oddities = communication and communication:WaitForChild("Oddities", 30)
-local HeadStare = oddities and oddities:WaitForChild("HeadStare", 30)
-if not HeadStare or not HeadStare:IsA("RemoteEvent") then
-	return PlayerOddityRenderService
-end
+local HeadStare = CommunicationService.Get("Oddities", "HeadStare") :: RemoteEvent
 
 type HeadTurn = {
 	Neck: Motor6D,
@@ -26,13 +24,22 @@ local localPlayer = Players.LocalPlayer
 local activeUntil = 0
 local turns: { [Model]: HeadTurn } = {}
 
-local function flatten(vector: Vector3): Vector3
-	return Vector3.new(vector.X, 0, vector.Z)
-end
+local neckCache: { [Model]: Motor6D } = {}
+setmetatable(neckCache :: any, { __mode = "kv" })
 
 local function getNeck(model: Model): Motor6D?
+	local cached = neckCache[model]
+	if cached and cached.Parent and cached:IsDescendantOf(model) then
+		return cached
+	end
+	neckCache[model] = nil
+
 	local neck = model:FindFirstChild("Neck", true)
-	return if neck and neck:IsA("Motor6D") then neck else nil
+	if neck and neck:IsA("Motor6D") then
+		neckCache[model] = neck
+		return neck
+	end
+	return nil
 end
 
 local function headRotation(model: Model, target: Vector3): CFrame
@@ -40,7 +47,7 @@ local function headRotation(model: Model, target: Vector3): CFrame
 	if not root or not root:IsA("BasePart") then return CFrame.identity end
 
 	local relative = root.CFrame:VectorToObjectSpace(target - root.Position)
-	local horizontal = flatten(relative)
+	local horizontal = MathService.Horizontal(relative)
 	if horizontal.Magnitude < 1e-3 then return CFrame.identity end
 
 	local yaw = math.clamp(math.atan2(-relative.X, -relative.Z), -math.rad(80), math.rad(80))
@@ -55,8 +62,7 @@ end
 local function targetPosition(): Vector3?
 	local character = localPlayer.Character
 	if not character then return nil end
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if not humanoid or humanoid.Health <= 0 then return nil end
+	if not CharacterService.GetAliveHumanoid(localPlayer) then return nil end
 
 	local head = character:FindFirstChild("Head")
 	if head and head:IsA("BasePart") then return head.Position end
@@ -84,20 +90,22 @@ RunService.PreAnimation:Connect(function()
 	end
 end)
 
+local seen: { [Model]: boolean } = {}
+
 RunService.PreSimulation:Connect(function(deltaTime: number)
 	local now = os.clock()
 	local target = targetPosition()
 	local watching = target ~= nil and now < activeUntil
-	local seen: { [Model]: boolean } = {}
+	table.clear(seen)
 
 	if not watching and next(turns) == nil then return end
 
 	for _, player in Players:GetPlayers() do
 		if player == localPlayer then continue end
 		local character = player.Character
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		local humanoid = if character then CharacterService.GetAliveHumanoid(player) else nil
 		local neck = character and getNeck(character)
-		if not character or not humanoid or humanoid.Health <= 0 or not neck then continue end
+		if not character or not humanoid or not neck then continue end
 
 		local state = turns[character]
 		if not state or state.Neck ~= neck then
@@ -107,7 +115,7 @@ RunService.PreSimulation:Connect(function(deltaTime: number)
 
 		local desired = if watching then headRotation(character, target :: Vector3) else CFrame.identity
 		local rate = if watching then Config.HeadTurnRate else Config.HeadReturnRate
-		local alpha = 1 - math.exp(-rate * deltaTime)
+		local alpha = MathService.ExpAlpha(rate, deltaTime)
 		state.Applied = state.Applied:Lerp(desired, alpha)
 		neck.Transform = state.Applied * neck.Transform
 		seen[character] = true

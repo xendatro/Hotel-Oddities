@@ -9,15 +9,16 @@ if not RunService:IsClient() then
 	return DoorService
 end
 
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local DoorConfig = require(ReplicatedStorage.Configs.DoorConfig)
 local DoorPart = require(ReplicatedStorage.Classes.DoorPart)
 local TagService = require(ReplicatedStorage.Services.TagService)
 
-local communication = ReplicatedStorage:WaitForChild("Communication", 30)
-local oddities = communication and communication:WaitForChild("Oddities", 30)
-local MapDoors = oddities and oddities:WaitForChild("MapDoors", 30)
+local MapDoors = CommunicationService.Get("Oddities", "MapDoors")
 
 local Active: { [any]: true } = {}
+local DoorwayCache: { [BasePart]: Model | false } = {}
 local sincePoll = 0
 
 type MapOpening = {
@@ -31,14 +32,6 @@ type MapOpening = {
 }
 
 local MapOpenings: { [number]: MapOpening } = {}
-
-local function localPlayerPosition(): Vector3?
-	local character = Players.LocalPlayer.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart")
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	if not root or not humanoid or humanoid.Health <= 0 then return nil end
-	return root.Position
-end
 
 local function enemyPositions(): ({ Vector3 }, { [string]: boolean })
 	local positions = {}
@@ -92,13 +85,20 @@ local function inSwingingDoorway(part: BasePart): boolean
 end
 
 local function doorwayFor(part: BasePart): Model?
+	local cached = DoorwayCache[part]
+	if cached ~= nil then
+		return if cached then cached else nil
+	end
+
 	local instance: Instance? = part.Parent
 	while instance and instance ~= workspace do
 		if instance:IsA("Model") and instance:HasTag("Doorway") and instance:HasTag("RoomDoor") then
+			DoorwayCache[part] = instance
 			return instance
 		end
 		instance = instance.Parent
 	end
+	DoorwayCache[part] = false
 	return nil
 end
 
@@ -176,7 +176,7 @@ if MapDoors and MapDoors:IsA("RemoteEvent") then
 end
 
 local function poll()
-	local playerPosition = localPlayerPosition()
+	local playerPosition = CharacterService.GetPosition(Players.LocalPlayer)
 	local enemies, forcedDoorways = enemyPositions()
 
 	for door in Active do
@@ -222,7 +222,10 @@ TagService:Listen("DoorPart", function(part: BasePart)
 		applyOpening(door, token, opening)
 	end
 	return door
-end, function(_, door)
+end, function(part, door)
+	if part:IsA("BasePart") then
+		DoorwayCache[part] = nil
+	end
 	if not door then return end
 	Active[door] = nil
 	door:Destroy()

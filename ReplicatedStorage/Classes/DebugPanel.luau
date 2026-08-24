@@ -133,7 +133,7 @@ function DebugPanel:AddButton(text: string, activated: () -> ()): TextButton
 	button.TextColor3 = Color3.new(1, 1, 1)
 	button.Text = text
 	button.Parent = self.Panel
-	button.Activated:Connect(activated)
+	table.insert(self._connections, button.Activated:Connect(activated))
 	return button
 end
 
@@ -187,13 +187,13 @@ function DebugPanel:AddSlider(
 		apply(value)
 	end
 
-	track.InputBegan:Connect(function(input: InputObject)
+	table.insert(self._connections, track.InputBegan:Connect(function(input: InputObject)
 		if input.UserInputType == Enum.UserInputType.MouseButton1
 			or input.UserInputType == Enum.UserInputType.Touch then
 			self._dragging = setFromX
 			setFromX(input.Position.X)
 		end
-	end)
+	end))
 
 	display(initial)
 	return display

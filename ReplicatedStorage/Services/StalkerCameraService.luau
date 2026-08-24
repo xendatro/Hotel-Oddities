@@ -4,6 +4,9 @@ local RunService = game:GetService("RunService")
 
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local CameraFovService = require(ReplicatedStorage.Services.CameraFovService)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 
 local StalkerCameraService = {}
 
@@ -11,10 +14,7 @@ if not FLAGS.Enemies then
 	return StalkerCameraService
 end
 
-local FaceStalker = ReplicatedStorage
-	:WaitForChild("Communication")
-	:WaitForChild("Enemies")
-	:WaitForChild("FaceStalker") :: RemoteEvent
+local FaceStalker = CommunicationService.Get("Enemies", "FaceStalker") :: RemoteEvent
 
 local RENDER_JOB = "StalkerCameraLock"
 local FOV_OFFSET_NAME = "StalkerKill"
@@ -57,9 +57,8 @@ local function render()
 	local active = job
 	if not active then return end
 
-	local character = localPlayer.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid") :: Humanoid?
-	if not humanoid or humanoid.Health <= 0 or not active.Model:IsDescendantOf(workspace) then
+	local humanoid = CharacterService.GetAliveHumanoid(localPlayer)
+	if not humanoid or not active.Model:IsDescendantOf(workspace) then
 		release()
 		return
 	end
@@ -71,7 +70,7 @@ local function render()
 
 	local goalRotation = CFrame.lookAt(Vector3.zero, offset).Rotation
 	local progress = math.clamp((os.clock() - active.StartedAt) / active.TurnTime, 0, 1)
-	local eased = progress * progress * (3 - 2 * progress)
+	local eased = MathService.Smoothstep(progress)
 	local rotation = active.StartRotation:Lerp(goalRotation, eased)
 	camera.CFrame = CFrame.new(origin) * rotation
 end

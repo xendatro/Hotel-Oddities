@@ -7,6 +7,9 @@ local UserInputService = game:GetService("UserInputService")
 local InventoryConfig = require(ReplicatedStorage.Configs.InventoryConfig)
 local InventorySlot = require(ReplicatedStorage.Classes.InventorySlot)
 local InterfaceService = require(ReplicatedStorage.Services.InterfaceService)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 
 local InventoryUIService = {}
 
@@ -18,8 +21,8 @@ local COLORS = InventoryConfig.Colors
 local CAPACITY = InventoryConfig.HotbarSlots + InventoryConfig.BackpackSlots
 
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-local Communication = ReplicatedStorage.Communication.Inventory
+local Update = CommunicationService.Get("Inventory", "Update") :: RemoteEvent
+local Move = CommunicationService.Get("Inventory", "Move") :: RemoteEvent
 
 local Slots: { InventorySlot.InventorySlot } = {}
 local Snapshot: { [number]: { Name: string, Quantity: number, Icon: string? } } = {}
@@ -35,12 +38,7 @@ local drag = nil :: {
 }?
 
 local function build()
-	screenGui = Instance.new("ScreenGui")
-	screenGui.Name = "InventoryGui"
-	screenGui.ResetOnSpawn = false
-	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	screenGui.DisplayOrder = 10
-	screenGui.Parent = playerGui
+	screenGui = GuiBuilderService.CreateScreenGui("InventoryGui", 10)
 
 	local slotSize = InventoryConfig.SlotSize
 	local padding = InventoryConfig.SlotPadding
@@ -73,9 +71,7 @@ local function build()
 	panel.AutomaticSize = Enum.AutomaticSize.Y
 	panel.Parent = screenGui
 
-	local panelCorner = Instance.new("UICorner")
-	panelCorner.CornerRadius = UDim.new(0, InventoryConfig.CornerRadius)
-	panelCorner.Parent = panel
+	GuiBuilderService.Corner(panel, UDim.new(0, InventoryConfig.CornerRadius))
 
 	local panelStroke = Instance.new("UIStroke")
 	panelStroke.Color = COLORS.Stroke
@@ -147,8 +143,8 @@ local function toggleEquip(slot)
 	if slot:IsEmpty() then return end
 
 	local character = player.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	if not humanoid or humanoid.Health <= 0 then return end
+	local humanoid = CharacterService.GetAliveHumanoid(player)
+	if not humanoid then return end
 
 	local tool = findTool(slot.ToolName)
 	if not tool or not tool.Enabled then return end
@@ -250,7 +246,7 @@ local function endDrag(position: Vector3)
 
 	Snapshot[source.Index], Snapshot[target.Index] = Snapshot[target.Index], Snapshot[source.Index]
 	InventoryUIService:Refresh()
-	Communication.Move:FireServer(source.Index, target.Index)
+	Move:FireServer(source.Index, target.Index)
 end
 
 local function setUpConnections()
@@ -323,7 +319,7 @@ local function setUpConnections()
 		end
 	end)
 
-	Communication.Update.OnClientEvent:Connect(function(entries)
+	Update.OnClientEvent:Connect(function(entries)
 		Snapshot = {}
 		for _, entry in entries or {} do
 			Snapshot[entry.Slot] = entry
@@ -331,13 +327,20 @@ local function setUpConnections()
 		InventoryUIService:Refresh()
 	end)
 
+	local characterConnections: { RBXScriptConnection } = {}
+
 	local function watchCharacter(character: Model)
-		character.ChildAdded:Connect(function(child)
+		for _, connection in characterConnections do
+			connection:Disconnect()
+		end
+		table.clear(characterConnections)
+
+		table.insert(characterConnections, character.ChildAdded:Connect(function(child)
 			if child:IsA("Tool") then InventoryUIService:Refresh() end
-		end)
-		character.ChildRemoved:Connect(function(child)
+		end))
+		table.insert(characterConnections, character.ChildRemoved:Connect(function(child)
 			if child:IsA("Tool") then InventoryUIService:Refresh() end
-		end)
+		end))
 	end
 
 	if player.Character then
@@ -351,6 +354,6 @@ build()
 setUpConnections()
 InventoryUIService:Refresh()
 
-Communication.Update:FireServer()
+Update:FireServer()
 
 return InventoryUIService

@@ -5,6 +5,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local GraphicsFogConfig = require(ReplicatedStorage.Configs.GraphicsFogConfig)
+local MathService = require(ReplicatedStorage.Services.MathService)
 
 local GraphicsFogService = {}
 
@@ -208,7 +209,7 @@ local function step(deltaTime: number)
 		else GraphicsFogConfig.ReleaseDistance
 
 	if settled then
-		local alpha = 1 - math.exp(-deltaTime * GraphicsFogConfig.FogEndBlendSpeed)
+		local alpha = MathService.ExpAlpha(GraphicsFogConfig.FogEndBlendSpeed, deltaTime)
 		fogEnd += (targetFogEnd - fogEnd) * alpha
 	else
 		settled = true

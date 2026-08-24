@@ -1,6 +1,9 @@
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 
 local LobbyService = {}
 
@@ -18,12 +21,9 @@ LobbyRaycastParams.IgnoreWater = true
 
 function LobbyService:IsPlayerOnLobbyFloor(player: Player?): boolean
 	local target = player or Players.LocalPlayer
-	local character = target.Character
-	if not character then return false end
-
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not humanoid or not root or humanoid.Health <= 0 or humanoid.FloorMaterial == Enum.Material.Air then
+	local root = CharacterService.GetAliveRoot(target)
+	local humanoid = CharacterService.GetHumanoid(target.Character)
+	if not humanoid or not root or humanoid.FloorMaterial == Enum.Material.Air then
 		return false
 	end
 

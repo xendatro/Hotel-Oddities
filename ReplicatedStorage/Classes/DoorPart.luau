@@ -2,13 +2,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DoorConfig = require(ReplicatedStorage.Configs.DoorConfig)
 local AudioService = require(ReplicatedStorage.Services.AudioService)
+local MathService = require(ReplicatedStorage.Services.MathService)
+local Spring = require(ReplicatedStorage.Classes.Spring)
 
 local DoorPart = {}
 DoorPart.__index = DoorPart
 
 local OPEN_ANGLE = DoorConfig.OpenAngle
-local STIFFNESS = DoorConfig.Stiffness
-local DAMPING = DoorConfig.DampingRatio * 2 * math.sqrt(DoorConfig.Stiffness)
 
 local function horizontal(vector: Vector3): Vector3
 	return Vector3.new(vector.X, 0, vector.Z)
@@ -37,11 +37,16 @@ function DoorPart.new(part: BasePart)
 	local arm = self.Center - self.Hinge
 	self.Arm = Vector3.new(arm.X, 0, arm.Z)
 
-	self.Angle = 0
-	self.Velocity = 0
+	self.Spring = Spring.new(DoorConfig.Stiffness, DoorConfig.DampingRatio, DoorConfig.MaxStep)
+	self.SwingClamp = function(position: number, velocity: number): (number, number)
+		if position * self.Sign < 0 then
+			return 0, 0
+		end
+		return position, velocity
+	end
 	self.Sign = 1
-	self.Target = 0
 	self.Forced = false
+	self.AppliedCanCollide = nil :: boolean?
 	self.AnimationPlayer = nil
 	self.AnimationEnded = false
 	self.AnimationStartAngle = 0
@@ -56,7 +61,7 @@ function DoorPart.new(part: BasePart)
 end
 
 function DoorPart:IsOpen(): boolean
-	return self.Target ~= 0
+	return self.Spring.Target ~= 0
 end
 
 function DoorPart:IsInside(position: Vector3): boolean
@@ -111,19 +116,19 @@ function DoorPart:_setOpen(
 
 	local wasOpen = self:IsOpen()
 
-	if open and not wasOpen and from and math.abs(self.Angle) <= DoorConfig.ResideAngle then
+	if open and not wasOpen and from and math.abs(self.Spring.Position) <= DoorConfig.ResideAngle then
 		self.Sign = self:_swingSign(from)
-	elseif open and not wasOpen and preferredDirection and math.abs(self.Angle) <= DoorConfig.ResideAngle then
+	elseif open and not wasOpen and preferredDirection and math.abs(self.Spring.Position) <= DoorConfig.ResideAngle then
 		self.Sign = self:_swingSignAlong(preferredDirection)
 	end
-	self.Target = open and OPEN_ANGLE * self.Sign or 0
+	self.Spring.Target = open and OPEN_ANGLE * self.Sign or 0
 
 	if wasOpen ~= open then
 		local settings = { PlaybackSpeed = playbackSpeed or DoorConfig.SwingSpeed }
 		local player = AudioService:Play3DSound(open and "DoorOpen" or "DoorClose", self.Part, false, "SFX", settings)
 		self.AnimationPlayer = player
 		self.AnimationEnded = false
-		self.AnimationStartAngle = self.Angle
+		self.AnimationStartAngle = self.Spring.Position
 		self.AnimationStartPosition = AudioService:GetPlaybackBounds(player)
 
 		player.Ended:Once(function()
@@ -137,7 +142,8 @@ end
 
 function DoorPart:SetOpen(open: boolean, from: Vector3?)
 	if next(self.OddityClaims) then
-		if not self:_oddityClaim() or not self:_oddityClaim().Chaos then
+		local claim = self:_oddityClaim()
+		if not claim or not claim.Chaos then
 			self:_applyOddity()
 		end
 		return
@@ -238,56 +244,45 @@ function DoorPart:Step(deltaTime: number)
 			)
 		end
 
-		local easedProgress = progress * progress * (3 - 2 * progress)
-		self.Angle = self.AnimationStartAngle + (self.Target - self.AnimationStartAngle) * easedProgress
-		self.Velocity = 0
+		local easedProgress = MathService.Smoothstep(progress)
+		self.Spring:Snap(self.AnimationStartAngle + (self.Spring.Target - self.AnimationStartAngle) * easedProgress)
 		self:_Apply()
 
 		if progress >= 1 then
 			self.AnimationPlayer = nil
-			self.Angle = self.Target
+			self.Spring:Snap(self.Spring.Target)
 			self:_Apply()
 			self:_applyCollision()
 		end
 		return
 	end
 
-	local target = self.Target
-	if target == 0 and math.abs(self.Velocity) <= DoorConfig.SettleVelocity and math.abs(self.Angle) <= DoorConfig.SettleAngle then
-		if self.Angle ~= 0 then
-			self.Angle = 0
-			self.Velocity = 0
+	local spring = self.Spring
+	if spring.Target == 0 and math.abs(spring.Velocity) <= DoorConfig.SettleVelocity and math.abs(spring.Position) <= DoorConfig.SettleAngle then
+		if spring.Position ~= 0 then
+			spring:Snap(0)
 			self:_Apply()
 		end
 		self:_applyCollision()
 		return
 	end
 
-	local remaining = math.min(deltaTime, 0.1)
-	while remaining > 0 do
-		local step = math.min(remaining, DoorConfig.MaxStep)
-		remaining -= step
-
-		self.Velocity += (-STIFFNESS * (self.Angle - target) - DAMPING * self.Velocity) * step
-		self.Angle += self.Velocity * step
-
-		if self.Angle * self.Sign < 0 then
-			self.Angle = 0
-			self.Velocity = 0
-		end
-	end
+	spring:Step(deltaTime, self.SwingClamp)
 
 	self:_Apply()
 	self:_applyCollision()
 end
 
 function DoorPart:_applyCollision()
-	local closing = self.Target == 0 and self.AnimationPlayer ~= nil
-	self.Part.CanCollide = if closing or self.Forced then false else self.ClosedCanCollide
+	local closing = self.Spring.Target == 0 and self.AnimationPlayer ~= nil
+	local canCollide = if closing or self.Forced then false else self.ClosedCanCollide
+	if self.AppliedCanCollide == canCollide then return end
+	self.AppliedCanCollide = canCollide
+	self.Part.CanCollide = canCollide
 end
 
 function DoorPart:_Apply()
-	local rotation = CFrame.Angles(0, math.rad(self.Angle), 0)
+	local rotation = CFrame.Angles(0, math.rad(self.Spring.Position), 0)
 	self.Part:PivotTo(CFrame.new(self.Hinge) * rotation * CFrame.new(-self.Hinge) * self.ClosedPivot)
 end
 

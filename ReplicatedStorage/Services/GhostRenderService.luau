@@ -50,8 +50,11 @@ local function loadFriendUserIds(): {number}
 	return userIds
 end
 
+local friendsLoaded = Instance.new("BindableEvent")
+
 task.spawn(function()
 	FriendUserIds = loadFriendUserIds()
+	friendsLoaded:Fire()
 end)
 
 local function getDescription(userId: number): HumanoidDescription?
@@ -81,19 +84,31 @@ local function getDescription(userId: number): HumanoidDescription?
 	return description
 end
 
-local function setLocalTransparency(model: Model, transparency: number)
-	for _, descendant in model:GetDescendants() do
+local function buildTransparencyCache(container: Instance): ({ BasePart }, { Instance })
+	local parts: { BasePart } = {}
+	local overlays: { Instance } = {}
+	for _, descendant in container:GetDescendants() do
 		if descendant:IsA("BasePart") then
-			descendant.LocalTransparencyModifier = transparency
+			table.insert(parts, descendant)
 		elseif descendant:IsA("Decal") or descendant:IsA("Texture") then
-			descendant.Transparency = transparency
+			table.insert(overlays, descendant)
 		end
+	end
+	return parts, overlays
+end
+
+local function applyTransparency(parts: { BasePart }, overlays: { Instance }, transparency: number)
+	for _, part in parts do
+		part.LocalTransparencyModifier = transparency
+	end
+	for _, overlay in overlays do
+		(overlay :: any).Transparency = transparency
 	end
 end
 
 local function createVisual(model: Model): Model?
-	while FriendUserIds == nil do
-		task.wait()
+	if FriendUserIds == nil then
+		friendsLoaded.Event:Wait()
 	end
 
 	local userIds = FriendUserIds :: {number}
@@ -183,6 +198,10 @@ type Render = {
 	RootConnection: RBXScriptConnection?,
 	TransparencyConnection: RBXScriptConnection?,
 	VisualTransparencyConnection: RBXScriptConnection?,
+	ModelParts: { BasePart },
+	ModelOverlays: { Instance },
+	VisualParts: { BasePart },
+	VisualOverlays: { Instance },
 }
 
 local Ghosts: { [Model]: Render } = {}
@@ -202,16 +221,23 @@ local function track(model: Model): Render
 		RootConnection = nil,
 		TransparencyConnection = nil,
 		VisualTransparencyConnection = nil,
+		ModelParts = {},
+		ModelOverlays = {},
+		VisualParts = {},
+		VisualOverlays = {},
 	}
 	Ghosts[model] = render
-	setLocalTransparency(model, GHOST_TRANSPARENCY)
+	render.ModelParts, render.ModelOverlays = buildTransparencyCache(model)
+	applyTransparency(render.ModelParts, render.ModelOverlays, GHOST_TRANSPARENCY)
 	render.TransparencyConnection = model.DescendantAdded:Connect(function(descendant: Instance)
 		if descendant:IsA("BasePart") then
+			table.insert(render.ModelParts, descendant)
 			descendant.LocalTransparencyModifier = if render.VisualModel
 				then HIDDEN_TRANSPARENCY
 				else GHOST_TRANSPARENCY
 		elseif descendant:IsA("Decal") or descendant:IsA("Texture") then
-			descendant.Transparency = if render.VisualModel
+			table.insert(render.ModelOverlays, descendant);
+			(descendant :: any).Transparency = if render.VisualModel
 				then HIDDEN_TRANSPARENCY
 				else GHOST_TRANSPARENCY
 		end
@@ -263,14 +289,17 @@ local function track(model: Model): Render
 		render.VisualRootPart = rootPart
 		render.VisualHead = head
 		render.VisualNeck = neck
+		render.VisualParts, render.VisualOverlays = buildTransparencyCache(visual)
 		render.VisualTransparencyConnection = visual.DescendantAdded:Connect(function(descendant: Instance)
 			if descendant:IsA("BasePart") then
+				table.insert(render.VisualParts, descendant)
 				descendant.LocalTransparencyModifier = GHOST_TRANSPARENCY
 			elseif descendant:IsA("Decal") or descendant:IsA("Texture") then
-				descendant.Transparency = GHOST_TRANSPARENCY
+				table.insert(render.VisualOverlays, descendant);
+				(descendant :: any).Transparency = GHOST_TRANSPARENCY
 			end
 		end)
-		setLocalTransparency(model, HIDDEN_TRANSPARENCY)
+		applyTransparency(render.ModelParts, render.ModelOverlays, HIDDEN_TRANSPARENCY)
 	end)
 
 	return render
@@ -351,10 +380,12 @@ RunService:BindToRenderStep(RENDER_BIND_NAME, Enum.RenderPriority.Camera.Value +
 			else
 				alpha = 1 - GhostMotion.FadeAlpha(appearStartedAt :: number, now)
 			end
-			setLocalTransparency(
-				render.VisualModel or model,
-				GHOST_TRANSPARENCY + (HIDDEN_TRANSPARENCY - GHOST_TRANSPARENCY) * alpha
-			)
+			local transparency = GHOST_TRANSPARENCY + (HIDDEN_TRANSPARENCY - GHOST_TRANSPARENCY) * alpha
+			if render.VisualModel then
+				applyTransparency(render.VisualParts, render.VisualOverlays, transparency)
+			else
+				applyTransparency(render.ModelParts, render.ModelOverlays, transparency)
+			end
 		end
 	end
 end)

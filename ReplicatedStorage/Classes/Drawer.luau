@@ -3,11 +3,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DrawerConfig = require(ReplicatedStorage.Configs.DrawerConfig)
 local DrawerItemConfig = require(ReplicatedStorage.Configs.DrawerItemConfig)
+local Spring = require(ReplicatedStorage.Classes.Spring)
 
 local Drawer = {}
 Drawer.__index = Drawer
-
-local DAMPING = DrawerConfig.DampingRatio * 2 * math.sqrt(DrawerConfig.Stiffness)
 
 local function belongsToDrawerItem(instance: Instance): boolean
 	local ancestor = instance.Parent
@@ -51,62 +50,46 @@ function Drawer.new(model: Model)
 	self.Model = model
 	self.ClosedPivot = model:GetPivot()
 	self.Axis = outwardAxis(model)
-
-	self.Offset = 0
-	self.Velocity = 0
-	self.Target = 0
+	self.Spring = Spring.new(DrawerConfig.Stiffness, DrawerConfig.DampingRatio, DrawerConfig.MaxStep)
 
 	return self
 end
 
 function Drawer:IsOpen(): boolean
-	return self.Target > 0
+	return self.Spring.Target > 0
 end
 
 function Drawer:IsMoving(): boolean
-	return math.abs(self.Offset - self.Target) > DrawerConfig.SettleDistance
-		or math.abs(self.Velocity) > DrawerConfig.SettleVelocity
+	return math.abs(self.Spring.Position - self.Spring.Target) > DrawerConfig.SettleDistance
+		or math.abs(self.Spring.Velocity) > DrawerConfig.SettleVelocity
 end
 
 function Drawer:_apply()
-	self.Model:PivotTo(self.ClosedPivot * CFrame.new(self.Axis * self.Offset))
+	self.Model:PivotTo(self.ClosedPivot * CFrame.new(self.Axis * self.Spring.Position))
 end
 
 function Drawer:SetOpen(open: boolean, immediate: boolean?)
 	local target = if open then DrawerConfig.OpenDistance else 0
-	if self.Target == target and not immediate then return end
+	if self.Spring.Target == target and not immediate then return end
 
-	self.Target = target
+	self.Spring.Target = target
 
 	if immediate then
-		self.Offset = target
-		self.Velocity = 0
+		self.Spring:Snap(target)
 		self:_apply()
-		return
 	end
-
 end
 
 function Drawer:Step(deltaTime: number): boolean
 	if not self:IsMoving() then
-		if self.Offset ~= self.Target then
-			self.Offset = self.Target
-			self.Velocity = 0
+		if self.Spring.Position ~= self.Spring.Target then
+			self.Spring:Snap(self.Spring.Target)
 			self:_apply()
 		end
 		return false
 	end
 
-	local remaining = math.min(deltaTime, 0.1)
-	while remaining > 0 do
-		local step = math.min(remaining, DrawerConfig.MaxStep)
-		remaining -= step
-
-		local acceleration = (self.Target - self.Offset) * DrawerConfig.Stiffness - self.Velocity * DAMPING
-		self.Velocity += acceleration * step
-		self.Offset += self.Velocity * step
-	end
-
+	self.Spring:Step(deltaTime)
 	self:_apply()
 	return true
 end

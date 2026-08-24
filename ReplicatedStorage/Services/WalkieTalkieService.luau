@@ -4,6 +4,8 @@ local RunService = game:GetService("RunService")
 local VoiceChatService = game:GetService("VoiceChatService")
 
 local Config = require(ReplicatedStorage.Configs.WalkieTalkieConfig)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 
 local WalkieTalkieService = {}
 
@@ -12,15 +14,14 @@ if not RunService:IsClient() then
 end
 
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+local playerGui = GuiBuilderService.GetPlayerGui()
 local gui = playerGui:WaitForChild("PlayerLocator") :: ScreenGui
 local frame = gui:WaitForChild("Mode") :: Frame
 local modeLabel = frame:WaitForChild("Mode") :: TextLabel
 local toggle = frame:WaitForChild("Toggle") :: ImageButton
 local cooldownLabel = frame:FindFirstChild("TeleportCooldown") :: TextLabel?
 
-local walkieCommunication = ReplicatedStorage.Communication.WalkieTalkie
-local SetMode = walkieCommunication.SetMode :: RemoteEvent
+local SetMode = CommunicationService.Get("WalkieTalkie", "SetMode") :: RemoteEvent
 local modeIndex = 1
 local enabled = false
 local emitterConnection: RBXScriptConnection?

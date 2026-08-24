@@ -1,13 +1,15 @@
 local Lighting = game:GetService("Lighting")
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local AudioService = require(ReplicatedStorage.Services.AudioService)
 local CameraFovService = require(ReplicatedStorage.Services.CameraFovService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local EyeConfig = require(ReplicatedStorage.Configs.EyeConfig)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
+local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 
 local EyeHitEffectService = {}
 
@@ -15,19 +17,9 @@ if not RunService:IsClient() or not FLAGS.Enemies then
 	return EyeHitEffectService
 end
 
-local player = Players.LocalPlayer
-local eyeHit = ReplicatedStorage
-	:WaitForChild("Communication")
-	:WaitForChild("Enemies")
-	:WaitForChild("EyeHit") :: RemoteEvent
+local eyeHit = CommunicationService.Get("Enemies", "EyeHit") :: RemoteEvent
 
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "EyeHitEffects"
-screenGui.IgnoreGuiInset = true
-screenGui.ResetOnSpawn = false
-screenGui.DisplayOrder = 1000
-screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-screenGui.Parent = player:WaitForChild("PlayerGui")
+local screenGui = GuiBuilderService.CreateScreenGui("EyeHitEffects", 1000, true)
 
 local flash = Instance.new("Frame")
 flash.Name = "Flash"
@@ -192,11 +184,10 @@ function EyeHitEffectService:UpdateGaze(strength: number, deltaTime: number)
 		gazeTime = 0
 	end
 
-	local ramp = math.clamp(gazeTime / EyeConfig.GazeRampTime, 0, 1)
-	ramp = ramp * ramp * (3 - 2 * ramp)
+	local ramp = MathService.Smoothstep(gazeTime / EyeConfig.GazeRampTime)
 	local target = strength * ramp
 	local speed = if target > gazeIntensity then EyeConfig.GazeInSpeed else EyeConfig.GazeOutSpeed
-	gazeIntensity += (target - gazeIntensity) * (1 - math.exp(-speed * deltaTime))
+	gazeIntensity += (target - gazeIntensity) * MathService.ExpAlpha(speed, deltaTime)
 	if gazeIntensity < 1e-3 then gazeIntensity = 0 end
 
 	local pulse = 0.9 + math.sin(os.clock() * math.pi * 2 / EyeConfig.GazeRollPeriod) * 0.1

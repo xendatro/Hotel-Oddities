@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local HearingConfig = require(ReplicatedStorage.Configs.HearingConfig)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 
 local HearingRenderService = {}
 
@@ -11,10 +12,7 @@ end
 
 local PARTICLE = HearingConfig.Particle
 
-local Travel = ReplicatedStorage
-	:WaitForChild("Communication")
-	:WaitForChild("Hearing")
-	:WaitForChild("Travel") :: RemoteEvent
+local Travel = CommunicationService.Get("Hearing", "Travel") :: RemoteEvent
 
 local container = Instance.new("Folder")
 container.Name = "HearingMotes"
@@ -76,27 +74,68 @@ local function buildMote(): (Part, ParticleEmitter)
 	return mote, wake
 end
 
-local function flash(mote: Part, wake: ParticleEmitter)
-	wake.Enabled = false
-	local elapsed = 0
-	local connection: RBXScriptConnection
-	connection = RunService.RenderStepped:Connect(function(deltaTime: number)
-		elapsed += deltaTime
-		local alpha = math.min(elapsed / PARTICLE.ArrivalFlashTime, 1)
-		mote.Size = Vector3.one * PARTICLE.Size * (1 + (PARTICLE.ArrivalFlashScale - 1) * alpha)
-		mote.Transparency = alpha
-		if alpha >= 1 then
-			connection:Disconnect()
-			mote.Transparency = 1
-			local highlight = mote:FindFirstChildOfClass("Highlight")
-			if highlight then
-				highlight.Enabled = false
+type ActiveMote = {
+	Mote: Part,
+	Wake: ParticleEmitter,
+	Model: Model,
+	Origin: Vector3,
+	Destination: Vector3,
+	Duration: number,
+	Elapsed: number,
+	Flashing: boolean,
+}
+
+local ActiveMotes: { ActiveMote } = {}
+local stepConnection: RBXScriptConnection? = nil
+
+local function removeMote(index: number)
+	local count = #ActiveMotes
+	ActiveMotes[index] = ActiveMotes[count]
+	ActiveMotes[count] = nil
+end
+
+local function step(deltaTime: number)
+	for index = #ActiveMotes, 1, -1 do
+		local entry = ActiveMotes[index]
+		entry.Elapsed += deltaTime
+
+		if entry.Flashing then
+			local alpha = math.min(entry.Elapsed / PARTICLE.ArrivalFlashTime, 1)
+			entry.Mote.Size = Vector3.one * PARTICLE.Size * (1 + (PARTICLE.ArrivalFlashScale - 1) * alpha)
+			entry.Mote.Transparency = alpha
+			if alpha >= 1 then
+				local mote = entry.Mote
+				mote.Transparency = 1
+				local highlight = mote:FindFirstChildOfClass("Highlight")
+				if highlight then
+					highlight.Enabled = false
+				end
+				task.delay(PARTICLE.ParticleLifetime.Max, function()
+					mote:Destroy()
+				end)
+				removeMote(index)
 			end
-			task.delay(PARTICLE.ParticleLifetime.Max, function()
-				mote:Destroy()
-			end)
+		else
+			local alpha = math.min(entry.Elapsed / entry.Duration, 1)
+			entry.Destination = earPosition(entry.Model) or entry.Destination
+			local position = entry.Origin:Lerp(entry.Destination, alpha)
+			local heading = entry.Destination - position
+			entry.Mote.CFrame = if heading.Magnitude > 1e-3
+				then CFrame.lookAt(position, position + heading)
+				else CFrame.new(position)
+
+			if alpha >= 1 then
+				entry.Flashing = true
+				entry.Elapsed = 0
+				entry.Wake.Enabled = false
+			end
 		end
-	end)
+	end
+
+	if #ActiveMotes == 0 and stepConnection then
+		stepConnection:Disconnect()
+		stepConnection = nil
+	end
 end
 
 local function send(origin: Vector3, model: any, duration: any)
@@ -111,24 +150,19 @@ local function send(origin: Vector3, model: any, duration: any)
 	mote.Position = origin
 	mote.Parent = motesFolder()
 
-	local elapsed = 0
-	local connection: RBXScriptConnection
-	connection = RunService.RenderStepped:Connect(function(deltaTime: number)
-		elapsed += deltaTime
-		local alpha = math.min(elapsed / duration, 1)
-
-		destination = earPosition(model) or destination
-		local position = origin:Lerp(destination, alpha)
-		local heading = destination - position
-		mote.CFrame = if heading.Magnitude > 1e-3
-			then CFrame.lookAt(position, position + heading)
-			else CFrame.new(position)
-
-		if alpha >= 1 then
-			connection:Disconnect()
-			flash(mote, trail)
-		end
-	end)
+	table.insert(ActiveMotes, {
+		Mote = mote,
+		Wake = trail,
+		Model = model,
+		Origin = origin,
+		Destination = destination,
+		Duration = duration,
+		Elapsed = 0,
+		Flashing = false,
+	})
+	if not stepConnection then
+		stepConnection = RunService.RenderStepped:Connect(step)
+	end
 end
 
 Travel.OnClientEvent:Connect(send)

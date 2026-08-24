@@ -7,7 +7,9 @@ local Bob = require(ReplicatedStorage.Modules.Bob)
 local EyeConfig = require(ReplicatedStorage.Configs.EyeConfig)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local Sightline = require(ReplicatedStorage.Modules.Sightline)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local EyeHitEffectService = require(ReplicatedStorage.Services.EyeHitEffectService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 local TagService = require(ReplicatedStorage.Services.TagService)
 local Vanished = require(ReplicatedStorage.Modules.Vanished)
 
@@ -50,8 +52,7 @@ RunService:BindToRenderStep(RENDER_BIND_NAME, Enum.RenderPriority.Camera.Value +
 
 	local character = localPlayer.Character
 	local tracking = not Vanished.Is(character)
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid") :: Humanoid?
-	local threatened = tracking and humanoid ~= nil and humanoid.Health > 0
+	local threatened = tracking and CharacterService.GetAliveHumanoid(localPlayer) ~= nil
 	local frustum = Sightline.Frustum(camera)
 
 	local clock = os.clock()
@@ -86,7 +87,7 @@ RunService:BindToRenderStep(RENDER_BIND_NAME, Enum.RenderPriority.Camera.Value +
 			and not model:GetAttribute(STUNNED_ATTRIBUTE)
 			and Sightline.CanSee(camera, frustum, character, model)
 		then
-			local angle = math.deg(math.acos(math.clamp(offset.Unit:Dot(camera.CFrame.LookVector), -1, 1)))
+			local angle = MathService.AngleBetween(offset, camera.CFrame.LookVector)
 			local centered = math.clamp(1 - angle / EyeConfig.GazeFalloffAngle, 0, 1)
 			local strength = EyeConfig.GazeEdgeIntensity
 				+ (1 - EyeConfig.GazeEdgeIntensity) * centered * centered

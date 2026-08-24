@@ -3,8 +3,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local ToolBase = require(ReplicatedStorage.Classes.ToolBase)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 
-local Delete = ReplicatedStorage.Communication.Backpack.Delete
+local Delete = CommunicationService.Get("Backpack", "Delete")
 
 local ClientTool = ToolBase.extend("ClientTool")
 
@@ -23,6 +24,24 @@ local player = Players.LocalPlayer
 local revealers = 0
 local transparency = DEFAULT_TRANSPARENCY
 
+local cachedCharacter: Model? = nil
+local cachedLimbs: { BasePart } = {}
+local cachedComplete = false
+
+local function refreshLimbCache(character: Model)
+	table.clear(cachedLimbs)
+	cachedCharacter = character
+	cachedComplete = true
+	for _, partName in LIMB_PARTS do
+		local part = character:FindFirstChild(partName)
+		if part and part:IsA("BasePart") then
+			table.insert(cachedLimbs, part)
+		else
+			cachedComplete = false
+		end
+	end
+end
+
 local function isFirstPerson(character: Model): boolean
 	if player.CameraMode == Enum.CameraMode.LockFirstPerson then return true end
 
@@ -34,11 +53,11 @@ local function applyReveal()
 	local character = player.Character
 	if not character then return end
 
-	for _, partName in LIMB_PARTS do
-		local part = character:FindFirstChild(partName)
-		if part and part:IsA("BasePart") then
-			part.LocalTransparencyModifier = transparency
-		end
+	if character ~= cachedCharacter or not cachedComplete then
+		refreshLimbCache(character)
+	end
+	for _, part in cachedLimbs do
+		part.LocalTransparencyModifier = transparency
 	end
 end
 
@@ -65,11 +84,11 @@ local function stopReveal()
 
 	local character = player.Character
 	if not character then return end
-	for _, partName in LIMB_PARTS do
-		local part = character:FindFirstChild(partName)
-		if part and part:IsA("BasePart") then
-			part.LocalTransparencyModifier = 1
-		end
+	if character ~= cachedCharacter or not cachedComplete then
+		refreshLimbCache(character)
+	end
+	for _, part in cachedLimbs do
+		part.LocalTransparencyModifier = 1
 	end
 end
 

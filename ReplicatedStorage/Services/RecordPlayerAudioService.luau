@@ -19,10 +19,9 @@ local LOADING_HIGH_GAIN = -30
 local DEATH_VOLUME_FADE_TIME = 1
 local DEATH_MUFFLE_FADE_TIME = 1
 
-local Loading = ReplicatedStorage
-	:WaitForChild("Communication")
-	:WaitForChild("Elevator")
-	:WaitForChild("Loading") :: RemoteEvent
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+
+local Loading = CommunicationService.Get("Elevator", "Loading") :: RemoteEvent
 
 type RecordState = {
 	Emitter: AudioEmitter,
@@ -35,7 +34,14 @@ type RecordState = {
 	MuffleAlpha: number,
 }
 
+type TrackedModel = {
+	Emitters: { [AudioEmitter]: boolean },
+	Added: RBXScriptConnection,
+	Removing: RBXScriptConnection,
+}
+
 local states: { [AudioEmitter]: RecordState } = {}
+local trackedModels: { [Instance]: TrackedModel } = {}
 local activeToken: number? = nil
 local loading = false
 local loadingStartedAt: number? = nil
@@ -178,15 +184,54 @@ local function createState(emitter: AudioEmitter): RecordState?
 	return state
 end
 
+local function trackModel(model: Instance)
+	if trackedModels[model] then return end
+
+	local emitters: { [AudioEmitter]: boolean } = {}
+	for _, descendant in model:GetDescendants() do
+		if descendant:IsA("AudioEmitter") then
+			emitters[descendant] = true
+		end
+	end
+
+	trackedModels[model] = {
+		Emitters = emitters,
+		Added = model.DescendantAdded:Connect(function(descendant)
+			if descendant:IsA("AudioEmitter") then
+				emitters[descendant] = true
+			end
+		end),
+		Removing = model.DescendantRemoving:Connect(function(descendant)
+			if descendant:IsA("AudioEmitter") then
+				emitters[descendant] = nil
+			end
+		end),
+	}
+end
+
+local function untrackModel(model: Instance)
+	local entry = trackedModels[model]
+	if not entry then return end
+	entry.Added:Disconnect()
+	entry.Removing:Disconnect()
+	trackedModels[model] = nil
+end
+
+CollectionService:GetInstanceAddedSignal(RECORD_TAG):Connect(trackModel)
+CollectionService:GetInstanceRemovedSignal(RECORD_TAG):Connect(untrackModel)
+for _, model in CollectionService:GetTagged(RECORD_TAG) do
+	trackModel(model)
+end
+
 local function refresh(deltaTime: number)
 	if loading or deathActive then
-		for _, model in CollectionService:GetTagged(RECORD_TAG) do
+		for model, entry in trackedModels do
 			if not model:IsDescendantOf(workspace) then continue end
 
-			for _, descendant in model:GetDescendants() do
-				if not descendant:IsA("AudioEmitter") or states[descendant] then continue end
-
-				createState(descendant)
+			for emitter in entry.Emitters do
+				if not states[emitter] and emitter.Parent then
+					createState(emitter)
+				end
 			end
 		end
 	end

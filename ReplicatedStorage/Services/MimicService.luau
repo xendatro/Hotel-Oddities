@@ -6,7 +6,9 @@ local RunService = game:GetService("RunService")
 
 local AnimationConfig = require(ReplicatedStorage.Configs.AnimationConfig)
 local AudioService = require(ReplicatedStorage.Services.AudioService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
+local MathService = require(ReplicatedStorage.Services.MathService)
 local MimicConfig = require(ReplicatedStorage.Configs.MimicConfig)
 local MimicMotion = require(ReplicatedStorage.Modules.MimicMotion)
 local MotionTrail = require(ReplicatedStorage.Classes.MotionTrail)
@@ -18,14 +20,8 @@ if not FLAGS.Enemies then
 	return MimicService
 end
 
-local Mirror = ReplicatedStorage
-	:WaitForChild("Communication")
-	:WaitForChild("Enemies")
-	:WaitForChild("Mirror") :: RemoteEvent
-local Reveal = ReplicatedStorage
-	:WaitForChild("Communication")
-	:WaitForChild("Enemies")
-	:WaitForChild("MimicReveal") :: RemoteEvent
+local Mirror = CommunicationService.Get("Enemies", "Mirror") :: RemoteEvent
+local Reveal = CommunicationService.Get("Enemies", "MimicReveal") :: RemoteEvent
 
 local CHARACTER_TIMEOUT = 10
 
@@ -61,13 +57,8 @@ type Job = {
 local trail: MotionTrail.MotionTrail? = nil
 local job: Job? = nil
 
-local function flatten(vector: Vector3): Vector3
-	return Vector3.new(vector.X, 0, vector.Z)
-end
-
-local function randomRange(minimum: number, maximum: number): number
-	return minimum + math.random() * (maximum - minimum)
-end
+local flatten = MathService.Horizontal
+local randomRange = MathService.RandomRange
 
 local function angleBetween(from: Vector3, to: Vector3): number
 	local a, b = flatten(from), flatten(to)
@@ -75,17 +66,37 @@ local function angleBetween(from: Vector3, to: Vector3): number
 	return math.deg(math.acos(math.clamp(a.Unit:Dot(b.Unit), -1, 1)))
 end
 
+local clearParams = RaycastParams.new()
+clearParams.FilterType = Enum.RaycastFilterType.Exclude
+clearParams.RespectCanCollide = true
+local clearFilterRoot: BasePart? = nil
+local clearFilterCharacter: Model? = nil
+
 local function isClear(root: BasePart, character: Model, direction: Vector3): boolean
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { root.Parent :: Instance, character }
-	params.RespectCanCollide = true
-	return workspace:Raycast(root.Position, direction * MimicConfig.WallProbeDistance, params) == nil
+	if clearFilterRoot ~= root or clearFilterCharacter ~= character then
+		clearFilterRoot = root
+		clearFilterCharacter = character
+		clearParams.FilterDescendantsInstances = { root.Parent :: Instance, character }
+	end
+	return workspace:Raycast(root.Position, direction * MimicConfig.WallProbeDistance, clearParams) == nil
 end
 
+local neckCache: { [Model]: Instance } = {}
+setmetatable(neckCache :: any, { __mode = "kv" })
+
 local function getNeck(model: Model): any?
+	local cached = neckCache[model]
+	if cached and cached.Parent and cached:IsDescendantOf(model) then
+		return cached
+	end
+	neckCache[model] = nil
+
 	local head = model:FindFirstChild("Head")
-	return head and head:FindFirstChild("Neck")
+	local neck = head and head:FindFirstChild("Neck")
+	if neck then
+		neckCache[model] = neck
+	end
+	return neck
 end
 
 local function yaw(direction: Vector3): number
@@ -116,7 +127,7 @@ local function driveSpin(active: Job, own: MotionTrail.MotionTrail, clock: numbe
 		0,
 		1
 	)
-	local eased = progress * progress * (3 - 2 * progress)
+	local eased = MathService.Smoothstep(progress)
 	local angle = (active.SpinStartYaw :: number) + (active.SpinDelta :: number) * eased
 	local position = root.Position
 	humanoid:Move(Vector3.zero)
@@ -294,10 +305,25 @@ local function updateTwitch(model: Model, neck: Motor6D, now: number)
 	end
 end
 
+local EnemyModels: { [Model]: boolean } = {}
+
+CollectionService:GetInstanceAddedSignal("Enemy"):Connect(function(instance)
+	if instance:IsA("Model") then
+		EnemyModels[instance] = true
+	end
+end)
+CollectionService:GetInstanceRemovedSignal("Enemy"):Connect(function(instance)
+	EnemyModels[instance :: Model] = nil
+end)
+for _, instance in CollectionService:GetTagged("Enemy") do
+	if instance:IsA("Model") then
+		EnemyModels[instance] = true
+	end
+end
+
 RunService.PreSimulation:Connect(function(deltaTime: number)
 	local now = os.clock()
-	for _, model in CollectionService:GetTagged("Enemy") do
-		if not model:IsA("Model") then continue end
+	for model in EnemyModels do
 		local userId = model:GetAttribute("MimicHeadLockUserId")
 
 		if model:GetAttribute("EnemyId") == "Mimic"

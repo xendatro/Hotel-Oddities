@@ -1,20 +1,9 @@
-type Theme = {
-	Font: Enum.Font,
-	Background: Color3,
-	Panel: Color3,
-	Grid: Color3,
-	Primary: Color3,
-	Accent: Color3,
-	Danger: Color3,
-	Text: Color3,
-	TextDim: Color3,
-}
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-type Api = {
-	Complete: () -> (),
-	Theme: Theme,
-	Sound: ((name: string, pitch: number?) -> ())?,
-}
+local MinigameBase = require(ReplicatedStorage.Classes.Minigames.MinigameBase)
+
+export type Theme = MinigameBase.Theme
+export type Api = MinigameBase.Api
 
 local GRID = 8
 local CELLS = GRID * GRID
@@ -40,12 +29,7 @@ local COUNT_COLORS = {
 	"Danger",
 }
 
-local Minesweeper = {}
-Minesweeper.__index = Minesweeper
-
-Minesweeper.Id = "Minesweeper"
-Minesweeper.Title = "MINESWEEPER.EXE"
-Minesweeper.SupportsReset = true
+local Minesweeper = MinigameBase.extend("Minesweeper", "MINESWEEPER.EXE", true)
 
 local function forEachNeighbour(index: number, visit: (number) -> ())
 	local row = math.floor((index - 1) / GRID)
@@ -74,21 +58,8 @@ local function isValidSave(saved: any): boolean
 	return true
 end
 
-local function addStroke(parent: GuiObject, color: Color3, thickness: number): UIStroke
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = color
-	stroke.Thickness = thickness
-	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	stroke.Parent = parent
-	return stroke
-end
-
-function Minesweeper.new(root: Frame, api: Api): any
-	local self = setmetatable({}, Minesweeper)
-
-	self.Root = root
-	self.Api = api
-	self.Theme = api.Theme
+function Minesweeper.new(root: Frame, api: Api)
+	local self = MinigameBase.new(root, api, Minesweeper)
 
 	self.Buttons = {} :: { TextButton }
 	self.Strokes = {} :: { UIStroke }
@@ -100,7 +71,6 @@ function Minesweeper.new(root: Frame, api: Api): any
 	self.Dead = false
 	self.Flagging = false
 	self.Opened = 0
-	self.Won = false
 	self.Generation = 0
 
 	return self
@@ -224,7 +194,7 @@ end
 function Minesweeper:_boom()
 	self.Dead = true
 
-	if self.Api.Sound then self.Api.Sound("Boom", 0.8) end
+	self:PlaySound("Boom", 0.8)
 
 	for index = 1, CELLS do
 		if self.Mines[index] then
@@ -241,14 +211,12 @@ function Minesweeper:_boom()
 end
 
 function Minesweeper:_click(index: number, flagging: boolean)
-	if self.Dead or self.Won then return end
+	if self.Dead or self.Completed then return end
 
 	if flagging then
 		if self.Revealed[index] then return end
 		self.Flags[index] = not self.Flags[index] or nil
-		if self.Api.Sound then
-			self.Api.Sound("Flag", if self.Flags[index] then 1 else 0.8)
-		end
+		self:PlaySound("Flag", if self.Flags[index] then 1 else 0.8)
 		self:_paint(index)
 		self:_updateHeader()
 		return
@@ -265,13 +233,14 @@ function Minesweeper:_click(index: number, flagging: boolean)
 		return
 	end
 
-	if self.Api.Sound then self.Api.Sound("Blip") end
+	self:PlaySound("Blip")
 
 	self:_reveal(index)
 	self:_updateHeader()
 
 	if self.Opened >= SAFE_CELLS then
-		self.Won = true
+		self.Completed = true
+		self.State = "won"
 		self.Api.Complete()
 	end
 end
@@ -286,29 +255,18 @@ function Minesweeper:_build()
 	header.BackgroundTransparency = 1
 	header.Parent = root
 
-	local counter = Instance.new("TextLabel")
+	local counter = self:NewLabel(header, `MINES {MINE_COUNT}`, 26)
 	counter.Name = "Counter"
 	counter.Size = UDim2.fromOffset(200, HEADER_HEIGHT)
-	counter.BackgroundTransparency = 1
-	counter.Font = theme.Font
-	counter.Text = `MINES {MINE_COUNT}`
-	counter.TextSize = 26
-	counter.TextColor3 = theme.Text
 	counter.TextXAlignment = Enum.TextXAlignment.Left
-	counter.Parent = header
 	self.Counter = counter
 
-	local message = Instance.new("TextLabel")
+	local message = self:NewLabel(header, "", 30)
 	message.Name = "Message"
 	message.AnchorPoint = Vector2.new(0.5, 0)
 	message.Position = UDim2.fromScale(0.5, 0)
 	message.Size = UDim2.fromOffset(300, HEADER_HEIGHT)
-	message.BackgroundTransparency = 1
-	message.Font = theme.Font
-	message.Text = ""
-	message.TextSize = 30
 	message.TextColor3 = theme.Danger
-	message.Parent = header
 	self.Message = message
 
 	local flagButton = Instance.new("TextButton")
@@ -325,12 +283,12 @@ function Minesweeper:_build()
 	flagButton.TextColor3 = theme.TextDim
 	flagButton.Parent = header
 	self.FlagButton = flagButton
-	self.FlagStroke = addStroke(flagButton, theme.TextDim, 2)
+	self.FlagStroke = self:AddStroke(flagButton, theme.TextDim, 2)
 
-	flagButton.MouseButton1Click:Connect(function()
+	self:Track(flagButton.MouseButton1Click:Connect(function()
 		self.Flagging = not self.Flagging
 		self:_updateHeader()
-	end)
+	end))
 
 	local board = Instance.new("Frame")
 	board.Name = "Board"
@@ -359,14 +317,14 @@ function Minesweeper:_build()
 		cell.Parent = board
 
 		self.Buttons[index] = cell
-		self.Strokes[index] = addStroke(cell, theme.Panel, 2)
+		self.Strokes[index] = self:AddStroke(cell, theme.Panel, 2)
 
-		cell.MouseButton1Click:Connect(function()
+		self:Track(cell.MouseButton1Click:Connect(function()
 			self:_click(index, self.Flagging)
-		end)
-		cell.MouseButton2Click:Connect(function()
+		end))
+		self:Track(cell.MouseButton2Click:Connect(function()
 			self:_click(index, true)
-		end)
+		end))
 	end
 end
 
@@ -393,7 +351,7 @@ function Minesweeper:Start(saved: any?)
 end
 
 function Minesweeper:Serialize(): any?
-	if self.Dead or self.Won or (not self.Placed and self.Opened == 0) then
+	if self.Dead or self.Completed or (not self.Placed and self.Opened == 0) then
 		return nil
 	end
 
@@ -417,7 +375,8 @@ function Minesweeper:Reset()
 	self.Generation += 1
 	self.Placed = false
 	self.Dead = false
-	self.Won = false
+	self.Completed = false
+	self.State = "playing"
 	self.Opened = 0
 	table.clear(self.Mines)
 	table.clear(self.Revealed)
@@ -425,12 +384,11 @@ function Minesweeper:Reset()
 	self:_repaint()
 end
 
-function Minesweeper:Destroy()
+function Minesweeper:OnDestroy()
 	self.Generation += 1
 
 	table.clear(self.Buttons)
 	table.clear(self.Strokes)
-	self.Root:ClearAllChildren()
 end
 
 return Minesweeper

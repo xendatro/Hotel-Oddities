@@ -8,7 +8,15 @@ local TagService = require(ReplicatedStorage.Services.TagService)
 local Prompts = ReplicatedStorage.Props.Prompts
 
 local LocalPlayer = Players.LocalPlayer
-local Controls = require(LocalPlayer.PlayerScripts:WaitForChild("PlayerModule")):GetControls()
+
+local Controls = nil
+
+local function getControls()
+	if not Controls then
+		Controls = require(LocalPlayer.PlayerScripts:WaitForChild("PlayerModule")):GetControls()
+	end
+	return Controls
+end
 
 local COOLDOWN = 5
 local APPROACH_TIMEOUT = 1.5
@@ -67,18 +75,23 @@ function Hole:Crawl()
 	if not humanoid or humanoid.Health <= 0 then return end
 
 	beginCooldown()
-	Controls:Disable()
+	local controls = getControls()
+	controls:Disable()
 
 	humanoid:MoveTo(self.Hole:GetPivot().Position)
-	local arrived = false
+	local thread = coroutine.running()
+	local resumed = false
+	local function resume()
+		if resumed then return end
+		resumed = true
+		task.spawn(thread)
+	end
 	task.spawn(function()
 		humanoid.MoveToFinished:Wait()
-		arrived = true
+		resume()
 	end)
-	task.delay(APPROACH_TIMEOUT, function()
-		arrived = true
-	end)
-	repeat RunService.Heartbeat:Wait() until arrived
+	task.delay(APPROACH_TIMEOUT, resume)
+	coroutine.yield()
 
 	character.PrimaryPart.Anchored = true
 

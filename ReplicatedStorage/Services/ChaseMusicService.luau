@@ -3,7 +3,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local ChaseMusicConfig = require(ReplicatedStorage.Configs.ChaseMusicConfig)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
+local MathService = require(ReplicatedStorage.Services.MathService)
 local TagService = require(ReplicatedStorage.Services.TagService)
 local AudioService = require(ReplicatedStorage.Services.AudioService)
 
@@ -20,7 +22,6 @@ local MUSIC_BUS = "Music"
 local SILENCE_EPSILON = 0.005
 
 local localPlayer = Players.LocalPlayer
-local Templates = ReplicatedStorage:WaitForChild("Sounds")
 
 local Tracks: { [string]: { Player: AudioPlayer, Volume: number } } = {}
 local WarnedMissing: { [string]: boolean } = {}
@@ -30,27 +31,13 @@ local function isHunting(instance: Instance): boolean
 end
 
 local function getProximityFactor(distance: number, range: number, fullVolumeDistance: number): number
-	local normalized = math.clamp((range - distance) / math.max(range - fullVolumeDistance, 1e-3), 0, 1)
-	return normalized * normalized * (3 - 2 * normalized)
-end
-
-local function findTemplate(name: string): Instance?
-	for _, candidate in Templates:GetChildren() do
-		if candidate.Name ~= name then continue end
-		local source = if candidate:IsA("AudioPlayer") then candidate else candidate:FindFirstChild("Player")
-		if source and source:IsA("AudioPlayer") and source.Asset ~= "" then
-			return candidate
-		end
-	end
-	return nil
+	return MathService.Smoothstep((range - distance) / math.max(range - fullVolumeDistance, 1e-3))
 end
 
 local function getTargetVolumes(position: Vector3): { [string]: number }
 	local targets: { [string]: number } = {}
 
-	local character = localPlayer.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid") :: Humanoid?
-	if not humanoid or humanoid.Health <= 0 then return targets end
+	if not CharacterService.GetAliveHumanoid(localPlayer) then return targets end
 
 	for _, instance in TagService:GetTaggedOfPredicate(ENEMY_TAG, isHunting) do
 		local model = instance :: Model
@@ -70,7 +57,7 @@ local function getTargetVolumes(position: Vector3): { [string]: number }
 end
 
 local function startTrack(template: string): boolean
-	local source = findTemplate(template)
+	local source = AudioService:FindTemplate(template)
 	if not source then
 		if not WarnedMissing[template] then
 			WarnedMissing[template] = true
@@ -101,7 +88,7 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 	for template, track in Tracks do
 		local goal = targets[template] or 0
 		local speed = if goal > track.Volume then ChaseMusicConfig.FadeInSpeed else ChaseMusicConfig.FadeOutSpeed
-		track.Volume += (goal - track.Volume) * (1 - math.exp(-speed * deltaTime))
+		track.Volume += (goal - track.Volume) * MathService.ExpAlpha(speed, deltaTime)
 
 		if goal <= 0 and track.Volume < SILENCE_EPSILON then
 			Tracks[template] = nil

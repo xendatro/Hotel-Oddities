@@ -4,6 +4,7 @@ local RunService = game:GetService("RunService")
 
 local TagService = require(ReplicatedStorage.Services.TagService)
 local ToolConfigs = require(ReplicatedStorage.Configs.ToolConfigs)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 
 local ToolClientService = {}
 
@@ -11,7 +12,7 @@ if not RunService:IsClient() then
 	return ToolClientService
 end
 
-local Signal = ReplicatedStorage.Communication.Tools.Signal
+local Signal = CommunicationService.Get("Tools", "Signal")
 local ToolClasses = ReplicatedStorage.Classes.Tools
 local player = Players.LocalPlayer
 

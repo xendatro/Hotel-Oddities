@@ -1,28 +1,19 @@
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local WatchConfig = require(game:GetService("ReplicatedStorage").Configs.WatchConfig)
+local WatchConfig = require(ReplicatedStorage.Configs.WatchConfig)
+local MathService = require(ReplicatedStorage.Services.MathService)
+local RigMotion = require(ReplicatedStorage.Classes.RigMotion)
 
 local MINIMUM_DIRECTION = 1e-3
+local RESOLVE_RETRY_INTERVAL = 0.25
 
-local Watch = {}
-Watch.__index = Watch
+local Watch = RigMotion.extend()
 
 local function directionAngles(basis: CFrame, direction: Vector3): (number, number)
 	local localDirection = basis:VectorToObjectSpace(direction)
 	local horizontal = math.sqrt(localDirection.X ^ 2 + localDirection.Z ^ 2)
 	return math.atan2(localDirection.Y, horizontal), math.atan2(-localDirection.X, -localDirection.Z)
-end
-
-local function findJoint(rig: Model, partNames: { string }, jointName: string): any?
-	for _, partName in partNames do
-		local part = rig:FindFirstChild(partName)
-		local joint = part and part:FindFirstChild(jointName)
-		if joint and (joint:IsA("Motor6D") or joint:IsA("AnimationConstraint")) then
-			return joint
-		end
-	end
-	return nil
 end
 
 local function targetPosition(player: Player): Vector3?
@@ -36,9 +27,8 @@ local function targetPosition(player: Player): Vector3?
 end
 
 function Watch.new(rig: Model)
-	local self = setmetatable({}, Watch)
+	local self = RigMotion.new(rig, Watch)
 
-	self.Rig = rig
 	self.Head = nil :: BasePart?
 	self.RootPart = rig:FindFirstChild("HumanoidRootPart") :: BasePart?
 	self.Neck = nil
@@ -47,18 +37,21 @@ function Watch.new(rig: Model)
 	self.Yaw = 0
 	self.AppliedNeck = CFrame.identity
 	self.AppliedWaist = CFrame.identity
-
-	self.PreAnimationConnection = RunService.PreAnimation:Connect(function()
-		self:_removeApplied()
-	end)
-	self.PreSimulationConnection = RunService.PreSimulation:Connect(function(deltaTime: number)
-		self:_update(deltaTime)
-	end)
+	self.ResolveDone = false
+	self.NextResolveAt = 0
 
 	return self
 end
 
 function Watch:_resolveParts(): boolean
+	if self.ResolveDone then return true end
+
+	local now = os.clock()
+	if now < self.NextResolveAt then
+		return self.Head ~= nil
+	end
+	self.NextResolveAt = now + RESOLVE_RETRY_INTERVAL
+
 	if not self.Head then
 		local head = self.Rig:FindFirstChild("Head")
 		if head and head:IsA("BasePart") then
@@ -68,12 +61,13 @@ function Watch:_resolveParts(): boolean
 	if not self.Head then return false end
 
 	self.RootPart = self.RootPart or self.Rig:FindFirstChild("HumanoidRootPart") :: BasePart?
-	self.Neck = self.Neck or findJoint(self.Rig, { "Head", "Torso" }, "Neck")
-	self.Waist = self.Waist or findJoint(self.Rig, { "UpperTorso" }, "Waist")
+	self.Neck = self.Neck or RigMotion.FindJoint(self.Rig, { "Head", "Torso" }, "Neck")
+	self.Waist = self.Waist or RigMotion.FindJoint(self.Rig, { "UpperTorso" }, "Waist")
+	self.ResolveDone = self.RootPart ~= nil and self.Neck ~= nil and self.Waist ~= nil
 	return true
 end
 
-function Watch:_removeApplied()
+function Watch:RemoveApplied()
 	if self.Neck then
 		self.Neck.Transform = self.AppliedNeck:Inverse() * self.Neck.Transform
 	end
@@ -106,7 +100,7 @@ function Watch:_targetCorrection(position: Vector3): (number, number)
 	return targetPitch - currentPitch, targetYaw - currentYaw
 end
 
-function Watch:_update(deltaTime: number)
+function Watch:Update(deltaTime: number)
 	if not self.Rig:IsDescendantOf(workspace) then return end
 	if not self:_resolveParts() then return end
 
@@ -117,7 +111,7 @@ function Watch:_update(deltaTime: number)
 		targetPitch, targetYaw = self:_targetCorrection(playerPosition)
 	end
 
-	local alpha = 1 - math.exp(-WatchConfig.Smoothing * deltaTime)
+	local alpha = MathService.ExpAlpha(WatchConfig.Smoothing, deltaTime)
 	self.Pitch += (targetPitch - self.Pitch) * alpha
 	self.Yaw += (targetYaw - self.Yaw) * alpha
 
@@ -144,12 +138,6 @@ function Watch:_update(deltaTime: number)
 		)
 		waist.Transform = self.AppliedWaist * waist.Transform
 	end
-end
-
-function Watch:Destroy()
-	self:_removeApplied()
-	self.PreAnimationConnection:Disconnect()
-	self.PreSimulationConnection:Disconnect()
 end
 
 return Watch

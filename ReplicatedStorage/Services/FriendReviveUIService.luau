@@ -4,6 +4,8 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 
 local FriendReviveUIService = {}
 
@@ -11,18 +13,16 @@ if not RunService:IsClient() then
 	return FriendReviveUIService
 end
 
-local Communication = ReplicatedStorage:WaitForChild("Communication"):WaitForChild("Revive")
-local Offer = Communication:WaitForChild("Offer") :: RemoteEvent
-local Withdraw = Communication:WaitForChild("Withdraw") :: RemoteEvent
-local Request = Communication:WaitForChild("Request") :: RemoteEvent
+local Offer = CommunicationService.Get("Revive", "Offer") :: RemoteEvent
+local Withdraw = CommunicationService.Get("Revive", "Withdraw") :: RemoteEvent
+local Request = CommunicationService.Get("Revive", "Request") :: RemoteEvent
 
 local CONFIG = PerkConfig.FriendRevive
 local RENDER_JOB = "FriendReviveCards"
 local HOVER_TIME = 0.12
 local SLIDE_IN = 0.94
 
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local PlayerGui = GuiBuilderService.GetPlayerGui()
 local ScreenGui = PlayerGui:WaitForChild("ReviveFriendUI") :: ScreenGui
 local Holder = ScreenGui:WaitForChild("Holder") :: Frame
 local Template = Holder:WaitForChild("Card") :: CanvasGroup

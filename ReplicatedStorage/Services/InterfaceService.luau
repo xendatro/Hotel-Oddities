@@ -7,6 +7,7 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local CameraFovService = require(ReplicatedStorage.Services.CameraFovService)
+local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local PresetConfig = require(ReplicatedStorage.Frameworks.xenterface.Config.PresetConfig)
 
 local InterfaceService = {}
@@ -21,7 +22,7 @@ local EFFECT_PRESET = PresetConfig.HotelEffects
 local CLOSE_TIME = PAGE_PRESET.CloseTime
 
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+local playerGui = GuiBuilderService.GetPlayerGui()
 local xenterface = require(ReplicatedStorage.Frameworks.xenterface)
 local controller = xenterface:Controller(PAGE_GROUP)
 local blur = Lighting:WaitForChild("InterfaceBlur") :: BlurEffect
@@ -137,6 +138,10 @@ local function wireMotion(
 	end)
 end
 
+function InterfaceService.WireMotion(button: GuiButton, visual: GuiObject?, motionPreset: any?)
+	wireMotion(button, visual or button, motionPreset or PresetConfig.HotelSideButton)
+end
+
 local function getMotionPreset(instance: Instance, fallbackName: string)
 	local presetName = instance:GetAttribute("MotionPreset")
 	if type(presetName) ~= "string" then
@@ -222,13 +227,8 @@ controller.Fired:Connect(function(data)
 	InterfaceService:SetMouseUnlocked(activeGui ~= nil)
 end)
 
-local mouseUnlockGui = Instance.new("ScreenGui")
-mouseUnlockGui.Name = "MouseUnlockGui"
-mouseUnlockGui.DisplayOrder = -100
-mouseUnlockGui.IgnoreGuiInset = true
-mouseUnlockGui.ResetOnSpawn = false
+local mouseUnlockGui = GuiBuilderService.CreateScreenGui("MouseUnlockGui", -100, true)
 mouseUnlockGui.Enabled = false
-mouseUnlockGui.Parent = playerGui
 
 local mouseUnlockBlocker = Instance.new("ImageButton")
 mouseUnlockBlocker.Name = "MouseUnlockBlocker"

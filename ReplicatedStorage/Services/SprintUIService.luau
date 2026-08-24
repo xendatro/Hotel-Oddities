@@ -1,7 +1,8 @@
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 local SprintConfig = require(ReplicatedStorage.Configs.SprintConfig)
 local SprintService = require(ReplicatedStorage.Services.SprintService)
 
@@ -15,10 +16,6 @@ local UI = SprintConfig.UI
 local COLORS = UI.Colors
 local TRANSPARENCY = UI.Transparency
 local RENDER_JOB = "SprintBar"
-local TAU = math.pi * 2
-
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
 
 local group: CanvasGroup
 local track: Frame
@@ -27,12 +24,7 @@ local fill: Frame
 local gradient: UIGradient
 
 local function build()
-	local screenGui = Instance.new("ScreenGui")
-	screenGui.Name = "SprintGui"
-	screenGui.ResetOnSpawn = false
-	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	screenGui.DisplayOrder = 9
-	screenGui.Parent = playerGui
+	local screenGui = GuiBuilderService.CreateScreenGui("SprintGui", 9)
 
 	group = Instance.new("CanvasGroup")
 	group.Name = "Stamina"
@@ -52,15 +44,10 @@ local function build()
 	track.BorderSizePixel = 0
 	track.Parent = group
 
-	local trackCorner = Instance.new("UICorner")
-	trackCorner.CornerRadius = UDim.new(0, UI.CornerRadius)
-	trackCorner.Parent = track
+	GuiBuilderService.Corner(track, UDim.new(0, UI.CornerRadius))
 
-	stroke = Instance.new("UIStroke")
-	stroke.Color = COLORS.Stroke
+	stroke = GuiBuilderService.Stroke(track, COLORS.Stroke, 1)
 	stroke.Transparency = TRANSPARENCY.Stroke
-	stroke.Thickness = 1
-	stroke.Parent = track
 
 	fill = Instance.new("Frame")
 	fill.Name = "Fill"
@@ -69,9 +56,7 @@ local function build()
 	fill.BorderSizePixel = 0
 	fill.Parent = track
 
-	local fillCorner = Instance.new("UICorner")
-	fillCorner.CornerRadius = UDim.new(0, UI.CornerRadius)
-	fillCorner.Parent = fill
+	GuiBuilderService.Corner(fill, UDim.new(0, UI.CornerRadius))
 
 	gradient = Instance.new("UIGradient")
 	gradient.Parent = fill
@@ -120,7 +105,7 @@ local function render(deltaTime: number)
 	local fraction = SprintService:GetStaminaFraction()
 	local exhausted = SprintService:IsExhausted()
 
-	shown += (fraction - shown) * (1 - math.exp(-UI.FollowSpeed * deltaTime))
+	shown += (fraction - shown) * MathService.ExpAlpha(UI.FollowSpeed, deltaTime)
 	if math.abs(fraction - shown) < 1e-3 then shown = fraction end
 
 	local full = fraction >= 1 and shown >= 0.999 and not exhausted
@@ -146,13 +131,13 @@ local function render(deltaTime: number)
 	else
 		fillTarget, edgeTarget = COLORS.Fill, COLORS.FillEdge
 	end
-	easeFillColors(fillTarget, edgeTarget, 1 - math.exp(-UI.ColorFollowSpeed * deltaTime))
+	easeFillColors(fillTarget, edgeTarget, MathService.ExpAlpha(UI.ColorFollowSpeed, deltaTime))
 
 	local exhaustTarget = if exhausted then 1 else 0
-	exhaustWeight += (exhaustTarget - exhaustWeight) * (1 - math.exp(-UI.ExhaustBlendSpeed * deltaTime))
+	exhaustWeight += (exhaustTarget - exhaustWeight) * MathService.ExpAlpha(UI.ExhaustBlendSpeed, deltaTime)
 	if math.abs(exhaustTarget - exhaustWeight) < 1e-3 then exhaustWeight = exhaustTarget end
 
-	local pulse = (math.sin(os.clock() * TAU / UI.EmptyPulsePeriod) + 1) / 2 * exhaustWeight
+	local pulse = MathService.SinePulse(os.clock(), UI.EmptyPulsePeriod) * exhaustWeight
 	track.BackgroundColor3 = COLORS.Track:Lerp(COLORS.Empty, UI.EmptyTrackTint * pulse)
 	stroke.Color = COLORS.Stroke:Lerp(COLORS.Empty, exhaustWeight)
 	stroke.Transparency = TRANSPARENCY.Stroke * (1 - pulse * 0.8)

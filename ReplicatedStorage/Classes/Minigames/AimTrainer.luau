@@ -1,23 +1,9 @@
-type Theme = {
-	Font: Enum.Font,
-	Background: Color3,
-	Panel: Color3,
-	Grid: Color3,
-	Primary: Color3,
-	Accent: Color3,
-	Danger: Color3,
-	Text: Color3,
-	TextDim: Color3,
-}
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-type Api = {
-	Complete: () -> (),
-	Fail: ((reason: string?) -> ())?,
-	Theme: Theme,
-	Sound: ((name: string, pitch: number?) -> ())?,
-}
+local MinigameBase = require(ReplicatedStorage.Classes.Minigames.MinigameBase)
 
-local RunService = game:GetService("RunService")
+export type Theme = MinigameBase.Theme
+export type Api = MinigameBase.Api
 
 local TARGET_HITS = 20
 local MISS_LIMIT = 3
@@ -40,36 +26,16 @@ local MIN_TRAVEL = 200
 local PLACEMENT_TRIES = 24
 local URGENT = 0.8
 
-local AimTrainer = {}
-AimTrainer.__index = AimTrainer
+local AimTrainer = MinigameBase.extend("AimTrainer", "AIMTRAIN.EXE", true)
 
-AimTrainer.Id = "AimTrainer"
-AimTrainer.Title = "AIMTRAIN.EXE"
-AimTrainer.SupportsReset = true
-
-local function addStroke(parent: GuiObject, color: Color3, thickness: number): UIStroke
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = color
-	stroke.Thickness = thickness
-	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	stroke.Parent = parent
-	return stroke
-end
-
-function AimTrainer.new(root: Frame, api: Api): any
-	local self = setmetatable({}, AimTrainer)
-
-	self.Root = root
-	self.Api = api
-	self.Theme = api.Theme
+function AimTrainer.new(root: Frame, api: Api)
+	local self = MinigameBase.new(root, api, AimTrainer)
 
 	self.Hits = 0
 	self.Misses = 0
 	self.Lifetime = FIRST_LIFETIME
 	self.Remaining = FIRST_LIFETIME
-	self.Won = false
 	self.Last = Vector2.new(-1000, -1000)
-	self.Connection = nil :: RBXScriptConnection?
 
 	return self
 end
@@ -128,19 +94,18 @@ function AimTrainer:_spawn()
 end
 
 function AimTrainer:_hit()
-	if self.Won then return end
+	if self.Completed then return end
 
 	self.Hits += 1
 	self:_updateHeader()
 
-	if self.Api.Sound then
-		local climb = math.clamp((self.Hits - 1) / math.max(TARGET_HITS - 1, 1), 0, 1)
-		self.Api.Sound("Hit", 1 + HIT_PITCH_RISE * climb)
-	end
+	self:PlaySound("Hit", 1 + HIT_PITCH_RISE * self:Climb(self.Hits, TARGET_HITS))
 
 	if self.Hits >= TARGET_HITS then
-		self.Won = true
+		self.Completed = true
+		self.State = "won"
 		self.Target.Visible = false
+		self:StopHeartbeat()
 		self.Api.Complete()
 		return
 	end
@@ -149,11 +114,11 @@ function AimTrainer:_hit()
 end
 
 function AimTrainer:_miss()
-	if self.Won then return end
+	if self.Completed then return end
 
 	self.Misses += 1
-	if self.Api.Sound and self.Misses < MISS_LIMIT then
-		self.Api.Sound("Buzz")
+	if self.Misses < MISS_LIMIT then
+		self:PlaySound("Buzz")
 	end
 	local wiped = self.Misses >= MISS_LIMIT
 	if wiped then
@@ -164,8 +129,8 @@ function AimTrainer:_miss()
 	self:_updateHeader()
 	self:_spawn()
 
-	if wiped and self.Api.Fail then
-		self.Api.Fail("RUN WIPED")
+	if wiped then
+		self:FailRun("RUN WIPED")
 	end
 end
 
@@ -179,30 +144,19 @@ function AimTrainer:_build()
 	header.BackgroundTransparency = 1
 	header.Parent = root
 
-	local hits = Instance.new("TextLabel")
+	local hits = self:NewLabel(header, `HITS 0/{TARGET_HITS}`, 26)
 	hits.Name = "Hits"
 	hits.Size = UDim2.fromOffset(260, HEADER_HEIGHT)
-	hits.BackgroundTransparency = 1
-	hits.Font = theme.Font
-	hits.Text = `HITS 0/{TARGET_HITS}`
-	hits.TextSize = 26
-	hits.TextColor3 = theme.Text
 	hits.TextXAlignment = Enum.TextXAlignment.Left
-	hits.Parent = header
 	self.HitLabel = hits
 
-	local misses = Instance.new("TextLabel")
+	local misses = self:NewLabel(header, `MISS 0/{MISS_LIMIT}`, 26)
 	misses.Name = "Misses"
 	misses.AnchorPoint = Vector2.new(1, 0)
 	misses.Position = UDim2.fromScale(1, 0)
 	misses.Size = UDim2.fromOffset(260, HEADER_HEIGHT)
-	misses.BackgroundTransparency = 1
-	misses.Font = theme.Font
-	misses.Text = `MISS 0/{MISS_LIMIT}`
-	misses.TextSize = 26
 	misses.TextColor3 = theme.TextDim
 	misses.TextXAlignment = Enum.TextXAlignment.Right
-	misses.Parent = header
 	self.MissLabel = misses
 
 	local track = Instance.new("Frame")
@@ -212,7 +166,7 @@ function AimTrainer:_build()
 	track.BackgroundColor3 = theme.Panel
 	track.BorderSizePixel = 0
 	track.Parent = root
-	addStroke(track, theme.Grid, 2)
+	self:AddStroke(track, theme.Grid, 2)
 
 	local bar = Instance.new("Frame")
 	bar.Name = "Fill"
@@ -231,7 +185,7 @@ function AimTrainer:_build()
 	area.BorderSizePixel = 0
 	area.ClipsDescendants = true
 	area.Parent = root
-	addStroke(area, theme.Grid, 2)
+	self:AddStroke(area, theme.Grid, 2)
 	self.Area = area
 
 	local target = Instance.new("TextButton")
@@ -259,23 +213,21 @@ function AimTrainer:_build()
 		piece.Parent = target
 	end
 
-	target.MouseButton1Click:Connect(function()
+	self:Track(target.MouseButton1Click:Connect(function()
 		self:_hit()
-	end)
+	end))
 end
 
 function AimTrainer:Start(saved: any?)
 	self:_build()
 
-	if typeof(saved) == "table" and typeof(saved.Hits) == "number" then
-		self.Hits = math.clamp(math.floor(saved.Hits), 0, TARGET_HITS - 1)
-	end
+	self.Hits = self:ClampedSavedNumber(saved, "Hits", 0, TARGET_HITS - 1) or self.Hits
 
 	self:_updateHeader()
 	self:_spawn()
 
-	self.Connection = RunService.Heartbeat:Connect(function(deltaTime: number)
-		if self.Won or not self.Target.Visible then return end
+	self:StartHeartbeat(function(deltaTime: number)
+		if self.Completed or not self.Target.Visible then return end
 
 		self.Remaining -= deltaTime
 		self:_updateBar()
@@ -287,25 +239,18 @@ function AimTrainer:Start(saved: any?)
 end
 
 function AimTrainer:Serialize(): any?
-	if self.Won or self.Hits <= 0 then return nil end
+	if self.Completed or self.Hits <= 0 then return nil end
 	return { Hits = self.Hits }
 end
 
 function AimTrainer:Reset()
 	self.Hits = 0
 	self.Misses = 0
-	self.Won = false
+	self.Completed = false
+	self.State = "playing"
 	self.Last = Vector2.new(-1000, -1000)
 	self:_updateHeader()
 	self:_spawn()
-end
-
-function AimTrainer:Destroy()
-	if self.Connection then
-		self.Connection:Disconnect()
-		self.Connection = nil
-	end
-	self.Root:ClearAllChildren()
 end
 
 return AimTrainer

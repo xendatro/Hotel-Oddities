@@ -9,6 +9,8 @@ if not RunService:IsClient() then
 end
 
 local AudioService = require(ReplicatedStorage.Services.AudioService)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local Hallways = require(ReplicatedStorage.Modules.Hallways)
 
 local AMBIENCE_BUS = "SFX"
@@ -28,30 +30,21 @@ type AmbienceSound = {
 }
 
 local LocalPlayer = Players.LocalPlayer
-local MapDoors = ReplicatedStorage
-	:WaitForChild("Communication")
-	:WaitForChild("Oddities")
-	:WaitForChild("MapDoors") :: RemoteEvent
+local MapDoors = CommunicationService.Get("Oddities", "MapDoors") :: RemoteEvent
 local Sounds = ReplicatedStorage:WaitForChild("Sounds")
 local AmbienceFolder = Sounds:WaitForChild("ChaosHallwayAmbience")
-local Maze = workspace:WaitForChild("Maze15")
-local Rooms = Maze:WaitForChild("Rooms")
-local Doors = Maze:WaitForChild("Doors")
+local Rooms: Instance? = nil
+local Doors: Instance? = nil
+task.spawn(function()
+	local maze = workspace:WaitForChild("Maze15")
+	Rooms = maze:WaitForChild("Rooms")
+	Doors = maze:WaitForChild("Doors")
+end)
 local ActiveWarnings: { [number]: WarningRegion } = {}
 local AmbienceSounds: { AmbienceSound } = {}
 local AmbienceAnchor: Part? = nil
 local WasNearWarning = false
 local TimeSinceCheck = CHECK_INTERVAL
-
-local function getRoot(): BasePart?
-	local character = LocalPlayer.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	local root = character and character:FindFirstChild("HumanoidRootPart")
-	if not humanoid or humanoid.Health <= 0 or not root or not root:IsA("BasePart") then
-		return nil
-	end
-	return root
-end
 
 local function closestPoint(region: WarningRegion, position: Vector3): Vector3
 	local offset = region.CFrame:PointToObjectSpace(position)
@@ -78,11 +71,14 @@ local function inRoom(room: Model, position: Vector3): boolean
 end
 
 local function isInAdjacentRoom(region: WarningRegion, position: Vector3): boolean
-	for _, room in Rooms:GetChildren() do
+	local rooms, doors = Rooms, Doors
+	if not rooms or not doors then return false end
+
+	for _, room in rooms:GetChildren() do
 		if not room:IsA("Model") or not inRoom(room, position) then continue end
 
 		local id = room.Name:match("^Room_(.+)$")
-		local doorway = id and Doors:FindFirstChild("Doorway_" .. id)
+		local doorway = id and doors:FindFirstChild("Doorway_" .. id)
 		local threshold = doorway and doorway:FindFirstChild("Threshold")
 		if threshold and threshold:IsA("BasePart") then
 			local distance = (closestPoint(region, threshold.Position) - threshold.Position).Magnitude
@@ -175,7 +171,7 @@ local function stopSounds()
 end
 
 local function update()
-	local root = getRoot()
+	local root = CharacterService.GetAliveRoot(LocalPlayer)
 	local sourcePosition: Vector3? = nil
 	local distance = math.huge
 	if root then

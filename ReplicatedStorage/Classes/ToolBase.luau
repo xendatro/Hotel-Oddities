@@ -3,8 +3,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local ToolConfigs = require(ReplicatedStorage.Configs.ToolConfigs)
+local AudioService = require(ReplicatedStorage.Services.AudioService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 
-local Signal = ReplicatedStorage.Communication.Tools.Signal
+local Signal = CommunicationService.Get("Tools", "Signal")
 
 local ToolBase = {}
 ToolBase.__index = ToolBase
@@ -158,7 +160,6 @@ end
 function ToolBase:PlaySound(soundName: string?, part: BasePart?)
 	if not soundName or not part then return end
 
-	local AudioService = require(ReplicatedStorage.Services.AudioService)
 	AudioService:Play3DSound(soundName, part, false, "SFX")
 end
 

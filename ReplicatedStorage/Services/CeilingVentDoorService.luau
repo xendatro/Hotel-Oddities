@@ -1,8 +1,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
+local TweenProxyService = require(ReplicatedStorage.Services.TweenProxyService)
 
 local CeilingVentDoorService = {}
 
@@ -10,10 +11,7 @@ if not RunService:IsClient() or not FLAGS.Enemies then
 	return CeilingVentDoorService
 end
 
-local doorEvent = ReplicatedStorage
-	:WaitForChild("Communication")
-	:WaitForChild("Enemies")
-	:WaitForChild("CeilingVentDoor") :: RemoteEvent
+local doorEvent = CommunicationService.Get("Enemies", "CeilingVentDoor") :: RemoteEvent
 
 local activeTweens: { [BasePart]: Tween } = {}
 
@@ -28,28 +26,21 @@ doorEvent.OnClientEvent:Connect(function(door: unknown, target: CFrame, duration
 	end
 
 	local style = if easing == "Bounce" then Enum.EasingStyle.Bounce else Enum.EasingStyle.Quad
-	local value = Instance.new("CFrameValue")
-	value.Value = door:GetPivot()
-	local changed = value:GetPropertyChangedSignal("Value"):Connect(function()
-		if door.Parent then
-			door:PivotTo(value.Value)
-		end
-	end)
-
-	local tween = TweenService:Create(
-		value,
+	local tween = TweenProxyService.Proxy(
+		"CFrameValue",
+		door:GetPivot(),
+		target,
 		TweenInfo.new(duration, style, Enum.EasingDirection.Out),
-		{ Value = target }
+		function(value)
+			if door.Parent then
+				door:PivotTo(value)
+			end
+		end
 	)
 	activeTweens[door] = tween
-	tween.Completed:Once(function(playbackState: Enum.PlaybackState)
-		changed:Disconnect()
-		value:Destroy()
+	tween.Completed:Once(function()
 		if activeTweens[door] == tween then
 			activeTweens[door] = nil
-		end
-		if playbackState == Enum.PlaybackState.Completed and door.Parent then
-			door:PivotTo(target)
 		end
 	end)
 	tween:Play()

@@ -16,10 +16,9 @@ if not FLAGS.Enemies then
 	return EnemyObservationService
 end
 
-local UpdateView = ReplicatedStorage
-	:WaitForChild("Communication")
-	:WaitForChild("Enemies")
-	:WaitForChild("UpdateView") :: RemoteEvent
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+
+local UpdateView = CommunicationService.Get("Enemies", "UpdateView") :: RemoteEvent
 
 local localPlayer = Players.LocalPlayer
 local accumulator = REPORT_INTERVAL
@@ -55,26 +54,55 @@ for _, instance in CollectionService:GetTagged(OBSERVABLE_TAG) do
 	addObservable(instance)
 end
 
-local function send()
+local observed: { Model } = {}
+local lastSentSet: { [Model]: boolean } = {}
+local lastSentCount = 0
+local lastSentPosition: Vector3? = nil
+local lastSentLook: Vector3? = nil
+
+local function send(force: boolean?)
 	local character = localPlayer.Character
 	local camera = workspace.CurrentCamera
 	local frustum = camera and Sightline.Frustum(camera)
 	if not (character and camera and frustum) then return end
 
-	local observed = {}
+	table.clear(observed)
+	local changed = false
 	for _, model in ObservableModels do
 		local override = Overrides[model]
 		local seen = if override ~= nil then override else Sightline.CanSee(camera, frustum, character, model)
 		if seen then
 			table.insert(observed, model)
+			if not lastSentSet[model] then
+				changed = true
+			end
 		end
 	end
+	if #observed ~= lastSentCount then
+		changed = true
+	end
+
+	local position = camera.CFrame.Position
+	local look = camera.CFrame.LookVector
+	local cameraMoved = lastSentPosition == nil
+		or (position - lastSentPosition :: Vector3).Magnitude > 1e-2
+		or (look - lastSentLook :: Vector3).Magnitude > 1e-3
+
+	accumulator = 0
+	if not force and not changed and not cameraMoved then return end
+
+	table.clear(lastSentSet)
+	for _, model in observed do
+		lastSentSet[model] = true
+	end
+	lastSentCount = #observed
+	lastSentPosition = position
+	lastSentLook = look
 
 	lastSentAt = os.clock()
 	pending = false
-	accumulator = 0
 
-	UpdateView:FireServer(observed, camera.CFrame.Position, camera.CFrame.LookVector)
+	UpdateView:FireServer(observed, position, look)
 end
 
 function EnemyObservationService:SetSeen(model: Model, seen: boolean?)
@@ -86,14 +114,14 @@ function EnemyObservationService:Report()
 		pending = true
 		return
 	end
-	send()
+	send(true)
 end
 
 RunService.RenderStepped:Connect(function(deltaTime: number)
 	if not localPlayer.Character then return end
 
 	if pending and os.clock() - lastSentAt >= ObservedFreezeConfig.MinReportGap then
-		send()
+		send(true)
 		return
 	end
 

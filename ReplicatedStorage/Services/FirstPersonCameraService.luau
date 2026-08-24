@@ -5,11 +5,12 @@ local UserInputService = game:GetService("UserInputService")
 
 local CameraBobConfig = require(ReplicatedStorage.Configs.CameraBobConfig)
 local ChaserCameraService = require(ReplicatedStorage.Services.ChaserCameraService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 
 local FirstPersonCameraService = {}
 
 local RENDER_JOB = "CameraBob"
-local TAU = math.pi * 2
+local TAU = MathService.TAU
 local localPlayer = Players.LocalPlayer
 
 UserInputService.MouseIconEnabled = false
@@ -44,7 +45,7 @@ local function render(deltaTime: number)
 	if not state or not camera then return end
 
 	local velocity = state.Root.AssemblyLinearVelocity
-	local horizontalSpeed = Vector3.new(velocity.X, 0, velocity.Z).Magnitude
+	local horizontalSpeed = MathService.HorizontalMagnitude(velocity)
 	local humanoid = state.Humanoid
 	local moving = humanoid.Health > 0
 		and humanoid.MoveDirection.Magnitude > 0.05
@@ -55,7 +56,7 @@ local function render(deltaTime: number)
 		weight = 0
 	else
 		local targetWeight = if moving then 1 else 0
-		weight += (targetWeight - weight) * (1 - math.exp(-CameraBobConfig.FadeSpeed * deltaTime))
+		weight += (targetWeight - weight) * MathService.ExpAlpha(CameraBobConfig.FadeSpeed, deltaTime)
 	end
 
 	if moving then
@@ -67,7 +68,7 @@ local function render(deltaTime: number)
 			CameraBobConfig.MinAmplitudeScale,
 			CameraBobConfig.MaxAmplitudeScale
 		)
-		amplitude += (target - amplitude) * (1 - math.exp(-CameraBobConfig.FadeSpeed * deltaTime))
+		amplitude += (target - amplitude) * MathService.ExpAlpha(CameraBobConfig.FadeSpeed, deltaTime)
 	end
 
 	if weight < 1e-3 then return end

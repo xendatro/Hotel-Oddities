@@ -6,6 +6,9 @@ local VoiceChatService = game:GetService("VoiceChatService")
 
 local ItemShopConfig = require(ReplicatedStorage.Configs.ItemShopConfig)
 local MarketplaceService = require(ReplicatedStorage.Services.MarketplaceService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
+local TweenProxyService = require(ReplicatedStorage.Services.TweenProxyService)
 
 local ItemsUIService = {}
 
@@ -19,7 +22,7 @@ local INFO = ItemShopConfig.Animation.Info
 local VIEWPORT = ItemShopConfig.Viewport
 
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+local playerGui = GuiBuilderService.GetPlayerGui()
 local gui = playerGui:WaitForChild("ItemsGui") :: ScreenGui
 local design = gui:WaitForChild("Design") :: Frame
 local itemsFrame = design:WaitForChild("Items") :: Frame
@@ -35,9 +38,8 @@ local coinButtonLabel = coinButton:WaitForChild("TextLabel") :: TextLabel
 local robuxButtonLabel = robuxButton:WaitForChild("TextLabel") :: TextLabel
 local balance = design:WaitForChild("background_frame"):WaitForChild("Coins"):WaitForChild("CurrentBalance") :: TextLabel
 
-local Communication = ReplicatedStorage.Communication.Items
-local Purchase = Communication.Purchase :: RemoteEvent
-local Sync = Communication.Sync :: RemoteEvent
+local Purchase = CommunicationService.Get("Items", "Purchase") :: RemoteEvent
+local Sync = CommunicationService.Get("Items", "Sync") :: RemoteEvent
 local Tools = ReplicatedStorage.Tools
 
 type Card = {
@@ -126,8 +128,7 @@ local infoDescriptionBase = infoDescription.Position
 local infoTweens: { Tween } = {}
 
 local function playInfoTransition()
-	for _, tween in infoTweens do tween:Cancel() end
-	table.clear(infoTweens)
+	TweenProxyService.CancelAll(infoTweens)
 
 	infoName.TextTransparency = 1
 	infoDescription.TextTransparency = 1

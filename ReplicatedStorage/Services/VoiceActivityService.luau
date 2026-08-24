@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Configs.VoiceChatConfig)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 
 local VoiceActivityService = {}
 
@@ -11,8 +12,7 @@ if not RunService:IsClient() then
 end
 
 local player = Players.LocalPlayer
-local communication = ReplicatedStorage:WaitForChild("Communication"):WaitForChild("WalkieTalkie")
-local VoiceActivity = communication:WaitForChild("VoiceActivity") :: RemoteEvent
+local VoiceActivity = CommunicationService.Get("WalkieTalkie", "VoiceActivity") :: RemoteEvent
 local analyzerConnection: RBXScriptConnection?
 local analyzer: AudioAnalyzer?
 local analyzerWire: Wire?

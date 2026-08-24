@@ -3,8 +3,9 @@ local RunService = game:GetService("RunService")
 
 local ClientTool = require(ReplicatedStorage.Classes.ClientTool)
 local TagService = require(ReplicatedStorage.Services.TagService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 
-local Hit = ReplicatedStorage.Communication.Ball.Hit
+local Hit = CommunicationService.Get("Ball", "Hit")
 local Other = ReplicatedStorage.Props.Other
 
 local Ball = ClientTool.extend("Ball")

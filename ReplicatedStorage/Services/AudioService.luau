@@ -8,14 +8,14 @@ local WalkieTalkieConfig = require(ReplicatedStorage.Configs.WalkieTalkieConfig)
 
 local AudioService = {}
 
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+
 local RadioTransmit: RemoteEvent? = nil
 local nextRadioRelayId = 0
 local function getRadioTransmit(): RemoteEvent?
 	if not RunService:IsClient() then return nil end
 	if RadioTransmit and RadioTransmit.Parent then return RadioTransmit end
-	local communication = ReplicatedStorage:FindFirstChild("Communication")
-	local radio = communication and communication:FindFirstChild("WalkieTalkie")
-	local remote = radio and radio:FindFirstChild("TransmitSound")
+	local remote = CommunicationService.Find("WalkieTalkie", "TransmitSound")
 	if remote and remote:IsA("RemoteEvent") then
 		RadioTransmit = remote
 	end
@@ -241,6 +241,21 @@ function AudioService:Play2D(
 	return player
 end
 
+function AudioService:FindTemplate(name: string): Instance?
+	for _, candidate in Templates:GetChildren() do
+		if candidate.Name ~= name then continue end
+		local source = if candidate:IsA("Sound") or candidate:IsA("AudioPlayer")
+			then candidate
+			else candidate:FindFirstChild("Player")
+		if source and source:IsA("Sound") and source.SoundId ~= "" then
+			return candidate
+		elseif source and source:IsA("AudioPlayer") and source.Asset ~= "" then
+			return candidate
+		end
+	end
+	return nil
+end
+
 function AudioService:Play2DSound(
 	name: string,
 	looped: boolean,
@@ -248,20 +263,7 @@ function AudioService:Play2DSound(
 	settings: {[string]: any}?,
 	target: Instance?
 ): Audio2DPlayback
-	local template = Templates:FindFirstChild(name)
-	for _, candidate in Templates:GetChildren() do
-		if candidate.Name ~= name then continue end
-		local source = if candidate:IsA("Sound") or candidate:IsA("AudioPlayer")
-			then candidate
-			else candidate:FindFirstChild("Player")
-		if source and source:IsA("Sound") and source.SoundId ~= "" then
-			template = candidate
-			break
-		elseif source and source:IsA("AudioPlayer") and source.Asset ~= "" then
-			template = candidate
-			break
-		end
-	end
+	local template = self:FindTemplate(name) or Templates:FindFirstChild(name)
 	return self:Play2D(template, looped, soundGroup, settings, target)
 end
 

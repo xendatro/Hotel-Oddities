@@ -2,12 +2,11 @@ local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 
-local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
 local DebugPanel = require(ReplicatedStorage.Classes.DebugPanel)
 local DangerField = require(ReplicatedStorage.Modules.DangerField)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 
 local MAZE_FLOOR_TAG = "MazeFloor"
 local START_TAG = "Start"
@@ -20,8 +19,6 @@ local REDRAW_DEBOUNCE = 0.15
 local MARKER_SIZE = Vector3.new(6, 0.2, 6)
 local MARKER_HEIGHT = 0.6
 
-local PANEL_WIDTH = 300
-local ROW_HEIGHT = 34
 local READOUT_INTERVAL = 0.1
 
 local TAG_WAIT_TIMEOUT = 20
@@ -132,97 +129,6 @@ local function requestRedraw()
 		RedrawPending = false
 		drawHeatmap()
 	end)
-end
-
-local function buildSlider(
-	parent: Instance,
-	order: number,
-	label: string,
-	minimum: number,
-	maximum: number,
-	initial: number,
-	step: number,
-	apply: (number) -> ()
-)
-	local row = Instance.new("Frame")
-	row.Size = UDim2.new(1, 0, 0, ROW_HEIGHT)
-	row.LayoutOrder = order
-	row.BackgroundTransparency = 1
-	row.Parent = parent
-
-	local caption = Instance.new("TextLabel")
-	caption.Size = UDim2.new(1, 0, 0, 14)
-	caption.BackgroundTransparency = 1
-	caption.Font = Enum.Font.Code
-	caption.TextSize = 12
-	caption.TextColor3 = Color3.new(1, 1, 1)
-	caption.TextXAlignment = Enum.TextXAlignment.Left
-	caption.Text = `{label}: {initial}`
-	caption.Parent = row
-
-	local track = Instance.new("Frame")
-	track.Position = UDim2.new(0, 0, 0, 18)
-	track.Size = UDim2.new(1, 0, 0, 10)
-	track.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-	track.BorderSizePixel = 0
-	track.Parent = row
-
-	local fill = Instance.new("Frame")
-	fill.Size = UDim2.fromScale(math.clamp((initial - minimum) / (maximum - minimum), 0, 1), 1)
-	fill.BackgroundColor3 = Color3.fromRGB(190, 90, 90)
-	fill.BorderSizePixel = 0
-	fill.Parent = track
-
-	local dragging = false
-
-	local function setFromX(x: number)
-		local alpha = math.clamp((x - track.AbsolutePosition.X) / math.max(track.AbsoluteSize.X, 1), 0, 1)
-		local raw = minimum + (maximum - minimum) * alpha
-		local value = if step > 0 then math.round(raw / step) * step else raw
-
-		fill.Size = UDim2.fromScale(math.clamp((value - minimum) / (maximum - minimum), 0, 1), 1)
-		caption.Text = `{label}: {string.format(if step >= 1 then "%d" else "%.2f", value)}`
-		apply(value)
-	end
-
-	track.InputBegan:Connect(function(input: InputObject)
-		if input.UserInputType == Enum.UserInputType.MouseButton1
-			or input.UserInputType == Enum.UserInputType.Touch then
-			dragging = true
-			setFromX(input.Position.X)
-		end
-	end)
-
-	UserInputService.InputChanged:Connect(function(input: InputObject)
-		if dragging
-			and (input.UserInputType == Enum.UserInputType.MouseMovement
-				or input.UserInputType == Enum.UserInputType.Touch) then
-			setFromX(input.Position.X)
-		end
-	end)
-
-	UserInputService.InputEnded:Connect(function(input: InputObject)
-		if input.UserInputType == Enum.UserInputType.MouseButton1
-			or input.UserInputType == Enum.UserInputType.Touch then
-			dragging = false
-		end
-	end)
-end
-
-local function buildButton(parent: Instance, order: number, text: string, activated: () -> ()): TextButton
-	local button = Instance.new("TextButton")
-	button.Modal = true
-	button.Size = UDim2.new(1, 0, 0, 26)
-	button.LayoutOrder = order
-	button.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-	button.BorderSizePixel = 0
-	button.Font = Enum.Font.Code
-	button.TextSize = 13
-	button.TextColor3 = Color3.new(1, 1, 1)
-	button.Text = text
-	button.Parent = parent
-	button.Activated:Connect(activated)
-	return button
 end
 
 local function build()
@@ -350,10 +256,7 @@ task.spawn(function()
 end)
 
 task.spawn(function()
-	SetConfig = ReplicatedStorage
-		:WaitForChild("Communication")
-		:WaitForChild("Danger")
-		:WaitForChild("SetConfig") :: RemoteEvent
+	SetConfig = CommunicationService.Get("Danger", "SetConfig") :: RemoteEvent
 end)
 
 return DangerDebugService

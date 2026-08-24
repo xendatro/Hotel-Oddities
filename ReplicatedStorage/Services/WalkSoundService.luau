@@ -1,4 +1,3 @@
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -9,6 +8,7 @@ if not RunService:IsClient() then
 end
 
 local AudioService = require(ReplicatedStorage.Services.AudioService)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CrouchConfig = require(ReplicatedStorage.Configs.CrouchConfig)
 local WalkSoundConfig = require(ReplicatedStorage.Configs.WalkSoundConfig)
 local TagService = require(ReplicatedStorage.Services.TagService)
@@ -183,8 +183,10 @@ local function watchModel(
 	stopModel(model)
 
 	if silenceDefault then
-		local defaultWalkSound = rootPart:WaitForChild("Running") :: AudioPlayer
-		defaultWalkSound.Volume = 0
+		local defaultWalkSound = rootPart:WaitForChild("Running", 5)
+		if defaultWalkSound and defaultWalkSound:IsA("AudioPlayer") then
+			defaultWalkSound.Volume = 0
+		end
 	else
 		local defaultWalkSound = rootPart:FindFirstChild("Running")
 		if defaultWalkSound and defaultWalkSound:IsA("AudioPlayer") then
@@ -226,8 +228,9 @@ end
 local function watchCharacter(player: Player, character: Model)
 	stopModel(character)
 
-	local humanoid = character:WaitForChild("Humanoid") :: Humanoid
-	local rootPart = character:WaitForChild("HumanoidRootPart") :: BasePart
+	local humanoid = character:WaitForChild("Humanoid", 5) :: Humanoid?
+	local rootPart = character:WaitForChild("HumanoidRootPart", 5) :: BasePart?
+	if not humanoid or not rootPart then return end
 	if player.Character ~= character or character.Parent == nil then return end
 
 	watchModel(character, humanoid, rootPart, true, nil, false)
@@ -274,11 +277,7 @@ RunService.Heartbeat:Connect(function(deltaTime)
 	end
 end)
 
-for _, player in Players:GetPlayers() do
-	watchPlayer(player)
-end
-
-Players.PlayerAdded:Connect(watchPlayer)
+CharacterService.ForEachPlayer(watchPlayer)
 TagService:Listen(ENEMY_TAG, watchEnemy, unwatchEnemy)
 
 return WalkSoundService

@@ -1,9 +1,10 @@
 local CollectionService = game:GetService("CollectionService")
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Configs.StreamingConfig)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 
 local HallwayStreamingService = {}
 
@@ -15,24 +16,14 @@ if not Config.Enabled then
 	return HallwayStreamingService
 end
 
-local player = Players.LocalPlayer
-local streaming = ReplicatedStorage
-	:WaitForChild("Communication")
-	:WaitForChild("Streaming")
+local PrepareTeleport = CommunicationService.Get("Streaming", "PrepareTeleport") :: RemoteEvent
+local ClientReady = CommunicationService.Get("Streaming", "ClientReady") :: RemoteEvent
+local TeleportFailed = CommunicationService.Get("Streaming", "TeleportFailed") :: RemoteEvent
+local ExpectedModels = CommunicationService.Get("Streaming", "ExpectedModels") :: RemoteEvent
+local ReportMissing = CommunicationService.Get("Streaming", "ReportMissing") :: RemoteEvent
 
-local PrepareTeleport = streaming:WaitForChild("PrepareTeleport") :: RemoteEvent
-local ClientReady = streaming:WaitForChild("ClientReady") :: RemoteEvent
-local TeleportFailed = streaming:WaitForChild("TeleportFailed") :: RemoteEvent
-local ExpectedModels = streaming:WaitForChild("ExpectedModels") :: RemoteEvent
-local ReportMissing = streaming:WaitForChild("ReportMissing") :: RemoteEvent
-
-local gui = Instance.new("ScreenGui")
-gui.Name = "StreamingMessageGui"
-gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true
-gui.DisplayOrder = 200
+local gui = GuiBuilderService.CreateScreenGui("StreamingMessageGui", 200, true)
 gui.Enabled = false
-gui.Parent = player:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame")
 frame.Name = "Message"
@@ -44,9 +35,7 @@ frame.BackgroundTransparency = 0.12
 frame.BorderSizePixel = 0
 frame.Parent = gui
 
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 6)
-corner.Parent = frame
+GuiBuilderService.Corner(frame, UDim.new(0, 6))
 
 local stroke = Instance.new("UIStroke")
 stroke.Color = Color3.fromRGB(130, 130, 140)

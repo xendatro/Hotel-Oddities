@@ -3,6 +3,8 @@ local Players = game:GetService("Players")
 
 local Vanished = require(game:GetService("ReplicatedStorage").Modules.Vanished)
 local AnimationConfig = require(game:GetService("ReplicatedStorage").Configs.AnimationConfig)
+local CharacterService = require(game:GetService("ReplicatedStorage").Services.CharacterService)
+local CommunicationService = require(game:GetService("ReplicatedStorage").Services.CommunicationService)
 
 local ROOM_TAG = "Room"
 local WALL_INSET = 1
@@ -43,13 +45,8 @@ local function isInSafeRoom(): boolean
 	return false
 end
 
-local Kill = game:GetService("ReplicatedStorage")
-	:WaitForChild("Communication")
-	:WaitForChild("Death")
-	:WaitForChild("Kill") :: RemoteEvent
-
-local Strike = game:GetService("ReplicatedStorage")
-	.Communication.Death:WaitForChild("Strike") :: RemoteEvent
+local Kill = CommunicationService.Get("Death", "Kill") :: RemoteEvent
+local Strike = CommunicationService.Get("Death", "Strike") :: RemoteEvent
 
 local function playKillAnimation(enemy: Model)
 	if enemy:GetAttribute("SuppressKillAnimation") then return end
@@ -78,9 +75,7 @@ local function playKillAnimation(enemy: Model)
 end
 
 local function getHumanoid(): Humanoid?
-	local currentCharacter = character
-	if not currentCharacter then return nil end
-	return currentCharacter:FindFirstChildOfClass("Humanoid")
+	return CharacterService.GetHumanoid(character)
 end
 
 local function kill(enemy: Model)

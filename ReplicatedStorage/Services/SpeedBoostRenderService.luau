@@ -11,11 +11,11 @@ if not RunService:IsClient() then
 end
 
 local CameraFovService = require(ReplicatedStorage.Services.CameraFovService)
+local TweenProxyService = require(ReplicatedStorage.Services.TweenProxyService)
 
 local player = Players.LocalPlayer
 
-local offset = Instance.new("NumberValue")
-offset.Name = "SpeedBoostFovOffset"
+local currentOffset = 0
 
 local color = Instance.new("ColorCorrectionEffect")
 color.Name = "SpeedBoostColor"
@@ -40,13 +40,16 @@ local function refresh()
 		color.Enabled = true
 	end
 
-	local entering = target > offset.Value
+	local entering = target > currentOffset
 	local info = TweenInfo.new(
 		entering and 0.35 or 0.6,
 		entering and Enum.EasingStyle.Back or Enum.EasingStyle.Quad,
 		entering and Enum.EasingDirection.Out or Enum.EasingDirection.InOut
 	)
-	effectTween = TweenService:Create(offset, info, { Value = target })
+	effectTween = TweenProxyService.Proxy("NumberValue", currentOffset, target, info, function(value: number)
+		currentOffset = value
+		CameraFovService:SetOffset("SpeedBoost", value)
+	end)
 	colorTween = TweenService:Create(color, info, {
 		Saturation = target * 0.012,
 		Contrast = target * 0.0025,
@@ -60,10 +63,6 @@ local function refresh()
 		color.Enabled = false
 	end)
 end
-
-offset.Changed:Connect(function(value)
-	CameraFovService:SetOffset("SpeedBoost", value)
-end)
 
 player:GetAttributeChangedSignal("SpeedBoostFov"):Connect(refresh)
 

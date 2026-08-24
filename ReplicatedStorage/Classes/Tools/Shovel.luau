@@ -1,10 +1,11 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 
 local ClientTool = require(ReplicatedStorage.Classes.ClientTool)
 local TagService = require(ReplicatedStorage.Services.TagService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local TweenProxyService = require(ReplicatedStorage.Services.TweenProxyService)
 
-local Create = ReplicatedStorage.Communication.Hole.Create
+local Create = CommunicationService.Get("Hole", "Create")
 local Other = ReplicatedStorage.Props.Other
 local MAZE_FLOOR_TAG = "MazeFloor"
 
@@ -32,24 +33,12 @@ function Shovel:OnUnequipped()
 end
 
 function Shovel:_growHole(hole: Model)
-	local scale = Instance.new("NumberValue")
-	scale.Value = self.Config.HoleStartScale
-
-	local connection = scale:GetPropertyChangedSignal("Value"):Connect(function()
-		if hole.Parent then
-			hole:ScaleTo(scale.Value)
-		end
-	end)
-
-	local tween = TweenService:Create(
-		scale,
-		TweenInfo.new(self.Config.HoleGrowTime, Enum.EasingStyle.Linear),
-		{ Value = self.Config.HoleEndScale }
+	local tween = TweenProxyService.ScaleModel(
+		hole,
+		self.Config.HoleStartScale,
+		self.Config.HoleEndScale,
+		TweenInfo.new(self.Config.HoleGrowTime, Enum.EasingStyle.Linear)
 	)
-	tween.Completed:Once(function()
-		connection:Disconnect()
-		scale:Destroy()
-	end)
 	tween:Play()
 end
 

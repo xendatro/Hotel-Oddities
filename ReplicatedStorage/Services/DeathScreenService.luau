@@ -4,6 +4,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local DeathConfig = require(ReplicatedStorage.Configs.DeathConfig)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 
 local DeathScreenService = {}
 
@@ -11,14 +14,8 @@ if not RunService:IsClient() then
 	return DeathScreenService
 end
 
-local Show = ReplicatedStorage
-	:WaitForChild("Communication")
-	:WaitForChild("Death")
-	:WaitForChild("Show") :: RemoteEvent
-local Complete = ReplicatedStorage
-	:WaitForChild("Communication")
-	:WaitForChild("Death")
-	:WaitForChild("Complete") :: RemoteEvent
+local Show = CommunicationService.Get("Death", "Show") :: RemoteEvent
+local Complete = CommunicationService.Get("Death", "Complete") :: RemoteEvent
 
 local SCREEN = DeathConfig.Screen
 local COLORS = SCREEN.Colors
@@ -30,7 +27,6 @@ local JITTER_INTERVAL = 0.05
 local CURSOR = "_"
 
 local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 local ScreenGui, Backdrop, Content, Eyebrow, NameHolder, Rule, Hint, Sweep, Scanlines, SliceHolder
 local NameMain, NameRed, NameCyan
@@ -52,13 +48,10 @@ local ContentShift = 0
 local TypedCount = -1
 local CursorShown = false
 
-local function randomRange(minimum: number, maximum: number): number
-	return minimum + math.random() * (maximum - minimum)
-end
+local randomRange = MathService.RandomRange
 
 local function entrance(elapsed: number, delay: number): number
-	local progress = math.clamp((elapsed - delay) / ENTRANCE_TIME, 0, 1)
-	return progress * progress * (3 - 2 * progress)
+	return MathService.Smoothstep((elapsed - delay) / ENTRANCE_TIME)
 end
 
 local function newFrame(name: string, parent: Instance): Frame
@@ -104,14 +97,8 @@ local function buildVignetteEdge(name: string, size: UDim2, anchor: Vector2, rot
 end
 
 local function build()
-	ScreenGui = Instance.new("ScreenGui")
-	ScreenGui.Name = "DeathGui"
-	ScreenGui.ResetOnSpawn = false
-	ScreenGui.IgnoreGuiInset = true
-	ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	ScreenGui.DisplayOrder = SCREEN.DisplayOrder
+	ScreenGui = GuiBuilderService.CreateScreenGui("DeathGui", SCREEN.DisplayOrder, true)
 	ScreenGui.Enabled = false
-	ScreenGui.Parent = PlayerGui
 
 	Backdrop = newFrame("Backdrop", ScreenGui)
 	Backdrop.BackgroundColor3 = COLORS.Backdrop

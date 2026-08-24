@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local ViewmodelConfig = require(ReplicatedStorage.Configs.ViewmodelConfig)
+local MathService = require(ReplicatedStorage.Services.MathService)
 
 local ViewmodelService = {}
 
@@ -18,6 +19,8 @@ local currentTool: Tool? = nil
 local rig: Model? = nil
 local rigCenterOffset = Vector3.zero
 local rigRadius = 0.5
+local rigParts: { BasePart } = {}
+local lastShowViewmodel: boolean? = nil
 local hiddenParts: { BasePart } = {}
 local swayCFrame = CFrame.identity
 local lastCameraCFrame: CFrame? = nil
@@ -49,6 +52,8 @@ local function destroyRig()
 		rig:Destroy()
 		rig = nil
 	end
+	table.clear(rigParts)
+	lastShowViewmodel = nil
 end
 
 local function buildRig(tool: Tool)
@@ -72,6 +77,7 @@ local function buildRig(tool: Tool)
 			descendant.CastShadow = false
 			descendant.Massless = true
 			descendant.LocalTransparencyModifier = 0
+			table.insert(rigParts, descendant)
 		elseif descendant:IsA("ParticleEmitter") or descendant:IsA("Fire") or descendant:IsA("Light") then
 			descendant.Enabled = false
 		end
@@ -96,6 +102,7 @@ local function buildRig(tool: Tool)
 		local realArm = character and character:FindFirstChild("RightUpperArm")
 		arm.Color = (realArm and realArm:IsA("BasePart")) and realArm.Color or Color3.fromRGB(204, 158, 116)
 		arm.Parent = model
+		table.insert(rigParts, arm)
 	end
 
 	model.Parent = workspace.CurrentCamera
@@ -143,8 +150,9 @@ local function step(deltaTime: number)
 	local showViewmodel = firstPerson and not revealing
 
 	setRealToolHidden(showViewmodel)
-	for _, part in rig:GetDescendants() do
-		if part:IsA("BasePart") then
+	if showViewmodel ~= lastShowViewmodel then
+		lastShowViewmodel = showViewmodel
+		for _, part in rigParts do
 			part.LocalTransparencyModifier = showViewmodel and 0 or 1
 		end
 	end
@@ -163,14 +171,14 @@ local function step(deltaTime: number)
 		local delta = camCFrame:ToObjectSpace(lastCameraCFrame).Rotation
 		local _, deltaYaw = delta:ToEulerAnglesYXZ()
 		local target = CFrame.Angles(0, deltaYaw * ViewmodelConfig.SwayAmount, 0)
-		swayCFrame = swayCFrame:Lerp(target, 1 - math.exp(-deltaTime * ViewmodelConfig.SwaySpeed))
+		swayCFrame = swayCFrame:Lerp(target, MathService.ExpAlpha(ViewmodelConfig.SwaySpeed, deltaTime))
 	end
 	lastCameraCFrame = camCFrame
 
 	local root = character:FindFirstChild("HumanoidRootPart")
 	local speed = (root and root:IsA("BasePart")) and root.AssemblyLinearVelocity.Magnitude or 0
 	local targetWeight = math.clamp(speed / 8, 0, 1)
-	bobWeight += (targetWeight - bobWeight) * (1 - math.exp(-deltaTime * 6))
+	bobWeight += (targetWeight - bobWeight) * MathService.ExpAlpha(6, deltaTime)
 	local bob = CFrame.identity
 	if bobWeight > 0.01 then
 		bobClock += deltaTime * ViewmodelConfig.BobSpeed

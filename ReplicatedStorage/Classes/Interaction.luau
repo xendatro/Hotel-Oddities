@@ -62,6 +62,9 @@ function Interaction.new()
 	self._usingGamepad = UserInputService.GamepadEnabled and not UserInputService.KeyboardEnabled
 	self._bound = false
 	self._boundTouching = nil
+	self._targetsDirty = false
+	self._cachedCharacter = nil :: Model?
+	self._cachedHumanoid = nil :: Humanoid?
 
 	self._selectionChanged = Instance.new("BindableEvent")
 	self.Selected = self._selectionChanged.Event
@@ -203,16 +206,14 @@ function Interaction:Register(model: Model, options: TargetOptions)
 		IgnoreOcclusion = options.IgnoreOcclusion,
 		OnActivated = options.OnActivated,
 	}
-	self:_refreshIncludeFilter()
-	self:_refreshReach()
+	self._targetsDirty = true
 end
 
 function Interaction:Unregister(model: Model)
 	if not self._targets[model] then return end
 
 	self._targets[model] = nil
-	self:_refreshIncludeFilter()
-	self:_refreshReach()
+	self._targetsDirty = true
 
 	if self._selected == model then
 		self:_setSelected(nil, true)
@@ -244,16 +245,32 @@ function Interaction:_targetAt(instance: Instance): Target?
 end
 
 function Interaction:_findSelection(): (Target?, string?)
+	if self._targetsDirty then
+		self._targetsDirty = false
+		self:_refreshIncludeFilter()
+		self:_refreshReach()
+	end
+
 	local camera = workspace.CurrentCamera
 	local character = player.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if character ~= self._cachedCharacter then
+		self._cachedCharacter = character
+		self._cachedHumanoid = nil
+	end
+	if character and not self._cachedHumanoid then
+		self._cachedHumanoid = character:FindFirstChildOfClass("Humanoid")
+	end
+	local humanoid = self._cachedHumanoid
 	if not camera or not character or not humanoid or humanoid.Health <= 0 then
 		return nil, nil
 	end
 
-	table.clear(self._ignored)
-	self._ignored[1] = character
-	self._raycastParams.FilterDescendantsInstances = self._ignored
+	local ignored = self._ignored
+	if ignored[1] ~= character or #ignored > 1 then
+		table.clear(ignored)
+		ignored[1] = character
+		self._raycastParams.FilterDescendantsInstances = ignored
+	end
 
 	local origin = camera.CFrame.Position
 	local direction = camera.CFrame.LookVector * self._reach

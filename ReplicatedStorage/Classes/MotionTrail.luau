@@ -45,9 +45,22 @@ function MotionTrail:Record()
 		Jumping = state == Enum.HumanoidStateType.Jumping or state == Enum.HumanoidStateType.Freefall,
 	})
 
-	while #self.Samples > 0 and now - self.Samples[1].Time > self.Duration do
-		table.remove(self.Samples, 1)
+	local samples = self.Samples
+	local expired = 0
+	while expired < #samples and now - samples[expired + 1].Time > self.Duration do
+		expired += 1
 	end
+	if expired > 0 then
+		local count = #samples
+		table.move(samples, expired + 1, count, 1)
+		for index = count - expired + 1, count do
+			samples[index] = nil
+		end
+	end
+end
+
+function MotionTrail:Destroy()
+	table.clear(self.Samples)
 end
 
 function MotionTrail:Latest(): Sample?

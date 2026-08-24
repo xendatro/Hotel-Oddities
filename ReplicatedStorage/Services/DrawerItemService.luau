@@ -7,6 +7,7 @@ if not RunService:IsClient() then
 	return DrawerItemService
 end
 
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local ItemConfig = require(ReplicatedStorage.Configs.DrawerItemConfig)
 local DrawerService = require(ReplicatedStorage.Services.DrawerService)
 local Interaction = require(ReplicatedStorage.Services.InteractionService)
@@ -14,9 +15,7 @@ local TagService = require(ReplicatedStorage.Services.TagService)
 
 local PICKUP_COOLDOWN = 0.15
 
-local communication = ReplicatedStorage:WaitForChild("Communication", 30)
-local folder = communication and communication:WaitForChild(ItemConfig.Remotes.Folder, 30)
-local PickupRemote = folder and folder:WaitForChild(ItemConfig.Remotes.Pickup, 30)
+local PickupRemote = CommunicationService.Get(ItemConfig.Remotes.Folder, ItemConfig.Remotes.Pickup)
 
 local States: { [Model]: true } = {}
 local focused: Model? = nil

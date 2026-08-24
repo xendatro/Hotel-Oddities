@@ -53,20 +53,48 @@ local total = 0
 local addedBy: { [string]: number } = {}
 local removedBy: { [string]: number } = {}
 
+local bucketCache: { [Instance]: string } = setmetatable({}, { __mode = "k" }) :: any
+
 local function bucketOf(instance: Instance): string
+	local parent = instance.Parent
+	local cached = parent and bucketCache[parent]
+	if cached then return cached end
+
+	local visited: { Instance } = {}
 	local current = instance
 	while current.Parent and current.Parent ~= workspace do
+		table.insert(visited, current)
 		current = current.Parent :: Instance
+		local known = bucketCache[current]
+		if known then
+			for _, node in visited do
+				bucketCache[node] = known
+			end
+			return known
+		end
 	end
-	if current.Parent ~= workspace then return "Loose" end
-	if Players:GetPlayerFromCharacter(current) then return "Characters" end
 
-	local name = current.Name
-	if string.match(name, "^Maze") or name == "Lobby" or name == "Demo" or current:IsA("Terrain") then
-		return "Map"
+	local bucket
+	if current.Parent ~= workspace then
+		return "Loose"
+	elseif Players:GetPlayerFromCharacter(current) then
+		bucket = "Characters"
+	else
+		local name = current.Name
+		if string.match(name, "^Maze") or name == "Lobby" or name == "Demo" or current:IsA("Terrain") then
+			bucket = "Map"
+		elseif name == "ProgrammaticVents" then
+			bucket = "Vents"
+		else
+			bucket = name
+		end
 	end
-	if name == "ProgrammaticVents" then return "Vents" end
-	return name
+
+	bucketCache[current] = bucket
+	for _, node in visited do
+		bucketCache[node] = bucket
+	end
+	return bucket
 end
 
 workspace.DescendantAdded:Connect(function(instance: Instance)

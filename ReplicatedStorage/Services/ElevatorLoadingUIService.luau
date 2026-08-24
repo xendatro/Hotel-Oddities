@@ -1,18 +1,18 @@
 local ContentProvider = game:GetService("ContentProvider")
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local ElevatorConfig = require(ReplicatedStorage.Configs.ElevatorConfig)
+local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
+local TweenProxyService = require(ReplicatedStorage.Services.TweenProxyService)
 local ElevatorLoadingUIService = {}
 
 if not RunService:IsClient() then
 	return ElevatorLoadingUIService
 end
 
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+local playerGui = GuiBuilderService.GetPlayerGui()
 local gui = playerGui:WaitForChild("ElevatorLoadingGui", 30) :: ScreenGui?
 local communication = ReplicatedStorage:WaitForChild("Communication", 30)
 local elevator = communication and communication:WaitForChild("Elevator", 30)
@@ -133,8 +133,7 @@ local function startPan()
 end
 
 local function cancelFade()
-	for _, tween in fadeTweens do tween:Cancel() end
-	table.clear(fadeTweens)
+	TweenProxyService.CancelAll(fadeTweens)
 end
 
 local function fadeIn(token: number)

@@ -1,6 +1,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
+local TweenProxyService = require(ReplicatedStorage.Services.TweenProxyService)
+
 local Other = ReplicatedStorage.Props.Other
 
 local PathfinderMarker = {}
@@ -46,23 +48,8 @@ function PathfinderMarker.new(cframe: CFrame, index: number, config, parent: Ins
 end
 
 function PathfinderMarker:_scaleTo(from: number, to: number, time: number): Tween
-	local model = self.Model
-	model:ScaleTo(from)
-
-	local scale = Instance.new("NumberValue")
-	scale.Value = from
-
-	local connection = scale:GetPropertyChangedSignal("Value"):Connect(function()
-		if model.Parent then
-			model:ScaleTo(scale.Value)
-		end
-	end)
-
-	local tween = TweenService:Create(scale, TweenInfo.new(time, Enum.EasingStyle.Back), { Value = to })
-	tween.Completed:Once(function()
-		connection:Disconnect()
-		scale:Destroy()
-	end)
+	self.Model:ScaleTo(from)
+	local tween = TweenProxyService.ScaleModel(self.Model, from, to, TweenInfo.new(time, Enum.EasingStyle.Back))
 	tween:Play()
 	return tween
 end

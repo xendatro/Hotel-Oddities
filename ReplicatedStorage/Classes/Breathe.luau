@@ -1,11 +1,13 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local BreatheConfig = require(ReplicatedStorage.Configs.BreatheConfig)
+local MathService = require(ReplicatedStorage.Services.MathService)
+local RigMotion = require(ReplicatedStorage.Classes.RigMotion)
 
-local Breathe = {}
-Breathe.__index = Breathe
+local RESOLVE_RETRY_INTERVAL = 0.25
+
+local Breathe = RigMotion.extend()
 
 local JOINTS = {
 	{ Name = "Root", Part = "LowerTorso" },
@@ -14,15 +16,6 @@ local JOINTS = {
 	{ Name = "LeftShoulder", Part = "LeftUpperArm" },
 	{ Name = "RightShoulder", Part = "RightUpperArm" },
 }
-
-local function findJoint(rig: Model, partName: string, jointName: string): any?
-	local part = rig:FindFirstChild(partName)
-	local joint = part and part:FindFirstChild(jointName)
-	if joint and (joint:IsA("Motor6D") or joint:IsA("AnimationConstraint")) then
-		return joint
-	end
-	return nil
-end
 
 local function curve(phase: number): number
 	local inhale = BreatheConfig.InhaleFraction
@@ -39,36 +32,43 @@ local function listenerPosition(): Vector3?
 end
 
 function Breathe.new(rig: Model)
-	local self = setmetatable({}, Breathe)
+	local self = RigMotion.new(rig, Breathe)
 
-	self.Rig = rig
 	self.RootPart = nil :: BasePart?
 	self.Joints = {} :: { [string]: any }
 	self.Applied = {} :: { [any]: CFrame }
 	self.Phase = math.random()
 	self.Amount = 0
-
-	self.PreAnimationConnection = RunService.PreAnimation:Connect(function()
-		self:_removeApplied()
-	end)
-	self.PreSimulationConnection = RunService.PreSimulation:Connect(function(deltaTime: number)
-		self:_update(deltaTime)
-	end)
+	self.ResolveDone = false
+	self.NextResolveAt = 0
 
 	return self
 end
 
 function Breathe:_resolveParts(): boolean
+	if self.ResolveDone then return true end
+
+	local now = os.clock()
+	if now < self.NextResolveAt then
+		return self.RootPart ~= nil
+	end
+	self.NextResolveAt = now + RESOLVE_RETRY_INTERVAL
+
 	self.RootPart = self.RootPart or self.Rig:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if not self.RootPart then return false end
 
+	local complete = true
 	for _, entry in JOINTS do
-		self.Joints[entry.Name] = self.Joints[entry.Name] or findJoint(self.Rig, entry.Part, entry.Name)
+		self.Joints[entry.Name] = self.Joints[entry.Name] or RigMotion.FindJoint(self.Rig, { entry.Part }, entry.Name)
+		if not self.Joints[entry.Name] then
+			complete = false
+		end
 	end
+	self.ResolveDone = complete
 	return true
 end
 
-function Breathe:_removeApplied()
+function Breathe:RemoveApplied()
 	for joint, offset in self.Applied do
 		joint.Transform = offset:Inverse() * joint.Transform
 	end
@@ -83,7 +83,7 @@ function Breathe:_apply(name: string, offset: CFrame)
 	joint.Transform = offset * joint.Transform
 end
 
-function Breathe:_update(deltaTime: number)
+function Breathe:Update(deltaTime: number)
 	if not self.Rig:IsDescendantOf(workspace) then return end
 	if not self:_resolveParts() then return end
 
@@ -95,7 +95,7 @@ function Breathe:_update(deltaTime: number)
 		and (listener - rootPart.Position).Magnitude <= BreatheConfig.MaxDistance
 
 	local target = if inRange then curve(self.Phase) else 0
-	self.Amount += (target - self.Amount) * (1 - math.exp(-BreatheConfig.Smoothing * deltaTime))
+	self.Amount += (target - self.Amount) * MathService.ExpAlpha(BreatheConfig.Smoothing, deltaTime)
 	if not inRange and math.abs(self.Amount) < 1e-4 then
 		self.Amount = 0
 		return
@@ -107,12 +107,6 @@ function Breathe:_update(deltaTime: number)
 	self:_apply("Neck", CFrame.Angles(-BreatheConfig.Neck.Pitch * amount, 0, 0))
 	self:_apply("LeftShoulder", CFrame.Angles(0, 0, -BreatheConfig.Shoulder.Roll * amount))
 	self:_apply("RightShoulder", CFrame.Angles(0, 0, BreatheConfig.Shoulder.Roll * amount))
-end
-
-function Breathe:Destroy()
-	self:_removeApplied()
-	self.PreAnimationConnection:Disconnect()
-	self.PreSimulationConnection:Disconnect()
 end
 
 return Breathe

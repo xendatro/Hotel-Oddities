@@ -6,6 +6,8 @@ local TweenService = game:GetService("TweenService")
 
 local ElevatorConfig = require(ReplicatedStorage.Configs.ElevatorConfig)
 local AudioService = require(ReplicatedStorage.Services.AudioService)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 
 local ElevatorDoorService = {}
 
@@ -92,13 +94,11 @@ end
 local function nearestPlayerDistance(position: Vector3): number
 	local nearest = math.huge
 	for _, player in Players:GetPlayers() do
-		local character = player.Character
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		local root = character and character:FindFirstChild("HumanoidRootPart")
-		if humanoid and humanoid.Health > 0 and root and root:IsA("BasePart") then
+		local root = CharacterService.GetAliveRoot(player)
+		if root then
 			local offset = root.Position - position
 			if math.abs(offset.Y) <= ElevatorConfig.MaxHeightDifference then
-				nearest = math.min(nearest, Vector2.new(offset.X, offset.Z).Magnitude)
+				nearest = math.min(nearest, MathService.HorizontalMagnitude(offset))
 			end
 		end
 	end
@@ -147,7 +147,6 @@ RunService.Heartbeat:Connect(function(deltaTime)
 			unregister(model)
 			continue
 		end
-		refreshDoors(state)
 		if not isLobbyElevator(state) then
 			setOpen(state, false)
 			continue

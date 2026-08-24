@@ -1,12 +1,15 @@
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local ChaserCameraConfig = require(ReplicatedStorage.Configs.ChaserCameraConfig)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
-local TagService = require(ReplicatedStorage.Services.TagService)
 local AudioService = require(ReplicatedStorage.Services.AudioService)
 local CameraFovService = require(ReplicatedStorage.Services.CameraFovService)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 local ShakeService = require(ReplicatedStorage.Services.ShakeService)
 
 local ChaserCameraService = {}
@@ -33,14 +36,10 @@ local ceilingFovIntensity = 0
 local fovChaseAssumedUntil = 0
 local Shakes: { [string]: { Rumble: any, Intensity: number } } = {}
 
-local cameraEvent = ReplicatedStorage
-	:WaitForChild("Communication")
-	:WaitForChild("Enemies")
-	:WaitForChild("CeilingDwellerCamera") :: RemoteEvent
+local cameraEvent = CommunicationService.Get("Enemies", "CeilingDwellerCamera") :: RemoteEvent
 
 local function getProximityIntensity(distance: number, range: number, fullIntensityDistance: number): number
-	local normalized = math.clamp((range - distance) / math.max(range - fullIntensityDistance, 1e-3), 0, 1)
-	return normalized * normalized * (3 - 2 * normalized)
+	return MathService.Smoothstep((range - distance) / math.max(range - fullIntensityDistance, 1e-3))
 end
 
 local function isChasingLocalPlayer(instance: Instance): boolean
@@ -48,25 +47,39 @@ local function isChasingLocalPlayer(instance: Instance): boolean
 		and instance:GetAttribute(CHASE_TARGET_ATTRIBUTE) == localPlayer.UserId
 end
 
-local function getChasingModels(): {Instance}
-	return TagService:GetTaggedOfPredicate(ENEMY_TAG, isChasingLocalPlayer)
+local EnemyModels: { [Instance]: boolean } = {}
+
+CollectionService:GetInstanceAddedSignal(ENEMY_TAG):Connect(function(instance)
+	EnemyModels[instance] = true
+end)
+
+CollectionService:GetInstanceRemovedSignal(ENEMY_TAG):Connect(function(instance)
+	EnemyModels[instance] = nil
+end)
+
+for _, instance in CollectionService:GetTagged(ENEMY_TAG) do
+	EnemyModels[instance] = true
 end
 
-local function getCameraEffectModels(): { Instance }
-	return TagService:GetTaggedOfPredicate(ENEMY_TAG, function(instance: Instance)
-		if not instance:IsA("Model") then return false end
+local function isCameraEffectModel(instance: Instance): boolean
+	if not instance:IsA("Model") then return false end
 
-		local enemyId = instance:GetAttribute(ENEMY_ID_ATTRIBUTE)
-		local entry = if enemyId then ChaserCameraConfig.ChaseShakes[enemyId] else nil
-		return isChasingLocalPlayer(instance) or entry ~= nil and entry.AllPlayers == true
-	end)
+	local enemyId = instance:GetAttribute(ENEMY_ID_ATTRIBUTE)
+	local entry = if enemyId then ChaserCameraConfig.ChaseShakes[enemyId] else nil
+	return isChasingLocalPlayer(instance) or entry ~= nil and entry.AllPlayers == true
 end
 
 function ChaserCameraService:IsActive(): boolean
-	return ceilingFovIntensity > 0.02 or next(Shakes) ~= nil or #getCameraEffectModels() > 0
+	if ceilingFovIntensity > 0.02 or next(Shakes) ~= nil then return true end
+	for instance in EnemyModels do
+		if isCameraEffectModel(instance) then return true end
+	end
+	return false
 end
 
 local mimicChaseSince: { [Model]: number } = {}
+local shakeTargets: { [string]: number } = {}
+local chasingMimics: { [Model]: boolean } = {}
 
 local function isCeilingDweller(instance: Instance): boolean
 	local enemyId = instance:GetAttribute(ENEMY_ID_ATTRIBUTE)
@@ -79,15 +92,14 @@ local function render(deltaTime: number)
 	local camera = workspace.CurrentCamera
 	if not camera then return end
 
-	local character = localPlayer.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid") :: Humanoid?
-	local alive = humanoid ~= nil and humanoid.Health > 0
+	local alive = CharacterService.GetAliveHumanoid(localPlayer) ~= nil
 
 	local targetCeilingChase = 0
-	local shakeTargets: { [string]: number } = {}
-	local chasingMimics: { [Model]: boolean } = {}
+	table.clear(shakeTargets)
+	table.clear(chasingMimics)
 	if alive then
-		for _, instance in getCameraEffectModels() do
+		for instance in EnemyModels do
+			if not isCameraEffectModel(instance) then continue end
 			local model = instance :: Model
 			local chasingLocalPlayer = isChasingLocalPlayer(model)
 			if chasingLocalPlayer and isCeilingDweller(model) then
@@ -127,7 +139,7 @@ local function render(deltaTime: number)
 	local fovSpeed = if targetCeilingChase > ceilingFovIntensity
 		then ChaserCameraConfig.FadeInSpeed
 		else ChaserCameraConfig.FovReleaseSpeed
-	ceilingFovIntensity += (targetCeilingChase - ceilingFovIntensity) * (1 - math.exp(-fovSpeed * deltaTime))
+	ceilingFovIntensity += (targetCeilingChase - ceilingFovIntensity) * MathService.ExpAlpha(fovSpeed, deltaTime)
 	if ceilingFovIntensity < 1e-3 then ceilingFovIntensity = 0 end
 
 	local offset = ceilingFovIntensity * ChaserCameraConfig.CeilingDweller.FieldOfView
@@ -146,7 +158,7 @@ local function render(deltaTime: number)
 		local speed = if target > shake.Intensity
 			then ChaserCameraConfig.FadeInSpeed
 			else ChaserCameraConfig.FadeOutSpeed
-		shake.Intensity += (target - shake.Intensity) * (1 - math.exp(-speed * deltaTime))
+		shake.Intensity += (target - shake.Intensity) * MathService.ExpAlpha(speed, deltaTime)
 
 		if target <= 0 and shake.Intensity < SHAKE_EPSILON then
 			shake.Rumble:Stop()

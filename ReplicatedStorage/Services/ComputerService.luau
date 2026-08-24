@@ -14,6 +14,8 @@ end
 local ComputerConfig = require(ReplicatedStorage.Configs.ComputerConfig)
 local Interaction = require(ReplicatedStorage.Services.InteractionService)
 local TagService = require(ReplicatedStorage.Services.TagService)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 
 local INPUT = ComputerConfig.Input
 local CAMERA = ComputerConfig.Camera
@@ -25,7 +27,7 @@ local REOPEN_COOLDOWN = 0.35
 local MINIGAMES_RETRY = 1
 
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+local playerGui = GuiBuilderService.GetPlayerGui()
 
 local communication = ReplicatedStorage:WaitForChild("Communication", 30)
 local folder = communication and communication:WaitForChild(ComputerConfig.Remotes.Folder, 30)
@@ -513,8 +515,7 @@ function ComputerService:Activate(model: Model?): boolean
 		state.Gui.Enabled = false
 	end
 
-	local character = player.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local humanoid = CharacterService.GetHumanoid(player.Character)
 	if humanoid then
 		table.insert(current.Connections, humanoid.Died:Connect(restore))
 	end

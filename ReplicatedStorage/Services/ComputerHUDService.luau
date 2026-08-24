@@ -1,5 +1,4 @@
 local CollectionService = game:GetService("CollectionService")
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -11,12 +10,10 @@ end
 
 local ComputerConfig = require(ReplicatedStorage.Configs.ComputerConfig)
 local ComputerService = require(ReplicatedStorage.Services.ComputerService)
+local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 
 local HUD = ComputerConfig.HUD
 local TAG = ComputerConfig.Tag
-
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
 
 local pill: Frame
 local stroke: UIStroke
@@ -25,13 +22,8 @@ local icon: ImageLabel? = nil
 local fallback: TextLabel? = nil
 
 local function build()
-	local screenGui = Instance.new("ScreenGui")
-	screenGui.Name = HUD.Name
-	screenGui.ResetOnSpawn = false
-	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	screenGui.DisplayOrder = HUD.DisplayOrder
+	local screenGui = GuiBuilderService.CreateScreenGui(HUD.Name, HUD.DisplayOrder)
 	screenGui.Enabled = false
-	screenGui.Parent = playerGui
 
 	pill = Instance.new("Frame")
 	pill.Name = "Counter"
@@ -43,14 +35,10 @@ local function build()
 	pill.BorderSizePixel = 0
 	pill.Parent = screenGui
 
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 2)
-	corner.Parent = pill
+	GuiBuilderService.Corner(pill, UDim.new(0, 2))
 
-	stroke = Instance.new("UIStroke")
-	stroke.Color = HUD.Stroke
-	stroke.Thickness = HUD.StrokeThickness
-	stroke.Parent = pill
+	stroke = GuiBuilderService.Stroke(pill, HUD.Stroke, HUD.StrokeThickness)
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
 
 	local left = HUD.IconPadding + HUD.IconSize + HUD.IconPadding
 

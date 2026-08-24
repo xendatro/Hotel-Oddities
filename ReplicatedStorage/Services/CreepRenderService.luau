@@ -113,8 +113,10 @@ local function track(model: Model): Render
 	task.spawn(function()
 		local rootPart = model:FindFirstChildWhichIsA("BasePart", true) :: BasePart?
 		while not rootPart and Creeps[model] == render do
-			task.wait()
-			rootPart = model:FindFirstChildWhichIsA("BasePart", true) :: BasePart?
+			local descendant = model.DescendantAdded:Wait()
+			rootPart = if descendant:IsA("BasePart")
+				then descendant
+				else model:FindFirstChildWhichIsA("BasePart", true) :: BasePart?
 		end
 		if Creeps[model] ~= render then return end
 

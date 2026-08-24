@@ -6,6 +6,8 @@ local RunService = game:GetService("RunService")
 local EffectsHUDConfig = require(ReplicatedStorage.Configs.EffectsHUDConfig)
 local ToolConfigs = require(ReplicatedStorage.Configs.ToolConfigs)
 local Vanished = require(ReplicatedStorage.Modules.Vanished)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 
 local EffectsHUDService = {}
 
@@ -17,17 +19,11 @@ local COLORS = EffectsHUDConfig.Colors
 local TRANSPARENCY = EffectsHUDConfig.Transparency
 
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
 
 local panel
 
 local function build()
-	local screenGui = Instance.new("ScreenGui")
-	screenGui.Name = "EffectsHudGui"
-	screenGui.ResetOnSpawn = false
-	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	screenGui.DisplayOrder = 10
-	screenGui.Parent = playerGui
+	local screenGui = GuiBuilderService.CreateScreenGui("EffectsHudGui", 10)
 
 	panel = Instance.new("Frame")
 	panel.Name = "Effects"
@@ -53,6 +49,7 @@ type Entry = {
 	Label: TextLabel,
 	EndsAt: number,
 	Duration: number,
+	Shown: number?,
 }
 
 local Entries: { [string]: Entry } = {}
@@ -134,10 +131,8 @@ local function buildTile(effectName: string): Entry
 	countdown.ZIndex = 3
 	countdown.Parent = frame
 
-	local textStroke = Instance.new("UIStroke")
-	textStroke.Color = COLORS.TextStroke
-	textStroke.Thickness = 2
-	textStroke.Parent = countdown
+	local textStroke = GuiBuilderService.Stroke(countdown, COLORS.TextStroke, 2)
+	textStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
 
 	nextOrder += 1
 	frame.LayoutOrder = nextOrder
@@ -173,7 +168,11 @@ RunService.Heartbeat:Connect(function()
 			if entry.Bright then
 				entry.Bright.Size = UDim2.fromScale(1, math.clamp(remaining / entry.Duration, 0, 1))
 			end
-			entry.Label.Text = string.format("%.1f", remaining)
+			local tenths = math.floor(remaining * 10)
+			if entry.Shown ~= tenths then
+				entry.Shown = tenths
+				entry.Label.Text = string.format("%.1f", remaining)
+			end
 		end
 	end
 end)
@@ -219,7 +218,7 @@ end)
 
 local lastTotals: { [string]: number } = {}
 
-ReplicatedStorage.Communication.Inventory.Update.OnClientEvent:Connect(function(entries)
+CommunicationService.Get("Inventory", "Update").OnClientEvent:Connect(function(entries)
 	local totals: { [string]: number } = {}
 	for _, entry in entries or {} do
 		totals[entry.Name] = (totals[entry.Name] or 0) + (entry.Quantity or 0)
@@ -233,8 +232,13 @@ ReplicatedStorage.Communication.Inventory.Update.OnClientEvent:Connect(function(
 	lastTotals = totals
 end)
 
+local watchedTools: { [Instance]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+local characterConnection: RBXScriptConnection? = nil
+
 local function watchPathfinder(tool: Instance)
 	if not tool:IsA("Tool") or tool.Name ~= "Pathfinder" then return end
+	if watchedTools[tool] then return end
+	watchedTools[tool] = true
 	local lastUses = tool:GetAttribute("uses")
 	tool:GetAttributeChangedSignal("uses"):Connect(function()
 		local uses = tool:GetAttribute("uses")
@@ -246,10 +250,13 @@ local function watchPathfinder(tool: Instance)
 end
 
 local function watchCharacter(character: Model)
+	if characterConnection then
+		characterConnection:Disconnect()
+	end
 	for _, child in character:GetChildren() do
 		watchPathfinder(child)
 	end
-	character.ChildAdded:Connect(watchPathfinder)
+	characterConnection = character.ChildAdded:Connect(watchPathfinder)
 end
 
 if player.Character then

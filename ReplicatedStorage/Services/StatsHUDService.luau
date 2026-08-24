@@ -6,6 +6,8 @@ local Stats = game:GetService("Stats")
 
 local DangerField = require(ReplicatedStorage.Modules.DangerField)
 local StatsHUDConfig = require(ReplicatedStorage.Configs.StatsHUDConfig)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 
 local StatsHUDService = {}
 
@@ -19,12 +21,8 @@ local START_TAG = "Start"
 local COLORS = StatsHUDConfig.Colors
 
 local localPlayer = Players.LocalPlayer
-local playerGui = localPlayer:WaitForChild("PlayerGui")
 
-local DebugSnapshot = ReplicatedStorage
-	:WaitForChild("Communication")
-	:WaitForChild("Enemies")
-	:WaitForChild("DebugSnapshot") :: RemoteEvent
+local DebugSnapshot = CommunicationService.Get("Enemies", "DebugSnapshot") :: RemoteEvent
 
 local function band(value: number, good: number, fair: number, higherIsBetter: boolean): Color3
 	if higherIsBetter then
@@ -73,12 +71,7 @@ local function buildRow(parent: Instance, order: number, caption: string): Row
 	return { Value = valueLabel }
 end
 
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "StatsHud"
-screenGui.ResetOnSpawn = false
-screenGui.DisplayOrder = 1000
-screenGui.IgnoreGuiInset = true
-screenGui.Parent = playerGui
+local screenGui = GuiBuilderService.CreateScreenGui("StatsHud", 1000, true)
 
 local panel = Instance.new("Frame")
 panel.Name = "Stats"
@@ -222,13 +215,6 @@ local function refreshEnemies()
 	end
 end
 
-task.spawn(function()
-	while screenGui.Parent do
-		refreshEnemies()
-		task.wait(EnemyConfig.Interval)
-	end
-end)
-
 local frames, elapsed = 0, 0
 
 RunService.RenderStepped:Connect(function(deltaTime: number)
@@ -253,19 +239,16 @@ local function readPing(): number?
 	return value
 end
 
-task.spawn(function()
-	while screenGui.Parent do
-		local ping = readPing()
-		if ping then
-			pingRow.Value.Text = string.format("%d ms", math.floor(ping + 0.5))
-			pingRow.Value.TextColor3 = band(ping, StatsHUDConfig.Ping.Good, StatsHUDConfig.Ping.Fair, false)
-		else
-			pingRow.Value.Text = "--"
-			pingRow.Value.TextColor3 = COLORS.Unknown
-		end
-		task.wait(StatsHUDConfig.Ping.Interval)
+local function refreshPing()
+	local ping = readPing()
+	if ping then
+		pingRow.Value.Text = string.format("%d ms", math.floor(ping + 0.5))
+		pingRow.Value.TextColor3 = band(ping, StatsHUDConfig.Ping.Good, StatsHUDConfig.Ping.Fair, false)
+	else
+		pingRow.Value.Text = "--"
+		pingRow.Value.TextColor3 = COLORS.Unknown
 	end
-end)
+end
 
 local Settings: DangerField.FieldSettings? = nil
 
@@ -279,23 +262,46 @@ local function getFloors(): { BasePart }
 	return floors
 end
 
-task.spawn(function()
-	local deadline = os.clock() + StatsHUDConfig.TagWaitTimeout
-	local previous, settled = -1, 0
+local function refreshDanger()
+	local character = localPlayer.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 
-	while os.clock() < deadline do
+	if Settings and root then
+		local danger = DangerField.Sample(root.Position, Settings)
+		dangerRow.Value.Text = string.format("%d%%", math.floor(danger * 100 + 0.5))
+		dangerRow.Value.TextColor3 =
+			band(danger, StatsHUDConfig.Danger.Good, StatsHUDConfig.Danger.Fair, false)
+	else
+		dangerRow.Value.Text = "--"
+		dangerRow.Value.TextColor3 = COLORS.Unknown
+	end
+end
+
+local settleDeadline = os.clock() + StatsHUDConfig.TagWaitTimeout
+local settlePrevious, settleCount = -1, 0
+local settleDone = false
+
+local function pollSettle()
+	if settleDone then return end
+
+	local finished = false
+	if os.clock() >= settleDeadline then
+		finished = true
+	else
 		local count = #getFloors()
-		if count > 0 and count == previous then
-			settled += 1
-			if settled >= StatsHUDConfig.TagSettlePolls then
-				break
+		if count > 0 and count == settlePrevious then
+			settleCount += 1
+			if settleCount >= StatsHUDConfig.TagSettlePolls then
+				finished = true
 			end
 		else
-			settled = 0
+			settleCount = 0
 		end
-		previous = count
-		task.wait(StatsHUDConfig.TagPollInterval)
+		settlePrevious = count
 	end
+
+	if not finished then return end
+	settleDone = true
 
 	local floors = getFloors()
 	if #floors == 0 then
@@ -305,24 +311,44 @@ task.spawn(function()
 	local extent, centre = DangerField.MeasureExtent(floors)
 	local startPart = CollectionService:GetTagged(START_TAG)[1] :: BasePart?
 	Settings = DangerField.BuildSettings(if startPart then startPart.Position else centre, extent)
-end)
+end
 
-task.spawn(function()
-	while screenGui.Parent do
-		local character = localPlayer.Character
-		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+local enemyAccumulator = EnemyConfig.Interval
+local pingAccumulator = StatsHUDConfig.Ping.Interval
+local dangerAccumulator = StatsHUDConfig.Danger.Interval
+local settleAccumulator = StatsHUDConfig.TagPollInterval
+local pollConnection: RBXScriptConnection
 
-		if Settings and root then
-			local danger = DangerField.Sample(root.Position, Settings)
-			dangerRow.Value.Text = string.format("%d%%", math.floor(danger * 100 + 0.5))
-			dangerRow.Value.TextColor3 =
-				band(danger, StatsHUDConfig.Danger.Good, StatsHUDConfig.Danger.Fair, false)
-		else
-			dangerRow.Value.Text = "--"
-			dangerRow.Value.TextColor3 = COLORS.Unknown
+pollConnection = RunService.Heartbeat:Connect(function(deltaTime: number)
+	if not screenGui.Parent then
+		pollConnection:Disconnect()
+		return
+	end
+
+	enemyAccumulator += deltaTime
+	if enemyAccumulator >= EnemyConfig.Interval then
+		enemyAccumulator = 0
+		refreshEnemies()
+	end
+
+	pingAccumulator += deltaTime
+	if pingAccumulator >= StatsHUDConfig.Ping.Interval then
+		pingAccumulator = 0
+		refreshPing()
+	end
+
+	dangerAccumulator += deltaTime
+	if dangerAccumulator >= StatsHUDConfig.Danger.Interval then
+		dangerAccumulator = 0
+		refreshDanger()
+	end
+
+	if not settleDone then
+		settleAccumulator += deltaTime
+		if settleAccumulator >= StatsHUDConfig.TagPollInterval then
+			settleAccumulator = 0
+			pollSettle()
 		end
-
-		task.wait(StatsHUDConfig.Danger.Interval)
 	end
 end)
 

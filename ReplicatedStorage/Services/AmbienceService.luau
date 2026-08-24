@@ -5,6 +5,7 @@ local RunService = game:GetService("RunService")
 
 local AmbienceConfig = require(ReplicatedStorage.Configs.AmbienceConfig)
 local AudioService = require(ReplicatedStorage.Services.AudioService)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local DeathScreenService = require(ReplicatedStorage.Services.DeathScreenService)
 local HallwayGraph = require(ReplicatedStorage.Modules.HallwayGraph)
 local LobbyService = require(ReplicatedStorage.Services.LobbyService)
@@ -97,16 +98,6 @@ local function updateDeathAmbience()
 	deathPlaying.Volume = deathBaseVolume * volumeMultiplier
 end
 
-local function getAliveRoot(): BasePart?
-	local character = Players.LocalPlayer.Character
-	if not character then return nil end
-
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	local root = character:FindFirstChild("HumanoidRootPart")
-	if not humanoid or not root or humanoid.Health <= 0 then return nil end
-	return root :: BasePart
-end
-
 local function getNearestEnemyDistance(position: Vector3): number
 	local nearest = math.huge
 	for _, enemy in CollectionService:GetTagged(ENEMY_TAG) do
@@ -133,7 +124,7 @@ local function updatePlayback(deathVisible: boolean, lobbyVisible: boolean)
 end
 
 local function updateVolume(deltaTime: number, ambienceBlocked: boolean)
-	local root = getAliveRoot()
+	local root = CharacterService.GetAliveRoot(Players.LocalPlayer)
 	local nearestDistance = if root then getNearestEnemyDistance(root.Position) else math.huge
 	local targetMultiplier = if ambienceBlocked
 		then 0

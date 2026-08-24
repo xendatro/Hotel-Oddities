@@ -9,6 +9,7 @@ local ObservedFreezeConfig = require(ReplicatedStorage.Configs.ObservedFreezeCon
 local Sightline = require(ReplicatedStorage.Modules.Sightline)
 
 local WRITE_EPSILON = 1e-3
+local VISIBILITY_INTERVAL = 0.05
 
 local ObservedFreezeService = {}
 
@@ -30,6 +31,7 @@ type State = {
 	PredictingRelease: boolean,
 	ReleaseVelocity: Vector3,
 	Speeds: { [AnimationTrack]: number },
+	LastSeen: boolean,
 }
 
 local localPlayer = Players.LocalPlayer
@@ -129,12 +131,13 @@ local function stateFor(model: Model): State?
 		PredictingRelease = false,
 		ReleaseVelocity = Vector3.zero,
 		Speeds = {},
+		LastSeen = false,
 	}
 	States[model] = state
 	return state
 end
 
-local function step(model: Model, camera: Camera, frustum: Sightline.Frustum, character: Model, deltaTime: number)
+local function step(model: Model, camera: Camera, frustum: Sightline.Frustum?, character: Model, deltaTime: number)
 	local state = stateFor(model)
 	if not state then return end
 
@@ -172,8 +175,12 @@ local function step(model: Model, camera: Camera, frustum: Sightline.Frustum, ch
 		state.Root.CFrame = state.Rendered
 	end
 
-	local actuallySeen = Sightline.CanSee(camera, frustum, character, model)
-	EnemyObservationService:SetSeen(model, actuallySeen)
+	local actuallySeen = state.LastSeen
+	if frustum then
+		actuallySeen = Sightline.CanSee(camera, frustum, character, model)
+		state.LastSeen = actuallySeen
+		EnemyObservationService:SetSeen(model, actuallySeen)
+	end
 	if not actuallySeen then
 		state.Suppressed = false
 	end
@@ -234,6 +241,7 @@ local function step(model: Model, camera: Camera, frustum: Sightline.Frustum, ch
 		reconcile(state)
 		return
 	end
+	if not frustum then return end
 
 	local boundsCFrame, boundsSize = model:GetBoundingBox()
 	local radius = boundsSize.Magnitude / 2
@@ -245,12 +253,20 @@ local function step(model: Model, camera: Camera, frustum: Sightline.Frustum, ch
 	end
 end
 
+local sinceVisibility = VISIBILITY_INTERVAL
+
 RunService.RenderStepped:Connect(function(deltaTime: number)
 	local character = localPlayer.Character
 	local camera = workspace.CurrentCamera
-	local frustum = camera and Sightline.Frustum(camera)
 
-	if character and camera and frustum then
+	sinceVisibility += deltaTime
+	local frustum = nil
+	if sinceVisibility >= VISIBILITY_INTERVAL and camera then
+		sinceVisibility = 0
+		frustum = Sightline.Frustum(camera)
+	end
+
+	if character and camera then
 		for _, model in FrozenModels do
 			if model:IsDescendantOf(workspace) then
 				step(model, camera, frustum, character, deltaTime)

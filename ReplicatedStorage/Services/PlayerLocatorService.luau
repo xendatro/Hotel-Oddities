@@ -6,6 +6,9 @@ local UserInputService = game:GetService("UserInputService")
 
 local LocatorMarker = require(ReplicatedStorage.Classes.LocatorMarker)
 local PlayerLocatorConfig = require(ReplicatedStorage.Configs.PlayerLocatorConfig)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 
 local PlayerLocatorService = {}
 
@@ -13,16 +16,16 @@ if not RunService:IsClient() then
 	return PlayerLocatorService
 end
 
-local Teleport = ReplicatedStorage.Communication.PlayerLocator.Teleport
+local Teleport = CommunicationService.Get("PlayerLocator", "Teleport")
 
 local MODES = PlayerLocatorConfig.Modes
 local MARKER = PlayerLocatorConfig.Marker
 local FOCUS = PlayerLocatorConfig.Focus
 local RENDER_JOB = "PlayerLocatorFocus"
-local TAU = math.pi * 2
+local TAU = MathService.TAU
 
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+local playerGui = GuiBuilderService.GetPlayerGui()
 
 local gui = playerGui:WaitForChild("PlayerLocator")
 --- Every reference below is taken once. A reset on respawn would replace the gui and strand them all.
@@ -51,6 +54,7 @@ local enabled = false
 local refresh
 
 local markerFolder: Folder? = nil
+local markerFolderConnection: RBXScriptConnection? = nil
 
 local function markerHost(): Folder
 	local existing = markerFolder
@@ -61,12 +65,16 @@ local function markerHost(): Folder
 		Markers[target] = nil
 	end
 
+	if markerFolderConnection then
+		markerFolderConnection:Disconnect()
+	end
+
 	local folder = Instance.new("Folder")
 	folder.Name = "PlayerLocatorMarkers"
 	folder.Parent = playerGui
 	markerFolder = folder
 
-	folder.AncestryChanged:Connect(function()
+	markerFolderConnection = folder.AncestryChanged:Connect(function()
 		if folder.Parent ~= nil or markerFolder ~= folder then return end
 		task.defer(function()
 			if markerFolder == folder and enabled then

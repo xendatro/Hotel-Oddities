@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Configs.ChaosLightConfig)
+local MathService = require(ReplicatedStorage.Services.MathService)
 local TagService = require(ReplicatedStorage.Services.TagService)
 
 local ChaosLightService = {}
@@ -36,11 +37,6 @@ type Binding = {
 local States: { [Model]: State } = {}
 local ActiveStates: { State } = {}
 local heartbeatConnection: RBXScriptConnection? = nil
-
-local function horizontalDistance(first: Vector3, second: Vector3): number
-	local offset = first - second
-	return Vector3.new(offset.X, 0, offset.Z).Magnitude
-end
 
 local function applyRed(state: State)
 	for light in state.Baseline do
@@ -95,6 +91,13 @@ local function deactivate(state: State)
 end
 
 local function update(now: number)
+	local chaosPositions = {}
+	for _, instance in CollectionService:GetTagged(CHAOS_TAG) do
+		if instance:IsA("Model") and instance:IsDescendantOf(workspace) then
+			table.insert(chaosPositions, instance:GetPivot().Position)
+		end
+	end
+
 	for index = #ActiveStates, 1, -1 do
 		local state = ActiveStates[index]
 		if state.Model.Parent == nil then
@@ -104,13 +107,11 @@ local function update(now: number)
 
 		local lightPosition = state.Model:GetPivot().Position
 		local nearestDistance = math.huge
-		for _, instance in CollectionService:GetTagged(CHAOS_TAG) do
-			if instance:IsA("Model") and instance:IsDescendantOf(workspace) then
-				nearestDistance = math.min(
-					nearestDistance,
-					horizontalDistance(instance:GetPivot().Position, lightPosition)
-				)
-			end
+		for _, position in chaosPositions do
+			nearestDistance = math.min(
+				nearestDistance,
+				MathService.HorizontalMagnitude(position - lightPosition)
+			)
 		end
 
 		if nearestDistance <= Config.TrackDistance then

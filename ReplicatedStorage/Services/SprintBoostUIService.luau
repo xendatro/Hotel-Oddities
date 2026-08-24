@@ -2,6 +2,8 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 local SprintBoostConfig = require(ReplicatedStorage.Configs.SprintBoostConfig)
 local SprintConfig = require(ReplicatedStorage.Configs.SprintConfig)
 local SprintUIService = require(ReplicatedStorage.Services.SprintUIService)
@@ -16,11 +18,10 @@ type Visual = SprintBoostConfig.BoostVisual
 
 local UI = SprintConfig.UI
 local RENDER_JOB = "SprintBoostBar"
-local TAU = math.pi * 2
+local TAU = MathService.TAU
 local MAX_RINGS = 3
 
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
 
 local bar = SprintUIService:GetBar()
 local groupScale: UIScale
@@ -48,9 +49,7 @@ local label: TextLabel
 local labelShadows: { TextLabel } = {}
 
 local function rounded(instance: GuiObject, radius: number)
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, radius)
-	corner.Parent = instance
+	GuiBuilderService.Corner(instance, UDim.new(0, radius))
 end
 
 local function buildFill()
@@ -105,12 +104,7 @@ local function buildFill()
 end
 
 local function buildOverlay()
-	local screenGui = Instance.new("ScreenGui")
-	screenGui.Name = "SprintBoostGui"
-	screenGui.ResetOnSpawn = false
-	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	screenGui.DisplayOrder = 8
-	screenGui.Parent = playerGui
+	local screenGui = GuiBuilderService.CreateScreenGui("SprintBoostGui", 8)
 
 	overlay = Instance.new("Frame")
 	overlay.Name = "Boost"
@@ -365,13 +359,13 @@ local function render(deltaTime: number)
 	end
 
 	local now = os.clock()
-	local ease = weight * weight * (3 - 2 * weight)
+	local ease = MathService.Smoothstep(weight)
 
 	overlay.Visible = true
 	boostFill.Visible = true
 	SprintUIService:SetForcedVisible(active ~= nil)
 
-	local shift = (math.sin(now * TAU / shape.ShiftPeriod) + 1) / 2
+	local shift = MathService.SinePulse(now, shape.ShiftPeriod)
 	local main = shape.Fill:Lerp(shape.FillAlt, shift)
 	boostGradient.Color = ColorSequence.new({
 		ColorSequenceKeypoint.new(0, main),
@@ -388,7 +382,7 @@ local function render(deltaTime: number)
 	streaks.Visible = shape.StreakBands > 0
 
 	if shape.EdgeWidth > 0 then
-		local flicker = (math.sin(now * TAU / (shape.GlowPulsePeriod * 0.5)) + 1) / 2
+		local flicker = MathService.SinePulse(now, shape.GlowPulsePeriod * 0.5)
 		edge.Visible = true
 		edge.Size = UDim2.new(0, shape.EdgeWidth, 1, 0)
 		edge.BackgroundColor3 = shape.Accent
@@ -408,7 +402,7 @@ local function render(deltaTime: number)
 		end
 	end
 
-	local pulse = (math.sin(now * TAU / shape.GlowPulsePeriod) + 1) / 2
+	local pulse = MathService.SinePulse(now, shape.GlowPulsePeriod)
 	auraStroke.Color = shape.Glow
 	auraStroke.Thickness = shape.GlowThickness * (1 + shape.GlowPulse * pulse) * ease
 	auraStroke.Transparency = 1 - (1 - shape.GlowTransparency) * ease

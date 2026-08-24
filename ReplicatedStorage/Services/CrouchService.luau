@@ -3,7 +3,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local CrouchConfig = require(ReplicatedStorage.Configs.CrouchConfig)
+local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 local SprintService = require(ReplicatedStorage.Services.SprintService)
 
 local CrouchService = {}
@@ -20,10 +23,7 @@ local STEP_JOB = "CrouchStep"
 
 local player = Players.LocalPlayer
 
-local Update = ReplicatedStorage
-	:WaitForChild("Communication")
-	:WaitForChild("Crouch")
-	:WaitForChild("Update") :: RemoteEvent
+local Update = CommunicationService.Get("Crouch", "Update") :: RemoteEvent
 
 type CharacterState = {
 	Humanoid: Humanoid,
@@ -81,11 +81,7 @@ local function updateAnimation(state: CharacterState)
 	local idle, walk = state.Idle, state.Walk
 	if not idle and not walk then return end
 
-	local speed = Vector3.new(
-		state.Root.AssemblyLinearVelocity.X,
-		0,
-		state.Root.AssemblyLinearVelocity.Z
-	).Magnitude
+	local speed = MathService.HorizontalMagnitude(state.Root.AssemblyLinearVelocity)
 	local moving = crouched
 		and speed > BODY.WalkThreshold
 		and state.Humanoid.MoveDirection.Magnitude > 0.05
@@ -119,7 +115,7 @@ local function step(deltaTime: number)
 	end
 
 	local target = if crouched then 1 else 0
-	weight += (target - weight) * (1 - math.exp(-CAMERA.BlendSpeed * deltaTime))
+	weight += (target - weight) * MathService.ExpAlpha(CAMERA.BlendSpeed, deltaTime)
 	if math.abs(target - weight) < 1e-3 then weight = target end
 
 	local state = characterState
@@ -241,9 +237,7 @@ local function buildTouchButton(parent: Instance): TextButton
 	button.FontFace = Font.fromEnum(Enum.Font.GothamMedium)
 	button.Parent = screenGui
 
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, TOUCH.CornerRadius)
-	corner.Parent = button
+	GuiBuilderService.Corner(button, UDim.new(0, TOUCH.CornerRadius))
 
 	local stroke = Instance.new("UIStroke")
 	stroke.Thickness = 1

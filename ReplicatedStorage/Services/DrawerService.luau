@@ -7,6 +7,7 @@ if not RunService:IsClient() then
 	return DrawerService
 end
 
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local Drawer = require(ReplicatedStorage.Classes.Drawer)
 local DrawerConfig = require(ReplicatedStorage.Configs.DrawerConfig)
 local Interaction = require(ReplicatedStorage.Services.InteractionService)
@@ -15,9 +16,7 @@ local TagService = require(ReplicatedStorage.Services.TagService)
 local PREDICTION_TIMEOUT = 1
 local TOGGLE_COOLDOWN = 0.15
 
-local communication = ReplicatedStorage:WaitForChild("Communication", 30)
-local folder = communication and communication:WaitForChild("Drawer", 30)
-local ToggleRemote = folder and folder:WaitForChild("Toggle", 30)
+local ToggleRemote = CommunicationService.Get("Drawer", "Toggle")
 
 type State = {
 	Drawer: any,

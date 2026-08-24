@@ -1,4 +1,3 @@
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -6,6 +5,9 @@ local TweenService = game:GetService("TweenService")
 local FriendAvatar = require(ReplicatedStorage.Modules.FriendAvatar)
 local IndexConfig = require(ReplicatedStorage.Configs.IndexConfig)
 local Redaction = require(ReplicatedStorage.Modules.Redaction)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
+local TweenProxyService = require(ReplicatedStorage.Services.TweenProxyService)
 
 local IndexUIService = {}
 
@@ -28,8 +30,7 @@ local BUTTON = IndexConfig.Animation.Button
 local PAGE = IndexConfig.Animation.Page
 local INFO = IndexConfig.Animation.Info
 
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+local playerGui = GuiBuilderService.GetPlayerGui()
 
 type Card = {
 	Id: string,
@@ -43,6 +44,7 @@ type Card = {
 	Hovered: boolean,
 	Pressed: boolean,
 	Tween: Tween?,
+	Connections: { RBXScriptConnection },
 }
 
 local Cards: { [string]: Card } = {}
@@ -473,10 +475,7 @@ local infoTweens: { Tween } = {}
 local infoHeadshotId: string? = nil
 
 local function playInfoTransition()
-	for _, tween in infoTweens do
-		tween:Cancel()
-	end
-	table.clear(infoTweens)
+	TweenProxyService.CancelAll(infoTweens)
 
 	infoName.TextTransparency = 1
 	infoDescription.TextTransparency = 1
@@ -496,10 +495,7 @@ local function playInfoTransition()
 end
 
 local function settleInfo()
-	for _, tween in infoTweens do
-		tween:Cancel()
-	end
-	table.clear(infoTweens)
+	TweenProxyService.CancelAll(infoTweens)
 
 	infoName.TextTransparency = 0
 	infoDescription.TextTransparency = 0
@@ -819,6 +815,11 @@ local function buildModalBlocker()
 end
 
 local function clearBuiltUi()
+	for _, card in Cards do
+		for _, connection in card.Connections do
+			connection:Disconnect()
+		end
+	end
 	table.clear(Cards)
 
 	for _, child in cardsFrame:GetChildren() do
@@ -855,32 +856,33 @@ local function buildCard(index: number, entry: IndexConfig.Entry)
 		Viewport = button:FindFirstChild("Headshot") :: ViewportFrame,
 		Hovered = false,
 		Pressed = false,
+		Connections = {},
 	}
 	Cards[entry.Id] = card
 
 	buildHeadshot(card.Viewport, entry)
 
-	button.Activated:Connect(function()
+	table.insert(card.Connections, button.Activated:Connect(function()
 		IndexUIService:Select(entry.Id)
-	end)
+	end))
 
-	button.MouseEnter:Connect(function()
+	table.insert(card.Connections, button.MouseEnter:Connect(function()
 		card.Hovered = true
 		poseCard(card)
-	end)
-	button.MouseLeave:Connect(function()
+	end))
+	table.insert(card.Connections, button.MouseLeave:Connect(function()
 		card.Hovered = false
 		card.Pressed = false
 		poseCard(card)
-	end)
-	button.MouseButton1Down:Connect(function()
+	end))
+	table.insert(card.Connections, button.MouseButton1Down:Connect(function()
 		card.Pressed = true
 		poseCard(card)
-	end)
-	button.MouseButton1Up:Connect(function()
+	end))
+	table.insert(card.Connections, button.MouseButton1Up:Connect(function()
 		card.Pressed = false
 		poseCard(card)
-	end)
+	end))
 end
 
 local function build()
@@ -924,10 +926,8 @@ end
 
 build()
 
-local communication = ReplicatedStorage:FindFirstChild("Communication")
-local indexCommunication = communication and communication:FindFirstChild("Index")
-local updateEvent = indexCommunication and indexCommunication:FindFirstChild("Update")
-local revealEvent = indexCommunication and indexCommunication:FindFirstChild("Reveal")
+local updateEvent = CommunicationService.Find("Index", "Update")
+local revealEvent = CommunicationService.Find("Index", "Reveal")
 
 if updateEvent and updateEvent:IsA("RemoteEvent") then
 	updateEvent.OnClientEvent:Connect(function(set)

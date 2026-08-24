@@ -5,6 +5,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local CameraFovService = require(ReplicatedStorage.Services.CameraFovService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 local SprintConfig = require(ReplicatedStorage.Configs.SprintConfig)
 
 local SprintService = {}
@@ -161,7 +162,7 @@ local function step(deltaTime: number)
 	end
 
 	local target = if sprinting then 1 else 0
-	weight += (target - weight) * (1 - math.exp(-CAMERA.BlendSpeed * deltaTime))
+	weight += (target - weight) * MathService.ExpAlpha(CAMERA.BlendSpeed, deltaTime)
 	if weight < 1e-3 then weight = 0 end
 	CameraFovService:SetOffset("Sprint", weight * CAMERA.FovBoost)
 end

@@ -173,12 +173,15 @@ function StateMachine:Stop()
 end
 
 function StateMachine:Destroy()
-	if self.MachineState ~= "Active" then return end
+	if self.MachineState == "Dead" then return end
 	self.MachineState = "Dead"
-	self.StateThread:Destroy()
+	if self.StateThread then
+		self.StateThread:Destroy()
+	end
 	for _, vow in self.EvaluatorThreads do
 		vow:Destroy()
 	end
+	table.clear(self.EvaluatorThreads)
 end
 
 return StateMachine

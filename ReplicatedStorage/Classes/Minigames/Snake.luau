@@ -1,5 +1,6 @@
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local MinigameBase = require(ReplicatedStorage.Classes.Minigames.MinigameBase)
 
 local COLUMNS = 16
 local ROWS = 12
@@ -12,87 +13,18 @@ local MAX_QUEUED_TURNS = 2
 local MESSAGE_TIME = 1
 local EAT_PITCH_RISE = 0.7
 
-export type Theme = {
-	Font: Enum.Font,
-	Background: Color3,
-	Panel: Color3,
-	Grid: Color3,
-	Primary: Color3,
-	Accent: Color3,
-	Danger: Color3,
-	Text: Color3,
-	TextDim: Color3,
-}
-
-export type Api = {
-	Complete: () -> (),
-	Fail: ((reason: string?) -> ())?,
-	Theme: Theme,
-	Sound: ((name: string, pitch: number?) -> ())?,
-}
+export type Theme = MinigameBase.Theme
+export type Api = MinigameBase.Api
 
 type Cell = { X: number, Y: number }
 
-local function newFrame(parent: Instance, color: Color3, strokeColor: Color3?, thickness: number?): Frame
-	local frame = Instance.new("Frame")
-	frame.BackgroundColor3 = color
-	frame.BorderSizePixel = 0
-	frame.Parent = parent
-
-	if strokeColor then
-		local stroke = Instance.new("UIStroke")
-		stroke.Color = strokeColor
-		stroke.Thickness = thickness or 3
-		stroke.Parent = frame
-	end
-
-	return frame
-end
-
-local function newLabel(parent: Instance, theme: Theme, text: string, textSize: number): TextLabel
-	local label = Instance.new("TextLabel")
-	label.BackgroundTransparency = 1
-	label.BorderSizePixel = 0
-	label.Font = theme.Font
-	label.Text = text
-	label.TextSize = textSize
-	label.TextColor3 = theme.Text
-	label.Parent = parent
-	return label
-end
-
-local function newButton(parent: Instance, theme: Theme, text: string): TextButton
-	local button = Instance.new("TextButton")
-	button.BackgroundColor3 = theme.Panel
-	button.BorderSizePixel = 0
-	button.AutoButtonColor = false
-	button.Font = theme.Font
-	button.Text = text
-	button.TextSize = 26
-	button.TextColor3 = theme.Primary
-	button.Parent = parent
-
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = theme.Primary
-	stroke.Thickness = 3
-	stroke.Parent = button
-
-	return button
-end
-
-local Snake = {}
-Snake.__index = Snake
+local Snake = MinigameBase.extend("Snake", "SNAKE.EXE", true)
 
 function Snake.new(root: Frame, api: Api)
-	local self = setmetatable({}, Snake)
+	local self = MinigameBase.new(root, api, Snake)
 
-	self.Root = root
-	self.Api = api
-	self.Theme = api.Theme
-
-	self.State = "playing"
-	self.Completed = false
 	self.Random = Random.new()
+	self.MessageTime = MESSAGE_TIME
 
 	self.Body = {} :: { Cell }
 	self.Direction = { X = 1, Y = 0 }
@@ -102,10 +34,8 @@ function Snake.new(root: Frame, api: Api)
 	self.Best = 0
 	self.Grow = 0
 	self.Clock = 0
-	self.MessageUntil = 0
 
 	self.SegmentFrames = {} :: { Frame }
-	self.Connections = {} :: { RBXScriptConnection }
 
 	return self
 end
@@ -117,34 +47,22 @@ end
 function Snake:_buildBoard()
 	local theme = self.Theme
 
-	local board = newFrame(self.Root, theme.Background, theme.Primary, 4)
-	board.Name = "Board"
-	board.AnchorPoint = Vector2.new(0.5, 0.5)
-	board.Position = UDim2.fromScale(0.5, 0.45)
-	board.Size = UDim2.fromScale(0.92, 0.66)
-	board.ClipsDescendants = true
-
-	local ratio = Instance.new("UIAspectRatioConstraint")
-	ratio.AspectRatio = COLUMNS / ROWS
-	ratio.DominantAxis = Enum.DominantAxis.Height
-	ratio.Parent = board
-
-	self.Board = board
+	local board = self:BuildBoardFrame(COLUMNS / ROWS, { Clip = true })
 
 	for column = 1, COLUMNS - 1 do
-		local line = newFrame(board, theme.Grid)
+		local line = self:NewFrame(board, theme.Grid)
 		line.Name = "GridX"
 		line.Position = UDim2.fromScale(column / COLUMNS, 0)
 		line.Size = UDim2.new(0, 1, 1, 0)
 	end
 	for row = 1, ROWS - 1 do
-		local line = newFrame(board, theme.Grid)
+		local line = self:NewFrame(board, theme.Grid)
 		line.Name = "GridY"
 		line.Position = UDim2.fromScale(0, row / ROWS)
 		line.Size = UDim2.new(1, 0, 0, 1)
 	end
 
-	local pellet = newFrame(board, theme.Danger, theme.Text, 2)
+	local pellet = self:NewFrame(board, theme.Danger, theme.Text, 2)
 	pellet.Name = "Pellet"
 	pellet.ZIndex = 2
 	pellet.Size = UDim2.fromScale(0.6 / COLUMNS, 0.6 / ROWS)
@@ -152,61 +70,12 @@ function Snake:_buildBoard()
 end
 
 function Snake:_buildChrome()
-	local theme = self.Theme
-
-	local status = newFrame(self.Root, theme.Panel, theme.Grid, 3)
-	status.Name = "Status"
-	status.AnchorPoint = Vector2.new(0.5, 0.5)
-	status.Position = UDim2.fromScale(0.5, 0.06)
-	status.Size = UDim2.fromScale(0.92, 0.08)
-
-	local score = newLabel(status, theme, "", 24)
-	score.Name = "Score"
-	score.TextXAlignment = Enum.TextXAlignment.Left
-	score.Position = UDim2.fromScale(0.03, 0)
-	score.Size = UDim2.fromScale(0.45, 1)
+	local score = self:BuildStatusBar("Score", "")
 	self.ScoreLabel = score
 
-	local message = newLabel(status, theme, "", 22)
-	message.Name = "Message"
-	message.TextColor3 = theme.TextDim
-	message.TextXAlignment = Enum.TextXAlignment.Right
-	message.Position = UDim2.fromScale(0.52, 0)
-	message.Size = UDim2.fromScale(0.45, 1)
-	self.MessageLabel = message
-
-	self:_buildPad()
-end
-
-function Snake:_buildPad()
-	local theme = self.Theme
-
-	local pad = Instance.new("Frame")
-	pad.Name = "Pad"
-	pad.BackgroundTransparency = 1
-	pad.AnchorPoint = Vector2.new(0.5, 0.5)
-	pad.Position = UDim2.fromScale(0.5, 0.885)
-	pad.Size = UDim2.fromScale(0.3, 0.2)
-	pad.Parent = self.Root
-
-	local layout = {
-		{ Text = "W", Column = 1, Row = 0, X = 0, Y = -1 },
-		{ Text = "A", Column = 0, Row = 1, X = -1, Y = 0 },
-		{ Text = "S", Column = 1, Row = 1, X = 0, Y = 1 },
-		{ Text = "D", Column = 2, Row = 1, X = 1, Y = 0 },
-	}
-
-	for _, entry in layout do
-		local button = newButton(pad, theme, entry.Text)
-		button.Position = UDim2.fromScale(entry.Column / 3 + 0.02, entry.Row / 2 + 0.04)
-		button.Size = UDim2.fromScale(1 / 3 - 0.04, 1 / 2 - 0.08)
-		table.insert(
-			self.Connections,
-			button.Activated:Connect(function()
-				self:_turn(entry.X, entry.Y)
-			end)
-		)
-	end
+	self:BuildDirectionalPad(function(x: number, y: number)
+		self:_turn(x, y)
+	end)
 end
 
 function Snake:_draw()
@@ -215,7 +84,7 @@ function Snake:_draw()
 	for index, cell in self.Body do
 		local frame = self.SegmentFrames[index]
 		if not frame then
-			frame = newFrame(self.Board, theme.Primary, theme.Background, 2)
+			frame = self:NewFrame(self.Board, theme.Primary, theme.Background, 2)
 			frame.Name = "Segment"
 			frame.ZIndex = 3
 			frame.Size = UDim2.fromScale(1 / COLUMNS, 1 / ROWS)
@@ -239,13 +108,7 @@ function Snake:_refreshLabels()
 	self.ScoreLabel.Text = string.format("PELLETS %d/%d", self.Pellets, PELLETS_TO_WIN)
 end
 
-function Snake:_say(text: string, color: Color3)
-	self.MessageLabel.Text = text
-	self.MessageLabel.TextColor3 = color
-	self.MessageUntil = os.clock() + MESSAGE_TIME
-end
-
-function Snake:_idleMessage()
+function Snake:IdleMessage()
 	if self.Best > 0 then
 		self.MessageLabel.Text = string.format("BEST %d", self.Best)
 	else
@@ -331,9 +194,9 @@ function Snake:_crash()
 	self.Pellets = 0
 	self:_respawn()
 	self:_refreshLabels()
-	self:_say("CRASHED", self.Theme.Danger)
+	self:Say("CRASHED", self.Theme.Danger)
 	self:_draw()
-	if self.Api.Fail then self.Api.Fail("CRASHED") end
+	self:FailRun("CRASHED")
 end
 
 function Snake:_tick()
@@ -364,13 +227,10 @@ function Snake:_tick()
 	table.insert(self.Body, 1, { X = x, Y = y })
 	if eating then
 		self.Pellets += 1
-		if self.Api.Sound then
-			local climb = math.clamp((self.Pellets - 1) / math.max(PELLETS_TO_WIN - 1, 1), 0, 1)
-			self.Api.Sound("Eat", 1 + EAT_PITCH_RISE * climb)
-		end
+		self:PlaySound("Eat", 1 + EAT_PITCH_RISE * self:Climb(self.Pellets, PELLETS_TO_WIN))
 		self:_refreshLabels()
 		self:_placePellet()
-		self:_say("+1", self.Theme.Accent)
+		self:Say("+1", self.Theme.Accent)
 	else
 		table.remove(self.Body)
 	end
@@ -384,26 +244,14 @@ end
 
 function Snake:_win()
 	if self.Completed then return end
-	self.Completed = true
-	self.State = "won"
 	self.Best = math.max(self.Best, self.Pellets)
-
-	self:_say("BREACHED", self.Theme.Accent)
-	if self.Heartbeat then
-		self.Heartbeat:Disconnect()
-		self.Heartbeat = nil
-	end
-
-	self.Api.Complete()
+	self:Win()
 end
 
 function Snake:_step(deltaTime: number)
 	if self.State ~= "playing" then return end
 
-	if self.MessageUntil > 0 and os.clock() >= self.MessageUntil then
-		self.MessageUntil = 0
-		self:_idleMessage()
-	end
+	self:StepMessage()
 
 	self.Clock += math.min(deltaTime, 0.1)
 
@@ -415,44 +263,20 @@ function Snake:_step(deltaTime: number)
 	end
 end
 
-local TURNS: { [Enum.KeyCode]: { number } } = {
-	[Enum.KeyCode.W] = { 0, -1 },
-	[Enum.KeyCode.Up] = { 0, -1 },
-	[Enum.KeyCode.S] = { 0, 1 },
-	[Enum.KeyCode.Down] = { 0, 1 },
-	[Enum.KeyCode.A] = { -1, 0 },
-	[Enum.KeyCode.Left] = { -1, 0 },
-	[Enum.KeyCode.D] = { 1, 0 },
-	[Enum.KeyCode.Right] = { 1, 0 },
-}
-
-function Snake:_connectInput()
-	table.insert(
-		self.Connections,
-		UserInputService.InputBegan:Connect(function(input: InputObject)
-			if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
-			local turn = TURNS[input.KeyCode]
-			if turn then
-				self:_turn(turn[1], turn[2])
-			end
-		end)
-	)
-end
-
 function Snake:Start(saved: any?)
-	if type(saved) == "table" and type(saved.Best) == "number" then
-		self.Best = math.clamp(math.floor(saved.Best), 0, PELLETS_TO_WIN)
-	end
+	self.Best = self:ClampedSavedNumber(saved, "Best", 0, PELLETS_TO_WIN) or self.Best
 
 	self:_buildBoard()
 	self:_buildChrome()
 	self:_respawn()
 	self:_refreshLabels()
-	self:_idleMessage()
+	self:IdleMessage()
 	self:_draw()
-	self:_connectInput()
+	self:ConnectDirectionalKeys(function(x: number, y: number)
+		self:_turn(x, y)
+	end)
 
-	self.Heartbeat = RunService.Heartbeat:Connect(function(deltaTime: number)
+	self:StartHeartbeat(function(deltaTime: number)
 		self:_step(deltaTime)
 	end)
 end
@@ -472,32 +296,12 @@ function Snake:Reset()
 	self.MessageUntil = 0
 	self:_respawn()
 	self:_refreshLabels()
-	self:_idleMessage()
+	self:IdleMessage()
 	self:_draw()
 end
 
-function Snake:Destroy()
-	self.State = "dead"
-
-	if self.Heartbeat then
-		self.Heartbeat:Disconnect()
-		self.Heartbeat = nil
-	end
-
-	for _, connection in self.Connections do
-		connection:Disconnect()
-	end
-	table.clear(self.Connections)
-
+function Snake:OnDestroy()
 	table.clear(self.SegmentFrames)
-	self.Root:ClearAllChildren()
 end
 
-return {
-	Id = "Snake",
-	Title = "SNAKE.EXE",
-	SupportsReset = true,
-	new = function(root: Frame, api: Api)
-		return Snake.new(root, api)
-	end,
-}
+return Snake

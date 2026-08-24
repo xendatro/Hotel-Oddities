@@ -3,8 +3,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local AudioService = require(ReplicatedStorage.Services.AudioService)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local HeartbeatConfig = require(ReplicatedStorage.Configs.HeartbeatConfig)
+local MathService = require(ReplicatedStorage.Services.MathService)
 local TagService = require(ReplicatedStorage.Services.TagService)
 
 local HeartbeatService = {}
@@ -18,7 +20,6 @@ local ENEMY_ID_ATTRIBUTE = "EnemyId"
 local BUS = "SFX"
 
 local localPlayer = Players.LocalPlayer
-local Templates = ReplicatedStorage:WaitForChild("Sounds")
 
 local track: { Player: AudioPlayer, Shifter: AudioPitchShifter }? = nil
 local volume = 0
@@ -29,22 +30,9 @@ local function isHeartbeatEnemy(instance: Instance): boolean
 	return instance:IsA("Model") and instance:GetAttribute(ENEMY_ID_ATTRIBUTE) == HeartbeatConfig.EnemyId
 end
 
-local function findTemplate(): Instance?
-	for _, candidate in Templates:GetChildren() do
-		if candidate.Name ~= HeartbeatConfig.Template then continue end
-		local source = if candidate:IsA("AudioPlayer") then candidate else candidate:FindFirstChild("Player")
-		if source and source:IsA("AudioPlayer") and source.Asset ~= "" then
-			return candidate
-		end
-	end
-	return nil
-end
-
 local function getNearness(): (number, boolean)
-	local character = localPlayer.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid") :: Humanoid?
-	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not humanoid or not root or humanoid.Health <= 0 then return 0, false end
+	local root = CharacterService.GetAliveRoot(localPlayer)
+	if not root then return 0, false end
 
 	local nearest = math.huge
 	local pursuing = false
@@ -62,12 +50,11 @@ local function getNearness(): (number, boolean)
 	if nearest > HeartbeatConfig.Range then return 0, false end
 
 	local span = math.max(HeartbeatConfig.Range - HeartbeatConfig.FullDistance, 1e-3)
-	local normalized = math.clamp((HeartbeatConfig.Range - nearest) / span, 0, 1)
-	return normalized * normalized * (3 - 2 * normalized), pursuing
+	return MathService.Smoothstep((HeartbeatConfig.Range - nearest) / span), pursuing
 end
 
 local function startTrack(): boolean
-	local source = findTemplate()
+	local source = AudioService:FindTemplate(HeartbeatConfig.Template)
 	if not source then
 		if not warned then
 			warned = true
@@ -117,10 +104,10 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 			+ (HeartbeatConfig.Volume.Near - HeartbeatConfig.Volume.Far) * nearness
 		else 0
 	local fade = if goalVolume > volume then HeartbeatConfig.FadeInSpeed else HeartbeatConfig.FadeOutSpeed
-	volume += (goalVolume - volume) * (1 - math.exp(-fade * deltaTime))
+	volume += (goalVolume - volume) * MathService.ExpAlpha(fade, deltaTime)
 
 	local goalRate = if pursuing then HeartbeatConfig.Rate.Pursuit else HeartbeatConfig.Rate.Resting
-	rate += (goalRate - rate) * (1 - math.exp(-HeartbeatConfig.RateSpeed * deltaTime))
+	rate += (goalRate - rate) * MathService.ExpAlpha(HeartbeatConfig.RateSpeed, deltaTime)
 
 	if goalVolume <= 0 and volume < HeartbeatConfig.SilenceEpsilon then
 		stopTrack()
