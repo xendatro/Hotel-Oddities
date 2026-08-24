@@ -72,7 +72,7 @@ Bakes and serves the map-wide "danger" field: measures the extent of all `MazeFl
 - Requires: `Services.DangerFieldService`, `SpawnZoneService`, `DangerConfig`
 
 ### DataSaveService.luau
-ProfileService front-end: loads, reconciles and releases one `PlayerData` profile per player, and lets other code either grab a loaded profile or yield until it arrives. The template holds currency, sword ownership, inventory, processed receipts and discovered enemies.
+ProfileService front-end: loads, reconciles and releases one `PlayerData` profile per player, and lets other code either grab a loaded profile or yield until it arrives. The template holds currency, sword ownership, inventory, processed receipts, discovered enemies and discovered map intervals.
 - API: `DataSaveService:Get(player: Player) -> Profile?` — nil until the profile finishes loading
 - API: `DataSaveService:Wait(player: Player) -> Profile?` — yields the calling thread until loaded
 - Requires: `ServerStorage.Services.ProfileService` (third-party), `ItemShopConfig`
@@ -322,6 +322,16 @@ Receives each client's camera pitch/yaw, rate-limits and clamps it, and stores i
 - Remotes: `Look/Update` (listened)
 - Tags: listens `Enemy`
 - Requires: `LookConfig` (`SendInterval`, `MaxPitch`, `MaxYaw`, `MimicUpdateInterval`), `CharacterService.CleanupOnLeave`
+
+### MapDiscoveryService.luau
+Server owner of per-player map discovery. On a fixed tick it projects each living player's position onto every hallway rectangle, computes the exact span of that hallway covered by the discovery radius (accounting for lateral distance, so a player in a crossing corridor reveals only what they could see of it), and unions that span into the intervals already stored for that hallway. Growth below the configured threshold is discarded, so standing still costs nothing and neither the profile nor the network sees churn. Discovery lives in the player's profile under `DiscoveredMap` and therefore persists across runs. The full hallway rectangle list is sent once on join so the client can render correctly even where streaming has removed the geometry.
+- API: `MapDiscoveryService:GetLayout() -> { any }` — the hallway rectangle list, keyed by quantised world position
+- API: `MapDiscoveryService:GetDiscovered(player: Player) -> { [string]: Interval }?`
+- API: `MapDiscoveryService:Sync(player: Player)` — sends layout plus stored discovery
+- API: `MapDiscoveryService:Update(player: Player)` — one discovery pass, replicating any hallway that grew
+- Remotes: `Map/Sync` (fired), `Map/Reveal` (fired)
+- Tags: reads `MazeFloor`, `HallwayRoomFloor` through `HallwaysService`
+- Requires: `ReplicatedStorage.Configs.MapConfig`, `CharacterService`, `CommunicationService`, `HallwaysService`, `DataSaveService`
 
 ### MapCommandService.luau
 Admin `/map` command that teleports the caller straight into the maze via `ElevatorService:SendToMap`, warning on failure and logging how long the trip took.

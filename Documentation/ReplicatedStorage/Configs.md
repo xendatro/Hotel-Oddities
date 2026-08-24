@@ -119,6 +119,9 @@ Tuning for the client-side pendulum simulation that makes hanging hallway lanter
 Settings for the look-direction system that replicates each player's aim to neck and waist joints on other clients.
 - API: data table — `SendInterval`, `SendThreshold`, `MaxPitch`, `MaxYaw`, `Neck`, `Waist`, `Smoothing`, `MimicUpdateInterval`, `Debug`
 
+### MapConfig.luau
+Everything tuning the discoverable map: remote names, the `Map` ScreenGui paths, discovery radius and tick rate, canvas resolution and margin, hand-drawn ink style (colour, opacity, width and its variance, wobble amplitude and frequency, overshoot, bleed), danger layer colours, and marker sizing and effect timings.
+
 ### MapOddityConfig.luau
 Roll timings, durations and per-effect tuning for the hallway/map oddity system (transparent hallways, doors opening, hallway chaos, gaze-gated blockers).
 - API: data table — `Enabled`, `RollInterval`, `InitialDelay`, `TriggerChance`, `MinDuration`, `MaxDuration`, `MinimumPlayerDistance`, `Effects` (`Transparency`, `DoorsOpen`, `HallwayChaos`, `HallwayBlocker`, `ChaosWarning`), plus hallway detection keys `HallwayTransparency`, `HallwayHeightWindow`, `HallwayBelowWindow`, `SpatialPadding`, `MinimumPartHallwayFraction`

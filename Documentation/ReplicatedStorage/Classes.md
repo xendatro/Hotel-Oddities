@@ -111,6 +111,16 @@ Per-player billboard marker for the player locator: headshot bubble, halo, name 
 - API: `LocatorMarker:Destroy()`
 - Requires: `Configs.PlayerLocatorConfig`, `Services.AudioService`
 
+### MapCanvas.luau
+A software pixel canvas backing an `EditableImage`. Owns an RGBA `buffer` it composites into with a soft round brush, then pushes only the changed rectangle through `WritePixelsBuffer`. Compositing takes the maximum alpha rather than blending over, which makes repeated drawing of the same ink idempotent and removes seams where separately drawn strokes meet.
+- API: `MapCanvas.new(resolution: number) -> MapCanvas` — creates the buffer and the EditableImage
+- API: `MapCanvas:Stamp(x, y, radius, color, alpha)` — one antialiased round brush dab
+- API: `MapCanvas:Stroke(points: { Vector2 }, widthAt: (number) -> number, color, alpha)` — stamps along a polyline with a width that varies by progress
+- API: `MapCanvas:Flush()` — writes the dirty rectangle and clears it
+- API: `MapCanvas:Clear()` — zeroes the buffer and writes the whole canvas
+- API: `MapCanvas:ResetDirty()`
+- API: `MapCanvas:Destroy()`
+
 ### MotionTrail.luau
 Rolling buffer of a humanoid's recent position, move vector, look vector and jumping flag, trimmed to a duration window. Used to replay or follow a character a few seconds behind.
 - API: `MotionTrail.new(humanoid: Humanoid, rootPart: BasePart, duration: number?) -> MotionTrail` — default window 4s

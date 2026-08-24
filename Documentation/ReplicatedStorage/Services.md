@@ -388,6 +388,35 @@ Two halves of head/torso look-at: it reports the local camera's pitch and yaw re
 - Tags: reads `Enemy`
 - Requires: `Configs.LookConfig`, `MathService`
 
+### MapInkService.luau
+Client-only. Rasterises the hand-drawn map onto a `MapCanvas`. Every wall and dead-end cap is generated procedurally from the hallway rectangles: a per-wall seeded wobble (two summed sine harmonics keyed off the hallway coordinate, not the drawn piece, so progressively revealed sections line up seamlessly), a width that varies along the run and tapers at genuine ends, an overshoot past real corners, and a wider low-alpha bleed pass underneath. Junction mouths and partially revealed spans are subtracted before drawing, so no wall is ever drawn across an opening. Drawing is append-only and idempotent because the canvas composites with max alpha.
+- API: `MapInkService:Attach(paper: ImageLabel)` — builds the canvas and its `Ink` ImageLabel, resetting drawn and style state
+- API: `MapInkService:Detach()` — destroys the label and canvas
+- API: `MapInkService:IsAttached() -> boolean`
+- API: `MapInkService:Reveal(key: string, packed: { number }) -> boolean` — draws only the not-yet-drawn part of a hallway's revealed intervals; false when nothing was new
+- API: `MapInkService:Flush()` — pushes the dirty rectangle to the EditableImage
+- API: `MapInkService:LoadDiscovered(store)` — replays a whole discovery table, yielding to stay inside a frame budget
+- Requires: `Configs.MapConfig`, `Classes.MapCanvas`, `Services.MapLayoutService`
+
+### MapLayoutService.luau
+Client-side geometric model of the map. Loads the hallway rectangle list the server sends, derives the world-to-canvas projection (square fit with a configurable margin), and precomputes, for each hallway, the intervals along both side walls and both end caps that are covered by another hallway. Those openings are what turn a grid of rectangles into a maze with connected corridors.
+- API: `MapLayoutService:Load(layout: { any })` — rebuilds entries, projection and openings
+- API: `MapLayoutService:IsLoaded() -> boolean`
+- API: `MapLayoutService:GetEntries() -> { Entry }`
+- API: `MapLayoutService:Get(key: string) -> Entry?`
+- API: `MapLayoutService:GetScale() -> number` — canvas pixels per stud
+- API: `MapLayoutService:ToCanvas(worldX: number, worldZ: number) -> Vector2`
+- API: `MapLayoutService:WallPoint(entry: Entry, side: number, along: number) -> Vector2`
+- API: `MapLayoutService:Subtract(minimum, maximum, openings) -> { { number } }` — interval minus a packed opening list
+- Requires: `Configs.MapConfig`
+
+### MapService.luau
+Client-only front end for the map. Waits for the `Map` ScreenGui's paper `ImageLabel`, loads each sync into `MapLayoutService`, attaches `MapInkService` to the paper, replays stored discovery, and applies incremental reveals with a deferred flush so a burst of reveals costs one write. Also owns the local player marker, repositioned every render step.
+- API: `MapService:GetPaper() -> ImageLabel?`
+- API: `MapService:ToPaperScale(worldX: number, worldZ: number) -> UDim2` — world position as a scale offset inside the paper
+- Remotes: `Map/Sync` (listened), `Map/Reveal` (listened)
+- Requires: `Configs.MapConfig`, `CharacterService`, `CommunicationService`, `MapInkService`, `MapLayoutService`
+
 ### MarketplaceService\init.luau
 Wrapper around Roblox's own MarketplaceService that adds a shared server/client gamepass-ownership cache, cross-boundary purchase prompts, and a registry of per-product receipt handlers. Server also grants the VIP pass to holders of a legacy VIP subscription. `extend` merges the real MarketplaceService in, so every native member is still reachable through this module.
 - API: `MarketplaceService:PromptProductPurchase(player: Player, productId: number)` — server relays to the owning client, client prompts
