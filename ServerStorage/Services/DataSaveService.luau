@@ -18,6 +18,8 @@ local PROFILE_TEMPLATE = {
 	ProcessedItemReceipts = {},
 
 	DiscoveredEnemies = {},
+	DiscoveredMap = {},
+	DiscoveredLandmarks = {},
 }
 
 local ProfileStore = ProfileService.GetProfileStore(PROFILE_STORE_NAME, PROFILE_TEMPLATE)

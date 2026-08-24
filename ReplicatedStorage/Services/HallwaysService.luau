@@ -55,6 +55,10 @@ local function toHallway(part: BasePart, isRoomFloor: boolean): Hallway
 	}
 end
 
+function Hallways.FromPart(part: BasePart, isRoomFloor: boolean?): Hallway
+	return toHallway(part, isRoomFloor == true)
+end
+
 local Cached: { [boolean]: { Hallway } } = {}
 
 function Hallways.Invalidate()

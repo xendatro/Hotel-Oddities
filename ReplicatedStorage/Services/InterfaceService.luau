@@ -28,25 +28,26 @@ local controller = xenterface:Controller(PAGE_GROUP)
 local blur = Lighting:WaitForChild("InterfaceBlur") :: BlurEffect
 
 local pageNames = {
-	Index = "IndexGui",
-	Shop = "ShopUI",
-	Vip = "VipPerksUI",
-	Gems = "GemsUI",
-	Items = "ItemsGui",
+	Index = { Gui = "IndexGui", Root = "Design" },
+	Shop = { Gui = "ShopUI", Root = "Design" },
+	Vip = { Gui = "VipPerksUI", Root = "Design" },
+	Gems = { Gui = "GemsUI", Root = "Design" },
+	Items = { Gui = "ItemsGui", Root = "Design" },
+	Map = { Gui = "Map", Root = "Main" },
 }
 
 local pageGuis: { [string]: ScreenGui } = {}
-for pageId, guiName in pageNames do
-	local screenGui = playerGui:WaitForChild(guiName, 10) :: ScreenGui?
+for pageId, page in pageNames do
+	local screenGui = playerGui:WaitForChild(page.Gui, 10) :: ScreenGui?
 	if not screenGui then
-		warn(`InterfaceService: {guiName} did not replicate within 10 seconds`)
+		warn(`InterfaceService: {page.Gui} did not replicate within 10 seconds`)
 		continue
 	end
 	pageGuis[pageId] = screenGui
 	screenGui.Enabled = false
 
-	local design = screenGui:WaitForChild("Design") :: GuiObject
-	design.Visible = false
+	local root = screenGui:WaitForChild(page.Root) :: GuiObject
+	root.Visible = false
 end
 
 type MotionState = {
