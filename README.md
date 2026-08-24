@@ -61,7 +61,7 @@ extend it instead of writing a second copy.
 | `Spring` | `ReplicatedStorage\Classes` | Spring integrator for smoothed motion |
 | `ToolBase` / `ClientTool` / `ServerTool` | `ReplicatedStorage\Classes`, `ServerStorage\Classes` | Base classes for the two halves of every tool |
 | `EnemyBase` | `ServerStorage\Classes` | Base class every enemy extends |
-| `NPC` | `ServerStorage\Classes` | Base class for non-enemy characters |
+| `NPC` | `ServerStorage\Classes` | Base class for pathfinding humanoid enemies |
 | `Oddity` / `PropOddity` / `PlayerOddity` / `HallwayOddity` / `FixtureFall` | `ServerStorage\Classes` | The oddity hierarchy every concrete oddity extends |
 
 Never add files to a `Modules\` folder — those are legacy. New shared helpers
