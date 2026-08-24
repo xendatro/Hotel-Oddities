@@ -62,7 +62,7 @@ The full humanoid-enemy base: pathfinding with prefetch, direct-pursuit/lane-cle
 - API: `NPC.SharedStates` — reusable state functions: `Attack`, `Idle`, `Wander`, `Patrol`, `Stunned`, `RoomReaction`, `Despawn`.
 - Subclass: `Class = NPC.extend(name)`, `Class.new` calls `NPC.new(model, config, Class)`, and `Class:BuildStateMachine()` returns the state table/triggers/evaluators. Overriding `Start`/`Despawn` must call `NPC.Start(self)` / `NPC.Despawn(self)`. Config supplies WalkSpeed, ChaseSpeed, DetectionRange, FieldOfView, GiveUpRange, AgentParams, IdleTime*, IdleNextState, AttackCooldown, and optional ObservationRange/ObservationHold, RespectsSafeRooms, Repath*/Commit*/DirectPursuit* tuning. Optional hooks a subclass may define: `AttackLostState`, `StopMirroring`, `_laneProbeDrop`.
 - Tags: applies `Enemy`; applies `Observable` when `Config.ObservationRange` is set
-- Requires: `Classes.StateMachine`, `Classes.NpcAnimator`, `Classes.Race`, `Modules.Vanished`, `Configs.DangerConfig`, `DangerMapService`, `HallwayGraphService`, `RoomService`, `EnemyObservationService`, `DeathService`
+- Requires: `Classes.StateMachine`, `Classes.NpcAnimator`, `Classes.Race`, `Services.VanishedService`, `Configs.DangerConfig`, `DangerMapService`, `HallwayGraphService`, `RoomService`, `EnemyObservationService`, `DeathService`
 
 ### Healer.luau
 Server tool that restores health on activation. Consumes one unit from the inventory, plays the configured sound at the character's primary part, then heals up to `MaxHealth`.
@@ -80,8 +80,22 @@ Prop oddity that unanchors a fixture so it falls: it welds every part to the lar
 - API: `FixtureFall.DescribeNotFixed(oddity, pivot: Vector3, gazeTarget, timerLabel: string, gazeIgnore: { Instance }?) -> string?` — reusable reason string, or nil when fixable.
 - API: `FixtureFall:WhyNotFixed() -> string?` — the above applied to this model.
 - API: `FixtureFall:IsReadyToFix() -> boolean`
-- Requires: `ServerStorage.Classes.PropOddity`, `ServerStorage.Modules.Gaze`; optional subclass hooks `OnFall`, `OnLoose`, `OnRestore`
+- Requires: `ServerStorage.Classes.PropOddity`, `ServerStorage.Services.GazeService`; optional subclass hooks `OnFall`, `OnLoose`, `OnRestore`
 - Notes: settings read via `Oddity:Setting` — `CollisionGroup`, `MinGroundTime`, `FixClearDistance`, `FixViewCone`, `FixViewDistance`
+
+### FixturePool.luau
+Class that keeps a rolling set of tagged hallway fixture models "armed" near living players, drops one as an oddity when a player walks back toward it after leaving the arm radius, and stops the oddity once it is ready to be fixed. Only runs its heartbeat loop if `OddityService:IsEnabled` for the class's scope; all distances and chances come from the owning class's `Settings`.
+- API: `FixturePool.new(class: any, label: string)` — class supplies `Settings`, `Scope`, and optional `IsCandidate`
+- API: `FixturePool:Setting(name: string, fallback: number) -> number`
+- API: `FixturePool:Log(message: string)` — only when `Settings.DebugLog`
+- API: `FixturePool:PointFor(model: Model) -> Vector3?` — cached hallway floor point
+- API: `FixturePool:ArmDistance() -> number`
+- API: `FixturePool:Drop(model: Model) -> boolean` — starts the oddity and tracks repair
+- API: `FixturePool:GetArmed() -> { Model }`
+- API: `FixturePool:GetFallen() -> { [Model]: any }`
+- API: `FixturePool:Nearest(position: Vector3) -> (Model?, number)`
+- Tags: reads `Settings.Tag` via `CollectionService:GetTagged`
+- Requires: `ServerStorage.Services.OddityService`, `ReplicatedStorage.Services.HallwaysService`, `ReplicatedStorage.Services.VanishedService`
 
 ### HallwayOddity.luau
 Base class for map-scope oddities that occupy a hallway span rather than a single prop. It resolves and picks hallway spans, caches the span's bounding box, and offers a helper for broadcasting door actions to all clients.
@@ -92,7 +106,7 @@ Base class for map-scope oddities that occupy a hallway span rather than a singl
 - API: `HallwayOddity:Start(span: HallwayRegion.Span, duration: number?) -> boolean` — caches `BoxCFrame`/`BoxSize`, then `Oddity.Start`.
 - API: `HallwayOddity:FireMapDoors(action: string, ...)` — fires `Oddities/MapDoors` to all clients with this oddity's token.
 - Remotes: `Oddities/MapDoors` (fired)
-- Requires: `ServerStorage.Classes.Oddity`, `ServerStorage.Modules.HallwayRegion`, `ServerStorage.Modules.OddityRemotes`
+- Requires: `ServerStorage.Classes.Oddity`, `ServerStorage.Services.HallwayRegionService`, `ReplicatedStorage.Services.CommunicationService`
 - Notes: class fields `Scope = "Map"`, `ConfigName = "MapOddityConfig"`, `RequiresPlayer`, `IncludeRoomFloors`
 
 ### ServerTool.luau
@@ -188,7 +202,7 @@ An NPC that ignores pathfinding entirely and floats along published `GhostMotion
 - API: `Ghost:BuildStateMachine() -> StateMachine` — Drift/Lurk/Vanish/Despawn.
 - API: `Ghost:FloatTo(goal: Vector3) -> boolean` — flies one leg; true if it ended up near a player.
 - Tags: applies `Ghost` (plus `Enemy` from NPC)
-- Requires: `ServerStorage.Classes.NPC`, `Modules.GhostMotion`, `Modules.Hallways`, `ServerStorage.Modules.Gaze`, `GhostAreaService`, `DangerMapService`, `Configs.GhostConfig`
+- Requires: `ServerStorage.Classes.NPC`, `Services.GhostMotionService`, `Services.HallwaysService`, `ServerStorage.Services.GazeService`, `GhostAreaService`, `DangerMapService`, `Configs.GhostConfig`
 - Notes: overrides `Start`, `Despawn`, `BuildStateMachine`; has no Chase/Attack states at all
 
 ### Enemies\Mimic.luau
@@ -206,7 +220,7 @@ The most elaborate enemy: it copies a random living player's appearance, name, v
 - API: `Mimic:StartFloat()` / `Mimic:StopFloat()` — hip-height rise with a sine bob; shows/hides the chase face.
 - API: `Mimic:ShowChaseFace()` / `Mimic:HideChaseFace()` — builds the welded eyes/mouth/teeth model procedurally.
 - Remotes: `Enemies/Mirror` (fired), `Enemies/MimicReveal` (fired)
-- Requires: `ServerStorage.Classes.NPC` extended from `Enemies.Chaser`, `Modules.MimicMotion`, `Configs.MimicConfig`, `Configs.AnimationConfig`, `HallwayGraphService`, `RoomService`, `EnemyDiscoveryService`
+- Requires: `ServerStorage.Classes.NPC` extended from `Enemies.Chaser`, `Services.MimicMotionService`, `Configs.MimicConfig`, `Configs.AnimationConfig`, `HallwayGraphService`, `RoomService`, `EnemyDiscoveryService`
 - Notes: overrides `Start`, `Despawn`, `BuildStateMachine`; delegates the actual chase to `Chaser.Chase(..., false)`; sets `_laneProbeDrop` while floating so lane checks account for the raised hips
 
 ### Enemies\Sisters.luau
@@ -301,7 +315,7 @@ Extends `HallwayOddity`. Clones the `Gate` prop into a hallway span and drops it
 - API: `HallwayBlocker.Pick(class: any) -> HallwayRegion.Span?` — weighted-distant span, unseen preferred
 - API: `HallwayBlocker:OnStart() -> boolean` — clones/aligns the gate, records the span as active
 - API: `HallwayBlocker:OnStop()` — destroys the gate, frees the span
-- Requires: `Classes\HallwayOddity`, `Modules\Gaze`, `Modules\HallwayRegion`, `Services\HallwayGraphService`, `ReplicatedStorage\Modules\Hallways`, `ReplicatedStorage.Props.Other.Gate`
+- Requires: `Classes\HallwayOddity`, `Services\GazeService`, `Services\HallwayRegionService`, `Services\HallwayGraphService`, `ReplicatedStorage\Services\HallwaysService`, `ReplicatedStorage.Props.Other.Gate`
 
 ### Oddities\HallwayChaos.luau
 Extends `HallwayOddity`. Full panic event in one hallway: lights flicker chaotically along the span for the whole duration while every door in the box slams open and shut.
@@ -330,13 +344,13 @@ Extends `PropOddity`. Spawns a humanoid rig hidden behind a painting's `Canvas`,
 - API: `PaintingDweller:OnStop()` — retreat tween, destroys the rig, restores decals and clears `OddityBusy`
 - Remotes: `Oddities/PaintingDwellerPop` (fired to nearby players)
 - Tags: reads `Room`
-- Requires: `Classes\PropOddity`, `Classes\FixtureFall` (for `DescribeNotFixed`), `Services\DeathService`, `Services\LightService`, `Modules\OddityRemotes`, `ReplicatedStorage\Services\CharacterService`, `ReplicatedStorage\Modules\Hallways`, `ReplicatedStorage\Modules\Vanished`, `ReplicatedStorage.Enemies` rig templates
+- Requires: `Classes\PropOddity`, `Classes\FixtureFall` (for `DescribeNotFixed`), `Services\DeathService`, `Services\LightService`, `ReplicatedStorage\Services\CommunicationService`, `ReplicatedStorage\Services\CharacterService`, `ReplicatedStorage\Services\HallwaysService`, `ReplicatedStorage\Services\VanishedService`, `ReplicatedStorage.Enemies` rig templates
 
 ### Oddities\PaintingFall.luau
 Extends `FixtureFall` (via `PropOddity`). Knocks a wall painting loose and shoves it away from the hallway centre line with a lift and a random spin so it clatters onto the floor.
 - API: `PaintingFall.new(config: { [string]: any }?)`
 - API: `PaintingFall:OnLoose(model: Model, root: BasePart)` — applies the linear and angular impulses
-- Requires: `Classes\FixtureFall`, `ReplicatedStorage\Modules\Hallways`, `ReplicatedStorage\Services\MathService`
+- Requires: `Classes\FixtureFall`, `ReplicatedStorage\Services\HallwaysService`, `ReplicatedStorage\Services\MathService`
 
 ### Oddities\PlayerHeadStare.luau
 Extends `PlayerOddity`. Tells one player's client to run the head-stare effect for the duration; only available when at least `MinimumPlayersForHeadStare` (default 3) players are alive.
@@ -346,7 +360,7 @@ Extends `PlayerOddity`. Tells one player's client to run the head-stare effect f
 - API: `PlayerHeadStare:OnStart() -> boolean` — fires the remote with the duration
 - API: `PlayerHeadStare:OnStop()` — fires the remote with 0 to cancel
 - Remotes: `Oddities/HeadStare` (fired to the victim)
-- Requires: `Classes\PlayerOddity`, `Modules\OddityRemotes`, `ReplicatedStorage\Services\CharacterService`
+- Requires: `Classes\PlayerOddity`, `ReplicatedStorage\Services\CommunicationService`, `ReplicatedStorage\Services\CharacterService`
 
 ### Oddities\PlayerSize.luau
 Extends `PlayerOddity`. Rescales the victim's character by a random multiplier from the config's `SizeOptions` list and restores the original scale on stop.
@@ -411,7 +425,7 @@ Server half of the spell book: on activation it tags the caster as vanished, fre
 - API: `SpellBook:OnActivated()` — the cast sequence
 - API: `SpellBook:OnCleanup()` / `SpellBook:OnDestroy()` — tear down effects and restore the caster
 - Tags: applies `Vanished.Tag`
-- Requires: `Classes\ServerTool`, `ReplicatedStorage\Modules\Vanished`, `ReplicatedStorage.Props.Other` (`BookEffects`, `VFXDummy`)
+- Requires: `Classes\ServerTool`, `ReplicatedStorage\Services\VanishedService`, `ReplicatedStorage.Props.Other` (`BookEffects`, `VFXDummy`)
 
 ### Tools\Trap.luau
 Server half of the bear trap: activation consumes one, plays the placement sound and clones the `Trap` prop at the player's pivot, destroying the oldest placed trap once more than `MaxInWorld` exist.

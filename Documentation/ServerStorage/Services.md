@@ -15,21 +15,21 @@ Watches players approaching parts tagged `CeilingVent` and, when one walks under
 - API: `CeilingVentService:SpawnFromNearest(player: Player) -> boolean` — force-triggers the closest untriggered vent
 - Remotes: `Enemies/CeilingDwellerCamera` (fired), `Enemies/CeilingVentDoor` (fired)
 - Tags: listens `CeilingVent`; reads `MazeFloor` for the drop raycast
-- Requires: `Modules.Vanished`, `CrouchConfig`, `DangerConfig.ProgrammaticVents`, `DangerMapService`, `EnemyService`, `EnemyDirectorService`, `TagService`
+- Requires: `Services.VanishedService`, `CrouchConfig`, `DangerConfig.ProgrammaticVents`, `DangerMapService`, `EnemyService`, `EnemyDirectorService`, `TagService`
 
 ### ChaosService.luau
 Plans a long looping hallway route through the graph, schedules red-light and hallway-oddity warnings timed to the enemy's arrival at each point, then spawns the Chaos enemy to walk that route. Warnings are culled while no player is near and can be cancelled wholesale before the spawn fires.
 - API: `ChaosService:Spawn(onSpawned: ((any) -> ())?) -> boolean` — random loop route from a danger-weighted start node
 - API: `ChaosService:SpawnThrough(player: Player, onSpawned: ((any) -> ())?) -> boolean` — route forced through the player's current position
 - API: `ChaosService:CancelPending() -> number` — cancels every scheduled spawn/warning, returns how many
-- Requires: `Modules.Hallways`, `EnemyConfigs.Chaos`, `HallwayGraphService`, `DangerMapService`, `LightService:WarnRed`, `MapOddityService:Warn`, `EnemyService`
+- Requires: `Services.HallwaysService`, `EnemyConfigs.Chaos`, `HallwayGraphService`, `DangerMapService`, `LightService:WarnRed`, `MapOddityService:Warn`, `EnemyService`
 
 ### ChaseFlickerService.luau
 Background loop that flickers the lights in the hallway containing a chased player whenever a CeilingDweller or Mimic is in a Chase or Attack state. No public API; disabled when `FLAGS.Enemies` is off.
 - Requires: `EnemyService:ForEachActive`, `LightService:FlickerHallwayContaining`
 
 ### ChatCommandService.luau
-Shared registry for `/command` chat commands: other modules call `.Register` and this service parses every player's chat, matches the command name or alias, enforces the admin gate and invokes the handler. Handlers receive `(player, argument)` where `argument` is the trimmed remainder of the message or `nil` when empty; admin-only commands are allowed in Studio or for the hardcoded `AdminUserIds`. Registered by `ComputerCommandService` (`/hack`, admin), `EnemyCommandService` (`/spawn`, `/peek`, `/despawn`, `/vent`, `/enemies`, non-admin), plus `InvincibleCommandService`, `MapCommandService`, `MapOddityCommandService`, `LanternSwingCommandService`, `PlayerOddityCommandService`, `ToolCommandService` and `Modules.FixtureCommand`.
+Shared registry for `/command` chat commands: other modules call `.Register` and this service parses every player's chat, matches the command name or alias, enforces the admin gate and invokes the handler. Handlers receive `(player, argument)` where `argument` is the trimmed remainder of the message or `nil` when empty; admin-only commands are allowed in Studio or for the hardcoded `AdminUserIds`. Registered by `ComputerCommandService` (`/hack`, admin), `EnemyCommandService` (`/spawn`, `/peek`, `/despawn`, `/vent`, `/enemies`, non-admin), plus `InvincibleCommandService`, `MapCommandService`, `MapOddityCommandService`, `LanternSwingCommandService`, `PlayerOddityCommandService`, `ToolCommandService` and `Services.FixtureCommandService`.
 - API: `ChatCommandService.Register(name: string, options: { Aliases: { string }?, AdminOnly: boolean?, Handler: (player: Player, argument: string?) -> () })` — names and aliases are lowercased; registering the same name again adds another handler and every handler for a matched name runs
 - API: `ChatCommandService.IsAllowed(player: Player) -> boolean` — true in Studio or for an id in `AdminUserIds`
 - API: `ChatCommandService.FindPlayer(name: string) -> Player?` — matches Name, DisplayName or UserId, case-insensitively
@@ -69,7 +69,7 @@ Bakes and serves the map-wide "danger" field: measures the extent of all `MazeFl
 - API: `DangerMapService:GetPoints() -> { SpawnPoint }`
 - API: `DangerMapService:PickPoint(bias: number, accept: (SpawnPoint) -> boolean, attempts: number) -> SpawnPoint?` — danger-weighted draw with rejection
 - Tags: reads `MazeFloor`, `Start`
-- Requires: `Modules.DangerField`, `DangerConfig`
+- Requires: `Services.DangerFieldService`, `DangerConfig`
 
 ### DataSaveService.luau
 ProfileService front-end: loads, reconciles and releases one `PlayerData` profile per player, and lets other code either grab a loaded profile or yield until it arrives. The template holds currency, sword ownership, inventory, processed receipts and discovered enemies.
@@ -163,12 +163,17 @@ The enemy factory and registry: sets up the Enemies/Players/Furniture collision 
 - API: `EnemyService:DespawnAll()`
 - API: `EnemyService.CollisionGroup` — the string `"Enemies"`
 - Tags: reads `Furniture`
-- Requires: `ServerStorage.Classes.Enemies.*`, `EnemyConfigs`, `ReplicatedStorage.Enemies` models, `Modules.PerfLog`
+- Requires: `ServerStorage.Classes.Enemies.*`, `EnemyConfigs`, `ReplicatedStorage.Enemies` models, `Services.PerfLoggerService`
 
 ### EyeHitService.luau
 Only exists to guarantee the `Enemies/EyeHit` RemoteEvent, replacing any wrongly-typed instance of that name. Returns a table holding the remote rather than a service.
 - API: data table — a single `Remote` key holding the `Enemies/EyeHit` RemoteEvent
 - Remotes: `Enemies/EyeHit` (ensured)
+
+### FixtureCommandService.luau
+Registers a chat command for a FixturePool so a developer can teleport to the nearest armed fixture or force the nearest one to drop. Warns feedback to the server output; ignores arguments starting with `swing`.
+- API: `FixtureCommand.Bind(pool: any, label: string, names: { string })` — first name is the command, the rest become aliases
+- Requires: `ServerStorage.Services.ChatCommandService`; expects a `FixturePool`-shaped object (`GetArmed`, `PointFor`, `Nearest`, `Drop`, `ArmDistance`)
 
 ### FriendReviveService.luau
 Sells a paid "revive your friend" offer: when a player has a pending death, every friend in the server is offered a prompt, and a claimed offer triggers a developer-product purchase that grants the revive. Friendship results are cached per user-id pair and cleared on leave; the whole service no-ops unless the ReviveFriend product id is configured.
@@ -181,28 +186,48 @@ Caches each player's gamepass ownership at join time by querying every id in `Ga
 - API: `GamepassService:UserOwnsGamepass(player: Player, id: number) -> boolean` — cache lookup only, never yields
 - Requires: `ServerStorage.Configs.GamepassConfigs`, `CharacterService.ForEachPlayer` / `.CleanupOnLeave`
 
+### GazeService.luau
+Server-side line-of-sight library: builds a short-lived cache of living, non-vanished player viewers (eye position and look vector from `EnemyObservationService`) and answers whether a point, part or model falls inside a viewer's cone with a clear raycast. Also provides a small Tracker object that accumulates seen/unseen durations across updates.
+- API: `Gaze.Viewers() -> { Viewer }` — cached ~0.05s
+- API: `Gaze.ViewerFor(player: Player) -> Viewer?`
+- API: `Gaze.Sees(viewer: Viewer, target: Target, options: Options?) -> boolean` — options: `Cone`, `MaxDistance`, `Samples`, `Horizontal`, `LineOfSight`, `Ignore`, `Players`
+- API: `Gaze.IsLookedAtBy(player: Player, target: Target, options: Options?) -> boolean`
+- API: `Gaze.IsLookedAt(target: Target, options: Options?) -> (boolean, Player?)`
+- API: `Gaze.Watchers(target: Target, options: Options?) -> { Player }`
+- API: `Gaze.new(target: Target, options: Options?) -> Tracker`
+- API: `Tracker:Update() -> boolean` — refreshes `Watchers`, `SeenFor`, `UnseenFor`
+- API: `Tracker:Retarget(target: Target)` — swaps target and resets timers
+- Requires: `ServerStorage.Services.EnemyObservationService`, `ReplicatedStorage.Services.CharacterService`, `ReplicatedStorage.Services.VanishedService`
+
 ### GhostAreaService.luau
 Picks hover points for the Ghost enemy by choosing a hallway weighted by its floor area, sampling a random point over it, and lifting the point to the ghost's hover height. Points within `VanishDistance` of any living player are rejected, up to 12 attempts.
 - API: `GhostAreaService:IsPlayerNear(position: Vector3) -> boolean` — any alive player within `Config.VanishDistance`
 - API: `GhostAreaService:GetRandomPoint() -> Vector3?` — area-weighted hover point, or nil if none is clear
-- Requires: `EnemyConfigs.Ghost`, `ReplicatedStorage.Modules.Hallways`, `CharacterService.GetAliveRoot`
-
-### HallwayGraphService.luau
-Thin server-side alias that requires and re-exports `ReplicatedStorage.Modules.HallwayGraph` (the hallway node/route graph) plus its `RouteNode` type. It adds no behaviour of its own.
-- API: `HallwayGraph:Build() -> { RouteNode }`, `:Get()`, `:Invalidate()`, `:FindNearestNode(position)`, `:CountExits(node)`, `:FindPath(...)`, `:GetWalkingDistance(a, b)`, `:IsFarFromPlayers(position, distance)` — all forwarded unchanged
-- Requires: `ReplicatedStorage.Modules.HallwayGraph`
+- Requires: `EnemyConfigs.Ghost`, `ReplicatedStorage.Services.HallwaysService`, `CharacterService.GetAliveRoot`
 
 ### HallwayGridService.luau
 Finds hallway "corner mouths" near a viewer — graph nodes with a side branch roughly perpendicular to the line of sight — and returns the physical corner position derived from the widths of the crossing and branching hallways. Used to place things just out of view around a corner.
 - API: `HallwayGridService:GetCorners(eye: Vector3, floorY: number, minDistance: number, maxDistance: number) -> { Corner }` — each corner carries `Position`, `Axis` (eye-to-corner), `Lateral` (into the branch) and fixed `Depths = { 0, 2 }`
-- Requires: `HallwayGraphService`, `ReplicatedStorage.Modules.Hallways`, `MathService.Horizontal`
+- Requires: `HallwayGraphService`, `ReplicatedStorage.Services.HallwaysService`, `MathService.Horizontal`
+
+### HallwayRegionService.luau
+Helpers for treating a straight hallway span as a region: comparing spans (in either direction), finding the span at a position, building a padded bounding box for it, checking for players inside, and picking random spans that are distant, occupied, or danger-weighted.
+- API: `HallwayRegion.Same(first: Span, second: Span) -> boolean` — direction-agnostic within `SpatialPadding`
+- API: `HallwayRegion.At(position: Vector3, includeRoomFloors: boolean?) -> Span?`
+- API: `HallwayRegion.Box(span: Span) -> (CFrame, Vector3)` — padded volume using the config height windows
+- API: `HallwayRegion.HasPlayer(span: Span) -> boolean`
+- API: `HallwayRegion.RandomDistant() -> Span?`
+- API: `HallwayRegion.RandomDistantWeighted(dangerWeight: number, accept: ((Span) -> boolean)?) -> Span?`
+- API: `HallwayRegion.RandomBiased(occupiedChance: number) -> Span?`
+- API: `HallwayRegion.RandomOccupied() -> Span?`
+- Requires: `ReplicatedStorage.Configs.MapOddityConfig`, `ReplicatedStorage.Services.HallwaysService`, `ServerStorage.Services.DangerMapService`, `ReplicatedStorage.Services.CharacterService`
 
 ### HallwayStreamingService.luau
 Custom per-player streaming layer: it slices the `Maze15` map into per-hallway chunk Models (cut at junctions and lounge connectors), reparents map assets into them, and each Heartbeat tick adds/removes `PersistentPerPlayer` membership so each player only holds their current hallway plus warmed branches. It also gates teleports until the destination chunks are confirmed streamed in on the client, and repairs models the client reports as missing. If `StreamingConfig.Enabled` or `workspace.StreamingEnabled` is false it degrades to a plain `RequestStreamAroundAsync` wrapper.
 - API: `HallwayStreamingService:PrepareTeleport(player: Player, position: Vector3) -> boolean` — yields until the player's client confirms the destination models, false if it timed out
 - Remotes: `Streaming/PrepareTeleport` (fired), `Streaming/ClientReady` (listened), `Streaming/TeleportFailed` (fired), `Streaming/ExpectedModels` (fired), `Streaming/ReportMissing` (listened)
 - Tags: listens `HallwayRoomFloor`, `Enemy`, `StreamingConfig.IgnoreTag`; applies `StreamingConfig.ModelTag`
-- Requires: `StreamingConfig`, `ReplicatedStorage.Modules.Hallways` (`StraightSpans`), `HallwayGraphService`, `MathService.Horizontal`, `CharacterService.GetAliveRoot`
+- Requires: `StreamingConfig`, `ReplicatedStorage.Services.HallwaysService` (`StraightSpans`), `HallwayGraphService`, `MathService.Horizontal`, `CharacterService.GetAliveRoot`
 
 ### HearingService.luau
 Registry of "ears" (enemies, props) that want to be told about noises. It subscribes to `NoiseService`, filters each noise by radius and the ear's own `Accepts` predicate, then delays the callback by a distance-based travel time and announces the travelling sound to clients.
@@ -247,7 +272,7 @@ Admin toggle that marks a player's character with the `Vanished` tag, making the
 - API: `InvincibleCommandService:Set(player: Player, enabled: boolean)`
 - API: `InvincibleCommandService:Is(player: Player) -> boolean`
 - Tags: applies `Vanished.Tag` to the character
-- Requires: `ReplicatedStorage.Modules.Vanished`, `ChatCommandService` (registers admin-only `/invincible [on|off]` and `/mortal`)
+- Requires: `ReplicatedStorage.Services.VanishedService`, `ChatCommandService` (registers admin-only `/invincible [on|off]` and `/mortal`)
 
 ### ItemShopService.luau
 Coin-and-Robux item shop: it validates a purchase against `ItemShopConfig`, checks voice-chat eligibility for voice-gated items, spends coins from the DataSave profile and grants the tool through `InventoryService`. Robux products get a receipt handler with per-`PurchaseId` deduplication, and coin balances are mirrored to a `Coins` player attribute and to the client.
@@ -258,7 +283,7 @@ Coin-and-Robux item shop: it validates a purchase against `ItemShopConfig`, chec
 ### LanternFallService.luau
 Wires the `Prop/LanternFall` oddity class into a `FixturePool` labelled "lantern", which arms nearby lanterns, drops one when a player approaches, and repairs it afterwards. Returns an empty table if the oddity class was never registered.
 - API: `LanternFallService:Drop(model: Model) -> boolean`, `:GetArmed()`, `:GetFallen()`, `:Nearest(position)`, `:PointFor(model)`, `:ArmDistance()`, `:Setting(name, fallback)`, `:Log(message)` — all inherited from `FixturePool`
-- Requires: `ServerStorage.Modules.FixturePool`, `ServerStorage.Modules.FixtureCommand` (registers `/lantern` and `/lanterns`), `OddityService:Get("Prop", "LanternFall")`
+- Requires: `ServerStorage.Classes.FixturePool`, `ServerStorage.Services.FixtureCommandService` (registers `/lantern` and `/lanterns`), `OddityService:Get("Prop", "LanternFall")`
 
 ### LanternSwingCommandService.luau
 Handles the `/lantern swing [seconds]` chat command by finding the nearest swayable lantern model to the caller and asking `LightService` to flag it red for the given duration (default 15s). Non-"swing" arguments are ignored so `FixtureCommand` can handle them.
@@ -280,7 +305,7 @@ Central authority over every `Floor1Light` model: it captures each lamp's baseli
 - API: `LightService:FlickerAlongHallway(position: Vector3, duration: number)` — batched blackout of a whole hallway
 - API: `LightService:ReleaseFlicker(claim: FlickerClaim)`
 - Tags: listens `Floor1Light`, `Room`; applies/removes `NeonOff` on darkened neon parts
-- Requires: `ReplicatedStorage.Modules.Hallways`, `AudioService:Play3DSound("Flicker", ...)`, `TagService:GetTaggedOfPredicate`, `MathService.Horizontal`
+- Requires: `ReplicatedStorage.Services.HallwaysService`, `AudioService:Play3DSound("Flicker", ...)`, `TagService:GetTaggedOfPredicate`, `MathService.Horizontal`
 
 ### LoadoutService.luau
 Snapshots and restores a player's tools across events that wipe the inventory (death, elevator trips), preserving quantities and the attributes listed in `PerkConfig.Loadout.Attributes`.
@@ -344,7 +369,7 @@ Thin wrapper that builds a `FixturePool` around the `Prop/PaintingDweller` oddit
 - API: `PaintingDwellerService:GetFallen() -> {[Model]: any}` — models with a running oddity
 - API: `PaintingDwellerService:ArmDistance() -> number` — re-arm radius from settings
 - API: `PaintingDwellerService:PointFor(model: Model) -> Vector3?` — cached hallway floor point
-- Requires: `ServerStorage.Modules.FixturePool`, `ServerStorage.Modules.FixtureCommand`, `OddityService`; registers chat command `/dweller` (alias `/paintingdweller`)
+- Requires: `ServerStorage.Classes.FixturePool`, `ServerStorage.Services.FixtureCommandService`, `OddityService`; registers chat command `/dweller` (alias `/paintingdweller`)
 
 ### PaintingFallService.luau
 Same pattern as PaintingDwellerService but for the `Prop/PaintingFall` oddity — arms nearby paintings and drops them when a player walks toward one. Returns an empty table if the oddity class is not registered.
@@ -354,7 +379,7 @@ Same pattern as PaintingDwellerService but for the `Prop/PaintingFall` oddity �
 - API: `PaintingFallService:GetFallen() -> {[Model]: any}` — paintings with a running oddity
 - API: `PaintingFallService:ArmDistance() -> number` — re-arm radius from settings
 - API: `PaintingFallService:PointFor(model: Model) -> Vector3?` — cached hallway floor point
-- Requires: `ServerStorage.Modules.FixturePool`, `ServerStorage.Modules.FixtureCommand`, `OddityService`; registers chat command `/painting` (alias `/paintings`)
+- Requires: `ServerStorage.Classes.FixturePool`, `ServerStorage.Services.FixtureCommandService`, `OddityService`; registers chat command `/painting` (alias `/paintings`)
 
 ### PeekSpotService.luau
 Geometry search that finds a corner a stalker enemy can stand behind hidden from the player, then lean out of into view. Raycasts a sampled body rig against standing room, floor continuity, lean-arc clearance and every enemy's view cone.

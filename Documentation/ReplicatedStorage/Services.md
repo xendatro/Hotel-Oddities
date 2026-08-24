@@ -2,11 +2,16 @@
 
 Self-initializing at require time via the Init scripts. Never add an `:Init()` method.
 
+### AimService.luau
+Tiny math helper for pointing something at a target and easing a rotation toward a goal frame-rate-independently.
+- API: `Aim.Toward(position: Vector3, target: Vector3) -> CFrame` — rotation-only look-at
+- API: `Aim.Ease(rotation: CFrame, goal: CFrame, rate: number, deltaTime: number) -> CFrame` — exponential lerp toward goal
+
 ### AmbienceService.luau
 Client-only. Cycles the AudioPlayers under `ReplicatedStorage.Sounds.Ambience` one after another through a dedicated `AmbienceDuck` fader, fading that fader down as the walking distance to the nearest tagged enemy shrinks. Swaps to a looping `DeathAmbience` track while the death screen is up, and goes silent entirely on the lobby floor.
 - API: no public methods — runs entirely from its own Heartbeat connection.
 - Tags: reads `Enemy`
-- Requires: `Configs.AmbienceConfig`, `Modules.HallwayGraph`, `DeathScreenService`, `LobbyService`, `AudioService`
+- Requires: `Configs.AmbienceConfig`, `Services.HallwayGraphService`, `DeathScreenService`, `LobbyService`, `AudioService`
 
 ### AudioService.luau
 Central sound playback helper covering both the new `AudioPlayer`/`AudioEmitter` API and legacy `Sound` instances. Clones templates out of `ReplicatedStorage.Sounds`, wires them to named `AudioFader` buses under `workspace.Sounds`, keeps their volume tied to the bus, and destroys them when they end. Client playback of a `RadioAllowed` template is also relayed to the server so walkie-talkies can rebroadcast it.
@@ -24,6 +29,11 @@ Central sound playback helper covering both the new `AudioPlayer`/`AudioEmitter`
 - Remotes: `WalkieTalkie/TransmitSound` (fired, client only — `Start`/`Stop`/`Loop`/`Sync` actions)
 - Tags: reads `RadioAllowed`
 - Requires: `Configs.WalkieTalkieConfig`; lazily requires `ServerStorage.Services.WalkieTalkieService` on the server
+
+### BobService.luau
+Sine-wave vertical bobbing helper: pick a random phase once, then sample a Y offset each frame.
+- API: `Bob.NewPhase() -> number` — random phase in [0, 2pi)
+- API: `Bob.Offset(clock: number, phase: number, height: number, period: number) -> Vector3` — Y-axis sine offset
 
 ### CameraFovService.luau
 Client-only. Owns additive field-of-view offsets so multiple effects can push the camera FOV without fighting each other: each caller registers a named offset, the total is applied on a render step above the camera priority, and the raw FOV is restored when nothing is registered.
@@ -47,7 +57,7 @@ Client-only. Watches `Floor1Light` models for the server-set `ChaosRed` attribut
 Client-only. Tracks the "ChaosWarning" regions the server announces over `MapDoors`, and if the player is in a hallway (or a room whose doorway touches that region) plays looping `ChaosHallwayAmbience` emitters from an invisible anchor at the nearest point in the hallway, plus a one-shot `ChaosIncoming` sting when first coming within 24 studs.
 - API: no public methods — runs entirely from its own connections.
 - Remotes: `Oddities/MapDoors` (listened; only `marker == "ChaosWarning"` payloads)
-- Requires: `Modules.Hallways`, `AudioService`, `CharacterService`; hard-coded lookup of `workspace.Maze15.Rooms` / `.Doors`
+- Requires: `Services.HallwaysService`, `AudioService`, `CharacterService`; hard-coded lookup of `workspace.Maze15.Rooms` / `.Doors`
 
 ### CharacterService.luau
 Shared client/server helper for the common "is this player's character usable right now" checks, plus two small player-lifecycle utilities. Every function is defined with a dot, so call them with a dot.
@@ -100,7 +110,7 @@ Client-only. Owns the hackable computers: registers each tagged model with `Inte
 Gated on `FLAGS.Enemies`. Renders the Creep enemy: turns every part of the model to face the camera each frame, and places a black neon backdrop across the hallway a set distance behind it so the creep reads as a silhouette. When the creep is untagged it launches a `CreepDistortion` effect that sweeps down the hallway away from where it stood.
 - API: no public methods — runs entirely from its render-step connection.
 - Tags: listens `Creep`
-- Requires: `Modules.Aim`, `Modules.Hallways`, `Configs.CreepConfig`, `Configs.FLAGS`, `TagService`; clones `ReplicatedStorage.Effects.CreepDistortion`
+- Requires: `Services.AimService`, `Services.HallwaysService`, `Configs.CreepConfig`, `Configs.FLAGS`, `TagService`; clones `ReplicatedStorage.Effects.CreepDistortion`
 
 ### CrouchService.luau
 Client-only. Owns crouching: binds the crouch keys (and a touch button on mobile) through an `InputContext`, tells the server, applies the sprint speed factor, blends the camera and hip-height drop over time, and plays the configured crouch idle/walk animations.
@@ -115,7 +125,18 @@ Client-only developer tool, gated on `FLAGS.DangerDebug`. Waits for the `MazeFlo
 - API: no public methods — the panel is built at require time.
 - Remotes: `Danger/SetConfig` (fired by the "apply to server" button)
 - Tags: reads `MazeFloor`, `Start`
-- Requires: `Classes.DebugPanel`, `Modules.DangerField`, `Configs.FLAGS`
+- Requires: `Classes.DebugPanel`, `Services.DangerFieldService`, `Configs.FLAGS`
+
+### DangerFieldService.luau
+Procedural "danger" heat field over the maze: fractal Brownian noise per floor, gated by distance from the spawn so the area around start is always safe. Also bakes a grid of candidate spawn points with their danger values.
+- API: `DangerField.GetFloorIndex(position: Vector3, settings: FieldSettings) -> number` — floor number from Y
+- API: `DangerField.SampleField(position: Vector3, settings: FieldSettings) -> number` — raw fBm noise 0-1 with contrast
+- API: `DangerField.SampleGate(position: Vector3, settings: FieldSettings) -> number` — smoothstep ramp out of the safe radius
+- API: `DangerField.Sample(position: Vector3, settings: FieldSettings) -> number` — gate * field, the usable danger value
+- API: `DangerField.MeasureExtent(floors: { BasePart }) -> (number, Vector3)` — largest horizontal span and center
+- API: `DangerField.BakePoints(floors: { BasePart }, spacing: number, settings: FieldSettings) -> { SpawnPoint }` — grid of `{ Position, Danger }` on floor tops
+- API: `DangerField.BuildSettings(startPosition: Vector3, extent: number, overrides: { [string]: any }?) -> FieldSettings` — config values scaled to the map extent
+- Requires: `Configs.DangerConfig`
 
 ### DeathScreenService.luau
 Client-only. Builds and drives the glitch death screen: scanlines, a moving sweep, RGB-split name text, glitch slice bursts, a vignette, and a typed-out hint, all faded by blur and colour-correction effects. The server sends the cause and a token; once the screen has been held long enough and faded out, the token is sent back.
@@ -161,7 +182,7 @@ Client HUD that stacks timed effect tiles down the right edge of the screen, eac
 - API: data table — empty; the whole HUD is built and wired at require time.
 - Remotes: `Inventory/Update` (listened)
 - Tags: listens `Ignore` (Vanished tag, added/removed on the local character)
-- Requires: `Configs.EffectsHUDConfig`, `Configs.ToolConfigs`, `Modules.Vanished`, `GuiBuilderService`
+- Requires: `Configs.EffectsHUDConfig`, `Configs.ToolConfigs`, `Services.VanishedService`, `GuiBuilderService`
 
 ### ElevatorDoorService.luau
 Client-side sliding doors for tagged elevator models: polls every player's distance on a config interval and tweens `Part1`/`Part2` apart when someone is close, with separate open and close distances for hysteresis. Only elevators whose type attribute marks them as the lobby elevator ever open; all others are forced shut.
@@ -180,7 +201,7 @@ Client-authoritative death check: watches every `Enemy` tagged model's parts for
 - API: data table — empty; the touch watchers are installed on require.
 - Remotes: `Death/Kill` (fired and listened), `Death/Strike` (listened)
 - Tags: listens `Enemy`; reads `Room`
-- Requires: `Modules.Vanished`, `Configs.AnimationConfig`, `CharacterService`
+- Requires: `Services.VanishedService`, `Configs.AnimationConfig`, `CharacterService`
 
 ### EnemyObservationService.luau
 Reports to the server, roughly 20 times a second, which `Observable` models the local camera can currently see, along with the camera position and look vector. Skips sends when nothing changed and the camera has not moved, and rate-limits forced reports to the configured minimum gap.
@@ -188,7 +209,7 @@ Reports to the server, roughly 20 times a second, which `Observable` models the 
 - API: `EnemyObservationService:Report()` — force an immediate send, deferring if the minimum gap has not elapsed
 - Remotes: `Enemies/UpdateView` (fired)
 - Tags: listens `Observable`
-- Requires: `Modules.Sightline`, `Configs.ObservedFreezeConfig`, `Configs.FLAGS` (whole module is inert when `FLAGS.Enemies` is off)
+- Requires: `Services.SightlineService`, `Configs.ObservedFreezeConfig`, `Configs.FLAGS` (whole module is inert when `FLAGS.Enemies` is off)
 
 ### EyeHitEffectService.luau
 Full-screen feedback for the Eye enemy: on a hit remote it plays an eyelid blink, a blur pulse, a colour flash, an FOV punch, and a damage sound. Also exposes the continuous "being stared at" effect — vignette edges, a breathing pulse, and camera roll/sway — driven each frame by EyeRenderService.
@@ -200,12 +221,19 @@ Full-screen feedback for the Eye enemy: on a hit remote it plays an eyelid blink
 Renders every `Eye` tagged model client-side each frame: bobs it on its own phase, eases its rotation to face the camera (or droop downward while the `Stunned` attribute is set), and pivots the model. Computes how centred and close the nearest visible eye is and hands that gaze strength to EyeHitEffectService.
 - API: data table — empty; the render-step job is bound on require.
 - Tags: listens `Eye` (via `TagService:Listen`, scoped to workspace)
-- Requires: `Modules.Aim`, `Modules.Bob`, `Modules.Sightline`, `Modules.Vanished`, `Configs.EyeConfig`, `Configs.FLAGS`, `EyeHitEffectService`, `TagService`
+- Requires: `Services.AimService`, `Services.BobService`, `Services.SightlineService`, `Services.VanishedService`, `Configs.EyeConfig`, `Configs.FLAGS`, `EyeHitEffectService`, `TagService`
 
 ### FirstPersonCameraService.luau
 Hides the default mouse icon, enables the custom `Cursor` GUI, and adds walking camera bob — a sine sway plus roll whose speed and amplitude scale with horizontal walk speed, fading in and out as the player starts and stops. Bob is suppressed entirely while the chaser camera is active.
 - API: data table — empty; the render-step job is bound on require.
 - Requires: `Configs.CameraBobConfig`, `ChaserCameraService`, `MathService`
+
+### FriendAvatarService.luau
+Client-only cache that loads the local player's friend list and builds R15 character models from their HumanoidDescriptions, keyed by an arbitrary string so the same key always yields the same friend. Clones a pre-assembled prototype per user id and strips accessories that failed to weld.
+- API: `FriendAvatar.GetUserIds() -> { number }` — yields until the friend list has loaded
+- API: `FriendAvatar.PickUserId(key: string) -> number` — stable random friend per key, falls back to the local player
+- API: `FriendAvatar.GetDescription(userId: number) -> HumanoidDescription?` — cached, pcall-guarded
+- API: `FriendAvatar.Build(key: string) -> Model?` — clone of the cached avatar prototype for that key
 
 ### FriendReviveUIService.luau
 Shows a stack of revive-offer cards cloned from the `ReviveFriendUI` template, each with the downed player's headshot, name, and a countdown bar, plus Revive and Cancel buttons. Cards open and close on server remotes, expire on their own when the bar empties, and drop the oldest card when the configured maximum is exceeded.
@@ -214,11 +242,24 @@ Shows a stack of revive-offer cards cloned from the `ReviveFriendUI` template, e
 - Remotes: `Revive/Offer` (listened), `Revive/Withdraw` (listened), `Revive/Request` (fired)
 - Requires: `Configs.PerkConfig` (`FriendRevive`), `GuiBuilderService`; expects a pre-built `ReviveFriendUI` ScreenGui with a `Card` template
 
+### GhostMotionService.luau
+Shared math and attribute protocol for ghost drift: builds a travel "leg" (origin, target, duration) that the server publishes onto the model as attributes and clients read back, plus bobbing and fade timing.
+- API: `GhostMotion.NewLeg(origin: CFrame, goal: Vector3, speed: number, startedAt: number) -> Leg` — leg facing the direction of travel
+- API: `GhostMotion.NewHold(cframe: CFrame, startedAt: number) -> Leg` — zero-duration stationary leg
+- API: `GhostMotion.Evaluate(leg: Leg, now: number) -> CFrame` — position lerp plus separate turn lerp
+- API: `GhostMotion.Bob(clock: number, phase: number) -> Vector3` — GhostConfig-sized bob offset
+- API: `GhostMotion.Publish(model: Model, leg: Leg)` — writes `DriftOrigin`/`DriftTarget`/`DriftDuration`/`DriftStartedAt`
+- API: `GhostMotion.Read(model: Model) -> Leg?` — reads those attributes back
+- API: `GhostMotion.PublishFade(model: Model, startedAt: number)` / `GhostMotion.ReadFade(model: Model) -> number?` — `FadeStartedAt`
+- API: `GhostMotion.PublishAppear(model: Model, startedAt: number)` / `GhostMotion.ReadAppear(model: Model) -> number?` — `AppearStartedAt`
+- API: `GhostMotion.FadeAlpha(startedAt: number, now: number) -> number` — sine in-out 0-1 over `GhostConfig.FadeTime`
+- Requires: `Services.BobService`, `Configs.GhostConfig`
+
 ### GhostRenderService.luau
 Client-only rendering of `Ghost` tagged models: builds a semi-transparent stand-in rig from a random friend's (or the local player's) avatar description, plays the ghost idle animation, and hides the server model behind it. Each frame it drives the rig along the server's replicated leg motion with a bob, aims the ghost's head at the player's head, and blends transparency for the fade-out/appear attributes.
 - API: data table — empty; the tag listener and render-step job run on require.
 - Tags: listens `Ghost` (via `TagService:Listen`, scoped to workspace); removes `Ghost` from the cloned fallback visual
-- Requires: `Modules.Bob`, `Modules.GhostMotion`, `Configs.AnimationConfig`, `Configs.FLAGS`, `TagService`
+- Requires: `Services.BobService`, `Services.GhostMotionService`, `Configs.AnimationConfig`, `Configs.FLAGS`, `TagService`
 
 ### GraphicsFogService.luau
 Applies heavy distance fog on low graphics settings to cut render load: reads the saved quality level, or estimates one from a rolling FPS average when quality is Automatic, then blends `Lighting.FogEnd` toward the per-level distance. While fog is active it parks any Atmosphere out of Lighting and keeps a six-slab black cage parented to the camera so the skybox cannot be seen through the fog.
@@ -233,12 +274,38 @@ Small shared helper for building GUI instances; every other UI service uses it t
 - API: `GuiBuilderService.Corner(parent: GuiObject, radius: UDim): UICorner` — adds a UICorner of that radius
 - API: `GuiBuilderService.Stroke(parent: GuiObject, color: Color3, thickness: number): UIStroke` — adds a border-mode UIStroke
 
+### HallwayGraphService.luau
+Builds a navigable node graph from the tagged maze floor parts by intersecting hallway rectangles (perpendicular crossings and end-to-end parallel joins), then offers nearest-node lookup, Dijkstra pathfinding, and walking-distance queries. The graph is cached and invalidated automatically whenever a tagged floor is added or removed.
+- API: `HallwayGraph:Build() -> { RouteNode }` — forces a fresh build, bypassing the cache
+- API: `HallwayGraph:Get() -> { RouteNode }` — cached node list
+- API: `HallwayGraph:Invalidate()` — drops the cache
+- API: `HallwayGraph:FindNearestNode(position: Vector3) -> RouteNode?` — linear scan
+- API: `HallwayGraph:CountExits(node: RouteNode) -> number` — neighbor count
+- API: `HallwayGraph:FindPath(from: RouteNode, to: RouteNode, edgeCost: ((RouteNode, RouteNode) -> number)?) -> { RouteNode }?` — Dijkstra with optional custom cost
+- API: `HallwayGraph:GetWalkingDistance(firstPosition: Vector3, secondPosition: Vector3) -> number` — off-graph positions snapped to the nearest hallway span
+- API: `HallwayGraph:IsFarFromPlayers(position: Vector3, distance: number) -> boolean` — true if no alive player root is within `distance`
+- Tags: listens `MazeFloor`, `HallwayRoomFloor` (added/removed only, to invalidate the cache); `HallwayRoomFloor` nodes are marked not usable as destinations
+- Requires: `Services.CharacterService`
+
 ### HallwayStreamingService.luau
 Client half of the hallway streaming handshake: when the server announces a pending teleport it waits (up to a timeout) for the named streaming models to arrive in workspace and then reports ready or not-ready. A background loop reconciles the server's expected model-id list against what actually arrived and reports anything missing; failures are shown in a small on-screen message banner.
 - API: data table — empty; the handshake and reconcile loop run on require.
 - Remotes: `Streaming/PrepareTeleport` (listened), `Streaming/ClientReady` (fired), `Streaming/TeleportFailed` (listened), `Streaming/ExpectedModels` (listened), `Streaming/ReportMissing` (fired)
 - Tags: reads `StreamingModel` (from `StreamingConfig.ModelTag`)
 - Requires: `Configs.StreamingConfig`, `GuiBuilderService`
+
+### HallwaysService.luau
+Geometric view of the same tagged floor parts as oriented rectangles: which hallway contains a point, the closest point on one, and the longest unobstructed straight span through a position by merging collinear hallway intervals. Cached per `includeRoomFloors` and auto-invalidated on tag changes.
+- API: `Hallways.All(includeRoomFloors: boolean?) -> { Hallway }` — cached hallway rectangles
+- API: `Hallways.Invalidate()` — clears both cache variants
+- API: `Hallways.At(position: Vector3, includeRoomFloors: boolean?) -> Hallway?` — containing hallway, with a height window
+- API: `Hallways.ClosestPoint(hallway: Hallway, position: Vector3) -> Vector3` — clamped point on the floor surface
+- API: `Hallways.Nearest(position: Vector3) -> Hallway?` — nearest by closest-point distance
+- API: `Hallways.Along(hallway: Hallway, position: Vector3) -> number` — signed distance along the axis
+- API: `Hallways.PointAt(hallway: Hallway, along: number) -> Vector3` — point on the axis at floor height
+- API: `Hallways.StraightSpanAt(position: Vector3, preferredDirection: Vector3?) -> StraightSpan?` — best straight run through a point
+- API: `Hallways.StraightSpans() -> { StraightSpan }` — one span per hallway, deduplicated
+- Tags: listens `MazeFloor`, `HallwayRoomFloor` (added/removed only, to invalidate the cache)
 
 ### HearingRenderService.luau
 Renders the "sound travelling to an enemy's ear" visual: for each server-sent event it spawns a neon ball with a particle wake, lerps it from the noise origin to the target model's ear position over the given duration, then plays an expanding fade-out flash and cleans up. The render loop connects only while motes are alive.
@@ -268,7 +335,7 @@ Builds and drives the bestiary/index UI: a paginated grid of cards with Viewport
 - API: `IndexUIService:PreviousPage()` — page back
 - API: `IndexUIService:PlayReveal(id: string, before: number, after: number)` — animate the words newly unlocked between two progress values
 - Remotes: `Index/Update` (listened and fired), `Index/Reveal` (listened) — both looked up with `CommunicationService.Find` and skipped if absent
-- Requires: `Configs.IndexConfig`, `Modules.Redaction`, `Modules.FriendAvatar`, `DeathScreenService`, `InterfaceService`, `TweenProxyService`, `GuiBuilderService`; expects a pre-built `IndexGui.Design` tree
+- Requires: `Configs.IndexConfig`, `Services.RedactionService`, `Services.FriendAvatarService`, `DeathScreenService`, `InterfaceService`, `TweenProxyService`, `GuiBuilderService`; expects a pre-built `IndexGui.Design` tree
 
 ### InteractionService.luau
 Client-only singleton wrapper: returns a single `Interaction` instance (an empty table on the server), which raycasts from the camera each frame to find the registered model under the crosshair, highlights it, and draws the key prompt.
@@ -353,12 +420,23 @@ Small pure-math helper library shared across the codebase: easing, framerate-ind
 - API: `MathService.RandomRange(minimum: number, maximum: number) -> number` — continuous
 - API: `MathService.SinePulse(time: number, period: number) -> number` — 0..1 sine
 
+### MimicMotionService.luau
+Turns a recorded movement sample into discrete WASD-style key values so a mimic can replay a player's inputs, with mirroring, reaction-delay latching, and idle aim drift.
+- API: `MimicMotion.Keys(sample: MotionTrail.Sample, walkSpeed: number) -> (number, number)` — forward/right key from move vs look
+- API: `MimicMotion.MirrorKeys(forwardKey: number, rightKey: number) -> (number, number)` — flips strafe only
+- API: `MimicMotion.Direction(forward: Vector3, forwardKey: number, rightKey: number) -> Vector3` — unit move direction
+- API: `MimicMotion.NewKey() -> Key` — latch state `{ Held, Pending, At }`
+- API: `MimicMotion.HoldKey(key: Key, desired: number, clock: number) -> number` — applies the change after a random reaction delay
+- API: `MimicMotion.Drift(look: Vector3, clock: number, seed: number) -> Vector3` — two-frequency yaw wander
+- API: `MimicMotion.Turn(cframe: CFrame, look: Vector3, deltaTime: number, turnRate: number?) -> CFrame` — exponential turn toward a flattened look
+- Requires: `Configs.MimicConfig`, `Classes.MotionTrail`
+
 ### MimicService.luau
 Client-side driver for the Mimic enemy: mirrors the local player's recorded movement onto the mimic model, runs its "spin to face you" mode, twitches and head-locks enemy necks, and plays the reveal sting. Disabled entirely when `FLAGS.Enemies` is off.
 - API: none — side-effect only.
 - Remotes: `Enemies/Mirror` (listened), `Enemies/MimicReveal` (listened)
 - Tags: listens `Enemy` (raw CollectionService signals, to find necks to twitch/head-lock)
-- Requires: `Classes.MotionTrail`, `Classes.NpcAnimator`, `Modules.MimicMotion`, `Configs.MimicConfig`, `Configs.AnimationConfig`, `AudioService` (reverb wiring)
+- Requires: `Classes.MotionTrail`, `Classes.NpcAnimator`, `Services.MimicMotionService`, `Configs.MimicConfig`, `Configs.AnimationConfig`, `AudioService` (reverb wiring)
 
 ### MinigameService.luau
 Client-only arcade shell for the hackable computers: picks which minigame a given terminal runs (deterministic by position within its maze), builds the CRT-styled SurfaceGui with title bar, scanlines, win/deny overlays, and hosts one game module at a time. Owns its own pooled `AudioPlayer` sound-cue graph under SoundService.
@@ -376,7 +454,7 @@ Client-only arcade shell for the hackable computers: picks which minigame a give
 Client-side "weeping angel" renderer: while a tagged enemy is inside the camera frustum and unoccluded it is pinned in place visually (and its animation tracks are held at speed 0), then eased back to the server's real CFrame when you look away. Includes drift limits, a confirmation timeout, and a predicted-release slide so mispredictions self-correct. Disabled when `FLAGS.Enemies` is off.
 - API: none — side-effect only.
 - Tags: listens `ObservedFreezeConfig.Tag`
-- Requires: `Modules.Sightline` (frustum/occlusion), `EnemyObservationService` (reports what the client can see), `Configs.ObservedFreezeConfig`
+- Requires: `Services.SightlineService` (frustum/occlusion), `EnemyObservationService` (reports what the client can see), `Configs.ObservedFreezeConfig`
 
 ### PaintingDwellerShakeService.luau
 Twenty-line client shim: on the painting dweller pop remote, fires a one-shot `Slam` camera shake.
@@ -388,7 +466,18 @@ Twenty-line client shim: on the painting dweller pop remote, fires a one-shot `S
 Client performance watchdog behind `FLAGS.PerfLog`: prints server-sent perf messages, alerts on frame spikes and sustained FPS drops, and every second reports bursts of workspace instance churn bucketed by top-level owner (Map, Characters, Vents, …). Also logs each respawn.
 - API: none — side-effect only.
 - Remotes: the PerfLog remote obtained from `PerfLog.GetRemote()` (listened)
-- Requires: `Modules.PerfLog`, `Configs.FLAGS`
+- Requires: `Services.PerfLoggerService`, `Configs.FLAGS`
+
+### PerfLoggerService.luau
+Flag-gated startup timing log. The server stamps a start time on ReplicatedStorage, and `Log` broadcasts topic/action/timestamp to every client, which prints it; timestamps are formatted as elapsed mm:ss.mmm since that stamp.
+- API: `PerfLog.Now() -> number` — seconds since the server start attribute
+- API: `PerfLog.Format(timestamp: number) -> string` — `MM:SS.mmm`
+- API: `PerfLog.Print(topic: string, action: string, timestamp: number?)` — local print
+- API: `PerfLog.Alert(topic: string, action: string, timestamp: number?)` — local warn
+- API: `PerfLog.Log(topic: string, action: string)` — no-op unless `FLAGS.PerfLog`; server broadcasts, client prints
+- API: `PerfLog.GetRemote() -> RemoteEvent` — creates it on the server, waits for it on the client
+- Remotes: `Communication/PerfLog` (fired to all clients; created directly by this service, sitting in Communication with no topic subfolder)
+- Requires: `Configs.FLAGS`
 
 ### PlayerLocatorService.luau
 Client-only teleport-to-player HUD: keeps a `LocatorMarker` per eligible player (all players, or friends only, depending on the toggled mode), highlights whichever marker is nearest the crosshair each frame, and fires the teleport remote on click. Renders the shared cooldown readout. If the `PlayerLocator` GUI is missing its expected children it degrades to a disabled stub exposing only `SetEnabled`/`IsEnabled`.
@@ -411,13 +500,23 @@ Client audio ducker for tagged in-world record players: while the elevator is lo
 - Tags: listens `RecordPlayer`
 - Requires: `DeathScreenService` (`IsVisible`, `GetTimeUntilEnd`)
 
+### RedactionService.luau
+Progressively reveals a string word by word in a stable pseudo-random order derived from a seed, replacing hidden words with block glyphs. Longer words cost more of the reveal budget; word lists, weights, and orders are all memoized.
+- API: `Redaction.Words(text: string) -> { string }` — cached whitespace split
+- API: `Redaction.WordCount(text: string) -> number`
+- API: `Redaction.Weights(text: string) -> ({ number }, number)` — per-word cost and total
+- API: `Redaction.Order(text: string, seed: string) -> { number }` — deterministic shuffle from an FNV-1a hash of seed+text
+- API: `Redaction.VisibleSet(text: string, seed: string, progress: number) -> { [number]: boolean }` — which word indices are revealed at 0-1 progress
+- API: `Redaction.Render(text: string, seed: string, progress: number, options: RenderOptions?) -> string` — plain or RichText output with per-word colors, forced suppression, and block ratio
+- API: `Redaction.NewlyVisible(text: string, seed: string, before: number, after: number) -> { number }` — indices gained between two progress values
+
 ### ShakeService.luau
 Client camera-shake front end over the vendored `CameraShaker`. Offers five named presets, keyed sustained shakes, and a `Rumble` handle whose magnitude can be driven continuously (e.g. by proximity).
 - API: `ShakeService:Create(shakeData: { ID: string, ShakeType: "Once" | "Sustained", Preset: string })` — presets are `Scare`, `Small`, `Jumpscare`, `Slam`, `Jolt`
 - API: `ShakeService:Delete(ID: string)` — fades out and forgets a sustained shake
 - API: `ShakeService:CreateDynamicRumble(startValue: number, params: RumbleParams?) -> Rumble` — handle with `:AdjustValue(n)`, `:Stop(fadeOutTime?)`, `:Start()`
 - API: `ShakeService.SustainedShakes` — id → live shake instance
-- Requires: `Classes.CameraShaker` (vendored third-party), `Modules.PerfLog`
+- Requires: `Classes.CameraShaker` (vendored third-party), `Services.PerfLoggerService`
 
 ### ShopkeeperService.luau
 Client service for shopkeeper NPCs: registers each tagged model with the interaction system, keeps its `PageAttribute` in sync, plays a looping smile animation once FaceControls/Animator exist, and opens the matching interface page on activation.
@@ -426,6 +525,13 @@ Client service for shopkeeper NPCs: registers each tagged model with the interac
 - API: `ShopkeeperService:Open(model: Model?) -> boolean` — 0.15s cooldown; false if no page id
 - Tags: listens `ShopkeeperConfig.Tag` (via `TagService:Listen`, scoped to `workspace`)
 - Requires: `InteractionService` (`Register`/`Unregister`/`Selected`), `InterfaceService`, `Configs.ShopkeeperConfig`
+
+### SightlineService.luau
+Camera visibility tests: builds a frustum from a Camera, does cone/sphere intersection, and raycasts to each part of a model to decide whether it is actually seen. Keeps a self-maintaining per-model BasePart cache that disconnects itself when the model is destroyed or unparented.
+- API: `Sightline.Frustum(camera: Camera) -> Frustum?` — tangents and side factors; nil if the viewport has no height
+- API: `Sightline.Intersects(camera: Camera, frustum: Frustum, center: Vector3, radius: number) -> boolean` — sphere vs frustum
+- API: `Sightline.OnScreen(camera: Camera, frustum: Frustum, model: Model) -> boolean` — bounding-box test only, no raycast
+- API: `Sightline.CanSee(camera: Camera, frustum: Frustum, ignore: Instance?, model: Model) -> boolean` — frustum test plus line-of-sight raycast per part
 
 ### SpeedBoostRenderService.luau
 Client screen effect for speed boosts: watches the local player's `SpeedBoostFov` attribute and tweens both a camera FOV offset and a `ColorCorrectionEffect` (saturation, contrast, warm tint) in and out, disabling the effect once it fully returns to zero.
@@ -464,7 +570,7 @@ Client debug HUD in the bottom-left: FPS, ping, sampled danger-field value at yo
 - API: none — side-effect only.
 - Remotes: `Enemies/DebugSnapshot` (listened)
 - Tags: reads `MazeFloor`, `Start`
-- Requires: `Modules.DangerField`, `Configs.StatsHUDConfig`, `GuiBuilderService`
+- Requires: `Services.DangerFieldService`, `Configs.StatsHUDConfig`, `GuiBuilderService`
 
 ### TagService.luau
 The tag-to-module pipeline described in the architecture notes: one registered listener per tag receives an `apply` on every tagged instance (existing and future) and an `unapply` when the tag is removed, the instance is destroyed, or it leaves the optional ancestor. Whatever `apply` returns is stored and handed back to `unapply`, which is how tagged instances get bound to class instances.
@@ -490,6 +596,11 @@ Generic helper for tweening things TweenService cannot touch directly: it create
 - API: `TweenProxyService.ScaleModel(model: Model, from: number, to: number, tweenInfo: TweenInfo) -> Tween` — `Model:ScaleTo` over time, skipped once the model is unparented
 - API: `TweenProxyService.CancelAll(tweens: { Tween })` — cancels and clears the list in place
 
+### VanishedService.luau
+One-question helper for whether a character should be treated as absent: it carries the `Ignore` tag or has a ForceField anywhere inside it.
+- API: `Vanished.Is(character: Instance?) -> boolean` — tagged `Ignore` or contains a ForceField
+- API: `Vanished.Tag` — the string `"Ignore"`
+- Tags: reads `Ignore`
 ### ViewmodelService.luau
 Client first-person viewmodel: clones the equipped Tool (stripped of scripts, sounds and effects) under the camera, hides the real tool, and each render step positions the clone from camera CFrame plus yaw sway and speed-scaled bob. Auto-hides when not in first person or when the character's real hand is visible; supports per-tool anchor/rotation overrides.
 - API: none — side-effect only.

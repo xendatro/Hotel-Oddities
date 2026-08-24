@@ -75,8 +75,10 @@ become Services or Classes.
 
 ### ReplicatedStorage\Services
 
+- ReplicatedStorage\Services\AimService.luau — Look-at rotation and frame-rate-independent rotational easing.
 - ReplicatedStorage\Services\AmbienceService.luau — Plays the looping ambience playlist, ducking it by distance to the nearest enemy and swapping to death ambience.
 - ReplicatedStorage\Services\AudioService.luau — Central sound playback helper for 2D and positional audio, bus volumes and walkie-talkie relaying.
+- ReplicatedStorage\Services\BobService.luau — Random phase plus sine-wave vertical bob offset.
 - ReplicatedStorage\Services\CameraFovService.luau — Combines named additive field-of-view offsets from multiple effects into one camera FOV.
 - ReplicatedStorage\Services\CeilingVentDoorService.luau — Tweens ceiling vent doors on the client when the server commands them.
 - ReplicatedStorage\Services\ChaosLightService.luau — Turns tagged floor lights red while a Chaos oddity is near, restoring their original colours after it passes.
@@ -90,6 +92,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\CreepRenderService.luau — Renders the Creep as a camera-facing silhouette against a hallway backdrop, with a parting distortion sweep.
 - ReplicatedStorage\Services\CrouchService.luau — Owns crouch input, speed, camera drop and crouch animations.
 - ReplicatedStorage\Services\DangerDebugService.luau — F4 developer panel for tuning and heatmapping the danger field.
+- ReplicatedStorage\Services\DangerFieldService.luau — Procedural per-floor danger noise field, gated by distance from spawn, with baked spawn points.
 - ReplicatedStorage\Services\DeathScreenService.luau — Builds and drives the glitch death screen and reports back when it finishes.
 - ReplicatedStorage\Services\DeathSoundService.luau — Replaces Roblox's default death sound with the custom one at the character's position.
 - ReplicatedStorage\Services\DoorService.luau — Swings room doors open near players and enemies, and applies the server's map opening regions.
@@ -103,11 +106,15 @@ become Services or Classes.
 - ReplicatedStorage\Services\EyeHitEffectService.luau — Blink, blur, flash and gaze-vignette screen effects for the Eye enemy.
 - ReplicatedStorage\Services\EyeRenderService.luau — Bobs and aims tagged Eye models at the camera and computes gaze strength.
 - ReplicatedStorage\Services\FirstPersonCameraService.luau — Walking camera bob plus custom cursor setup for first person.
+- ReplicatedStorage\Services\FriendAvatarService.luau — Client-only cache that builds character models from the local player's friends' avatars.
 - ReplicatedStorage\Services\FriendReviveUIService.luau — Timed revive-offer cards for downed teammates.
+- ReplicatedStorage\Services\GhostMotionService.luau — Ghost drift leg math and the model-attribute protocol the server and clients share.
 - ReplicatedStorage\Services\GhostRenderService.luau — Renders ghosts as translucent friend-avatar rigs driven by replicated motion.
 - ReplicatedStorage\Services\GraphicsFogService.luau — Distance fog and a camera-parented cage on low graphics levels.
 - ReplicatedStorage\Services\GuiBuilderService.luau — Shared helper for PlayerGui access, ScreenGuis, corners and strokes.
+- ReplicatedStorage\Services\HallwayGraphService.luau — Navigable node graph built from tagged maze floors, with Dijkstra pathfinding and walking distance.
 - ReplicatedStorage\Services\HallwayStreamingService.luau — Client handshake confirming streamed hallway models arrived before a teleport.
+- ReplicatedStorage\Services\HallwaysService.luau — Geometry queries over tagged floor parts: containment, closest point, and longest straight span.
 - ReplicatedStorage\Services\HearingRenderService.luau — Flies glowing motes from a noise source to an enemy's ear.
 - ReplicatedStorage\Services\HeartbeatService.luau — Proximity heartbeat audio that swells and quickens near a pursuing enemy.
 - ReplicatedStorage\Services\IndexUIService.luau — Paginated bestiary UI with viewport headshots and progressive text reveals.
@@ -122,16 +129,20 @@ become Services or Classes.
 - ReplicatedStorage\Services\MarketplaceService\Gamepasses.luau — Gamepass asset ids keyed by name.
 - ReplicatedStorage\Services\MarketplaceService\Products.luau — Developer-product asset ids, with per-item ids nested under Items.
 - ReplicatedStorage\Services\MathService.luau — Shared pure-math helpers: easing, frame-rate independent lerp alphas, horizontal vector work, angles and pulses.
+- ReplicatedStorage\Services\MimicMotionService.luau — Converts recorded movement samples into discrete key presses with reaction delay and aim drift.
 - ReplicatedStorage\Services\MimicService.luau — Client driver for the Mimic enemy: mirrors your recorded movement, spins to face you, twitches and head-locks enemy necks, plays the reveal sting.
 - ReplicatedStorage\Services\MinigameService.luau — Client arcade shell for hackable computers: picks the terminal's game, builds the CRT SurfaceGui and hosts one game module at a time.
 - ReplicatedStorage\Services\ObservedFreezeService.luau — Client weeping-angel renderer that visually pins tagged enemies while they are in view and reconciles them when you look away.
 - ReplicatedStorage\Services\PaintingDwellerShakeService.luau — Fires a one-shot Slam camera shake when the painting dweller pops.
 - ReplicatedStorage\Services\PerfLogService.luau — Client performance watchdog for frame spikes, FPS drops and bursts of workspace instance churn.
+- ReplicatedStorage\Services\PerfLoggerService.luau — Flag-gated startup timing log broadcast from server to all clients.
 - ReplicatedStorage\Services\PlayerLocatorService.luau — Client teleport-to-player HUD with per-player markers, crosshair focus and a shared cooldown readout.
 - ReplicatedStorage\Services\PlayerOddityRenderService.luau — Client renderer that turns every other player's head toward you while the stare oddity is active.
 - ReplicatedStorage\Services\RecordPlayerAudioService.luau — Muffles and fades tagged in-world record players while the elevator is loading or the death screen is up.
+- ReplicatedStorage\Services\RedactionService.luau — Progressive seeded word-by-word text reveal with block-glyph redaction.
 - ReplicatedStorage\Services\ShakeService.luau — Client camera-shake front end with named presets, keyed sustained shakes and adjustable rumble handles.
 - ReplicatedStorage\Services\ShopkeeperService.luau — Client service binding shopkeeper NPCs to interactions, smile animations and their interface page.
+- ReplicatedStorage\Services\SightlineService.luau — Camera frustum and raycast visibility tests with a self-maintaining per-model part cache.
 - ReplicatedStorage\Services\SpeedBoostRenderService.luau — Tweens the FOV offset and colour-correction screen effect for speed boosts.
 - ReplicatedStorage\Services\SprintBoostUIService.luau — Decorated overlay drawn over the stamina bar while a speed boost is running.
 - ReplicatedStorage\Services\SprintService.luau — Client sprint state machine owning stamina, exhaustion, WalkSpeed and the sprint FOV blend.
@@ -141,6 +152,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\TagService.luau — The tag-to-module pipeline: registers apply/unapply callbacks per CollectionService tag and stores the data they return.
 - ReplicatedStorage\Services\ToolClientService.luau — Bootstraps tool classes for the local player's tools and routes server tool events to them.
 - ReplicatedStorage\Services\TweenProxyService.luau — Tweens arbitrary values through a throwaway ValueBase and a callback, including model scaling.
+- ReplicatedStorage\Services\VanishedService.luau — Checks whether a character is tagged Ignore or holds a ForceField.
 - ReplicatedStorage\Services\ViewmodelService.luau — First-person viewmodel that clones the equipped tool under the camera with sway and bob.
 - ReplicatedStorage\Services\VoiceActivityService.luau — Detects when the local player is speaking from an AudioAnalyzer and reports it to the server.
 - ReplicatedStorage\Services\VoiceDebugService.luau — Debug panel of sliders for local proximity-voice and radio volumes.
@@ -241,20 +253,8 @@ become Services or Classes.
 
 ### ReplicatedStorage\Modules
 
-- ReplicatedStorage\Modules\Aim.luau — Look-at rotation and frame-rate-independent rotational easing.
-- ReplicatedStorage\Modules\Bob.luau — Random phase plus sine-wave vertical bob offset.
-- ReplicatedStorage\Modules\DangerField.luau — Procedural per-floor danger noise field, gated by distance from spawn, with baked spawn points.
 - ReplicatedStorage\Modules\extend.luau — Metatable mixin that forwards a table's reads and writes to fallback tables or Instances.
-- ReplicatedStorage\Modules\FriendAvatar.luau — Client-only cache that builds character models from the local player's friends' avatars.
-- ReplicatedStorage\Modules\GhostMotion.luau — Ghost drift leg math and the model-attribute protocol the server and clients share.
-- ReplicatedStorage\Modules\HallwayGraph.luau — Navigable node graph built from tagged maze floors, with Dijkstra pathfinding and walking distance.
-- ReplicatedStorage\Modules\Hallways.luau — Geometry queries over tagged floor parts: containment, closest point, and longest straight span.
-- ReplicatedStorage\Modules\MimicMotion.luau — Converts recorded movement samples into discrete key presses with reaction delay and aim drift.
-- ReplicatedStorage\Modules\PerfLog.luau — Flag-gated startup timing log broadcast from server to all clients.
-- ReplicatedStorage\Modules\Redaction.luau — Progressive seeded word-by-word text reveal with block-glyph redaction.
-- ReplicatedStorage\Modules\Sightline.luau — Camera frustum and raycast visibility tests with a self-maintaining per-model part cache.
 - ReplicatedStorage\Modules\Tagger.luau — Client tag bootstrap wiring Hole, Spin, Watch, and Breathe tags to their classes.
-- ReplicatedStorage\Modules\Vanished.luau — Checks whether a character is tagged Ignore or holds a ForceField.
 
 ### ReplicatedStorage\Frameworks
 
@@ -301,11 +301,13 @@ become Services or Classes.
 - ServerStorage\Services\EnemyObservationService.luau — Holds each client's validated report of which enemies it can see and from where.
 - ServerStorage\Services\EnemyService.luau — Enemy factory and active-enemy registry, including collision group setup.
 - ServerStorage\Services\EyeHitService.luau — Guarantees the Enemies/EyeHit RemoteEvent exists and returns it.
+- ServerStorage\Services\FixtureCommandService.luau — Registers a chat command to teleport to or force-drop a pool's nearest fixture.
 - ServerStorage\Services\FriendReviveService.luau — Paid "revive your friend" offers, friend checks and the product receipt that grants the revive.
 - ServerStorage\Services\GamepassService.luau — Caches each player's gamepass ownership at join and keeps it current after purchases.
+- ServerStorage\Services\GazeService.luau — Server line-of-sight library for cone and raycast visibility checks, with a seen/unseen tracker.
 - ServerStorage\Services\GhostAreaService.luau — Picks area-weighted hover points over hallways for the Ghost, avoiding nearby players.
-- ServerStorage\Services\HallwayGraphService.luau — Server-side alias that re-exports the shared HallwayGraph route-graph module.
 - ServerStorage\Services\HallwayGridService.luau — Finds hallway corner mouths near a viewer for placing things just out of sight.
+- ServerStorage\Services\HallwayRegionService.luau — Straight-hallway span helpers for matching, bounding, occupancy and weighted random picks.
 - ServerStorage\Services\HallwayStreamingService.luau — Custom per-player streaming: slices the maze into hallway chunks and gates teleports on them.
 - ServerStorage\Services\HearingService.luau — Registry of "ears" that receive NoiseService noises after a distance-based travel delay.
 - ServerStorage\Services\HideSpotService.luau — Finds a standing spot on the maze floor that breaks line of sight from every enemy eye.
@@ -349,6 +351,7 @@ become Services or Classes.
 ### ServerStorage\Classes
 
 - ServerStorage\Classes\EnemyBase.luau — Minimal base class for non-humanoid enemies, owning tags, the active flag and a lingering despawn.
+- ServerStorage\Classes\FixturePool.luau — Keeps tagged hallway fixtures armed near players and drops them as oddities on approach.
 - ServerStorage\Classes\NPC.luau — Full humanoid-enemy base: pathfinding, pursuit, sight and observation checks, targeting, and shared Idle/Wander/Patrol states.
 - ServerStorage\Classes\Healer.luau — Server tool that consumes a charge and heals the holder.
 - ServerStorage\Classes\FixtureFall.luau — Prop oddity that unanchors and drops a fixture, with the shared "safe to repair yet" test and exact restore.
@@ -404,12 +407,6 @@ become Services or Classes.
 
 ### ServerStorage\Modules
 
-- ServerStorage\Modules\EnemyDebug.luau — Developer helpers for spawning enemies and testing Stalker peek spots.
-- ServerStorage\Modules\FixtureCommand.luau — Registers a chat command to teleport to or force-drop a pool's nearest fixture.
-- ServerStorage\Modules\FixturePool.luau — Keeps tagged hallway fixtures armed near players and drops them as oddities on approach.
-- ServerStorage\Modules\Gaze.luau — Server line-of-sight library for cone and raycast visibility checks, with a seen/unseen tracker.
-- ServerStorage\Modules\HallwayRegion.luau — Straight-hallway span helpers for matching, bounding, occupancy and weighted random picks.
-- ServerStorage\Modules\OddityRemotes.luau — Creates or fetches RemoteEvents in the Oddities communication folder.
 - ServerStorage\Modules\Tagger.luau — Server tag bootstrap wiring TrapObject, Sound and Animation tags to their classes.
 
 ### StarterPlayer
