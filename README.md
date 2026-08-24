@@ -63,6 +63,7 @@ extend it instead of writing a second copy.
 | `EnemyBase` | `ServerStorage\Classes` | Base class every enemy extends |
 | `NPC` | `ServerStorage\Classes` | Base class for pathfinding humanoid enemies |
 | `Oddity` / `PropOddity` / `PlayerOddity` / `HallwayOddity` / `FixtureFall` | `ServerStorage\Classes` | The oddity hierarchy every concrete oddity extends |
+| `FixturePool` / `CrossingPool` | `ServerStorage\Classes` | Arming and approach detection for oddities triggered by walking toward a fixture or a hallway point |
 
 Never add files to a `Modules\` folder — those are legacy. New shared helpers
 become Services or Classes.
@@ -335,6 +336,7 @@ become Services or Classes.
 - ServerStorage\Services\PlayerOddityService.luau — Randomly applies one weighted player-scope oddity at a time to a living player.
 - ServerStorage\Services\ProfileService.luau — Vendored third-party datastore session-locking library (loleris' ProfileService).
 - ServerStorage\Services\ProgrammaticVentService.luau — Spawns and despawns extra ceiling vents at unseen danger-map points at runtime.
+- ServerStorage\Services\RatService.luau — CrossingPool wrapper that arms two hallway crossings and sends a rat scurrying across one on approach, plus its /rat command.
 - ServerStorage\Services\RecordPlayerService.luau — Loops the record (or lobby record) sound on every tagged record player model.
 - ServerStorage\Services\ReviveService.luau — Sells and grants the Revive product, restoring the player's death location, items and a ForceField.
 - ServerStorage\Services\RoomService.luau — Tags rooms, gives them enemy-only pathfinding blockers, and tracks which room each player is in.
@@ -352,6 +354,7 @@ become Services or Classes.
 
 - ServerStorage\Classes\EnemyBase.luau — Minimal base class for non-humanoid enemies, owning tags, the active flag and a lingering despawn.
 - ServerStorage\Classes\FixturePool.luau — Keeps tagged hallway fixtures armed near players and drops them as oddities on approach.
+- ServerStorage\Classes\CrossingPool.luau — Keeps sampled hallway crossing points armed near players and starts an oddity there on approach.
 - ServerStorage\Classes\NPC.luau — Full humanoid-enemy base: pathfinding, pursuit, sight and observation checks, targeting, and shared Idle/Wander/Patrol states.
 - ServerStorage\Classes\Healer.luau — Server tool that consumes a charge and heals the holder.
 - ServerStorage\Classes\FixtureFall.luau — Prop oddity that unanchors and drops a fixture, with the shared "safe to repair yet" test and exact restore.
@@ -382,6 +385,7 @@ become Services or Classes.
 - ServerStorage\Classes\Oddities\LanternFall.luau — Fixture-fall oddity that drops a ceiling lantern and kills its light while down.
 - ServerStorage\Classes\Oddities\PaintingDweller.luau — Prop oddity that bursts a humanoid rig out of a painting canvas and attacks nearby players.
 - ServerStorage\Classes\Oddities\PaintingFall.luau — Fixture-fall oddity that shoves a wall painting off the wall with spin.
+- ServerStorage\Classes\Oddities\RatScurry.luau — Runs a rat across a hallway from one wall to the other and destroys it on the far side.
 - ServerStorage\Classes\Oddities\PlayerHeadStare.luau — Player oddity that runs the client head-stare effect when enough players are alive.
 - ServerStorage\Classes\Oddities\PlayerSize.luau — Player oddity that rescales the victim's character to a random configured size.
 - ServerStorage\Classes\Oddities\PlayerTransparency.luau — Player oddity that makes the victim's character parts near-invisible.

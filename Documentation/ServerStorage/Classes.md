@@ -97,6 +97,22 @@ Class that keeps a rolling set of tagged hallway fixture models "armed" near liv
 - Tags: reads `Settings.Tag` via `CollectionService:GetTagged`
 - Requires: `ServerStorage.Services.OddityService`, `ReplicatedStorage.Services.HallwaysService`, `ReplicatedStorage.Services.VanishedService`
 
+### CrossingPool.luau
+The fixture-free twin of `FixturePool`: instead of arming tagged models it samples crossing points along every tagged maze-floor hallway, keeps a rolling set of them "armed" near living players, and starts the owning oddity when a player walks back toward one after leaving the arm radius. Triggered points go on a per-site cooldown so the same spot is not reused straight away. Only runs its heartbeat loop if `OddityService:IsEnabled` for the class's scope; all distances, spacings and chances come from the owning class's `Settings`.
+- API: `CrossingPool.new(class: any, label: string)` — class supplies `Settings` and `Scope`
+- API: `CrossingPool:Setting(name: string, fallback: number) -> number`
+- API: `CrossingPool:Log(message: string)` — only when `Settings.DebugLog`
+- API: `CrossingPool:PointFor(site: Site) -> Vector3?` — the site's hallway floor point
+- API: `CrossingPool:ArmDistance() -> number`
+- API: `CrossingPool:Trigger(site: Site) -> boolean` — starts the oddity and puts the site on cooldown
+- API: `CrossingPool:GetArmed() -> { Site }`
+- API: `CrossingPool:GetRunning() -> { [string]: Site }`
+- API: `CrossingPool:Nearest(position: Vector3) -> (Site?, number)`
+- Types: `Site = { Id: string, Point: Vector3, Axis: Vector3, Across: Vector3, HalfWidth: number }`
+- Settings: `ArmedCount`, `ArmDistance`, `TriggerDistance`, `SameFloorTolerance`, `ApproachDot`, `ApproachMinSpeed`, `ApproachChance`, `CandidateMinDistance`, `CandidateMaxDistance`, `CandidateSpacing`, `CandidateSamples`, `SiteSpacing`, `EndInset`, `MinHallwayWidth`, `SiteCooldown`, `PollInterval`, `DebugMarker`, `DebugLog`
+- Tags: reads `MazeFloor` indirectly through `HallwaysService.All`
+- Requires: `ServerStorage.Services.OddityService`, `ReplicatedStorage.Services.HallwaysService`, `ReplicatedStorage.Services.CharacterService`, `ReplicatedStorage.Services.MathService`, `ReplicatedStorage.Services.VanishedService`
+
 ### HallwayOddity.luau
 Base class for map-scope oddities that occupy a hallway span rather than a single prop. It resolves and picks hallway spans, caches the span's bounding box, and offers a helper for broadcasting door actions to all clients.
 - API: `HallwayOddity.new(config: { [string]: any }?, class: any?) -> self`
@@ -375,6 +391,17 @@ Extends `PlayerOddity`. Makes every fully opaque part of the victim's character 
 - API: `PlayerTransparency:OnStart() -> boolean` — applies `OddTransparency` (0.1) and watches for new parts
 - API: `PlayerTransparency:OnStop()` — disconnects and restores
 - Requires: `Classes\PlayerOddity`
+
+### Oddities\RatScurry.luau
+Extends `Oddity` directly with `Scope = "Prop"` and `ConfigName = "PropOddityConfig"`, but takes a `CrossingPool.Site` as its context instead of a model. Clones the `Rat` prop just inside one hallway wall, runs it across the corridor to the opposite wall with a bounce and a tail-side wiggle, plays a one-shot positional squeak, then destroys it. Harmless — the rat has no humanoid and never collides or queries.
+- API: `RatScurry.new(config: { [string]: any }?)` — adds `self.Site`, `self.Rat` and the heartbeat connection
+- API: `RatScurry:CanStart(site: any) -> (boolean, string?)` — needs a site with `Point`/`Across` and the rat template present
+- API: `RatScurry:Start(site: any, duration: number?) -> boolean` — duration defaults to the crossing time plus `Linger`
+- API: `RatScurry:OnStart() -> boolean` — clones the rat, picks a random side to start from, drives the run each heartbeat
+- API: `RatScurry:OnStop()` — disconnects and destroys the rat
+- Settings: `RatModel` (default `Rat`), `Sound` (`ReplicatedStorage.Sounds` template name), `Speed`, `EdgeMargin`, `Linger`, `BobHeight`, `BobRate`, `WiggleAngle`, `WiggleRate`
+- Requires: `Classes\Oddity`, `ReplicatedStorage\Services\AudioService`, `ReplicatedStorage.Props.Other.Rat`
+- Notes: parents the rat under a `workspace.Oddities` folder it creates on demand
 
 ### Oddities\Transparency.luau
 Extends `HallwayOddity`. Fades every eligible world part that sits mostly inside a hallway box to near-invisible, so the corridor's geometry seems to vanish; skips character parts and anything tagged `TransparencyIgnore`, and uses a module-level refcount so overlapping instances restore correctly.

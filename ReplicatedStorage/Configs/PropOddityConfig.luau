@@ -121,5 +121,42 @@ return {
 			DebugHighlight = true,
 			DebugLog = true,
 		},
+
+		RatScurry = {
+			ArmedCount = 2,
+
+			ApproachChance = 1,
+			TriggerDistance = 26,
+			ArmDistance = 45,
+			SameFloorTolerance = 8,
+			ApproachDot = 0.5,
+			ApproachMinSpeed = 4,
+
+			CandidateMinDistance = 55,
+			CandidateMaxDistance = 200,
+			CandidateSpacing = 90,
+			CandidateSamples = 48,
+
+			SiteSpacing = 40,
+			EndInset = 14,
+			MinHallwayWidth = 8,
+			SiteCooldown = 180,
+			PollInterval = 0.2,
+
+			RatModel = "Rat",
+			Sound = "RatScurry",
+
+			Speed = 26,
+			EdgeMargin = 2.5,
+			Linger = 0.35,
+
+			BobHeight = 0.12,
+			BobRate = 6,
+			WiggleAngle = 9,
+			WiggleRate = 2.5,
+
+			DebugMarker = false,
+			DebugLog = true,
+		},
 	},
 }
