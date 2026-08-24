@@ -2,8 +2,13 @@ local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local HallwayGridService = require(ServerStorage.Services.HallwayGridService)
+local MathService = require(ReplicatedStorage.Services.MathService)
+
+local horizontal = MathService.Horizontal
 
 local ENEMY_TAG = "Enemy"
 
@@ -84,10 +89,6 @@ local function buildFilter(): { Instance }
 		table.insert(filter, model)
 	end
 	return filter
-end
-
-local function horizontal(vector: Vector3): Vector3
-	return Vector3.new(vector.X, 0, vector.Z)
 end
 
 local function isClear(params: RaycastParams, from: Vector3, to: Vector3): boolean

@@ -63,6 +63,9 @@ function Oddity:Start(context: any, duration: number?): boolean
 		if not ok then
 			warn(`[oddity] {self.Kind} failed to start: {result}`)
 			self.Active = false
+			if self.OnStop then
+				pcall(self.OnStop, self)
+			end
 			return false
 		end
 		if result == false then

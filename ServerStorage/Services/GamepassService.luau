@@ -1,10 +1,11 @@
 local GamepassService = {}
 
-local Players = game:GetService("Players")
 local MarketplaceService = game:GetService("MarketplaceService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local GamepassConfigs = require(ServerStorage.Configs.GamepassConfigs)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 
 local GamepassCache = {}
 
@@ -20,26 +21,26 @@ local function loadPlayerGamepasses(player: Player)
 	GamepassCache[player] = {}
 
 	for _, gamepassId in ipairs(GamepassConfigs) do
-		local success, ownsGamepass = pcall(function()
-			return MarketplaceService:UserOwnsGamePassAsync(player.UserId, gamepassId)
-		end)
+		task.spawn(function()
+			local success, ownsGamepass = pcall(function()
+				return MarketplaceService:UserOwnsGamePassAsync(player.UserId, gamepassId)
+			end)
 
-		if success then
-			GamepassCache[player][gamepassId] = ownsGamepass
-		else
-			warn("Failed to check gamepass " .. gamepassId .. " for player " .. player.Name)
-			GamepassCache[player][gamepassId] = false
-		end
+			local cache = GamepassCache[player]
+			if not cache then return end
+
+			if success then
+				cache[gamepassId] = ownsGamepass
+			else
+				warn("Failed to check gamepass " .. gamepassId .. " for player " .. player.Name)
+				cache[gamepassId] = false
+			end
+		end)
 	end
 end
 
-Players.PlayerAdded:Connect(function(player)
-	loadPlayerGamepasses(player)
-end)
-
-Players.PlayerRemoving:Connect(function(player)
-	GamepassCache[player] = nil
-end)
+CharacterService.ForEachPlayer(loadPlayerGamepasses)
+CharacterService.CleanupOnLeave(GamepassCache)
 
 MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, gamepassId, wasPurchased)
 	if GamepassCache[player] then

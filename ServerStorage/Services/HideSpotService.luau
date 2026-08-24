@@ -1,7 +1,9 @@
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
+local MathService = require(ReplicatedStorage.Services.MathService)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 
 local ENEMY_TAG = "Enemy"
@@ -61,9 +63,7 @@ local function getFloors(origin: Vector3, range: number): { BasePart }
 	return floors
 end
 
-local function flatten(vector: Vector3): Vector3
-	return Vector3.new(vector.X, 0, vector.Z)
-end
+local flatten = MathService.Horizontal
 
 local function sampleFace(part: BasePart, origin: Vector3, range: number, agentRadius: number): { Vector3 }
 	local half = part.Size / 2

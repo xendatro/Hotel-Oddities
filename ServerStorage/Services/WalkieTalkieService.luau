@@ -8,21 +8,11 @@ local VoiceChatService = game:GetService("VoiceChatService")
 local Config = require(ReplicatedStorage.Configs.WalkieTalkieConfig)
 local VoiceActivityService = require(ServerStorage.Services.VoiceActivityService)
 local NoiseService = require(ServerStorage.Services.NoiseService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 
-local Communication = ReplicatedStorage:WaitForChild("Communication"):WaitForChild("WalkieTalkie")
-
-local function ensureRemote(name: string): RemoteEvent
-	local existing = Communication:FindFirstChild(name)
-	if existing and existing:IsA("RemoteEvent") then return existing end
-	local remote = Instance.new("RemoteEvent")
-	remote.Name = name
-	remote.Parent = Communication
-	return remote
-end
-
-local SetMode = ensureRemote("SetMode")
-local TransmitSound = ensureRemote("TransmitSound")
-local VoiceActivity = ensureRemote("VoiceActivity")
+local SetMode = CommunicationService.Ensure("WalkieTalkie", "SetMode")
+local TransmitSound = CommunicationService.Ensure("WalkieTalkie", "TransmitSound")
+local VoiceActivity = CommunicationService.Ensure("WalkieTalkie", "VoiceActivity")
 
 local WalkieTalkieService = {}
 
@@ -870,43 +860,51 @@ for _, instance in CollectionService:GetTagged(Config.RadioAllowedTag) do
 	if instance:IsA("AudioEmitter") then WalkieTalkieService:RegisterAmbientEmitter(instance) end
 end
 
+local NOISE_TICK_INTERVAL = 0.05
+local noiseAccumulator = 0
 local ambientAccumulator = 0
 RunService.Heartbeat:Connect(function(deltaTime)
-	for player, state in States do
-		local position = getWorldPosition(state.Emitter) or getPlayerPosition(player)
-		if position then LastRadioPosition[player] = position end
-		local voiceState = VoiceActivityService:GetState(player)
-		if state.Speaking and (not voiceState or not voiceState.Active) then updateSpeaking(state, false) end
-	end
+	noiseAccumulator += deltaTime
+	ambientAccumulator += deltaTime
 
-	for source, relay in RelaySounds do
-		if not source.Parent then
-			stopRelaySound(source)
-		else
-			emitRadioNoise(relay.Radio)
+	if noiseAccumulator >= NOISE_TICK_INTERVAL then
+		noiseAccumulator = 0
+
+		for player, state in States do
+			local position = getWorldPosition(state.Emitter) or getPlayerPosition(player)
+			if position then LastRadioPosition[player] = position end
+			local voiceState = VoiceActivityService:GetState(player)
+			if state.Speaking and (not voiceState or not voiceState.Active) then updateSpeaking(state, false) end
 		end
-	end
 
-	for _, state in States do
-		emitRadioVoiceNoise(state)
-	end
-
-	for emitter, source in AmbientSources do
-		local owner: State? = nil
-		local route: AmbientRoute? = nil
-		for _, state in States do
-			if state.AmbientRoutes[emitter] then
-				owner = state
-				route = state.AmbientRoutes[emitter]
-				break
+		for source, relay in RelaySounds do
+			if not source.Parent then
+				stopRelaySound(source)
+			else
+				emitRadioNoise(relay.Radio)
 			end
 		end
-		if owner and route and source.IsPlaying then
-			emitRadioNoise(owner, nil, route.Fader.Volume)
+
+		for _, state in States do
+			emitRadioVoiceNoise(state)
+		end
+
+		for emitter, source in AmbientSources do
+			local owner: State? = nil
+			local route: AmbientRoute? = nil
+			for _, state in States do
+				if state.AmbientRoutes[emitter] then
+					owner = state
+					route = state.AmbientRoutes[emitter]
+					break
+				end
+			end
+			if owner and route and source.IsPlaying then
+				emitRadioNoise(owner, nil, route.Fader.Volume)
+			end
 		end
 	end
 
-	ambientAccumulator += deltaTime
 	if ambientAccumulator < 0.2 then return end
 	ambientAccumulator = 0
 	refreshAmbientSources()
@@ -932,8 +930,10 @@ Players.PlayerRemoving:Connect(function(player)
 	LastRadioPosition[player] = nil
 	DeathConnections[player] = nil
 	CharacterConnections[player] = nil
+	local userId = tostring(player.UserId)
 	for key in FriendCache do
-		if string.find(key, tostring(player.UserId), 1, true) then FriendCache[key] = nil end
+		local first, second = key:match("^(%d+):(%d+)$")
+		if first == userId or second == userId then FriendCache[key] = nil end
 	end
 	for _, other in States do
 		ensureOutputs(other)

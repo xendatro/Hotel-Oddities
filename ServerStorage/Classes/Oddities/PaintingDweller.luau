@@ -4,8 +4,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 local TweenService = game:GetService("TweenService")
 
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local DeathService = require(ServerStorage.Services.DeathService)
-local Gaze = require(ServerStorage.Modules.Gaze)
+local FixtureFall = require(ServerStorage.Classes.FixtureFall)
 local Hallways = require(ReplicatedStorage.Modules.Hallways)
 local LightService = require(ServerStorage.Services.LightService)
 local OddityRemotes = require(ServerStorage.Modules.OddityRemotes)
@@ -60,11 +61,9 @@ local function insideAnyRoom(point: Vector3): boolean
 end
 
 local function livingRoot(player: Player): BasePart?
-	local character = player.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid") :: Humanoid?
-	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not character or not humanoid or not root or humanoid.Health <= 0 then return nil end
-	if Vanished.Is(character) then return nil end
+	local root = CharacterService.GetAliveRoot(player)
+	if not root then return nil end
+	if Vanished.Is(player.Character) then return nil end
 	return root
 end
 
@@ -260,36 +259,7 @@ function PaintingDweller:WhyNotFixed(): string?
 	local rig = self.Rig
 	if not rig or not rig.Parent then return "rig is gone" end
 
-	local grounded = self:GroundedFor()
-	local minimum = self:Setting("MinGroundTime", 45)
-	if grounded < minimum then
-		return `{math.ceil(minimum - grounded)}s left on the retreat timer`
-	end
-
-	local pivot = rig:GetPivot().Position
-	local clearance = self:Setting("FixClearDistance", 24)
-	for _, player in Players:GetPlayers() do
-		local character = player.Character
-		local playerRoot = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-		if playerRoot then
-			local distance = (playerRoot.Position - pivot).Magnitude
-			if distance < clearance then
-				return `{player.Name} is {math.floor(distance)} studs away, needs {math.floor(clearance)}`
-			end
-		end
-	end
-
-	local seen, watcher = Gaze.IsLookedAt(rig, {
-		Cone = self:Setting("FixViewCone", 120),
-		MaxDistance = self:Setting("FixViewDistance", 160),
-		Samples = 2,
-		Ignore = { model, rig },
-	})
-	if seen then
-		return `{if watcher then watcher.Name else "someone"} is looking at it`
-	end
-
-	return nil
+	return FixtureFall.DescribeNotFixed(self, rig:GetPivot().Position, rig, "retreat timer", { model, rig })
 end
 
 function PaintingDweller:IsReadyToFix(): boolean

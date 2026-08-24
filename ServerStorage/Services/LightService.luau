@@ -5,6 +5,7 @@ local RunService = game:GetService("RunService")
 local AudioService = require(ReplicatedStorage.Services.AudioService)
 local Hallways = require(ReplicatedStorage.Modules.Hallways)
 local TagService = require(ReplicatedStorage.Services.TagService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 
 local FLOOR_1_LIGHT_TAG = "Floor1Light"
 local ROOM_TAG = "Room"
@@ -78,9 +79,7 @@ local RED_ATTRIBUTE = "ChaosRed"
 local LightModels: { Model } = {}
 local LightModelsDirty = true
 
-local function horizontal(vector: Vector3): Vector3
-	return Vector3.new(vector.X, 0, vector.Z)
-end
+local horizontal = MathService.Horizontal
 
 local function sameSpan(first: Hallways.StraightSpan, second: Hallways.StraightSpan): boolean
 	local sameDirection = (first.Start - second.Start).Magnitude <= SPAN_EPSILON

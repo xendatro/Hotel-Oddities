@@ -3,6 +3,8 @@ local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
 
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local EnemyDiscoveryService = require(ServerStorage.Services.EnemyDiscoveryService)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
@@ -11,10 +13,7 @@ local NPC = require(ServerStorage.Classes.NPC)
 local Peek = require(ServerStorage.Classes.Enemies.Behaviors.Peek)
 local PeekSpotService = require(ServerStorage.Services.PeekSpotService)
 
-local FaceStalker = ReplicatedStorage
-	:WaitForChild("Communication")
-	:WaitForChild("Enemies")
-	:WaitForChild("FaceStalker") :: RemoteEvent
+local FaceStalker = CommunicationService.Get("Enemies", "FaceStalker") :: RemoteEvent
 
 local PERCEPTION_INTERVAL = 0.25
 local HOLD_INTERVAL = 0.1
@@ -49,9 +48,7 @@ local function releaseCamera(npc: any)
 	end
 end
 
-local function flatten(vector: Vector3): Vector3
-	return Vector3.new(vector.X, 0, vector.Z)
-end
+local flatten = MathService.Horizontal
 
 function Stalker:_getFollowPosition(target: Player): (Vector3?, Vector3?)
 	local position = self:GetTargetPosition(target)

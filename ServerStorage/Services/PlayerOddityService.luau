@@ -5,6 +5,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local Config = require(ReplicatedStorage.Configs.PlayerOddityConfig)
 local OddityService = require(ServerStorage.Services.OddityService)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 
 local SCOPE = "Player"
 
@@ -20,9 +21,7 @@ local function disabledReason(): string
 end
 
 local function isLiving(player: Player): boolean
-	local character = player.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid") :: Humanoid?
-	return humanoid ~= nil and humanoid.Health > 0
+	return CharacterService.GetAliveHumanoid(player) ~= nil
 end
 
 local function available(): { Player }

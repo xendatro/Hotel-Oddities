@@ -1,10 +1,11 @@
 local BadgeService = {}
 
-local Players = game:GetService("Players")
 local _BadgeService = game:GetService("BadgeService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local BadgeConfigs = require(ServerStorage.Configs.BadgeConfigs)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 
 local BadgeCache = {}
 
@@ -61,25 +62,25 @@ local function loadPlayerBadges(player: Player)
 	BadgeCache[player] = {}
 
 	for _, badgeId in ipairs(BadgeConfigs) do
-		local success, ownsBadge = pcall(function()
-			return _BadgeService:UserHasBadgeAsync(player.UserId, badgeId)
-		end)
+		task.spawn(function()
+			local success, ownsBadge = pcall(function()
+				return _BadgeService:UserHasBadgeAsync(player.UserId, badgeId)
+			end)
 
-		if success then
-			BadgeCache[player][badgeId] = ownsBadge
-		else
-			warn("Failed to check badge " .. badgeId .. " for player " .. player.Name)
-			BadgeCache[player][badgeId] = false
-		end
+			local cache = BadgeCache[player]
+			if not cache then return end
+
+			if success then
+				cache[badgeId] = ownsBadge
+			else
+				warn("Failed to check badge " .. badgeId .. " for player " .. player.Name)
+				cache[badgeId] = false
+			end
+		end)
 	end
 end
 
-Players.PlayerAdded:Connect(function(player)
-	loadPlayerBadges(player)
-end)
-
-Players.PlayerRemoving:Connect(function(player)
-	BadgeCache[player] = nil
-end)
+CharacterService.ForEachPlayer(loadPlayerBadges)
+CharacterService.CleanupOnLeave(BadgeCache)
 
 return BadgeService

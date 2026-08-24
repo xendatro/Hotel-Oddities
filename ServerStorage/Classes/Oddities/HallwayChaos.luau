@@ -2,9 +2,6 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local HallwayOddity = require(ServerStorage.Classes.HallwayOddity)
 local LightService = require(ServerStorage.Services.LightService)
-local OddityRemotes = require(ServerStorage.Modules.OddityRemotes)
-
-local MapDoors = OddityRemotes.Event("MapDoors")
 
 local HallwayChaos = HallwayOddity.extend("HallwayChaos", HallwayOddity)
 
@@ -24,9 +21,8 @@ function HallwayChaos:OnStart()
 		math.max(self:Setting("LightIntervalMax", 0.24), 0.03)
 	)
 
-	MapDoors:FireAllClients(
+	self:FireMapDoors(
 		"Start",
-		self.Token,
 		self.BoxCFrame,
 		self.BoxSize,
 		math.clamp(self:Setting("OpeningSpeed", 1.2), 0.05, 4),
@@ -43,7 +39,7 @@ function HallwayChaos:OnStop()
 		LightService:ReleaseFlicker(self.LightClaim)
 		self.LightClaim = nil
 	end
-	MapDoors:FireAllClients("Stop", self.Token)
+	self:FireMapDoors("Stop")
 end
 
 return HallwayChaos

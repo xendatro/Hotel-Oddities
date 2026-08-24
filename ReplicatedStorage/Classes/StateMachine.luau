@@ -40,6 +40,7 @@ export type StateMachine = typeof(setmetatable(
 		EvaluatorThreads: { [string]: Vow },
 		MachineState: MachineState,
 		OnStateChanged: ((string) -> ())?,
+		OnBeforeCancel: (() -> ())?,
 	},
 	StateMachine
 	))
@@ -118,6 +119,9 @@ function StateMachine:SetState(stateId: string, reasonId: string?, ...: any)
 			return
 		end
 	end
+	if self.OnBeforeCancel then
+		pcall(self.OnBeforeCancel)
+	end
 	self.StateThread:Cancel(stateId, ...)
 end
 
@@ -148,6 +152,9 @@ function StateMachine:Start()
 				end
 			else
 				warn(`StateMachine: state "{tostring(stateId)}" failed, recovering to "{self.RecoveryParameters[1]}" -- {result}`)
+				if self.OnBeforeCancel then
+					pcall(self.OnBeforeCancel)
+				end
 				task.wait(RECOVERY_DELAY)
 				if self.MachineState ~= "Active" then break end
 				self.Parameters = self.RecoveryParameters
@@ -166,6 +173,9 @@ end
 function StateMachine:Stop()
 	if self.MachineState ~= "Active" then return end
 	self.MachineState = "Ready"
+	if self.OnBeforeCancel then
+		pcall(self.OnBeforeCancel)
+	end
 	self.StateThread:Destroy()
 	for _, vow in self.EvaluatorThreads do
 		vow:Destroy()
@@ -175,6 +185,9 @@ end
 function StateMachine:Destroy()
 	if self.MachineState == "Dead" then return end
 	self.MachineState = "Dead"
+	if self.OnBeforeCancel then
+		pcall(self.OnBeforeCancel)
+	end
 	if self.StateThread then
 		self.StateThread:Destroy()
 	end

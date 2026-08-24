@@ -26,19 +26,19 @@ task.spawn(function()
 	while true do
 		task.wait(POLL_INTERVAL)
 
-		for _, enemy in EnemyService:GetActive() do
-			if not FLICKER_ENEMIES[enemy.EnemyId] or not enemy.Active then continue end
+		EnemyService:ForEachActive(function(enemy)
+			if not FLICKER_ENEMIES[enemy.EnemyId] or not enemy.Active then return end
 
 			local machine = enemy.StateMachine
 			local target = enemy.Target
-			if not target or not machine or not CHASE_STATES[machine.State] then continue end
+			if not target or not machine or not CHASE_STATES[machine.State] then return end
 
 			local character = target.Character
 			local root = character and character:FindFirstChild("HumanoidRootPart")
 			if root then
 				LightService:FlickerHallwayContaining(root.Position, FLICKER_ROLL)
 			end
-		end
+		end)
 	end
 end)
 

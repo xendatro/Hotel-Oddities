@@ -18,11 +18,10 @@ for _, entry in Config.Entries do
 	EntriesById[entry.Id] = entry
 end
 
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+
 task.spawn(function()
-	local setVolume = ReplicatedStorage
-		:WaitForChild("Communication")
-		:WaitForChild("VoiceDebug")
-		:WaitForChild("SetVolume") :: RemoteEvent
+	local setVolume = CommunicationService.Get("VoiceDebug", "SetVolume") :: RemoteEvent
 
 	setVolume.OnServerEvent:Connect(function(player: Player, id: any, value: any)
 		local entry = type(id) == "string" and EntriesById[id]

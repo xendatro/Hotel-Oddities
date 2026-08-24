@@ -1,16 +1,10 @@
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local InventoryService = require(ServerStorage.Services.InventoryService)
+local ChatCommandService = require(ServerStorage.Services.ChatCommandService)
 
 local Tools = ReplicatedStorage.Tools
-
-local ALLOWED_USER_IDS = {
-	[265199502] = true,
-	[1936118388] = true,
-}
 
 local MAX_AMOUNT = 100
 
@@ -25,20 +19,6 @@ local function findTool(name: string): Tool?
 	return nil
 end
 
-local function findPlayer(name: string): Player?
-	local lowered = name:lower()
-	local userId = tonumber(name)
-	for _, player in Players:GetPlayers() do
-		if player.Name:lower() == lowered
-			or player.DisplayName:lower() == lowered
-			or (userId and player.UserId == userId)
-		then
-			return player
-		end
-	end
-	return nil
-end
-
 local function parseAmount(argument: string): (string, number)
 	local withoutAmount, amountText = argument:match("^(.-)%s+(%d+)$")
 	if not amountText then return argument, 1 end
@@ -48,11 +28,6 @@ local function parseAmount(argument: string): (string, number)
 end
 
 function ToolCommandService:Execute(sender: Player, argument: string?): boolean
-	if not RunService:IsStudio() and not ALLOWED_USER_IDS[sender.UserId] then
-		warn(`[give] {sender.Name} ({sender.UserId}) is not allowed to use /give`)
-		return false
-	end
-
 	argument = argument and argument:match("^%s*(.-)%s*$") or ""
 	if argument == "" then
 		warn("[give] usage: /give <tool> [amount] or /give <player> <tool> [amount]")
@@ -65,7 +40,7 @@ function ToolCommandService:Execute(sender: Player, argument: string?): boolean
 
 	if not tool then
 		local targetText, remaining = itemText:match("^(%S+)%s+(.+)$")
-		local requestedTarget = targetText and findPlayer(targetText)
+		local requestedTarget = targetText and ChatCommandService.FindPlayer(targetText)
 		if requestedTarget then
 			target = requestedTarget
 			tool = findTool(remaining)
@@ -86,18 +61,11 @@ function ToolCommandService:Execute(sender: Player, argument: string?): boolean
 	return true
 end
 
-local function watch(player: Player)
-	player.Chatted:Connect(function(message: string)
-		local command, argument = message:match("^/(%S+)%s*(.*)$")
-		if command and command:lower() == "give" then
-			ToolCommandService:Execute(player, if argument ~= "" then argument else nil)
-		end
-	end)
-end
-
-Players.PlayerAdded:Connect(watch)
-for _, player in Players:GetPlayers() do
-	watch(player)
-end
+ChatCommandService.Register("give", {
+	AdminOnly = true,
+	Handler = function(player: Player, argument: string?)
+		ToolCommandService:Execute(player, argument)
+	end,
+})
 
 return ToolCommandService

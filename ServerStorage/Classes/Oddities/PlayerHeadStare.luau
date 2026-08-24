@@ -1,6 +1,8 @@
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local OddityRemotes = require(ServerStorage.Modules.OddityRemotes)
 local PlayerOddity = require(ServerStorage.Classes.PlayerOddity)
 
@@ -15,9 +17,7 @@ end
 local function livingPlayerCount(): number
 	local count = 0
 	for _, player in Players:GetPlayers() do
-		local character = player.Character
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid") :: Humanoid?
-		if humanoid and humanoid.Health > 0 then
+		if CharacterService.GetAliveHumanoid(player) then
 			count += 1
 		end
 	end

@@ -7,10 +7,10 @@ local ItemShopConfig = require(ReplicatedStorage.Configs.ItemShopConfig)
 local MarketplaceService = require(ReplicatedStorage.Services.MarketplaceService)
 local DataSaveService = require(ServerStorage.Services.DataSaveService)
 local InventoryService = require(ServerStorage.Services.InventoryService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 
-local Communication = ReplicatedStorage.Communication.Items
-local Purchase = Communication.Purchase :: RemoteEvent
-local Sync = Communication.Sync :: RemoteEvent
+local Purchase = CommunicationService.Get("Items", "Purchase") :: RemoteEvent
+local Sync = CommunicationService.Get("Items", "Sync") :: RemoteEvent
 
 local ItemShopService = {}
 

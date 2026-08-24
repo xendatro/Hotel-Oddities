@@ -42,9 +42,7 @@ local function chase(_changeState: StateMachine.ChangeState, npc: any, target: P
 		return "Frozen", npc
 	end
 
-	npc.Target = target
-	npc.Animator:Resume()
-	npc:SetSpeed(npc.Config.ChaseSpeed)
+	npc:BeginChase(target)
 
 	local result = npc:Pursue(function()
 		return npc:GetTargetPosition(target)
@@ -58,23 +56,12 @@ local function chase(_changeState: StateMachine.ChangeState, npc: any, target: P
 	return "Idle", npc
 end
 
-local function attack(_changeState: StateMachine.ChangeState, npc: any, target: Player)
+local function attack(changeState: StateMachine.ChangeState, npc: any, target: Player)
 	if npc:IsObserved() then
 		return "Frozen", npc
 	end
 
-	local position = npc:GetTargetPosition(target)
-	if not position then
-		return "Idle", npc
-	end
-
-	if not npc:IsTouchingPlayer(target) then
-		return "Chase", npc, target
-	end
-
-	npc:Attack(target)
-	task.wait(npc.Config.AttackCooldown)
-	return "Idle", npc
+	return NPC.SharedStates.Attack(changeState, npc, target)
 end
 
 function WeepingAngel.new(model: Model, config)

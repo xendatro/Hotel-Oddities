@@ -22,16 +22,36 @@ local PROFILE_TEMPLATE = {
 
 local ProfileStore = ProfileService.GetProfileStore(PROFILE_STORE_NAME, PROFILE_TEMPLATE)
 local Profiles = {}
+local Waiters: { [Player]: { thread } } = {}
 
 function DataSaveService:Get(player: Player)
 	return Profiles[player]
 end
 
 function DataSaveService:Wait(player: Player)
-	while not Profiles[player] do
-		task.wait()
+	local profile = Profiles[player]
+	if profile then
+		return profile
 	end
-	return Profiles[player]
+
+	local list = Waiters[player]
+	if not list then
+		list = {}
+		Waiters[player] = list
+	end
+	table.insert(list, coroutine.running())
+	return coroutine.yield()
+end
+
+local function resolveWaiters(player: Player)
+	local list = Waiters[player]
+	if not list then return end
+	Waiters[player] = nil
+
+	local profile = Profiles[player]
+	for _, thread in list do
+		task.spawn(thread, profile)
+	end
 end
 
 Players.PlayerAdded:Connect(function(player)
@@ -48,6 +68,7 @@ Players.PlayerAdded:Connect(function(player)
 
 		if player:IsDescendantOf(Players) then
 			Profiles[player] = profile
+			resolveWaiters(player)
 		else
 			profile:Release()
 		end
@@ -62,6 +83,7 @@ Players.PlayerRemoving:Connect(function(player)
 		profile:Release()
 		Profiles[player] = nil
 	end
+	Waiters[player] = nil
 end)
 
 return DataSaveService

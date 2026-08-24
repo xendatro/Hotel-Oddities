@@ -1,9 +1,6 @@
 local ServerStorage = game:GetService("ServerStorage")
 
 local HallwayOddity = require(ServerStorage.Classes.HallwayOddity)
-local OddityRemotes = require(ServerStorage.Modules.OddityRemotes)
-
-local MapDoors = OddityRemotes.Event("MapDoors")
 
 local DoorsOpen = HallwayOddity.extend("DoorsOpen", HallwayOddity)
 
@@ -14,9 +11,8 @@ function DoorsOpen.new(config: { [string]: any }?)
 end
 
 function DoorsOpen:OnStart()
-	MapDoors:FireAllClients(
+	self:FireMapDoors(
 		"Start",
-		self.Token,
 		self.BoxCFrame,
 		self.BoxSize,
 		math.clamp(self:Setting("OpeningSpeed", 0.75), 0.05, 4)
@@ -25,7 +21,7 @@ function DoorsOpen:OnStart()
 end
 
 function DoorsOpen:OnStop()
-	MapDoors:FireAllClients("Stop", self.Token)
+	self:FireMapDoors("Stop")
 end
 
 return DoorsOpen

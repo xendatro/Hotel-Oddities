@@ -4,14 +4,15 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local DiscoveryConfig = require(ServerStorage.Configs.DiscoveryConfig)
 local DataSaveService = require(ServerStorage.Services.DataSaveService)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local EnemyService = require(ServerStorage.Services.EnemyService)
 
-local Communication = ReplicatedStorage:WaitForChild("Communication"):WaitForChild("Index")
-local Update = Communication:WaitForChild("Update") :: RemoteEvent
-local Reveal = Communication:WaitForChild("Reveal") :: RemoteEvent
+local Update = CommunicationService.Get("Index", "Update") :: RemoteEvent
+local Reveal = CommunicationService.Get("Index", "Reveal") :: RemoteEvent
 
 local EnemyDiscoveryService = {}
 
@@ -137,9 +138,8 @@ end
 
 local function sweepPlayer(player: Player, models: { { Id: string, Model: Model } }, delta: number): boolean
 	local character = player.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid") :: Humanoid?
-	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not (character and humanoid and root and humanoid.Health > 0) then return false end
+	local root = CharacterService.GetAliveRootFromCharacter(character)
+	if not (character and root) then return false end
 
 	local eye, look = EnemyObservationService:GetView(player)
 	if not (eye and look) then return false end

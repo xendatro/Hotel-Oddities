@@ -2,13 +2,16 @@ local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local ServerStorage = game:GetService("ServerStorage")
 
 local DrawerConfig = require(ReplicatedStorage.Configs.DrawerConfig)
 local ItemConfig = require(ReplicatedStorage.Configs.DrawerItemConfig)
-local InventoryService = require(script.Parent.InventoryService)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local InventoryService = require(ServerStorage.Services.InventoryService)
 
 local Tools = ReplicatedStorage.Tools
-local Pickup = ReplicatedStorage.Communication[ItemConfig.Remotes.Folder][ItemConfig.Remotes.Pickup] :: RemoteEvent
+local Pickup = CommunicationService.Get(ItemConfig.Remotes.Folder, ItemConfig.Remotes.Pickup) :: RemoteEvent
 
 local DrawerItemService = {}
 
@@ -22,6 +25,8 @@ local LastDrawer: Model? = nil
 local LastItemName: string? = nil
 local NextRefillAt = 0
 local REFILL_CHECK_INTERVAL = 1
+local REFILL_POLL_INTERVAL = 0.25
+local PICKUP_DEBOUNCE = 0.15
 
 local function isCode(instance: Instance): boolean
 	return instance:IsA("Script") or instance:IsA("LocalScript") or instance:IsA("ModuleScript")
@@ -197,34 +202,49 @@ local function spawnItem(drawer: Model, toolName: string): Model?
 	return display
 end
 
-local function cleanItems(): number
-	local count = 0
+local function surveyDrawers(): (number, number, { Model }, { Model })
+	local itemCount = 0
 	for drawer, item in ItemByDrawer do
 		if drawer:IsDescendantOf(workspace) and item.Parent == drawer and CollectionService:HasTag(item, ItemConfig.Tag) then
-			count += 1
+			itemCount += 1
 		else
 			ItemByDrawer[drawer] = nil
 			DrawerByItem[item] = nil
 		end
 	end
-	return count
-end
 
-local function chooseDrawer(): Model?
-	local candidates = {}
-	local fallback = {}
-
+	local drawerCount = 0
+	local candidates: { Model } = {}
+	local fallback: { Model } = {}
 	for drawer in Drawers do
-		if not drawer:IsDescendantOf(workspace) or ItemByDrawer[drawer] then continue end
+		if not drawer:IsDescendantOf(workspace) then continue end
+		drawerCount += 1
+		if ItemByDrawer[drawer] then continue end
 		table.insert(fallback, drawer)
 		if drawer ~= LastDrawer then
 			table.insert(candidates, drawer)
 		end
 	end
 
+	local target = if drawerCount == 0
+		then 0
+		else math.min(drawerCount, math.max(1, math.ceil(drawerCount * ItemConfig.Spawn.TargetPercentage)))
+	return itemCount, target, candidates, fallback
+end
+
+local function pickDrawer(candidates: { Model }, fallback: { Model }): Model?
 	local pool = if #candidates > 0 then candidates else fallback
 	if #pool == 0 then return nil end
-	return pool[RandomGenerator:NextInteger(1, #pool)]
+
+	local index = RandomGenerator:NextInteger(1, #pool)
+	local drawer = pool[index]
+	table.remove(pool, index)
+	local other = if pool == candidates then fallback else candidates
+	local otherIndex = table.find(other, drawer)
+	if otherIndex then
+		table.remove(other, otherIndex)
+	end
+	return drawer
 end
 
 local function chooseItemName(): string?
@@ -259,21 +279,10 @@ local function chooseItemName(): string?
 	return pool[#pool].Name
 end
 
-local function targetCount(): number
-	local count = 0
-	for drawer in Drawers do
-		if drawer:IsDescendantOf(workspace) then
-			count += 1
-		end
-	end
-	if count == 0 then return 0 end
-
-	return math.min(count, math.max(1, math.ceil(count * ItemConfig.Spawn.TargetPercentage)))
-end
-
 local function fillInitial()
-	for _ = 1, targetCount() do
-		local drawer = chooseDrawer()
+	local _, target, candidates, fallback = surveyDrawers()
+	for _ = 1, target do
+		local drawer = pickDrawer(candidates, fallback)
 		local toolName = chooseItemName()
 		if not drawer or not toolName or not spawnItem(drawer, toolName) then break end
 	end
@@ -293,14 +302,6 @@ local function unregisterDrawer(instance: Instance)
 		ItemByDrawer[instance] = nil
 	end
 	Drawers[instance] = nil
-end
-
-local function characterPosition(player: Player): Vector3?
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	if not root or not humanoid or humanoid.Health <= 0 then return nil end
-	return root.Position
 end
 
 local function drawerOf(item: Model): Model?
@@ -325,9 +326,9 @@ Pickup.OnServerEvent:Connect(function(player: Player, item: any)
 	if type(toolName) ~= "string" or not ItemConfig.Items[toolName] then return end
 
 	local now = os.clock()
-	if now - (LastPickup[player] or 0) < 0.15 then return end
+	if now - (LastPickup[player] or 0) < PICKUP_DEBOUNCE then return end
 
-	local position = characterPosition(player)
+	local position = CharacterService.GetPosition(player)
 	if not position or (item:GetPivot().Position - position).Magnitude > DrawerConfig.Targeting.ServerReach then return end
 
 	LastPickup[player] = now
@@ -351,15 +352,23 @@ CollectionService:GetInstanceRemovedSignal(DrawerConfig.Tag):Connect(unregisterD
 
 fillInitial()
 
-RunService.Heartbeat:Connect(function()
+local Accumulator = 0
+
+RunService.Heartbeat:Connect(function(deltaTime: number)
+	Accumulator += deltaTime
+	if Accumulator < REFILL_POLL_INTERVAL then return end
+	Accumulator = 0
+
 	local now = os.clock()
 	if now < NextRefillAt then return end
-	if cleanItems() >= targetCount() then
+
+	local itemCount, target, candidates, fallback = surveyDrawers()
+	if itemCount >= target then
 		NextRefillAt = now + REFILL_CHECK_INTERVAL
 		return
 	end
 
-	local drawer = chooseDrawer()
+	local drawer = pickDrawer(candidates, fallback)
 	local toolName = chooseItemName()
 	if drawer and toolName and spawnItem(drawer, toolName) then
 		NextRefillAt = now + ItemConfig.Spawn.RefillDelay

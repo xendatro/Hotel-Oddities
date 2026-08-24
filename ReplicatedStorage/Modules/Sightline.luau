@@ -6,6 +6,7 @@ type PartCache = {
 	Added: RBXScriptConnection,
 	Removing: RBXScriptConnection,
 	Destroying: RBXScriptConnection,
+	AncestryChanged: RBXScriptConnection,
 }
 
 export type Frustum = {
@@ -50,16 +51,26 @@ local function partsFor(model: Model): { BasePart }
 	for _, descendant in model:GetDescendants() do
 		addPart(cache, descendant)
 	end
+	local function release()
+		if PartCaches[model] ~= cache then return end
+		cache.Added:Disconnect()
+		cache.Removing:Disconnect()
+		cache.Destroying:Disconnect()
+		cache.AncestryChanged:Disconnect()
+		PartCaches[model] = nil
+	end
+
 	cache.Added = model.DescendantAdded:Connect(function(instance)
 		addPart(cache, instance)
 	end)
 	cache.Removing = model.DescendantRemoving:Connect(function(instance)
 		removePart(cache, instance)
 	end)
-	cache.Destroying = model.Destroying:Connect(function()
-		cache.Added:Disconnect()
-		cache.Removing:Disconnect()
-		PartCaches[model] = nil
+	cache.Destroying = model.Destroying:Connect(release)
+	cache.AncestryChanged = model.AncestryChanged:Connect(function(_, parent)
+		if parent == nil then
+			release()
+		end
 	end)
 	PartCaches[model] = cache
 	return cache.Parts

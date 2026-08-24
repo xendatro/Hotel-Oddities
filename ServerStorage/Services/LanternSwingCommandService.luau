@@ -1,9 +1,9 @@
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local Config = require(ReplicatedStorage.Configs.LanternSwayConfig)
 local LightService = require(ServerStorage.Services.LightService)
+local ChatCommandService = require(ServerStorage.Services.ChatCommandService)
 
 local LanternSwingCommandService = {}
 
@@ -45,23 +45,14 @@ local function run(player: Player, argument: string?)
 	warn(`[lantern] swinging {lantern:GetFullName()} red for {duration}s (ChaosRed={tostring(lantern:GetAttribute("ChaosRed"))})`)
 end
 
-local function watch(player: Player)
-	player.Chatted:Connect(function(message: string)
-		local name, argument = message:match("^/(%a+)%s*(.*)$")
-		if not name then return end
-		name = name:lower()
-		if name ~= "lantern" and name ~= "lanterns" then return end
-
+ChatCommandService.Register("lantern", {
+	Aliases = { "lanterns" },
+	Handler = function(player: Player, argument: string?)
 		local rest = argument and argument:lower():match("^swing%s*(.*)$")
 		if rest then
 			run(player, if rest ~= "" then rest else nil)
 		end
-	end)
-end
-
-Players.PlayerAdded:Connect(watch)
-for _, player in Players:GetPlayers() do
-	watch(player)
-end
+	end,
+})
 
 return LanternSwingCommandService

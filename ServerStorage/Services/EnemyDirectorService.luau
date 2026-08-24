@@ -6,6 +6,8 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 local ChaosService = require(ServerStorage.Services.ChaosService)
 local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
@@ -84,19 +86,8 @@ for enemyId, spec in Residents do
 	end
 end
 
-local function horizontal(vector: Vector3): Vector3
-	return Vector3.new(vector.X, 0, vector.Z)
-end
-
-local function getAliveRoot(player: Player): BasePart?
-	local character = player.Character
-	if not character then return nil end
-
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	local root = character:FindFirstChild("HumanoidRootPart")
-	if not humanoid or not root or humanoid.Health <= 0 then return nil end
-	return root :: BasePart
-end
+local horizontal = MathService.Horizontal
+local getAliveRoot = CharacterService.GetAliveRoot
 
 local function getLivingPlayers(): { Player }
 	local living = {}
@@ -239,8 +230,7 @@ local function spawnAt(enemyId: string, position: Vector3, facing: Vector3): any
 	return EnemyService:Spawn(enemyId, CFrame.lookAt(origin, origin + look))
 end
 
-local function placeOnFloor(enemyId: string, config: EnemyConfigs.EnemyConfig, anchor: Player): any?
-	local living = getLivingPlayers()
+local function placeOnFloor(enemyId: string, config: EnemyConfigs.EnemyConfig, anchor: Player, living: { Player }): any?
 	local players = playerPositions(living)
 	if #players == 0 then return nil end
 
@@ -313,14 +303,13 @@ local function hallwayCandidates(from: Vector3): ({ any }, { [any]: any })
 	return found, previous
 end
 
-local function placeInHallway(enemyId: string, config: EnemyConfigs.EnemyConfig, anchor: Player): any?
+local function placeInHallway(enemyId: string, config: EnemyConfigs.EnemyConfig, anchor: Player, living: { Player }): any?
 	local anchorRoot = getAliveRoot(anchor)
 	if not anchorRoot then return nil end
 
 	local candidates, previous = hallwayCandidates(anchorRoot.Position)
 	if #candidates == 0 then return nil end
 
-	local living = getLivingPlayers()
 	local players = playerPositions(living)
 	local enemies = enemyPositions()
 	local filter = buildSightFilter()
@@ -386,9 +375,9 @@ local function spawnGhost(now: number)
 	register(enemy, "Ghost", config, true)
 end
 
-local function tickChaos(now: number)
+local function tickChaos(now: number, living: { Player })
 	if now < NextChaosSpawn or now < ChaosPendingUntil then return end
-	if #getLivingPlayers() == 0 then return end
+	if #living == 0 then return end
 
 	local config = EnemyConfigs.Chaos
 	if countAlive("Chaos") >= (config.MaxAlive or 1) then return end
@@ -407,8 +396,8 @@ local function tickChaos(now: number)
 	end
 end
 
-local function stalkerInterval(): number
-	return Config.StalkerRotationInterval / math.max(#getLivingPlayers(), 1)
+local function stalkerInterval(living: { Player }): number
+	return Config.StalkerRotationInterval / math.max(#living, 1)
 end
 
 local function nextStalkerTarget(): Player?
@@ -420,7 +409,7 @@ local function nextStalkerTarget(): Player?
 	return nil
 end
 
-local function tickStalker(now: number)
+local function tickStalker(now: number, living: { Player })
 	if countAlive("Stalker") > 0 then
 		StalkerWasAlive = true
 		return
@@ -429,7 +418,7 @@ local function tickStalker(now: number)
 		StalkerWasAlive = false
 		StalkerTarget = nil
 		StalkerRetries = 0
-		NextStalkerAt = now + stalkerInterval()
+		NextStalkerAt = now + stalkerInterval(living)
 		return
 	end
 	if now < NextStalkerAt then return end
@@ -457,14 +446,14 @@ local function tickStalker(now: number)
 		if StalkerRetries >= Config.StalkerSpawnAttempts then
 			StalkerTarget = nil
 			StalkerRetries = 0
-			NextStalkerAt = now + stalkerInterval()
+			NextStalkerAt = now + stalkerInterval(living)
 		else
 			NextStalkerAt = now + Config.StalkerRetryDelay
 		end
 	end
 end
 
-local function spawnResident(enemyId: string, spec: ResidentSpec, anchor: Player): any?
+local function spawnResident(enemyId: string, spec: ResidentSpec, anchor: Player, living: { Player }): any?
 	local config = EnemyConfigs[enemyId]
 
 	if enemyId == "Sisters" then
@@ -476,14 +465,13 @@ local function spawnResident(enemyId: string, spec: ResidentSpec, anchor: Player
 	end
 
 	if spec.Placement == "Hallway" then
-		return placeInHallway(enemyId, config, anchor)
+		return placeInHallway(enemyId, config, anchor, living)
 	end
 
-	return placeOnFloor(enemyId, config, anchor)
+	return placeOnFloor(enemyId, config, anchor, living)
 end
 
-local function topUpResidents(now: number)
-	local living = getLivingPlayers()
+local function topUpResidents(now: number, living: { Player })
 	if #living == 0 then return end
 
 	for enemyId, spec in Residents do
@@ -493,7 +481,7 @@ local function topUpResidents(now: number)
 		if now < (NextResidentSpawn[enemyId] or 0) then continue end
 
 		local anchor = living[math.random(#living)]
-		local enemy = spawnResident(enemyId, spec, anchor)
+		local enemy = spawnResident(enemyId, spec, anchor, living)
 		if enemy then
 			register(enemy, enemyId, config, nil, spec)
 			NextResidentSpawn[enemyId] = nil
@@ -596,11 +584,12 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 
 	if TickAccumulator >= Config.TickInterval then
 		TickAccumulator = 0
+		local living = getLivingPlayers()
 		prunePopulation()
-		topUpResidents(now)
-		tickChaos(now)
-		tickStalker(now)
-		if #getLivingPlayers() > 0 then spawnGhost(now) end
+		topUpResidents(now, living)
+		tickChaos(now, living)
+		tickStalker(now, living)
+		if #living > 0 then spawnGhost(now) end
 	end
 
 	if DespawnAccumulator >= Config.DespawnCheckInterval then

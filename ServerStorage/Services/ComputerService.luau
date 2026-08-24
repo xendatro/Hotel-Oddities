@@ -3,6 +3,8 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ComputerConfig = require(ReplicatedStorage.Configs.ComputerConfig)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 
 local ComputerService = {}
 
@@ -12,35 +14,8 @@ local MIN_INTERVAL = 0.5
 
 local LEGACY_ATTRIBUTE = "Hacked"
 
-local function ensureRemotes(): (RemoteEvent, RemoteEvent)
-	local communication = ReplicatedStorage:FindFirstChild("Communication")
-	if not communication then
-		communication = Instance.new("Folder")
-		communication.Name = "Communication"
-		communication.Parent = ReplicatedStorage
-	end
-
-	local folder = communication:FindFirstChild(ComputerConfig.Remotes.Folder)
-	if not folder then
-		folder = Instance.new("Folder")
-		folder.Name = ComputerConfig.Remotes.Folder
-		folder.Parent = communication
-	end
-
-	local function remote(name: string): RemoteEvent
-		local existing = folder:FindFirstChild(name)
-		if existing then return existing :: RemoteEvent end
-
-		local created = Instance.new("RemoteEvent")
-		created.Name = name
-		created.Parent = folder
-		return created
-	end
-
-	return remote(ComputerConfig.Remotes.Complete), remote(ComputerConfig.Remotes.Sync)
-end
-
-local Complete, Sync = ensureRemotes()
+local Complete = CommunicationService.Ensure(ComputerConfig.Remotes.Folder, ComputerConfig.Remotes.Complete) :: RemoteEvent
+local Sync = CommunicationService.Ensure(ComputerConfig.Remotes.Folder, ComputerConfig.Remotes.Sync) :: RemoteEvent
 
 local Hacked: { [Player]: { [Model]: true } } = {}
 local LastComplete: { [Player]: number } = {}
@@ -109,14 +84,6 @@ function ComputerService:SetHacked(player: Player, model: Model, hacked: boolean
 	sync(player)
 end
 
-local function characterPosition(player: Player): Vector3?
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	if not root or not humanoid or humanoid.Health <= 0 then return nil end
-	return root.Position
-end
-
 Complete.OnServerEvent:Connect(function(player: Player, model: any)
 	if typeof(model) ~= "Instance" or not model:IsA("Model") then return end
 	if not model:IsDescendantOf(workspace) or not CollectionService:HasTag(model, TAG) then return end
@@ -125,7 +92,7 @@ Complete.OnServerEvent:Connect(function(player: Player, model: any)
 	local now = os.clock()
 	if now - (LastComplete[player] or 0) < MIN_INTERVAL then return end
 
-	local position = characterPosition(player)
+	local position = CharacterService.GetPosition(player)
 	if not position or (model:GetPivot().Position - position).Magnitude > REACH then return end
 
 	LastComplete[player] = now

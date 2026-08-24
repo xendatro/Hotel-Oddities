@@ -1,5 +1,7 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local Oddity = require(ServerStorage.Classes.Oddity)
 
 local PlayerOddity = Oddity.extend("PlayerOddity")
@@ -26,9 +28,7 @@ end
 function PlayerOddity:CanStart(player: Player?): (boolean, string?)
 	if not player then return false, "no player was given" end
 
-	local character = player.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid") :: Humanoid?
-	if not character or not humanoid or humanoid.Health <= 0 then
+	if not CharacterService.GetAliveHumanoid(player) then
 		return false, "that player has no living character"
 	end
 	return true, nil
@@ -36,7 +36,7 @@ end
 
 function PlayerOddity:Start(player: Player, duration: number?): boolean
 	local character = player.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid") :: Humanoid?
+	local humanoid = CharacterService.GetHumanoid(character)
 	if not character or not humanoid then return false end
 
 	self.Player = player

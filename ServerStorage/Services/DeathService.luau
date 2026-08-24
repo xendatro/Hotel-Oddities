@@ -3,38 +3,15 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local DeathConfig = require(ReplicatedStorage.Configs.DeathConfig)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local EnemyDiscoveryService = require(ServerStorage.Services.EnemyDiscoveryService)
 local FriendReviveService = require(ServerStorage.Services.FriendReviveService)
 local ReviveService = require(ServerStorage.Services.ReviveService)
 local RoomService = require(ServerStorage.Services.RoomService)
 
-local Show = ReplicatedStorage
-	:WaitForChild("Communication")
-	:WaitForChild("Death")
-	:WaitForChild("Show") :: RemoteEvent
-local Complete = ReplicatedStorage
-	:WaitForChild("Communication")
-	:WaitForChild("Death")
-	:WaitForChild("Complete") :: RemoteEvent
-local existingKill = ReplicatedStorage.Communication.Death:FindFirstChild("Kill")
-local Kill: RemoteEvent
-if existingKill and existingKill:IsA("RemoteEvent") then
-	Kill = existingKill
-else
-	Kill = Instance.new("RemoteEvent")
-	Kill.Name = "Kill"
-	Kill.Parent = ReplicatedStorage.Communication.Death
-end
-
-local existingStrike = ReplicatedStorage.Communication.Death:FindFirstChild("Strike")
-local Strike: RemoteEvent
-if existingStrike and existingStrike:IsA("RemoteEvent") then
-	Strike = existingStrike
-else
-	Strike = Instance.new("RemoteEvent")
-	Strike.Name = "Strike"
-	Strike.Parent = ReplicatedStorage.Communication.Death
-end
+local Show = CommunicationService.Get("Death", "Show") :: RemoteEvent
+local Kill = CommunicationService.Ensure("Death", "Kill") :: RemoteEvent
+local Strike = CommunicationService.Ensure("Death", "Strike") :: RemoteEvent
 
 local DeathService = {}
 
@@ -118,10 +95,6 @@ local function watchCharacter(player: Player, character: Model)
 		Killers[player] = nil
 	end)
 end
-
-Complete.OnServerEvent:Connect(function(player: Player, token: any)
-	if type(token) ~= "number" then return end
-end)
 
 local function watchPlayer(player: Player)
 	if player.Character then

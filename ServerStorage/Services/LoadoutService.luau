@@ -4,6 +4,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
 local InventoryService = require(ServerStorage.Services.InventoryService)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 
 local ATTRIBUTES = PerkConfig.Loadout.Attributes
 local BACKPACK_TIMEOUT = 10
@@ -68,15 +69,9 @@ function LoadoutService:IsEmpty(snapshot: Snapshot): boolean
 end
 
 function LoadoutService:GetLivingCharacter(player: Player): Model?
-	local character = player.Character
-	if not character or player.Parent ~= Players then return nil end
-
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	local root = character:FindFirstChild("HumanoidRootPart")
-	if humanoid and humanoid.Health > 0 and root and root:IsA("BasePart") then
-		return character
-	end
-	return nil
+	if player.Parent ~= Players then return nil end
+	local root = CharacterService.GetAliveRoot(player)
+	return if root then player.Character else nil
 end
 
 return LoadoutService

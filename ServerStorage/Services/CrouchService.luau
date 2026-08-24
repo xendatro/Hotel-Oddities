@@ -2,32 +2,14 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local CrouchConfig = require(ReplicatedStorage.Configs.CrouchConfig)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 
 local CrouchService = {}
 
 local ATTRIBUTE = CrouchConfig.Stealth.Attribute
 local MIN_REPORT_INTERVAL = 0.05
 
-local communication = ReplicatedStorage:FindFirstChild("Communication")
-if not communication then
-	communication = Instance.new("Folder")
-	communication.Name = "Communication"
-	communication.Parent = ReplicatedStorage
-end
-
-local folder = communication:FindFirstChild("Crouch")
-if not folder then
-	folder = Instance.new("Folder")
-	folder.Name = "Crouch"
-	folder.Parent = communication
-end
-
-local Update = folder:FindFirstChild("Update") :: RemoteEvent?
-if not Update then
-	Update = Instance.new("RemoteEvent")
-	Update.Name = "Update"
-	Update.Parent = folder
-end
+local Update = CommunicationService.Ensure("Crouch", "Update") :: RemoteEvent
 
 local lastReportAt: { [Player]: number } = {}
 local pending: { [Player]: boolean } = {}

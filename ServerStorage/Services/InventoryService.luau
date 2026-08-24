@@ -4,9 +4,12 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local InventoryConfig = require(ReplicatedStorage.Configs.InventoryConfig)
 local DataSaveService = require(ServerStorage.Services.DataSaveService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 
 local Tools = ReplicatedStorage.Tools
-local Communication = ReplicatedStorage.Communication.Inventory
+local UpdateRemote = CommunicationService.Get("Inventory", "Update")
+local MoveRemote = CommunicationService.Get("Inventory", "Move")
+local DeleteRemote = CommunicationService.Get("Backpack", "Delete")
 
 local CAPACITY = InventoryConfig.HotbarSlots + InventoryConfig.BackpackSlots
 local SAVED_ATTRIBUTES = { "uses" }
@@ -15,7 +18,7 @@ local InventoryService = {}
 
 local Order: { [Player]: { [number]: string } } = {}
 local Ready: { [Player]: boolean } = {}
-local AttributeConnections: { [Tool]: RBXScriptConnection } = {}
+local AttributeConnections: { [Tool]: { RBXScriptConnection } } = {}
 
 local function getOrder(player: Player): { [number]: string }
 	if not Order[player] then
@@ -55,25 +58,30 @@ local function save(player: Player)
 	profile.Data.Inventory = entries
 end
 
+local function untrackAttributes(tool: Tool)
+	local connections = AttributeConnections[tool]
+	if not connections then return end
+	AttributeConnections[tool] = nil
+	for _, connection in connections do
+		connection:Disconnect()
+	end
+end
+
 local function trackAttributes(player: Player, tool: Tool)
 	if AttributeConnections[tool] then return end
 
 	local connections = {}
+	AttributeConnections[tool] = connections
 	for _, attribute in SAVED_ATTRIBUTES do
 		table.insert(connections, tool:GetAttributeChangedSignal(attribute):Connect(function()
 			save(player)
 		end))
 	end
 
-	AttributeConnections[tool] = tool.AncestryChanged:Connect(function(_, parent)
+	table.insert(connections, tool.AncestryChanged:Connect(function(_, parent)
 		if parent then return end
-		for _, connection in connections do
-			connection:Disconnect()
-		end
-		local ancestry = AttributeConnections[tool]
-		if ancestry then ancestry:Disconnect() end
-		AttributeConnections[tool] = nil
-	end)
+		untrackAttributes(tool)
+	end))
 end
 
 function InventoryService:Get(player: Player, toolName: string): Tool?
@@ -158,7 +166,7 @@ function InventoryService:Sync(player: Player)
 		end
 	end
 
-	Communication.Update:FireClient(player, payload)
+	UpdateRemote:FireClient(player, payload)
 end
 
 function InventoryService:Add(player: Player, toolName: string, n: number): boolean
@@ -391,7 +399,7 @@ local function watchPlayer(player: Player)
 	task.spawn(restore, player)
 end
 
-ReplicatedStorage.Communication.Backpack.Delete.OnServerEvent:Connect(function(player: Player, toolName: any, n: any)
+DeleteRemote.OnServerEvent:Connect(function(player: Player, toolName: any, n: any)
 	if type(toolName) ~= "string" then return end
 	n = tonumber(n)
 	if not n then return end
@@ -401,7 +409,7 @@ ReplicatedStorage.Communication.Backpack.Delete.OnServerEvent:Connect(function(p
 	InventoryService:Remove(player, toolName, n)
 end)
 
-Communication.Move.OnServerEvent:Connect(function(player: Player, from: any, to: any)
+MoveRemote.OnServerEvent:Connect(function(player: Player, from: any, to: any)
 	from, to = tonumber(from), tonumber(to)
 	if not from or not to then
 		InventoryService:Sync(player)
@@ -417,7 +425,7 @@ Communication.Move.OnServerEvent:Connect(function(player: Player, from: any, to:
 	end
 end)
 
-Communication.Update.OnServerEvent:Connect(function(player: Player)
+UpdateRemote.OnServerEvent:Connect(function(player: Player)
 	reconcile(player)
 end)
 
@@ -427,6 +435,16 @@ end
 Players.PlayerAdded:Connect(watchPlayer)
 
 Players.PlayerRemoving:Connect(function(player: Player)
+	local backpack = player:FindFirstChildOfClass("Backpack")
+	local character = player.Character
+	for tool in AttributeConnections do
+		if tool.Parent == nil
+			or (backpack and tool:IsDescendantOf(backpack))
+			or (character and tool:IsDescendantOf(character))
+		then
+			untrackAttributes(tool)
+		end
+	end
 	Order[player] = nil
 	Ready[player] = nil
 end)

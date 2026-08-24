@@ -7,6 +7,10 @@ local CollectionService = game:GetService("CollectionService")
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local PerfLog = require(ReplicatedStorage.Modules.PerfLog)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+
+local EnemyClasses = ServerStorage.Classes.Enemies
+local EnemyModels = ReplicatedStorage:WaitForChild("Enemies")
 
 local EnemyService = {}
 local ActiveEnemies = {}
@@ -81,18 +85,12 @@ end
 CollectionService:GetInstanceAddedSignal(FURNITURE_TAG):Connect(prepareFurniture)
 CollectionService:GetInstanceRemovedSignal(FURNITURE_TAG):Connect(removeFurniture)
 
-Players.PlayerAdded:Connect(function(player)
+CharacterService.ForEachPlayer(function(player)
 	player.CharacterAdded:Connect(preparePlayerCharacter)
 	if player.Character then
 		preparePlayerCharacter(player.Character)
 	end
 end)
-for _, player in Players:GetPlayers() do
-	player.CharacterAdded:Connect(preparePlayerCharacter)
-	if player.Character then
-		preparePlayerCharacter(player.Character)
-	end
-end
 
 local activeFolder: Folder?
 
@@ -128,14 +126,13 @@ function EnemyService:Spawn(enemyId: string, spawnCFrame: CFrame, ...: any)
 	if not FLAGS.Enemies then return nil end
 
 	local config = EnemyConfigs[enemyId]
-	local enemyClass = require(ServerStorage.Classes.Enemies:WaitForChild(enemyId))
-	local model = ReplicatedStorage:WaitForChild("Enemies"):WaitForChild(config.Model):Clone() :: Model
+	local enemyClass = require(EnemyClasses:FindFirstChild(enemyId))
+	local model = EnemyModels:FindFirstChild(config.Model):Clone() :: Model
 
 	model:PivotTo(spawnCFrame)
 	model:SetAttribute("EnemyId", enemyId)
 	model:SetAttribute("Harmless", config.Harmless or nil)
 	model.Parent = getActiveFolder()
-	EnemyService:EnsureCollisionGroup()
 	prepare(model)
 
 	local enemy = enemyClass.new(model, config, ...)
@@ -156,6 +153,12 @@ end
 
 function EnemyService:GetActive()
 	return table.clone(ActiveEnemies)
+end
+
+function EnemyService:ForEachActive(callback: (enemy: any) -> ())
+	for _, enemy in ActiveEnemies do
+		callback(enemy)
+	end
 end
 
 function EnemyService:DespawnAll()

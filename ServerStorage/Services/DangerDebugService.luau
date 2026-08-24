@@ -3,6 +3,7 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local EnemyDirectorService = require(ServerStorage.Services.EnemyDirectorService)
 
@@ -26,10 +27,7 @@ local TUNABLE = {
 }
 
 task.spawn(function()
-	local setConfig = ReplicatedStorage
-		:WaitForChild("Communication")
-		:WaitForChild("Danger")
-		:WaitForChild("SetConfig") :: RemoteEvent
+	local setConfig = CommunicationService.Get("Danger", "SetConfig") :: RemoteEvent
 
 	setConfig.OnServerEvent:Connect(function(player: Player, payload: any)
 		if type(payload) ~= "table" then return end

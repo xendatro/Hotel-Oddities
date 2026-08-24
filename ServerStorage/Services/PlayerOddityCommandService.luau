@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
 
 local PlayerOddityService = require(ServerStorage.Services.PlayerOddityService)
+local ChatCommandService = require(ServerStorage.Services.ChatCommandService)
 
 local PlayerOddityCommandService = {}
 
@@ -79,18 +80,10 @@ local function run(caller: Player, argument: string?)
 	warn(`[oddity] applied {chosen} to {target.Name}`)
 end
 
-local function watch(player: Player)
-	player.Chatted:Connect(function(message: string)
-		local name, argument = message:match("^/(%a+)%s*(.*)$")
-		if name and name:lower() == "oddity" then
-			run(player, if argument ~= "" then argument else nil)
-		end
-	end)
-end
-
-Players.PlayerAdded:Connect(watch)
-for _, player in Players:GetPlayers() do
-	watch(player)
-end
+ChatCommandService.Register("oddity", {
+	Handler = function(player: Player, argument: string?)
+		run(player, argument)
+	end,
+})
 
 return PlayerOddityCommandService

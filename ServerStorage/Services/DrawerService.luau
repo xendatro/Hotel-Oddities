@@ -4,23 +4,17 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DrawerConfig = require(ReplicatedStorage.Configs.DrawerConfig)
 local AudioService = require(ReplicatedStorage.Services.AudioService)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 
 local DrawerService = {}
 
 local REACH = DrawerConfig.Targeting.ServerReach
 local MIN_INTERVAL = 0.1
 
-local Toggle = ReplicatedStorage.Communication.Drawer.Toggle :: RemoteEvent
+local Toggle = CommunicationService.Get("Drawer", "Toggle") :: RemoteEvent
 
 local LastToggle: { [Player]: number } = {}
-
-local function characterPosition(player: Player): Vector3?
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	if not root or not humanoid or humanoid.Health <= 0 then return nil end
-	return root.Position
-end
 
 function DrawerService:SetOpen(model: Model, open: boolean)
 	if model:GetAttribute(DrawerConfig.Attribute) == open then
@@ -81,7 +75,7 @@ Toggle.OnServerEvent:Connect(function(player: Player, model: any, open: any)
 	local now = os.clock()
 	if now - (LastToggle[player] or 0) < MIN_INTERVAL then return end
 
-	local position = characterPosition(player)
+	local position = CharacterService.GetPosition(player)
 	if not position or (model:GetPivot().Position - position).Magnitude > REACH then return end
 
 	LastToggle[player] = now

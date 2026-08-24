@@ -4,6 +4,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local Vanished = require(ReplicatedStorage.Modules.Vanished)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 
 --- Full cone angle, in degrees, a target must fall inside to count as looked at.
 local DEFAULT_CONE = 100
@@ -40,8 +41,7 @@ local cachedAt = -math.huge
 
 local function livingCharacter(player: Player): Model?
 	local character = player.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid") :: Humanoid?
-	if not character or not humanoid or humanoid.Health <= 0 then return nil end
+	if not character or not CharacterService.GetAliveHumanoid(player) then return nil end
 	if Vanished.Is(character) then return nil end
 	return character
 end

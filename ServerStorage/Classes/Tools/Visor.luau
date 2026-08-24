@@ -57,7 +57,7 @@ function Visor:_HideFaceAccessories()
 		end
 	end
 
-	self.FaceAccessoryAdded = character.ChildAdded:Connect(function(child)
+	self.Connections.FaceAccessoryAdded = character.ChildAdded:Connect(function(child)
 		if isFaceAccessory(child) then
 			self:_HideFaceAccessory(child :: Accessory)
 		end
@@ -65,9 +65,9 @@ function Visor:_HideFaceAccessories()
 end
 
 function Visor:_RestoreFaceAccessories()
-	if self.FaceAccessoryAdded then
-		self.FaceAccessoryAdded:Disconnect()
-		self.FaceAccessoryAdded = nil
+	if self.Connections.FaceAccessoryAdded then
+		self.Connections.FaceAccessoryAdded:Disconnect()
+		self.Connections.FaceAccessoryAdded = nil
 	end
 
 	for visual, transparency in self.HiddenFaceVisuals do

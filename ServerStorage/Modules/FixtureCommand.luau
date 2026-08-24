@@ -1,4 +1,6 @@
-local Players = game:GetService("Players")
+local ServerStorage = game:GetService("ServerStorage")
+
+local ChatCommandService = require(ServerStorage.Services.ChatCommandService)
 
 local FixtureCommand = {}
 
@@ -76,24 +78,17 @@ local function run(pool: any, label: string, player: Player, argument: string?)
 end
 
 function FixtureCommand.Bind(pool: any, label: string, names: { string })
-	local wanted: { [string]: boolean } = {}
-	for _, name in names do
-		wanted[name:lower()] = true
+	local aliases = {}
+	for index = 2, #names do
+		table.insert(aliases, names[index])
 	end
 
-	local function watch(player: Player)
-		player.Chatted:Connect(function(message: string)
-			local name, argument = message:match("^/(%a+)%s*(.*)$")
-			if name and wanted[name:lower()] then
-				run(pool, label, player, if argument ~= "" then argument else nil)
-			end
-		end)
-	end
-
-	Players.PlayerAdded:Connect(watch)
-	for _, player in Players:GetPlayers() do
-		watch(player)
-	end
+	ChatCommandService.Register(names[1], {
+		Aliases = aliases,
+		Handler = function(player: Player, argument: string?)
+			run(pool, label, player, argument)
+		end,
+	})
 end
 
 return FixtureCommand

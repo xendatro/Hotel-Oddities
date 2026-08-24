@@ -5,18 +5,13 @@ local ServerStorage = game:GetService("ServerStorage")
 local Config = require(ReplicatedStorage.Configs.MapOddityConfig)
 local Hallways = require(ReplicatedStorage.Modules.Hallways)
 local DangerMapService = require(ServerStorage.Services.DangerMapService)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 
 local HallwayRegion = {}
 
 export type Span = Hallways.StraightSpan
 
-local function livingRoot(player: Player): BasePart?
-	local character = player.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid") :: Humanoid?
-	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not humanoid or not root or humanoid.Health <= 0 then return nil end
-	return root
-end
+local livingRoot = CharacterService.GetAliveRoot
 
 function HallwayRegion.Same(first: Span, second: Span): boolean
 	local sameDirection = (first.Start - second.Start).Magnitude <= Config.SpatialPadding

@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local HallwayGraph = require(ServerStorage.Services.HallwayGraphService)
 local Hallways = require(ReplicatedStorage.Modules.Hallways)
+local MathService = require(ReplicatedStorage.Services.MathService)
 
 local MAX_ALONG_SIGHT = 0.5
 local MAX_BRANCH_ALIGNMENT = 0.5
@@ -19,9 +20,7 @@ export type Corner = {
 
 local HallwayGridService = {}
 
-local function horizontal(vector: Vector3): Vector3
-	return Vector3.new(vector.X, 0, vector.Z)
-end
+local horizontal = MathService.Horizontal
 
 local function branchesOf(node: HallwayGraph.RouteNode): { Vector3 }
 	local branches = {}

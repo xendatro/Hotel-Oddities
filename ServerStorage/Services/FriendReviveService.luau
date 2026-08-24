@@ -3,13 +3,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local MarketplaceService = require(ReplicatedStorage.Services.MarketplaceService)
 local ReviveService = require(ServerStorage.Services.ReviveService)
 
-local Communication = ReplicatedStorage.Communication.Revive
-local Offer = Communication.Offer :: RemoteEvent
-local Withdraw = Communication.Withdraw :: RemoteEvent
-local Request = Communication.Request :: RemoteEvent
+local Offer = CommunicationService.Get("Revive", "Offer") :: RemoteEvent
+local Withdraw = CommunicationService.Get("Revive", "Withdraw") :: RemoteEvent
+local Request = CommunicationService.Get("Revive", "Request") :: RemoteEvent
 
 local CONFIG = PerkConfig.FriendRevive
 local PRODUCT_ID = MarketplaceService.Products.ReviveFriend
@@ -114,6 +114,14 @@ Players.PlayerRemoving:Connect(function(player: Player)
 	for buyer, claim in Claims do
 		if claim.Target == player then
 			Claims[buyer] = nil
+		end
+	end
+
+	local userId = tostring(player.UserId)
+	for key in Friendships do
+		local first, second = key:match("^(%d+):(%d+)$")
+		if first == userId or second == userId then
+			Friendships[key] = nil
 		end
 	end
 end)

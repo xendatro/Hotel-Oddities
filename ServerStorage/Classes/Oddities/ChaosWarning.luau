@@ -1,9 +1,6 @@
 local ServerStorage = game:GetService("ServerStorage")
 
 local HallwayOddity = require(ServerStorage.Classes.HallwayOddity)
-local OddityRemotes = require(ServerStorage.Modules.OddityRemotes)
-
-local MapDoors = OddityRemotes.Event("MapDoors")
 
 local ChaosWarning = HallwayOddity.extend("ChaosWarning", HallwayOddity)
 
@@ -15,9 +12,8 @@ function ChaosWarning.new(config: { [string]: any }?)
 end
 
 function ChaosWarning:OnStart()
-	MapDoors:FireAllClients(
+	self:FireMapDoors(
 		"Start",
-		self.Token,
 		self.BoxCFrame,
 		self.BoxSize,
 		math.clamp(self:Setting("OpeningSpeed", 1.2), 0.05, 4),
@@ -31,7 +27,7 @@ function ChaosWarning:OnStart()
 end
 
 function ChaosWarning:OnStop()
-	MapDoors:FireAllClients("Stop", self.Token)
+	self:FireMapDoors("Stop")
 end
 
 return ChaosWarning

@@ -3,22 +3,20 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local DeathService = require(ServerStorage.Services.DeathService)
+local EnemyBase = require(ServerStorage.Classes.EnemyBase)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local EyeHit = require(ServerStorage.Services.EyeHitService).Remote
 local RoomService = require(ServerStorage.Services.RoomService)
 local Vanished = require(ReplicatedStorage.Modules.Vanished)
 
-local ENEMY_TAG = "Enemy"
-local EYE_TAG = "Eye"
-local OBSERVABLE_TAG = "Observable"
 local STUNNED_ATTRIBUTE = "Stunned"
 local DAMAGE_INTERVAL = 0.05
 local IDLE_ANIMATION_NAME = "eye_idle"
 
-local Eye = {}
-Eye.__index = Eye
-Eye.ClassName = "Eye"
+local Eye = EnemyBase.extend("Eye")
+Eye.Tags = { "Enemy", "Eye", "Observable" }
 
 local ByModel: { [Model]: any } = {}
 
@@ -38,8 +36,7 @@ end
 
 local function getVulnerable(player: Player, config): Model?
 	local character = player.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid") :: Humanoid?
-	if not (character and humanoid and humanoid.Health > 0) then return nil end
+	if not character or not CharacterService.IsAlive(character) then return nil end
 	if Vanished.Is(character) then return nil end
 	if hasVisor(character) then return nil end
 	if config.RespectsSafeRooms and RoomService:IsInRoom(player) then return nil end
@@ -105,11 +102,8 @@ local function stunned(_changeState: StateMachine.ChangeState, eye: any, duratio
 end
 
 function Eye.new(model: Model, config)
-	local self = setmetatable({}, Eye)
+	local self = EnemyBase.new(model, config, Eye)
 
-	self.Model = model
-	self.Config = config
-	self.Active = false
 	self.AnimationTrack = nil :: AnimationTrack?
 	self.DamageProgress = {}
 	self.StateMachine = StateMachine.new({
@@ -122,10 +116,7 @@ function Eye.new(model: Model, config)
 	return self
 end
 
-function Eye:Start()
-	if self.Active then return end
-	self.Active = true
-
+function Eye:OnStart()
 	for _, descendant in self.Model:GetDescendants() do
 		if descendant:IsA("BasePart") then
 			descendant.Anchored = true
@@ -141,16 +132,10 @@ function Eye:Start()
 	track:Play()
 	self.AnimationTrack = track
 
-	self.Model:AddTag(ENEMY_TAG)
-	self.Model:AddTag(EYE_TAG)
-	self.Model:AddTag(OBSERVABLE_TAG)
 	ByModel[self.Model] = self
-	self.StateMachine:Start()
 end
 
-function Eye:Despawn()
-	if not self.Active then return end
-	self.Active = false
+function Eye:OnDespawn(): number?
 	ByModel[self.Model] = nil
 
 	if self.AnimationTrack then
@@ -158,15 +143,7 @@ function Eye:Despawn()
 		self.AnimationTrack:Destroy()
 		self.AnimationTrack = nil
 	end
-
-	self.Model:RemoveTag(ENEMY_TAG)
-	self.Model:RemoveTag(EYE_TAG)
-	self.Model:RemoveTag(OBSERVABLE_TAG)
-
-	task.defer(function()
-		self.StateMachine:Stop()
-		self.Model:Destroy()
-	end)
+	return nil
 end
 
 return Eye

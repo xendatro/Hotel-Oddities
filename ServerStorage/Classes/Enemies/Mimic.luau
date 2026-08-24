@@ -8,6 +8,8 @@ local AnimationConfig = require(ReplicatedStorage.Configs.AnimationConfig)
 local MimicConfig = require(ReplicatedStorage.Configs.MimicConfig)
 local MimicMotion = require(ReplicatedStorage.Modules.MimicMotion)
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 local Chaser = require(ServerStorage.Classes.Enemies.Chaser)
 local EnemyDiscoveryService = require(ServerStorage.Services.EnemyDiscoveryService)
 local HallwayGraphService = require(ServerStorage.Services.HallwayGraphService)
@@ -25,14 +27,8 @@ local AFK_DRIFT_REACHED = 1
 local AFK_DRIFT_TIMEOUT = 2.5
 local AFK_SETTLE_TURN_TIMEOUT = 6
 
-local Mirror = ReplicatedStorage
-	:WaitForChild("Communication")
-	:WaitForChild("Enemies")
-	:WaitForChild("Mirror") :: RemoteEvent
-local Reveal = ReplicatedStorage
-	:WaitForChild("Communication")
-	:WaitForChild("Enemies")
-	:WaitForChild("MimicReveal") :: RemoteEvent
+local Mirror = CommunicationService.Get("Enemies", "Mirror") :: RemoteEvent
+local Reveal = CommunicationService.Get("Enemies", "MimicReveal") :: RemoteEvent
 
 local Mimic = NPC.extend("Mimic", Chaser)
 
@@ -52,13 +48,8 @@ local HEAD_LOCK_ATTRIBUTE = "MimicHeadLockUserId"
 local ATTACK_ACTIVE_ATTRIBUTE = "MimicAttackActive"
 local CHASE_TARGET_ATTRIBUTE = "ChaseTargetUserId"
 
-local function randomRange(minimum: number, maximum: number): number
-	return minimum + math.random() * (maximum - minimum)
-end
-
-local function flatten(vector: Vector3): Vector3
-	return Vector3.new(vector.X, 0, vector.Z)
-end
+local randomRange = MathService.RandomRange
+local flatten = MathService.Horizontal
 
 local function angleBetween(from: Vector3, to: Vector3): number
 	local a, b = flatten(from), flatten(to)
@@ -257,6 +248,22 @@ local function finishEncounter(npc: any, nextState: string, ...: any)
 	return nextState, npc, ...
 end
 
+local function beginEncounter(npc: any, target: Player, speed: number?)
+	npc.Target = target
+	npc:SetAttackActive(false)
+	npc:StopMirroring()
+	npc:SetHeadLock(nil)
+	npc.Animator:Resume()
+	npc:SetSpeed(speed or npc.Config.WalkSpeed)
+end
+
+local function endEncounter(npc: any, target: Player, encounter: any, outcome: string?)
+	npc:ClearFacing()
+	if outcome == "Chase" then return "Chase", npc, target end
+	if outcome == "Search" then return "Search", npc, encounter.LastKnown end
+	return finishEncounter(npc, "Idle")
+end
+
 local function loiter(_changeState: StateMachine.ChangeState, npc: any)
 	npc.Target = nil
 	npc.EncounterMode = nil
@@ -342,12 +349,7 @@ end
 --- on you the whole way. The feet go one direction and the body faces another,
 --- which is the whole reason the facing constraint exists.
 local function withdraw(_changeState: StateMachine.ChangeState, npc: any, target: Player)
-	npc.Target = target
-	npc:SetAttackActive(false)
-	npc:StopMirroring()
-	npc:SetHeadLock(nil)
-	npc.Animator:Resume()
-	npc:SetSpeed(npc.Config.RetreatSpeed or npc.Config.WalkSpeed)
+	beginEncounter(npc, target, npc.Config.RetreatSpeed or npc.Config.WalkSpeed)
 
 	local encounter = newEncounter(npc)
 	local outcome = nil :: string?
@@ -391,21 +393,11 @@ local function withdraw(_changeState: StateMachine.ChangeState, npc: any, target
 		end
 	end
 
-	npc:ClearFacing()
-	if outcome == "Chase" then return "Chase", npc, target end
-	if outcome == "Search" then return "Search", npc, encounter.LastKnown end
-	return finishEncounter(npc, "Idle")
+	return endEncounter(npc, target, encounter, outcome)
 end
 
---- Keeps pace with you at arm's length and never closes, facing you the entire
---- time even when its route takes it sideways.
 local function shadow(_changeState: StateMachine.ChangeState, npc: any, target: Player)
-	npc.Target = target
-	npc:SetAttackActive(false)
-	npc:StopMirroring()
-	npc:SetHeadLock(nil)
-	npc.Animator:Resume()
-	npc:SetSpeed(npc.Config.WalkSpeed)
+	beginEncounter(npc, target)
 
 	local encounter = newEncounter(npc)
 	local outcome = nil :: string?
@@ -431,30 +423,17 @@ local function shadow(_changeState: StateMachine.ChangeState, npc: any, target: 
 		local result = npc:Pursue(watch, MimicConfig.ShadowGap)
 		if outcome ~= nil then break end
 
-		-- Arrived at the gap it wants. Hold it until you move off again.
 		if result == "Reached" then
 			npc:StopMoving()
 			task.wait(SUPERVISE_INTERVAL)
 		end
 	end
 
-	npc:ClearFacing()
-	if outcome == "Chase" then return "Chase", npc, target end
-	if outcome == "Search" then return "Search", npc, encounter.LastKnown end
-	return finishEncounter(npc, "Idle")
+	return endEncounter(npc, target, encounter, outcome)
 end
 
---- Walks straight over to you, the way a player who wanted something would.
---- Movement is left entirely to Pursue -- the same router the chase uses -- so it
---- takes real corners instead of pressing into walls, and nothing here touches
---- the CFrame or AutoRotate.
 local function approach(_changeState: StateMachine.ChangeState, npc: any, target: Player)
-	npc.Target = target
-	npc:SetAttackActive(false)
-	npc:StopMirroring()
-	npc:SetHeadLock(nil)
-	npc.Animator:Resume()
-	npc:SetSpeed(npc.Config.WalkSpeed)
+	beginEncounter(npc, target)
 
 	local encounter = newEncounter(npc)
 	local outcome = nil :: string?
@@ -479,9 +458,7 @@ local function approach(_changeState: StateMachine.ChangeState, npc: any, target
 		task.wait(SUPERVISE_INTERVAL)
 	end
 
-	if outcome == "Chase" then return "Chase", npc, target end
-	if outcome == "Search" then return "Search", npc, encounter.LastKnown end
-	return finishEncounter(npc, "Idle")
+	return endEncounter(npc, target, encounter, outcome)
 end
 
 local function lookAndPerform(
@@ -625,12 +602,7 @@ local function standing(npc: any, target: Player, pose: (Vector3) -> Vector3?)
 	local encounter = newEncounter(npc)
 	local outcome = nil :: string?
 
-	npc.Target = target
-	npc:SetAttackActive(false)
-	npc:StopMirroring()
-	npc:SetHeadLock(nil)
-	npc.Animator:Resume()
-	npc:SetSpeed(npc.Config.WalkSpeed)
+	beginEncounter(npc, target)
 	npc:StopMoving()
 
 	while true do
@@ -651,10 +623,7 @@ local function standing(npc: any, target: Player, pose: (Vector3) -> Vector3?)
 		task.wait(SUPERVISE_INTERVAL)
 	end
 
-	npc:ClearFacing()
-	if outcome == "Chase" then return "Chase", npc, target end
-	if outcome == "Search" then return "Search", npc, encounter.LastKnown end
-	return finishEncounter(npc, "Idle")
+	return endEncounter(npc, target, encounter, outcome)
 end
 
 --- Stands looking at a wall with its back to you, the way somebody who alt-tabbed
@@ -679,13 +648,8 @@ end
 --- one deliberately does not hold a facing: its body follows its feet, which is
 --- exactly what a player on their way somewhere looks like.
 local function passerby(_changeState: StateMachine.ChangeState, npc: any, target: Player)
-	npc.Target = target
-	npc:SetAttackActive(false)
-	npc:StopMirroring()
-	npc:SetHeadLock(nil)
+	beginEncounter(npc, target)
 	npc:ClearFacing()
-	npc.Animator:Resume()
-	npc:SetSpeed(npc.Config.WalkSpeed)
 
 	local encounter = newEncounter(npc)
 	local outcome = nil :: string?
@@ -728,20 +692,11 @@ local function passerby(_changeState: StateMachine.ChangeState, npc: any, target
 		if npc:Pursue(watch, 4) == "Reached" then goal = nil end
 	end
 
-	if outcome == "Chase" then return "Chase", npc, target end
-	if outcome == "Search" then return "Search", npc, encounter.LastKnown end
-	return finishEncounter(npc, "Idle")
+	return endEncounter(npc, target, encounter, outcome)
 end
 
---- Gets in front of where you are heading and waits there facing you, so that
---- rounding the next corner puts it already standing in it.
 local function blocker(_changeState: StateMachine.ChangeState, npc: any, target: Player)
-	npc.Target = target
-	npc:SetAttackActive(false)
-	npc:StopMirroring()
-	npc:SetHeadLock(nil)
-	npc.Animator:Resume()
-	npc:SetSpeed(npc.Config.WalkSpeed)
+	beginEncounter(npc, target)
 
 	local encounter = newEncounter(npc)
 	local outcome = nil :: string?
@@ -784,7 +739,6 @@ local function blocker(_changeState: StateMachine.ChangeState, npc: any, target:
 		if watch() == nil and outcome ~= nil then break end
 		if goal then
 			if npc:Pursue(watch, 4) == "Reached" then
-				-- In position. Hold it and let them come to you.
 				npc:StopMoving()
 				task.wait(SUPERVISE_INTERVAL)
 			end
@@ -794,10 +748,7 @@ local function blocker(_changeState: StateMachine.ChangeState, npc: any, target:
 		end
 	end
 
-	npc:ClearFacing()
-	if outcome == "Chase" then return "Chase", npc, target end
-	if outcome == "Search" then return "Search", npc, encounter.LastKnown end
-	return finishEncounter(npc, "Idle")
+	return endEncounter(npc, target, encounter, outcome)
 end
 
 local function afkIdle(_changeState: StateMachine.ChangeState, npc: any)

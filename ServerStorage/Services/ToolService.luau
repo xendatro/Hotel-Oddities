@@ -4,8 +4,9 @@ local ServerStorage = game:GetService("ServerStorage")
 local TagService = require(ReplicatedStorage.Services.TagService)
 local ToolConfigs = require(ReplicatedStorage.Configs.ToolConfigs)
 local InventoryService = require(ServerStorage.Services.InventoryService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 
-local Signal = ReplicatedStorage.Communication.Tools.Signal
+local Signal = CommunicationService.Get("Tools", "Signal")
 local ToolClasses = ServerStorage.Classes.Tools
 
 local ToolService = {}

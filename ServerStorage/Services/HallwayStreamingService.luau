@@ -7,6 +7,9 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local Config = require(ReplicatedStorage.Configs.StreamingConfig)
 local Hallways = require(ReplicatedStorage.Modules.Hallways)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 local HallwayGraph = require(ServerStorage.Services.HallwayGraphService)
 
 local HallwayStreamingService = {}
@@ -107,9 +110,7 @@ local Active = false
 local ExpectedModelsRemote: RemoteEvent?
 local ReportMissingRemote: RemoteEvent?
 
-local function horizontal(vector: Vector3): Vector3
-	return Vector3.new(vector.X, 0, vector.Z)
-end
+local horizontal = MathService.Horizontal
 
 local function unitHorizontal(vector: Vector3): Vector3
 	local flat = horizontal(vector)
@@ -137,6 +138,13 @@ local function setPersistentMode(model: Model): boolean
 	if type(streamingId) ~= "string" or (ModelsByStreamingId[streamingId] and ModelsByStreamingId[streamingId] ~= model) then
 		streamingId = HttpService:GenerateGUID(false)
 		model:SetAttribute(Config.ModelIdAttribute, streamingId)
+	end
+	if ModelsByStreamingId[streamingId] ~= model then
+		model.Destroying:Connect(function()
+			if ModelsByStreamingId[streamingId] == model then
+				ModelsByStreamingId[streamingId] = nil
+			end
+		end)
 	end
 	ModelsByStreamingId[streamingId] = model
 	if not model:HasTag(Config.ModelTag) then model:AddTag(Config.ModelTag) end
@@ -859,36 +867,11 @@ local function getModelNames(desired: { [Model]: boolean }): { string }
 	return names
 end
 
-local function ensureRemotes(): (RemoteEvent, RemoteEvent, RemoteEvent, RemoteEvent, RemoteEvent)
-	local communication = ReplicatedStorage:FindFirstChild("Communication")
-	if not communication then
-		communication = Instance.new("Folder")
-		communication.Name = "Communication"
-		communication.Parent = ReplicatedStorage
-	end
-	local folder = communication:FindFirstChild("Streaming")
-	if not folder then
-		folder = Instance.new("Folder")
-		folder.Name = "Streaming"
-		folder.Parent = communication
-	end
-
-	local function get(name: string): RemoteEvent
-		local existing = folder:FindFirstChild(name)
-		if existing and existing:IsA("RemoteEvent") then return existing end
-		local remote = Instance.new("RemoteEvent")
-		remote.Name = name
-		remote.Parent = folder
-		return remote
-	end
-
-	return get("PrepareTeleport"), get("ClientReady"), get("TeleportFailed"), get("ExpectedModels"), get("ReportMissing")
-end
-
-local PrepareTeleportRemote: RemoteEvent
-local ClientReadyRemote: RemoteEvent
-local TeleportFailedRemote: RemoteEvent
-PrepareTeleportRemote, ClientReadyRemote, TeleportFailedRemote, ExpectedModelsRemote, ReportMissingRemote = ensureRemotes()
+local PrepareTeleportRemote = CommunicationService.Ensure("Streaming", "PrepareTeleport") :: RemoteEvent
+local ClientReadyRemote = CommunicationService.Ensure("Streaming", "ClientReady") :: RemoteEvent
+local TeleportFailedRemote = CommunicationService.Ensure("Streaming", "TeleportFailed") :: RemoteEvent
+ExpectedModelsRemote = CommunicationService.Ensure("Streaming", "ExpectedModels") :: RemoteEvent
+ReportMissingRemote = CommunicationService.Ensure("Streaming", "ReportMissing") :: RemoteEvent
 
 ClientReadyRemote.OnServerEvent:Connect(function(player: Player, token: any, ready: any)
 	local pending = PendingTeleports[player]
@@ -1104,10 +1087,8 @@ RunService.Heartbeat:Connect(function(deltaTime)
 
 	refreshEnemyPlacements()
 	for player, _ in PlayersState do
-		local character = player.Character
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		local root = character and character:FindFirstChild("HumanoidRootPart")
-		if humanoid and humanoid.Health > 0 and root and root:IsA("BasePart") then
+		local root = CharacterService.GetAliveRoot(player)
+		if root then
 			local velocity = horizontal(root.AssemblyLinearVelocity)
 			local direction = if velocity.Magnitude > 1 then velocity.Unit else root.CFrame.LookVector
 			updatePlayer(player, root.Position, direction, velocity.Magnitude)

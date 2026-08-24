@@ -4,24 +4,13 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local StatsHUDConfig = require(ReplicatedStorage.Configs.StatsHUDConfig)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local EnemyDirectorService = require(ServerStorage.Services.EnemyDirectorService)
 local EnemyService = require(ServerStorage.Services.EnemyService)
 
 local EnemyDebugService = {}
 
-local function ensure(parent: Instance, name: string, className: string): Instance
-	local existing = parent:FindFirstChild(name)
-	if existing then return existing end
-
-	local created = Instance.new(className)
-	created.Name = name
-	created.Parent = parent
-	return created
-end
-
-local communication = ensure(ReplicatedStorage, "Communication", "Folder")
-local enemies = ensure(communication, "Enemies", "Folder")
-local Snapshot = ensure(enemies, "DebugSnapshot", "RemoteEvent") :: RemoteEvent
+local Snapshot = CommunicationService.Ensure("Enemies", "DebugSnapshot") :: RemoteEvent
 
 local function stateOf(enemy: any): string
 	local machine = enemy.StateMachine

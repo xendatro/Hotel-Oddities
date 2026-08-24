@@ -33,6 +33,10 @@ local function setUpConnections(self)
 			end)
 		end
 	end
+
+	self.Connections.Destroying = self.Trap.Destroying:Connect(function()
+		self:Destroy()
+	end)
 end
 
 function TrapObject.new(trap: Model)
@@ -88,10 +92,13 @@ function TrapObject:Spring(model: Instance?)
 end
 
 function TrapObject:Destroy()
-	for _, connection in self.Connections do
+	local connections = self.Connections
+	if not connections then return end
+	self.Connections = nil
+
+	for _, connection in connections do
 		connection:Disconnect()
 	end
-	self.Connections = {}
 end
 
 return TrapObject

@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local HearingConfig = require(ReplicatedStorage.Configs.HearingConfig)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local NoiseService = require(ServerStorage.Services.NoiseService)
 
 local HearingService = {}
@@ -15,26 +16,7 @@ export type Ear = {
 
 local Ears: { [any]: Ear } = {}
 
-local communication = ReplicatedStorage:FindFirstChild("Communication")
-if not communication then
-	communication = Instance.new("Folder")
-	communication.Name = "Communication"
-	communication.Parent = ReplicatedStorage
-end
-
-local folder = communication:FindFirstChild("Hearing")
-if not folder then
-	folder = Instance.new("Folder")
-	folder.Name = "Hearing"
-	folder.Parent = communication
-end
-
-local Travel = folder:FindFirstChild("Travel") :: RemoteEvent?
-if not Travel then
-	Travel = Instance.new("RemoteEvent")
-	Travel.Name = "Travel"
-	Travel.Parent = folder
-end
+local Travel = CommunicationService.Ensure("Hearing", "Travel") :: RemoteEvent
 
 function HearingService:AddEar(key: any, ear: Ear): () -> ()
 	Ears[key] = ear

@@ -3,29 +3,20 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
+local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local MathService = require(ReplicatedStorage.Services.MathService)
+local Vanished = require(ReplicatedStorage.Modules.Vanished)
 local DeathService = require(ServerStorage.Services.DeathService)
 local EnemyDiscoveryService = require(ServerStorage.Services.EnemyDiscoveryService)
-local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
+local EnemyBase = require(ServerStorage.Classes.EnemyBase)
 local RoomService = require(ServerStorage.Services.RoomService)
-local Vanished = require(ReplicatedStorage.Modules.Vanished)
 
-local ENEMY_TAG = "Enemy"
-local CHAOS_TAG = "Chaos"
 local MINIMUM_LEG = 1e-3
 local NEAR_MISS_SCALE = 3
 
-local Chaos = {}
-Chaos.__index = Chaos
-Chaos.ClassName = "Chaos"
-
-local function distanceToSegment(point: Vector3, origin: Vector3, destination: Vector3): number
-	local offset = destination - origin
-	local lengthSquared = offset:Dot(offset)
-	if lengthSquared < MINIMUM_LEG then return (point - origin).Magnitude end
-
-	local alpha = math.clamp((point - origin):Dot(offset) / lengthSquared, 0, 1)
-	return (point - origin:Lerp(destination, alpha)).Magnitude
-end
+local Chaos = EnemyBase.extend("Chaos")
+Chaos.Tags = { "Enemy", "Chaos" }
 
 local function stopParticles(model: Model): number
 	local linger = 0
@@ -39,14 +30,11 @@ local function stopParticles(model: Model): number
 end
 
 function Chaos.new(model: Model, config, route: { Vector3 }, warningToken)
-	local self = setmetatable({}, Chaos)
+	local self = EnemyBase.new(model, config, Chaos)
 
-	self.Model = model
-	self.Config = config
 	self.RootPart = model.Chaos :: BasePart
 	self.Route = route
 	self.WarningToken = warningToken
-	self.Active = false
 	self.StateMachine = StateMachine.new({
 		Run = function()
 			self:TravelRoute()
@@ -66,12 +54,11 @@ function Chaos:_killAlong(origin: Vector3, destination: Vector3)
 		if RoomService:IsInRoom(player) then continue end
 		if Vanished.Is(player.Character) then continue end
 
-		local character = player.Character
-		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		if not (root and humanoid and humanoid.Health > 0) then continue end
+		local root = CharacterService.GetAliveRoot(player)
+		local humanoid = if root then CharacterService.GetHumanoid(root.Parent :: Model) else nil
+		if not (root and humanoid) then continue end
 
-		local distance = distanceToSegment(root.Position, origin, destination)
+		local distance = MathService.DistanceToSegment(root.Position, origin, destination)
 		if distance <= self.Config.KillRange then
 			DeathService:RecordCause(player, self.EnemyId)
 			humanoid.Health = 0
@@ -93,11 +80,12 @@ function Chaos:TravelRoute()
 
 		local startedAt = os.clock()
 		local previous = origin
+		local alpha = 0
 		repeat
 			RunService.Heartbeat:Wait()
 			if not self.Active then return end
 
-			local alpha = math.min((os.clock() - startedAt) / duration, 1)
+			alpha = math.min((os.clock() - startedAt) / duration, 1)
 			local position = origin:Lerp(destination, alpha)
 			self.Model:PivotTo(CFrame.lookAt(position, position + offset))
 			self:_killAlong(previous, position)
@@ -106,31 +94,13 @@ function Chaos:TravelRoute()
 	end
 end
 
-function Chaos:Start()
-	if self.Active then return end
-	self.Active = true
-
+function Chaos:OnStart()
 	self.RootPart.Anchored = true
-	self.Model:AddTag(ENEMY_TAG)
-	self.Model:AddTag(CHAOS_TAG)
-	self.StateMachine:Start()
 end
 
-function Chaos:Despawn()
-	if not self.Active then return end
-	self.Active = false
+function Chaos:OnDespawn(): number?
 	self.WarningToken.Cancelled = true
-
-	self.Model:RemoveTag(ENEMY_TAG)
-	self.Model:RemoveTag(CHAOS_TAG)
-
-	local linger = stopParticles(self.Model)
-
-	task.defer(function()
-		self.StateMachine:Stop()
-		task.wait(linger)
-		self.Model:Destroy()
-	end)
+	return stopParticles(self.Model)
 end
 
 return Chaos

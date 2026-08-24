@@ -4,17 +4,16 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local CreepConfig = require(ReplicatedStorage.Configs.CreepConfig)
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local Vanished = require(ReplicatedStorage.Modules.Vanished)
+local EnemyBase = require(ServerStorage.Classes.EnemyBase)
 local EnemyDiscoveryService = require(ServerStorage.Services.EnemyDiscoveryService)
 local LightService = require(ServerStorage.Services.LightService)
 
-local ENEMY_TAG = "Enemy"
-local CREEP_TAG = "Creep"
 local PROXIMITY_INTERVAL = 0.1
 
-local Creep = {}
-Creep.__index = Creep
-Creep.ClassName = "Creep"
+local Creep = EnemyBase.extend("Creep")
+Creep.Tags = { "Enemy", "Creep" }
 
 local function ambient()
 	coroutine.yield()
@@ -103,14 +102,11 @@ local function scatter(model: Model, plate: BasePart, variant)
 end
 
 function Creep.new(model: Model, config)
-	local self = setmetatable({}, Creep)
+	local self = EnemyBase.new(model, config, Creep)
 
-	self.Model = model
-	self.Config = config
 	self.RootPart = model:FindFirstChildWhichIsA("BasePart", true) :: BasePart
 	self.Variant = pickVariant()
 	scatter(model, self.RootPart, self.Variant)
-	self.Active = false
 	self.LightClaim = nil
 	self.Destroying = nil
 	self.StateMachine = StateMachine.new({
@@ -121,9 +117,8 @@ function Creep.new(model: Model, config)
 				task.wait(PROXIMITY_INTERVAL)
 
 				for _, player in Players:GetPlayers() do
-					local character = player.Character
-					if Vanished.Is(character) then continue end
-					local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+					if Vanished.Is(player.Character) then continue end
+					local root = CharacterService.GetAliveRoot(player)
 					if root and (root.Position - self.RootPart.Position).Magnitude <= self.Config.DespawnRange then
 						EnemyDiscoveryService:GrantEvent(player, self.EnemyId)
 						self:Despawn()
@@ -137,13 +132,8 @@ function Creep.new(model: Model, config)
 	return self
 end
 
-function Creep:Start()
-	if self.Active then return end
-	self.Active = true
-
+function Creep:OnStart()
 	self.RootPart.Anchored = true
-	self.Model:AddTag(ENEMY_TAG)
-	self.Model:AddTag(CREEP_TAG)
 	self.LightClaim = LightService:DisableHallway(
 		self.RootPart.Position,
 		self.RootPart.CFrame.LookVector,
@@ -154,26 +144,15 @@ function Creep:Start()
 	self.Destroying = self.Model.Destroying:Connect(function()
 		LightService:Release(self.LightClaim)
 	end)
-
-	self.StateMachine:Start()
 end
 
-function Creep:Despawn()
-	if not self.Active then return end
-	self.Active = false
-
-	self.Model:RemoveTag(ENEMY_TAG)
-	self.Model:RemoveTag(CREEP_TAG)
+function Creep:OnDespawn(): number?
 	if self.Destroying then
 		self.Destroying:Disconnect()
 		self.Destroying = nil
 	end
 	LightService:Release(self.LightClaim)
-
-	task.defer(function()
-		self.StateMachine:Stop()
-		self.Model:Destroy()
-	end)
+	return nil
 end
 
 return Creep

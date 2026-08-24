@@ -1,14 +1,17 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
 
-local InventoryService = require(script.Parent.InventoryService)
-local HallwayStreamingService = require(script.Parent.HallwayStreamingService)
+local InventoryService = require(ServerStorage.Services.InventoryService)
+local HallwayStreamingService = require(ServerStorage.Services.HallwayStreamingService)
 
 local PlayerLocatorConfig = require(ReplicatedStorage.Configs.PlayerLocatorConfig)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 
 local PlayerLocatorService = {}
 
-local Teleport = ReplicatedStorage.Communication.PlayerLocator.Teleport
+local Teleport = CommunicationService.Get("PlayerLocator", "Teleport")
 
 local NextTeleport: { [Player]: number } = {}
 
@@ -17,16 +20,7 @@ local function isEquipped(player: Player): boolean
 	return tool ~= nil and tool.Parent == player.Character
 end
 
-local function livingRoot(target: Player): BasePart?
-	local character = target.Character
-	if not character then return nil end
-
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	local root = character:FindFirstChild("HumanoidRootPart")
-	if not humanoid or humanoid.Health <= 0 or not root or not root:IsA("BasePart") then return nil end
-
-	return root
-end
+local livingRoot = CharacterService.GetAliveRoot
 
 function PlayerLocatorService:GetCooldown(player: Player): number
 	return math.max((NextTeleport[player] or 0) - os.clock(), 0)

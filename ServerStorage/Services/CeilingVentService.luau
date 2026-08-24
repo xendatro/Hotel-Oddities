@@ -8,6 +8,8 @@ local AudioService = require(ReplicatedStorage.Services.AudioService)
 local CrouchConfig = require(ReplicatedStorage.Configs.CrouchConfig)
 local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local TagService = require(ReplicatedStorage.Services.TagService)
 local Vanished = require(ReplicatedStorage.Modules.Vanished)
 local DangerMapService = require(ServerStorage.Services.DangerMapService)
@@ -65,30 +67,8 @@ local ENGAGEMENT_STATES = {
 --- machine reports Chase. Without it the sweep can cull a dweller mid-fall.
 local DWELLER_SPAWN_GRACE = 4
 
-local function getEnemyEvent(name: string): RemoteEvent
-	local communication = ReplicatedStorage:FindFirstChild("Communication")
-	if not communication then
-		communication = Instance.new("Folder")
-		communication.Name = "Communication"
-		communication.Parent = ReplicatedStorage
-	end
-	local enemies = communication:FindFirstChild("Enemies")
-	if not enemies then
-		enemies = Instance.new("Folder")
-		enemies.Name = "Enemies"
-		enemies.Parent = communication
-	end
-	local event = enemies:FindFirstChild(name)
-	if not event then
-		event = Instance.new("RemoteEvent")
-		event.Name = name
-		event.Parent = enemies
-	end
-	return event :: RemoteEvent
-end
-
-local CameraEvent = getEnemyEvent("CeilingDwellerCamera")
-local DoorEvent = getEnemyEvent("CeilingVentDoor")
+local CameraEvent = CommunicationService.Ensure("Enemies", "CeilingDwellerCamera") :: RemoteEvent
+local DoorEvent = CommunicationService.Ensure("Enemies", "CeilingVentDoor") :: RemoteEvent
 
 type VentState = {
 	Vent: Instance,
@@ -119,15 +99,32 @@ if not FLAGS.Enemies then
 	return CeilingVentService
 end
 
-local function getAliveRoot(player: Player): BasePart?
-	local character = player.Character
-	if not character then return nil end
+local MazeFloors: { BasePart } = {}
+local MazeFloorsDirty = true
+local FloorParams = RaycastParams.new()
+FloorParams.FilterType = Enum.RaycastFilterType.Include
+FloorParams.RespectCanCollide = true
 
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	local root = character:FindFirstChild("HumanoidRootPart")
-	if not humanoid or not root or humanoid.Health <= 0 then return nil end
-	return root :: BasePart
+local function getMazeFloors(): { BasePart }
+	if MazeFloorsDirty then
+		MazeFloorsDirty = false
+		table.clear(MazeFloors)
+		for _, instance in CollectionService:GetTagged(MAZE_FLOOR_TAG) do
+			if instance:IsA("BasePart") and instance:IsDescendantOf(workspace) then
+				table.insert(MazeFloors, instance)
+			end
+		end
+		FloorParams.FilterDescendantsInstances = MazeFloors
+	end
+	return MazeFloors
 end
+
+local function markFloorsDirty()
+	MazeFloorsDirty = true
+end
+
+CollectionService:GetInstanceAddedSignal(MAZE_FLOOR_TAG):Connect(markFloorsDirty)
+CollectionService:GetInstanceRemovedSignal(MAZE_FLOOR_TAG):Connect(markFloorsDirty)
 
 local function flattenFacing(facing: Vector3): Vector3
 	local flat = Vector3.new(facing.X, 0, facing.Z)
@@ -160,7 +157,7 @@ end
 
 local function getSpawnCFrame(state: VentState, triggeringPlayer: Player): CFrame
 	local facing = state.FallbackFacing
-	local root = getAliveRoot(triggeringPlayer)
+	local root = CharacterService.GetAliveRoot(triggeringPlayer)
 	if root then
 		local towardPlayer = Vector3.new(
 			root.Position.X - state.SpawnPosition.X,
@@ -177,21 +174,11 @@ end
 local function getDropSurface(state: VentState): (Vector3?, Vector3?)
 	if state.DropSolved then return state.DropPosition, state.DropNormal end
 
-	local floors = {}
-	for _, instance in CollectionService:GetTagged(MAZE_FLOOR_TAG) do
-		if instance:IsA("BasePart") and instance:IsDescendantOf(workspace) then
-			table.insert(floors, instance)
-		end
-	end
+	local floors = getMazeFloors()
 	if #floors == 0 then return nil, nil end
 
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Include
-	params.FilterDescendantsInstances = floors
-	params.RespectCanCollide = true
-
 	local origin = state.SpawnPosition - Vector3.yAxis * DROP_RAY_START_OFFSET
-	local result = workspace:Raycast(origin, -Vector3.yAxis * DROP_RAY_DISTANCE, params)
+	local result = workspace:Raycast(origin, -Vector3.yAxis * DROP_RAY_DISTANCE, FloorParams)
 	if not result or result.Normal.Y < MINIMUM_FLOOR_NORMAL then return nil, nil end
 
 	state.DropPosition = result.Position
@@ -235,10 +222,7 @@ local function canSeePoint(state: VentState, character: Model, eye: Vector3, loo
 	return result == nil or result.Instance == state.Vent or result.Instance:IsDescendantOf(state.Vent)
 end
 
-local function isVentVisibleToPlayer(state: VentState, player: Player): boolean
-	local root = getAliveRoot(player)
-	if not root then return false end
-
+local function isVentVisibleToPlayer(state: VentState, player: Player, root: BasePart): boolean
 	local character = root.Parent :: Model
 	local head = character:FindFirstChild("Head") :: BasePart?
 	local eye = if head then head.Position else root.Position + Vector3.new(0, 1.5, 0)
@@ -346,7 +330,7 @@ function CeilingVentService:GetVents(): { { Vent: Instance, Floor: Vector3, Trig
 end
 
 function CeilingVentService:SpawnFromNearest(player: Player): boolean
-	local root = getAliveRoot(player)
+	local root = CharacterService.GetAliveRoot(player)
 	if not root then return false end
 
 	local nearest: VentState? = nil
@@ -427,6 +411,9 @@ Players.PlayerRemoving:Connect(function(player: Player)
 	end
 end)
 
+local TickPlayers: { Player } = {}
+local TickRoots: { [Player]: BasePart? } = {}
+
 RunService.Heartbeat:Connect(function(deltaTime: number)
 	Accumulator += deltaTime
 	if Accumulator < POLL_INTERVAL then return end
@@ -435,11 +422,18 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 	local now = os.clock()
 	sweepDwellers(now)
 
+	table.clear(TickPlayers)
+	table.clear(TickRoots)
+	for _, player in Players:GetPlayers() do
+		table.insert(TickPlayers, player)
+		TickRoots[player] = CharacterService.GetAliveRoot(player)
+	end
+
 	for _, state in TagService:GetAllApplied(CEILING_VENT_TAG) do
 		if not state.Alive or state.Triggered then continue end
 
-		for _, player in Players:GetPlayers() do
-			local root = getAliveRoot(player)
+		for _, player in TickPlayers do
+			local root = TickRoots[player]
 			if not root or Vanished.Is(player.Character) then
 				state.Armed[player] = nil
 				continue
@@ -458,7 +452,7 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 			if offset.Y < 0 or offset.Y > state.TriggerHeight then continue end
 			if not state.Armed[player] then continue end
 			if not isHeadingToward(state, root, toVent) then continue end
-			if not isVentVisibleToPlayer(state, player) then continue end
+			if not isVentVisibleToPlayer(state, player, root) then continue end
 
 			state.Armed[player] = nil
 			trigger(state, player)

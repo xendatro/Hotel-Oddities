@@ -5,6 +5,8 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
 local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local DeathService = require(ServerStorage.Services.DeathService)
@@ -64,19 +66,26 @@ NPC.SharedStates = {}
 
 local ByModel: { [Model]: any } = {}
 
-local function getAliveRoot(player: Player): BasePart?
-	local character = player.Character
-	if not character then return nil end
+local getAliveRoot = CharacterService.GetAliveRoot
+local horizontal = MathService.Horizontal
 
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	local root = character:FindFirstChild("HumanoidRootPart")
-	if not humanoid or not root or humanoid.Health <= 0 then return nil end
-	return root :: BasePart
+local PlayerCharacters: { Model } = {}
+
+local function refreshPlayerCharacters()
+	table.clear(PlayerCharacters)
+	for _, player in Players:GetPlayers() do
+		if player.Character then
+			table.insert(PlayerCharacters, player.Character)
+		end
+	end
 end
 
-local function horizontal(vector: Vector3): Vector3
-	return Vector3.new(vector.X, 0, vector.Z)
-end
+CharacterService.ForEachPlayer(function(player)
+	player.CharacterAdded:Connect(refreshPlayerCharacters)
+	player.CharacterRemoving:Connect(refreshPlayerCharacters)
+	refreshPlayerCharacters()
+end)
+Players.PlayerRemoving:Connect(refreshPlayerCharacters)
 
 local function isWithinCone(origin: Vector3, lookVector: Vector3, point: Vector3, fieldOfView: number): boolean
 	if fieldOfView >= 360 then return true end
@@ -114,10 +123,40 @@ function NPC.new(model: Model, config: EnemyConfigs.EnemyConfig, class: any?)
 	self._prefetch = nil :: any
 	self._networkOwner = nil :: Player?
 	self._ownershipConnection = nil :: RBXScriptConnection?
+	self._ownedParts = {} :: { BasePart }
+	self._routeCleanup = nil :: (() -> ())?
+
+	self._laneParams = RaycastParams.new()
+	self._laneParams.FilterType = Enum.RaycastFilterType.Exclude
+	self._laneParams.RespectCanCollide = true
+	self._laneFilter = {} :: { Instance }
+
+	self._sightParams = RaycastParams.new()
+	self._sightParams.FilterType = Enum.RaycastFilterType.Exclude
+	self._sightParams.FilterDescendantsInstances = { model }
+	self._sightParams.RespectCanCollide = true
+	self._sightOrigins = table.create(3)
+
+	self._pairParams = RaycastParams.new()
+	self._pairParams.FilterType = Enum.RaycastFilterType.Exclude
+	self._pairParams.RespectCanCollide = true
+	self._pairFilter = table.create(2)
+
 	self.Active = false
 	self.StateMachine = self:BuildStateMachine()
+	self.StateMachine.OnBeforeCancel = function()
+		self:_runRouteCleanup()
+	end
 
 	return self
+end
+
+function NPC:_runRouteCleanup()
+	local cleanup = self._routeCleanup
+	if cleanup then
+		self._routeCleanup = nil
+		cleanup()
+	end
 end
 
 function NPC:BuildStateMachine(): StateMachine.StateMachine
@@ -162,6 +201,7 @@ function NPC:Despawn()
 	self:SetForcedDoorway(nil)
 
 	ByModel[self.Model] = nil
+	self:_runRouteCleanup()
 	self:_discardPrefetch()
 	self.Model:RemoveTag(ENEMY_TAG)
 	self.Model:RemoveTag(OBSERVABLE_TAG)
@@ -169,6 +209,10 @@ function NPC:Despawn()
 	if self._ownershipConnection then
 		self._ownershipConnection:Disconnect()
 		self._ownershipConnection = nil
+	end
+	if self._ownershipRemovedConnection then
+		self._ownershipRemovedConnection:Disconnect()
+		self._ownershipRemovedConnection = nil
 	end
 
 	task.defer(function()
@@ -202,8 +246,8 @@ function NPC:_applyNetworkOwner(parts: { Instance }?)
 		self._networkOwner = nil
 	end
 
-	for _, descendant in parts or self.Model:GetDescendants() do
-		if descendant:IsA("BasePart") and descendant:CanSetNetworkOwnership() then
+	for _, descendant in parts or self._ownedParts do
+		if descendant:IsA("BasePart") and descendant.Parent and descendant:CanSetNetworkOwnership() then
 			local read, current = pcall(descendant.GetNetworkOwner, descendant)
 			local readAuto, automatic = pcall(descendant.GetNetworkOwnershipAuto, descendant)
 			if not read or current ~= owner or not readAuto or automatic then
@@ -214,9 +258,26 @@ function NPC:_applyNetworkOwner(parts: { Instance }?)
 end
 
 function NPC:_watchNetworkOwner()
+	table.clear(self._ownedParts)
+	for _, descendant in self.Model:GetDescendants() do
+		if descendant:IsA("BasePart") then
+			table.insert(self._ownedParts, descendant)
+		end
+	end
+
 	self._ownershipConnection = self.Model.DescendantAdded:Connect(function(descendant: Instance)
 		if descendant:IsA("BasePart") then
+			table.insert(self._ownedParts, descendant)
 			self:_applyNetworkOwner({ descendant })
+		end
+	end)
+
+	self._ownershipRemovedConnection = self.Model.DescendantRemoving:Connect(function(descendant: Instance)
+		local index = table.find(self._ownedParts, descendant)
+		if index then
+			local count = #self._ownedParts
+			self._ownedParts[index] = self._ownedParts[count]
+			self._ownedParts[count] = nil
 		end
 	end)
 
@@ -335,12 +396,24 @@ end
 function NPC:PrefetchPath(destination: Vector3, origin: Vector3?)
 	self:_discardPrefetch()
 
-	local entry = { Destination = destination, Origin = origin or self:_pathOrigin(), Path = nil :: Path?, Done = false }
+	local entry = {
+		Destination = destination,
+		Origin = origin or self:_pathOrigin(),
+		Path = nil :: Path?,
+		Done = false,
+		Waiters = {} :: { thread },
+	}
 	self._prefetch = entry
 
 	task.spawn(function()
 		local path = self:_computePath(entry.Origin, destination)
 		entry.Path, entry.Done = path, true
+		for _, thread in entry.Waiters do
+			if coroutine.status(thread) == "suspended" then
+				task.spawn(thread)
+			end
+		end
+		table.clear(entry.Waiters)
 		if self._prefetch ~= entry and path then
 			path:Destroy()
 		end
@@ -352,8 +425,9 @@ function NPC:ComputePath(destination: Vector3, tolerance: number?): Path?
 	if entry then
 		if (entry.Destination - destination).Magnitude <= (tolerance or PREFETCH_DESTINATION_TOLERANCE)
 			and (entry.Origin - self.RootPart.Position).Magnitude <= PREFETCH_ORIGIN_TOLERANCE then
-			while not entry.Done do
-				task.wait()
+			if not entry.Done then
+				table.insert(entry.Waiters, coroutine.running())
+				coroutine.yield()
 			end
 			self._prefetch = nil
 			if entry.Path then return entry.Path end
@@ -399,16 +473,12 @@ function NPC:_getReachDistance(): number
 end
 
 function NPC:_laneObstruction(destination: Vector3): RaycastResult?
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	local filter = { self.Model }
-	for _, player in Players:GetPlayers() do
-		if player.Character then
-			table.insert(filter, player.Character)
-		end
-	end
+	local params = self._laneParams
+	local filter = self._laneFilter
+	table.clear(filter)
+	filter[1] = self.Model
+	table.move(PlayerCharacters, 1, #PlayerCharacters, 2, filter)
 	params.FilterDescendantsInstances = filter
-	params.RespectCanCollide = true
 
 	local radius = self.Config.AgentParams.AgentRadius
 	local height = math.min(self.Config.AgentParams.AgentHeight, self.RootPart.Size.Y)
@@ -507,7 +577,11 @@ function NPC:_walkPath(path: Path, shouldAbandon: (() -> boolean)?): string
 	local blockedConnection = path.Blocked:Connect(function(index)
 		blockedAt = if blockedAt then math.min(blockedAt, index) else index
 	end)
+	self._routeCleanup = function()
+		blockedConnection:Disconnect()
+	end
 	local function finish(result: string): string
+		self._routeCleanup = nil
 		blockedConnection:Disconnect()
 		return result
 	end
@@ -630,7 +704,13 @@ function NPC:Pursue(
 		waypoints, index, routeGoal, blockedAt = nil, 2, nil, nil
 	end
 
+	self._routeCleanup = function()
+		dropRoute()
+		self:_discardPrefetch()
+	end
+
 	local function finish(result: string): string
+		self._routeCleanup = nil
 		dropRoute()
 		self:_discardPrefetch()
 		return result
@@ -784,10 +864,11 @@ function NPC:Pursue(
 end
 
 function NPC:HasLineOfSight(part: BasePart): boolean
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { self.Model, part.Parent }
-	params.RespectCanCollide = true
+	local params = self._pairParams
+	local filter = self._pairFilter
+	filter[1] = self.Model
+	filter[2] = part.Parent
+	params.FilterDescendantsInstances = filter
 
 	local origin = self.RootPart.Position
 	return workspace:Raycast(origin, part.Position - origin, params) == nil
@@ -806,17 +887,13 @@ function NPC:HasPursuitSight(player: Player): boolean
 	local character = root.Parent :: Model
 	if Vanished.Is(character) then return false end
 
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { self.Model }
-	params.RespectCanCollide = true
+	local params = self._sightParams
 
 	local base = self:_pathOrigin()
-	local origins = {
-		base,
-		base + Vector3.yAxis * 1.5,
-		base - Vector3.yAxis * 2.5,
-	}
+	local origins = self._sightOrigins
+	origins[1] = base
+	origins[2] = base + Vector3.yAxis * 1.5
+	origins[3] = base - Vector3.yAxis * 2.5
 	for _, name in PURSUIT_SIGHT_PARTS do
 		local part = character:FindFirstChild(name)
 		if part and part:IsA("BasePart") then
@@ -916,10 +993,11 @@ function NPC:_isFacedBy(player: Player, point: Vector3): boolean
 	if not (eye and look) then return false end
 	if not isWithinCone(eye, look, point, FALLBACK_FIELD_OF_VIEW) then return false end
 
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { player.Character }
-	params.RespectCanCollide = true
+	local params = self._pairParams
+	local filter = self._pairFilter
+	filter[1] = player.Character
+	filter[2] = nil
+	params.FilterDescendantsInstances = filter
 
 	local result = workspace:Raycast(eye, point - eye, params)
 	return result == nil or result.Instance:IsDescendantOf(self.Model)
@@ -989,6 +1067,42 @@ function NPC:Attack(player: Player)
 	if Vanished.Is(root.Parent) then return end
 
 	DeathService:Strike(player, self.Model, self.EnemyId)
+end
+
+function NPC:BeginChase(target: Player)
+	self.Target = target
+	self.Animator:Resume()
+	self:SetSpeed(self.Config.ChaseSpeed)
+end
+
+function NPC:MakePerceptionEvaluator(interval: number, findTarget: (npc: any) -> Player?): () -> ()
+	return function()
+		while true do
+			task.wait(interval)
+			local target = findTarget(self)
+			if target then
+				self.StateMachine:SetState("Chase", "Perception", self, target)
+			end
+		end
+	end
+end
+
+function NPC.SharedStates.Attack(_changeState: StateMachine.ChangeState, npc: any, target: Player)
+	local position = npc:GetTargetPosition(target)
+	if not position then
+		if npc.AttackLostState == "Search" then
+			return "Search", npc, npc.RootPart.Position
+		end
+		return "Idle", npc
+	end
+
+	if not npc:IsTouchingPlayer(target) then
+		return "Chase", npc, target
+	end
+
+	npc:Attack(target)
+	task.wait(npc.Config.AttackCooldown)
+	return "Idle", npc
 end
 
 function NPC.SharedStates.Idle(_changeState: StateMachine.ChangeState, npc: any)

@@ -1,38 +1,18 @@
 local ServerStorage = game:GetService("ServerStorage")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 
 local Chaser = require(ServerStorage.Classes.Enemies.Chaser)
 local NPC = require(ServerStorage.Classes.NPC)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local TweenProxyService = require(ReplicatedStorage.Services.TweenProxyService)
 
 local DROP_SPEED = 22
 local DROP_TIME_MIN = 0.2
 local DROP_TIME_MAX = 1.25
 
-local function getCameraEvent(): RemoteEvent
-	local communication = ReplicatedStorage:FindFirstChild("Communication")
-	if not communication then
-		communication = Instance.new("Folder")
-		communication.Name = "Communication"
-		communication.Parent = ReplicatedStorage
-	end
-	local enemies = communication:FindFirstChild("Enemies")
-	if not enemies then
-		enemies = Instance.new("Folder")
-		enemies.Name = "Enemies"
-		enemies.Parent = communication
-	end
-	local event = enemies:FindFirstChild("CeilingDwellerCamera")
-	if not event then
-		event = Instance.new("RemoteEvent")
-		event.Name = "CeilingDwellerCamera"
-		event.Parent = enemies
-	end
-	return event :: RemoteEvent
-end
-
-local CameraEvent = getCameraEvent()
+local CameraEvent = CommunicationService.Ensure("Enemies", "CeilingDwellerCamera") :: RemoteEvent
 
 local CeilingDweller = NPC.extend("Ceiling Dweller")
 
@@ -97,22 +77,19 @@ local function dropToFloor(self)
 	if dropTarget and dropTarget.Parent == Players then
 		CameraEvent:FireClient(dropTarget, "Drop", duration)
 	end
-	local value = Instance.new("CFrameValue")
-	value.Value = start
-	local changed = value:GetPropertyChangedSignal("Value"):Connect(function()
-		if self.Model.Parent then
-			self.Model:PivotTo(value.Value)
-		end
-	end)
-	local tween = TweenService:Create(
-		value,
+	local tween = TweenProxyService.Proxy(
+		"CFrameValue",
+		start,
+		target,
 		TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-		{ Value = target }
+		function(value)
+			if self.Model.Parent then
+				self.Model:PivotTo(value)
+			end
+		end
 	)
 	tween:Play()
 	tween.Completed:Wait()
-	changed:Disconnect()
-	value:Destroy()
 
 	if not self.Model.Parent then return false end
 	self.Model:PivotTo(target)
@@ -136,10 +113,8 @@ end
 local function getNearestPlayer(self): Player?
 	local nearest, nearestDistance = nil, math.huge
 	for _, player in Players:GetPlayers() do
-		local character = player.Character
-		local root = character and character:FindFirstChild("HumanoidRootPart")
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		if root and humanoid and humanoid.Health > 0 then
+		local root = CharacterService.GetAliveRoot(player)
+		if root then
 			local distance = (root.Position - self.RootPart.Position).Magnitude
 			if distance < nearestDistance then
 				nearest, nearestDistance = player, distance

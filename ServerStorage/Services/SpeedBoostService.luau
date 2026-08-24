@@ -61,7 +61,8 @@ local function bindBaseState(player: Player, character: Model)
 	disconnectBaseState(player)
 
 	task.spawn(function()
-		local humanoid = character:WaitForChild("Humanoid") :: Humanoid
+		local humanoid = character:WaitForChild("Humanoid", 10) :: Humanoid?
+		if not humanoid then return end
 		if player.Character ~= character then return end
 
 		local state: BaseState = {

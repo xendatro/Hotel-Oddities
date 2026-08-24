@@ -4,6 +4,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local NPC = require(ServerStorage.Classes.NPC)
 local Eye = require(ServerStorage.Classes.Enemies.Eye)
 local ToolConfigs = require(ReplicatedStorage.Configs.ToolConfigs)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 
 local BALL_CONFIG = ToolConfigs.Ball
 
@@ -18,7 +19,9 @@ function StunService:Stun(model: Instance?, duration: number): boolean
 	return enemy.StateMachine.State == "Stunned"
 end
 
-ReplicatedStorage.Communication.Ball.Hit.OnServerEvent:Connect(function(player: Player, model: any)
+local Hit = CommunicationService.Get("Ball", "Hit")
+
+Hit.OnServerEvent:Connect(function(player: Player, model: any)
 	if typeof(model) ~= "Instance" or not model:IsA("Model") then return end
 
 	local character = player.Character

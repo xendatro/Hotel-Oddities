@@ -3,20 +3,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
-local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local HeartbeatConfig = require(ReplicatedStorage.Configs.HeartbeatConfig)
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local HearingService = require(ServerStorage.Services.HearingService)
 local NPC = require(ServerStorage.Classes.NPC)
 
-local traceStart = os.clock()
-local function trace(npc: any, message: string)
-	if not FLAGS.BlindTrace then return end
-end
-
 local PERCEPTION_INTERVAL = 0.1
 local CONTACT_GRACE = 0.15
---- Share of its speed the coast never falls below, so the last stud still gets walked.
 local COAST_MINIMUM_SPEED = 0.2
 local PURSUIT_ATTRIBUTE = HeartbeatConfig.PursuitAttribute
 
@@ -101,14 +94,12 @@ local function coastPast(npc: any): boolean
 
 	local room = npc:GetClearRun(heading, range)
 	if room < (npc.Config.OvershootMinimum or 0) then
-		trace(npc, string.format("no room to run out, %.1f studs clear", room))
 		return false
 	end
 
 	local start = npc.RootPart.Position
 	local stop = start + heading * room
 	local heardAt = npc.LastNoiseAt
-	trace(npc, string.format("running out %.1f studs past the sound at %.1f", room, base))
 
 	local deadline = os.clock() + (room / base) * 4 + 0.5
 	local interrupted = false
@@ -187,12 +178,8 @@ local function investigate(_changeState: StateMachine.ChangeState, npc: any)
 		notice(npc)
 	end
 
-	local lastKnown = npc.HeardPosition or npc.RootPart.Position
 	local result = npc:Pursue(function()
 		local goal = npc.HeardPosition
-		if goal then
-			lastKnown = goal
-		end
 		if goal
 			and npc.LastNoiseAt
 			and os.clock() - npc.LastNoiseAt >= npc.Config.TrailSilenceTime
@@ -222,23 +209,17 @@ local function investigate(_changeState: StateMachine.ChangeState, npc: any)
 end
 
 local function pursue(_changeState: StateMachine.ChangeState, npc: any, target: Player)
-	npc.Target = target
-	npc.Animator:Resume()
-	npc:SetSpeed(npc.Config.ChaseSpeed)
+	npc:BeginChase(target)
 
 	local giveUpRange = npc.Config.PursuitGiveUpRange or npc.Config.GiveUpRange
 	local lastKnown = npc:GetTargetPosition(target) or npc.RootPart.Position
-	local reason = "?"
-	trace(npc, `Pursue entered on {target.Name}, giveUp={giveUpRange}`)
 
 	local result = npc:Pursue(function()
 		local position = npc:GetTargetPosition(target)
 		if not position then
-			reason = "target no longer valid"
 			return nil
 		end
 		if (position - npc.RootPart.Position).Magnitude > giveUpRange then
-			reason = string.format("target %.0f studs away, past giveUp", (position - npc.RootPart.Position).Magnitude)
 			return nil
 		end
 		lastKnown = position
@@ -246,8 +227,6 @@ local function pursue(_changeState: StateMachine.ChangeState, npc: any, target: 
 	end, nil, nil, function()
 		return npc:HasPursuitSight(target)
 	end)
-
-	trace(npc, `Pursue ended result={result} reason={reason}`)
 
 	if result == "Reached" then
 		return "Attack", npc, target
@@ -261,30 +240,25 @@ end
 local function attack(_changeState: StateMachine.ChangeState, npc: any, target: Player)
 	local entered = os.clock()
 	local touching = npc:IsValidTarget(target) and npc:IsTouchingPlayer(target)
-	trace(npc, `Attack entered, touching={touching} certain={isHighlyCertain(npc)}`)
 
 	local deadline = entered + CONTACT_GRACE
 	while not touching and os.clock() < deadline do
 		task.wait()
 		touching = npc:IsValidTarget(target) and npc:IsTouchingPlayer(target)
 	end
-	trace(npc, string.format("Attack grace done after %.2fs, touching=%s", os.clock() - entered, tostring(touching)))
 
 	if not isHighlyCertain(npc) or not touching then
 		if npc:IsValidTarget(target) then
 			local position = npc:GetTargetPosition(target)
 			local giveUpRange = npc.Config.PursuitGiveUpRange or npc.Config.GiveUpRange
 			if position and (position - npc.RootPart.Position).Magnitude <= giveUpRange then
-				trace(npc, "Attack missed -> back to Pursue")
 				return "Pursue", npc, target
 			end
 		end
-		trace(npc, "Attack missed and target gone -> Search")
 		return "Search", npc, npc.RootPart.Position
 	end
 
 	npc:Attack(target)
-	trace(npc, `Attack landed, holding AttackCooldown={npc.Config.AttackCooldown}s`)
 	task.wait(npc.Config.AttackCooldown)
 	return "Idle", npc
 end
@@ -374,57 +348,6 @@ function Blind:BuildStateMachine(): StateMachine.StateMachine
 				if state == "Investigate" then
 					setInvestigateSpeed(npc)
 				end
-			end
-		end,
-
-		Trace = function()
-			if not FLAGS.BlindTrace then return end
-
-			local lastState = nil :: string?
-			local since = os.clock()
-			local lastPosition = npc.RootPart.Position
-			local nextSample = 0
-
-			while true do
-				local deltaTime = RunService.Heartbeat:Wait()
-				local now = os.clock()
-
-				local state = npc.StateMachine.State
-				if state ~= lastState then
-					if lastState then
-						trace(npc, string.format("%s lasted %.2fs -> %s", lastState, now - since, tostring(state)))
-					end
-					lastState, since = state, now
-					nextSample = 0
-				end
-
-				if state == "Investigate" and now >= nextSample then
-					nextSample = now + 0.2
-					local goal = npc.HeardPosition
-					local distance = if goal then (npc.RootPart.Position - goal).Magnitude else -1
-					trace(npc, string.format(
-						"approach %.1f studs out, moving %.1f",
-						distance,
-						Vector3.new(
-							npc.RootPart.AssemblyLinearVelocity.X,
-							0,
-							npc.RootPart.AssemblyLinearVelocity.Z
-						).Magnitude
-					))
-				end
-
-				local position = npc.RootPart.Position
-				local moved = (position - lastPosition).Magnitude
-				local walkable = math.max(npc.Humanoid.WalkSpeed, 1) * deltaTime * 3 + 2
-				if moved > walkable then
-					trace(npc, string.format(
-						"JUMPED %.1f studs in one frame (%.0f studs/s against a walk speed of %.1f)",
-						moved,
-						moved / math.max(deltaTime, 1e-3),
-						npc.Humanoid.WalkSpeed
-					))
-				end
-				lastPosition = position
 			end
 		end,
 

@@ -1,7 +1,7 @@
-local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
 
 local MapOddityService = require(ServerStorage.Services.MapOddityService)
+local ChatCommandService = require(ServerStorage.Services.ChatCommandService)
 
 local MapOddityCommandService = {}
 
@@ -58,18 +58,11 @@ local function run(player: Player, argument: string?)
 	warn(`[map oddity] applied {chosen} to the hallway containing {player.Name}`)
 end
 
-local function watch(player: Player)
-	player.Chatted:Connect(function(message: string)
-		local name, argument = message:match("^/(%a+)%s*(.*)$")
-		if name and (name:lower() == "mapoddity" or name:lower() == "mapodd") then
-			run(player, if argument ~= "" then argument else nil)
-		end
-	end)
-end
-
-Players.PlayerAdded:Connect(watch)
-for _, player in Players:GetPlayers() do
-	watch(player)
-end
+ChatCommandService.Register("mapoddity", {
+	Aliases = { "mapodd" },
+	Handler = function(player: Player, argument: string?)
+		run(player, argument)
+	end,
+})
 
 return MapOddityCommandService

@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local CrouchConfig = require(ReplicatedStorage.Configs.CrouchConfig)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 
 local STEALTH = CrouchConfig.Stealth
 local DEFAULT_WALK_SPEED = 16
@@ -33,8 +34,16 @@ local Sequence = 0
 local Accumulator = 0
 
 local function discardExpired(now: number)
-	while RecentNoises[1] and now - RecentNoises[1].CreatedAt > NOISE_LIFETIME do
-		table.remove(RecentNoises, 1)
+	local expired = 0
+	while RecentNoises[expired + 1] and now - RecentNoises[expired + 1].CreatedAt > NOISE_LIFETIME do
+		expired += 1
+	end
+	if expired == 0 then return end
+
+	local count = #RecentNoises
+	table.move(RecentNoises, expired + 1, count, 1)
+	for index = count - expired + 1, count do
+		RecentNoises[index] = nil
 	end
 end
 
@@ -107,9 +116,9 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 
 	for _, player in Players:GetPlayers() do
 		local character = player.Character
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid") :: Humanoid?
+		local humanoid = CharacterService.GetAliveHumanoid(player)
 		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-		if not (humanoid and root and humanoid.Health > 0) then continue end
+		if not (humanoid and root) then continue end
 		if humanoid.FloorMaterial == Enum.Material.Air then continue end
 		if humanoid.MoveDirection.Magnitude < MOVE_INPUT_MIN then continue end
 

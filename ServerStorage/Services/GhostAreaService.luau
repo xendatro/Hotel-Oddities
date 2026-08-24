@@ -4,6 +4,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local Hallways = require(ReplicatedStorage.Modules.Hallways)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 
 local POINT_ATTEMPTS = 12
 
@@ -38,9 +39,8 @@ end
 
 function GhostAreaService:IsPlayerNear(position: Vector3): boolean
 	for _, player in Players:GetPlayers() do
-		local character = player.Character
-		local root = character and character:FindFirstChild("HumanoidRootPart")
-		if root and root:IsA("BasePart") and (root.Position - position).Magnitude <= Config.VanishDistance then
+		local root = CharacterService.GetAliveRoot(player)
+		if root and (root.Position - position).Magnitude <= Config.VanishDistance then
 			return true
 		end
 	end

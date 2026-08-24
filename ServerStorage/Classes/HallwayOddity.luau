@@ -2,6 +2,9 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local HallwayRegion = require(ServerStorage.Modules.HallwayRegion)
 local Oddity = require(ServerStorage.Classes.Oddity)
+local OddityRemotes = require(ServerStorage.Modules.OddityRemotes)
+
+local MapDoors = OddityRemotes.Event("MapDoors")
 
 local HallwayOddity = Oddity.extend("HallwayOddity")
 
@@ -47,6 +50,10 @@ function HallwayOddity:Start(span: HallwayRegion.Span, duration: number?): boole
 	self.Span = span
 	self.BoxCFrame, self.BoxSize = HallwayRegion.Box(span)
 	return Oddity.Start(self, span, duration)
+end
+
+function HallwayOddity:FireMapDoors(action: string, ...: any)
+	MapDoors:FireAllClients(action, self.Token, ...)
 end
 
 return HallwayOddity

@@ -6,6 +6,8 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
 local PerfLog = require(ReplicatedStorage.Modules.PerfLog)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local TagService = require(ReplicatedStorage.Services.TagService)
@@ -35,17 +37,36 @@ local SpawnAccumulator = 0
 local InitialSpawnAccumulator = 0
 local DespawnAccumulator = 0
 
+local GEOMETRY_CACHE_TTL = 1
+
+local CachedSlabs: { BasePart }? = nil
+local CachedBeams: { BasePart }? = nil
+local SlabsCachedAt = -math.huge
+local BeamsCachedAt = -math.huge
+
 local function getSlabs(): { BasePart }
+	local now = os.clock()
+	if CachedSlabs and now - SlabsCachedAt < GEOMETRY_CACHE_TTL then
+		return CachedSlabs
+	end
+
 	local slabs = {}
 	for _, instance in workspace:GetDescendants() do
 		if instance:IsA("BasePart") and instance.Name == CEILING_SLAB_NAME then
 			table.insert(slabs, instance)
 		end
 	end
+	CachedSlabs = slabs
+	SlabsCachedAt = now
 	return slabs
 end
 
 local function getStationBeams(): { BasePart }
+	local now = os.clock()
+	if CachedBeams and now - BeamsCachedAt < GEOMETRY_CACHE_TTL then
+		return CachedBeams
+	end
+
 	local beams = {}
 	for _, instance in workspace:GetDescendants() do
 		if not instance:IsA("BasePart") then continue end
@@ -57,6 +78,8 @@ local function getStationBeams(): { BasePart }
 			table.insert(beams, instance)
 		end
 	end
+	CachedBeams = beams
+	BeamsCachedAt = now
 	return beams
 end
 
@@ -114,13 +137,14 @@ end
 local function isVisible(points: { Vector3 }): boolean
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = {}
 	params.RespectCanCollide = true
 
+	local excluded = {}
 	for _, player in Players:GetPlayers() do
 		local character = player.Character
-		if character then table.insert(params.FilterDescendantsInstances, character) end
+		if character then table.insert(excluded, character) end
 	end
+	params.FilterDescendantsInstances = excluded
 
 	for _, eye in EnemyObservationService:GetEyes() do
 		for _, point in points do
@@ -135,12 +159,10 @@ end
 
 local function isNearPlayer(position: Vector3): boolean
 	for _, player in Players:GetPlayers() do
-		local character = player.Character
-		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		if root and humanoid and humanoid.Health > 0 then
+		local root = CharacterService.GetAliveRoot(player)
+		if root then
 			local offset = root.Position - position
-			if Vector2.new(offset.X, offset.Z).Magnitude <= MAX_PLAYER_DISTANCE and offset.Y <= 2 and offset.Y >= -24 then
+			if MathService.HorizontalMagnitude(offset) <= MAX_PLAYER_DISTANCE and offset.Y <= 2 and offset.Y >= -24 then
 				return true
 			end
 		end
@@ -151,14 +173,16 @@ end
 local function overlapsWorldGeometry(cframe: CFrame, size: Vector3): boolean
 	local params = OverlapParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = {}
 	params.RespectCanCollide = false
 	params.MaxParts = 1
+
+	local excluded = {}
 	for _, player in Players:GetPlayers() do
 		if player.Character then
-			table.insert(params.FilterDescendantsInstances, player.Character)
+			table.insert(excluded, player.Character)
 		end
 	end
+	params.FilterDescendantsInstances = excluded
 	return #workspace:GetPartBoundsInBox(cframe, size, params) > 0
 end
 

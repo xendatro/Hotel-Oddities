@@ -4,6 +4,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local ChaosService = require(ServerStorage.Services.ChaosService)
+local ChatCommandService = require(ServerStorage.Services.ChatCommandService)
 local CeilingVentService = require(ServerStorage.Services.CeilingVentService)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyService = require(ServerStorage.Services.EnemyService)
@@ -150,26 +151,15 @@ function Commands.enemies()
 	warn(`[enemies] spawnable: {table.concat(enemyIds(), ", ")}, all`)
 end
 
-local function onChatted(player: Player, message: string)
-	local name, argument = message:match("^/(%a+)%s*(.*)$")
-	local command = name and Commands[name:lower()]
-	if command then
-		command(player, if argument ~= "" then argument else nil)
-	end
+for name, handler in Commands do
+	ChatCommandService.Register(name, {
+		AdminOnly = false,
+		Handler = handler,
+	})
 end
 
-local function watch(player: Player)
-	player.Chatted:Connect(function(message: string)
-		onChatted(player, message)
-	end)
-end
-
-Players.PlayerAdded:Connect(watch)
 Players.PlayerRemoving:Connect(function(player: Player)
 	VentCycle[player] = nil
 end)
-for _, player in Players:GetPlayers() do
-	watch(player)
-end
 
 return EnemyCommandService

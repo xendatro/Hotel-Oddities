@@ -3,6 +3,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local FixtureFall = require(ServerStorage.Classes.FixtureFall)
 local Hallways = require(ReplicatedStorage.Modules.Hallways)
+local MathService = require(ReplicatedStorage.Services.MathService)
 
 local PaintingFall = FixtureFall.extend("PaintingFall", FixtureFall)
 
@@ -14,11 +15,11 @@ local function shoveDirection(root: BasePart): Vector3
 	local hallway = Hallways.Nearest(root.Position)
 	if hallway then
 		local centre = Hallways.PointAt(hallway, Hallways.Along(hallway, root.Position))
-		local away = Vector3.new(centre.X - root.Position.X, 0, centre.Z - root.Position.Z)
+		local away = MathService.Horizontal(centre - root.Position)
 		if away.Magnitude > 1e-3 then return away.Unit end
 	end
 
-	local facing = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
+	local facing = MathService.Horizontal(root.CFrame.LookVector)
 	return if facing.Magnitude > 1e-3 then facing.Unit else Vector3.xAxis
 end
 

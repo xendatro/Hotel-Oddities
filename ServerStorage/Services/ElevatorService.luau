@@ -4,14 +4,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local ElevatorConfig = require(ReplicatedStorage.Configs.ElevatorConfig)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local HallwayStreamingService = require(ServerStorage.Services.HallwayStreamingService)
 
 local ElevatorService = {}
 
-local communication = ReplicatedStorage:FindFirstChild("Communication")
-local elevatorCommunication = communication and communication:FindFirstChild("Elevator")
-local loadingRemote = elevatorCommunication and elevatorCommunication:FindFirstChild("Loading")
-local fadeCompleteRemote = elevatorCommunication and elevatorCommunication:FindFirstChild("FadeComplete")
+local loadingRemote = CommunicationService.Find("Elevator", "Loading")
+local fadeCompleteRemote = CommunicationService.Find("Elevator", "FadeComplete")
 
 type ElevatorState = {
 	Model: Model,
@@ -93,8 +93,7 @@ function ElevatorService:SendToMap(player: Player, instant: boolean?): boolean
 
 	if streamed then
 		local character = player.Character
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		if character and humanoid and humanoid.Health > 0 then
+		if character and CharacterService.IsAlive(character) then
 			character:PivotTo(target)
 			local root = character:FindFirstChild("HumanoidRootPart")
 			if root and root:IsA("BasePart") then root.AssemblyLinearVelocity = Vector3.zero end

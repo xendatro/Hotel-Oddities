@@ -99,20 +99,20 @@ function FixtureFall:GroundedFor(): number
 	return if self.FellAt > 0 then os.clock() - self.FellAt else 0
 end
 
-function FixtureFall:WhyNotFixed(): string?
-	if not self.Active then return "not active" end
-
-	local model = self.Model :: Model
-	if not model or not model.Parent then return "model is gone" end
-
-	local grounded = self:GroundedFor()
-	local minimum = self:Setting("MinGroundTime", 45)
+function FixtureFall.DescribeNotFixed(
+	oddity: any,
+	pivot: Vector3,
+	gazeTarget: any,
+	timerLabel: string,
+	gazeIgnore: { Instance }?
+): string?
+	local grounded = oddity:GroundedFor()
+	local minimum = oddity:Setting("MinGroundTime", 45)
 	if grounded < minimum then
-		return `{math.ceil(minimum - grounded)}s left on the ground timer`
+		return `{math.ceil(minimum - grounded)}s left on the {timerLabel}`
 	end
 
-	local pivot = model:GetPivot().Position
-	local clearance = self:Setting("FixClearDistance", 24)
+	local clearance = oddity:Setting("FixClearDistance", 24)
 	for _, player in Players:GetPlayers() do
 		local character = player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -124,16 +124,26 @@ function FixtureFall:WhyNotFixed(): string?
 		end
 	end
 
-	local seen, watcher = Gaze.IsLookedAt(model, {
-		Cone = self:Setting("FixViewCone", 120),
-		MaxDistance = self:Setting("FixViewDistance", 160),
+	local seen, watcher = Gaze.IsLookedAt(gazeTarget, {
+		Cone = oddity:Setting("FixViewCone", 120),
+		MaxDistance = oddity:Setting("FixViewDistance", 160),
 		Samples = 2,
+		Ignore = gazeIgnore,
 	})
 	if seen then
 		return `{if watcher then watcher.Name else "someone"} is looking at it`
 	end
 
 	return nil
+end
+
+function FixtureFall:WhyNotFixed(): string?
+	if not self.Active then return "not active" end
+
+	local model = self.Model :: Model
+	if not model or not model.Parent then return "model is gone" end
+
+	return FixtureFall.DescribeNotFixed(self, model:GetPivot().Position, model, "ground timer", nil)
 end
 
 function FixtureFall:IsReadyToFix(): boolean

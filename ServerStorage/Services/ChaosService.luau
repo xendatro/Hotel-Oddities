@@ -4,6 +4,8 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
 local Hallways = require(ReplicatedStorage.Modules.Hallways)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyService = require(ServerStorage.Services.EnemyService)
@@ -28,9 +30,7 @@ local ChaosService = {}
 local Config = EnemyConfigs.Chaos
 local PendingTokens: { WarningToken } = {}
 
-local function horizontal(vector: Vector3): Vector3
-	return Vector3.new(vector.X, 0, vector.Z)
-end
+local horizontal = MathService.Horizontal
 
 local function routePosition(node: RouteNode): Vector3
 	return node.Position + Vector3.yAxis * Config.RouteHeight
@@ -151,10 +151,8 @@ end
 local function livingRootPositions(): { Vector3 }
 	local positions = {}
 	for _, player in Players:GetPlayers() do
-		local character = player.Character
-		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		if root and humanoid and humanoid.Health > 0 then
+		local root = CharacterService.GetAliveRoot(player)
+		if root then
 			table.insert(positions, root.Position)
 		end
 	end
@@ -168,21 +166,20 @@ local function anyPlayerNear(position: Vector3, range: number): boolean
 	return false
 end
 
+local LookParams = RaycastParams.new()
+LookParams.FilterType = Enum.RaycastFilterType.Exclude
+
 local function anyPlayerLookingAt(position: Vector3): boolean
 	for _, player in Players:GetPlayers() do
-		local character = player.Character
-		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		if not root or not humanoid or humanoid.Health <= 0 then continue end
+		local root = CharacterService.GetAliveRoot(player)
+		if not root then continue end
 
 		local offset = position - root.Position
 		if offset.Magnitude < 1 then return true end
 		if offset.Unit:Dot(root.CFrame.LookVector) < VIEW_DOT then continue end
 
-		local params = RaycastParams.new()
-		params.FilterType = Enum.RaycastFilterType.Exclude
-		params.FilterDescendantsInstances = { character }
-		if not workspace:Raycast(root.Position, offset, params) then
+		LookParams.FilterDescendantsInstances = { root.Parent }
+		if not workspace:Raycast(root.Position, offset, LookParams) then
 			return true
 		end
 	end
@@ -416,8 +413,7 @@ function ChaosService:Spawn(onSpawned: ((any) -> ())?): boolean
 end
 
 function ChaosService:SpawnThrough(player: Player, onSpawned: ((any) -> ())?): boolean
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local root = CharacterService.GetAliveRoot(player)
 	if not root then return false end
 
 	local route

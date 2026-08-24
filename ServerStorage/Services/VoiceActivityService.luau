@@ -5,14 +5,9 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local Config = require(ReplicatedStorage.Configs.VoiceChatConfig)
 local NoiseService = require(ServerStorage.Services.NoiseService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 
-local communication = ReplicatedStorage:WaitForChild("Communication"):WaitForChild("WalkieTalkie")
-local VoiceActivity = communication:FindFirstChild("VoiceActivity")
-if not VoiceActivity then
-	VoiceActivity = Instance.new("RemoteEvent")
-	VoiceActivity.Name = "VoiceActivity"
-	VoiceActivity.Parent = communication
-end
+local VoiceActivity = CommunicationService.Ensure("WalkieTalkie", "VoiceActivity")
 
 local VoiceActivityService = {}
 
@@ -106,7 +101,14 @@ end
 	if type(active) == "boolean" then VoiceActivityService:SetActive(player, active) end
 end)
 
-RunService.Heartbeat:Connect(function()
+local EMIT_INTERVAL = 0.05
+local emitAccumulator = 0
+
+RunService.Heartbeat:Connect(function(deltaTime: number)
+	emitAccumulator += deltaTime
+	if emitAccumulator < EMIT_INTERVAL then return end
+	emitAccumulator = 0
+
 	local now = os.clock()
 	for player, state in States do
 		if state.Active and now - state.LastActiveAt > Config.Activity.Timeout then

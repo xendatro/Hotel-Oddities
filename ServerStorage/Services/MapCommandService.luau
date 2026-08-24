@@ -1,22 +1,11 @@
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local ElevatorService = require(ServerStorage.Services.ElevatorService)
+local ChatCommandService = require(ServerStorage.Services.ChatCommandService)
 
 local MapCommandService = {}
 
-local ALLOWED_USER_IDS = {
-	[265199502] = true,
-	[1936118388] = true,
-}
-
 function MapCommandService:Execute(player: Player): boolean
-	if not RunService:IsStudio() and not ALLOWED_USER_IDS[player.UserId] then
-		warn(`[map] {player.Name} ({player.UserId}) is not allowed to use /map`)
-		return false
-	end
-
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if not character or not humanoid or humanoid.Health <= 0 then
@@ -34,19 +23,14 @@ function MapCommandService:Execute(player: Player): boolean
 	return true
 end
 
-local function watch(player: Player)
-	player.Chatted:Connect(function(message: string)
-		local command = message:match("^/(%S+)%s*$")
-		if not command or command:lower() ~= "map" then return end
+ChatCommandService.Register("map", {
+	AdminOnly = true,
+	Handler = function(player: Player, argument: string?)
+		if argument ~= nil then return end
 		task.spawn(function()
 			MapCommandService:Execute(player)
 		end)
-	end)
-end
-
-Players.PlayerAdded:Connect(watch)
-for _, player in Players:GetPlayers() do
-	watch(player)
-end
+	end,
+})
 
 return MapCommandService

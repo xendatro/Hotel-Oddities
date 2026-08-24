@@ -6,6 +6,8 @@ local TweenService = game:GetService("TweenService")
 
 local NpcAnimator = require(ReplicatedStorage.Classes.NpcAnimator)
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 local DeathService = require(ServerStorage.Services.DeathService)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local EnemyService = require(ServerStorage.Services.EnemyService)
@@ -31,18 +33,8 @@ local Sisters = {}
 Sisters.__index = Sisters
 Sisters.ClassName = "Sisters"
 
-local function horizontal(vector: Vector3): Vector3
-	return Vector3.new(vector.X, 0, vector.Z)
-end
-
-local function distanceToSegment(point: Vector3, origin: Vector3, destination: Vector3): number
-	local offset = destination - origin
-	local lengthSquared = offset:Dot(offset)
-	if lengthSquared < MINIMUM_LEG then return (point - origin).Magnitude end
-
-	local alpha = math.clamp((point - origin):Dot(offset) / lengthSquared, 0, 1)
-	return (point - origin:Lerp(destination, alpha)).Magnitude
-end
+local horizontal = MathService.Horizontal
+local distanceToSegment = MathService.DistanceToSegment
 
 local function prepare(model: Model)
 	local neck = model.Head.Neck :: AnimationConstraint
@@ -106,10 +98,8 @@ local function nearestPlayerPosition(origin: Vector3): Vector3?
 	local nearest = nil
 	local nearestDistance = math.huge
 	for _, player in Players:GetPlayers() do
-		local character = player.Character
-		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		if root and humanoid and humanoid.Health > 0 then
+		local root = CharacterService.GetAliveRoot(player)
+		if root then
 			local distance = (root.Position - origin).Magnitude
 			if distance < nearestDistance then
 				nearest = root.Position
@@ -173,10 +163,9 @@ function Sisters:_sweep()
 			if RoomService:IsInRoom(player) then continue end
 			if Vanished.Is(player.Character) then continue end
 
-			local character = player.Character
-			local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-			if root and humanoid and humanoid.Health > 0
+			local root = CharacterService.GetAliveRoot(player)
+			local humanoid = if root then CharacterService.GetHumanoid(root.Parent :: Model) else nil
+			if root and humanoid
 				and distanceToSegment(root.Position, origin, position) <= self.Config.KillRange
 			then
 				DeathService:RecordCause(player, self.EnemyId)

@@ -2,6 +2,8 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local TagService = require(ReplicatedStorage.Services.TagService)
 local ToolConfigs = require(ReplicatedStorage.Configs.ToolConfigs)
 
@@ -122,11 +124,12 @@ function HoleService:RemoveForPlayer(player: Player)
 	end
 end
 
-ReplicatedStorage.Communication.Hole.Create.OnServerInvoke = function(player: Player, entryPosition: any)
+local Create = CommunicationService.Get("Hole", "Create") :: RemoteFunction
+
+Create.OnServerInvoke = function(player: Player, entryPosition: any)
 	if typeof(entryPosition) ~= "Vector3" then return false end
 
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local root = CharacterService.GetAliveRoot(player)
 	if not root then return false end
 	if (root.Position - entryPosition).Magnitude > ToolConfigs.Shovel.MaxDigDistance then return false end
 

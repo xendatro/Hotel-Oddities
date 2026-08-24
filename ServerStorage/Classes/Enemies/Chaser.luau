@@ -9,6 +9,7 @@ local PERCEPTION_INTERVAL = 0.25
 local CHASE_TARGET_ATTRIBUTE = "ChaseTargetUserId"
 
 local Chaser = NPC.extend("Chaser")
+Chaser.AttackLostState = "Search"
 
 local function clearChaseTarget(npc: any)
 	npc.Model:SetAttribute(CHASE_TARGET_ATTRIBUTE, nil)
@@ -45,10 +46,8 @@ local function chase(
 	target: Player,
 	allowRoomReaction: boolean?
 )
-	npc.Target = target
+	npc:BeginChase(target)
 	npc.Model:SetAttribute(CHASE_TARGET_ATTRIBUTE, target.UserId)
-	npc.Animator:Resume()
-	npc:SetSpeed(npc.Config.ChaseSpeed)
 
 	local lastKnown = npc.RootPart.Position
 	local safeRoom = nil :: Model?
@@ -87,20 +86,7 @@ local function chase(
 	return "Search", npc, lastKnown
 end
 
-local function attack(_changeState: StateMachine.ChangeState, npc: any, target: Player)
-	local position = npc:GetTargetPosition(target)
-	if not position then
-		return "Search", npc, npc.RootPart.Position
-	end
-
-	if not npc:IsTouchingPlayer(target) then
-		return "Chase", npc, target
-	end
-
-	npc:Attack(target)
-	task.wait(npc.Config.AttackCooldown)
-	return "Idle", npc
-end
+local attack = NPC.SharedStates.Attack
 
 local function search(_changeState: StateMachine.ChangeState, npc: any, _lastKnown: Vector3)
 	clearChaseTarget(npc)
@@ -195,15 +181,9 @@ function Chaser:BuildStateMachine(): StateMachine.StateMachine
 		Perception = { "Idle", "Wander", "Patrol", "Search" },
 		Impact = { "Idle", "Wander", "Patrol", "Search", "Chase", "Attack", "RoomReaction" },
 	}, {
-		Perception = function()
-			while true do
-				task.wait(PERCEPTION_INTERVAL)
-				local target = npc:GetNearestVisibleTarget()
-				if target then
-					npc.StateMachine:SetState("Chase", "Perception", npc, target)
-				end
-			end
-		end,
+		Perception = npc:MakePerceptionEvaluator(PERCEPTION_INTERVAL, function()
+			return npc:GetNearestVisibleTarget()
+		end),
 	}, "Idle", self)
 end
 

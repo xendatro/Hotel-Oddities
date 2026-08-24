@@ -1,6 +1,9 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+
 local ENEMY_TAG = "Enemy"
 local OBSERVABLE_TAG = "Observable"
 local MAX_REPORTED_ENEMIES = 16
@@ -23,10 +26,7 @@ export type View = {
 	Look: Vector3,
 }
 
-local UpdateView = ReplicatedStorage
-	:WaitForChild("Communication")
-	:WaitForChild("Enemies")
-	:WaitForChild("UpdateView") :: RemoteEvent
+local UpdateView = CommunicationService.Get("Enemies", "UpdateView") :: RemoteEvent
 
 local EnemyObservationService = {}
 local Observations: { [Player]: Observation } = {}
@@ -127,9 +127,7 @@ function EnemyObservationService:GetViews(): { View }
 	local views = {}
 
 	for _, player in Players:GetPlayers() do
-		local character = player.Character
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid") :: Humanoid?
-		if not (humanoid and humanoid.Health > 0) then continue end
+		if not CharacterService.GetAliveHumanoid(player) then continue end
 
 		local eye, look = self:GetView(player)
 		if eye and look then
@@ -152,10 +150,8 @@ function EnemyObservationService:GetEyes(): { Vector3 }
 	local eyes = {}
 
 	for _, player in Players:GetPlayers() do
-		local character = player.Character
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid") :: Humanoid?
-		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-		if not (humanoid and root and humanoid.Health > 0) then continue end
+		local root = CharacterService.GetAliveRoot(player)
+		if not root then continue end
 
 		local observation = getFresh(player)
 		if observation and observation.Eye then

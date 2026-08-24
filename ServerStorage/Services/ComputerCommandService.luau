@@ -1,18 +1,13 @@
 local CollectionService = game:GetService("CollectionService")
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local ComputerConfig = require(ReplicatedStorage.Configs.ComputerConfig)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local ChatCommandService = require(ServerStorage.Services.ChatCommandService)
 local ComputerService = require(ServerStorage.Services.ComputerService)
 
 local ComputerCommandService = {}
-
-local ALLOWED_USER_IDS = {
-	[265199502] = true,
-	[1936118388] = true,
-}
 
 local TELEPORT_DISTANCE = 4
 
@@ -87,8 +82,7 @@ local function findComputer(text: string): (Model?, string?)
 end
 
 local function teleport(player: Player, model: Model)
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local root = CharacterService.GetAliveRoot(player)
 	if not root then
 		warn("[hack] no character to teleport")
 		return
@@ -127,11 +121,6 @@ local function setAll(sender: Player, hacked: boolean)
 end
 
 function ComputerCommandService:Execute(sender: Player, argument: string?): boolean
-	if not RunService:IsStudio() and not ALLOWED_USER_IDS[sender.UserId] then
-		warn(`[hack] {sender.Name} ({sender.UserId}) is not allowed to use /hack`)
-		return false
-	end
-
 	argument = argument and argument:match("^%s*(.-)%s*$") or ""
 	if argument == "" then
 		warn("[hack] usage: /hack list | /hack <game|room> | /hack win <game|room|all> | /hack reset [game|room|all]")
@@ -175,18 +164,11 @@ function ComputerCommandService:Execute(sender: Player, argument: string?): bool
 	return true
 end
 
-local function watch(player: Player)
-	player.Chatted:Connect(function(message: string)
-		local command, argument = message:match("^/(%S+)%s*(.*)$")
-		if command and command:lower() == "hack" then
-			ComputerCommandService:Execute(player, if argument ~= "" then argument else nil)
-		end
-	end)
-end
-
-Players.PlayerAdded:Connect(watch)
-for _, player in Players:GetPlayers() do
-	watch(player)
-end
+ChatCommandService.Register("hack", {
+	AdminOnly = true,
+	Handler = function(player: Player, argument: string?)
+		ComputerCommandService:Execute(player, argument)
+	end,
+})
 
 return ComputerCommandService
