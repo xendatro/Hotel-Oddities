@@ -1,7 +1,9 @@
 local PhysicsService = game:GetService("PhysicsService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
+local StarterPlayer = game:GetService("StarterPlayer")
 
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local EnemyService = require(ServerStorage.Services.EnemyService)
@@ -10,6 +12,28 @@ local Replication = require(ReplicatedStorage.Classes.Wallstick.Replication)
 local ORIGIN_CFRAME = CFrame.new(0, 4096, 0)
 
 local WallstickService = {}
+
+local function replaceIfExists(parent: Instance, instance: Instance)
+	local found = parent:FindFirstChild(instance.Name)
+	if found then
+		found:Destroy()
+	end
+	instance.Parent = parent
+end
+
+local function installPlayerScripts()
+	if not RunService:IsRunning() then return end
+
+	local assets = ReplicatedStorage.Classes.Wallstick:FindFirstChild("Assets")
+	if not assets then
+		warn("WallstickService: ReplicatedStorage.Classes.Wallstick.Assets is missing; player wallstick disabled")
+		return
+	end
+
+	replaceIfExists(StarterPlayer.StarterPlayerScripts, assets.PlayerModule:Clone())
+	replaceIfExists(StarterPlayer.StarterPlayerScripts, assets.RbxCharacterSounds:Clone())
+	replaceIfExists(StarterPlayer.StarterCharacterScripts, assets.Animate:Clone())
+end
 
 local function setupCollisions()
 	EnemyService:EnsureCollisionGroup()
@@ -107,6 +131,7 @@ local function setupWallstickModel(): Model
 	return wallstickModel
 end
 
+installPlayerScripts()
 setupCollisions()
 local wallstickModel = setupWallstickModel()
 local streamingFoci = wallstickModel:FindFirstChild("StreamingFoci") :: Folder
