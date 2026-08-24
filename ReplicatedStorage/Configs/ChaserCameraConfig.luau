@@ -30,7 +30,6 @@ return {
 			PositionInfluence = Vector3.new(0.12, 0.12, 0.08),
 			RotationInfluence = Vector3.new(0.45, 0.45, 0.1),
 		},
-		-- The Dweller's chase carries the vent-jolt's character: sharp and angry at full proximity.
 		CeilingDweller = {
 			Range = 55,
 			FullIntensityDistance = 12,

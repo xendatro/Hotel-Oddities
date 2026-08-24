@@ -9,12 +9,9 @@ local STEALTH = CrouchConfig.Stealth
 local DEFAULT_WALK_SPEED = 16
 local WALK_RADIUS = 45
 local SPRINT_RADIUS = 80
---- Movement stick or WASD held this far. Moving at all is the noise; there is no step timer.
 local MOVE_INPUT_MIN = 0.05
 local UPDATE_INTERVAL = 0.05
 local NOISE_LIFETIME = 1
---- One player only makes so much sound: their footsteps, voice and radio share this
---- interval. A louder noise still cuts in early rather than being masked by a quiet one.
 local SOURCE_INTERVAL = 0.4
 
 export type Noise = {

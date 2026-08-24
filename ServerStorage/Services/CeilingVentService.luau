@@ -24,24 +24,13 @@ local CROUCH_ATTRIBUTE = CrouchConfig.Stealth.Attribute
 
 local POLL_INTERVAL = 0.15
 
---- A vent arms at spawn + Lifetime * (1 - danger), so a vent in a fully dangerous
---- spot is live the moment it appears and one in a safe spot arms exactly as its
---- lifetime runs out, meaning it never fires. Crossing before the arm time does
---- nothing; the first crossing after it always fires. There is no roll to farm.
 local LIFETIME = DangerConfig.ProgrammaticVents.Lifetime
 
---- Radius of the trip ring, in studs. The player crosses this circle heading
---- inward and the dweller drops, so this doubles as how far ahead it lands.
 local DEFAULT_APPROACH_DISTANCE = 40
---- How far below the vent the player may be and still trip it.
 local DEFAULT_TRIGGER_HEIGHT = 20
---- Studs/second the player must be moving before a crossing counts.
 local DEFAULT_APPROACH_MIN_SPEED = 6
---- Dot of travel direction against direction to the vent; 0.6 is a ~53 degree cone.
 local DEFAULT_APPROACH_DOT = 0.6
 
---- Ignore the shared Guest budget, so an armed vent always fires on contact.
---- One dweller at a time is still enforced locally.
 local IGNORE_BUDGET = true
 
 local OPEN_ANGLE = math.rad(-100)
@@ -54,17 +43,12 @@ local MINIMUM_FLOOR_NORMAL = 0.5
 
 local VIEW_ARC = 110
 local MAX_VIEW_DISTANCE = 300
---- Height above the landing spot to aim the second sight ray at.
 local DROP_SIGHT_HEIGHT = 4
 
---- A dweller is culled the moment it is neither chasing nor watched. The vent it
---- came from is on its own clock; neither waits for the other.
 local ENGAGEMENT_STATES = {
 	Chase = true,
 	Attack = true,
 }
---- Seconds of immunity after spawning, covering the drop tween before the state
---- machine reports Chase. Without it the sweep can cull a dweller mid-fall.
 local DWELLER_SPAWN_GRACE = 4
 
 local CameraEvent = CommunicationService.Ensure("Enemies", "CeilingDwellerCamera") :: RemoteEvent

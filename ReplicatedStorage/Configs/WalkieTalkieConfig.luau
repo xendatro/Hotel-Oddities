@@ -1,5 +1,4 @@
 return {
-	--- Local sound from a held radio. Direct radio output is not distance limited.
 	PhysicalDistance = 30,
 	TaggedSoundDistance = 30,
 	TaggedSoundPickupFalloff = 2,
@@ -12,7 +11,6 @@ return {
 	RadioNoiseRadius = 35,
 	RelaySyncInterval = 0.15,
 
-	--- The player filter is shared by incoming and outgoing radio audio.
 	Modes = {
 		{ Id = "All", Label = "All Players", Friends = false },
 		{ Id = "Friends", Label = "Friends Only", Friends = true },

@@ -1,5 +1,3 @@
--- LEGACY: custom hallway streaming/persistence system, disabled for performance.
--- Keep the code; the game now relies on plain Workspace.StreamingEnabled.
 return {
 	Enabled = false,
 

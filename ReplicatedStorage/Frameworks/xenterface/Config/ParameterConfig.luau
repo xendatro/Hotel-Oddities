@@ -39,7 +39,6 @@ Config.EasingStyles = {
 	elastic = Enum.EasingStyle.Elastic
 }
 
-
 Config.DynamicProperties = {
 	ap = "AnchorPoint",
 	bgc = "BackgroundColor3",
@@ -54,14 +53,12 @@ Config.DynamicProperties = {
 	s = "Size",
 	scale = "Scale",
 	
-	--text --> TextButton
 	tc = "TextColor3",
 	ts = "TextSize",
 	tsc = "TextStrokeColor3",
 	tst = "TextStrokeTransparency",
 	tt = "TextTransparency",
 	
-	--image --> 
 	ic = "ImageColor3",
 	iro = "ImageRectOffset",
 	irs = "ImageRectSize",

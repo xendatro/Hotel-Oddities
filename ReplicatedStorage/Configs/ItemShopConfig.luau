@@ -52,7 +52,6 @@ local Entries: { Entry } = {
 		CoinPrice = 65,
 		RobuxPrice = 12,
 		Product = "Medkit",
-		-- The white cross is on the +X face; the default angle shows the case's back corner.
 		Yaw = -70,
 	},
 	{
@@ -62,7 +61,6 @@ local Entries: { Entry } = {
 		CoinPrice = 90,
 		RobuxPrice = 15,
 		Product = "Pathfinder",
-		-- Chevron display faces +Z, opposite the default camera; swing round to show it.
 		Yaw = 160,
 	},
 	{
@@ -90,7 +88,6 @@ local Entries: { Entry } = {
 		CoinPrice = 120,
 		RobuxPrice = 20,
 		Product = "SpellBook",
-		-- The cover faces ±X; the default angle shows only the page edge.
 		Yaw = -70,
 	},
 	{

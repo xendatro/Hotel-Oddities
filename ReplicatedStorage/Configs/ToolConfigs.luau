@@ -46,7 +46,6 @@ return {
 		Sound = "Ball",
 		RevealLimbs = true,
 		StunDuration = 3,
-		--- How far the aiming raycast reaches, in studs.
 		Range = 60,
 		ServerRange = 80,
 		FlightSpeed = 90,
@@ -61,7 +60,6 @@ return {
 		HoleStartScale = 0.1,
 		HoleEndScale = 0.792,
 		HoleGrowTime = 2,
-		--- How far the reported dig site may be from the player before the server refuses it.
 		MaxDigDistance = 10,
 	},
 
@@ -70,10 +68,8 @@ return {
 		Cooldown = 0.35,
 		MaxInWorld = 20,
 		Uses = 20,
-		--- Shown beside the count while the tool is equipped.
 		Caption = "MARKERS",
 		MinSpacing = 8,
-		--- How far below the player to look for a floor before refusing to place in midair.
 		SnapDistance = 12,
 		NewColor = Color3.fromRGB(120, 235, 255),
 		OldColor = Color3.fromRGB(64, 104, 142),
@@ -83,7 +79,6 @@ return {
 
 	Soda = {
 		Tag = "Soda",
-		--- A clear escape boost without quite matching the faster chase enemies.
 		WalkSpeed = 22,
 		Duration = 8,
 		FovBoost = 8,
@@ -92,7 +87,6 @@ return {
 
 	["Energy Drink"] = {
 		Tag = "Energy Drink",
-		--- Shorter and much faster than Soda: the emergency overdrive option.
 		WalkSpeed = 28,
 		Duration = 6,
 		FovBoost = 14,
@@ -104,7 +98,6 @@ return {
 	Visor = {
 		Tag = "Visor",
 		FaceAccessory = "Accessory",
-		--- Local pose of the visor's FaceFrontAttachment.
 		FaceAttachment = CFrame.new(0, -0.2, -0.45),
 		LightingSaturation = -0.18,
 		LightingBrightness = 0.05,

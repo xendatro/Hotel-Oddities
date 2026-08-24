@@ -16,10 +16,8 @@ return {
 		[10] = 230,
 	},
 
-	--- Where the fog starts, as a fraction of where it ends. Small values give a long soft ramp.
 	FogStartRatio = 0.45,
 
-	--- Black, because the fog is standing in for geometry that is not there rather than for weather.
 	FogColor = Color3.new(0, 0, 0),
 
 	Cage = {
@@ -36,7 +34,6 @@ return {
 	ReleaseDistance = 3000,
 
 	Automatic = {
-		--- Where the estimate starts before any framerate has been seen, by device class.
 		StartingLevel = {
 			Desktop = 6,
 			Console = 5,

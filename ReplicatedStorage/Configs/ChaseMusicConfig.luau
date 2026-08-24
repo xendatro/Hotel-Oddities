@@ -15,7 +15,6 @@ return {
 			FullVolumeDistance = 20,
 			Volume = 0.9,
 		},
-		-- Two layers at once: the main theme carries, the second sits quietly underneath it.
 		Mimic = {
 			{
 				Template = "MimicChase",

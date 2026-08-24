@@ -13,7 +13,6 @@ export type EnemyConfig = {
 	Animations: AnimationConfig.AnimationSet?,
 	Variants: { EnemyVariant }?,
 
-	-- Locomotion
 	WalkSpeed: number,
 	ChaseSpeed: number?,
 	DirectPursuitDistance: number?,
@@ -23,25 +22,21 @@ export type EnemyConfig = {
 	RepathDistance: number?,
 	AgentParams: { [string]: any }?,
 
-	-- Idle / wander
 	IdleTimeMin: number?,
 	IdleTimeMax: number?,
 	IdleNextState: string?,
 	WanderRadius: number?,
 
-	-- Perception
 	DetectionRange: number?,
 	GiveUpRange: number?,
 	FieldOfView: number?,
 	RespectsSafeRooms: boolean?,
 
-	-- Combat
 	Damage: number?,
 	AttackRange: number?,
 	AttackCooldown: number?,
 	Harmless: boolean?,
 
-	-- Blind-specific
 	InvestigateRange: number?,
 	InvestigateSpeed: number?,
 	AlertSpeed: number?,
@@ -62,7 +57,6 @@ export type EnemyConfig = {
 	ObservationRange: number?,
 	ObservationHold: number?,
 
-	-- Peeking
 	SpawnPeeking: boolean?,
 	MinPeekDistance: number?,
 	MaxPeekDistance: number?,
@@ -119,7 +113,6 @@ export type EnemyConfig = {
 	DriftMargin: number?,
 	VanishDistance: number?,
 
-	-- Creep-specific
 	LightRange: number?,
 	ConnectedHallwayLightRange: number?,
 	DarkDistance: number?,
@@ -130,12 +123,10 @@ export type EnemyConfig = {
 	EdgeDamage: number?,
 	FalloffAngle: number?,
 	FalloffExponent: number?,
-	-- Shared by the corridor hazards Chaos and Sisters
 	SpawnPlayerDistance: number?,
 	KillRange: number?,
 	RouteHeight: number?,
 
-	-- Chaos-specific
 	SpawnDelay: number?,
 	WarningTime: number?,
 	LightPassDelay: number?,
@@ -144,7 +135,6 @@ export type EnemyConfig = {
 	WarnHallwayCullRange: number?,
 	WarnCullRecheckInterval: number?,
 
-	-- Sisters-specific
 	SideSpacing: number?,
 	EndInset: number?,
 	WalkOffDistance: number?,
@@ -154,7 +144,6 @@ export type EnemyConfig = {
 	LightFlickerDuration: number?,
 	LightFlickerInterval: number?,
 
-	-- Stalker-specific
 	FleeSpeed: number?,
 	FollowDistance: number?,
 	FollowSlack: number?,
@@ -169,7 +158,6 @@ export type EnemyConfig = {
 	MaxAlive: number?,
 	SpawnGrace: number?,
 
-	-- Temporary `/spawn` command
 	CommandSpawnDistance: number?,
 	CommandSpawnBehind: boolean?,
 }
@@ -349,8 +337,6 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		BystanderNoticeTime = 0.35,
 		BystanderTurnTime = 1.25,
 		BystanderChaseTurnFraction = 0.5,
-		--- The ambient AFK cycle: patrol this long, stand around this long, repeat.
-		--- Ranged so two Mimics on the map do not fall into lockstep.
 		AfkPatrolTimeMin = 135,
 		AfkPatrolTimeMax = 165,
 		AfkIdleTimeMin = 25,
@@ -364,7 +350,6 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 		AfkFaceWallChance = 0.45,
 		AfkSettleTurnRate = 2.2,
-		--- Always step off the centre line, so it never stands exactly mid-hallway.
 		AfkDriftChance = 1,
 		AfkDriftMin = 2,
 		AfkDriftMax = 5.5,
@@ -424,13 +409,8 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 		FleeTime = 15,
 
-		-- Every director spawn starts at a corner in watching mode. `/spawn stalker` ignores this
-		-- and drops it behind you already hunting.
 		SpawnPeeking = true,
 
-		-- Keep it far enough away that a player cannot walk into it by accident. The upper end is
-		-- pinned to DiscoveryConfig's Stalker sight range (160) so every peek it can make is one
-		-- you can also earn the index card from.
 		MinPeekDistance = 45,
 		MaxPeekDistance = 80,
 		RearArc = 300,
@@ -440,12 +420,8 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 		LeanTime = 1.1,
 		RetreatTime = 0.3,
-		-- Beat before it ducks back once you catch it. Keep it short or it reads as posing rather
-		-- than being caught; 0 makes it start pulling back the same frame you look.
 		SeenHoldTime = 0.4,
 
-		-- One lean, held this long, then the danger roll. Raise PeekCount to get the old
-		-- lean-hide-rest-repeat cycle back.
 		HoldTimeMin = 10,
 		HoldTimeMax = 10,
 		RestTimeMin = 8,
@@ -528,16 +504,9 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		KillRange = 12,
 		WarningTime = 15,
 		LightPassDelay = 1.5,
-		-- Lights within this many studs of Chaos's route turn red. Keep near hallway
-		-- half-width so red means "this hallway, right here" (10-20).
 		LightRouteRange = 13,
-		-- Red route lights only turn on while a living player is within this many studs
-		-- of the light. Keep well above a hallway span length so the tell reads from afar (150-300).
 		WarnRedCullRange = 200,
-		-- Hallway flicker + door chaos only runs while a player is within this many studs of the
-		-- closest point on the span. The expensive effect, so it can sit tighter (100-200).
 		WarnHallwayCullRange = 150,
-		-- Seconds between re-checks while a scheduled warning waits for a player to come into range.
 		WarnCullRecheckInterval = 1,
 		RouteHeight = 3,
 
@@ -580,7 +549,6 @@ ceilingDwellerConfig.RunSpeed = 25
 ceilingDwellerConfig.ChaseSpeed = 22
 ceilingDwellerConfig.AgentParams = table.clone(EnemyConfigs.Chaser.AgentParams :: any)
 ceilingDwellerConfig.AgentParams.AgentRadius = 3.25
--- A ceiling dweller can acquire anyone around it after its first target reaches safety.
 ceilingDwellerConfig.FieldOfView = 360
 ceilingDwellerConfig.ObservationRange = 300
 ceilingDwellerConfig.ObservationHold = 0.08

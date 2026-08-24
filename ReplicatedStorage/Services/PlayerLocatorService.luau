@@ -28,7 +28,6 @@ local player = Players.LocalPlayer
 local playerGui = GuiBuilderService.GetPlayerGui()
 
 local gui = playerGui:WaitForChild("PlayerLocator")
---- Every reference below is taken once. A reset on respawn would replace the gui and strand them all.
 gui.ResetOnSpawn = false
 
 local frame = gui and gui:WaitForChild("Mode")

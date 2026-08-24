@@ -1,7 +1,6 @@
 return {
 	Period = 4.2,
 
-	--- Portion of the cycle spent inhaling; the rest is a slower exhale.
 	InhaleFraction = 0.42,
 
 	Waist = { Pitch = math.rad(1.8) },

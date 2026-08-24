@@ -15,7 +15,6 @@ return {
 	ToggleKey = Enum.KeyCode.F6,
 	Step = 0.01,
 
-	--- Each entry points at the live volume field it edits.
 	Entries = {
 		{
 			Id = "ProximityVoice",

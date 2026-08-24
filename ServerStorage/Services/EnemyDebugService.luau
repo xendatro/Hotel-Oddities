@@ -18,9 +18,6 @@ local function stateOf(enemy: any): string
 	return if type(state) == "string" then state else "--"
 end
 
---- Walks the enemies the server actually owns rather than the models tagged in
---- the workspace: one entry per enemy, so a Sisters pair counts once, and
---- nothing is missing because the asking client has not streamed it in.
 function EnemyDebugService:GetSnapshot(): { any }
 	local entries = {}
 

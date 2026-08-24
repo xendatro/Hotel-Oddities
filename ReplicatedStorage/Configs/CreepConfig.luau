@@ -16,8 +16,6 @@ return {
 
 	DistortionSpeed = 48,
 
-	--- Eye colours a creep can spawn with. Neon, so they have to stay bright enough to read
-	--- against the blacked-out hallway; the first is the original red.
 	EyeColors = {
 		Color3.fromRGB(190, 12, 12),
 		Color3.fromRGB(255, 138, 0),
@@ -27,16 +25,10 @@ return {
 		Color3.fromRGB(235, 240, 255),
 	},
 
-	--- Studs kept between two pairs of eyes when they are scattered. 1-6.
 	PairSpacing = 2.6,
 
-	--- Attempts made to place each extra pair before it is given up on. 4-40.
 	PairPlacementTries = 16,
 
-	--- Picked by weight on every spawn, so a creep is not the same twice. Pairs is how many
-	--- pairs of eyes it wears, Spread is how far they scatter from the spawn point in studs
-	--- across the hallway, up, and along it. MixedColors gives every pair its own colour
-	--- instead of one for the whole creep.
 	Variants = {
 		{
 			Weight = 5,

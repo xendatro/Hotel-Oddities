@@ -7,11 +7,9 @@ return {
 	CauseMemory = 8,
 
 	Revive = {
-		--- How long a revived character is protected from enemies, in seconds.
 		ForceFieldDuration = 25,
 	},
 
-	--- Used for a death nothing claimed: falling, a hole, or an enemy with no entry below.
 	Unknown = {
 		Name = "The Hotel",
 		Hint = "Nothing was chasing you. The hotel got you all by itself.",
@@ -67,7 +65,6 @@ return {
 	Screen = {
 		DisplayOrder = 100,
 
-		--- Timing, in seconds, measured from the moment the screen is asked to appear.
 		FadeInTime = 0.45,
 		EyebrowDelay = 0.5,
 		NameDelay = 0.8,
@@ -78,7 +75,6 @@ return {
 		ReadTime = 3,
 
 		TypeSpeed = 24,
-		--- Blinks after the last typed character until the hint is finished.
 		CursorBlinkTime = 0.55,
 
 		BackdropTransparency = 0,
@@ -87,13 +83,11 @@ return {
 		Brightness = -0.15,
 		Contrast = 0.15,
 
-		--- Darkening drawn in from each edge, and how far in it reaches as a fraction of the screen.
 		VignetteSize = 0.34,
 		VignetteStrength = 0.35,
 		VignetteBreathe = 0.12,
 		VignetteBreatheTime = 4.5,
 
-		--- CRT lines over the whole screen, and the brighter band that crawls down through them.
 		ScanlineCount = 96,
 		ScanlineTransparency = 0.93,
 		SweepHeight = 0.22,
@@ -111,7 +105,6 @@ return {
 		GlitchSliceHeight = 14,
 		GlitchSliceTransparency = 0.78,
 
-		--- Layout, in pixels before scaling.
 		ContentWidth = 0.66,
 		ContentMaxWidth = 760,
 		NameHeight = 92,
@@ -122,7 +115,6 @@ return {
 		EyebrowFont = Enum.Font.GothamMedium,
 		NameFont = Enum.Font.GothamBlack,
 		HintFont = Enum.Font.Gotham,
-		--- Spelled out with spaces because Roblox text has no letter spacing of its own.
 		EyebrowText = "K I L L E D   B Y",
 
 		Colors = {

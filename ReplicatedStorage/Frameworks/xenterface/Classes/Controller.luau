@@ -141,18 +141,4 @@ function Controller:Fire(pageId: string, tab: GuiButton?)
 	})
 end
 
---[[
-Active: string,
-Inactive: string,
-ActiveTab: GuiButton,
-ActivePage: GuiObject,
-ActiveTabs: {GuiButtons},
-InactiveTab: GuiButton
-InactiveTabs: {GuiButton},
-InactivePage: {GuiObject},
-Tabs: {GuiButton},
-Pages: {GuiObjects}
-]]
-
-	
 return Controller

@@ -22,9 +22,6 @@ function Toggle.new(guiObject: GuiObject, source: Configuration | GuiObject, sys
 	activeSequence = source:GetAttribute("Active") or activeSequence
 	inactiveSequence = source:GetAttribute("Inactive") or inactiveSequence
 	
-	--[[
-	Hover > Page > Tab
-	]]
 	if systemType == "Tab" and (source:HasTag("Page") or source:HasTag("Hover")) then
 		activeSequence = nil
 		inactiveSequence = nil
@@ -62,6 +59,5 @@ function Toggle:Deactivate()
 	end
 	self.Inactive:Play()
 end
-
 
 return Toggle

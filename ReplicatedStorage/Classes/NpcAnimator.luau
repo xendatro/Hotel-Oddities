@@ -215,9 +215,6 @@ function NpcAnimator:StopOverride()
 	track:Stop(TRANSITION_TIME)
 end
 
---- A hold is a pose that layers over whatever the body is already doing rather
---- than replacing it -- the tool-carry arm, for instance. It survives Reload and
---- is left alone by StopOverride, so it stays put across an identity swap.
 function NpcAnimator:PlayHold(assetId: number)
 	if self.Hold and self.HoldAssetId == assetId then return end
 	self:StopHold()

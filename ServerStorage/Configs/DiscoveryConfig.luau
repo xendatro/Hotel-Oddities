@@ -49,17 +49,14 @@ DiscoveryConfig.Rules = {
 		Sight = { Range = 200, Angle = 45, GainPerSecond = 0.032, MinDwell = 0.5 },
 	},
 	Sisters = {
-		-- Met at 150 studs and slow enough to study on the way past.
 		Sight = { Range = 180, Angle = 45, GainPerSecond = 0.028, MinDwell = 0.7 },
 	},
 	Stalker = {
-		-- Learned by catching it leaning out of a corner; the stalk behind you gives nothing away.
 		Sight = { Range = 160, Angle = 40, GainPerSecond = 0.055, MinDwell = 0.2 },
 		Event = 0.45,
 		Death = 0.4,
 	},
 
-	-- The ambushes. Nothing is learned by looking, because looking is exactly what they defeat.
 	Mimic = {
 		Sight = false,
 		Event = 0.5,

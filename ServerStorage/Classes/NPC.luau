@@ -1144,9 +1144,6 @@ local function chooseDestination(current: any, memory: any, minimumDistance: num
 			end
 		end
 
-		-- A node is drawn in direct proportion to its danger, so a node at 80%
-		-- comes up twice as often as one at 40% and dead-safe ground never
-		-- comes up at all.
 		total += DangerMapService:GetDanger(node.Position)
 		table.insert(candidates, node)
 		table.insert(cumulative, total)
@@ -1154,7 +1151,6 @@ local function chooseDestination(current: any, memory: any, minimumDistance: num
 
 	if #candidates == 0 then return nil end
 
-	-- Nowhere dangerous to go: fall back to picking evenly rather than stalling.
 	if total <= 0 then return candidates[math.random(#candidates)] end
 
 	local roll = math.random() * total

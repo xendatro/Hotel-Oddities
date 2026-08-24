@@ -26,7 +26,6 @@ return function(playerGui: Folder)
 		end
 		error(`Assigned Page tag to {obj:GetFullName()}, which does not follow proper Page hierarchy`)
 	end, function(_, pageObject)
-		--
 	end, playerGui)
 	
 	TagService:Listen("Hover", function(obj)

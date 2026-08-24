@@ -217,8 +217,6 @@ local function trySpawn(): boolean
 	local placementSize = Vector3.new(footprint, templateBounds.Y, footprint)
 	local slabMargin = Vector3.new(footprint / 2 + 0.5, 0, footprint / 2 + 0.5)
 	local beams = getStationBeams()
-	--- Bias 0 weights every point equally, so placement is uniform across the map.
-	--- Danger no longer decides where a vent goes, only how fast it arms.
 	local point = DangerMapService:PickPoint(0, function(candidate)
 		if isTooClose(candidate.Position) or isNearPlayer(candidate.Position) then return false end
 
@@ -263,9 +261,7 @@ local function canRemove(entry: ManagedVent, now: number): boolean
 		state = TagService:GetApplied(VENT_TAG, model)
 	end
 
-	-- Mid-drop: the door is opening or the dweller has not landed yet.
 	if state and state.Triggered and not state.Spent then return false end
-	-- A spent vent can never fire again, so it goes as soon as nobody can see it.
 	local expired = (state ~= nil and state.Spent) or now >= entry.ExpiresAt
 	if not expired then return false end
 

@@ -41,7 +41,6 @@ export type BoostVisual = {
 }
 
 return {
-	--- Matches the sprint bar's own geometry so the overlay lines up with the track.
 	TimerGap = 4,
 	AuraInset = 3,
 	AuraCorner = 7,

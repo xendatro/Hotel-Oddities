@@ -4,7 +4,6 @@ local ChatCommandService = require(ServerStorage.Services.ChatCommandService)
 
 local FixtureCommand = {}
 
---- Studs above the hallway floor the teleport stands you at. 2-5.
 local STAND_HEIGHT = 3.5
 
 local function nearestArmed(pool: any, position: Vector3): (Model?, number)

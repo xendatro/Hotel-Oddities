@@ -1,4 +1,3 @@
---- One part of a stand-in. Built at the origin, in studs, and framed as a whole.
 export type StandinPart = {
 	Size: Vector3,
 	Offset: Vector3?,
@@ -109,7 +108,6 @@ return {
 			PressDirection = Enum.EasingDirection.Out,
 		},
 
-		--- The page arrows and the close button, which are chrome rather than content and so move less.
 		Button = {
 			HoverScale = 1.15,
 			PressScale = 0.9,
@@ -123,7 +121,6 @@ return {
 			Direction = Enum.EasingDirection.Out,
 		},
 
-		--- Cards arriving on a page, dealt out rather than appearing all at once.
 		Page = {
 			EnterScale = 0.86,
 			EnterDrop = 0.06,
@@ -132,14 +129,12 @@ return {
 			ReplayOnOpen = true,
 		},
 
-		--- The info panel swapping from one entry to the next.
 		Info = {
 			FadeTime = 0.22,
 			Rise = 0.02,
 		},
 	},
 
-	--- Defaults for every headshot camera; an entry overrides what it needs in its own `Headshot`.
 	Headshot = {
 		FieldOfView = 40,
 		Padding = 1.7,
@@ -196,7 +191,6 @@ return {
 		{
 			Id = "Sisters",
 			Name = "The Sisters",
-			-- One rig. The pair is two copies of it, and a headshot only has room for the one.
 			Model = "Sister",
 			Description = "Two of them, walking abreast and unhurried. They have all the time there is.",
 			Listed = false,

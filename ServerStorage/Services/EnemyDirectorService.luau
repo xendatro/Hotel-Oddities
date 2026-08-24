@@ -263,9 +263,6 @@ local function placeOnFloor(enemyId: string, config: EnemyConfigs.EnemyConfig, a
 	return spawnAt(enemyId, best.Position, horizontal(best.Position - reference))
 end
 
---- Walks the hallway graph out from the player, so "far enough away" is measured
---- in corridors rather than straight through the walls, and hands back every
---- node inside the band along with the neighbour that leads back to the player.
 local function hallwayCandidates(from: Vector3): ({ any }, { [any]: any })
 	local start = HallwayGraphService:FindNearestNode(from)
 	if not start then return {}, {} end
@@ -331,8 +328,6 @@ local function placeInHallway(enemyId: string, config: EnemyConfigs.EnemyConfig,
 
 	if not best then return nil end
 
-	-- Face back up the corridor the player would come down, so turning the
-	-- corner puts them nose to nose with it.
 	local back = previous[best]
 	local facing = if back
 		then horizontal(back.Position - best.Position)
@@ -507,8 +502,6 @@ local function isEngaged(enemy: any): boolean
 	return machine ~= nil and ENGAGED_STATES[machine.State] == true
 end
 
---- An expired enemy does not vanish in front of anybody: it waits until nobody
---- can see it, so staring one down keeps it on the map.
 local function sweepDespawns(now: number)
 	local filter = buildSightFilter()
 

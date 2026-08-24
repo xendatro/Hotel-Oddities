@@ -20,8 +20,6 @@ local FLOOR_PROBE_UP = 8
 local FLOOR_PROBE_DOWN = 20
 local MAX_FLOOR_DROP = 3
 
---- Tried in order and the first that fits wins, so the deepest lean the corner
---- can take comes first and the shallow ones are only fallbacks.
 local LEAN_ANGLES = { 68, 60, 52, 45, 28 }
 local LEAN_ARC_STEPS = 4
 local ARC_RADIUS = 0.6

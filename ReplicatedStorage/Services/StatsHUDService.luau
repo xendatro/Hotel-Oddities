@@ -164,8 +164,6 @@ local function stateColor(id: string, state: string?): Color3
 	return EnemyConfig.IdleColor
 end
 
---- The server owns this list. Counting tagged models on the client would miss
---- everything streaming has not sent us and would count a Sisters pair twice.
 local Snapshot: { { Id: string, State: string, Position: Vector3 } } = {}
 local StalkerTargetName: string? = nil
 

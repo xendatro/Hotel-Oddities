@@ -252,8 +252,6 @@ function HallwayGraph:CountExits(node: RouteNode): number
 	return count
 end
 
---- edgeCost lets a caller price an edge by something other than its length; it
---- must stay positive or the search stops behaving like Dijkstra.
 local function popNearest(frontier: { RouteNode }, distances: { [RouteNode]: number }): RouteNode
 	local currentIndex, current = 1, frontier[1]
 	for index = 2, #frontier do

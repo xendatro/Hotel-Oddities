@@ -7,7 +7,6 @@ export type AnimationSet = {
 	Attacks: { number }?,
 }
 
---- The raw asset ids, named for what the clip is rather than for who uses it.
 local Animations = {
 	ChaserWalk = 124403613879188,
 	ChaserRun = 130456583127042,
@@ -20,9 +19,6 @@ local Animations = {
 	SneakyWalk = 94066930953679,
 	Fly = 124677133774216,
 
-	--- Roblox's stock R15 tool carry. It keys the right arm only, so it layers
-	--- over walking instead of replacing it. Swap for a custom one if the radio
-	--- should be held differently.
 	ToolHold = 507768375,
 }
 

@@ -8,14 +8,10 @@ local Hallways = require(ReplicatedStorage.Modules.Hallways)
 local OddityService = require(ServerStorage.Services.OddityService)
 local Vanished = require(ReplicatedStorage.Modules.Vanished)
 
---- Seconds between rebuilds of the cached fixture list; the map is static, so this is only
---- here to pick up fixtures that stream in late. 15-300.
 local LIST_REFRESH = 60
 
---- Studs above the floor a HumanoidRootPart sits at, used to compare floors.
 local ROOT_HEIGHT = 3
 
---- Seconds between debug reports on why a downed fixture has not repaired yet. 3-30.
 local REPORT_INTERVAL = 6
 
 local FixturePool = {}

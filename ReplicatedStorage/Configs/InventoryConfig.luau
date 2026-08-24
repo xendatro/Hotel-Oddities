@@ -1,12 +1,8 @@
 return {
-	--- Slots along the bottom of the screen, each bound to a number key.
 	HotbarSlots = 9,
-	--- Extra slots reachable only through the backpack panel. Total capacity is Hotbar + Backpack.
 	BackpackSlots = 27,
 
-	--- Opens and closes the backpack panel.
 	ToggleKey = Enum.KeyCode.Backquote,
-	--- Equips the hotbar slot at the matching index. Must be at least `HotbarSlots` long.
 	HotbarKeys = {
 		Enum.KeyCode.One,
 		Enum.KeyCode.Two,
@@ -22,7 +18,6 @@ return {
 	DragThreshold = 8,
 	TouchDragThreshold = 16,
 
-	--- Slot geometry, in pixels before scaling.
 	SlotSize = 64,
 	SlotPadding = 6,
 	CornerRadius = 8,
@@ -46,6 +41,5 @@ return {
 		Dragging = 0.35,
 	},
 
-	--- Shown until per-tool icons exist. A tool with a TextureId uses that instead.
 	PlaceholderIcon = "",
 }

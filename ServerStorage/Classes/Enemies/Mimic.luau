@@ -32,16 +32,8 @@ local Reveal = CommunicationService.Get("Enemies", "MimicReveal") :: RemoteEvent
 
 local Mimic = NPC.extend("Mimic", Chaser)
 
---- "Afk" must stay last: RollEncounterMode(false) drops the final entry to keep
---- the ambient AFK pose out of the draw. Every mode is still dispatched by name
---- in `stalk`, so adding one back to this list is all it takes.
---- TEMPORARY: only the constraint-driven modes, for testing.
---- Also written and dispatched: "Mirror", "Spin", "Approach", "Emote"
 local ENCOUNTER_MODES = { "Withdraw", "Shadow", "Wallface", "Turnaway", "Passerby", "Blocker", "Afk" }
 local RADIO_TOOL_NAME = "Walkie Talkie"
---- Roblox's own fonts draw the verified tick at this private-use codepoint, which
---- is the only way to put one on a Humanoid nameplate: HasVerifiedBadge is a
---- Player property and an NPC has no Player.
 local VERIFIED_GLYPH = 0xE000
 
 local HEAD_LOCK_ATTRIBUTE = "MimicHeadLockUserId"
@@ -320,9 +312,6 @@ local function mirror(_changeState: StateMachine.ChangeState, npc: any, target: 
 	end
 end
 
---- A reachable node on the hallway graph, scored by the caller. Routing to a
---- graph node rather than a point in space is what keeps these from walking into
---- walls: every node is somewhere the pathfinder can actually reach.
 local function graphGoal(npc: any, score: (Vector3) -> number): Vector3?
 	local start = HallwayGraphService:FindNearestNode(npc.RootPart.Position)
 	if not start then return nil end
@@ -334,7 +323,6 @@ local function graphGoal(npc: any, score: (Vector3) -> number): Vector3?
 		if value > bestScore then best, bestScore = node, value end
 	end
 
-	-- Two hops out, so it has somewhere to go even from a dead end.
 	for neighbor in start.Neighbors do
 		consider(neighbor)
 		for far in neighbor.Neighbors do
@@ -345,9 +333,6 @@ local function graphGoal(npc: any, score: (Vector3) -> number): Vector3?
 	return best and best.Position
 end
 
---- Gives ground as you advance, walking backwards down the hallway with its eyes
---- on you the whole way. The feet go one direction and the body faces another,
---- which is the whole reason the facing constraint exists.
 local function withdraw(_changeState: StateMachine.ChangeState, npc: any, target: Player)
 	beginEncounter(npc, target, npc.Config.RetreatSpeed or npc.Config.WalkSpeed)
 
@@ -449,8 +434,6 @@ local function approach(_changeState: StateMachine.ChangeState, npc: any, target
 
 	local result = npc:Pursue(watch, MimicConfig.ApproachStopDistance)
 
-	-- It got where it was going without the encounter ending, which means you
-	-- have not turned round yet. Stand there and look at you until you do.
 	while result == "Reached" and outcome == nil do
 		npc:StopMoving()
 		npc:SetHeadLock(target)
@@ -596,8 +579,6 @@ local function turnSlowly(npc: any, direction: Vector3)
 	end
 end
 
---- The standing encounters: no route, no MoveTo, just a facing that changes.
---- `pose` is asked for a direction each tick and hands back nil to end.
 local function standing(npc: any, target: Player, pose: (Vector3) -> Vector3?)
 	local encounter = newEncounter(npc)
 	local outcome = nil :: string?
@@ -626,8 +607,6 @@ local function standing(npc: any, target: Player, pose: (Vector3) -> Vector3?)
 	return endEncounter(npc, target, encounter, outcome)
 end
 
---- Stands looking at a wall with its back to you, the way somebody who alt-tabbed
---- mid-sentence does. It never acknowledges you at all.
 local function wallface(_changeState: StateMachine.ChangeState, npc: any, target: Player)
 	local wall = findWallDirection(npc, target)
 	return standing(npc, target, function()
@@ -635,8 +614,6 @@ local function wallface(_changeState: StateMachine.ChangeState, npc: any, target
 	end)
 end
 
---- Faces you until you look straight at it, then turns away and pretends it was
---- looking at something else. Turns back the moment you look elsewhere.
 local function turnaway(_changeState: StateMachine.ChangeState, npc: any, target: Player)
 	return standing(npc, target, function(position: Vector3)
 		local toward = position - npc.RootPart.Position
@@ -644,9 +621,6 @@ local function turnaway(_changeState: StateMachine.ChangeState, npc: any, target
 	end)
 end
 
---- Walks past you and keeps going, as though it had somewhere else to be. This
---- one deliberately does not hold a facing: its body follows its feet, which is
---- exactly what a player on their way somewhere looks like.
 local function passerby(_changeState: StateMachine.ChangeState, npc: any, target: Player)
 	beginEncounter(npc, target)
 	npc:ClearFacing()
@@ -677,7 +651,6 @@ local function passerby(_changeState: StateMachine.ChangeState, npc: any, target
 			end
 			through = through.Unit
 
-			-- Furthest node in roughly the direction of you and beyond.
 			goal = graphGoal(npc, function(candidate: Vector3)
 				local offset = flatten(candidate - origin)
 				if offset.Magnitude < 1e-3 then return -math.huge end
@@ -768,9 +741,6 @@ local function afkIdle(_changeState: StateMachine.ChangeState, npc: any)
 		turnSlowly(npc, findWallDirection(npc, nil))
 	end
 
-	-- It gives up and walks on rather than standing here forever. Without this the
-	-- only exits are a player wandering close or a room filling up, so a Mimic
-	-- that went AFK in a quiet corridor never patrolled again.
 	local until_ = os.clock() + randomRange(npc.Config.AfkIdleTimeMin, npc.Config.AfkIdleTimeMax)
 
 	while os.clock() < until_ do
@@ -1221,9 +1191,6 @@ function Mimic:PickIdentity(): Player?
 	return if #candidates > 0 then candidates[math.random(#candidates)] else nil
 end
 
---- The whole point of the Mimic is that there is nothing to check, so it copies
---- the two tells a player would otherwise trust: the verified badge beside the
---- name, and the radio in the hand of somebody you are on the air with.
 function Mimic:_facingConstraint(): AlignOrientation
 	local align = self._facingAlign
 	if align then return align end
@@ -1246,10 +1213,6 @@ function Mimic:_facingConstraint(): AlignOrientation
 	return align
 end
 
---- Point the body somewhere its feet are not going. This is a constraint, so the
---- solver settles it inside the physics step alongside the walk controller;
---- assigning RootPart.CFrame instead fights that controller every frame, which
---- is what made the first attempt at these encounters stutter.
 function Mimic:SetFacing(direction: Vector3?)
 	local flat = direction and Vector3.new(direction.X, 0, direction.Z)
 	if not flat or flat.Magnitude < 1e-3 then return end
@@ -1295,8 +1258,6 @@ function Mimic:_copyRadio(identity: Player)
 	if not (template and template:IsA("Tool")) then return end
 
 	local copy = template:Clone()
-	-- A prop, not a working radio: nothing inside it should run, and it must not
-	-- drag the rig around once the Humanoid welds it to the hand.
 	for _, descendant in copy:GetDescendants() do
 		if descendant:IsA("BaseScript") then
 			descendant:Destroy()
@@ -1307,8 +1268,6 @@ function Mimic:_copyRadio(identity: Player)
 	end
 	copy.Parent = self.Model
 
-	-- Parenting it in makes the Humanoid weld it to the hand, but an NPC has no
-	-- Animate script to raise the arm, so without this it dangles at the hip.
 	self.Animator:PlayHold(AnimationConfig.Animations.ToolHold)
 end
 
@@ -1365,10 +1324,6 @@ end
 function Mimic:BuildStateMachine(): StateMachine.StateMachine
 	local npc = self
 
-	-- Cancelling a state kills its thread outright, so an encounter interrupted
-	-- mid-stride never reaches its own ClearFacing. Every state that expects to
-	-- walk normally drops the constraint on the way in, which makes that
-	-- self-healing rather than something to remember at each exit.
 	local function walkingFreely(state: (...any) -> ...any)
 		return function(...)
 			npc:ClearFacing()
@@ -1423,9 +1378,6 @@ function Mimic:BuildStateMachine(): StateMachine.StateMachine
 					and not isNearOccupiedRoom(npc)
 					and os.clock() >= npc._nextAfkRollAt
 				then
-					-- Straight cycle rather than a repeated roll: it patrols for
-					-- AfkPatrolTime, stands around for AfkIdleTime, and afkIdle
-					-- sets the next one on its way out.
 					npc.EncounterMode = "Afk"
 					npc.StateMachine:SetState("AfkIdle", "Perception", npc)
 				end

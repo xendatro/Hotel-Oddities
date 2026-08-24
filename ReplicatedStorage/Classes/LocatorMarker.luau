@@ -16,11 +16,8 @@ local COLORS = PlayerLocatorConfig.Colors
 local FONTS = PlayerLocatorConfig.Fonts
 
 local IN_INFO = TweenInfo.new(FOCUS.InTime, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
---- Fades hold their ink and leave at the end, so the marker finishes moving before it is gone.
 local OUT_FADE_INFO = TweenInfo.new(FOCUS.OutTime, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
---- The close mirrors the open: the same spring, run in reverse.
 local OUT_MOVE_INFO = TweenInfo.new(FOCUS.InTime, Enum.EasingStyle.Back, Enum.EasingDirection.In)
---- The bubble leaves the way it arrived: a small swell, then away.
 local OUT_SCALE_INFO = TweenInfo.new(FOCUS.OutTime, Enum.EasingStyle.Back, Enum.EasingDirection.In)
 local PRESS_INFO = TweenInfo.new(PRESS.Time, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local CONFIRM_INFO = TweenInfo.new(PRESS.ConfirmTime, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
@@ -49,8 +46,6 @@ local function build(player: Player, parent: Instance)
 	billboard.AlwaysOnTop = true
 	billboard.ResetOnSpawn = false
 	billboard.ClipsDescendants = false
-	--- Sibling keeps the whole plate subtree under the bubble instead of letting
-	--- label Z-indices accumulate past it.
 	billboard.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	billboard.LightInfluence = 0
 	billboard.Size = UDim2.fromOffset(MARKER.Size.X, MARKER.Size.Y)
@@ -71,8 +66,6 @@ local function build(player: Player, parent: Instance)
 	rootScale.Parent = root
 
 	local bubbleSpan = math.ceil(MARKER.BubbleSize * MARKER.HaloScale)
-	--- The group clips its children to its own rect, so it runs a flare's width
-	--- larger than the halo to keep the confirm swell and pulse inside.
 	local groupSpan = math.ceil(bubbleSpan * PRESS.ConfirmScale) + 4
 
 	local bubble = Instance.new("CanvasGroup")
@@ -140,7 +133,6 @@ local function build(player: Player, parent: Instance)
 	plate.BackgroundTransparency = 1
 	plate.BorderSizePixel = 0
 	plate.ZIndex = 1
-	--- A label pinned on by hand never sits quite square.
 	plate.Rotation = -1.5
 	plate.Parent = root
 
@@ -157,7 +149,6 @@ local function build(player: Player, parent: Instance)
 	plateStroke.Transparency = 1
 	plateStroke.Parent = plate
 
-	--- A little dirt down the sheet, so the plate reads as stock rather than a flat swatch.
 	local plateGrain = Instance.new("UIGradient")
 	plateGrain.Rotation = 90
 	plateGrain.Color = ColorSequence.new({

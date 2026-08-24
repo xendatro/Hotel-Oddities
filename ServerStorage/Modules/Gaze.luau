@@ -6,13 +6,9 @@ local EnemyObservationService = require(ServerStorage.Services.EnemyObservationS
 local Vanished = require(ReplicatedStorage.Modules.Vanished)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 
---- Full cone angle, in degrees, a target must fall inside to count as looked at.
 local DEFAULT_CONE = 100
---- Nothing further away than this many studs counts as looked at, sightline or not.
 local DEFAULT_MAX_DISTANCE = 300
---- How many points on a target are tried before it is called blocked.
 local DEFAULT_SAMPLES = 3
---- Views are rebuilt at most this often; repeat queries inside the window reuse them.
 local VIEW_CACHE_TIME = 0.05
 
 local Gaze = {}

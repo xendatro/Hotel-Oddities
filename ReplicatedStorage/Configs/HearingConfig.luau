@@ -12,11 +12,9 @@ return {
 		ParticleRate = 110,
 		ParticleLifetime = NumberRange.new(0.35, 0.55),
 		ParticleSize = 0.34,
-		--- A little outward drift so the wake has some width to it instead of being a wire.
 		ParticleSpread = 1.4,
 		ParticleDrag = 4,
 
-		--- Seconds of a small flare where it lands, after which everything is torn down.
 		ArrivalFlashTime = 0.18,
 		ArrivalFlashScale = 2.6,
 	},
