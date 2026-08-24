@@ -202,13 +202,11 @@ function MapDiscoveryService:Update(player: Player)
 	end
 end
 
-Players.PlayerAdded:Connect(function(player)
-	task.spawn(function()
-		DataSaveService:Wait(player)
-		if player:IsDescendantOf(Players) then
-			MapDiscoveryService:Sync(player)
-		end
-	end)
+CharacterService.ForEachPlayer(function(player)
+	DataSaveService:Wait(player)
+	if player:IsDescendantOf(Players) then
+		MapDiscoveryService:Sync(player)
+	end
 end)
 
 local Elapsed = 0

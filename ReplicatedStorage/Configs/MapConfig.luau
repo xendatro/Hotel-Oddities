@@ -8,6 +8,8 @@ return {
 
 	Landmarks = {
 		Computer = { Tag = "HackComputer", Radius = 34 },
+		Spawn = { Tag = "Spawn", Radius = 40 },
+		Exit = { Tag = "Exit", Radius = 40 },
 	},
 
 	Gui = {

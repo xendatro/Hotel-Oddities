@@ -25,9 +25,10 @@ export type MapMarker = typeof(setmetatable({} :: {
 }, MapMarker))
 
 local GLYPHS = {
-	Computer = "\u{2318}",
-	Exit = "\u{2302}",
-	Default = "\u{00D7}",
+	Computer = "C",
+	Spawn = "S",
+	Exit = "E",
+	Default = "?",
 }
 
 local function setUpConnections(self: MapMarker): { RBXScriptConnection }
