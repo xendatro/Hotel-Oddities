@@ -66,7 +66,7 @@ local function setUpConnections(self: MapMarker): { RBXScriptConnection }
 	}
 end
 
-function MapMarker.new(parent: GuiObject, kind: string): MapMarker
+function MapMarker.new(parent: GuiObject, kind: string, userId: number?): MapMarker
 	local self = setmetatable({}, MapMarker)
 
 	self.Kind = kind
@@ -117,6 +117,21 @@ function MapMarker.new(parent: GuiObject, kind: string): MapMarker
 	glyph.TextScaled = true
 	glyph.ZIndex = 16
 	glyph.Parent = frame
+
+	if userId then
+		glyph.Visible = false
+
+		local headshot = Instance.new("ImageLabel")
+		headshot.Name = "Headshot"
+		headshot.AnchorPoint = Vector2.new(0.5, 0.5)
+		headshot.Position = UDim2.fromScale(0.5, 0.5)
+		headshot.Size = UDim2.new(1, -Markers.StrokeWidth * 2, 1, -Markers.StrokeWidth * 2)
+		headshot.BackgroundTransparency = 1
+		headshot.Image = `rbxthumb://type=AvatarHeadShot&id={userId}&w=150&h=150`
+		headshot.ZIndex = 16
+		headshot.Parent = frame
+		GuiBuilderService.Corner(headshot, UDim.new(1, 0))
+	end
 
 	self.Frame = frame
 	self._disc = disc

@@ -131,6 +131,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\MarketplaceService\init.luau — Wrapper over Roblox MarketplaceService adding a shared gamepass-ownership cache, cross-boundary purchase prompts and per-product receipt handlers.
 - ReplicatedStorage\Services\MarketplaceService\Gamepasses.luau — Gamepass asset ids keyed by name.
 - ReplicatedStorage\Services\MarketplaceService\Products.luau — Developer-product asset ids, with per-item ids nested under Items.
+- ReplicatedStorage\Services\MapControlService.luau — Pan and zoom for the map: drag or pinch to pan, wheel or pinch to zoom, clamped and eased.
 - ReplicatedStorage\Services\MapInkService.luau — Rasterises the hand-drawn map ink: seeded wobble, tapered strokes and junction-aware wall culling onto the map canvas.
 - ReplicatedStorage\Services\MapLayoutService.luau — Client-side map geometry: world-to-canvas projection plus the wall and cap openings that keep junctions unwalled.
 - ReplicatedStorage\Services\MapService.luau — Client map front end: consumes the discovery remotes, drives the ink layer and tracks the local player marker.

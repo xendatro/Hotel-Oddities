@@ -388,8 +388,16 @@ Two halves of head/torso look-at: it reports the local camera's pitch and yaw re
 - Tags: reads `Enemy`
 - Requires: `Configs.LookConfig`, `MathService`
 
+### MapControlService.luau
+Client-only. Owns panning and zooming of the map contents inside the clipped viewport. Left-drag or a one-finger touch pans, the scroll wheel or a two-finger pinch zooms about the pointer, and both settle through an exponential ease. Panning tracks absolute pointer positions rather than `InputObject.Delta`, because Delta is zero for mouse movement while the cursor is unlocked. Offsets are clamped so the map cannot be dragged off the paper.
+- API: `MapControlService:Attach(viewport: Frame, content: Frame)` — takes ownership of the content transform
+- API: `MapControlService:Detach()` — disconnects and clears input state
+- API: `MapControlService:Reset()` — returns to fully zoomed out and centred
+- API: `MapControlService:GetZoom() -> number`
+- Requires: `Configs.MapConfig`, `Services.MathService`
+
 ### MapInkService.luau
-Client-only. Rasterises the hand-drawn map onto a `MapCanvas`. Every wall and dead-end cap is generated procedurally from the hallway rectangles: a per-wall seeded wobble (two summed sine harmonics keyed off the hallway coordinate, not the drawn piece, so progressively revealed sections line up seamlessly), a width that varies along the run and tapers at genuine ends, an overshoot past real corners, and a wider low-alpha bleed pass underneath. Junction mouths and partially revealed spans are subtracted before drawing, so no wall is ever drawn across an opening. Drawing is append-only and idempotent because the canvas composites with max alpha.
+Client-only. Rasterises the hand-drawn map onto a `MapCanvas`. Every wall and dead-end cap is generated procedurally from the hallway rectangles: a per-wall seeded wobble (two summed sine harmonics keyed off the hallway coordinate, not the drawn piece, so progressively revealed sections line up seamlessly), a width that varies along the run and tapers at genuine ends, an overshoot past real corners, and a wider low-alpha bleed pass underneath. Junction mouths and partially revealed spans are subtracted before drawing, so no wall is ever drawn across an opening. Overshoot is applied only where a wall genuinely ends, never at a junction mouth, and pieces shorter than a minimum are discarded, which keeps intersections free of stray tick marks. Drawing is append-only and idempotent because the canvas composites with max alpha.
 - API: `MapInkService:Attach(paper: ImageLabel)` — builds the canvas and its `Ink` ImageLabel, resetting drawn and style state
 - API: `MapInkService:Detach()` — destroys the label and canvas
 - API: `MapInkService:IsAttached() -> boolean`
@@ -414,8 +422,9 @@ Client-side geometric model of the map. Loads the hallway rectangle list the ser
 Client-only front end for the map. Waits for the `Map` ScreenGui's paper `ImageLabel`, loads each sync into `MapLayoutService`, attaches `MapInkService` to the paper, replays stored discovery, and applies incremental reveals with a deferred flush so a burst of reveals costs one write. Also owns the local player marker, repositioned every render step.
 - API: `MapService:GetPaper() -> ImageLabel?`
 - API: `MapService:ToPaperScale(worldX: number, worldZ: number) -> UDim2` — world position as a scale offset inside the paper
+- Builds a clipped `Viewport` holding a pannable `Content` frame; the ink, markers, local player dot and other players' headshot markers all live inside it so they pan and zoom together
 - Remotes: `Map/Sync` (listened), `Map/Reveal` (listened), `Map/Landmark` (listened)
-- Requires: `Configs.MapConfig`, `Classes.MapMarker`, `CharacterService`, `CommunicationService`, `MapInkService`, `MapLayoutService`
+- Requires: `Configs.MapConfig`, `Classes.MapMarker`, `CharacterService`, `CommunicationService`, `MapControlService`, `MapInkService`, `MapLayoutService`
 
 ### MarketplaceService\init.luau
 Wrapper around Roblox's own MarketplaceService that adds a shared server/client gamepass-ownership cache, cross-boundary purchase prompts, and a registry of per-product receipt handlers. Server also grants the VIP pass to holders of a legacy VIP subscription. `extend` merges the real MarketplaceService in, so every native member is still reachable through this module.

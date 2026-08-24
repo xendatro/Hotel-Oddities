@@ -6,6 +6,7 @@ local MapLayoutService = require(ReplicatedStorage.Services.MapLayoutService)
 
 local Ink = MapConfig.Ink
 local BOUNDARY_EPSILON = 0.75
+local MIN_PIECE = 2.5
 local BUDGET = 0.004
 
 local MapInkService = {}
@@ -60,12 +61,14 @@ local function offsetAt(wobble: Wobble, along: number): number
 		+ wobble.SecondAmplitude * math.sin(along * wobble.SecondFrequency + wobble.SecondPhase)
 end
 
-local function isBoundary(value: number, limit: number, openings: { number }): boolean
-	if math.abs(math.abs(value) - limit) <= BOUNDARY_EPSILON then return true end
+local NONE, OPENING, EXTENT = 0, 1, 2
+
+local function classify(value: number, limit: number, openings: { number }): number
+	if math.abs(math.abs(value) - limit) <= BOUNDARY_EPSILON then return EXTENT end
 	for index = 1, #openings do
-		if math.abs(value - openings[index]) <= BOUNDARY_EPSILON then return true end
+		if math.abs(value - openings[index]) <= BOUNDARY_EPSILON then return OPENING end
 	end
-	return false
+	return NONE
 end
 
 local function strokePiece(
@@ -75,16 +78,17 @@ local function strokePiece(
 	lateral: Vector2,
 	from: number,
 	to: number,
-	taperFrom: boolean,
-	taperTo: boolean
+	fromKind: number,
+	toKind: number
 )
 	local canvas = Canvas
-	if not canvas then return end
+	if not canvas or to - from < MIN_PIECE then return end
 
 	local wobble = getWobble(id)
+	local taperFrom, taperTo = fromKind ~= NONE, toKind ~= NONE
 
-	local start = from - (if taperFrom then Ink.Overshoot else 0)
-	local finish = to + (if taperTo then Ink.Overshoot else 0)
+	local start = from - (if fromKind == EXTENT then Ink.Overshoot else 0)
+	local finish = to + (if toKind == EXTENT then Ink.Overshoot else 0)
 	local length = finish - start
 	if length <= 0 then return end
 
@@ -135,8 +139,8 @@ local function drawWall(entry: MapLayoutService.Entry, side: number, from: numbe
 			entry.Across,
 			piece[1],
 			piece[2],
-			isBoundary(piece[1], entry.HalfLength, openings),
-			isBoundary(piece[2], entry.HalfLength, openings)
+			classify(piece[1], entry.HalfLength, openings),
+			classify(piece[2], entry.HalfLength, openings)
 		)
 	end
 end
@@ -154,8 +158,8 @@ local function drawCap(entry: MapLayoutService.Entry, side: number)
 			entry.Axis,
 			piece[1],
 			piece[2],
-			isBoundary(piece[1], entry.HalfWidth, openings),
-			isBoundary(piece[2], entry.HalfWidth, openings)
+			classify(piece[1], entry.HalfWidth, openings),
+			classify(piece[2], entry.HalfWidth, openings)
 		)
 	end
 end

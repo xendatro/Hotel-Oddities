@@ -6,6 +6,7 @@ local MapConfig = require(ReplicatedStorage.Configs.MapConfig)
 local MapMarker = require(ReplicatedStorage.Classes.MapMarker)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local MapControlService = require(ReplicatedStorage.Services.MapControlService)
 local MapInkService = require(ReplicatedStorage.Services.MapInkService)
 local MapLayoutService = require(ReplicatedStorage.Services.MapLayoutService)
 
@@ -16,9 +17,11 @@ local MapService = {}
 
 local Player = Players.LocalPlayer
 local Paper: ImageLabel? = nil
+local Content: Frame? = nil
 local Layer: Frame? = nil
 local PlayerMarker: Frame? = nil
 local Landmarks: { [string]: MapMarker.MapMarker } = {}
+local Friends: { [Player]: MapMarker.MapMarker } = {}
 local Pending = false
 
 local function getPaper(): ImageLabel
@@ -30,14 +33,30 @@ local function getPaper(): ImageLabel
 	return Paper :: ImageLabel
 end
 
-local function buildLayer(paper: ImageLabel): Frame
-	local layer = Instance.new("Frame")
-	layer.Name = Gui.MarkerName
-	layer.Size = UDim2.fromScale(1, 1)
-	layer.BackgroundTransparency = 1
-	layer.ZIndex = 10
-	layer.Parent = paper
-	return layer
+local function buildViewport(paper: ImageLabel): (Frame, Frame)
+	local inset = MapConfig.Controls.Inset
+
+	local viewport = Instance.new("Frame")
+	viewport.Name = Gui.ViewportName
+	viewport.AnchorPoint = Vector2.new(0.5, 0.5)
+	viewport.Position = UDim2.fromScale(0.5, 0.5)
+	viewport.Size = UDim2.fromScale(1 - inset * 2, 1 - inset * 2)
+	viewport.BackgroundTransparency = 1
+	viewport.ClipsDescendants = true
+	viewport.Active = true
+	viewport.ZIndex = 2
+	viewport.Parent = paper
+
+	local content = Instance.new("Frame")
+	content.Name = Gui.ContentName
+	content.AnchorPoint = Vector2.new(0.5, 0.5)
+	content.Position = UDim2.fromScale(0.5, 0.5)
+	content.Size = UDim2.fromScale(1, 1)
+	content.BackgroundTransparency = 1
+	content.ZIndex = 3
+	content.Parent = viewport
+
+	return viewport, content
 end
 
 local function buildPlayerMarker(layer: Frame): Frame
@@ -47,7 +66,7 @@ local function buildPlayerMarker(layer: Frame): Frame
 	marker.Size = UDim2.fromOffset(MapConfig.Markers.PlayerSize, MapConfig.Markers.PlayerSize)
 	marker.BackgroundColor3 = MapConfig.Ink.Color
 	marker.BorderSizePixel = 0
-	marker.ZIndex = 20
+	marker.ZIndex = 25
 	marker.Visible = false
 	marker.Parent = layer
 
@@ -82,20 +101,71 @@ local function placeLandmark(kind: string, key: string, pop: boolean)
 	if pop then marker:Pop() end
 end
 
+local function clearFriend(player: Player)
+	local marker = Friends[player]
+	if marker then
+		marker:Destroy()
+		Friends[player] = nil
+	end
+end
+
+local function updateFriends()
+	local layer = Layer
+	if not layer then return end
+
+	for _, other in Players:GetPlayers() do
+		if other == Player then continue end
+
+		local root = CharacterService.GetAliveRoot(other)
+		local marker = Friends[other]
+
+		if not root then
+			if marker then marker.Frame.Visible = false end
+			continue
+		end
+
+		if not marker then
+			marker = MapMarker.new(layer, "Friend", other.UserId)
+			Friends[other] = marker
+		end
+
+		marker.Frame.Visible = true
+		marker:SetPosition(MapService:ToPaperScale(root.Position.X, root.Position.Z))
+	end
+end
+
 local function onSync(layout: { any }, store: { [string]: { number } }, landmarks: { [string]: { [string]: boolean } })
 	local paper = getPaper()
 
 	MapLayoutService:Load(layout)
-	MapInkService:Attach(paper)
 
 	for _, marker in Landmarks do
 		marker:Destroy()
 	end
 	table.clear(Landmarks)
 
-	if Layer then Layer:Destroy() end
-	Layer = buildLayer(paper)
-	PlayerMarker = buildPlayerMarker(Layer :: Frame)
+	for player in Friends do
+		clearFriend(player)
+	end
+
+	local existing = paper:FindFirstChild(Gui.ViewportName)
+	if existing then existing:Destroy() end
+
+	local viewport, content = buildViewport(paper)
+	Content = content
+
+	MapInkService:Attach(content)
+
+	local layer = Instance.new("Frame")
+	layer.Name = Gui.MarkerName
+	layer.Size = UDim2.fromScale(1, 1)
+	layer.BackgroundTransparency = 1
+	layer.ZIndex = 10
+	layer.Parent = content
+	Layer = layer
+
+	PlayerMarker = buildPlayerMarker(layer)
+	MapControlService:Attach(viewport, content)
 
 	for kind, found in landmarks do
 		for key in found do
@@ -126,18 +196,23 @@ CommunicationService.Get(Remotes.Folder, Remotes.Landmark).OnClientEvent:Connect
 	placeLandmark(kind, key, true)
 end)
 
-RunService.RenderStepped:Connect(function()
-	local marker = PlayerMarker
-	if not marker or not MapLayoutService:IsLoaded() then return end
+Players.PlayerRemoving:Connect(clearFriend)
 
-	local root = CharacterService.GetAliveRoot(Player)
-	if not root then
-		marker.Visible = false
-		return
+RunService.RenderStepped:Connect(function()
+	if not MapLayoutService:IsLoaded() then return end
+
+	local marker = PlayerMarker
+	if marker then
+		local root = CharacterService.GetAliveRoot(Player)
+		if root then
+			marker.Visible = true
+			marker.Position = MapService:ToPaperScale(root.Position.X, root.Position.Z)
+		else
+			marker.Visible = false
+		end
 	end
 
-	marker.Visible = true
-	marker.Position = MapService:ToPaperScale(root.Position.X, root.Position.Z)
+	updateFriends()
 end)
 
 return MapService

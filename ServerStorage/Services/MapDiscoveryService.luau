@@ -8,6 +8,7 @@ local MapConfig = require(ReplicatedStorage.Configs.MapConfig)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local HallwaysService = require(ReplicatedStorage.Services.HallwaysService)
+local MapLayoutService = require(ReplicatedStorage.Services.MapLayoutService)
 local DataSaveService = require(ServerStorage.Services.DataSaveService)
 
 local Discovery = MapConfig.Discovery
@@ -28,6 +29,59 @@ type Entry = {
 
 local Entries: { Entry } = {}
 local EntrySource: { HallwaysService.Hallway }? = nil
+
+local RayParams = RaycastParams.new()
+RayParams.FilterType = Enum.RaycastFilterType.Exclude
+RayParams.RespectCanCollide = true
+RayParams.IgnoreWater = true
+
+local function refreshRayFilter()
+	local ignore = {}
+	for _, other in Players:GetPlayers() do
+		if other.Character then table.insert(ignore, other.Character) end
+	end
+	RayParams.FilterDescendantsInstances = ignore
+end
+
+local function isVisible(eye: Vector3, target: Vector3): boolean
+	local offset = target - eye
+	if offset.Magnitude < 1e-3 then return true end
+	return workspace:Raycast(eye, offset, RayParams) == nil
+end
+
+local function visibleRuns(
+	hallway: HallwaysService.Hallway,
+	eye: Vector3,
+	minimum: number,
+	maximum: number
+): { { number } }
+	local step = Discovery.VisibilityStep
+	local samples = math.max(math.ceil((maximum - minimum) / step), 1)
+	local height = hallway.FloorY + Discovery.EyeHeight
+
+	local runs = {}
+	local runStart: number? = nil
+
+	for index = 0, samples do
+		local along = minimum + (maximum - minimum) * (index / samples)
+		local centre = hallway.Center + hallway.Axis * along
+		local seen = isVisible(eye, Vector3.new(centre.X, height, centre.Z))
+
+		if seen and not runStart then
+			runStart = along
+		elseif not seen and runStart then
+			if along - runStart >= Discovery.MinGrowth then
+				table.insert(runs, { runStart, along })
+			end
+			runStart = nil
+		end
+	end
+
+	if runStart and maximum - runStart >= Discovery.MinGrowth then
+		table.insert(runs, { runStart, maximum })
+	end
+	return runs
+end
 
 local function getEntries(): { Entry }
 	local hallways = HallwaysService.All(true)
@@ -190,14 +244,31 @@ function MapDiscoveryService:Update(player: Player)
 	local position = root.Position
 	self:UpdateLandmarks(player, position)
 
+	local eye = position + Vector3.new(0, Discovery.EyeHeight, 0)
+	refreshRayFilter()
+
 	for _, entry in getEntries() do
 		local minimum, maximum = coveredSpan(entry.Hallway, position)
 		if not minimum or not maximum then continue end
 
-		local packed = merge(store[entry.Key] or {}, minimum, maximum)
-		if packed then
-			store[entry.Key] = packed
-			RevealRemote:FireClient(player, entry.Key, packed)
+		local known = store[entry.Key] or {}
+		local changed = false
+
+		for _, fresh in MapLayoutService:Subtract(minimum, maximum, known) do
+			if fresh[2] - fresh[1] < Discovery.MinGrowth then continue end
+
+			for _, run in visibleRuns(entry.Hallway, eye, fresh[1], fresh[2]) do
+				local packed = merge(known, run[1], run[2])
+				if packed then
+					known = packed
+					changed = true
+				end
+			end
+		end
+
+		if changed then
+			store[entry.Key] = known
+			RevealRemote:FireClient(player, entry.Key, known)
 		end
 	end
 end

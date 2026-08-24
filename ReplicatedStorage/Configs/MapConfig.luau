@@ -15,9 +15,22 @@ return {
 	Gui = {
 		ScreenGui = "Map",
 		Paper = "Main",
+		ViewportName = "Viewport",
+		ContentName = "Content",
 		InkName = "Ink",
 		DangerName = "Danger",
 		MarkerName = "Markers",
+	},
+
+	Controls = {
+		-- Fraction of the paper kept clear of the torn edges.
+		Inset = 0.055,
+		MinZoom = 1,
+		MaxZoom = 4.5,
+		WheelStep = 0.22,
+		ZoomLerp = 16,
+		PanLerp = 22,
+		PinchSensitivity = 1,
 	},
 
 	Discovery = {
@@ -28,6 +41,9 @@ return {
 		MinGrowth = 1.5,
 		HeightWindow = 24,
 		BelowWindow = 6,
+		-- Studs between line-of-sight samples along a newly seen span.
+		VisibilityStep = 5,
+		EyeHeight = 3,
 	},
 
 	Canvas = {

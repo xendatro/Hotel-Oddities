@@ -3,7 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local MapConfig = require(ReplicatedStorage.Configs.MapConfig)
 
 local AXIS_EPSILON = 1e-4
-local JUNCTION_INSET = 0.5
+local JUNCTION_INSET = -0.75
 
 local MapLayoutService = {}
 
