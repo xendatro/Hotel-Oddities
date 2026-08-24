@@ -1,4 +1,6 @@
-local extender = require(script.Parent.Parent.Modules.extender)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local extender = require(ReplicatedStorage.Modules.extend)
 
 local Signal = {}
 

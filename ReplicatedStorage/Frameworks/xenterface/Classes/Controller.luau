@@ -3,10 +3,10 @@ local Player = Players.LocalPlayer
 
 local PlayerGui = Player:WaitForChild("PlayerGui")
 
-local Services = script.Parent.Parent.Services
-
 local CollectionService = game:GetService("CollectionService")
-local TagService = require(Services.TagService)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local TagService = require(ReplicatedStorage.Services.TagService)
 
 local Signal = require(script.Parent.Signal)
 local Sequence = require(script.Parent.Sequence)

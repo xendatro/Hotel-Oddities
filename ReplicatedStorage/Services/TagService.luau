@@ -89,6 +89,9 @@ function TagService:Unlisten(tag: string): nil
 	for _, connection in Tags[tag].TagConnections do
 		connection:Disconnect()
 	end
+	for _, connection in Tags[tag].InstanceConnections do
+		connection:Disconnect()
+	end
 	Tags[tag] = nil
 end
 

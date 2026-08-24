@@ -1,4 +1,6 @@
-local TagService = require(script.Parent.Parent.Services.TagService)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local TagService = require(ReplicatedStorage.Services.TagService)
 
 local Tab = require(script.Parent.Parent.Classes.Tab)
 local Page = require(script.Parent.Parent.Classes.Page)

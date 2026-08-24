@@ -1,4 +1,8 @@
 local CollectionService = game:GetService("CollectionService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 
 local HALLWAY_TAG = "MazeFloor"
 local HALLWAY_ROOM_TAG = "HallwayRoomFloor"
@@ -250,6 +254,17 @@ end
 
 --- edgeCost lets a caller price an edge by something other than its length; it
 --- must stay positive or the search stops behaving like Dijkstra.
+local function popNearest(frontier: { RouteNode }, distances: { [RouteNode]: number }): RouteNode
+	local currentIndex, current = 1, frontier[1]
+	for index = 2, #frontier do
+		if distances[frontier[index]] < distances[current] then
+			currentIndex, current = index, frontier[index]
+		end
+	end
+	table.remove(frontier, currentIndex)
+	return current
+end
+
 function HallwayGraph:FindPath(
 	from: RouteNode,
 	to: RouteNode,
@@ -263,13 +278,7 @@ function HallwayGraph:FindPath(
 	local frontier: { RouteNode } = { from }
 
 	while #frontier > 0 do
-		local currentIndex, current = 1, frontier[1]
-		for index = 2, #frontier do
-			if distances[frontier[index]] < distances[current] then
-				currentIndex, current = index, frontier[index]
-			end
-		end
-		table.remove(frontier, currentIndex)
+		local current = popNearest(frontier, distances)
 		if settled[current] then continue end
 		settled[current] = true
 
@@ -369,15 +378,7 @@ local function getShortestNodeDistance(startCandidates: { [RouteNode]: number },
 
 	local best = math.huge
 	while #frontier > 0 do
-		local currentIndex = 1
-		local current = frontier[1]
-		for index = 2, #frontier do
-			if distances[frontier[index]] < distances[current] then
-				currentIndex = index
-				current = frontier[index]
-			end
-		end
-		table.remove(frontier, currentIndex)
+		local current = popNearest(frontier, distances)
 
 		local currentDistance = distances[current]
 		local targetDistance = targetCandidates[current]
@@ -416,6 +417,16 @@ function HallwayGraph:GetWalkingDistance(firstPosition: Vector3, secondPosition:
 
 	local route = getShortestNodeDistance(getAdjacentNodes(first), getAdjacentNodes(second))
 	return math.min(direct, first.Distance + route + second.Distance)
+end
+
+function HallwayGraph:IsFarFromPlayers(position: Vector3, distance: number): boolean
+	for _, player in Players:GetPlayers() do
+		local root = CharacterService.GetAliveRoot(player)
+		if root and (root.Position - position).Magnitude < distance then
+			return false
+		end
+	end
+	return true
 end
 
 for _, tag in TRAVERSABLE_TAGS do

@@ -55,7 +55,17 @@ local function toHallway(part: BasePart, isRoomFloor: boolean): Hallway
 	}
 end
 
+local Cached: { [boolean]: { Hallway } } = {}
+
+function Hallways.Invalidate()
+	table.clear(Cached)
+end
+
 function Hallways.All(includeRoomFloors: boolean?): { Hallway }
+	local key = includeRoomFloors == true
+	local cached = Cached[key]
+	if cached then return cached end
+
 	local hallways = {}
 	for _, tag in getTags(includeRoomFloors) do
 		for _, instance in CollectionService:GetTagged(tag) do
@@ -64,7 +74,13 @@ function Hallways.All(includeRoomFloors: boolean?): { Hallway }
 			end
 		end
 	end
+	Cached[key] = hallways
 	return hallways
+end
+
+for _, tag in { HALLWAY_TAG, HALLWAY_ROOM_TAG } do
+	CollectionService:GetInstanceAddedSignal(tag):Connect(Hallways.Invalidate)
+	CollectionService:GetInstanceRemovedSignal(tag):Connect(Hallways.Invalidate)
 end
 
 local function contains(hallway: Hallway, position: Vector3): boolean
