@@ -1,3 +1,4 @@
+local CollectionService = game:GetService("CollectionService")
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -64,7 +65,8 @@ local focused: Model? = nil
 local session: Session? = nil
 local lastClosed = 0
 
-local HackedSet: { [Model]: true } = (setmetatable({}, { __mode = "k" }) :: any) :: { [Model]: true }
+local HackedIds: { [string]: true } = {}
+local serverTotal: number? = nil
 
 local changed = Instance.new("BindableEvent")
 ComputerService.Changed = changed.Event
@@ -106,8 +108,14 @@ local function screenOf(model: Model): BasePart?
 	return nil
 end
 
+local function idOf(model: Model): string?
+	local id = model:GetAttribute(ComputerConfig.IdAttribute)
+	return if type(id) == "string" then id else nil
+end
+
 local function isHacked(model: Model): boolean
-	return HackedSet[model] == true
+	local id = idOf(model)
+	return id ~= nil and HackedIds[id] == true
 end
 
 local function paintScreen(model: Model)
@@ -247,7 +255,7 @@ local function register(model: Model): State?
 		TextWidth = UI.TextWidth,
 		Reach = ComputerConfig.Targeting.Reach,
 		CanSelect = function(target: Model)
-			return not session and not isHacked(target)
+			return not session and not isHacked(target) and screenOf(target) ~= nil
 		end,
 		OnActivated = function(target: Model)
 			return ComputerService:Activate(target)
@@ -289,26 +297,34 @@ end
 local function applySnapshot(snapshot: any)
 	if type(snapshot) ~= "table" then return end
 
-	local list = snapshot :: { any }
+	local ids = (snapshot :: { [string]: any }).Hacked
+	if type(ids) ~= "table" then return end
 
-	table.clear(HackedSet)
-	for _, model in list do
-		if typeof(model) == "Instance" and model:IsA("Model") then
-			HackedSet[model] = true
+	table.clear(HackedIds)
+	for _, id in ids :: { any } do
+		if type(id) == "string" then
+			HackedIds[id] = true
 		end
+	end
+
+	local total = (snapshot :: { [string]: any }).Total
+	if type(total) == "number" then
+		serverTotal = total
 	end
 
 	applyState()
 end
 
 local function markHacked(model: Model)
-	if HackedSet[model] then return end
-	HackedSet[model] = true
+	local id = idOf(model)
+	if not id or HackedIds[id] then return end
+	HackedIds[id] = true
 	applyState()
 end
 
 if SyncRemote then
-	(SyncRemote :: RemoteEvent).OnClientEvent:Connect(applySnapshot)
+	(SyncRemote :: RemoteEvent).OnClientEvent:Connect(applySnapshot);
+	(SyncRemote :: RemoteEvent):FireServer()
 end
 
 RunService.Heartbeat:Connect(function()
@@ -437,11 +453,29 @@ local function onWin(model: Model)
 	if CompleteRemote then
 		(CompleteRemote :: RemoteEvent):FireServer(model)
 	end
-	restore()
 end
 
 function ComputerService:IsHacked(model: Model): boolean
 	return isHacked(model)
+end
+
+function ComputerService:GetProgress(): (number, number)
+	local hacked = 0
+	for _ in HackedIds do
+		hacked += 1
+	end
+
+	local total = serverTotal
+	if not total then
+		total = 0
+		for _, model in CollectionService:GetTagged(ComputerConfig.Tag) do
+			if model:IsDescendantOf(workspace) then
+				total += 1
+			end
+		end
+	end
+
+	return hacked, math.max(total :: number, hacked)
 end
 
 function ComputerService:GetFocused(): Model?

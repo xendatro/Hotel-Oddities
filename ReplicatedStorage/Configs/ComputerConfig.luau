@@ -1,5 +1,6 @@
 return {
 	Tag = "HackComputer",
+	IdAttribute = "ComputerId",
 
 	ModelName = "ComputerModel",
 	ScreenPath = { "Computer", "Screen" },

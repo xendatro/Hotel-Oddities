@@ -513,12 +513,14 @@ local function beginFanfare(session: Session)
 		end)
 	)
 
+	task.spawn(session.Callbacks.OnComplete)
+
 	task.delay(FANFARE_TIME, function()
 		if current ~= session then return end
 
-		local onComplete = session.Callbacks.OnComplete
+		local onExit = session.Callbacks.OnExit
 		MinigameService:Close()
-		onComplete()
+		onExit()
 	end)
 end
 

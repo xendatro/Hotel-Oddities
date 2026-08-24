@@ -42,11 +42,11 @@ Implements the admin `/hack` chat command: lists every tagged computer with its 
 - Requires: `ChatCommandService` (registers `/hack`, admin-only), `ComputerService`, `ComputerConfig`
 
 ### ComputerService.luau
-Tracks which computer models each player has hacked, as per-player server state rather than an instance attribute, and replicates the set to that player. Auto-tags every eligible `Computer` model in the workspace and validates client completion reports by distance and rate.
+Tracks which computer models each player has hacked, as per-player server state rather than an instance attribute, and replicates the set to that player. Auto-tags every eligible `Computer` model in the workspace, stamps each with a unique `ComputerConfig.IdAttribute` string attribute, and validates client completion reports by distance and rate. Sync payloads are streaming-safe: `{ Hacked = { id, ... }, Total = n }` (ids and a server-counted total, never Instance references, which deserialize to nil for streamed-out models). Re-syncs everyone when the tagged set changes, and answers rate-limited client sync requests fired back over the Sync remote.
 - API: `ComputerService:IsHacked(player: Player, model: Model) -> boolean`
 - API: `ComputerService:GetProgress(player: Player) -> (number, number)` — hacked count, total tagged computers
 - API: `ComputerService:SetHacked(player: Player, model: Model, hacked: boolean)` — syncs the player on change
-- Remotes: `ComputerConfig.Remotes.Folder/Complete` (listened), `.../Sync` (fired)
+- Remotes: `ComputerConfig.Remotes.Folder/Complete` (listened), `.../Sync` (fired, and listened for client refresh requests)
 - Tags: applies `ComputerConfig.Tag`
 - Requires: `ComputerConfig`
 
@@ -171,9 +171,10 @@ Only exists to guarantee the `Enemies/EyeHit` RemoteEvent, replacing any wrongly
 - Remotes: `Enemies/EyeHit` (ensured)
 
 ### FixtureCommandService.luau
-Registers a chat command for a FixturePool so a developer can teleport to the nearest armed fixture or force the nearest one to drop. Warns feedback to the server output; ignores arguments starting with `swing`.
+Registers a chat command for a FixturePool or CrossingPool so a developer can teleport to the nearest armed target or force the nearest one to fire. Warns feedback to the server output; ignores arguments starting with `swing`. Targets may be Instances (FixturePool models) or plain site tables (CrossingPool sites), which are described by their `Id`.
 - API: `FixtureCommand.Bind(pool: any, label: string, names: { string })` — first name is the command, the rest become aliases
-- Requires: `ServerStorage.Services.ChatCommandService`; expects a `FixturePool`-shaped object (`GetArmed`, `PointFor`, `Nearest`, `Drop`, `ArmDistance`)
+- Arguments: `drop` / `fall` / `run` force the nearest target; anything else teleports the caller to the nearest armed one
+- Requires: `ServerStorage.Services.ChatCommandService`; expects a pool exposing `GetArmed`, `PointFor`, `Nearest`, `ArmDistance` and either `Drop` or `Trigger`
 
 ### FriendReviveService.luau
 Sells a paid "revive your friend" offer: when a player has a pending death, every friend in the server is offered a prompt, and a claimed offer triggers a developer-product purchase that grants the revive. Friendship results are cached per user-id pair and cleared on leave; the whole service no-ops unless the ReviveFriend product id is configured.
@@ -426,6 +427,16 @@ Spawns extra ceiling vents at runtime from the `Props.Other.Vent` template, plac
 - API: data table — returns an empty table; everything runs from its Heartbeat loop
 - Tags: reads `CeilingVent` (spacing checks and `TagService:GetApplied` trigger/spent state); spawned models are named `ProgrammaticVent` with a `ProgrammaticVent` attribute
 - Requires: `DangerConfig.ProgrammaticVents`, `DangerMapService:PickPoint`, `EnemyObservationService:GetEyes`, `PerfLog`
+
+### RatService.luau
+Thin wrapper that builds a `CrossingPool` around the `Prop/RatScurry` oddity class so two hallway crossings are armed near players at any time and a rat darts across one when a player walks toward it. Returns an empty table if the oddity class is not registered.
+- API: `RatService:Trigger(site: CrossingPool.Site) -> boolean` — force a rat to run at that crossing
+- API: `RatService:Nearest(position: Vector3) -> (Site?, number)` — closest idle crossing
+- API: `RatService:GetArmed() -> { Site }` — crossings currently armed
+- API: `RatService:GetRunning() -> { [string]: Site }` — crossings with a rat mid-run
+- API: `RatService:ArmDistance() -> number` — re-arm radius from settings
+- API: `RatService:PointFor(site: Site) -> Vector3?` — the crossing's hallway floor point
+- Requires: `ServerStorage.Classes.CrossingPool`, `ServerStorage.Services.FixtureCommandService`, `OddityService`; registers chat command `/rat` (alias `/ratscurry`)
 
 ### RecordPlayerService.luau
 Plays a looping 3D record sound on every tagged record player model, choosing the lobby track when the model has a `Lobby` attribute, and stops it when the model is untagged or removed.

@@ -9,8 +9,10 @@ local CommunicationService = require(ReplicatedStorage.Services.CommunicationSer
 local ComputerService = {}
 
 local TAG = ComputerConfig.Tag
+local ID_ATTRIBUTE = ComputerConfig.IdAttribute
 local REACH = ComputerConfig.Targeting.ServerReach
 local MIN_INTERVAL = 0.5
+local SYNC_REQUEST_INTERVAL = 1
 
 local LEGACY_ATTRIBUTE = "Hacked"
 
@@ -19,6 +21,8 @@ local Sync = CommunicationService.Ensure(ComputerConfig.Remotes.Folder, Computer
 
 local Hacked: { [Player]: { [Model]: true } } = {}
 local LastComplete: { [Player]: number } = {}
+local LastSyncRequest: { [Player]: number } = {}
+local nextComputerId = 0
 
 local function setOf(player: Player): { [Model]: true }
 	local set = Hacked[player]
@@ -29,12 +33,33 @@ local function setOf(player: Player): { [Model]: true }
 	return set
 end
 
-local function sync(player: Player)
-	local snapshot: { Model } = {}
-	for model in pairs(setOf(player)) do
-		table.insert(snapshot, model)
+local function totalComputers(): number
+	local total = 0
+	for _, model in CollectionService:GetTagged(TAG) do
+		if model:IsDescendantOf(workspace) then
+			total += 1
+		end
 	end
-	Sync:FireClient(player, snapshot)
+	return total
+end
+
+local function sync(player: Player)
+	local ids: { string } = {}
+	for model in pairs(setOf(player)) do
+		if model:IsDescendantOf(workspace) then
+			local id = model:GetAttribute(ID_ATTRIBUTE)
+			if type(id) == "string" then
+				table.insert(ids, id)
+			end
+		end
+	end
+	Sync:FireClient(player, { Hacked = ids, Total = totalComputers() })
+end
+
+local function syncAll()
+	for _, player in Players:GetPlayers() do
+		sync(player)
+	end
 end
 
 local function eligible(instance: Instance): boolean
@@ -48,6 +73,10 @@ local function register(instance: Instance)
 	if not eligible(instance) then return end
 	local model = instance :: Model
 
+	if type(model:GetAttribute(ID_ATTRIBUTE)) ~= "string" then
+		nextComputerId += 1
+		model:SetAttribute(ID_ATTRIBUTE, `Computer_{nextComputerId}`)
+	end
 	if not CollectionService:HasTag(model, TAG) then
 		CollectionService:AddTag(model, TAG)
 	end
@@ -99,11 +128,22 @@ Complete.OnServerEvent:Connect(function(player: Player, model: any)
 	ComputerService:SetHacked(player, model, true)
 end)
 
+Sync.OnServerEvent:Connect(function(player: Player)
+	local now = os.clock()
+	if now - (LastSyncRequest[player] or 0) < SYNC_REQUEST_INTERVAL then return end
+	LastSyncRequest[player] = now
+	sync(player)
+end)
+
+CollectionService:GetInstanceAddedSignal(TAG):Connect(syncAll)
+CollectionService:GetInstanceRemovedSignal(TAG):Connect(syncAll)
+
 Players.PlayerAdded:Connect(sync)
 
 Players.PlayerRemoving:Connect(function(player: Player)
 	Hacked[player] = nil
 	LastComplete[player] = nil
+	LastSyncRequest[player] = nil
 end)
 
 for _, descendant in workspace:GetDescendants() do

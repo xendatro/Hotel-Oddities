@@ -90,19 +90,20 @@ Shared accessor for `ReplicatedStorage.Communication`. On the server it creates 
 - API: `CommunicationService.Ensure(folderName: string, remoteName: string, className: string?) -> any` — creates the folder and the remote if absent; `className` defaults to `"RemoteEvent"`
 
 ### ComputerHUDService.luau
-Client-only. Builds the small "hacked / total" pill in the top-right corner, counting every `HackComputer` model in the workspace and asking `ComputerService` which are done. Hidden when there are no computers, and pulses its stroke and text once all of them are hacked.
+Client-only. Builds the small "hacked / total" pill in the top-right corner, reading both numbers from `ComputerService:GetProgress()` so the display stays stable while computers stream in and out. Hidden when there are no computers, and pulses its stroke and text once all of them are hacked.
 - API: `ComputerHUDService:GetProgress() -> (number, number)` — hacked count and total count
 - Tags: reads `HackComputer`
 - Requires: `Configs.ComputerConfig`, `ComputerService`, `GuiBuilderService`; optionally `Configs.ComputerAssets` for the icon image (falls back to a text glyph)
 
 ### ComputerService.luau
-Client-only. Owns the hackable computers: registers each tagged model with `InteractionService`, draws the animated idle SurfaceGui on its screen part, and on activation tweens the camera onto the screen, disables player controls, and hands the model to `MinigameService`. Completing the minigame marks the model hacked locally and tells the server; the server's snapshot remote is authoritative.
+Client-only. Owns the hackable computers: registers each tagged model with `InteractionService` (selectable only once its screen part has streamed in), draws the animated idle SurfaceGui on its screen part, and on activation tweens the camera onto the screen, disables player controls, and hands the model to `MinigameService`. Completing the minigame marks the computer hacked locally and tells the server the moment the win fanfare starts, so leaving or dying during the fanfare cannot drop the completion; the server's snapshot remote is authoritative. Hacked state is keyed by each model's `ComputerConfig.IdAttribute` string, so it survives the model instance being destroyed and recreated by streaming; a fresh snapshot is requested over the Sync remote at startup.
 - API: `ComputerService.Changed` — `RBXScriptSignal` fired whenever the hacked set changes
 - API: `ComputerService:IsHacked(model: Model) -> boolean` — whether that computer is already done
+- API: `ComputerService:GetProgress() -> (number, number)` — hacked count and the server-synced total (falls back to counting replicated tags before the first snapshot)
 - API: `ComputerService:GetFocused() -> Model?` — the computer currently under the interaction cursor
 - API: `ComputerService:IsSessionOpen() -> boolean` — whether a minigame session is running
 - API: `ComputerService:Activate(model: Model?) -> boolean` — opens a session on the given (or focused) computer
-- Remotes: `Computer/Complete` (fired), `Computer/Sync` (listened, replaces the whole hacked set)
+- Remotes: `Computer/Complete` (fired), `Computer/Sync` (listened — `{ Hacked = { id, ... }, Total = n }` replaces the whole hacked set; also fired once to request the initial snapshot)
 - Tags: listens `HackComputer`
 - Requires: `Configs.ComputerConfig`, `InteractionService`, `GuiBuilderService`, `CharacterService`; lazily and optionally requires `MinigameService` (retried once a second, and a session cannot open without it)
 
@@ -440,7 +441,7 @@ Client-side driver for the Mimic enemy: mirrors the local player's recorded move
 
 ### MinigameService.luau
 Client-only arcade shell for the hackable computers: picks which minigame a given terminal runs (deterministic by position within its maze), builds the CRT-styled SurfaceGui with title bar, scanlines, win/deny overlays, and hosts one game module at a time. Owns its own pooled `AudioPlayer` sound-cue graph under SoundService.
-- API: `MinigameService:Open(model: Model, screen: BasePart, callbacks: { OnExit, OnComplete })` — closes any current session first
+- API: `MinigameService:Open(model: Model, screen: BasePart, callbacks: { OnExit, OnComplete })` — closes any current session first; `OnComplete` fires the moment the win fanfare begins, and `OnExit` fires when the session ends (fanfare finished, exit button, or replaced)
 - API: `MinigameService:Close()` — serializes unfinished progress into a weak per-model cache, clears it on a win
 - API: `MinigameService:IsOpen() -> boolean`
 - API: `MinigameService:GameFor(model: Model) -> string` — assigns a game id by sorting the terminals in the same `Maze*` ancestor

@@ -36,7 +36,7 @@ Image asset ids for the hackable-computer UI.
 
 ### ComputerConfig.luau
 Everything for the hackable computer objective: tagging, interaction, camera framing, prompt UI, screen SurfaceGui and the HUD counter.
-- API: data table — `Tag`, `ModelName`, `ScreenPath`, `Remotes`, `Colors`, `Targeting`, `Input`, `Camera`, `Highlight`, `UI`, `IdleScreen`, `HUD`
+- API: data table — `Tag`, `IdAttribute`, `ModelName`, `ScreenPath`, `Remotes`, `Colors`, `Targeting`, `Input`, `Camera`, `Highlight`, `UI`, `IdleScreen`, `HUD`
 
 ### CreepConfig.luau
 The Creep enemy: light-killing radius, floating backdrop geometry, glowing eye pairs and spawn variants.
@@ -144,8 +144,8 @@ Roll timings and effect weights for the player oddity system that randomly resiz
 - API: data table — `Enabled`, `RollInterval`, `InitialDelay`, `TriggerChance`, `MinDuration`, `MaxDuration`, `MinimumPlayersForHeadStare`, `EffectWeights`, `SizeOptions`, `OddTransparency`, `HeadTurnRate`, `HeadReturnRate`
 
 ### PropOddityConfig.luau
-Per-effect tuning for prop-based oddities — falling lanterns, falling paintings, and the painting dweller — covering arming, approach detection, candidate selection and repair rules.
-- API: data table — `Enabled`, `Effects` (`LanternFall`, `PaintingFall`, `PaintingDweller`)
+Per-effect tuning for prop-based oddities — falling lanterns, falling paintings, the painting dweller, and the scurrying rat — covering arming, approach detection, candidate selection, and either repair rules (the fixture effects) or crossing-site sampling and rat motion (`RatScurry`).
+- API: data table — `Enabled`, `Effects` (`LanternFall`, `PaintingFall`, `PaintingDweller`, `RatScurry`)
 
 ### ShopkeeperConfig.luau
 Tag, interaction reach, input bindings, highlight styling and prompt-pill UI settings for the shopkeeper NPC.

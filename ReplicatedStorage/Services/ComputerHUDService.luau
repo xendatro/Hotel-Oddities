@@ -131,16 +131,7 @@ end
 local complete = false
 
 local function count(): (number, number)
-	local hacked, total = 0, 0
-	for _, model in CollectionService:GetTagged(TAG) do
-		if model:IsDescendantOf(workspace) then
-			total += 1
-			if ComputerService:IsHacked(model :: Model) then
-				hacked += 1
-			end
-		end
-	end
-	return hacked, total
+	return ComputerService:GetProgress()
 end
 
 local function refresh()
