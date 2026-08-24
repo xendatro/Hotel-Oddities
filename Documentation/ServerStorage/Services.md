@@ -329,8 +329,9 @@ Server owner of per-player map discovery. On a fixed tick it projects each livin
 - API: `MapDiscoveryService:GetDiscovered(player: Player) -> { [string]: Interval }?`
 - API: `MapDiscoveryService:Sync(player: Player)` — sends layout plus stored discovery
 - API: `MapDiscoveryService:Update(player: Player)` — one discovery pass, replicating any hallway that grew
-- Remotes: `Map/Sync` (fired), `Map/Reveal` (fired)
-- Tags: reads `MazeFloor`, `HallwayRoomFloor` through `HallwaysService`
+- API: `MapDiscoveryService:UpdateLandmarks(player: Player, position: Vector3)` — records tagged landmarks inside their radius, firing only the first time each is seen
+- Remotes: `Map/Sync` (fired), `Map/Reveal` (fired), `Map/Landmark` (fired)
+- Tags: reads `MazeFloor`, `HallwayRoomFloor` through `HallwaysService`; reads each `MapConfig.Landmarks` tag (`HackComputer`)
 - Requires: `ReplicatedStorage.Configs.MapConfig`, `CharacterService`, `CommunicationService`, `HallwaysService`, `DataSaveService`
 
 ### MapCommandService.luau

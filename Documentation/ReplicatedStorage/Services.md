@@ -414,8 +414,8 @@ Client-side geometric model of the map. Loads the hallway rectangle list the ser
 Client-only front end for the map. Waits for the `Map` ScreenGui's paper `ImageLabel`, loads each sync into `MapLayoutService`, attaches `MapInkService` to the paper, replays stored discovery, and applies incremental reveals with a deferred flush so a burst of reveals costs one write. Also owns the local player marker, repositioned every render step.
 - API: `MapService:GetPaper() -> ImageLabel?`
 - API: `MapService:ToPaperScale(worldX: number, worldZ: number) -> UDim2` — world position as a scale offset inside the paper
-- Remotes: `Map/Sync` (listened), `Map/Reveal` (listened)
-- Requires: `Configs.MapConfig`, `CharacterService`, `CommunicationService`, `MapInkService`, `MapLayoutService`
+- Remotes: `Map/Sync` (listened), `Map/Reveal` (listened), `Map/Landmark` (listened)
+- Requires: `Configs.MapConfig`, `Classes.MapMarker`, `CharacterService`, `CommunicationService`, `MapInkService`, `MapLayoutService`
 
 ### MarketplaceService\init.luau
 Wrapper around Roblox's own MarketplaceService that adds a shared server/client gamepass-ownership cache, cross-boundary purchase prompts, and a registry of per-product receipt handlers. Server also grants the VIP pass to holders of a legacy VIP subscription. `extend` merges the real MarketplaceService in, so every native member is still reachable through this module.

@@ -121,6 +121,15 @@ A software pixel canvas backing an `EditableImage`. Owns an RGBA `buffer` it com
 - API: `MapCanvas:ResetDirty()`
 - API: `MapCanvas:Destroy()`
 
+### MapMarker.luau
+One symbol on the discoverable map: an inked disc with a handwriting-font glyph, a spring-driven pop scale, an expanding ping ring and a short glyph flash. Used for landmarks such as computers; a freshly discovered one pops, a restored one simply appears.
+- API: `MapMarker.new(parent: GuiObject, kind: string) -> MapMarker` — kind selects the glyph
+- API: `MapMarker:SetPosition(position: UDim2)`
+- API: `MapMarker:SetFaded(faded: boolean)` — dims the glyph and disc
+- API: `MapMarker:Pop()` — plays the discovery pop, ping ring and flash together
+- API: `MapMarker:Destroy()`
+- Requires: `Configs.MapConfig`, `Services.GuiBuilderService`, `Classes.Spring`
+
 ### MotionTrail.luau
 Rolling buffer of a humanoid's recent position, move vector, look vector and jumping flag, trimmed to a duration window. Used to replay or follow a character a few seconds behind.
 - API: `MotionTrail.new(humanoid: Humanoid, rootPart: BasePart, duration: number?) -> MotionTrail` — default window 4s

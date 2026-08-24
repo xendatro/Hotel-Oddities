@@ -1,3 +1,4 @@
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -16,6 +17,7 @@ local MapDiscoveryService = {}
 
 local SyncRemote = CommunicationService.Ensure(Remotes.Folder, Remotes.Sync)
 local RevealRemote = CommunicationService.Ensure(Remotes.Folder, Remotes.Reveal)
+local LandmarkRemote = CommunicationService.Ensure(Remotes.Folder, Remotes.Landmark)
 
 export type Interval = { number }
 
@@ -42,6 +44,18 @@ local function getEntries(): { Entry }
 	Entries = entries
 	EntrySource = hallways
 	return entries
+end
+
+local function getLandmarks(player: Player): { [string]: { [string]: boolean } }?
+	local profile = DataSaveService:Get(player)
+	if not profile then return nil end
+
+	local store = profile.Data.DiscoveredLandmarks
+	if not store then
+		store = {}
+		profile.Data.DiscoveredLandmarks = store
+	end
+	return store
 end
 
 local function getStore(player: Player): { [string]: Interval }?
@@ -134,8 +148,36 @@ end
 
 function MapDiscoveryService:Sync(player: Player)
 	local store = getStore(player)
-	if not store then return end
-	SyncRemote:FireClient(player, self:GetLayout(), store)
+	local landmarks = getLandmarks(player)
+	if not store or not landmarks then return end
+	SyncRemote:FireClient(player, self:GetLayout(), store, landmarks)
+end
+
+function MapDiscoveryService:UpdateLandmarks(player: Player, position: Vector3)
+	local landmarks = getLandmarks(player)
+	if not landmarks then return end
+
+	for kind, settings in MapConfig.Landmarks do
+		local found = landmarks[kind]
+		if not found then
+			found = {}
+			landmarks[kind] = found
+		end
+
+		for _, instance in CollectionService:GetTagged(settings.Tag) do
+			if not instance:IsDescendantOf(workspace) then continue end
+
+			local pivot = if instance:IsA("Model") then instance:GetPivot().Position elseif instance:IsA("BasePart") then instance.Position else nil
+			if not pivot then continue end
+			if (pivot - position).Magnitude > settings.Radius then continue end
+
+			local key = string.format("%d,%d", math.round(pivot.X), math.round(pivot.Z))
+			if found[key] then continue end
+
+			found[key] = true
+			LandmarkRemote:FireClient(player, kind, key)
+		end
+	end
 end
 
 function MapDiscoveryService:Update(player: Player)
@@ -146,6 +188,8 @@ function MapDiscoveryService:Update(player: Player)
 	if not store then return end
 
 	local position = root.Position
+	self:UpdateLandmarks(player, position)
+
 	for _, entry in getEntries() do
 		local minimum, maximum = coveredSpan(entry.Hallway, position)
 		if not minimum or not maximum then continue end

@@ -3,6 +3,11 @@ return {
 		Folder = "Map",
 		Sync = "Sync",
 		Reveal = "Reveal",
+		Landmark = "Landmark",
+	},
+
+	Landmarks = {
+		Computer = { Tag = "HackComputer", Radius = 34 },
 	},
 
 	Gui = {
@@ -52,8 +57,11 @@ return {
 	},
 
 	Markers = {
-		Size = 26,
-		PlayerSize = 18,
+		Fill = Color3.fromRGB(247, 241, 186),
+		Size = 46,
+		GlyphInset = 9,
+		StrokeWidth = 2.5,
+		PlayerSize = 22,
 		PopScale = 1.45,
 		PopTime = 0.45,
 		PingTime = 0.85,
