@@ -115,7 +115,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\GhostRenderService.luau — Renders ghosts as translucent friend-avatar rigs driven by replicated motion.
 - ReplicatedStorage\Services\GraphicsFogService.luau — Distance fog and a camera-parented cage on low graphics levels.
 - ReplicatedStorage\Services\GuiBuilderService.luau — Shared helper for PlayerGui access, ScreenGuis, corners and strokes.
-- ReplicatedStorage\Services\HallwayGraphService.luau — Navigable node graph built from tagged maze floors, with Dijkstra pathfinding and walking distance.
+- ReplicatedStorage\Services\HallwayGraphService.luau — Navigable node graph built from tagged maze floors, with Dijkstra pathfinding and walking distance; nodes and edges touching spawn safe zones are pruned.
 - ReplicatedStorage\Services\HallwayStreamingService.luau — Client handshake confirming streamed hallway models arrived before a teleport.
 - ReplicatedStorage\Services\HallwaysService.luau — Geometry queries over tagged floor parts: containment, closest point, and longest straight span.
 - ReplicatedStorage\Services\HearingRenderService.luau — Flies glowing motes from a noise source to an enemy's ear.
@@ -146,6 +146,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\ShakeService.luau — Client camera-shake front end with named presets, keyed sustained shakes and adjustable rumble handles.
 - ReplicatedStorage\Services\ShopkeeperService.luau — Client service binding shopkeeper NPCs to interactions, smile animations and their interface page.
 - ReplicatedStorage\Services\SightlineService.luau — Camera frustum and raycast visibility tests with a self-maintaining per-model part cache.
+- ReplicatedStorage\Services\SpawnZoneService.luau — Shared registry of tagged spawn-safe-zone parts with point and segment queries against their boxes.
 - ReplicatedStorage\Services\SpeedBoostRenderService.luau — Tweens the FOV offset and colour-correction screen effect for speed boosts.
 - ReplicatedStorage\Services\SprintBoostUIService.luau — Decorated overlay drawn over the stamina bar while a speed boost is running.
 - ReplicatedStorage\Services\SprintService.luau — Client sprint state machine owning stamina, exhaustion, WalkSpeed and the sprint FOV blend.
@@ -244,6 +245,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\PlayerOddityConfig.luau — Roll timings and effect weights for player-character oddities.
 - ReplicatedStorage\Configs\PropOddityConfig.luau — Per-effect tuning for falling lanterns, falling paintings and the painting dweller.
 - ReplicatedStorage\Configs\ShopkeeperConfig.luau — Shopkeeper NPC tag, reach, input bindings and prompt UI styling.
+- ReplicatedStorage\Configs\SpawnZoneConfig.luau — Tag, poll interval and repel cooldown for the spawn safe zone system.
 - ReplicatedStorage\Configs\SprintBoostConfig.luau — Visual definitions for speed-boost auras on the sprint bar.
 - ReplicatedStorage\Configs\SprintConfig.luau — Sprint speed, stamina economy, input bindings and stamina bar styling.
 - ReplicatedStorage\Configs\StatsHUDConfig.luau — Layout and thresholds for the debug stats HUD panel.
@@ -345,6 +347,7 @@ become Services or Classes.
 - ServerStorage\Services\ReviveService.luau — Sells and grants the Revive product, restoring the player's death location, items and a ForceField.
 - ServerStorage\Services\RoomService.luau — Tags rooms, gives them enemy-only pathfinding blockers, and tracks which room each player is in.
 - ServerStorage\Services\SistersService.luau — Spawns the Sisters enemy to walk a danger-weighted straight hallway span.
+- ServerStorage\Services\SpawnZoneGuardService.luau — Tags players inside the spawn safe zone as Ignored and repels NPC enemies that touch it back to patrol.
 - ServerStorage\Services\SpeedBoostService.luau — Central WalkSpeed arbiter for named, expiring speed boosts and perk multipliers.
 - ServerStorage\Services\StalkerService.luau — Spawns stalker-type enemies at a peek spot found behind the player.
 - ServerStorage\Services\StunService.luau — Stuns enemy NPCs and Eyes, and validates client ball-hit reports by range.

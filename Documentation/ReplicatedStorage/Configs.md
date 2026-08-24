@@ -151,6 +151,10 @@ Per-effect tuning for prop-based oddities — falling lanterns, falling painting
 Tag, interaction reach, input bindings, highlight styling and prompt-pill UI settings for the shopkeeper NPC.
 - API: data table — `Tag`, `PageAttribute`, `Targeting`, `Input`, `Highlight`, `UI`, `SmileAnimationId`
 
+### SpawnZoneConfig.luau
+Tag name and timing for the spawn safe zone system: which tag marks zone parts, how often the server polls player positions against the zones, and the per-enemy cooldown between touch repels.
+- API: data table — `Tag`, `PlayerPollInterval`, `RepelCooldown`
+
 ### SprintBoostConfig.luau
 Visual definitions for speed-boost aura overlays drawn around the sprint bar, one styled entry per boost item. Exports a `BoostVisual` type.
 - API: data table — `TimerGap`, `AuraInset`, `AuraCorner`, `Boosts` (`Soda`, `Energy Drink`)

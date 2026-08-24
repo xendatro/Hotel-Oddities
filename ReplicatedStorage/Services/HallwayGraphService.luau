@@ -3,6 +3,8 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local SpawnZoneConfig = require(ReplicatedStorage.Configs.SpawnZoneConfig)
+local SpawnZoneService = require(ReplicatedStorage.Services.SpawnZoneService)
 
 local HALLWAY_TAG = "MazeFloor"
 local HALLWAY_ROOM_TAG = "HallwayRoomFloor"
@@ -152,6 +154,47 @@ local function addParallelIntersection(first: Hallway, second: Hallway, nodes: {
 	end
 end
 
+local function pruneSpawnZones(graph: Graph)
+	local removed: { [RouteNode]: boolean } = {}
+	for index = #graph.Nodes, 1, -1 do
+		local node = graph.Nodes[index]
+		if SpawnZoneService:Contains(node.Position) then
+			removed[node] = true
+			for neighbor in node.Neighbors do
+				neighbor.Neighbors[node] = nil
+			end
+			table.clear(node.Neighbors)
+			table.remove(graph.Nodes, index)
+		end
+	end
+
+	for _, hallway in graph.Hallways do
+		for index = #hallway.Nodes, 1, -1 do
+			local node = hallway.Nodes[index]
+			if removed[node] then
+				hallway.JunctionReach[node] = nil
+				table.remove(hallway.Nodes, index)
+			end
+		end
+	end
+
+	for _, node in graph.Nodes do
+		local crossing: { RouteNode }? = nil
+		for neighbor in node.Neighbors do
+			if SpawnZoneService:IntersectsSegment(node.Position, neighbor.Position) then
+				crossing = crossing or {}
+				table.insert(crossing :: { RouteNode }, neighbor)
+			end
+		end
+		if crossing then
+			for _, neighbor in crossing do
+				node.Neighbors[neighbor] = nil
+				neighbor.Neighbors[node] = nil
+			end
+		end
+	end
+end
+
 local function build(): Graph
 	local nodes = {}
 	local hallways: { Hallway } = {}
@@ -212,10 +255,12 @@ local function build(): Graph
 		end
 	end
 
-	return {
+	local graph = {
 		Nodes = nodes,
 		Hallways = hallways,
 	}
+	pruneSpawnZones(graph)
+	return graph
 end
 
 function HallwayGraph:Build(): { RouteNode }
@@ -427,7 +472,7 @@ function HallwayGraph:IsFarFromPlayers(position: Vector3, distance: number): boo
 	return true
 end
 
-for _, tag in TRAVERSABLE_TAGS do
+for _, tag in { HALLWAY_TAG, HALLWAY_ROOM_TAG, SpawnZoneConfig.Tag } do
 	CollectionService:GetInstanceAddedSignal(tag):Connect(function()
 		HallwayGraph:Invalidate()
 	end)

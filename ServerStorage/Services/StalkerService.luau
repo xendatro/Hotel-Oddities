@@ -1,5 +1,7 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
+local SpawnZoneService = require(ReplicatedStorage.Services.SpawnZoneService)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyService = require(ServerStorage.Services.EnemyService)
 local Peek = require(ServerStorage.Classes.Enemies.Behaviors.Peek)
@@ -33,6 +35,7 @@ function StalkerService:SpawnPeeking(player: Player, enemyId: string?, anyDirect
 	end
 
 	if not spot then return nil end
+	if SpawnZoneService:Contains(spot.Stand) then return nil end
 
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if not root or (spot.Stand - root.Position).Magnitude < config.MinPeekDistance then

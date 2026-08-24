@@ -276,7 +276,7 @@ Small shared helper for building GUI instances; every other UI service uses it t
 - API: `GuiBuilderService.Stroke(parent: GuiObject, color: Color3, thickness: number): UIStroke` — adds a border-mode UIStroke
 
 ### HallwayGraphService.luau
-Builds a navigable node graph from the tagged maze floor parts by intersecting hallway rectangles (perpendicular crossings and end-to-end parallel joins), then offers nearest-node lookup, Dijkstra pathfinding, and walking-distance queries. The graph is cached and invalidated automatically whenever a tagged floor is added or removed.
+Builds a navigable node graph from the tagged maze floor parts by intersecting hallway rectangles (perpendicular crossings and end-to-end parallel joins), then offers nearest-node lookup, Dijkstra pathfinding, and walking-distance queries. Nodes inside a `SpawnSafeZone` part and edges crossing one are pruned from the graph, so nothing that routes over it ever passes through the spawn safe zone. The graph is cached and invalidated automatically whenever a tagged floor or spawn zone is added or removed.
 - API: `HallwayGraph:Build() -> { RouteNode }` — forces a fresh build, bypassing the cache
 - API: `HallwayGraph:Get() -> { RouteNode }` — cached node list
 - API: `HallwayGraph:Invalidate()` — drops the cache
@@ -285,8 +285,8 @@ Builds a navigable node graph from the tagged maze floor parts by intersecting h
 - API: `HallwayGraph:FindPath(from: RouteNode, to: RouteNode, edgeCost: ((RouteNode, RouteNode) -> number)?) -> { RouteNode }?` — Dijkstra with optional custom cost
 - API: `HallwayGraph:GetWalkingDistance(firstPosition: Vector3, secondPosition: Vector3) -> number` — off-graph positions snapped to the nearest hallway span
 - API: `HallwayGraph:IsFarFromPlayers(position: Vector3, distance: number) -> boolean` — true if no alive player root is within `distance`
-- Tags: listens `MazeFloor`, `HallwayRoomFloor` (added/removed only, to invalidate the cache); `HallwayRoomFloor` nodes are marked not usable as destinations
-- Requires: `Services.CharacterService`
+- Tags: listens `MazeFloor`, `HallwayRoomFloor`, `SpawnSafeZone` (added/removed only, to invalidate the cache); `HallwayRoomFloor` nodes are marked not usable as destinations
+- Requires: `Services.CharacterService`, `SpawnZoneService`, `Configs.SpawnZoneConfig`
 
 ### HallwayStreamingService.luau
 Client half of the hallway streaming handshake: when the server announces a pending teleport it waits (up to a timeout) for the named streaming models to arrive in workspace and then reports ready or not-ready. A background loop reconciles the server's expected model-id list against what actually arrived and reports anything missing; failures are shown in a small on-screen message banner.
@@ -533,6 +533,14 @@ Camera visibility tests: builds a frustum from a Camera, does cone/sphere inters
 - API: `Sightline.Intersects(camera: Camera, frustum: Frustum, center: Vector3, radius: number) -> boolean` — sphere vs frustum
 - API: `Sightline.OnScreen(camera: Camera, frustum: Frustum, model: Model) -> boolean` — bounding-box test only, no raycast
 - API: `Sightline.CanSee(camera: Camera, frustum: Frustum, ignore: Instance?, model: Model) -> boolean` — frustum test plus line-of-sight raycast per part
+
+### SpawnZoneService.luau
+Shared registry of the spawn safe zone parts (tagged `SpawnSafeZone`): keeps the tagged workspace parts cached and answers geometric queries against their oriented boxes. Used to keep the hallway graph, enemy spawn placement and enemy behaviour out of the safe area around the maze spawn.
+- API: `SpawnZoneService:GetZones() -> { BasePart }` — current zone parts
+- API: `SpawnZoneService:Contains(position: Vector3) -> boolean` — point inside any zone box
+- API: `SpawnZoneService:IntersectsSegment(from: Vector3, to: Vector3) -> boolean` — slab test of the segment against every zone box
+- Tags: reads `SpawnSafeZone` (added/removed refresh the cache)
+- Requires: `Configs.SpawnZoneConfig`
 
 ### SpeedBoostRenderService.luau
 Client screen effect for speed boosts: watches the local player's `SpeedBoostFov` attribute and tweens both a camera FOV offset and a `ColorCorrectionEffect` (saturation, contrast, warm tint) in and out, disabling the effect once it fully returns to zero.

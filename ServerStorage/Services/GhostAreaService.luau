@@ -5,6 +5,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local Hallways = require(ReplicatedStorage.Services.HallwaysService)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local SpawnZoneService = require(ReplicatedStorage.Services.SpawnZoneService)
 
 local POINT_ATTEMPTS = 12
 
@@ -59,7 +60,7 @@ function GhostAreaService:GetRandomPoint(): Vector3?
 	for _ = 1, POINT_ATTEMPTS do
 		local chosen = chooseHallway(hallways, total)
 		local point = toHoverPoint(getRandomPointOver(chosen), chosen)
-		if not self:IsPlayerNear(point) then return point end
+		if not SpawnZoneService:Contains(point) and not self:IsPlayerNear(point) then return point end
 	end
 	return nil
 end

@@ -61,7 +61,7 @@ Studio-only listener that accepts a whitelist of numeric danger-field overrides 
 - Requires: `DangerMapService:Rebake`, `EnemyDirectorService:Reset`
 
 ### DangerMapService.luau
-Bakes and serves the map-wide "danger" field: measures the extent of all `MazeFloor` parts, builds field settings anchored at the `Start` part, and samples weighted spawn points from it. Rebakes once at require time and caches cumulative weight tables per danger bias.
+Bakes and serves the map-wide "danger" field: measures the extent of all `MazeFloor` parts, builds field settings anchored at the `Start` part, and samples weighted spawn points from it. Points inside a `SpawnSafeZone` part are dropped at bake time, so nothing drawing from the baked points ever spawns in the spawn safe zone. Rebakes once at require time and caches cumulative weight tables per danger bias.
 - API: `DangerMapService:Rebake(overrides: { [string]: any }?)` — re-measures floors and re-bakes points
 - API: `DangerMapService:GetSettings() -> DangerField.FieldSettings?`
 - API: `DangerMapService:GetExtent() -> number`
@@ -69,7 +69,7 @@ Bakes and serves the map-wide "danger" field: measures the extent of all `MazeFl
 - API: `DangerMapService:GetPoints() -> { SpawnPoint }`
 - API: `DangerMapService:PickPoint(bias: number, accept: (SpawnPoint) -> boolean, attempts: number) -> SpawnPoint?` — danger-weighted draw with rejection
 - Tags: reads `MazeFloor`, `Start`
-- Requires: `Services.DangerFieldService`, `DangerConfig`
+- Requires: `Services.DangerFieldService`, `SpawnZoneService`, `DangerConfig`
 
 ### DataSaveService.luau
 ProfileService front-end: loads, reconciles and releases one `PlayerData` profile per player, and lets other code either grab a loaded profile or yield until it arrives. The template holds currency, sword ownership, inventory, processed receipts and discovered enemies.
@@ -201,10 +201,10 @@ Server-side line-of-sight library: builds a short-lived cache of living, non-van
 - Requires: `ServerStorage.Services.EnemyObservationService`, `ReplicatedStorage.Services.CharacterService`, `ReplicatedStorage.Services.VanishedService`
 
 ### GhostAreaService.luau
-Picks hover points for the Ghost enemy by choosing a hallway weighted by its floor area, sampling a random point over it, and lifting the point to the ghost's hover height. Points within `VanishDistance` of any living player are rejected, up to 12 attempts.
+Picks hover points for the Ghost enemy by choosing a hallway weighted by its floor area, sampling a random point over it, and lifting the point to the ghost's hover height. Points within `VanishDistance` of any living player or inside a `SpawnSafeZone` part are rejected, up to 12 attempts.
 - API: `GhostAreaService:IsPlayerNear(position: Vector3) -> boolean` — any alive player within `Config.VanishDistance`
 - API: `GhostAreaService:GetRandomPoint() -> Vector3?` — area-weighted hover point, or nil if none is clear
-- Requires: `EnemyConfigs.Ghost`, `ReplicatedStorage.Services.HallwaysService`, `CharacterService.GetAliveRoot`
+- Requires: `EnemyConfigs.Ghost`, `ReplicatedStorage.Services.HallwaysService`, `CharacterService.GetAliveRoot`, `SpawnZoneService`
 
 ### HallwayGridService.luau
 Finds hallway "corner mouths" near a viewer — graph nodes with a side branch roughly perpendicular to the line of sight — and returns the physical corner position derived from the widths of the crossing and branching hallways. Used to place things just out of view around a corner.
@@ -469,6 +469,12 @@ Spawns the Sisters enemy at one end of a straight hallway span so it walks the l
 - API: `SistersService:SpawnInHallway(player: Player) -> any?` — spawn on the span the player is standing in, from the far end
 - Requires: `EnemyConfigs.Sisters`, `Hallways` module (`StraightSpans`, `StraightSpanAt`), `DangerMapService`, `HallwayGraphService:IsFarFromPlayers`, `EnemyService:Spawn`
 
+### SpawnZoneGuardService.luau
+Server-side behaviour of the spawn safe zone: while a player's root is inside a `SpawnSafeZone` part their character carries the `Ignore` tag (so enemies cannot see, target, or kill them), removed again when they leave — an `Ignore` the character already had from elsewhere is left alone. Any NPC enemy whose body touches a zone part gives up its target and is forced back to its `Patrol` state (or `Idle` when it has no patrol), on a per-enemy cooldown; stunned enemies are left alone.
+- API: no public methods — runs entirely from its own connections and poll loop.
+- Tags: reads `SpawnSafeZone`; applies/removes `Ignore` on player characters
+- Requires: `ReplicatedStorage.Services.SpawnZoneService`, `CharacterService`, `VanishedService`, `Configs.SpawnZoneConfig`, `ServerStorage.Classes.NPC`
+
 ### SpeedBoostService.luau
 Central WalkSpeed arbiter: named boost sources per player, the highest wins, multiplied by any perk multiplier and never below the tracked base speed. Tracks the character's natural base speed separately, tolerates external writes (including stuns setting speed to 0), publishes `SpeedBoost*` attributes for the client FOV effect, and expires each source on a timer.
 - API: `SpeedBoostService:Apply(player, name: string, speed: number, duration: number, fov: number, effectTemplate: Instance?) -> boolean` — add or replace a named boost
@@ -477,10 +483,10 @@ Central WalkSpeed arbiter: named boost sources per player, the highest wins, mul
 - Requires: `SprintConfig`
 
 ### StalkerService.luau
-Finds a peek spot behind the player and spawns a stalker-type enemy standing there facing them, optionally relaxing the rear-arc and minimum-distance constraints when no spot is found behind.
+Finds a peek spot behind the player and spawns a stalker-type enemy standing there facing them, optionally relaxing the rear-arc and minimum-distance constraints when no spot is found behind. Spots inside a `SpawnSafeZone` part are refused.
 - API: `StalkerService:FindSpot(player: Player, enemyId: string?) -> PeekSpot?` — peek spot using that enemy's find options
 - API: `StalkerService:SpawnPeeking(player: Player, enemyId: string?, anyDirection: boolean?) -> any?` — spawn the enemy at a found spot
-- Requires: `PeekSpotService`, `EnemyConfigs`, `ServerStorage.Classes.Enemies.Behaviors.Peek` (find options), `EnemyService:Spawn`
+- Requires: `PeekSpotService`, `EnemyConfigs`, `ServerStorage.Classes.Enemies.Behaviors.Peek` (find options), `EnemyService:Spawn`, `ReplicatedStorage.Services.SpawnZoneService`
 
 ### StunService.luau
 Puts an enemy NPC or Eye into its `Stunned` state for a duration, and handles the client Ball hit report by re-verifying the thrower is within `ToolConfigs.Ball.ServerRange` of the target before stunning.

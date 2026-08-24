@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
 local DangerField = require(ReplicatedStorage.Services.DangerFieldService)
+local SpawnZoneService = require(ReplicatedStorage.Services.SpawnZoneService)
 
 local MAZE_FLOOR_TAG = "MazeFloor"
 local START_TAG = "Start"
@@ -48,6 +49,11 @@ function DangerMapService:Rebake(overrides: { [string]: any }?)
 	Settings = DangerField.BuildSettings(startPosition, extent, overrides)
 
 	Points = DangerField.BakePoints(floors, DangerConfig.PointSpacing, Settings :: DangerField.FieldSettings)
+	for index = #Points, 1, -1 do
+		if SpawnZoneService:Contains(Points[index].Position) then
+			table.remove(Points, index)
+		end
+	end
 	WeightCache = {}
 end
 
