@@ -4,6 +4,8 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local CreepConfig = require(ReplicatedStorage.Configs.CreepConfig)
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
+local Vanished = require(ReplicatedStorage.Modules.Vanished)
+local EnemyDiscoveryService = require(ServerStorage.Services.EnemyDiscoveryService)
 local LightService = require(ServerStorage.Services.LightService)
 
 local ENEMY_TAG = "Enemy"
@@ -120,8 +122,10 @@ function Creep.new(model: Model, config)
 
 				for _, player in Players:GetPlayers() do
 					local character = player.Character
+					if Vanished.Is(character) then continue end
 					local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 					if root and (root.Position - self.RootPart.Position).Magnitude <= self.Config.DespawnRange then
+						EnemyDiscoveryService:GrantEvent(player, self.EnemyId)
 						self:Despawn()
 						return
 					end

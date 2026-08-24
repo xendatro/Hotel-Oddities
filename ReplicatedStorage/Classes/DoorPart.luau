@@ -283,7 +283,7 @@ end
 
 function DoorPart:_applyCollision()
 	local closing = self.Target == 0 and self.AnimationPlayer ~= nil
-	self.Part.CanCollide = if closing then false else self.Forced or self.ClosedCanCollide
+	self.Part.CanCollide = if closing or self.Forced then false else self.ClosedCanCollide
 end
 
 function DoorPart:_Apply()

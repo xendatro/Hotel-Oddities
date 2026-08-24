@@ -23,7 +23,19 @@ local function characterPosition(player: Player): Vector3?
 end
 
 function DrawerService:SetOpen(model: Model, open: boolean)
-	if model:GetAttribute(DrawerConfig.Attribute) == open then return end
+	if model:GetAttribute(DrawerConfig.Attribute) == open then
+		if open and type(model:GetAttribute(DrawerConfig.OpenedAtAttribute)) ~= "number" then
+			model:SetAttribute(DrawerConfig.OpenedAtAttribute, os.time())
+		elseif not open and model:GetAttribute(DrawerConfig.OpenedAtAttribute) ~= nil then
+			model:SetAttribute(DrawerConfig.OpenedAtAttribute, nil)
+		end
+		return
+	end
+
+	model:SetAttribute(
+		DrawerConfig.OpenedAtAttribute,
+		if open then os.time() else nil
+	)
 	model:SetAttribute(DrawerConfig.Attribute, open)
 
 	local sound = DrawerConfig.Sound
@@ -33,6 +45,32 @@ function DrawerService:SetOpen(model: Model, open: boolean)
 		AudioService:Play3DSound(template, part, false, sound.Group, { PlaybackSpeed = sound.PlaybackSpeed })
 	end
 end
+
+local function closeExpiredDrawers()
+	local now = os.time()
+	for _, model in CollectionService:GetTagged(DrawerConfig.Tag) do
+		if model:GetAttribute(DrawerConfig.Attribute) ~= true then
+			if model:GetAttribute(DrawerConfig.OpenedAtAttribute) ~= nil then
+				model:SetAttribute(DrawerConfig.OpenedAtAttribute, nil)
+			end
+			continue
+		end
+
+		local openedAt = model:GetAttribute(DrawerConfig.OpenedAtAttribute)
+		if type(openedAt) ~= "number" then
+			model:SetAttribute(DrawerConfig.OpenedAtAttribute, now)
+		elseif now - openedAt >= DrawerConfig.AutoCloseDelay then
+			DrawerService:SetOpen(model, false)
+		end
+	end
+end
+
+task.spawn(function()
+	while true do
+		task.wait(DrawerConfig.AutoCloseCheckInterval)
+		closeExpiredDrawers()
+	end
+end)
 
 Toggle.OnServerEvent:Connect(function(player: Player, model: any, open: any)
 	if typeof(model) ~= "Instance" or not model:IsA("Model") or type(open) ~= "boolean" then return end

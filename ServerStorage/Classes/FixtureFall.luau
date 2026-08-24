@@ -59,6 +59,8 @@ function FixtureFall:OnStart(): boolean
 	end
 
 	if not root then return false end
+	if model:GetAttribute("OddityBusy") then return false end
+	model:SetAttribute("OddityBusy", true)
 
 	local group = self.Config.CollisionGroup or "FallenProp"
 	ensureCollisionGroup(group)
@@ -159,6 +161,7 @@ function FixtureFall:OnStop()
 	self.Root = nil
 
 	local model = self.Model
+	if model then model:SetAttribute("OddityBusy", nil) end
 	if self.OnRestore and model then self:OnRestore(model) end
 end
 

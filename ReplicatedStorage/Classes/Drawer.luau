@@ -1,18 +1,34 @@
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DrawerConfig = require(ReplicatedStorage.Configs.DrawerConfig)
+local DrawerItemConfig = require(ReplicatedStorage.Configs.DrawerItemConfig)
 
 local Drawer = {}
 Drawer.__index = Drawer
 
 local DAMPING = DrawerConfig.DampingRatio * 2 * math.sqrt(DrawerConfig.Stiffness)
 
+local function belongsToDrawerItem(instance: Instance): boolean
+	local ancestor = instance.Parent
+	while ancestor and ancestor ~= workspace do
+		if CollectionService:HasTag(ancestor, DrawerItemConfig.Tag) then
+			return true
+		end
+		ancestor = ancestor.Parent
+	end
+	return false
+end
+
 local function outwardAxis(model: Model): Vector3
 	local pivot = model:GetPivot()
 	local keyword = DrawerConfig.HandleKeyword:lower()
 
 	for _, descendant in model:GetDescendants() do
-		if not descendant:IsA("BasePart") or not descendant.Name:lower():find(keyword, 1, true) then
+		if not descendant:IsA("BasePart")
+			or belongsToDrawerItem(descendant)
+			or not descendant.Name:lower():find(keyword, 1, true)
+		then
 			continue
 		end
 

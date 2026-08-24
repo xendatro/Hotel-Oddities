@@ -1,7 +1,20 @@
 return {
 	Enabled = true,
 
-	FogEnd = 250,
+	ForceLowestLevel = true,
+
+	FogEndByLevel = {
+		[1] = 110,
+		[2] = 130,
+		[3] = 150,
+		[4] = 170,
+		[5] = 190,
+		[6] = 205,
+		[7] = 215,
+		[8] = 225,
+		[9] = 230,
+		[10] = 230,
+	},
 
 	--- Where the fog starts, as a fraction of where it ends. Small values give a long soft ramp.
 	FogStartRatio = 0.45,
@@ -16,7 +29,7 @@ return {
 		Thickness = 4,
 	},
 
-	HighestFoggedLevel = 7,
+	HighestFoggedLevel = 10,
 
 	FogEndBlendSpeed = 2,
 

@@ -8,7 +8,6 @@ local HeartbeatConfig = require(ReplicatedStorage.Configs.HeartbeatConfig)
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local HearingService = require(ServerStorage.Services.HearingService)
 local NPC = require(ServerStorage.Classes.NPC)
-local RoomService = require(ServerStorage.Services.RoomService)
 
 local traceStart = os.clock()
 local function trace(npc: any, message: string)
@@ -189,12 +188,7 @@ local function investigate(_changeState: StateMachine.ChangeState, npc: any)
 	end
 
 	local lastKnown = npc.HeardPosition or npc.RootPart.Position
-	local safeRoom = nil :: Model?
 	local result = npc:Pursue(function()
-		if npc.HeardSource and RoomService:IsInRoom(npc.HeardSource) then
-			safeRoom = RoomService:GetRoom(npc.HeardSource)
-			return nil
-		end
 		local goal = npc.HeardPosition
 		if goal then
 			lastKnown = goal
@@ -213,10 +207,6 @@ local function investigate(_changeState: StateMachine.ChangeState, npc: any)
 		local heard = npc.HeardSource
 		return heard ~= nil and npc:IsValidTarget(heard) and npc:HasPursuitSight(heard)
 	end)
-
-	if safeRoom then
-		return "RoomReaction", npc, safeRoom
-	end
 
 	local caught = npc.HeardSource
 	if result == "Reached" and caught and npc:IsValidTarget(caught) and npc:IsTouchingPlayer(caught) then
@@ -238,16 +228,10 @@ local function pursue(_changeState: StateMachine.ChangeState, npc: any, target: 
 
 	local giveUpRange = npc.Config.PursuitGiveUpRange or npc.Config.GiveUpRange
 	local lastKnown = npc:GetTargetPosition(target) or npc.RootPart.Position
-	local safeRoom = nil :: Model?
 	local reason = "?"
 	trace(npc, `Pursue entered on {target.Name}, giveUp={giveUpRange}`)
 
 	local result = npc:Pursue(function()
-		if RoomService:IsInRoom(target) then
-			safeRoom = RoomService:GetRoom(target)
-			reason = "safe room"
-			return nil
-		end
 		local position = npc:GetTargetPosition(target)
 		if not position then
 			reason = "target no longer valid"
@@ -268,10 +252,6 @@ local function pursue(_changeState: StateMachine.ChangeState, npc: any, target: 
 	if result == "Reached" then
 		return "Attack", npc, target
 	end
-	if safeRoom then
-		return "RoomReaction", npc, safeRoom
-	end
-
 	if coastPast(npc) then
 		return "Investigate", npc
 	end
@@ -331,10 +311,6 @@ local function search(_changeState: StateMachine.ChangeState, npc: any, lastKnow
 	return "Idle", npc
 end
 
-local function roomReaction(changeState: StateMachine.ChangeState, npc: any, room: Model)
-	return NPC.SharedStates.RoomReaction(changeState, npc, room)
-end
-
 function Blind.new(model: Model, config)
 	local self = NPC.new(model, config, Blind)
 	self.HeardNoise = nil
@@ -360,13 +336,12 @@ function Blind:BuildStateMachine(): StateMachine.StateMachine
 		Pursue = pursue,
 		Attack = attack,
 		Search = search,
-		RoomReaction = roomReaction,
 		Stunned = NPC.SharedStates.Stunned,
 	}, {
 		Noise = { "Idle", "Wander", "Patrol", "Search" },
 		Close = { "Idle", "Wander", "Patrol", "Search", "Investigate" },
 		Contact = { "Idle", "Wander", "Patrol", "Investigate", "Pursue", "Search" },
-		Impact = { "Idle", "Wander", "Patrol", "Investigate", "Pursue", "Attack", "Search", "RoomReaction" },
+		Impact = { "Idle", "Wander", "Patrol", "Investigate", "Pursue", "Attack", "Search" },
 	}, {
 		Hearing = function()
 			HearingService:AddEar(npc.Model, {

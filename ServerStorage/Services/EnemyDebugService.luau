@@ -4,6 +4,7 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local StatsHUDConfig = require(ReplicatedStorage.Configs.StatsHUDConfig)
+local EnemyDirectorService = require(ServerStorage.Services.EnemyDirectorService)
 local EnemyService = require(ServerStorage.Services.EnemyService)
 
 local EnemyDebugService = {}
@@ -59,9 +60,11 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 	if #players == 0 then return end
 
 	local entries = EnemyDebugService:GetSnapshot()
+	local stalkerTarget = EnemyDirectorService:GetStalkerTarget()
+	local stalkerName = if stalkerTarget then stalkerTarget.Name else nil
 
 	for _, player in players do
-		Snapshot:FireClient(player, entries)
+		Snapshot:FireClient(player, entries, stalkerName)
 	end
 end)
 

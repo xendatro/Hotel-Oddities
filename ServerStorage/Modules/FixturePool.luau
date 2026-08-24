@@ -108,6 +108,7 @@ function FixturePool:_rebuild()
 			instance:IsA("Model")
 			and (modelName == nil or instance.Name == modelName)
 			and instance:IsDescendantOf(workspace)
+			and (self.Class.IsCandidate == nil or self.Class:IsCandidate(instance))
 		then
 			local model = instance :: Model
 			local candidate = self.ByModel[model]

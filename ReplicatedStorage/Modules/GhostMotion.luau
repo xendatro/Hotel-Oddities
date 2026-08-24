@@ -12,6 +12,7 @@ local GhostMotion = {}
 
 GhostMotion.LegAttribute = "DriftStartedAt"
 GhostMotion.FadeAttribute = "FadeStartedAt"
+GhostMotion.AppearAttribute = "AppearStartedAt"
 
 function GhostMotion.NewLeg(origin: CFrame, goal: Vector3, speed: number, startedAt: number): Leg
 	local offset = goal - origin.Position
@@ -66,6 +67,23 @@ end
 
 function GhostMotion.ReadFade(model: Model): number?
 	return model:GetAttribute(GhostMotion.FadeAttribute) :: number?
+end
+
+function GhostMotion.PublishAppear(model: Model, startedAt: number)
+	model:SetAttribute(GhostMotion.AppearAttribute, startedAt)
+end
+
+function GhostMotion.ReadAppear(model: Model): number?
+	return model:GetAttribute(GhostMotion.AppearAttribute) :: number?
+end
+
+function GhostMotion.NewHold(cframe: CFrame, startedAt: number): Leg
+	return {
+		Origin = cframe,
+		Target = cframe,
+		Duration = 0,
+		StartedAt = startedAt,
+	}
 end
 
 function GhostMotion.FadeAlpha(startedAt: number, now: number): number

@@ -130,6 +130,19 @@ enemyHeading.TextXAlignment = Enum.TextXAlignment.Left
 enemyHeading.Text = "ENEMIES 0"
 enemyHeading.Parent = enemySection
 
+local stalkerRow = Instance.new("TextLabel")
+stalkerRow.Name = "StalkerTarget"
+stalkerRow.LayoutOrder = 0
+stalkerRow.Size = UDim2.new(1, 0, 0, EnemyConfig.RowHeight)
+stalkerRow.BackgroundTransparency = 1
+stalkerRow.Font = Enum.Font.Code
+stalkerRow.TextSize = EnemyConfig.TextSize
+stalkerRow.TextColor3 = COLORS.Fair
+stalkerRow.TextXAlignment = Enum.TextXAlignment.Left
+stalkerRow.TextTruncate = Enum.TextTruncate.AtEnd
+stalkerRow.Visible = false
+stalkerRow.Parent = enemySection
+
 local enemyRows: { TextLabel } = {}
 
 local function getEnemyRow(index: number): TextLabel
@@ -160,9 +173,11 @@ end
 --- The server owns this list. Counting tagged models on the client would miss
 --- everything streaming has not sent us and would count a Sisters pair twice.
 local Snapshot: { { Id: string, State: string, Position: Vector3 } } = {}
+local StalkerTargetName: string? = nil
 
-DebugSnapshot.OnClientEvent:Connect(function(entries: any)
+DebugSnapshot.OnClientEvent:Connect(function(entries: any, stalkerName: any)
 	if type(entries) == "table" then Snapshot = entries end
+	StalkerTargetName = if type(stalkerName) == "string" then stalkerName else nil
 end)
 
 local function collectEnemies(): { { Id: string, State: string, Distance: number } }
@@ -188,6 +203,10 @@ end
 local function refreshEnemies()
 	local entries = collectEnemies()
 	enemyHeading.Text = `ENEMIES {#entries}`
+
+	local name = StalkerTargetName
+	stalkerRow.Text = if name then `STALKER > {name}` else ""
+	stalkerRow.Visible = name ~= nil
 
 	for index, entry in entries do
 		local row = getEnemyRow(index)

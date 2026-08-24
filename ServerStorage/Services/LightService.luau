@@ -658,6 +658,57 @@ function LightService:FlickerHallwayContaining(
 	end
 end
 
+function LightService:FlickerNearest(
+	position: Vector3,
+	count: number,
+	duration: number,
+	intervalMin: number?,
+	intervalMax: number?
+)
+	if duration <= 0 or count <= 0 then return end
+
+	local hallway = Hallways.Nearest(position)
+	local sorted = {}
+	for _, model in LightService:GetModels() do
+		local modelPosition = model:GetPivot().Position
+		local include = true
+		if hallway then
+			local height = modelPosition.Y - hallway.FloorY
+			local offset = modelPosition - hallway.Center
+			include = height <= HALLWAY_HEIGHT_WINDOW
+				and height >= -HALLWAY_BELOW_WINDOW
+				and math.abs(offset:Dot(hallway.Axis)) <= hallway.HalfLength + 3
+				and math.abs(offset:Dot(hallway.Across)) <= hallway.HalfWidth + 3
+		end
+		if include then
+			table.insert(sorted, { Model = model, Distance = (modelPosition - position).Magnitude })
+		end
+	end
+	table.sort(sorted, function(a, b)
+		return a.Distance < b.Distance
+	end)
+
+	local minimum = math.max(math.min(intervalMin or 0.04, intervalMax or 0.1), 0.02)
+	local maximum = math.max(intervalMax or 0.1, minimum)
+	for index = 1, math.min(count, #sorted) do
+		local model = sorted[index].Model
+		local flicker = beginFlicker(model, duration, true)
+		if flicker then
+			task.spawn(function()
+				while flickerActive(flicker) and flicker.ExpiresAt > os.clock() do
+					if math.random() < 0.55 then
+						setFlickerDark(flicker)
+					else
+						setFlickerLit(flicker)
+					end
+					task.wait(math.random() * (maximum - minimum) + minimum)
+				end
+				restoreFlicker(model, flicker)
+			end)
+		end
+	end
+end
+
 function LightService:ReleaseFlicker(claim: FlickerClaim)
 	if claim.Released then return end
 	claim.Released = true

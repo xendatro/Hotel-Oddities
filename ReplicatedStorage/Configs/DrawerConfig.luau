@@ -6,6 +6,9 @@ return {
 
 	--- Studs the drawer travels along its outward axis when opened.
 	OpenDistance = 1,
+	AutoCloseDelay = 60,
+	AutoCloseCheckInterval = 60,
+	OpenedAtAttribute = "DrawerOpenedAt",
 
 	OutwardAxis = Vector3.new(0, 0, -1),
 	HandleKeyword = "handle",

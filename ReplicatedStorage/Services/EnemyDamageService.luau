@@ -52,6 +52,7 @@ local Strike = game:GetService("ReplicatedStorage")
 	.Communication.Death:WaitForChild("Strike") :: RemoteEvent
 
 local function playKillAnimation(enemy: Model)
+	if enemy:GetAttribute("SuppressKillAnimation") then return end
 	local tracks = attackTracks[enemy]
 	if not tracks then
 		tracks = {}
@@ -102,7 +103,7 @@ local function kill(enemy: Model)
 end
 
 local function tryKill(enemy: Model, hit: BasePart)
-	if not character or not hit:IsDescendantOf(character) then return end
+	if not character or hit.Parent ~= character then return end
 	kill(enemy)
 end
 

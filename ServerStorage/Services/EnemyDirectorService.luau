@@ -50,6 +50,10 @@ function EnemyDirectorService:GetPopulation()
 	return { Residents = {}, Enemies = {} }
 end
 
+function EnemyDirectorService:GetStalkerTarget(): Player?
+	return nil
+end
+
 if not (FLAGS.Enemies and FLAGS.Director) then
 	return EnemyDirectorService
 end
@@ -60,7 +64,12 @@ local Population: { Managed } = {}
 local NextResidentSpawn: { [string]: number } = {}
 local NextGhostSpawn = 0
 local NextChaosSpawn = 0
-local NextStalkerSpawn: { [Player]: number } = {}
+local StalkerQueue: { Player } = {}
+local StalkerIndex = 0
+local StalkerTarget = nil :: Player?
+local StalkerRetries = 0
+local StalkerWasAlive = false
+local NextStalkerAt = 0
 local ChaosPendingUntil = 0
 
 local TickAccumulator = 0
@@ -398,36 +407,61 @@ local function tickChaos(now: number)
 	end
 end
 
-local function intervalFor(danger: number, quiet: number, busy: number, floor: number): number
-	return math.max(floor, quiet + (busy - quiet) * math.clamp(danger, 0, 1))
+local function stalkerInterval(): number
+	return Config.StalkerRotationInterval / math.max(#getLivingPlayers(), 1)
 end
 
---- One timer per player on its own danger-scaled clock, taking its old share of
---- the roll each firing, exactly as it behaved inside the pool: if the roll
---- misses, or there is no room, or no corner to lean from, that turn is simply
---- lost. It retreats on its own, and the lifetime is only there to clear one
---- that has got stuck.
-local function tickStalker(player: Player, now: number)
-	local root = getAliveRoot(player)
-	if not root then return end
-	if now < (NextStalkerSpawn[player] or 0) then return end
+local function nextStalkerTarget(): Player?
+	for _ = 1, #StalkerQueue do
+		StalkerIndex = StalkerIndex % #StalkerQueue + 1
+		local player = StalkerQueue[StalkerIndex]
+		if getAliveRoot(player) then return player end
+	end
+	return nil
+end
 
-	NextStalkerSpawn[player] = now + intervalFor(
-		DangerMapService:GetDanger(root.Position),
-		Config.StalkerQuietInterval,
-		Config.StalkerBusyInterval,
-		Config.StalkerFloorInterval
-	)
+local function tickStalker(now: number)
+	if countAlive("Stalker") > 0 then
+		StalkerWasAlive = true
+		return
+	end
+	if StalkerWasAlive then
+		StalkerWasAlive = false
+		StalkerTarget = nil
+		StalkerRetries = 0
+		NextStalkerAt = now + stalkerInterval()
+		return
+	end
+	if now < NextStalkerAt then return end
 
-	if math.random() > Config.StalkerChance then return end
+	local target = StalkerTarget
+	if not (target and getAliveRoot(target)) then
+		target = nextStalkerTarget()
+		StalkerRetries = 0
+	end
+	if not target then
+		NextStalkerAt = now + Config.TickInterval
+		return
+	end
+	StalkerTarget = target
 
-	local config = EnemyConfigs.Stalker
-	if countAlive("Stalker") >= (config.MaxAlive or 1) then return end
-
-	register(StalkerService:SpawnPeeking(player, "Stalker"), "Stalker", config, nil, {
-		Count = 1,
-		Lifetime = Config.StalkerLifetime,
-	})
+	local enemy = StalkerService:SpawnPeeking(target, "Stalker")
+	if enemy then
+		register(enemy, "Stalker", EnemyConfigs.Stalker, nil, {
+			Count = 1,
+			Lifetime = Config.StalkerLifetime,
+		})
+		StalkerWasAlive = true
+	else
+		StalkerRetries += 1
+		if StalkerRetries >= Config.StalkerSpawnAttempts then
+			StalkerTarget = nil
+			StalkerRetries = 0
+			NextStalkerAt = now + stalkerInterval()
+		else
+			NextStalkerAt = now + Config.StalkerRetryDelay
+		end
+	end
 end
 
 local function spawnResident(enemyId: string, spec: ResidentSpec, anchor: Player): any?
@@ -516,6 +550,10 @@ function EnemyDirectorService:Adopt(enemy: any, enemyId: string, selfManaged: bo
 	register(enemy, enemyId, EnemyConfigs[enemyId], selfManaged)
 end
 
+function EnemyDirectorService:GetStalkerTarget(): Player?
+	return StalkerTarget
+end
+
 function EnemyDirectorService:GetPopulation(): { Residents: { [string]: string }, Enemies: { string } }
 	prunePopulation()
 
@@ -543,7 +581,10 @@ function EnemyDirectorService:Reset()
 	table.clear(NextResidentSpawn)
 	NextGhostSpawn = 0
 	NextChaosSpawn = 0
-	table.clear(NextStalkerSpawn)
+	StalkerTarget = nil
+	StalkerRetries = 0
+	StalkerWasAlive = false
+	NextStalkerAt = 0
 	ChaosPendingUntil = 0
 end
 
@@ -558,9 +599,7 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 		prunePopulation()
 		topUpResidents(now)
 		tickChaos(now)
-		for _, player in Players:GetPlayers() do
-			tickStalker(player, now)
-		end
+		tickStalker(now)
 		if #getLivingPlayers() > 0 then spawnGhost(now) end
 	end
 
@@ -570,8 +609,26 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 	end
 end)
 
+for _, player in Players:GetPlayers() do
+	table.insert(StalkerQueue, player)
+end
+
+Players.PlayerAdded:Connect(function(player: Player)
+	table.insert(StalkerQueue, player)
+end)
+
 Players.PlayerRemoving:Connect(function(player: Player)
-	NextStalkerSpawn[player] = nil
+	local index = table.find(StalkerQueue, player)
+	if index then
+		table.remove(StalkerQueue, index)
+		if index <= StalkerIndex then
+			StalkerIndex -= 1
+		end
+	end
+	if StalkerTarget == player then
+		StalkerTarget = nil
+		StalkerRetries = 0
+	end
 end)
 
 return EnemyDirectorService

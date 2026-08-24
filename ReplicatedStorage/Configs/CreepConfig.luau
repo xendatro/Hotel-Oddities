@@ -1,11 +1,11 @@
 return {
 	LightRange = 80,
 	ConnectedHallwayLightRange = 15,
-	DarkDistance = 60,
+	DarkDistance = 40,
 
 	TurnRate = 16,
 
-	BackdropDistance = 12,
+	BackdropDistance = 8,
 	BackdropMinimumDistance = 5,
 	BackdropEndMargin = 10,
 	BackdropCeilingSearch = 60,
@@ -13,6 +13,8 @@ return {
 	BackdropMinimumHeight = 8,
 	BackdropHeight = 24,
 	BackdropThickness = 1,
+
+	DistortionSpeed = 48,
 
 	--- Eye colours a creep can spawn with. Neon, so they have to stay bright enough to read
 	--- against the blacked-out hallway; the first is the original red.
@@ -40,23 +42,6 @@ return {
 			Weight = 5,
 			PairsMin = 1,
 			PairsMax = 1,
-		},
-		{
-			Weight = 3,
-			PairsMin = 3,
-			PairsMax = 4,
-			SpreadAcross = 4.5,
-			SpreadUp = 5,
-			SpreadAlong = 2.5,
-		},
-		{
-			Weight = 2,
-			PairsMin = 6,
-			PairsMax = 7,
-			SpreadAcross = 5.5,
-			SpreadUp = 7,
-			SpreadAlong = 3.5,
-			MixedColors = true,
 		},
 	},
 }

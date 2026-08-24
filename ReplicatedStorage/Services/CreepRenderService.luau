@@ -1,5 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
 local Aim = require(ReplicatedStorage.Modules.Aim)
 local CreepConfig = require(ReplicatedStorage.Configs.CreepConfig)
@@ -131,11 +132,61 @@ local function track(model: Model): Render
 	return render
 end
 
+local function launchDistortion(render: Render)
+	local backdrop = render.Backdrop
+	local hallway = render.Hallway
+	local rootPart = render.RootPart
+	if not backdrop or not hallway or not rootPart or render.Side == 0 or backdrop.Transparency ~= 0 then
+		return
+	end
+
+	local template = ReplicatedStorage:FindFirstChild("Effects")
+	template = template and template:FindFirstChild("CreepDistortion")
+	if not template then return end
+
+	local creepPosition = rootPart.Position
+	local direction = -hallway.Axis * render.Side
+	local creepAlong = Hallways.Along(hallway, creepPosition)
+	local start = Hallways.PointAt(hallway, creepAlong) + Vector3.yAxis * render.Height / 2
+
+	local finish
+	local span = Hallways.StraightSpanAt(creepPosition, direction)
+	if span then
+		finish = Vector3.new(span.Finish.X, start.Y, span.Finish.Z)
+	else
+		local endPoint = Hallways.PointAt(hallway, -render.Side * hallway.HalfLength)
+		finish = Vector3.new(endPoint.X, start.Y, endPoint.Z)
+	end
+
+	local distance = (finish - start).Magnitude
+	if distance < MINIMUM_DIRECTION then return end
+
+	local effect = template:Clone() :: Part
+	effect.Size = backdrop.Size
+	effect.CFrame = backdrop.CFrame.Rotation + start
+	effect.Anchored = true
+	effect.CanCollide = false
+	effect.CanQuery = false
+	effect.CanTouch = false
+	effect.Parent = workspace
+
+	local tween = TweenService:Create(
+		effect,
+		TweenInfo.new(distance / CreepConfig.DistortionSpeed, Enum.EasingStyle.Linear),
+		{ CFrame = backdrop.CFrame.Rotation + finish }
+	)
+	tween.Completed:Connect(function()
+		effect:Destroy()
+	end)
+	tween:Play()
+end
+
 TagService:Listen(CREEP_TAG, track, function(model: Instance, render: Render)
 	if render.Added then
 		render.Added:Disconnect()
 		render.Added = nil
 	end
+	launchDistortion(render)
 	if render.Backdrop then
 		render.Backdrop:Destroy()
 	end

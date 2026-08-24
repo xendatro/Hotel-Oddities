@@ -3,6 +3,7 @@ local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
 
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
+local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local EnemyDiscoveryService = require(ServerStorage.Services.EnemyDiscoveryService)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local HideSpotService = require(ServerStorage.Services.HideSpotService)
@@ -34,6 +35,9 @@ local ROUTE_DETOUR_FLOOR = 15
 local MAX_RETREAT_ATTEMPTS = 5
 local RETREAT_PROGRESS = 4
 local REPATH_WAIT = 0.1
+local KILL_DISTANCE = 4
+local KILL_STRIKE_DELAY = 0.45
+local KILL_LINGER = 0.6
 
 local Stalker = NPC.extend("Stalker")
 
@@ -43,10 +47,6 @@ local function releaseCamera(npc: any)
 	if target and target.Parent == Players then
 		FaceStalker:FireClient(target, nil)
 	end
-end
-
-local function randomRange(minimum: number, maximum: number): number
-	return minimum + math.random() * (maximum - minimum)
 end
 
 local function flatten(vector: Vector3): Vector3
@@ -196,7 +196,7 @@ local function stalk(_changeState: StateMachine.ChangeState, npc: any, target: P
 	npc.Animator:SetMovementTrack("Walk")
 	npc:SetSpeed(config.WalkSpeed)
 
-	local strikeAt = os.clock() + randomRange(config.StrikeTimeMin, config.StrikeTimeMax)
+	local strikeAt = os.clock() + config.StalkTime
 	local targetPosition = npc.RootPart.Position
 	local ending = nil :: string?
 
@@ -244,7 +244,7 @@ local function stalk(_changeState: StateMachine.ChangeState, npc: any, target: P
 
 	if ending == "Seen" then return "Flee", npc end
 	if ending == "Strike" then return "Reveal", npc, target end
-	return "Idle", npc
+	return "Despawn", npc
 end
 
 local function reveal(_changeState: StateMachine.ChangeState, npc: any, target: Player)
@@ -257,62 +257,38 @@ local function reveal(_changeState: StateMachine.ChangeState, npc: any, target: 
 	local position = npc:GetTargetPosition(target)
 	if not position then
 		releaseCamera(npc)
-		return "Idle", npc
+		return "Despawn", npc
 	end
 
-	npc:FaceTowards(position)
-	FaceStalker:FireClient(target, npc.Model, config.RevealTurnTime)
+	local away = flatten(npc.RootPart.Position - position)
+	local direction = if away.Magnitude > 1e-3 then away.Unit else -flatten(npc.RootPart.CFrame.LookVector).Unit
+	local stand = Vector3.new(
+		position.X + direction.X * KILL_DISTANCE,
+		npc.RootPart.Position.Y,
+		position.Z + direction.Z * KILL_DISTANCE
+	)
+	if npc:HasMovementClearance(stand) then
+		npc.RootPart.CFrame = CFrame.lookAt(stand, Vector3.new(position.X, stand.Y, position.Z))
+	else
+		npc:FaceTowards(position)
+	end
+
+	npc.Model:SetAttribute("SuppressKillAnimation", true)
+	FaceStalker:FireClient(target, npc.Model, config.RevealTurnTime, true)
 
 	EnemyDiscoveryService:GrantEvent(target, npc.EnemyId)
 
 	task.wait(config.RevealTurnTime + config.RevealHoldTime)
 
-	if not npc:GetTargetPosition(target) then
-		releaseCamera(npc)
-		return "Idle", npc
-	end
-	return "Chase", npc, target
-end
-
-local function chase(_changeState: StateMachine.ChangeState, npc: any, target: Player)
-	npc.Target = target
-	npc.Animator:Resume()
-	npc.Animator:SetMovementTrack(nil)
-	npc:SetSpeed(npc.Config.ChaseSpeed)
-
-	local lastKnown = npc.RootPart.Position
-	local result = npc:Pursue(function()
-		local position = npc:GetTargetPosition(target)
-		if position then
-			lastKnown = position
-		end
-		return position
-	end, nil, nil, function()
-		return npc:HasLineOfSightToPlayer(target)
-	end)
-
-	if result == "Reached" then
-		return "Attack", npc, target
-	end
-	return "Search", npc, lastKnown
-end
-
-local function attack(_changeState: StateMachine.ChangeState, npc: any, target: Player)
-	local position = npc:GetTargetPosition(target)
-	if not position then
-		return "Search", npc, npc.RootPart.Position
+	if npc:GetTargetPosition(target) then
+		npc.Animator:PlayAttack()
+		task.wait(KILL_STRIKE_DELAY)
+		npc:Attack(target)
 	end
 
-	if (npc.RootPart.Position - position).Magnitude > npc.Config.AttackRange
-		and not npc:IsTouchingPlayer(target)
-	then
-		return "Chase", npc, target
-	end
-
-	npc:Attack(target)
-	npc.RevealTarget = nil
-	task.wait(npc.Config.AttackCooldown)
-	return "Idle", npc
+	task.wait(KILL_LINGER)
+	releaseCamera(npc)
+	return "Despawn", npc
 end
 
 local function flee(_changeState: StateMachine.ChangeState, npc: any)
@@ -384,15 +360,6 @@ local function flee(_changeState: StateMachine.ChangeState, npc: any)
 	return "Despawn", npc
 end
 
-local function search(_changeState: StateMachine.ChangeState, npc: any, _lastKnown: Vector3)
-	releaseCamera(npc)
-	npc.Target = nil
-	npc.Animator:Resume()
-	npc.Animator:SetMovementTrack("Walk")
-	npc:SetSpeed(npc.Config.WalkSpeed)
-	return "Patrol", npc
-end
-
 local function stunned(changeState: StateMachine.ChangeState, npc: any, duration: number)
 	releaseCamera(npc)
 	Peek.Exit(npc)
@@ -400,13 +367,12 @@ local function stunned(changeState: StateMachine.ChangeState, npc: any, duration
 end
 
 function Stalker:OnPeekFinished(reason: string, player: Player?)
-	local held = reason == "Done"
-		and player
-		and math.random() < (self.Config.StalkChance or 0)
-		and self:IsValidTarget(player)
-
-	if held then
-		return "Stalk", self, player
+	if reason == "Done" and player and self:IsValidTarget(player) then
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		local danger = if root then DangerMapService:GetDanger(root.Position) else 0
+		if math.random() < danger then
+			return "Stalk", self, player
+		end
 	end
 	return "Despawn", self
 end
@@ -444,9 +410,6 @@ function Stalker:BuildStateMachine(): StateMachine.StateMachine
 		Despawn = NPC.SharedStates.Despawn,
 		Stalk = stalk,
 		Reveal = reveal,
-		Chase = chase,
-		Attack = attack,
-		Search = search,
 		Flee = flee,
 		Stunned = stunned,
 	}
@@ -454,8 +417,8 @@ function Stalker:BuildStateMachine(): StateMachine.StateMachine
 		states[stateId] = state
 	end
 
-	local calm = { "Idle", "Wander", "Patrol", "Search" }
-	local stunnable = { "Idle", "Wander", "Patrol", "Search", "Stalk", "Reveal", "Flee", "Chase", "Attack" }
+	local calm = { "Idle", "Wander", "Patrol" }
+	local stunnable = { "Idle", "Wander", "Patrol", "Stalk", "Reveal", "Flee" }
 	for _, stateId in Peek.StateNames do
 		table.insert(stunnable, stateId)
 	end

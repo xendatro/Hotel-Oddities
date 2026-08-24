@@ -9,6 +9,7 @@ if not RunService:IsClient() then
 end
 
 local CameraShaker = require(ReplicatedStorage.Classes.CameraShaker)
+local PerfLog = require(ReplicatedStorage.Modules.PerfLog)
 
 local function ShakeCamera(shakeCf)
 	local camera = workspace.CurrentCamera
@@ -124,6 +125,7 @@ local function shakeSustained(id: string, preset: string)
 end
 
 function ShakeService:Create(shakeData: ShakeData)
+	PerfLog.Log("Shake", `{shakeData.Preset} {shakeData.ShakeType}`)
 	if shakeData.ShakeType == "Once" then
 		shakeOnce(shakeData.Preset)
 	elseif shakeData.ShakeType == "Sustained" then
@@ -136,10 +138,12 @@ function ShakeService:Delete(ID: string)
 	if instance then
 		instance:StartFadeOut(0)
 		ShakeService.SustainedShakes[ID] = nil
+		PerfLog.Log("Shake", `sustained {ID} stop`)
 	end
 end
 
 function ShakeService:CreateDynamicRumble(startValue: number, params: RumbleParams?)
+	PerfLog.Log("Shake", "rumble start")
 	return Rumble.new(startValue, params)
 end
 

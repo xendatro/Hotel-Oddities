@@ -73,8 +73,8 @@ DiscoveryConfig.Rules = {
 		Death = 0.4,
 	},
 	Creep = {
-		Sight = false,
 		Proximity = { Range = CreepConfig.LightRange, GainPerSecond = 0.045 },
+		Event = 0.1,
 	},
 	Chaos = {
 		Sight = false,

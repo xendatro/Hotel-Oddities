@@ -38,9 +38,14 @@ local function discardExpired(now: number)
 	end
 end
 
-function NoiseService:Emit(position: Vector3, radius: number, source: Player?): Noise?
+function NoiseService:Emit(
+	position: Vector3,
+	radius: number,
+	source: Player?,
+	ignoreSourceInterval: boolean?
+): Noise?
 	local now = os.clock()
-	if source then
+	if source and not ignoreSourceInterval then
 		local last = LastEmit[source]
 		if last and now - last.At < SOURCE_INTERVAL and radius <= last.Radius then
 			return nil

@@ -5,4 +5,5 @@ return {
 	DangerDebug = true,
 	BlindTrace = true,
 	VoiceDebug = true,
+	PerfLog = true,
 }

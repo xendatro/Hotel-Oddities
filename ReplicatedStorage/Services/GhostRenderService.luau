@@ -177,6 +177,7 @@ type Render = {
 	VisualNeck: Neck?,
 	Leg: GhostMotion.Leg?,
 	FadeStartedAt: number?,
+	AppearStartedAt: number?,
 	Phase: number,
 	Connection: RBXScriptConnection?,
 	RootConnection: RBXScriptConnection?,
@@ -195,6 +196,7 @@ local function track(model: Model): Render
 		VisualNeck = nil,
 		Leg = GhostMotion.Read(model),
 		FadeStartedAt = GhostMotion.ReadFade(model),
+		AppearStartedAt = GhostMotion.ReadAppear(model),
 		Phase = Bob.NewPhase(),
 		Connection = nil,
 		RootConnection = nil,
@@ -220,6 +222,8 @@ local function track(model: Model): Render
 			render.Leg = GhostMotion.Read(model)
 		elseif attribute == GhostMotion.FadeAttribute then
 			render.FadeStartedAt = GhostMotion.ReadFade(model)
+		elseif attribute == GhostMotion.AppearAttribute then
+			render.AppearStartedAt = GhostMotion.ReadAppear(model)
 		end
 	end)
 
@@ -339,9 +343,14 @@ RunService:BindToRenderStep(RENDER_BIND_NAME, Enum.RenderPriority.Camera.Value +
 			aimHeadAt(render, playerHead.Position)
 		end
 
-		local fadeStartedAt = render.FadeStartedAt
-		if fadeStartedAt then
-			local alpha = GhostMotion.FadeAlpha(fadeStartedAt, now)
+		local fadeStartedAt, appearStartedAt = render.FadeStartedAt, render.AppearStartedAt
+		if fadeStartedAt or appearStartedAt then
+			local alpha
+			if fadeStartedAt and (not appearStartedAt or fadeStartedAt >= appearStartedAt) then
+				alpha = GhostMotion.FadeAlpha(fadeStartedAt, now)
+			else
+				alpha = 1 - GhostMotion.FadeAlpha(appearStartedAt :: number, now)
+			end
 			setLocalTransparency(
 				render.VisualModel or model,
 				GHOST_TRANSPARENCY + (HIDDEN_TRANSPARENCY - GHOST_TRANSPARENCY) * alpha

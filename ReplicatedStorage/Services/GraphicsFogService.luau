@@ -200,7 +200,12 @@ local function step(deltaTime: number)
 	end
 
 	local wanted = level <= GraphicsFogConfig.HighestFoggedLevel
-	local targetFogEnd = wanted and GraphicsFogConfig.FogEnd or GraphicsFogConfig.ReleaseDistance
+	local clampedLevel = if GraphicsFogConfig.ForceLowestLevel
+		then 1
+		else math.clamp(math.round(level), 1, 10)
+	local targetFogEnd = if wanted
+		then GraphicsFogConfig.FogEndByLevel[clampedLevel]
+		else GraphicsFogConfig.ReleaseDistance
 
 	if settled then
 		local alpha = 1 - math.exp(-deltaTime * GraphicsFogConfig.FogEndBlendSpeed)

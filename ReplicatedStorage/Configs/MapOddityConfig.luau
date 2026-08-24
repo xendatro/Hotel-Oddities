@@ -9,7 +9,10 @@ return {
 	MaxDuration = 120,
 	MinimumPlayerDistance = 32,
 	Effects = {
-		Transparency = {},
+		Transparency = {
+			SpawnIntervalMin = 180,
+			SpawnIntervalMax = 420,
+		},
 		DoorsOpen = {
 			OpeningSpeed = 0.75,
 		},
@@ -34,6 +37,7 @@ return {
 		HallwayBlocker = {
 			TriggerChance = 0.2,
 			DangerWeight = 0.35,
+			SplitClearance = 12,
 			GazeCone = 100,
 			GazeDistance = 300,
 			MinDuration = 45,

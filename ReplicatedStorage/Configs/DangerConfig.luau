@@ -99,13 +99,9 @@ return {
 		--- and both leave under their own steam rather than being retired.
 		ChaosInterval = 180,
 
-		--- One timer per player, lerped between these on the danger under that
-		--- player and never faster than the floor; on each firing the chance is
-		--- its odds of actually trying. It used to be 8/23 inside the old pool.
-		StalkerQuietInterval = 35,
-		StalkerBusyInterval = 12,
-		StalkerFloorInterval = 10,
-		StalkerChance = 0.28,
+		StalkerRotationInterval = 60,
+		StalkerSpawnAttempts = 3,
+		StalkerRetryDelay = 2,
 
 		--- Backstop only. A Stalker retreats within seconds of being spotted, so
 		--- this should never fire unless one has got itself stuck.

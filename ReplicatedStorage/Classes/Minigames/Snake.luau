@@ -8,6 +8,7 @@ local START_LENGTH = 3
 local BASE_TICK = 0.16
 local TICK_PER_PELLET = 0.006
 local MIN_TICK = 0.106
+local MAX_QUEUED_TURNS = 2
 local MESSAGE_TIME = 1
 local EAT_PITCH_RISE = 0.7
 
@@ -95,6 +96,7 @@ function Snake.new(root: Frame, api: Api)
 
 	self.Body = {} :: { Cell }
 	self.Direction = { X = 1, Y = 0 }
+	self.TurnQueue = {} :: { Cell }
 	self.Pellet = { X = 0, Y = 0 } :: Cell
 	self.Pellets = 0
 	self.Best = 0
@@ -291,6 +293,7 @@ function Snake:_respawn()
 	end
 
 	self.Direction = { X = 1, Y = 0 }
+	table.clear(self.TurnQueue)
 	self.Grow = 0
 	self.Clock = 0
 	self:_placePellet()
@@ -298,8 +301,22 @@ end
 
 function Snake:_turn(x: number, y: number)
 	if self.State ~= "playing" then return end
-	if x == -self.Direction.X and y == -self.Direction.Y then return end
-	self.Direction = { X = x, Y = y }
+
+	local queueLength = #self.TurnQueue
+	local replacing = queueLength >= MAX_QUEUED_TURNS
+	local previous = if replacing
+		then self.TurnQueue[queueLength - 1] or self.Direction
+		else self.TurnQueue[queueLength] or self.Direction
+
+	if x == -previous.X and y == -previous.Y then return end
+	if not replacing and x == previous.X and y == previous.Y then return end
+
+	local turn = { X = x, Y = y }
+	if replacing then
+		self.TurnQueue[queueLength] = turn
+	else
+		table.insert(self.TurnQueue, turn)
+	end
 end
 
 function Snake:_interval(): number
@@ -320,6 +337,11 @@ function Snake:_crash()
 end
 
 function Snake:_tick()
+	local turn = table.remove(self.TurnQueue, 1)
+	if turn then
+		self.Direction = turn
+	end
+
 	local head = self.Body[1]
 	local x = head.X + self.Direction.X
 	local y = head.Y + self.Direction.Y

@@ -10,422 +10,229 @@ end
 
 local AudioService = require(ReplicatedStorage.Services.AudioService)
 local Hallways = require(ReplicatedStorage.Modules.Hallways)
-local TagService = require(ReplicatedStorage.Services.TagService)
 
-local LIGHT_TAG = "Floor1Light"
-local RED = Color3.fromRGB(255, 0, 0)
-local SOUND_DISTANCE = 35
-local AMBIENCE_FOLDER = ReplicatedStorage:WaitForChild("Sounds"):WaitForChild("ChaosHallwayAmbience")
 local AMBIENCE_BUS = "SFX"
-local AMBIENCE_FULL_DISTANCE = 8
-local AMBIENCE_SILENT_DISTANCE = SOUND_DISTANCE
-local AMBIENCE_FADE_IN_TIME = 1
-local AMBIENCE_FADE_OUT_TIME = 0.2
-local SPAN_EPSILON = 0.75
-local SOURCE_SETTLE_TIME = 0.08
-local REARM_TIME = 0.75
+local AMBIENCE_SILENT_DISTANCE = 60
+local ROOM_DOOR_REGION_DISTANCE = 2
 local CHECK_INTERVAL = 0.1
+local WARNING_TRIGGER_DISTANCE = 24
+local WARNING_MARKER = "ChaosWarning"
 
-type LightState = {
-	Model: Model,
-	Connections: { RBXScriptConnection },
-	LightConnections: { [Instance]: RBXScriptConnection },
-	Lights: { [Instance]: boolean },
-	SourceParts: { [BasePart]: boolean },
-	Red: boolean,
+type WarningRegion = {
+	CFrame: CFrame,
+	Size: Vector3,
 }
 
 type AmbienceSound = {
 	Player: AudioPlayer,
-	BaseVolume: number,
 }
 
-local localPlayer = Players.LocalPlayer
-local States: { [Model]: LightState } = {}
-local RedModels: { [Model]: LightState } = {}
-local warningActive = false
-local clearStartedAt = 0
-local evaluationVersion = 0
-local timeSinceCheck = CHECK_INTERVAL
-local TimeSinceAmbienceUpdate = CHECK_INTERVAL
-local AmbienceAnchor = Instance.new("Part")
-AmbienceAnchor.Name = "ChaosHallwayAmbienceAnchor"
-AmbienceAnchor.Anchored = true
-AmbienceAnchor.CanCollide = false
-AmbienceAnchor.CanTouch = false
-AmbienceAnchor.CanQuery = false
-AmbienceAnchor.Transparency = 1
-AmbienceAnchor.Size = Vector3.one
-AmbienceAnchor.Parent = workspace
-
-local AmbienceSources = {}
-for _, child in AMBIENCE_FOLDER:GetChildren() do
-	if child:IsA("AudioEmitter") then
-		table.insert(AmbienceSources, child)
-	end
-end
+local LocalPlayer = Players.LocalPlayer
+local MapDoors = ReplicatedStorage
+	:WaitForChild("Communication")
+	:WaitForChild("Oddities")
+	:WaitForChild("MapDoors") :: RemoteEvent
+local Sounds = ReplicatedStorage:WaitForChild("Sounds")
+local AmbienceFolder = Sounds:WaitForChild("ChaosHallwayAmbience")
+local Maze = workspace:WaitForChild("Maze15")
+local Rooms = Maze:WaitForChild("Rooms")
+local Doors = Maze:WaitForChild("Doors")
+local ActiveWarnings: { [number]: WarningRegion } = {}
 local AmbienceSounds: { AmbienceSound } = {}
-local AmbienceVolume = 0
-
-local function isRed(light: Instance): boolean
-	return light:IsA("Light") and light.Enabled and light.Color == RED
-end
-
-local function sourcePart(light: Instance): BasePart?
-	return light:FindFirstAncestorWhichIsA("BasePart")
-end
-
-local function rebuildSourceParts(state: LightState)
-	table.clear(state.SourceParts)
-	for light in state.Lights do
-		local part = sourcePart(light)
-		if part then
-			state.SourceParts[part] = true
-		end
-	end
-end
-
-local function hasSightline(root: BasePart, source: BasePart): boolean
-	local character = localPlayer.Character
-	if not character then return false end
-
-	local origin = root.Position + Vector3.yAxis * 2
-	local direction = source.Position - origin
-	if direction.Magnitude <= 1e-3 then return true end
-
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { character }
-	local result = workspace:Raycast(origin, direction, params)
-	if not result then return true end
-
-	local model = source:FindFirstAncestorOfClass("Model")
-	return result.Instance == source or (model ~= nil and result.Instance:IsDescendantOf(model))
-end
-
-local function nearestSource(root: BasePart, requireSightline: boolean): (BasePart?, number)
-	local position = root.Position
-	local candidates: { { Part: BasePart, Distance: number } } = {}
-
-	for model, state in RedModels do
-		if model.Parent == nil then
-			continue
-		end
-
-		for part in state.SourceParts do
-			if part.Parent == nil then
-				continue
-			end
-
-			local distance = (part.Position - position).Magnitude
-			if distance < SOUND_DISTANCE then
-				table.insert(candidates, { Part = part, Distance = distance })
-			end
-		end
-	end
-
-	table.sort(candidates, function(first, second)
-		return first.Distance < second.Distance
-	end)
-
-	for _, candidate in candidates do
-		if not requireSightline or hasSightline(root, candidate.Part) then
-			return candidate.Part, candidate.Distance
-		end
-	end
-
-	return nil, SOUND_DISTANCE
-end
-
-local function playWarning()
-	AudioService:Play2DSound("ChaosIncoming", false, "SFX")
-end
+local AmbienceAnchor: Part? = nil
+local WasNearWarning = false
+local TimeSinceCheck = CHECK_INTERVAL
 
 local function getRoot(): BasePart?
-	local character = localPlayer.Character
-	if not character then return nil end
-
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	local root = character:FindFirstChild("HumanoidRootPart")
-	if not (root and root:IsA("BasePart") and humanoid and humanoid.Health > 0) then
+	local character = LocalPlayer.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not humanoid or humanoid.Health <= 0 or not root or not root:IsA("BasePart") then
 		return nil
 	end
-
 	return root
 end
 
-local function updateRed(state: LightState)
-	local wasRed = state.Red
-	local red = false
-	for light in state.Lights do
-		if light.Parent and isRed(light) then
-			red = true
-			break
+local function closestPoint(region: WarningRegion, position: Vector3): Vector3
+	local offset = region.CFrame:PointToObjectSpace(position)
+	local half = region.Size / 2
+	local closest = Vector3.new(
+		math.clamp(offset.X, -half.X, half.X),
+		math.clamp(offset.Y, -half.Y, half.Y),
+		math.clamp(offset.Z, -half.Z, half.Z)
+	)
+	return region.CFrame:PointToWorldSpace(closest)
+end
+
+local function inRoom(room: Model, position: Vector3): boolean
+	local floor = room:FindFirstChild("Floor")
+	if not floor or not floor:IsA("BasePart") then return false end
+
+	local offset = floor.CFrame:PointToObjectSpace(position)
+	local half = floor.Size / 2
+	local height = position.Y - (floor.Position.Y + floor.Size.Y / 2)
+	return height >= -4
+		and height <= 24
+		and math.abs(offset.X) <= half.X
+		and math.abs(offset.Z) <= half.Z
+end
+
+local function isInAdjacentRoom(region: WarningRegion, position: Vector3): boolean
+	for _, room in Rooms:GetChildren() do
+		if not room:IsA("Model") or not inRoom(room, position) then continue end
+
+		local id = room.Name:match("^Room_(.+)$")
+		local doorway = id and Doors:FindFirstChild("Doorway_" .. id)
+		local threshold = doorway and doorway:FindFirstChild("Threshold")
+		if threshold and threshold:IsA("BasePart") then
+			local distance = (closestPoint(region, threshold.Position) - threshold.Position).Magnitude
+			if distance <= ROOM_DOOR_REGION_DISTANCE then return true end
 		end
 	end
-	state.Red = red
-
-	if red then
-		RedModels[state.Model] = state
-	elseif wasRed then
-		RedModels[state.Model] = nil
-	end
+	return false
 end
 
-local function scheduleEvaluation()
-	evaluationVersion += 1
-	local version = evaluationVersion
-	task.delay(SOURCE_SETTLE_TIME, function()
-		if version ~= evaluationVersion then return end
-
-		local root = getRoot()
-		if not root then return end
-
-		local source = nearestSource(root, true)
-		if source then
-			clearStartedAt = 0
-			if not warningActive then
-				warningActive = true
-				playWarning()
-			end
-		end
-	end)
+local function isAllowedPosition(region: WarningRegion, position: Vector3): boolean
+	if Hallways.At(position, true) then return true end
+	return isInAdjacentRoom(region, position)
 end
 
-local function registerLight(state: LightState, light: Instance)
-	if not light:IsA("Light") or state.LightConnections[light] then return end
+local function sourcePosition(region: WarningRegion): Vector3
+	local hallway = Hallways.Nearest(region.CFrame.Position)
+	if not hallway then return region.CFrame.Position end
 
-	state.Lights[light] = true
-	local connection = light.Changed:Connect(function(property: string)
-		if property ~= "Color" and property ~= "Enabled" then return end
-
-		local wasRed = state.Red
-		updateRed(state)
-		if state.Red and not wasRed then
-			scheduleEvaluation()
-		end
-	end)
-	state.LightConnections[light] = connection
-
-	local part = sourcePart(light)
-	if part then
-		state.SourceParts[part] = true
-	end
+	local along = math.clamp(
+		Hallways.Along(hallway, region.CFrame.Position),
+		-hallway.HalfLength,
+		hallway.HalfLength
+	)
+	return Hallways.PointAt(hallway, along) + Vector3.yAxis * 2
 end
 
-local function unregisterLight(state: LightState, light: Instance)
-	local connection = state.LightConnections[light]
-	if not connection then return end
-
-	connection:Disconnect()
-	state.LightConnections[light] = nil
-	state.Lights[light] = nil
-	rebuildSourceParts(state)
-	updateRed(state)
-end
-
-local function watchModel(model: Instance): LightState?
-	if not model:IsA("Model") then return nil end
-
-	local state: LightState = {
-		Model = model,
-		Connections = {},
-		LightConnections = {},
-		Lights = {},
-		SourceParts = {},
-		Red = false,
-	}
-	States[model] = state
-
-	for _, descendant in model:GetDescendants() do
-		registerLight(state, descendant)
-	end
-
-	table.insert(state.Connections, model.DescendantAdded:Connect(function(descendant)
-		if descendant:IsA("Light") then
-			registerLight(state, descendant)
-			local wasRed = state.Red
-			updateRed(state)
-			if state.Red and not wasRed then
-				scheduleEvaluation()
-			end
-		end
-	end))
-	table.insert(state.Connections, model.DescendantRemoving:Connect(function(descendant)
-		unregisterLight(state, descendant)
-	end))
-
-	local wasRed = state.Red
-	updateRed(state)
-	if state.Red and not wasRed then
-		scheduleEvaluation()
-	end
-
-	return state
-end
-
-local function unwatchModel(model: Instance, state: LightState?)
-	if not model:IsA("Model") then return end
-	state = state or States[model]
-	if not state then return end
-
-	for _, connection in state.Connections do
-		connection:Disconnect()
-	end
-	for _, connection in state.LightConnections do
-		connection:Disconnect()
-	end
-
-	RedModels[model] = nil
-	States[model] = nil
-end
-
-local function resetWarning()
-	warningActive = false
-	clearStartedAt = 0
-end
-
-local function sameSpan(first: Hallways.StraightSpan, second: Hallways.StraightSpan): boolean
-	local sameDirection = (first.Start - second.Start).Magnitude <= SPAN_EPSILON
-		and (first.Finish - second.Finish).Magnitude <= SPAN_EPSILON
-	local oppositeDirection = (first.Start - second.Finish).Magnitude <= SPAN_EPSILON
-		and (first.Finish - second.Start).Magnitude <= SPAN_EPSILON
-	return sameDirection or oppositeDirection
-end
-
-local function closestPointOnSpan(span: Hallways.StraightSpan, position: Vector3): Vector3
-	local along = math.clamp((position - span.Start):Dot(span.Axis), 0, span.Length)
-	return span.Start + span.Axis * along
-end
-
-local function nearestChaosHallway(position: Vector3): (Hallways.StraightSpan?, number)
-	local nearestSpan: Hallways.StraightSpan? = nil
+local function nearestWarning(position: Vector3): (Vector3?, number)
+	local nearestPoint: Vector3? = nil
 	local nearestDistance = math.huge
 
-	for _, state in RedModels do
-		if state.Model.Parent == nil then continue end
+	for _, region in ActiveWarnings do
+		if not isAllowedPosition(region, position) then continue end
 
-		for source in state.SourceParts do
-			if source.Parent == nil then continue end
-
-			local span = if Hallways.At(source.Position)
-				then Hallways.StraightSpanAt(source.Position)
-				else nil
-			if not span then continue end
-
-			local closest = closestPointOnSpan(span, position)
-			local offset = closest - position
-			local distance = Vector3.new(offset.X, 0, offset.Z).Magnitude
-			if distance < nearestDistance then
-				nearestSpan = span
-				nearestDistance = distance
-			end
+		local point = sourcePosition(region)
+		local distance = (point - position).Magnitude
+		if distance > AMBIENCE_SILENT_DISTANCE then continue end
+		if distance < nearestDistance then
+			nearestPoint = point
+			nearestDistance = distance
 		end
 	end
-
-	return nearestSpan, nearestDistance
+	return nearestPoint, nearestDistance
 end
 
-local function ensureAmbienceSounds()
+local function ensureAnchor(position: Vector3): Part
+	if AmbienceAnchor then
+		AmbienceAnchor.CFrame = CFrame.new(position)
+		return AmbienceAnchor
+	end
+
+	local anchor = Instance.new("Part")
+	anchor.Name = "ChaosWarningSoundAnchor"
+	anchor.Anchored = true
+	anchor.CanCollide = false
+	anchor.CanTouch = false
+	anchor.CanQuery = false
+	anchor.Transparency = 1
+	anchor.Size = Vector3.one
+	anchor.CFrame = CFrame.new(position)
+	anchor.Parent = workspace
+	AmbienceAnchor = anchor
+	return anchor
+end
+
+local function ensureAmbience(anchor: BasePart)
 	if #AmbienceSounds > 0 then return end
 
-	for _, source in AmbienceSources do
-		local player = AudioService:Play3DSound(source, AmbienceAnchor, true, AMBIENCE_BUS)
+	for _, source in AmbienceFolder:GetChildren() do
+		if not source:IsA("AudioEmitter") then continue end
+
+		local player = AudioService:Play3DSound(source, anchor, true, AMBIENCE_BUS)
 		table.insert(AmbienceSounds, {
 			Player = player,
-			BaseVolume = source.Player.Volume,
 		})
-		player.Volume = 0
 	end
 end
 
-local function stopAmbienceSounds()
+local function stopSounds()
 	for _, sound in AmbienceSounds do
 		if sound.Player.Parent then
 			AudioService:StopSound(sound.Player)
 		end
 	end
 	table.clear(AmbienceSounds)
+
+	if AmbienceAnchor then
+		AmbienceAnchor:Destroy()
+		AmbienceAnchor = nil
+	end
 end
 
-local function updateAmbience(deltaTime: number)
+local function update()
 	local root = getRoot()
-	local span: Hallways.StraightSpan? = nil
+	local sourcePosition: Vector3? = nil
 	local distance = math.huge
 	if root then
-		span, distance = nearestChaosHallway(root.Position)
+		sourcePosition, distance = nearestWarning(root.Position)
 	end
-	local targetVolume = math.clamp(
-		(AMBIENCE_SILENT_DISTANCE - distance)
-			/ (AMBIENCE_SILENT_DISTANCE - AMBIENCE_FULL_DISTANCE),
-		0,
-		1
-	)
 
-	if span and root and targetVolume > 0 then
-		local playerSpan = Hallways.StraightSpanAt(root.Position)
-		local anchorPosition = closestPointOnSpan(span, root.Position)
-		if playerSpan and sameSpan(playerSpan, span) then
-			anchorPosition = root.Position
-		else
-			anchorPosition = Vector3.new(anchorPosition.X, root.Position.Y, anchorPosition.Z)
+	local audible = sourcePosition ~= nil
+	local near = sourcePosition ~= nil and distance <= WARNING_TRIGGER_DISTANCE
+
+	if audible and sourcePosition then
+		local anchor = ensureAnchor(sourcePosition)
+		if near and not WasNearWarning then
+			AudioService:Play3DSound("ChaosIncoming", anchor, false, AMBIENCE_BUS)
 		end
-		AmbienceAnchor.CFrame = CFrame.new(anchorPosition)
-		ensureAmbienceSounds()
+		ensureAmbience(anchor)
 	end
+	WasNearWarning = near
 
-	local fadeTime = if targetVolume < AmbienceVolume
-		then AMBIENCE_FADE_OUT_TIME
-		else AMBIENCE_FADE_IN_TIME
-	local maxChange = deltaTime / math.max(fadeTime, 0.01)
-	AmbienceVolume += math.clamp(targetVolume - AmbienceVolume, -maxChange, maxChange)
-
-	local busVolume = AudioService:GetBus(AMBIENCE_BUS).Volume
-	for _, sound in AmbienceSounds do
-		if sound.Player.Parent then
-			sound.Player.Volume = sound.BaseVolume * busVolume * AmbienceVolume
-		end
-	end
-
-	if targetVolume <= 0 and AmbienceVolume <= 0.01 then
-		AmbienceVolume = 0
-		stopAmbienceSounds()
-	end
+	if not audible then stopSounds() end
 end
 
-TagService:Listen(LIGHT_TAG, watchModel, unwatchModel, workspace)
+MapDoors.OnClientEvent:Connect(function(
+	action: any,
+	token: any,
+	boxCFrame: any,
+	boxSize: any,
+	_speed: any,
+	_mode: any,
+	_closeSpeed: any,
+	_intervalMin: any,
+	_intervalMax: any,
+	marker: any
+)
+	if type(token) ~= "number" then return end
 
-localPlayer.CharacterAdded:Connect(resetWarning)
-localPlayer.CharacterRemoving:Connect(resetWarning)
-
-RunService.Heartbeat:Connect(function(deltaTime)
-	timeSinceCheck += deltaTime
-	TimeSinceAmbienceUpdate += deltaTime
-	if timeSinceCheck >= CHECK_INTERVAL then
-		timeSinceCheck = 0
-
-		local root = getRoot()
-		if not root then
-			resetWarning()
-		else
-			local source = nearestSource(root, true)
-			if source then
-				clearStartedAt = 0
-			elseif warningActive then
-				if clearStartedAt == 0 then
-					clearStartedAt = os.clock()
-				elseif os.clock() - clearStartedAt >= REARM_TIME then
-					resetWarning()
-				end
-			end
+	if action == "Start" then
+		if marker ~= WARNING_MARKER
+			or typeof(boxCFrame) ~= "CFrame"
+			or typeof(boxSize) ~= "Vector3"
+		then
+			return
 		end
+		ActiveWarnings[token] = {
+			CFrame = boxCFrame,
+			Size = boxSize,
+		}
+	elseif action == "Stop" then
+		ActiveWarnings[token] = nil
 	end
+end)
 
-	if TimeSinceAmbienceUpdate >= CHECK_INTERVAL then
-		local elapsed = TimeSinceAmbienceUpdate
-		TimeSinceAmbienceUpdate = 0
-		updateAmbience(elapsed)
-	end
+RunService.Heartbeat:Connect(function(deltaTime: number)
+	TimeSinceCheck += deltaTime
+	if TimeSinceCheck < CHECK_INTERVAL then return end
+
+	TimeSinceCheck = 0
+	update()
 end)
 
 return ChaosWarningSoundService

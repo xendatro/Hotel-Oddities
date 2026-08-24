@@ -3,9 +3,15 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local AnimationConfig = require(ReplicatedStorage.Configs.AnimationConfig)
 local CreepConfig = require(ReplicatedStorage.Configs.CreepConfig)
 
+export type EnemyVariant = {
+	Hair: string,
+	SkinColor: Color3,
+}
+
 export type EnemyConfig = {
 	Model: string,
 	Animations: AnimationConfig.AnimationSet?,
+	Variants: { EnemyVariant }?,
 
 	-- Locomotion
 	WalkSpeed: number,
@@ -58,7 +64,6 @@ export type EnemyConfig = {
 
 	-- Peeking
 	SpawnPeeking: boolean?,
-	StalkChance: number?,
 	MinPeekDistance: number?,
 	MaxPeekDistance: number?,
 	RearArc: number?,
@@ -125,7 +130,6 @@ export type EnemyConfig = {
 	EdgeDamage: number?,
 	FalloffAngle: number?,
 	FalloffExponent: number?,
-
 	-- Shared by the corridor hazards Chaos and Sisters
 	SpawnPlayerDistance: number?,
 	KillRange: number?,
@@ -154,8 +158,7 @@ export type EnemyConfig = {
 	FleeSpeed: number?,
 	FollowDistance: number?,
 	FollowSlack: number?,
-	StrikeTimeMin: number?,
-	StrikeTimeMax: number?,
+	StalkTime: number?,
 	RevealTurnTime: number?,
 	RevealHoldTime: number?,
 	FleeTime: number?,
@@ -177,6 +180,10 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 	Chaser = {
 		Model = "Chaser",
 		Animations = AnimationConfig.Sets.Chaser,
+		Variants = {
+			{ Hair = "BlackHair", SkinColor = Color3.fromRGB(231, 187, 148) },
+			{ Hair = "BrownHair", SkinColor = Color3.fromRGB(147, 99, 62) },
+		},
 
 		WalkSpeed = 10,
 		ChaseSpeed = 19,
@@ -411,9 +418,8 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		FollowDistance = 7,
 		FollowSlack = 2.5,
 
-		StrikeTimeMin = 25,
-		StrikeTimeMax = 40,
-		RevealTurnTime = 0.35,
+		StalkTime = 10,
+		RevealTurnTime = 0.25,
 		RevealHoldTime = 0.4,
 
 		FleeTime = 15,
@@ -422,15 +428,11 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		-- and drops it behind you already hunting.
 		SpawnPeeking = true,
 
-		-- Odds that surviving a whole uncaught peek turns it into a hunt. Everything else despawns,
-		-- so this is the ratio of stalks to watches -- keep it low.
-		StalkChance = 0.5,
-
 		-- Keep it far enough away that a player cannot walk into it by accident. The upper end is
 		-- pinned to DiscoveryConfig's Stalker sight range (160) so every peek it can make is one
 		-- you can also earn the index card from.
 		MinPeekDistance = 45,
-		MaxPeekDistance = 100,
+		MaxPeekDistance = 80,
 		RearArc = 300,
 
 		ViewCone = 140,
@@ -442,7 +444,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		-- than being caught; 0 makes it start pulling back the same frame you look.
 		SeenHoldTime = 0.4,
 
-		-- One lean, held this long, then the StalkChance roll. Raise PeekCount to get the old
+		-- One lean, held this long, then the danger roll. Raise PeekCount to get the old
 		-- lean-hide-rest-repeat cycle back.
 		HoldTimeMin = 10,
 		HoldTimeMax = 10,
@@ -478,6 +480,11 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		SpawnInterval = 20,
 		MaxAlive = 6,
 
+		ModePeriod = 100,
+		LurkChance = 0.5,
+		LurkDangerBias = 2,
+		LurkHeight = 3,
+		LurkHiddenTime = 25,
 	},
 
 	Creep = {
@@ -487,7 +494,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		LightRange = CreepConfig.LightRange,
 		ConnectedHallwayLightRange = CreepConfig.ConnectedHallwayLightRange,
 		DarkDistance = CreepConfig.DarkDistance,
-		DespawnRange = 96,
+		DespawnRange = 106,
 		CommandSpawnDistance = 128,
 
 		DangerBias = 3,
@@ -508,8 +515,6 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		EdgeDamage = 8,
 		FalloffAngle = 45,
 		FalloffExponent = 2,
-
-
 		DangerBias = 3,
 		MaxAlive = 1,
 	},
@@ -567,6 +572,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 local ceilingDwellerConfig = table.clone(EnemyConfigs.Chaser)
 ceilingDwellerConfig.Model = "Ceiling Dweller"
 ceilingDwellerConfig.Animations = AnimationConfig.Sets.CeilingDweller
+ceilingDwellerConfig.Variants = nil
 
 ceilingDwellerConfig.MaxAlive = 1
 ceilingDwellerConfig.DangerBias = nil

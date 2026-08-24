@@ -12,7 +12,10 @@ local HallwayGraph = require(ServerStorage.Services.HallwayGraphService)
 local HallwayStreamingService = {}
 
 if not Config.Enabled then
-	function HallwayStreamingService:PrepareTeleport(_player: Player, _position: Vector3): boolean
+	function HallwayStreamingService:PrepareTeleport(player: Player, position: Vector3): boolean
+		pcall(function()
+			player:RequestStreamAroundAsync(position, Config.TeleportTimeout)
+		end)
 		return true
 	end
 	return HallwayStreamingService

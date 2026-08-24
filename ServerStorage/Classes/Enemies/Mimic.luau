@@ -961,7 +961,7 @@ local function chase(_changeState: StateMachine.ChangeState, npc: any, target: P
 
 	EnemyDiscoveryService:GrantEvent(target, npc.EnemyId)
 
-	local nextState, _, argument = Chaser.Chase(_changeState, npc, target)
+	local nextState, _, argument = Chaser.Chase(_changeState, npc, target, false)
 	if nextState ~= "Attack" then
 		npc.EncounterMode = nil
 		npc._revealed = false
@@ -1002,16 +1002,6 @@ local function search(_changeState: StateMachine.ChangeState, npc: any, _lastKno
 	npc:StopMirroring()
 	npc:SetSpeed(npc.Config.WalkSpeed)
 	return "Patrol", npc
-end
-
-local function roomReaction(changeState: StateMachine.ChangeState, npc: any, room: Model)
-	npc.EncounterMode = nil
-	npc._revealed = false
-	npc.Model:SetAttribute(CHASE_TARGET_ATTRIBUTE, nil)
-	npc.Animator:StopOverride()
-	npc:StopFloat()
-	npc:SetAttackActive(false)
-	return NPC.SharedStates.RoomReaction(changeState, npc, room)
 end
 
 local function stunned(changeState: StateMachine.ChangeState, npc: any, duration: number)
@@ -1445,11 +1435,10 @@ function Mimic:BuildStateMachine(): StateMachine.StateMachine
 		Chase = walkingFreely(chase),
 		Attack = walkingFreely(attack),
 		Search = walkingFreely(search),
-		RoomReaction = walkingFreely(roomReaction),
 		Stunned = walkingFreely(stunned),
 	}, {
 		Perception = { "Idle", "Wander", "Patrol", "Search", "AfkIdle" },
-		Impact = { "Idle", "AfkIdle", "Wander", "Patrol", "Search", "Stalk", "Chase", "Attack", "RoomReaction" },
+		Impact = { "Idle", "AfkIdle", "Wander", "Patrol", "Search", "Stalk", "Chase", "Attack" },
 	}, {
 		Perception = function()
 			while true do

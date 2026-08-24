@@ -22,7 +22,7 @@ return {
 			Label = "Proximity Voice",
 			Table = VoiceChatConfig,
 			Key = "Volume",
-			Maximum = 5,
+			Maximum = 3,
 		},
 		{
 			Id = "RadioVoice",

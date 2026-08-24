@@ -49,6 +49,7 @@ local Sets: { [string]: AnimationSet } = {
 	Stalker = {
 		Walk = Animations.SneakyWalk,
 		UseRigIdle = true,
+		Attacks = { Animations.Punch1, Animations.Punch2 },
 	},
 
 	Mimic = {

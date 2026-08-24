@@ -385,7 +385,15 @@ function PeekSpotService:Find(player: Player, options: FindOptions): PeekSpot?
 		options.MaxDistance
 	))
 	if #spots == 0 then return nil end
-	return spots[math.random(#spots)]
+
+	local best, bestDistance = nil, math.huge
+	for _, spot in spots do
+		local distance = (spot.Stand - search.Eye).Magnitude
+		if distance < bestDistance then
+			best, bestDistance = spot, distance
+		end
+	end
+	return best
 end
 
 function PeekSpotService:DebugCorner(player: Player, options: FindOptions, position: Vector3): any

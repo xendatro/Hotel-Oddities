@@ -14,6 +14,8 @@ export type Headshot = {
 	Zoom: number?,
 	Offset: Vector3?,
 	Transparency: number?,
+	Color: Color3?,
+	Material: Enum.Material?,
 	WearFriendAvatar: boolean?,
 	Standin: { StandinPart }?,
 }
@@ -23,6 +25,7 @@ export type Entry = {
 	Name: string,
 	Model: string,
 	Description: string,
+	Listed: boolean?,
 	Headshot: Headshot?,
 }
 
@@ -149,9 +152,9 @@ return {
 	Entries = {
 		{
 			Id = "Chaser",
-			Name = "Chaser",
+			Name = "Mad Guest",
 			Model = "Chaser",
-			Description = "Something that used to work here. It still walks the halls it was hired to keep.",
+			Description = "A guest who checked in long ago and never checked out. Now they run the halls looking for someone to blame.",
 		},
 		{
 			Id = "CeilingDweller",
@@ -170,6 +173,7 @@ return {
 			Name = "Weeping Angel",
 			Model = "Weeping Angel",
 			Description = "Stone, every time anyone checks. Nobody has ever watched one take a step.",
+			Listed = false,
 			Headshot = { Zoom = 0.82 },
 		},
 		{
@@ -177,7 +181,11 @@ return {
 			Name = "Mimic",
 			Model = "Mimic",
 			Description = "It wears a guest's face badly. Watch it long enough and the seams show.",
-			Headshot = { WearFriendAvatar = true },
+			Headshot = {
+				Focus = "Head",
+				Color = Color3.fromRGB(63, 69, 80),
+				Material = Enum.Material.SmoothPlastic,
+			},
 		},
 		{
 			Id = "Stalker",
@@ -191,6 +199,7 @@ return {
 			-- One rig. The pair is two copies of it, and a headshot only has room for the one.
 			Model = "Sister",
 			Description = "Two of them, walking abreast and unhurried. They have all the time there is.",
+			Listed = false,
 		},
 		{
 			Id = "Chaos",

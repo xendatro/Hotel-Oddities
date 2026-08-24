@@ -1,4 +1,5 @@
 local Players = game:GetService("Players")
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -10,6 +11,7 @@ end
 
 local Drawer = require(ReplicatedStorage.Classes.Drawer)
 local DrawerConfig = require(ReplicatedStorage.Configs.DrawerConfig)
+local DrawerItemConfig = require(ReplicatedStorage.Configs.DrawerItemConfig)
 local TagService = require(ReplicatedStorage.Services.TagService)
 
 local TARGETING = DrawerConfig.Targeting
@@ -117,8 +119,13 @@ end
 local function drawerOf(part: BasePart): Model?
 	local instance: Instance? = part
 	while instance and instance ~= workspace do
-		if instance:IsA("Model") and States[instance] then
-			return instance
+		if instance:IsA("Model") then
+			if CollectionService:HasTag(instance, DrawerItemConfig.Tag) then
+				return nil
+			end
+			if States[instance] then
+				return instance
+			end
 		end
 		instance = instance.Parent
 	end
@@ -193,6 +200,13 @@ function DrawerService:IsOpen(model: Model?): boolean
 	local target = model or focused
 	local state = target and States[target]
 	return state ~= nil and state.Drawer:IsOpen()
+end
+
+function DrawerService:Sync(model: Model)
+	local state = States[model]
+	if state then
+		state.Drawer:_apply()
+	end
 end
 
 function DrawerService:Toggle(): boolean

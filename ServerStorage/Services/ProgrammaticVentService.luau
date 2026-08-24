@@ -5,6 +5,7 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
+local PerfLog = require(ReplicatedStorage.Modules.PerfLog)
 local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local TagService = require(ReplicatedStorage.Services.TagService)
@@ -220,9 +221,11 @@ local function trySpawn(): boolean
 		or isVisible(visualPoints(boundsCFrame, actualBounds))
 	then
 		vent:Destroy()
+		PerfLog.Log("Vent", "placement discarded")
 		return false
 	end
 	vent.Parent = ActiveFolder
+	PerfLog.Log("Vent", "spawn")
 	table.insert(Managed, { Model = vent, ExpiresAt = os.clock() + Config.Lifetime })
 	return true
 end
@@ -257,6 +260,7 @@ local function sweepDespawn(now: number)
 		if canRemove(entry, now) then
 			entry.Model:Destroy()
 			table.remove(Managed, index)
+			PerfLog.Log("Vent", "despawn")
 		end
 	end
 end

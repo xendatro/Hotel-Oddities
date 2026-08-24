@@ -19,7 +19,7 @@ return {
 
 	Causes = {
 		Chaser = {
-			Name = "Chaser",
+			Name = "Mad Guest",
 			Hint = "It sees you and it runs faster than you do. Get out of sight and hide in a room.",
 		},
 

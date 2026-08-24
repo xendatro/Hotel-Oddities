@@ -12,7 +12,7 @@ return {
 	ChaseShakes = {
 		Chaos = {
 			AllPlayers = true,
-			Range = 110,
+			Range = 50,
 			FullIntensityDistance = 10,
 			FalloffExponent = 2,
 			Intensity = 0.95,
@@ -21,15 +21,14 @@ return {
 			PositionInfluence = Vector3.new(0.32, 0.32, 0.18),
 			RotationInfluence = Vector3.new(1.2, 1.2, 0.55),
 		},
-		-- The plain hunter is the full takeover: heavy, everything moving.
 		Chaser = {
 			Range = 55,
 			FullIntensityDistance = 12,
-			Intensity = 0.8,
-			Roughness = 20,
+			Intensity = 0.35,
+			Roughness = 16,
 			MagnitudeScale = 5,
-			PositionInfluence = Vector3.new(0.25, 0.25, 0.25),
-			RotationInfluence = Vector3.new(1, 1, 1),
+			PositionInfluence = Vector3.new(0.12, 0.12, 0.08),
+			RotationInfluence = Vector3.new(0.45, 0.45, 0.1),
 		},
 		-- The Dweller's chase carries the vent-jolt's character: sharp and angry at full proximity.
 		CeilingDweller = {

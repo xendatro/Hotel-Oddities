@@ -133,8 +133,8 @@ local function render(deltaTime: number)
 	local offset = ceilingFovIntensity * ChaserCameraConfig.CeilingDweller.FieldOfView
 	CameraFovService:SetOffset(FOV_OFFSET_NAME, offset)
 
-	for enemyId in shakeTargets do
-		if not Shakes[enemyId] then
+	for enemyId, target in shakeTargets do
+		if target > 0 and not Shakes[enemyId] then
 			Shakes[enemyId] = {
 				Rumble = ShakeService:CreateDynamicRumble(0, ChaserCameraConfig.ChaseShakes[enemyId]),
 				Intensity = 0,

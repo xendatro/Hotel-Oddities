@@ -52,6 +52,7 @@ type State = {
 	Connections: { RBXScriptConnection },
 	LastActiveAt: number,
 	Speaking: boolean,
+	LastRadioVoiceAt: number,
 }
 
 type RelayBucket = { StartedAt: number, Count: number }
@@ -70,6 +71,7 @@ local RadioEquippedAt: { [Player]: number } = {}
 local LastRadioPosition: { [Player]: Vector3 } = {}
 local RebuildQueued = false
 local ensureOutputs: (state: State) -> ()
+local RADIO_NOISE_INTERVAL = 0.4
 
 local function isFiniteNumber(value: any): boolean
 	return type(value) == "number" and value == value and math.abs(value) < math.huge
@@ -122,10 +124,30 @@ local function getPlayerPosition(player: Player): Vector3?
 	return character:GetPivot().Position
 end
 
-local function emitRadioNoise(state: State, source: Player?, strength: number?)
+local function emitRadioNoise(
+	state: State,
+	source: Player?,
+	strength: number?,
+	ignoreSourceInterval: boolean?
+): boolean
 	local position = getWorldPosition(state.Emitter) or getPlayerPosition(state.Player)
 	local radius = Config.RadioNoiseRadius * math.clamp(strength or 1, 0, 1)
-	if position and radius > 0 then NoiseService:Emit(position, radius, source or state.Player) end
+	if not position or radius <= 0 then return false end
+	return NoiseService:Emit(position, radius, source or state.Player, ignoreSourceInterval) ~= nil
+end
+
+local function emitRadioVoiceNoise(state: State)
+	if not state.Speaking or state.VoiceFader.Volume <= 0 then return end
+	local now = os.clock()
+
+	for receiver in state.OutputWires do
+		local receiverState = States[receiver]
+		if receiverState and now - receiverState.LastRadioVoiceAt >= RADIO_NOISE_INTERVAL then
+			if emitRadioNoise(receiverState, receiver, nil, true) then
+				receiverState.LastRadioVoiceAt = now
+			end
+		end
+	end
 end
 
 local function cloneSoundPlayer(name: string, parent: Instance): AudioPlayer?
@@ -181,6 +203,8 @@ local function updateSpeaking(state: State, active: boolean)
 		if active then
 			state.LastActiveAt = os.clock()
 			playActiveTransmission(state)
+		elseif state.ActivePlayer and state.ActivePlayer.IsPlaying then
+			state.ActivePlayer:Stop()
 		end
 		return
 	end
@@ -188,6 +212,8 @@ local function updateSpeaking(state: State, active: boolean)
 	if active then
 		state.LastActiveAt = os.clock()
 		playActiveTransmission(state)
+	elseif state.ActivePlayer and state.ActivePlayer.IsPlaying then
+		state.ActivePlayer:Stop()
 	end
 end
 
@@ -668,7 +694,7 @@ function WalkieTalkieService:Equip(player: Player, tool: Tool)
 	physicalFader.Volume = Config.RadioPhysicalVolume
 	local activePlayer = cloneSoundPlayer("RadioActive", audio)
 	if activePlayer then
-		activePlayer.Looping = false
+		activePlayer.Looping = true
 		connect(activePlayer, activeFader, audio)
 	end
 
@@ -731,6 +757,7 @@ function WalkieTalkieService:Equip(player: Player, tool: Tool)
 		Connections = {},
 		LastActiveAt = -math.huge,
 		Speaking = false,
+		LastRadioVoiceAt = -math.huge,
 	}
 	States[player] = state
 	RadioEquippedAt[player] = os.clock()
@@ -858,6 +885,10 @@ RunService.Heartbeat:Connect(function(deltaTime)
 		else
 			emitRadioNoise(relay.Radio)
 		end
+	end
+
+	for _, state in States do
+		emitRadioVoiceNoise(state)
 	end
 
 	for emitter, source in AmbientSources do

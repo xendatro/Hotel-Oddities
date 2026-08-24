@@ -5,6 +5,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local CollectionService = game:GetService("CollectionService")
 
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
+local PerfLog = require(ReplicatedStorage.Modules.PerfLog)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 
 local EnemyService = {}
@@ -145,9 +146,11 @@ function EnemyService:Spawn(enemyId: string, spawnCFrame: CFrame, ...: any)
 		if index then
 			table.remove(ActiveEnemies, index)
 		end
+		PerfLog.Log("Enemy", `{enemyId} despawn`)
 	end)
 
 	enemy:Start()
+	PerfLog.Log("Enemy", `{enemyId} spawn`)
 	return enemy
 end
 

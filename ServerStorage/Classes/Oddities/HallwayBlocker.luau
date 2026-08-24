@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local Gaze = require(ServerStorage.Modules.Gaze)
+local HallwayGraph = require(ServerStorage.Services.HallwayGraphService)
 local HallwayRegion = require(ServerStorage.Modules.HallwayRegion)
 local HallwayOddity = require(ServerStorage.Classes.HallwayOddity)
 local Hallways = require(ReplicatedStorage.Modules.Hallways)
@@ -36,6 +37,23 @@ local function isActive(span: HallwayRegion.Span): boolean
 	return false
 end
 
+local function isNearSplit(class: any, span: HallwayRegion.Span): boolean
+	local boxCFrame, boxSize = HallwayRegion.Box(span)
+	local across = boxCFrame.XVector
+	local clearance = setting(class, "SplitClearance", 12)
+
+	for _, node in HallwayGraph:Get() do
+		if HallwayGraph:CountExits(node) < 3 then continue end
+
+		local offset = node.Position - span.Center
+		if math.abs(offset.Y) > 4 then continue end
+		if math.abs(offset:Dot(across)) > boxSize.X / 2 then continue end
+		if math.abs(offset:Dot(span.Axis)) <= clearance then return true end
+	end
+
+	return false
+end
+
 local function isUnseen(class: any, span: HallwayRegion.Span): boolean
 	local lookedAt = Gaze.IsLookedAt(span.Center, {
 		Cone = setting(class, "GazeCone", 100),
@@ -52,7 +70,7 @@ end
 
 function HallwayBlocker.Pick(class: any): HallwayRegion.Span?
 	local available = function(span: HallwayRegion.Span): boolean
-		return not isActive(span)
+		return not isActive(span) and not isNearSplit(class, span)
 	end
 
 	local dangerWeight = setting(class, "DangerWeight", 0.35)
@@ -60,7 +78,6 @@ function HallwayBlocker.Pick(class: any): HallwayRegion.Span?
 		return available(span) and isUnseen(class, span)
 	end)
 	return unseen or HallwayRegion.RandomDistantWeighted(dangerWeight, available)
-		or HallwayRegion.RandomDistantWeighted(dangerWeight)
 end
 
 function HallwayBlocker:OnStart(): boolean

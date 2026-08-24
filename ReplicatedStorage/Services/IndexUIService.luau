@@ -179,6 +179,32 @@ local function applyTransparency(model: Model, transparency: number)
 	end
 end
 
+local function paintHeadshot(model: Model, color: Color3, material: Enum.Material)
+	for _, descendant in model:GetDescendants() do
+		if descendant:IsA("BasePart") then
+			descendant.Color = color
+			descendant.Material = material
+			descendant.Transparency = 0
+			descendant.CastShadow = false
+		end
+
+		if descendant:IsA("MeshPart") then
+			descendant.TextureID = ""
+		elseif descendant:IsA("SpecialMesh") then
+			descendant.TextureId = ""
+		elseif descendant:IsA("Decal")
+			or descendant:IsA("Texture")
+			or descendant:IsA("SurfaceAppearance")
+			or descendant:IsA("Shirt")
+			or descendant:IsA("Pants")
+			or descendant:IsA("ShirtGraphic")
+			or descendant:IsA("BodyColors")
+		then
+			descendant:Destroy()
+		end
+	end
+end
+
 local function measure(model: Model, headshot: IndexConfig.Headshot): (Vector3?, Vector3?)
 	if headshot.Standin then
 		local box, size = model:GetBoundingBox()
@@ -213,6 +239,10 @@ local function present(viewport: ViewportFrame, model: Model, headshot: IndexCon
 	if not target or not extent then
 		model:Destroy()
 		return
+	end
+
+	if headshot.Color then
+		paintHeadshot(model, headshot.Color, headshot.Material or Enum.Material.SmoothPlastic)
 	end
 
 	clearViewport(viewport)
@@ -622,6 +652,7 @@ function IndexUIService:Refresh()
 
 	table.clear(Listed)
 	for _, entry in Entries do
+		if entry.Listed == false then continue end
 		if IndexConfig.HideUndiscovered and not IndexUIService:IsDiscovered(entry.Id) then continue end
 		table.insert(Listed, entry.Id)
 	end
@@ -787,6 +818,22 @@ local function buildModalBlocker()
 	blocker.Parent = gui
 end
 
+local function clearBuiltUi()
+	table.clear(Cards)
+
+	for _, child in cardsFrame:GetChildren() do
+		if child ~= cardTemplate and child:IsA("GuiObject") then
+			child:Destroy()
+		end
+	end
+
+	for _, child in gui:GetChildren() do
+		if child.Name == "ModalBlocker" then
+			child:Destroy()
+		end
+	end
+end
+
 local function buildCard(index: number, entry: IndexConfig.Entry)
 	local holder = cardTemplate:Clone()
 	holder.Name = entry.Id
@@ -837,9 +884,11 @@ local function buildCard(index: number, entry: IndexConfig.Entry)
 end
 
 local function build()
+	clearBuiltUi()
 	buildModalBlocker()
 
 	for index, entry in Entries do
+		if entry.Listed == false then continue end
 		buildCard(index, entry)
 	end
 
