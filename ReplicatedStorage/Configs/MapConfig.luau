@@ -6,6 +6,11 @@ return {
 		Landmark = "Landmark",
 	},
 
+	Rooms = {
+		Tag = "RoomFloor",
+		ComputerTag = "ComputerRoomFloor",
+	},
+
 	Landmarks = {
 		Computer = { Tag = "HackComputer", Radius = 34 },
 		Spawn = { Tag = "Spawn", Radius = 40 },
@@ -15,6 +20,8 @@ return {
 	Gui = {
 		ScreenGui = "Map",
 		Paper = "Main",
+		PageGroup = "Main",
+		PageId = "Map",
 		ViewportName = "Viewport",
 		ContentName = "Content",
 		InkName = "Ink",
@@ -65,6 +72,14 @@ return {
 		WobbleScale = 0.11,
 		Overshoot = 3.6,
 		EndCapChance = 0.35,
+		RoomWidthScale = 1.15,
+		ComputerWidthScale = 1.45,
+		-- Studs between the diagonal hatch strokes filling a computer room.
+		HatchSpacing = 7,
+		HatchWidthScale = 0.5,
+		HatchOpacity = 0.55,
+		-- Seconds the computer room draws itself over when first opened.
+		RevealTime = 1.1,
 	},
 
 	Danger = {
@@ -76,8 +91,9 @@ return {
 
 	Markers = {
 		Fill = Color3.fromRGB(247, 241, 186),
-		Size = 46,
-		GlyphInset = 9,
+		Size = 34,
+		GlyphInset = 7,
+		FillTransparency = 0.2,
 		StrokeWidth = 2.5,
 		PlayerSize = 22,
 		PopScale = 1.45,

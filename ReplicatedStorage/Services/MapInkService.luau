@@ -61,6 +61,11 @@ local function offsetAt(wobble: Wobble, along: number): number
 		+ wobble.SecondAmplitude * math.sin(along * wobble.SecondFrequency + wobble.SecondPhase)
 end
 
+type Style = {
+	WidthScale: number,
+	Opacity: number,
+}
+
 local NONE, OPENING, EXTENT = 0, 1, 2
 
 local function classify(value: number, limit: number, openings: { number }): number
@@ -79,10 +84,14 @@ local function strokePiece(
 	from: number,
 	to: number,
 	fromKind: number,
-	toKind: number
+	toKind: number,
+	style: Style?
 )
 	local canvas = Canvas
 	if not canvas or to - from < MIN_PIECE then return end
+
+	local widthScale = if style then style.WidthScale else 1
+	local opacity = if style then style.Opacity else Ink.Opacity
 
 	local wobble = getWobble(id)
 	local taperFrom, taperTo = fromKind ~= NONE, toKind ~= NONE
@@ -104,7 +113,7 @@ local function strokePiece(
 	local function widthAt(progress: number): number
 		local along = start + length * progress
 		local variance = 1 + Ink.WidthVariance * 0.5 * math.sin(along * wobble.WidthFrequency + wobble.WidthPhase)
-		local width = Ink.Width * variance
+		local width = Ink.Width * variance * widthScale
 
 		if taperLength > 0 then
 			local fromEnd = math.huge
@@ -122,11 +131,11 @@ local function strokePiece(
 		return widthAt(progress) + Ink.BleedOffset
 	end
 
-	canvas:Stroke(points, bleedAt, Ink.Color, Ink.BleedOpacity)
-	canvas:Stroke(points, widthAt, Ink.Color, Ink.Opacity)
+	canvas:Stroke(points, bleedAt, Ink.Color, Ink.BleedOpacity * (opacity / Ink.Opacity))
+	canvas:Stroke(points, widthAt, Ink.Color, opacity)
 end
 
-local function drawWall(entry: MapLayoutService.Entry, side: number, from: number, to: number)
+local function drawWall(entry: MapLayoutService.Entry, side: number, from: number, to: number, style: Style?)
 	local openings = entry.Openings[side]
 	local origin = entry.Center + entry.Across * (side * entry.HalfWidth)
 	local id = entry.Key .. ":w" .. side
@@ -140,12 +149,13 @@ local function drawWall(entry: MapLayoutService.Entry, side: number, from: numbe
 			piece[1],
 			piece[2],
 			classify(piece[1], entry.HalfLength, openings),
-			classify(piece[2], entry.HalfLength, openings)
+			classify(piece[2], entry.HalfLength, openings),
+			style
 		)
 	end
 end
 
-local function drawCap(entry: MapLayoutService.Entry, side: number)
+local function drawCap(entry: MapLayoutService.Entry, side: number, style: Style?)
 	local openings = entry.CapOpenings[side]
 	local origin = entry.Center + entry.Axis * (side * entry.HalfLength)
 	local id = entry.Key .. ":c" .. side
@@ -159,9 +169,67 @@ local function drawCap(entry: MapLayoutService.Entry, side: number)
 			piece[1],
 			piece[2],
 			classify(piece[1], entry.HalfWidth, openings),
-			classify(piece[2], entry.HalfWidth, openings)
+			classify(piece[2], entry.HalfWidth, openings),
+			style
 		)
 	end
+end
+
+local function roomStyle(entry: MapLayoutService.Entry): Style
+	return {
+		WidthScale = if entry.Kind == "ComputerRoom" then Ink.ComputerWidthScale else Ink.RoomWidthScale,
+		Opacity = Ink.Opacity,
+	}
+end
+
+local function hatchSteps(entry: MapLayoutService.Entry): { () -> () }
+	local style: Style = { WidthScale = Ink.HatchWidthScale, Opacity = Ink.HatchOpacity }
+	local direction = (entry.Axis + entry.Across).Unit
+	local lateral = (entry.Across - entry.Axis).Unit
+	local steps = {}
+
+	local reach = entry.HalfLength + entry.HalfWidth
+	local offset = -reach
+	local index = 0
+	while offset <= reach do
+		local low = math.max(-entry.HalfLength, -entry.HalfWidth - offset)
+		local high = math.min(entry.HalfLength, entry.HalfWidth - offset)
+		if high - low >= MIN_PIECE then
+			local start = entry.Center + entry.Axis * low + entry.Across * (low + offset)
+			local finish = entry.Center + entry.Axis * high + entry.Across * (high + offset)
+			local length = (finish - start).Magnitude
+			local id = entry.Key .. ":h" .. index
+			table.insert(steps, function()
+				strokePiece(id, start, direction, lateral, 0, length, OPENING, OPENING, style)
+			end)
+		end
+		offset += Ink.HatchSpacing
+		index += 1
+	end
+	return steps
+end
+
+local function roomSteps(entry: MapLayoutService.Entry): { () -> () }
+	local style = roomStyle(entry)
+	local steps = {}
+
+	for _, side in { 1, -1 } do
+		table.insert(steps, function()
+			drawWall(entry, side, -entry.HalfLength, entry.HalfLength, style)
+		end)
+	end
+	for _, side in { 1, -1 } do
+		table.insert(steps, function()
+			drawCap(entry, side, style)
+		end)
+	end
+
+	if entry.Kind == "ComputerRoom" then
+		for _, step in hatchSteps(entry) do
+			table.insert(steps, step)
+		end
+	end
+	return steps
 end
 
 function MapInkService:Attach(paper: ImageLabel)
@@ -204,6 +272,15 @@ function MapInkService:Reveal(key: string, packed: { number }): boolean
 	local entry = MapLayoutService:Get(key)
 	if not canvas or not entry then return false end
 
+	if MapLayoutService:IsRoomKind(entry) then
+		if Drawn[key] or #packed == 0 then return false end
+		for _, step in roomSteps(entry) do
+			step()
+		end
+		Drawn[key] = table.clone(packed)
+		return true
+	end
+
 	local drawn = Drawn[key] or {}
 	local drew = false
 
@@ -231,6 +308,31 @@ function MapInkService:Reveal(key: string, packed: { number }): boolean
 
 	Drawn[key] = table.clone(packed)
 	return true
+end
+
+function MapInkService:RevealAnimated(key: string, packed: { number }, duration: number): boolean
+	local canvas = Canvas
+	local entry = MapLayoutService:Get(key)
+	if not canvas or not entry or Drawn[key] or #packed == 0 then return false end
+	if not MapLayoutService:IsRoomKind(entry) then return self:Reveal(key, packed) end
+
+	Drawn[key] = table.clone(packed)
+	local steps = roomSteps(entry)
+
+	task.spawn(function()
+		local interval = duration / math.max(#steps, 1)
+		for _, step in steps do
+			if Canvas ~= canvas then return end
+			step()
+			self:Flush()
+			task.wait(interval)
+		end
+	end)
+	return true
+end
+
+function MapInkService:IsDrawn(key: string): boolean
+	return Drawn[key] ~= nil
 end
 
 function MapInkService:Flush()

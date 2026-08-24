@@ -24,6 +24,7 @@ export type Interval = { number }
 
 type Entry = {
 	Key: string,
+	Kind: string,
 	Hallway: HallwaysService.Hallway,
 }
 
@@ -83,16 +84,31 @@ local function visibleRuns(
 	return runs
 end
 
+local function addEntry(entries: { Entry }, hallway: HallwaysService.Hallway, kind: string)
+	table.insert(entries, {
+		Key = string.format("%d,%d", math.round(hallway.Center.X), math.round(hallway.Center.Z)),
+		Kind = kind,
+		Hallway = hallway,
+	})
+end
+
 local function getEntries(): { Entry }
 	local hallways = HallwaysService.All(true)
 	if EntrySource == hallways then return Entries end
 
 	local entries = {}
 	for _, hallway in hallways do
-		table.insert(entries, {
-			Key = string.format("%d,%d", math.round(hallway.Center.X), math.round(hallway.Center.Z)),
-			Hallway = hallway,
-		})
+		addEntry(entries, hallway, if hallway.IsRoomFloor then "Connector" else "Hallway")
+	end
+
+	local computerFloors = {}
+	for _, floor in CollectionService:GetTagged(MapConfig.Rooms.ComputerTag) do
+		computerFloors[floor] = true
+	end
+	for _, floor in CollectionService:GetTagged(MapConfig.Rooms.Tag) do
+		if floor:IsA("BasePart") and floor:IsDescendantOf(workspace) then
+			addEntry(entries, HallwaysService.FromPart(floor, true), if computerFloors[floor] then "ComputerRoom" else "Room")
+		end
 	end
 
 	Entries = entries
@@ -184,13 +200,14 @@ function MapDiscoveryService:GetLayout(): { any }
 		local hallway = entry.Hallway
 		table.insert(layout, {
 			Key = entry.Key,
+			Kind = entry.Kind,
 			X = hallway.Center.X,
 			Z = hallway.Center.Z,
 			AxisX = hallway.Axis.X,
 			AxisZ = hallway.Axis.Z,
 			HalfLength = hallway.HalfLength,
 			HalfWidth = hallway.HalfWidth,
-			IsRoom = hallway.IsRoomFloor,
+			IsRoom = entry.Kind ~= "Hallway",
 		})
 	end
 	return layout
@@ -254,14 +271,22 @@ function MapDiscoveryService:Update(player: Player)
 		local known = store[entry.Key] or {}
 		local changed = false
 
-		for _, fresh in MapLayoutService:Subtract(minimum, maximum, known) do
-			if fresh[2] - fresh[1] < Discovery.MinGrowth then continue end
+		if entry.Kind ~= "Hallway" then
+			if #known > 0 then continue end
+			if #visibleRuns(entry.Hallway, eye, minimum, maximum) == 0 then continue end
 
-			for _, run in visibleRuns(entry.Hallway, eye, fresh[1], fresh[2]) do
-				local packed = merge(known, run[1], run[2])
-				if packed then
-					known = packed
-					changed = true
+			known = { -math.round(entry.Hallway.HalfLength), math.round(entry.Hallway.HalfLength) }
+			changed = true
+		else
+			for _, fresh in MapLayoutService:Subtract(minimum, maximum, known) do
+				if fresh[2] - fresh[1] < Discovery.MinGrowth then continue end
+
+				for _, run in visibleRuns(entry.Hallway, eye, fresh[1], fresh[2]) do
+					local packed = merge(known, run[1], run[2])
+					if packed then
+						known = packed
+						changed = true
+					end
 				end
 			end
 		end

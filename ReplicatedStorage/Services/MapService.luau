@@ -9,6 +9,7 @@ local CommunicationService = require(ReplicatedStorage.Services.CommunicationSer
 local MapControlService = require(ReplicatedStorage.Services.MapControlService)
 local MapInkService = require(ReplicatedStorage.Services.MapInkService)
 local MapLayoutService = require(ReplicatedStorage.Services.MapLayoutService)
+local xenterface = require(ReplicatedStorage.Frameworks.xenterface)
 
 local Gui = MapConfig.Gui
 local Remotes = MapConfig.Remotes
@@ -22,6 +23,9 @@ local Layer: Frame? = nil
 local PlayerMarker: Frame? = nil
 local Landmarks: { [string]: MapMarker.MapMarker } = {}
 local Friends: { [Player]: MapMarker.MapMarker } = {}
+local PendingRooms: { { Key: string, Packed: { number } } } = {}
+local PendingPops: { string } = {}
+local IsOpen = false
 local Pending = false
 
 local function getPaper(): ImageLabel
@@ -98,7 +102,33 @@ local function placeLandmark(kind: string, key: string, pop: boolean)
 	marker:SetPosition(MapService:ToPaperScale(tonumber(x) :: number, tonumber(z) :: number))
 	Landmarks[key] = marker
 
-	if pop then marker:Pop() end
+	if not pop then return end
+	if IsOpen then
+		marker:Pop()
+	else
+		table.insert(PendingPops, key)
+	end
+end
+
+local function playPending()
+	local rooms = PendingRooms
+	PendingRooms = {}
+	for index, entry in rooms do
+		task.delay((index - 1) * 0.18, function()
+			MapInkService:RevealAnimated(entry.Key, entry.Packed, MapConfig.Ink.RevealTime)
+		end)
+	end
+
+	local pops = PendingPops
+	PendingPops = {}
+	for index, key in pops do
+		local marker = Landmarks[key]
+		if marker then
+			task.delay((index - 1) * 0.18 + MapConfig.Ink.RevealTime * 0.55, function()
+				marker:Pop()
+			end)
+		end
+	end
 end
 
 local function clearFriend(player: Player)
@@ -180,6 +210,17 @@ end
 
 local function onReveal(key: string, packed: { number })
 	if not MapInkService:IsAttached() then return end
+
+	local entry = MapLayoutService:Get(key)
+	if entry and entry.Kind == "ComputerRoom" and not MapInkService:IsDrawn(key) then
+		if IsOpen then
+			MapInkService:RevealAnimated(key, packed, MapConfig.Ink.RevealTime)
+		else
+			table.insert(PendingRooms, { Key = key, Packed = packed })
+		end
+		return
+	end
+
 	if not MapInkService:Reveal(key, packed) then return end
 
 	if Pending then return end
@@ -194,6 +235,14 @@ CommunicationService.Get(Remotes.Folder, Remotes.Sync).OnClientEvent:Connect(onS
 CommunicationService.Get(Remotes.Folder, Remotes.Reveal).OnClientEvent:Connect(onReveal)
 CommunicationService.Get(Remotes.Folder, Remotes.Landmark).OnClientEvent:Connect(function(kind: string, key: string)
 	placeLandmark(kind, key, true)
+end)
+
+xenterface:Controller(Gui.PageGroup).Fired:Connect(function(data)
+	local opened = data.ActiveId == Gui.PageId
+	if opened == IsOpen then return end
+
+	IsOpen = opened
+	if opened then playPending() end
 end)
 
 Players.PlayerRemoving:Connect(clearFriend)

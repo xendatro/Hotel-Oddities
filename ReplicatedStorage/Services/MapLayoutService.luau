@@ -15,6 +15,7 @@ export type Entry = {
 	HalfLength: number,
 	HalfWidth: number,
 	IsRoom: boolean,
+	Kind: string,
 	Openings: { [number]: { number } },
 	CapOpenings: { [number]: { number } },
 }
@@ -68,10 +69,14 @@ local function mergeIntervals(intervals: { { number } }): { number }
 	return packed
 end
 
+local function isCorridor(entry: Entry): boolean
+	return entry.Kind == "Hallway" or entry.Kind == "Connector"
+end
+
 local function openingsAlong(origin: Vector2, direction: Vector2, skip: Entry): { number }
 	local intervals = {}
 	for _, other in Entries do
-		if other == skip then continue end
+		if other == skip or not isCorridor(other) then continue end
 		local minimum, maximum = rectInterval(origin, direction, other)
 		if minimum and maximum then
 			table.insert(intervals, { minimum, maximum })
@@ -83,6 +88,14 @@ end
 local function buildOpenings(entry: Entry)
 	entry.Openings = {}
 	entry.CapOpenings = {}
+
+	if not isCorridor(entry) then
+		for _, side in { 1, -1 } do
+			entry.Openings[side] = {}
+			entry.CapOpenings[side] = {}
+		end
+		return
+	end
 
 	for _, side in { 1, -1 } do
 		local wall = entry.Center + entry.Across * (side * entry.HalfWidth)
@@ -110,6 +123,7 @@ function MapLayoutService:Load(layout: { any })
 			HalfLength = raw.HalfLength,
 			HalfWidth = raw.HalfWidth,
 			IsRoom = raw.IsRoom,
+			Kind = raw.Kind or (if raw.IsRoom then "Connector" else "Hallway"),
 			Openings = {},
 			CapOpenings = {},
 		}
@@ -147,6 +161,10 @@ end
 
 function MapLayoutService:Get(key: string): Entry?
 	return ByKey[key]
+end
+
+function MapLayoutService:IsRoomKind(entry: Entry): boolean
+	return entry.Kind == "Room" or entry.Kind == "ComputerRoom"
 end
 
 function MapLayoutService:GetScale(): number

@@ -99,6 +99,7 @@ function MapMarker.new(parent: GuiObject, kind: string, userId: number?): MapMar
 	disc.Position = UDim2.fromScale(0.5, 0.5)
 	disc.Size = UDim2.fromScale(1, 1)
 	disc.BackgroundColor3 = Markers.Fill
+	disc.BackgroundTransparency = Markers.FillTransparency
 	disc.BorderSizePixel = 0
 	disc.ZIndex = 15
 	disc.Parent = frame
@@ -156,7 +157,7 @@ end
 
 function MapMarker:SetFaded(faded: boolean)
 	self._glyph.TextTransparency = if faded then 0.55 else 0
-	self._disc.BackgroundTransparency = if faded then 0.4 else 0
+	self._disc.BackgroundTransparency = if faded then 0.55 else Markers.FillTransparency
 end
 
 function MapMarker:Pop()
