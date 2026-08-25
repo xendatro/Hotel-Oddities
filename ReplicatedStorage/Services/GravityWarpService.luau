@@ -1,22 +1,25 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
-local ClientTool = require(ReplicatedStorage.Classes.ClientTool)
+local GravityWarpService = {}
+
+if not RunService:IsClient() then
+	return GravityWarpService
+end
+
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local ToolConfigs = require(ReplicatedStorage.Configs.ToolConfigs)
 local WallstickService = require(ReplicatedStorage.Services.WallstickService)
 
-local GravityWarper = ClientTool.extend("GravityWarper")
+local Config = ToolConfigs["Gravity Warper"]
 
-function GravityWarper.new(tool: Tool)
-	local self = ClientTool.new(tool, GravityWarper)
-	self.Warping = false
-	self:On("Warp", function(duration: number)
-		task.spawn(function()
-			self:_Warp(duration)
-		end)
-	end)
-	return self
+local Active = false
+
+function GravityWarpService.IsActive(): boolean
+	return Active
 end
 
 local function rayParamsFor(character: Model): RaycastParams
@@ -41,8 +44,8 @@ local function tweenRoot(root: BasePart, goal: CFrame, time: number)
 	root.Anchored = false
 end
 
-function GravityWarper:_Warp(duration: number)
-	if self.Warping then return end
+local function warp(duration: number)
+	if Active then return end
 
 	local character = Players.LocalPlayer.Character
 	local humanoid = CharacterService.GetHumanoid(character)
@@ -50,10 +53,10 @@ function GravityWarper:_Warp(duration: number)
 	if not character or not humanoid or not root then return end
 
 	local params = rayParamsFor(character)
-	local ceiling = workspace:Raycast(root.Position, Vector3.new(0, self.Config.MaxCeilingDistance, 0), params)
+	local ceiling = workspace:Raycast(root.Position, Vector3.new(0, Config.MaxCeilingDistance, 0), params)
 	if not ceiling then return end
 
-	self.Warping = true
+	Active = true
 
 	local hipHeight = humanoid.HipHeight
 	if humanoid.RigType == Enum.HumanoidRigType.R6 then
@@ -61,12 +64,11 @@ function GravityWarper:_Warp(duration: number)
 	end
 	local clearance = hipHeight + root.Size.Y / 2 + 0.05
 
-	local rotation = root.CFrame.Rotation
-	local flipped = rotation * CFrame.Angles(0, 0, math.pi)
-	tweenRoot(root, CFrame.new(ceiling.Position - Vector3.new(0, clearance, 0)) * flipped, self.Config.AscendTime)
+	local flipped = root.CFrame.Rotation * CFrame.Angles(0, 0, math.pi)
+	tweenRoot(root, CFrame.new(ceiling.Position - Vector3.new(0, clearance, 0)) * flipped, Config.AscendTime)
 
-	if not CharacterService.IsAlive(character) then
-		self.Warping = false
+	if not CharacterService.IsAlive(character) or root.Parent == nil then
+		Active = false
 		return
 	end
 
@@ -76,7 +78,7 @@ function GravityWarper:_Warp(duration: number)
 	while elapsed < duration do
 		elapsed += task.wait(0.1)
 		if not CharacterService.IsAlive(character) or root.Parent == nil then
-			self.Warping = false
+			Active = false
 			return
 		end
 	end
@@ -85,20 +87,17 @@ function GravityWarper:_Warp(duration: number)
 
 	if CharacterService.IsAlive(character) and root.Parent ~= nil then
 		local uprightRotation = root.CFrame.Rotation * CFrame.Angles(0, 0, math.pi)
-		local floor = workspace:Raycast(root.Position, Vector3.new(0, -self.Config.MaxCeilingDistance, 0), params)
+		local floor = workspace:Raycast(root.Position, Vector3.new(0, -Config.MaxCeilingDistance, 0), params)
 		local goalPosition = floor and floor.Position + Vector3.new(0, clearance, 0)
 			or root.Position - Vector3.new(0, 4, 0)
-		tweenRoot(root, CFrame.new(goalPosition) * uprightRotation, self.Config.DescendTime)
+		tweenRoot(root, CFrame.new(goalPosition) * uprightRotation, Config.DescendTime)
 	end
 
-	self.Warping = false
+	Active = false
 end
 
-function GravityWarper:OnDestroy()
-	if self.Warping then
-		self.Warping = false
-		WallstickService.Disable()
-	end
-end
+CommunicationService.Get("GravityWarp", "Warp").OnClientEvent:Connect(function(duration: number)
+	task.spawn(warp, duration)
+end)
 
-return GravityWarper
+return GravityWarpService

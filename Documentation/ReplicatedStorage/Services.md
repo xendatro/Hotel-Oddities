@@ -268,6 +268,12 @@ Applies heavy distance fog on low graphics settings to cut render load: reads th
 - API: `GraphicsFogService:IsFogActive(): boolean` — whether the fog and cage are currently applied
 - Requires: `Configs.GraphicsFogConfig`, `MathService`
 
+### GravityWarpService.luau
+Client executor for the Gravity Warper item, deliberately independent of the tool instance's lifetime (consuming the last charge destroys the Tool mid-warp). On `GravityWarp/Warp` it tweens the anchored root up to the ceiling while flipping the character upside down, enables `WallstickService` so the player walks the ceiling for the given duration, then disables it and tweens the character back down upright onto the floor (raycast to the floor, falling back to a short drop). Bails out safely on death or character removal at any stage; only one warp runs at a time.
+- API: `GravityWarpService.IsActive() -> boolean`
+- Remotes: `GravityWarp/Warp` (listened)
+- Requires: `CharacterService`, `CommunicationService`, `WallstickService`, `Configs.ToolConfigs` (`Gravity Warper`: `AscendTime`, `DescendTime`, `MaxCeilingDistance`)
+
 ### GuiBuilderService.luau
 Small shared helper for building GUI instances; every other UI service uses it to reach the PlayerGui and to create ScreenGuis and common UI modifiers. All four functions are dot-defined and return the instance they created.
 - API: `GuiBuilderService.GetPlayerGui(): PlayerGui` — `WaitForChild("PlayerGui")` on the local player

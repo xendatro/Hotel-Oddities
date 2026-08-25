@@ -353,13 +353,6 @@ Client half of the throwable ball: raycasts through the mouse at Enemy-tagged pa
 - Tags: reads `Enemy` via `TagService:GetTaggedOfAncestor`
 - Requires: `Classes\ClientTool`, `TagService`, `ReplicatedStorage.Props.Other` (Ball prop)
 
-### Tools\Gravity Warper.luau
-Client half of the Gravity Warper: when the server confirms a use it tweens the anchored root up to the ceiling while flipping the character upside down, enables `WallstickService` so the player walks the ceiling, and after the warp duration disables it and tweens the character back down upright onto the floor. Aborts safely on death or removal at any stage.
-- API: `GravityWarper.new(tool: Tool) -> self` — registers the `Warp` handler
-- API: `GravityWarper:OnDestroy()` — disables Wallstick if a warp was live
-- Remotes: `Tools/Signal` (listened as event `Warp`, via `ToolBase:On`)
-- Requires: `Classes\ClientTool`, `CharacterService`, `WallstickService`
-
 ### Tools\Pathfinder.luau
 Drops breadcrumb markers on the floor beneath the player, ray-snapping to ground and refusing to place one within `MinSpacing` of an existing marker (it pulses that marker instead). Markers live in a module-level list shared by every Pathfinder instance, are re-shaded oldest-to-newest and culled past `MaxInWorld`. Shows a `ToolCounter` of uses left unless the player owns the unlimited-Pathfinder perk attribute.
 - API: `Pathfinder.new(tool: Tool) -> self`

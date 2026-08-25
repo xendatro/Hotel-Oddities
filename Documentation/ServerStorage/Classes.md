@@ -475,11 +475,11 @@ Server half of the flashlight: activation toggles the `SpotLight` in the handle 
 - Requires: `Classes\ServerTool`
 
 ### Tools\Gravity Warper.luau
-Server half of the Gravity Warper: on activation it verifies a ceiling exists above the holder, consumes one, tags the character with `Vanished.EyeExemptTag` ("IgnoreExceptEye") so every enemy except the Eye treats them as absent, and fires the `Warp` event to the client for the ceiling tween. The tag and the `GravityWarping` attribute clear after `Duration + DescendTime` or on death.
+Server half of the Gravity Warper: on activation it verifies a ceiling exists above the holder, consumes one, tags the character with `Vanished.EyeExemptTag` ("IgnoreExceptEye") so every enemy except the Eye treats them as absent, and fires `GravityWarp/Warp` to the holder's client so `GravityWarpService` runs the ceiling tween. Player, character and root are captured before `Consume`, because consuming the last charge destroys the Tool synchronously. The tag and the `GravityWarping` attribute clear after `AscendTime + Duration + DescendTime` or on death.
 - API: `GravityWarper.new(tool: Tool)`
-- Remotes: `Tools/Signal` (fired as event `Warp`, via `ToolBase:Fire`)
+- Remotes: `GravityWarp/Warp` (ensured and fired)
 - Tags: applies/removes `IgnoreExceptEye` on the character
-- Requires: `Classes\ServerTool`, `ReplicatedStorage.Services.CharacterService`, `ReplicatedStorage.Services.VanishedService`
+- Requires: `Classes\ServerTool`, `ReplicatedStorage.Services.CharacterService`, `ReplicatedStorage.Services.CommunicationService`, `ReplicatedStorage.Services.VanishedService`
 
 ### Tools\Medkit.luau
 Server half of the Medkit tool: a bare `Healer` subclass, identical behaviour to Bandage with its own config values.
