@@ -48,10 +48,10 @@ Client-only, gated on `FLAGS.Enemies`. Listens for the server's ceiling-vent doo
 - Requires: `Configs.FLAGS`, `TweenProxyService`
 
 ### ChaosLightService.luau
-Client-only. Watches `Floor1Light` models for the server-set `ChaosRed` attribute; when set it recolours every `Light` under the model to the config red, then releases it back to the captured baseline once the nearest `Chaos` model has passed by (or after a grace period from the server clearing the attribute).
+Client-only. Watches `Floor1Light` models for the server-set `ChaosRed` attribute; while it is true every `Light` under the model is recoloured to the config red, and the captured baseline colours are restored the moment the server clears it. Purely event-driven — no per-frame loop — and streaming-safe because the tag listener rebinds models as they stream in with the attribute already replicated.
 - API: `ChaosLightService:IsRed(model: Model) -> boolean` — whether that light model is currently forced red
-- Tags: listens `Floor1Light`; reads `Chaos`
-- Requires: `Configs.ChaosLightConfig`, `MathService`, `TagService`
+- Tags: listens `Floor1Light`
+- Requires: `Configs.ChaosLightConfig`, `TagService`
 
 ### ChaosWarningSoundService.luau
 Client-only. Tracks the "ChaosWarning" regions the server announces over `MapDoors`, and if the player is in a hallway (or a room whose doorway touches that region) plays looping `ChaosHallwayAmbience` emitters from an invisible anchor at the nearest point in the hallway, plus a one-shot `ChaosIncoming` sting when first coming within 24 studs.

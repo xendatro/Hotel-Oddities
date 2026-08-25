@@ -133,7 +133,6 @@ export type EnemyConfig = {
 	LightRouteRange: number?,
 	WarnRedCullRange: number?,
 	WarnHallwayCullRange: number?,
-	WarnCullRecheckInterval: number?,
 
 	SideSpacing: number?,
 	EndInset: number?,
@@ -412,7 +411,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		SpawnPeeking = true,
 
 		MinPeekDistance = 45,
-		MaxPeekDistance = 80,
+		MaxPeekDistance = 150,
 		RearArc = 300,
 
 		ViewCone = 140,
@@ -500,17 +499,15 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 		WalkSpeed = 70,
 		SpawnPlayerDistance = 100,
-		SpawnDelay = 4,
+		SpawnDelay = 7,
 		KillRange = 12,
-		WarningTime = 15,
+		WarningTime = 7,
 		LightPassDelay = 1.5,
 		LightRouteRange = 13,
 		WarnRedCullRange = 200,
 		WarnHallwayCullRange = 150,
-		WarnCullRecheckInterval = 1,
 		RouteHeight = 3,
 
-		DangerBias = 3,
 		MaxAlive = 1,
 	},
 

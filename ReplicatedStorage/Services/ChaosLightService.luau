@@ -1,9 +1,7 @@
-local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Configs.ChaosLightConfig)
-local MathService = require(ReplicatedStorage.Services.MathService)
 local TagService = require(ReplicatedStorage.Services.TagService)
 
 local ChaosLightService = {}
@@ -13,7 +11,6 @@ if not RunService:IsClient() then
 end
 
 local LIGHT_TAG = "Floor1Light"
-local CHAOS_TAG = "Chaos"
 local RED_ATTRIBUTE = "ChaosRed"
 
 type State = {
@@ -21,11 +18,6 @@ type State = {
 	Baseline: { [Light]: Color3 },
 	TagCount: number,
 	Red: boolean,
-	ServerReleased: boolean,
-	ReleasedAt: number?,
-	Near: boolean,
-	BestDistance: number,
-	ActiveIndex: number?,
 	AttributeConnection: RBXScriptConnection?,
 	DescendantConnection: RBXScriptConnection?,
 }
@@ -35,22 +27,20 @@ type Binding = {
 }
 
 local States: { [Model]: State } = {}
-local ActiveStates: { State } = {}
-local heartbeatConnection: RBXScriptConnection? = nil
+
+local function captureLight(state: State, light: Light)
+	if state.Baseline[light] ~= nil then return end
+	state.Baseline[light] = light.Color
+	if state.Red then
+		light.Color = Config.RedColor
+	end
+end
 
 local function applyRed(state: State)
 	for light in state.Baseline do
 		if light.Parent then
 			light.Color = Config.RedColor
 		end
-	end
-end
-
-local function captureLight(state: State, light: Light)
-	if state.Baseline[light] then return end
-	state.Baseline[light] = light.Color
-	if state.Red then
-		light.Color = Config.RedColor
 	end
 end
 
@@ -62,100 +52,16 @@ local function restore(state: State)
 	end
 end
 
-local function stopLoopIfIdle()
-	if #ActiveStates == 0 and heartbeatConnection then
-		heartbeatConnection:Disconnect()
-		heartbeatConnection = nil
+local function evaluate(state: State)
+	local red = state.Model:GetAttribute(RED_ATTRIBUTE) == true
+	if red == state.Red then return end
+
+	state.Red = red
+	if red then
+		applyRed(state)
+	else
+		restore(state)
 	end
-end
-
-local function removeActive(state: State)
-	local index = state.ActiveIndex
-	if not index then return end
-
-	local last = ActiveStates[#ActiveStates]
-	ActiveStates[index] = last
-	ActiveStates[#ActiveStates] = nil
-	state.ActiveIndex = nil
-	if last ~= state then
-		last.ActiveIndex = index
-	end
-	stopLoopIfIdle()
-end
-
-local function deactivate(state: State)
-	if not state.Red then return end
-	state.Red = false
-	restore(state)
-	removeActive(state)
-end
-
-local function update(now: number)
-	local chaosPositions = {}
-	for _, instance in CollectionService:GetTagged(CHAOS_TAG) do
-		if instance:IsA("Model") and instance:IsDescendantOf(workspace) then
-			table.insert(chaosPositions, instance:GetPivot().Position)
-		end
-	end
-
-	for index = #ActiveStates, 1, -1 do
-		local state = ActiveStates[index]
-		if state.Model.Parent == nil then
-			deactivate(state)
-			continue
-		end
-
-		local lightPosition = state.Model:GetPivot().Position
-		local nearestDistance = math.huge
-		for _, position in chaosPositions do
-			nearestDistance = math.min(
-				nearestDistance,
-				MathService.HorizontalMagnitude(position - lightPosition)
-			)
-		end
-
-		if nearestDistance <= Config.TrackDistance then
-			if not state.Near then
-				state.Near = true
-				state.BestDistance = nearestDistance
-			elseif nearestDistance < state.BestDistance then
-				state.BestDistance = nearestDistance
-			elseif nearestDistance > state.BestDistance + Config.PassRecession then
-				deactivate(state)
-			end
-		elseif state.ServerReleased
-			and state.ReleasedAt
-			and now - state.ReleasedAt >= Config.ServerReleaseGrace
-		then
-			deactivate(state)
-		end
-	end
-end
-
-local function startLoop()
-	if heartbeatConnection then return end
-	heartbeatConnection = RunService.Heartbeat:Connect(update)
-end
-
-local function activate(state: State)
-	if state.Red then
-		state.ServerReleased = false
-		state.ReleasedAt = nil
-		return
-	end
-
-	state.Red = true
-	state.ServerReleased = false
-	state.ReleasedAt = nil
-	state.Near = false
-	state.BestDistance = math.huge
-	applyRed(state)
-
-	if not state.ActiveIndex then
-		table.insert(ActiveStates, state)
-		state.ActiveIndex = #ActiveStates
-	end
-	startLoop()
 end
 
 local function bind(instance: Instance): Binding?
@@ -175,15 +81,11 @@ local function bind(instance: Instance): Binding?
 		Baseline = {},
 		TagCount = 1,
 		Red = false,
-		ServerReleased = true,
-		ReleasedAt = nil,
-		Near = false,
-		BestDistance = math.huge,
-		ActiveIndex = nil,
 		AttributeConnection = nil,
 		DescendantConnection = nil,
 	}
 	States[model] = state
+
 	for _, descendant in model:GetDescendants() do
 		if descendant:IsA("Light") then
 			captureLight(state, descendant)
@@ -191,12 +93,7 @@ local function bind(instance: Instance): Binding?
 	end
 
 	state.AttributeConnection = model:GetAttributeChangedSignal(RED_ATTRIBUTE):Connect(function()
-		if model:GetAttribute(RED_ATTRIBUTE) == true then
-			activate(state)
-		else
-			state.ServerReleased = true
-			state.ReleasedAt = os.clock()
-		end
+		evaluate(state)
 	end)
 	state.DescendantConnection = model.DescendantAdded:Connect(function(descendant)
 		if descendant:IsA("Light") then
@@ -204,15 +101,13 @@ local function bind(instance: Instance): Binding?
 		end
 	end)
 
-	if model:GetAttribute(RED_ATTRIBUTE) == true then
-		activate(state)
-	end
-
+	evaluate(state)
 	return { State = state }
 end
 
 local function unbind(_instance: Instance, binding: Binding?)
 	if not binding then return end
+
 	local state = binding.State
 	state.TagCount -= 1
 	if state.TagCount > 0 then return end
@@ -225,7 +120,10 @@ local function unbind(_instance: Instance, binding: Binding?)
 		state.DescendantConnection:Disconnect()
 		state.DescendantConnection = nil
 	end
-	deactivate(state)
+	if state.Red then
+		state.Red = false
+		restore(state)
+	end
 	States[state.Model] = nil
 end
 

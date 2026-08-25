@@ -50,8 +50,6 @@ return {
 
 	PatrolCarpetWidth = 6.75,
 
-	RouteDangerWeight = 0.5,
-
 	Director = {
 		Residents = {
 			Chaser = { Count = 2 },
@@ -65,7 +63,7 @@ return {
 
 		ResidentRespawnDelay = 25,
 
-		ChaosInterval = 180,
+		ChaosInterval = 120,
 
 		StalkerRotationInterval = 60,
 		StalkerSpawnAttempts = 3,

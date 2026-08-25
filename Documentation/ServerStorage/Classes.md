@@ -183,7 +183,7 @@ A Chaser that spawns on the ceiling and physically drops onto the floor before b
 ### Enemies\Chaos.luau
 Not an NPC at all — a fast-moving hazard that sweeps a precomputed route of points, killing any player whose distance to the travelled segment is within `KillRange` and granting a discovery event on near misses. It pivots the model along the route each Heartbeat rather than pathfinding.
 - API: `Chaos.new(model: Model, config, route: { Vector3 }, warningToken) -> self` — root part is `model.Chaos`; two-state Run/Despawn machine.
-- API: `Chaos:TravelRoute()` — lerps along each route leg, sweeping for kills.
+- API: `Chaos:TravelRoute()` — lerps along each route leg, sweeping for kills; the final leg ends at the wall crash point, where it despawns.
 - API: `Chaos:OnStart()` — anchors the root.
 - API: `Chaos:OnDespawn() -> number?` — cancels the warning token, disables particles, lingers for their lifetime.
 - Tags: applies `Enemy`, `Chaos`

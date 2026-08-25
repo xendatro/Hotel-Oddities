@@ -20,7 +20,7 @@ Walk-cycle camera bob amplitude, cadence and speed scaling.
 
 ### ChaosLightConfig.luau
 Red hallway-light warning that precedes the Chaos enemy.
-- API: data table — `RedColor`, `TrackDistance`, `PassRecession`, `ServerReleaseGrace`
+- API: data table — `RedColor`
 
 ### ChaseMusicConfig.luau
 Per-enemy chase music tracks with range, volume and fade rates.

@@ -18,11 +18,11 @@ Watches players approaching parts tagged `CeilingVent` and, when one walks under
 - Requires: `Services.VanishedService`, `CrouchConfig`, `DangerConfig.ProgrammaticVents`, `DangerMapService`, `EnemyService`, `EnemyDirectorService`, `TagService`, `HallwayGraphService`, `NpcAnimator`, `EnemyConfigs.CeilingDweller`, `Classes.SurfaceWalker`
 
 ### ChaosService.luau
-Plans a long looping hallway route through the graph, schedules red-light and hallway-oddity warnings timed to the enemy's arrival at each point, then spawns the Chaos enemy to walk that route. Warnings are culled while no player is near and can be cancelled wholesale before the spawn fires.
-- API: `ChaosService:Spawn(onSpawned: ((any) -> ())?) -> boolean` — random loop route from a danger-weighted start node
-- API: `ChaosService:SpawnThrough(player: Player, onSpawned: ((any) -> ())?) -> boolean` — route forced through the player's current position
+Picks a random graph node far from every player, walks the hallway graph greedily node by node — random unvisited neighbor each step — until no unvisited neighbor remains, then appends a crash waypoint raycast into the wall along the final running direction; Chaos despawns there. A single polling scheduler fires each light's red warning (`LightService:WarnRed`) and each straight span's `ChaosWarning` oddity `WarningTime` (7s) before Chaos's timed arrival, holding any warning whose players are outside its cull range until they come near or it expires. The spawn is re-checked for player clearance when the delay elapses.
+- API: `ChaosService:Spawn(onSpawned: ((any) -> ())?) -> boolean` — greedy route from a uniform random far-from-players node
+- API: `ChaosService:SpawnThrough(player: Player, onSpawned: ((any) -> ())?) -> boolean` — Dijkstra approach to the caller's nearest node, then greedy continuation
 - API: `ChaosService:CancelPending() -> number` — cancels every scheduled spawn/warning, returns how many
-- Requires: `Services.HallwaysService`, `EnemyConfigs.Chaos`, `HallwayGraphService`, `DangerMapService`, `LightService:WarnRed`, `MapOddityService:Warn`, `EnemyService`
+- Requires: `Services.HallwaysService`, `EnemyConfigs.Chaos`, `HallwayGraphService`, `LightService:WarnRed`, `MapOddityService:Warn`, `EnemyService`
 
 ### ChaseFlickerService.luau
 Background loop that flickers the lights in the hallway containing a chased player whenever a CeilingDweller or Mimic is in a Chase or Attack state. No public API; disabled when `FLAGS.Enemies` is off.
