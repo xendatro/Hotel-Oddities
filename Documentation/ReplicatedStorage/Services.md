@@ -649,10 +649,12 @@ Generic helper for tweening things TweenService cannot touch directly: it create
 - API: `TweenProxyService.CancelAll(tweens: { Tween })` — cancels and clears the list in place
 
 ### VanishedService.luau
-One-question helper for whether a character should be treated as absent: it carries the `Ignore` tag or has a ForceField anywhere inside it.
-- API: `Vanished.Is(character: Instance?) -> boolean` — tagged `Ignore` or contains a ForceField
+One-question helper for whether a character should be treated as absent: it carries the `Ignore` tag, the `IgnoreExceptEye` tag or has a ForceField anywhere inside it. The Eye enemy uses `IsForEye`, which deliberately skips the `IgnoreExceptEye` tag so it can still damage ceiling-warped players.
+- API: `Vanished.Is(character: Instance?) -> boolean` — tagged `Ignore`, tagged `IgnoreExceptEye` or contains a ForceField
+- API: `Vanished.IsForEye(character: Instance?) -> boolean` — tagged `Ignore` or contains a ForceField only
 - API: `Vanished.Tag` — the string `"Ignore"`
-- Tags: reads `Ignore`
+- API: `Vanished.EyeExemptTag` — the string `"IgnoreExceptEye"`
+- Tags: reads `Ignore`, `IgnoreExceptEye`
 ### ViewmodelService.luau
 Client first-person viewmodel: clones the equipped Tool (stripped of scripts, sounds and effects) under the camera, hides the real tool, and each render step positions the clone from camera CFrame plus yaw sway and speed-scaled bob. Auto-hides when not in first person or when the character's real hand is visible; supports per-tool anchor/rotation overrides.
 - API: none — side-effect only.

@@ -208,7 +208,7 @@ An ambient, stationary eye-cluster: it clones its eye plate into a randomly scat
 - Notes: extends EnemyBase; overrides `OnStart` / `OnDespawn`
 
 ### Enemies\Eye.luau
-A static staring hazard that damages players for looking at it: damage accrues per player from the view angle (centre hurts more than edge, with a falloff exponent) and is applied in discrete hits, telling the client each time. A `Visor` tool, a safe room, or being vanished makes a player immune; a stun pauses the stare.
+A static staring hazard that damages players for looking at it: damage accrues per player from the view angle (centre hurts more than edge, with a falloff exponent) and is applied in discrete hits, telling the client each time. A `Visor` tool, a safe room, or being vanished makes a player immune (via `Vanished.IsForEye`, so the Gravity Warper's `IgnoreExceptEye` tag does not protect against it); a stun pauses the stare.
 - API: `Eye.new(model: Model, config) -> self` — Stare/Stunned machine, per-player damage progress table.
 - API: `Eye.FromModel(model: Instance?) -> any?` — reverse lookup for live Eyes.
 - API: `Eye:GetViewAngle(player: Player) -> number?` — nil when out of range or not vulnerable.
@@ -473,6 +473,13 @@ Server half of the flashlight: activation toggles the `SpotLight` in the handle 
 - API: `Flashlight:OnActivated()` — toggle plus click sound
 - API: `Flashlight:OnUnequipped()` / `Flashlight:OnDestroy()` — force off
 - Requires: `Classes\ServerTool`
+
+### Tools\Gravity Warper.luau
+Server half of the Gravity Warper: on activation it verifies a ceiling exists above the holder, consumes one, tags the character with `Vanished.EyeExemptTag` ("IgnoreExceptEye") so every enemy except the Eye treats them as absent, and fires the `Warp` event to the client for the ceiling tween. The tag and the `GravityWarping` attribute clear after `Duration + DescendTime` or on death.
+- API: `GravityWarper.new(tool: Tool)`
+- Remotes: `Tools/Signal` (fired as event `Warp`, via `ToolBase:Fire`)
+- Tags: applies/removes `IgnoreExceptEye` on the character
+- Requires: `Classes\ServerTool`, `ReplicatedStorage.Services.CharacterService`, `ReplicatedStorage.Services.VanishedService`
 
 ### Tools\Medkit.luau
 Server half of the Medkit tool: a bare `Healer` subclass, identical behaviour to Bandage with its own config values.

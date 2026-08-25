@@ -176,7 +176,7 @@ Corridor-streaming settings — prediction, replication lead times, reconciliati
 
 ### ToolConfigs.luau
 Per-tool settings keyed by tool name, giving each tool its CollectionService tag plus its own behaviour values (heal amounts, stun durations, cooldowns, sounds). Exports a `ToolConfig` type.
-- API: data table — one entry per tool: `Flashlight`, `Bandage`, `Medkit`, `SpellBook`, `Trap`, `Ball`, `Shovel`, `Pathfinder`, `Soda`, `Energy Drink`, `Visor`, `Player Locator`, `Walkie Talkie`
+- API: data table — one entry per tool: `Flashlight`, `Bandage`, `Medkit`, `SpellBook`, `Trap`, `Ball`, `Shovel`, `Pathfinder`, `Soda`, `Energy Drink`, `Visor`, `Gravity Warper`, `Player Locator`, `Walkie Talkie`
 
 ### ViewmodelConfig.luau
 Placement, scale, sway/bob and per-tool orientation overrides for the first-person viewmodel and its fake arm.

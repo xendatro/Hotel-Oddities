@@ -160,7 +160,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\TagService.luau — The tag-to-module pipeline: registers apply/unapply callbacks per CollectionService tag and stores the data they return.
 - ReplicatedStorage\Services\ToolClientService.luau — Bootstraps tool classes for the local player's tools and routes server tool events to them.
 - ReplicatedStorage\Services\TweenProxyService.luau — Tweens arbitrary values through a throwaway ValueBase and a callback, including model scaling.
-- ReplicatedStorage\Services\VanishedService.luau — Checks whether a character is tagged Ignore or holds a ForceField.
+- ReplicatedStorage\Services\VanishedService.luau — Checks whether a character is tagged Ignore or IgnoreExceptEye or holds a ForceField, with an Eye-specific check that skips the exempt tag.
 - ReplicatedStorage\Services\ViewmodelService.luau — First-person viewmodel that clones the equipped tool under the camera with sway and bob.
 - ReplicatedStorage\Services\VoiceActivityService.luau — Detects when the local player is speaking from an AudioAnalyzer and reports it to the server.
 - ReplicatedStorage\Services\VoiceDebugService.luau — Debug panel of sliders for local proximity-voice and radio volumes.
@@ -205,6 +205,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\Minigames\Simon.luau — Simon-says minigame; repeat a growing four-pad sequence up to length seven.
 - ReplicatedStorage\Classes\Minigames\Snake.luau — Snake minigame on a 16x12 grid; eat fifteen pellets as the tick speeds up.
 - ReplicatedStorage\Classes\Tools\Ball.luau — Client ball tool; throws a ball prop at a targeted enemy and reports the hit to the server.
+- ReplicatedStorage\Classes\Tools\Gravity Warper.luau — Client gravity warper; tweens the player onto the ceiling, runs WallstickService for the warp duration, then tweens them back down.
 - ReplicatedStorage\Classes\Tools\Pathfinder.luau — Client pathfinder tool; drops limited, shaded breadcrumb markers on the floor.
 - ReplicatedStorage\Classes\Tools\Player Locator.luau — Client tool that enables PlayerLocatorService while equipped.
 - ReplicatedStorage\Classes\Tools\Shovel.luau — Client shovel tool; plays the dig sequence and asks the server to create an escape hole.
@@ -414,6 +415,7 @@ become Services or Classes.
 - ServerStorage\Classes\Tools\Bandage.luau — Server half of the Bandage tool; a plain Healer subclass.
 - ServerStorage\Classes\Tools\Energy Drink.luau — Server half of the Energy Drink tool; a plain SpeedDrink subclass.
 - ServerStorage\Classes\Tools\Flashlight.luau — Server half of the flashlight, toggling the handle spotlight on activation.
+- ServerStorage\Classes\Tools\Gravity Warper.luau — Server half of the gravity warper; consumes one, tags the character IgnoreExceptEye for the warp duration and cues the client tween.
 - ServerStorage\Classes\Tools\Medkit.luau — Server half of the Medkit tool; a plain Healer subclass.
 - ServerStorage\Classes\Tools\Pathfinder.luau — Server half of the Pathfinder, spending a use per placed marker unless the perk is owned.
 - ServerStorage\Classes\Tools\Soda.luau — Server half of the Soda tool; a plain SpeedDrink subclass.

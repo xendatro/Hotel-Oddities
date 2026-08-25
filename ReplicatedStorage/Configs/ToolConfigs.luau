@@ -107,6 +107,15 @@ return {
 		LightingOutTime = 0.45,
 	},
 
+	["Gravity Warper"] = {
+		Tag = "Gravity Warper",
+		Cooldown = 2,
+		Duration = 30,
+		AscendTime = 1.2,
+		DescendTime = 1,
+		MaxCeilingDistance = 60,
+	},
+
 	["Player Locator"] = {
 		Tag = "Player Locator",
 	},

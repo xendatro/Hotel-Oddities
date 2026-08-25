@@ -38,7 +38,7 @@ end
 local function getVulnerable(player: Player, config): Model?
 	local character = player.Character
 	if not character or not CharacterService.IsAlive(character) then return nil end
-	if Vanished.Is(character) then return nil end
+	if Vanished.IsForEye(character) then return nil end
 	if hasVisor(character) then return nil end
 	if config.RespectsSafeRooms and RoomService:IsInRoom(player) then return nil end
 	return character
