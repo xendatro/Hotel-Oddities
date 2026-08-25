@@ -4,11 +4,13 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local Hallways = require(ReplicatedStorage.Services.HallwaysService)
 local DeathService = require(ServerStorage.Services.DeathService)
 local HallwayOddity = require(ServerStorage.Classes.HallwayOddity)
 local HallwayRegion = require(ServerStorage.Services.HallwayRegionService)
 local HallwayWall = require(ServerStorage.Services.HallwayWallService)
+local EnemyService = require(ServerStorage.Services.EnemyService)
 local Oddity = require(ServerStorage.Classes.Oddity)
 
 local ODDITY_FOLDER_NAME = "Oddities"
@@ -19,6 +21,14 @@ local CROSS_FIXTURE_SPAN = 8
 local FLAT_FIXTURE_SPAN = 3
 local JAMB_THICKNESS = 0.25
 local TEXTURE_SIGN = -1
+local DOORWAY_GAP = 8
+local SEAM_OVERLAP = 0.06
+local SEAL_LIFT = 0.02
+local ALCOVE_MARGIN = 0.5
+
+local MapCrush = CommunicationService.Ensure("Oddities", "MapCrush")
+
+local Running: { [number]: any } = {}
 
 type Candidate = {
 	Span: HallwayRegion.Span,
@@ -53,6 +63,15 @@ type Shrinker = {
 	Part: BasePart,
 	Size: Vector3,
 	Axis: Vector3,
+}
+
+type Alcove = {
+	Along: number,
+	HalfWidth: number,
+	Sign: number,
+	Inner: number,
+	Outer: number,
+	Top: number,
 }
 
 type Reveal = {
@@ -107,10 +126,18 @@ local function candidateFromSpan(class: any, span: HallwayRegion.Span?, position
 	return { Span = span, Frame = frame }
 end
 
+local function inMouth(mouths: { HallwayWall.Mouth }, sign: number, along: number): boolean
+	for _, mouth in mouths do
+		if mouth.Sign == sign and along > mouth.Minimum and along < mouth.Maximum then return true end
+	end
+	return false
+end
+
 local function pieceIntervals(
 	wall: HallwayWall.Wall,
 	frame: HallwayWall.Frame,
-	cuts: { number }
+	cuts: { number },
+	mouths: { HallwayWall.Mouth }
 ): { { Minimum: number, Maximum: number, Moving: boolean } }
 	local boundaries = { wall.Minimum, wall.Maximum }
 	for _, cut in cuts do
@@ -130,7 +157,9 @@ local function pieceIntervals(
 		table.insert(pieces, {
 			Minimum = minimum,
 			Maximum = maximum,
-			Moving = middle > frame.Minimum and middle < frame.Maximum,
+			Moving = middle > frame.Minimum
+				and middle < frame.Maximum
+				and not inMouth(mouths, wall.Sign, middle),
 		})
 	end
 	return pieces
@@ -141,13 +170,21 @@ local function setPiece(
 	edit: WallEdit,
 	wall: HallwayWall.Wall,
 	frame: HallwayWall.Frame,
-	piece: { Minimum: number, Maximum: number }
+	piece: { Minimum: number, Maximum: number, Moving: boolean },
+	previous: { Moving: boolean }?,
+	following: { Moving: boolean }?
 )
-	local length = piece.Maximum - piece.Minimum
-	local baseLength = wall.Maximum - wall.Minimum
-	local shift = (piece.Minimum + piece.Maximum) / 2 - (wall.Minimum + wall.Maximum) / 2
+	local minimum = piece.Minimum
+	local maximum = piece.Maximum
+	if previous and previous.Moving == piece.Moving then minimum -= SEAM_OVERLAP end
+	if following and following.Moving == piece.Moving then maximum += SEAM_OVERLAP end
 
-	part.Size = edit.Size + wall.LengthAxis * (length - baseLength)
+	local length = maximum - minimum
+	local baseLength = wall.Maximum - wall.Minimum
+	local shift = (minimum + maximum) / 2 - (wall.Minimum + wall.Maximum) / 2
+	local lift = if piece.Moving and wall.Sign > 0 then SEAL_LIFT else 0
+
+	part.Size = edit.Size + wall.LengthAxis * (length - baseLength) + Vector3.yAxis * lift
 	part.CFrame = edit.CFrame + frame.Axis * shift
 
 	local offset = shift * wall.LengthSign * TEXTURE_SIGN
@@ -191,6 +228,10 @@ function HallwayCrush.new(config: { [string]: any }?)
 	self.Candidate = nil :: Candidate?
 	self.Edits = {} :: { WallEdit }
 	self.Movers = {} :: { Mover }
+	self.Coverage = { {}, {} } :: { { HallwayWall.Interval } }
+	self.Lethal = {} :: { HallwayWall.Interval }
+	self.Alcoves = {} :: { Alcove }
+	self.SealedAt = nil :: number?
 	self.Shifters = {} :: { Shifter }
 	self.Shrinkers = {} :: { Shrinker }
 	self.Reveals = {} :: { Reveal }
@@ -227,8 +268,9 @@ end
 
 function HallwayCrush:_collectWalls(frame: HallwayWall.Frame)
 	local cuts = HallwayWall.CutPoints(frame)
+	local mouths = HallwayWall.Mouths(frame)
 	for _, wall in HallwayWall.Walls(frame) do
-		local pieces = pieceIntervals(wall, frame, cuts)
+		local pieces = pieceIntervals(wall, frame, cuts, mouths)
 		if #pieces == 0 then continue end
 
 		local part = wall.Part
@@ -255,7 +297,7 @@ function HallwayCrush:_collectWalls(frame: HallwayWall.Frame)
 				table.insert(edit.Clones, target)
 			end
 
-			setPiece(target, edit, wall, frame, piece)
+			setPiece(target, edit, wall, frame, piece, pieces[index - 1], pieces[index + 1])
 			if index > 1 then target.Parent = edit.Parent end
 			if not piece.Moving then continue end
 
@@ -266,6 +308,8 @@ function HallwayCrush:_collectWalls(frame: HallwayWall.Frame)
 				Size = target.Size,
 				ThicknessAxis = wall.ThicknessAxis,
 			})
+			local side = if wall.Sign > 0 then self.Coverage[1] else self.Coverage[2]
+			table.insert(side, { Minimum = piece.Minimum, Maximum = piece.Maximum })
 			self.ClearHalfWidth = math.min(
 				self.ClearHalfWidth,
 				math.abs(wall.Offset) - wall.Thickness / 2
@@ -340,6 +384,15 @@ function HallwayCrush:_collectReveals(frame: HallwayWall.Frame, structure: Model
 		local height = top - frame.FloorY
 		if width <= 0 or height <= 0 then continue end
 
+		table.insert(self.Alcoves, {
+			Along = offset:Dot(frame.Axis),
+			HalfWidth = width / 2,
+			Sign = sign,
+			Inner = math.abs(across) - extentAlong(doorway, frame.Across) / 2,
+			Outer = outward,
+			Top = top,
+		})
+
 		local base = frame.Center + frame.Axis * offset:Dot(frame.Axis) + frame.Across * (sign * outward)
 		local middle = Vector3.new(base.X, frame.FloorY + height / 2, base.Z)
 		table.insert(self.Reveals, {
@@ -389,25 +442,122 @@ function HallwayCrush:_apply(offset: number)
 	end
 end
 
-function HallwayCrush:_crush()
+function HallwayCrush:_buildLethal()
+	local positive = HallwayWall.Merge(self.Coverage[1], DOORWAY_GAP)
+	local negative = HallwayWall.Merge(self.Coverage[2], DOORWAY_GAP)
+	local both = HallwayWall.Merge(HallwayWall.Intersect(positive, negative), 0)
+	self.Lethal = HallwayWall.Inset(both, math.max(self:Setting("SafeMargin", 2), 0))
+end
+
+function HallwayCrush:_clearWidth(): number
+	return (self.ClearHalfWidth - self.Offset) * 2
+end
+
+function HallwayCrush:_inAlcove(position: Vector3): boolean
 	local frame = (self.Candidate :: Candidate).Frame
-	local clear = (self.ClearHalfWidth - self.Offset) * 2
-	if clear > math.max(self:Setting("KillWidth", 2.2), 0) then return end
+	local offset = position - frame.Center
+	local along = offset:Dot(frame.Axis)
+	local across = offset:Dot(frame.Across)
+
+	local killOffset = self.ClearHalfWidth - math.max(self:Setting("KillWidth", 2.2), 0) / 2
+	local carried = math.min(self.Offset, killOffset)
+
+	for _, alcove in self.Alcoves do
+		if math.abs(along - alcove.Along) > alcove.HalfWidth + ALCOVE_MARGIN then continue end
+		if position.Y > alcove.Top or position.Y < frame.FloorY - ALCOVE_MARGIN then continue end
+
+		local depth = across * alcove.Sign
+		if depth >= alcove.Inner - carried and depth <= alcove.Outer + ALCOVE_MARGIN then
+			return true
+		end
+	end
+	return false
+end
+
+function HallwayCrush:_isCaught(position: Vector3, slack: number): boolean
+	local frame = (self.Candidate :: Candidate).Frame
+	if not HallwayWall.Contains(frame, position) then return false end
+	if self:_inAlcove(position) then return false end
+
+	local along = (position - frame.Center):Dot(frame.Axis)
+	for _, interval in self.Lethal do
+		if along >= interval.Minimum - slack and along <= interval.Maximum + slack then return true end
+	end
+	return false
+end
+
+function HallwayCrush:_crushEnemies()
+	EnemyService:ForEachActive(function(enemy: any)
+		if not enemy.Active then return end
+
+		local model = enemy.Model
+		if not model or not model.Parent then return end
+		if not self:_isCaught(model:GetPivot().Position, 0) then return end
+		enemy:Despawn()
+	end)
+end
+
+function HallwayCrush:Crush(player: Player, slack: number): boolean
+	if not self.Active or self.Killed[player] then return false end
+
+	local tolerance = math.max(self:Setting("KillTolerance", 0.75), 0)
+	if self:_clearWidth() > math.max(self:Setting("KillWidth", 2.2), 0) + tolerance then return false end
+
+	local root = CharacterService.GetAliveRoot(player)
+	if not root or not self:_isCaught(root.Position, slack) then return false end
+
+	local humanoid = CharacterService.GetHumanoid(root.Parent :: Model)
+	if not humanoid or humanoid.Health <= 0 then return false end
+
+	self.Killed[player] = true
+	DeathService:RecordCause(player, "HallwayCrush")
+	humanoid.Health = 0
+	return true
+end
+
+function HallwayCrush:_backstop()
+	if self:_clearWidth() > math.max(self:Setting("KillWidth", 2.2), 0) then
+		self.SealedAt = nil
+		return
+	end
+
+	if not self.SealedAt then self:_crushEnemies() end
+	self.SealedAt = self.SealedAt or os.clock()
+	if os.clock() - self.SealedAt < math.max(self:Setting("BackstopDelay", 1.5), 0) then return end
 
 	for _, player in Players:GetPlayers() do
-		if self.Killed[player] then continue end
-
-		local root = CharacterService.GetAliveRoot(player)
-		if not root or not HallwayWall.Contains(frame, root.Position) then continue end
-
-		local humanoid = CharacterService.GetHumanoid(root.Parent :: Model)
-		if not humanoid or humanoid.Health <= 0 then continue end
-
-		self.Killed[player] = true
-		DeathService:RecordCause(player, "HallwayCrush")
-		humanoid.Health = 0
+		self:Crush(player, 0)
 	end
 end
+
+function HallwayCrush:_broadcast()
+	local frame = (self.Candidate :: Candidate).Frame
+	MapCrush:FireAllClients("Start", self.Token, {
+		Center = frame.Center,
+		Axis = frame.Axis,
+		Across = frame.Across,
+		HalfWidth = frame.HalfWidth,
+		FloorY = frame.FloorY,
+		HeightWindow = HallwayWall.HeightWindow,
+		BelowWindow = HallwayWall.BelowWindow,
+		Lethal = self.Lethal,
+		Alcoves = self.Alcoves,
+		AlcoveMargin = ALCOVE_MARGIN,
+		ClearHalfWidth = self.ClearHalfWidth,
+		KillWidth = math.max(self:Setting("KillWidth", 2.2), 0),
+		MaximumOffset = self.MaximumOffset,
+		CloseTime = math.max(self:Setting("CloseTime", 9), 0.1),
+		StartedAt = workspace:GetServerTimeNow(),
+	})
+end
+
+MapCrush.OnServerEvent:Connect(function(player: Player, action: any, token: any)
+	if action ~= "Crushed" or type(token) ~= "number" then return end
+
+	local oddity = Running[token]
+	if not oddity then return end
+	oddity:Crush(player, math.max(oddity:Setting("SafeMargin", 2), 0))
+end)
 
 function HallwayCrush:CanStart(context: any): (boolean, string?)
 	local candidate = if type(context) == "table" and context.Frame then context :: Candidate else nil
@@ -452,7 +602,10 @@ function HallwayCrush:OnStart(): boolean
 	self:_apply(0)
 
 	self.MaximumOffset = math.max(self.ClearHalfWidth + math.max(self:Setting("SealOverlap", 0.3), 0), 0)
+	self:_buildLethal()
 	table.insert(ActiveSpans, candidate.Span)
+	Running[self.Token] = self
+	self:_broadcast()
 
 	local closeTime = math.max(self:Setting("CloseTime", 9), 0.1)
 	local stepInterval = math.max(self:Setting("StepInterval", 1 / 30), 0)
@@ -469,7 +622,7 @@ function HallwayCrush:OnStart(): boolean
 
 		local alpha = elapsed / closeTime
 		self:_apply(self.MaximumOffset * alpha * alpha * (3 - 2 * alpha))
-		self:_crush()
+		self:_backstop()
 	end)
 	return true
 end
@@ -486,6 +639,10 @@ function HallwayCrush:_restore()
 	end
 	table.clear(self.Edits)
 	table.clear(self.Movers)
+	table.clear(self.Lethal)
+	table.clear(self.Alcoves)
+	table.clear(self.Coverage[1])
+	table.clear(self.Coverage[2])
 
 	for _, shifter in self.Shifters do
 		if shifter.Model.Parent then shifter.Model:PivotTo(shifter.Pivot) end
@@ -515,6 +672,10 @@ function HallwayCrush:OnStop()
 	if self.StepConnection then
 		self.StepConnection:Disconnect()
 		self.StepConnection = nil
+	end
+	if Running[self.Token] then
+		Running[self.Token] = nil
+		MapCrush:FireAllClients("Stop", self.Token)
 	end
 	if not self.Candidate then return end
 
