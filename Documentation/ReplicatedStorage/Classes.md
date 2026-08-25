@@ -45,7 +45,8 @@ Builds a keyboard-toggled developer overlay ScreenGui with labels, buttons and d
 
 ### DoorPart.luau
 Spring-driven swinging door leaf: picks a hinge side from who opened it, swings toward the opener, and can be driven instead by the length of the door audio clip. Also carries "oddity" claims (tokens that force the door open or make it swing chaotically on a random interval) and a forced-shut mode.
-- API: `DoorPart.new(part: BasePart) -> DoorPart` — captures the closed pivot and outward direction from the parent `Door` model
+- API: `DoorPart.new(part: BasePart) -> DoorPart` — captures the closed pivot and outward direction from the parent `Door` model, plus the doorway's `DoorConfig.AnchorName` part as a moving anchor
+- API: `DoorPart:_syncAnchor() -> boolean` — rebases the closed pivot, hinge, arm and outward vector off the anchor's current CFrame, so a doorway the server moves (as `HallwayCrush` does) carries its leaf with it instead of the client dragging the leaf back to a stale pivot; a no-op when the anchor has not moved
 - API: `DoorPart:IsOpen() -> boolean`
 - API: `DoorPart:IsInside(position: Vector3) -> boolean` — is the point behind the door's outward face
 - API: `DoorPart:SetOpen(open: boolean, from: Vector3?)` — normal open/close; ignored while oddity claims exist

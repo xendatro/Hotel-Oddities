@@ -350,6 +350,28 @@ Extends `HallwayOddity`. Full panic event in one hallway: lights flicker chaotic
 - Remotes: `Oddities/MapDoors` (fired)
 - Requires: `Classes\HallwayOddity`, `Services\LightService`
 
+### Oddities\HallwayCrush.luau
+Extends `HallwayOddity`. Closes both walls of a straight hallway in until they meet, sealing the corridor. `HallwayWallService` supplies the frame, the junction mouths and the wall strips; the run is capped to `MaxLength` by snapping outward to whole intersections, and every wall strip is split at the **union** of the mouth boundaries from *both* sides, so a wall that would otherwise sail straight past a T or L opening on the far side is cut there and the two sides terminate at identical positions. Each in-span piece then keeps its outer face pinned and grows inward -- thickness `+= offset`, centre moves in by `offset / 2` -- so the corridor narrows with no sightline opening up behind the wall. Split wallpaper pieces get a compensating `OffsetStudsU` so the tiling stays continuous across the new seam. Pilasters, hallway lanterns, paintings and whole doorways shift inward by the same offset, the station's centred `CeilingBeam` shrinks by twice it, and each doorway gains three generated jamb slabs that line the reveal the moving door leaves behind, so walking through a door leads down a short stub before the room. Floors, carpet runners and ceilings are untouched, because the corridor only ever narrows. Once the clear width drops below `KillWidth`, every living player still inside dies with cause `HallwayCrush`, once each -- the kill is computed from the gap, not from touching a wall. On stop the walls slide back over `OpenTime` and every edited part, clone and pivot is restored exactly.
+- API: `HallwayCrush.new(config: { [string]: any }?)` — adds `self.Candidate`, `self.Edits`, `self.Movers`, `self.Shifters`, `self.Shrinkers`, `self.Reveals`, `self.Structure`, `self.Killed`
+- API: `HallwayCrush.Resolve(class: any, position: Vector3) -> Candidate?` — manual placement candidate, limited around the request position
+- API: `HallwayCrush.Pick(class: any) -> Candidate?` — random span biased toward occupied ones by `OccupiedChance`
+- API: `HallwayCrush:CanStart(context: any) -> (boolean, string?)`, `HallwayCrush:Start(context: any, duration: number?) -> boolean`
+- API: `HallwayCrush:OnStart() -> boolean` — splits the walls, collects the fixtures, builds the reveals, starts the closing loop
+- API: `HallwayCrush:OnStop()` — retracts over `OpenTime`, then restores every edit and frees the span
+- Tags: reads `HallwayWall`, `HallwayStation`, `PictureFrame`, `Doorway`
+- Requires: `Classes\HallwayOddity`, `Classes\Oddity`, `Services\HallwayWallService`, `Services\HallwayRegionService`, `Services\DeathService`, `ReplicatedStorage\Services\HallwaysService`, `ReplicatedStorage\Services\CharacterService`
+
+### Oddities\HallwayVoid.luau
+Extends `HallwayOddity`. Opens a bottomless pit in a hallway: the span is trimmed back to the far edge of each junction it meets — measured from the crossing corridor's own footprint, whether that corridor runs through the junction or merely ends at it, plus `IntersectionInset` — so an intersection and every side-corridor mouth keep their floor, then the floor slabs and carpet runners overlapping that rectangle are subtracted from — each part is resized to its first remaining piece and cloned for the rest, so cross-hallway floors at an intersection lose only the overlap and nothing is left hanging over the hole. Dark walls line the shaft, sunk beneath the thickest floor or carpet slab they sit under so nothing z-fights, stacked translucent layers fade the drop to black, a single plank crosses the gap, and anything that falls past `KillDepth` inside the opening dies with cause `HallwayVoid`. Every edited part is restored on stop.
+- API: `HallwayVoid.new(config: { [string]: any }?)` — adds `self.Candidate`, `self.Edits`, `self.Structure`, `self.KillConnection`
+- API: `HallwayVoid.Resolve(class: any, position: Vector3) -> Candidate?` — manual placement candidate for a position
+- API: `HallwayVoid.Pick(class: any) -> Candidate?` — random span whose floor can be cut, unoccupied and unseen
+- API: `HallwayVoid:CanStart(context: any) -> (boolean, string?)`, `HallwayVoid:Start(context: any, duration: number?) -> boolean`
+- API: `HallwayVoid:OnStart() -> boolean` — cuts the floor, builds the shaft, arms the kill loop
+- API: `HallwayVoid:OnStop()` — destroys the shaft, restores every cut part, frees the span
+- Tags: reads `MazeFloor`, re-applies it to cut floor pieces
+- Requires: `Classes\HallwayOddity`, `Classes\Oddity`, `Services\GazeService`, `Services\DeathService`, `Services\HallwayRegionService`, `Services\RoomService`, `ReplicatedStorage\Services\HallwaysService`, `ReplicatedStorage\Services\HallwayGraphService`, `ReplicatedStorage\Services\CharacterService`
+
 ### Oddities\LanternFall.luau
 Extends `FixtureFall` (via `PropOddity`). Unanchors a ceiling lantern so it falls, killing its light while it is down and restoring the light plus the `Floor1Light` tag when the fixture is put back.
 - API: `LanternFall.new(config: { [string]: any }?)` — adds `self.LightClaim`
