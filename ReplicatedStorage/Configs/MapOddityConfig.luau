@@ -44,6 +44,43 @@ return {
 			BlockerColor = Color3.fromRGB(18, 23, 28),
 			BlockerMaterial = Enum.Material.Glass,
 		},
+		HallwayVoid = {
+			RollInterval = 300,
+			InitialDelay = 120,
+			TriggerChance = 0.15,
+			MinDuration = 60,
+			MaxDuration = 120,
+
+			SpanPadding = 0,
+			WidthPadding = 0.25,
+			IntersectionInset = 0.5,
+			PickAttempts = 96,
+
+			GazeCone = 120,
+			GazeDistance = 1000000,
+
+			WallThickness = 0.8,
+			WallTransparency = 0,
+			WallColor = Color3.fromRGB(18, 18, 18),
+			WallMaterial = Enum.Material.Slate,
+
+			PlankThickness = 0.35,
+			PlankWidth = 1.2,
+			PlankOverhang = 0.25,
+			PlankLift = 0.04,
+			PlankColor = Color3.fromRGB(111, 70, 38),
+			PlankMaterial = Enum.Material.WoodPlanks,
+
+			VoidDepth = 36,
+			VoidLayerCount = 12,
+			VoidLayerThickness = 0.3,
+			VoidLayerGap = 2.5,
+			VoidTopOffset = 3,
+			VoidEdgeInset = 0,
+			VoidTopTransparency = 0.82,
+			VoidBottomTransparency = 0.08,
+			KillDepth = 1.25,
+		},
 		ChaosWarning = {
 			Ambient = false,
 			OpeningSpeed = 1.2,

@@ -24,6 +24,10 @@ local EFFECTS = {
 	blocker = "HallwayBlocker",
 	hallwayblock = "HallwayBlocker",
 	hallwayblocker = "HallwayBlocker",
+	void = "HallwayVoid",
+	gap = "HallwayVoid",
+	hallwayvoid = "HallwayVoid",
+	hallwaygap = "HallwayVoid",
 }
 
 local function run(player: Player, argument: string?)
@@ -39,7 +43,7 @@ local function run(player: Player, argument: string?)
 
 	local effect = if command == nil or command == "" then "Transparency" else EFFECTS[command]
 	if not effect then
-		warn("[map oddity] use /mapoddity, /mapoddity doors, /mapoddity chaos, /mapoddity blocker, or /mapoddity clear")
+		warn("[map oddity] use /mapoddity, /mapoddity doors, /mapoddity chaos, /mapoddity blocker, /mapoddity void, or /mapoddity clear")
 		return
 	end
 

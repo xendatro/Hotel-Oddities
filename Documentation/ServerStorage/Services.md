@@ -350,7 +350,7 @@ Scope wrapper around `OddityService` for the `"Map"` scope: it resolves the hall
 - API: `MapOddityService:Warn(position: Vector3, duration: number) -> boolean` — starts the `ChaosWarning` oddity
 - API: `MapOddityService:Clear(token: number?) -> boolean` — one token, or every map oddity
 - API: `MapOddityService:GetActive() -> { [number]: any }`
-- Requires: `OddityService`, `ServerStorage.Classes.Oddities` map classes (`Transparency`, `DoorsOpen`, `HallwayChaos`, `HallwayBlocker`, `ChaosWarning`)
+- Requires: `OddityService`, `ServerStorage.Classes.Oddities` map classes (`Transparency`, `DoorsOpen`, `HallwayChaos`, `HallwayBlocker`, `HallwayVoid`, `ChaosWarning`)
 
 ### NoiseService.luau
 The game's sound-propagation source of truth: it emits `Noise` records (position, radius, source player) with a rate limit per source, keeps a one-second ring of recent noises for polling, and notifies observers immediately. A Heartbeat loop auto-emits footstep noise for every moving grounded player, with the radius chosen by crouch/walk/sprint state.
