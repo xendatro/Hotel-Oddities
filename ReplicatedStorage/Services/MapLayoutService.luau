@@ -22,6 +22,7 @@ export type Entry = {
 	Kind: string,
 	Openings: { [number]: { number } },
 	CapOpenings: { [number]: { number } },
+	ClosedCaps: { [number]: boolean },
 }
 
 local Entries: { Entry } = {}
@@ -107,8 +108,12 @@ local function buildOpenings(entry: Entry)
 		local wall = entry.Center + entry.Across * (side * (entry.HalfWidth + WALL_PROBE))
 		entry.Openings[side] = openingsAlong(wall, entry.Axis, entry)
 
-		local cap = entry.Center + entry.Axis * (side * (entry.HalfLength + CAP_PROBE))
-		entry.CapOpenings[side] = openingsAlong(cap, entry.Across, entry)
+		if entry.ClosedCaps[side] then
+			entry.CapOpenings[side] = {}
+		else
+			local cap = entry.Center + entry.Axis * (side * (entry.HalfLength + CAP_PROBE))
+			entry.CapOpenings[side] = openingsAlong(cap, entry.Across, entry)
+		end
 	end
 end
 
@@ -132,6 +137,10 @@ function MapLayoutService:Load(layout: { any })
 			Kind = raw.Kind or (if raw.IsRoom then "Connector" else "Hallway"),
 			Openings = {},
 			CapOpenings = {},
+			ClosedCaps = {
+				[1] = raw.ClosedCapPositive == true,
+				[-1] = raw.ClosedCapNegative == true,
+			},
 		}
 
 		table.insert(Entries, entry)

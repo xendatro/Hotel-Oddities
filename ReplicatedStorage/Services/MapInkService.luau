@@ -7,6 +7,7 @@ local MapLayoutService = require(ReplicatedStorage.Services.MapLayoutService)
 local Ink = MapConfig.Ink
 local PixelScale = MapConfig.Canvas.Resolution / MapConfig.Canvas.Reference
 local BOUNDARY_EPSILON = 0.75
+local CLOSED_CAP_REVEAL_MARGIN = MapConfig.Discovery.VisibilityStep + MapConfig.Discovery.MinGrowth
 local MIN_PIECE = 2.5
 local BUDGET = 0.004
 
@@ -531,11 +532,12 @@ function MapInkService:Reveal(key: string, packed: { number }): boolean
 
 	for _, side in { 1, -1 } do
 		local reached = false
+		local margin = if entry.ClosedCaps[side] then CLOSED_CAP_REVEAL_MARGIN else BOUNDARY_EPSILON
 		for index = 1, #packed - 1, 2 do
 			if side > 0 then
-				reached = reached or packed[index + 1] >= entry.HalfLength - BOUNDARY_EPSILON
+				reached = reached or packed[index + 1] >= entry.HalfLength - margin
 			else
-				reached = reached or packed[index] <= -entry.HalfLength + BOUNDARY_EPSILON
+				reached = reached or packed[index] <= -entry.HalfLength + margin
 			end
 		end
 		if reached then drawCap(entry, side) end

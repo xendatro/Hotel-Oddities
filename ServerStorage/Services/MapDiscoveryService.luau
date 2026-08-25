@@ -30,11 +30,21 @@ type Entry = {
 
 local Entries: { Entry } = {}
 local EntrySource: { HallwaysService.Hallway }? = nil
+local ClosedCaps: { [Entry]: { [number]: boolean } } = {}
 
 local RayParams = RaycastParams.new()
 RayParams.FilterType = Enum.RaycastFilterType.Exclude
 RayParams.RespectCanCollide = true
 RayParams.IgnoreWater = true
+
+local CAP_PROBE_INSET = 2
+local CAP_PROBE_DISTANCE = 5
+
+local CapRayParams = RaycastParams.new()
+CapRayParams.FilterType = Enum.RaycastFilterType.Include
+CapRayParams.FilterDescendantsInstances = { workspace.Maze15.Walls }
+CapRayParams.RespectCanCollide = true
+CapRayParams.IgnoreWater = true
 
 local function refreshRayFilter()
 	local ignore = {}
@@ -48,6 +58,12 @@ local function isVisible(eye: Vector3, target: Vector3): boolean
 	local offset = target - eye
 	if offset.Magnitude < 1e-3 then return true end
 	return workspace:Raycast(eye, offset, RayParams) == nil
+end
+
+local function isCapClosed(hallway: HallwaysService.Hallway, side: number): boolean
+	local origin = hallway.Center + hallway.Axis * (side * (hallway.HalfLength - CAP_PROBE_INSET))
+	origin = Vector3.new(origin.X, hallway.FloorY + Discovery.EyeHeight, origin.Z)
+	return workspace:Raycast(origin, hallway.Axis * (side * CAP_PROBE_DISTANCE), CapRayParams) ~= nil
 end
 
 local function visibleRuns(
@@ -114,6 +130,14 @@ local function getEntries(): { Entry }
 	Entries = entries
 	EntrySource = hallways
 	return entries
+end
+
+refreshRayFilter()
+for _, entry in getEntries() do
+	ClosedCaps[entry] = {
+		[1] = isCapClosed(entry.Hallway, 1),
+		[-1] = isCapClosed(entry.Hallway, -1),
+	}
 end
 
 local function getLandmarks(player: Player): { [string]: { [string]: boolean } }?
@@ -198,6 +222,7 @@ function MapDiscoveryService:GetLayout(): { any }
 	local layout = {}
 	for _, entry in getEntries() do
 		local hallway = entry.Hallway
+		local closedCaps = ClosedCaps[entry]
 		table.insert(layout, {
 			Key = entry.Key,
 			Kind = entry.Kind,
@@ -208,6 +233,8 @@ function MapDiscoveryService:GetLayout(): { any }
 			HalfLength = hallway.HalfLength,
 			HalfWidth = hallway.HalfWidth,
 			IsRoom = entry.Kind ~= "Hallway",
+			ClosedCapPositive = closedCaps[1],
+			ClosedCapNegative = closedCaps[-1],
 		})
 	end
 	return layout
