@@ -4,5 +4,5 @@ return {
 	Director = true,
 	DangerDebug = true,
 	VoiceDebug = true,
-	PerfLog = true,
+	PerfLog = false,
 }
