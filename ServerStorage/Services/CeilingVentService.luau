@@ -13,7 +13,6 @@ local CommunicationService = require(ReplicatedStorage.Services.CommunicationSer
 local HallwayGraphService = require(ReplicatedStorage.Services.HallwayGraphService)
 local NpcAnimator = require(ReplicatedStorage.Classes.NpcAnimator)
 local TagService = require(ReplicatedStorage.Services.TagService)
-local TweenProxyService = require(ReplicatedStorage.Services.TweenProxyService)
 local Vanished = require(ReplicatedStorage.Services.VanishedService)
 local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
@@ -65,7 +64,9 @@ local WALK_IN_START_ATTEMPTS = 8
 local WALK_IN_CEILING_RAY = 60
 local WALK_IN_DOOR_STOP = 3
 local CLIMB_RISE = 5
-local CLIMB_TIME = 0.7
+local ENTRY_TIME = 1.1
+local ENTRY_PITCH = math.rad(85)
+local SPAWN_READY_DELAY = 3
 
 local CameraEvent = CommunicationService.Ensure("Enemies", "CeilingDwellerCamera") :: RemoteEvent
 local DoorEvent = CommunicationService.Ensure("Enemies", "CeilingVentDoor") :: RemoteEvent
@@ -345,11 +346,19 @@ local function runWalkIn(state: VentState)
 
 	task.spawn(function()
 		local finished = false
-		local function finish()
+		local function finish(readyDelay: number?)
 			if finished then return end
 			finished = true
 			cleanupWalkIn(state)
-			state.WalkIn = "Done"
+			if readyDelay and readyDelay > 0 then
+				task.delay(readyDelay, function()
+					if state.Alive then
+						state.WalkIn = "Done"
+					end
+				end)
+			else
+				state.WalkIn = "Done"
+			end
 		end
 
 		local template = EnemyModels:FindFirstChild(EnemyConfigs.CeilingDweller.Model)
@@ -393,28 +402,38 @@ local function runWalkIn(state: VentState)
 		end
 
 		local root = rig:FindFirstChild("HumanoidRootPart") :: BasePart?
-		if root and rig.Parent then
+		local floorPosition = getDropSurface(state)
+		if root and rig.Parent and floorPosition then
+			animator:SetMovementSpeed(WALK_IN_SPEED)
+
 			local start = root.CFrame
-			local target = start + Vector3.yAxis * CLIMB_RISE
-			local tween = TweenProxyService.Proxy(
-				"CFrameValue",
-				start,
-				target,
-				TweenInfo.new(CLIMB_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-				function(value)
-					if root.Parent then
-						root.CFrame = value
-					end
-				end
-			)
-			tween:Play()
-			tween.Completed:Wait()
+			local axis = start.RightVector
+			local pitchSign = if axis:Cross(start.LookVector).Y >= 0 then 1 else -1
+			local doorContact = getCeilingContact(state, floorPosition)
+			local lip = Vector3.new(doorContact.X, start.Position.Y, doorContact.Z)
+			local final = lip + Vector3.yAxis * CLIMB_RISE
+
+			local elapsed = 0
+			while elapsed < ENTRY_TIME do
+				local deltaTime = RunService.Heartbeat:Wait()
+				if not state.Alive or not root.Parent or not rig.Parent then break end
+				elapsed = math.min(elapsed + deltaTime, ENTRY_TIME)
+
+				local alpha = elapsed / ENTRY_TIME
+				local eased = alpha * alpha * (3 - 2 * alpha)
+				local inward = start.Position:Lerp(lip, eased)
+				local upward = lip:Lerp(final, eased)
+				local position = inward:Lerp(upward, eased)
+				local rotation = CFrame.fromAxisAngle(axis, pitchSign * ENTRY_PITCH * eased) * start.Rotation
+				root.CFrame = CFrame.new(position) * rotation
+			end
+
+			animator:SetMovementSpeed(0)
 		end
 
 		animator:Destroy()
-		cleanupWalkIn(state)
+		finish(SPAWN_READY_DELAY)
 		moveDoor(state, state.DoorPivot, DOOR_MOVE_TIME, "Quad")
-		finish()
 	end)
 end
 
@@ -624,7 +643,7 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 	for _, state in TagService:GetAllApplied(CEILING_VENT_TAG) do
 		if not state.Alive or state.Triggered then continue end
 
-		if state.WalkIn == "Pending" and now >= state.ArmAt - WALK_IN_LEAD then
+		if state.WalkIn == "Pending" and now >= state.ArmAt - WALK_IN_LEAD - SPAWN_READY_DELAY then
 			runWalkIn(state)
 		end
 
