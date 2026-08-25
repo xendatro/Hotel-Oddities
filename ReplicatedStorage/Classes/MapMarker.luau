@@ -22,6 +22,7 @@ export type MapMarker = typeof(setmetatable({} :: {
 	_ringClock: number,
 	_flashClock: number,
 	_stroke: UIStroke,
+	_complete: boolean,
 }, MapMarker))
 
 local GLYPHS = {
@@ -66,7 +67,7 @@ local function setUpConnections(self: MapMarker): { RBXScriptConnection }
 	}
 end
 
-function MapMarker.new(parent: GuiObject, kind: string, userId: number?): MapMarker
+function MapMarker.new(parent: GuiObject, kind: string, userId: number?, size: number?): MapMarker
 	local self = setmetatable({}, MapMarker)
 
 	self.Kind = kind
@@ -74,7 +75,8 @@ function MapMarker.new(parent: GuiObject, kind: string, userId: number?): MapMar
 	local frame = Instance.new("Frame")
 	frame.Name = kind .. "Marker"
 	frame.AnchorPoint = Vector2.new(0.5, 0.5)
-	frame.Size = UDim2.fromOffset(Markers.Size, Markers.Size)
+	local extent = size or Markers.Size
+	frame.Size = UDim2.fromOffset(extent, extent)
 	frame.BackgroundTransparency = 1
 	frame.ZIndex = 15
 	frame.Parent = parent
@@ -86,7 +88,7 @@ function MapMarker.new(parent: GuiObject, kind: string, userId: number?): MapMar
 	ring.Name = "Ping"
 	ring.AnchorPoint = Vector2.new(0.5, 0.5)
 	ring.Position = UDim2.fromScale(0.5, 0.5)
-	ring.Size = UDim2.fromOffset(Markers.Size, Markers.Size)
+	ring.Size = UDim2.fromOffset(extent, extent)
 	ring.BackgroundTransparency = 1
 	ring.Visible = false
 	ring.ZIndex = 14
@@ -121,6 +123,7 @@ function MapMarker.new(parent: GuiObject, kind: string, userId: number?): MapMar
 
 	if userId then
 		glyph.Visible = false
+		disc.BackgroundTransparency = 0
 
 		local headshot = Instance.new("ImageLabel")
 		headshot.Name = "Headshot"
@@ -145,6 +148,7 @@ function MapMarker.new(parent: GuiObject, kind: string, userId: number?): MapMar
 	self._spring.Target = 1
 	self._ringClock = math.huge
 	self._flashClock = math.huge
+	self._complete = false
 
 	self.Connections = setUpConnections(self)
 
@@ -153,6 +157,15 @@ end
 
 function MapMarker:SetPosition(position: UDim2)
 	self.Frame.Position = position
+end
+
+function MapMarker:SetComplete(complete: boolean)
+	if self._complete == complete then return end
+	self._complete = complete
+
+	self._disc.BackgroundColor3 = if complete then Markers.DoneFill else Markers.Fill
+	self._glyph.Text = if complete then Markers.DoneGlyph else (GLYPHS[self.Kind] or GLYPHS.Default)
+	if complete then self:Pop() end
 end
 
 function MapMarker:SetFaded(faded: boolean)

@@ -393,12 +393,12 @@ Two halves of head/torso look-at: it reports the local camera's pitch and yaw re
 Client-only. Owns panning and zooming of the map contents inside the clipped viewport. Left-drag or a one-finger touch pans, the scroll wheel or a two-finger pinch zooms about the pointer, and both settle through an exponential ease. Panning tracks absolute pointer positions rather than `InputObject.Delta`, because Delta is zero for mouse movement while the cursor is unlocked. Offsets are clamped so the map cannot be dragged off the paper.
 - API: `MapControlService:Attach(viewport: Frame, content: Frame)` — takes ownership of the content transform
 - API: `MapControlService:Detach()` — disconnects and clears input state
-- API: `MapControlService:Reset()` — returns to fully zoomed out and centred
+- API: `MapControlService:Reset(snap: boolean?)` — returns to fully zoomed out and centred; `snap` applies it immediately instead of easing
 - API: `MapControlService:GetZoom() -> number`
 - Requires: `Configs.MapConfig`, `Services.MathService`
 
 ### MapInkService.luau
-Client-only. Rasterises the hand-drawn map onto a `MapCanvas`. Every wall and dead-end cap is generated procedurally from the hallway rectangles: a per-wall seeded wobble (two summed sine harmonics keyed off the hallway coordinate, not the drawn piece, so progressively revealed sections line up seamlessly), a width that varies along the run and tapers at genuine ends, an overshoot past real corners, and a wider low-alpha bleed pass underneath. Rooms are drawn instead as complete boxes; a computer room gets a heavier outline and a diagonal hatch fill, and can draw itself on over time. Junction mouths and partially revealed spans are subtracted before drawing, so no wall is ever drawn across an opening. Overshoot is applied only where a wall genuinely ends, never at a junction mouth, and pieces shorter than a minimum are discarded, which keeps intersections free of stray tick marks. Drawing is append-only and idempotent because the canvas composites with max alpha.
+Client-only. Rasterises the hand-drawn map onto a `MapCanvas`. Every wall and dead-end cap is generated procedurally from the hallway rectangles: a per-wall seeded wobble (two summed sine harmonics keyed off the hallway coordinate, not the drawn piece, so progressively revealed sections line up seamlessly), a width that varies along the run and tapers at genuine ends, an overshoot past real corners, and a wider low-alpha bleed pass underneath. Below the ink it also owns a shade canvas: the whole sheet is filled with a grainy dark wash on attach that fades out over a rounded-rectangle edge whose width wanders with low-frequency noise, so no side reads as a straight cut and the corners are not harsh, and every revealed floor span is cleared back out of it one pixel slice at a time with the same seeded wobble the walls use, so discovered corridors read as lit paper with a drawn edge rather than a cut rectangle. Rooms are drawn instead as complete boxes; a computer room gets a heavier outline and a diagonal hatch fill, and can draw itself on over time. Junction mouths and partially revealed spans are subtracted before drawing, so no wall is ever drawn across an opening. Overshoot is applied only where a wall genuinely ends, never at a junction mouth, and pieces shorter than a minimum are discarded, which keeps intersections free of stray tick marks. Drawing is append-only and idempotent because the canvas composites with max alpha.
 - API: `MapInkService:Attach(paper: ImageLabel)` — builds the canvas and its `Ink` ImageLabel, resetting drawn and style state
 - API: `MapInkService:Detach()` — destroys the label and canvas
 - API: `MapInkService:IsAttached() -> boolean`
@@ -406,6 +406,7 @@ Client-only. Rasterises the hand-drawn map onto a `MapCanvas`. Every wall and de
 - API: `MapInkService:Flush()` — pushes the dirty rectangle to the EditableImage
 - API: `MapInkService:RevealAnimated(key: string, packed: { number }, duration: number) -> boolean` — draws a room's sides and hatch progressively over `duration`
 - API: `MapInkService:IsDrawn(key: string) -> boolean`
+- API: `MapInkService:CreatePlaque(width: number, height: number, seed: string) -> MapCanvas` — a standalone canvas holding a wobbly hand-drawn rectangle border, used for the legend so its edges match the map's ink rather than a crisp `UIStroke`
 - API: `MapInkService:LoadDiscovered(store)` — replays a whole discovery table, yielding to stay inside a frame budget
 - Requires: `Configs.MapConfig`, `Classes.MapCanvas`, `Services.MapLayoutService`
 
@@ -426,10 +427,15 @@ Client-side geometric model of the map. Loads the rectangle list the server send
 Client-only front end for the map. Waits for the `Map` ScreenGui's paper `ImageLabel`, loads each sync into `MapLayoutService`, attaches `MapInkService` to the paper, replays stored discovery, and applies incremental reveals with a deferred flush so a burst of reveals costs one write. Also owns the local player marker, repositioned every render step.
 - API: `MapService:GetPaper() -> ImageLabel?`
 - API: `MapService:ToPaperScale(worldX: number, worldZ: number) -> UDim2` — world position as a scale offset inside the paper
-- Builds a clipped `Viewport` holding a pannable `Content` frame; the ink, markers, local player dot and other players' headshot markers all live inside it so they pan and zoom together
+- Builds a clipped `Viewport` **CanvasGroup** holding a pannable `Content` frame, so the whole map composites as one layer and fades cleanly with the page animation instead of clipping; the ink, markers, local player dot and other players' headshot markers all live inside it so they pan and zoom together
+- Draws a fixed legend in the top-left, outside the pannable content, keyed by `MapConfig.Legend.Rows`
+- Recentres the view every time the page opens, so it never appears off to one side
+- Computer markers turn green with a tick once `ComputerService` reports that computer hacked; other players show as small headshot dots the size of the local player marker
 - A computer room discovered while the map is shut is queued, then draws itself on with its marker popping shortly after, the next time the `Map` page is opened; one discovered while the map is already open plays immediately
+- API: `MapService:RefreshComputers()` — repaints every computer marker from the current hacked set
 - Remotes: `Map/Sync` (listened), `Map/Reveal` (listened), `Map/Landmark` (listened)
-- Requires: `Configs.MapConfig`, `Classes.MapMarker`, `CharacterService`, `CommunicationService`, `MapControlService`, `MapInkService`, `MapLayoutService`
+- Tags: reads `ComputerConfig.Tag`
+- Requires: `Configs.MapConfig`, `Configs.ComputerConfig`, `Classes.MapMarker`, `CharacterService`, `CommunicationService`, `ComputerService`, `MapControlService`, `MapInkService`, `MapLayoutService`, `Frameworks.xenterface`
 
 ### MarketplaceService\init.luau
 Wrapper around Roblox's own MarketplaceService that adds a shared server/client gamepass-ownership cache, cross-boundary purchase prompts, and a registry of per-product receipt handlers. Server also grants the VIP pass to holders of a legacy VIP subscription. `extend` merges the real MarketplaceService in, so every native member is still reachable through this module.

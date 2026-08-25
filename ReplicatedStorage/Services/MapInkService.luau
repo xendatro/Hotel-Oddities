@@ -23,7 +23,9 @@ type Wobble = {
 }
 
 local Canvas: MapCanvas.MapCanvas? = nil
+local Shade: MapCanvas.MapCanvas? = nil
 local Label: ImageLabel? = nil
+local ShadeLabel: ImageLabel? = nil
 local Drawn: { [string]: { number } } = {}
 local Wobbles: { [string]: Wobble } = {}
 
@@ -175,6 +177,43 @@ local function drawCap(entry: MapLayoutService.Entry, side: number, style: Style
 	end
 end
 
+local function clearShade(entry: MapLayoutService.Entry, from: number, to: number)
+	local shade = Shade
+	if not shade then return end
+
+	local settings = MapConfig.Shade
+	local wobble = getWobble(entry.Key .. ":shade")
+	local scale = MapLayoutService:GetScale()
+
+	local startWorld = entry.Center + entry.Axis * (from - settings.Bleed)
+	local finishWorld = entry.Center + entry.Axis * (to + settings.Bleed)
+	local head = MapLayoutService:ToCanvas(startWorld.X, startWorld.Y)
+	local tail = MapLayoutService:ToCanvas(finishWorld.X, finishWorld.Y)
+
+	local span = tail - head
+	local length = span.Magnitude
+	if length < 1 then return end
+
+	local direction = span / length
+	local perpendicular = Vector2.new(-direction.Y, direction.X)
+	local steps = math.ceil(length)
+
+	for step = 0, steps do
+		local progress = step / steps
+		local along = (from - settings.Bleed) + (to - from + settings.Bleed * 2) * progress
+		local jitter = offsetAt(wobble, along) * settings.EdgeWobble
+		local reach = (entry.HalfWidth + settings.Bleed + jitter) * scale
+		local centre = head + direction * (length * progress)
+
+		local first = centre - perpendicular * reach
+		local second = centre + perpendicular * reach
+		shade:ClearRect(
+			Vector2.new(math.min(first.X, second.X), math.min(first.Y, second.Y)),
+			Vector2.new(math.max(first.X, second.X), math.max(first.Y, second.Y))
+		)
+	end
+end
+
 local function roomStyle(entry: MapLayoutService.Entry): Style
 	return {
 		WidthScale = if entry.Kind == "ComputerRoom" then Ink.ComputerWidthScale else Ink.RoomWidthScale,
@@ -232,8 +271,67 @@ local function roomSteps(entry: MapLayoutService.Entry): { () -> () }
 	return steps
 end
 
+function MapInkService:CreatePlaque(width: number, height: number, seed: string): MapCanvas.MapCanvas
+	local canvas = MapCanvas.new(math.max(width, height))
+	local wobble = getWobble(seed)
+	local inset = Ink.Width * 2
+
+	local corners = {
+		Vector2.new(inset, inset),
+		Vector2.new(width - inset, inset),
+		Vector2.new(width - inset, height - inset),
+		Vector2.new(inset, height - inset),
+	}
+
+	for index = 1, 4 do
+		local head = corners[index]
+		local tail = corners[index % 4 + 1]
+		local span = tail - head
+		local length = span.Magnitude
+		if length < 1 then continue end
+
+		local direction = span / length
+		local lateral = Vector2.new(-direction.Y, direction.X)
+		local overshoot = Ink.Overshoot * 0.6
+		local steps = math.max(math.ceil(length / 6), 2)
+
+		local points = table.create(steps + 1)
+		for step = 0, steps do
+			local along = -overshoot + (length + overshoot * 2) * (step / steps)
+			local drift = offsetAt(wobble, along + index * 37) * 0.5
+			points[step + 1] = head + direction * along + lateral * drift
+		end
+
+		local function widthAt(progress: number): number
+			local along = length * progress
+			local variance = 1 + Ink.WidthVariance * 0.5 * math.sin(along * wobble.WidthFrequency + wobble.WidthPhase)
+			return math.max(Ink.Width * variance * 0.85, 0.5)
+		end
+
+		canvas:Stroke(points, function(progress)
+			return widthAt(progress) + Ink.BleedOffset * 0.6
+		end, Ink.Color, Ink.BleedOpacity)
+		canvas:Stroke(points, widthAt, Ink.Color, Ink.Opacity)
+	end
+
+	canvas:Flush()
+	return canvas
+end
+
 function MapInkService:Attach(paper: ImageLabel)
 	self:Detach()
+
+	local shade = MapCanvas.new(MapConfig.Canvas.Resolution)
+	shade:FillAll(MapConfig.Shade.Color, MapConfig.Shade.Opacity, MapConfig.Shade.Grain, MapConfig.Shade.Feather, MapConfig.Shade.CornerRadius)
+
+	local shadeLabel = Instance.new("ImageLabel")
+	shadeLabel.Name = MapConfig.Gui.ShadeName
+	shadeLabel.BackgroundTransparency = 1
+	shadeLabel.Size = UDim2.fromScale(1, 1)
+	shadeLabel.ScaleType = Enum.ScaleType.Stretch
+	shadeLabel.ImageContent = shade.Content
+	shadeLabel.ZIndex = (paper.ZIndex or 1) + 1
+	shadeLabel.Parent = paper
 
 	local canvas = MapCanvas.new(MapConfig.Canvas.Resolution)
 	local label = Instance.new("ImageLabel")
@@ -241,14 +339,18 @@ function MapInkService:Attach(paper: ImageLabel)
 	label.BackgroundTransparency = 1
 	label.Size = UDim2.fromScale(1, 1)
 	label.ScaleType = Enum.ScaleType.Stretch
-	label.ImageContent = Content.fromObject(canvas.Image)
-	label.ZIndex = (paper.ZIndex or 1) + 1
+	label.ImageContent = canvas.Content
+	label.ZIndex = (paper.ZIndex or 1) + 2
 	label.Parent = paper
 
 	Canvas = canvas
+	Shade = shade
 	Label = label
+	ShadeLabel = shadeLabel
 	Drawn = {}
 	Wobbles = {}
+
+	shade:Flush()
 end
 
 function MapInkService:Detach()
@@ -256,9 +358,17 @@ function MapInkService:Detach()
 		Label:Destroy()
 		Label = nil
 	end
+	if ShadeLabel then
+		ShadeLabel:Destroy()
+		ShadeLabel = nil
+	end
 	if Canvas then
 		Canvas:Destroy()
 		Canvas = nil
+	end
+	if Shade then
+		Shade:Destroy()
+		Shade = nil
 	end
 	Drawn = {}
 end
@@ -274,6 +384,7 @@ function MapInkService:Reveal(key: string, packed: { number }): boolean
 
 	if MapLayoutService:IsRoomKind(entry) then
 		if Drawn[key] or #packed == 0 then return false end
+		clearShade(entry, -entry.HalfLength, entry.HalfLength)
 		for _, step in roomSteps(entry) do
 			step()
 		end
@@ -286,6 +397,7 @@ function MapInkService:Reveal(key: string, packed: { number }): boolean
 
 	for index = 1, #packed - 1, 2 do
 		for _, fresh in MapLayoutService:Subtract(packed[index], packed[index + 1], drawn) do
+			clearShade(entry, fresh[1], fresh[2])
 			drawWall(entry, 1, fresh[1], fresh[2])
 			drawWall(entry, -1, fresh[1], fresh[2])
 			drew = true
@@ -317,6 +429,7 @@ function MapInkService:RevealAnimated(key: string, packed: { number }, duration:
 	if not MapLayoutService:IsRoomKind(entry) then return self:Reveal(key, packed) end
 
 	Drawn[key] = table.clone(packed)
+	clearShade(entry, -entry.HalfLength, entry.HalfLength)
 	local steps = roomSteps(entry)
 
 	task.spawn(function()
@@ -336,6 +449,7 @@ function MapInkService:IsDrawn(key: string): boolean
 end
 
 function MapInkService:Flush()
+	if Shade then Shade:Flush() end
 	if Canvas then Canvas:Flush() end
 end
 

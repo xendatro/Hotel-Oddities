@@ -9,8 +9,9 @@ local Controls = MapConfig.Controls
 
 local MapControlService = {}
 
-local Viewport: Frame? = nil
+local Viewport: GuiObject? = nil
 local Content: Frame? = nil
+local ContentScale: UIScale? = nil
 local Connections: { RBXScriptConnection } = {}
 
 local Zoom, TargetZoom = 1, 1
@@ -125,7 +126,7 @@ local function changedInput(input: InputObject)
 	zoomAbout(TargetZoom * ratio, (first + second) / 2)
 end
 
-function MapControlService:Attach(viewport: Frame, content: Frame)
+function MapControlService:Attach(viewport: GuiObject, content: Frame)
 	self:Detach()
 
 	Viewport = viewport
@@ -133,6 +134,7 @@ function MapControlService:Attach(viewport: Frame, content: Frame)
 
 	local scale = Instance.new("UIScale")
 	scale.Parent = content
+	ContentScale = scale
 
 	Zoom, TargetZoom = 1, 1
 	Offset, TargetOffset = Vector2.zero, Vector2.zero
@@ -163,11 +165,26 @@ function MapControlService:Detach()
 	PinchDistance = 0
 	Viewport = nil
 	Content = nil
+	ContentScale = nil
 end
 
-function MapControlService:Reset()
+function MapControlService:Reset(snap: boolean?)
 	TargetZoom = 1
 	TargetOffset = Vector2.zero
+	DragLast = nil
+	PinchDistance = 0
+	table.clear(Touches)
+
+	if not snap then return end
+
+	Zoom = 1
+	Offset = Vector2.zero
+	if Content then
+		Content.Position = UDim2.fromScale(0.5, 0.5)
+	end
+	if ContentScale then
+		ContentScale.Scale = 1
+	end
 end
 
 function MapControlService:GetZoom(): number

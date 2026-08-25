@@ -113,19 +113,22 @@ Per-player billboard marker for the player locator: headshot bubble, halo, name 
 
 ### MapCanvas.luau
 A software pixel canvas backing an `EditableImage`. Owns an RGBA `buffer` it composites into with a soft round brush, then pushes only the changed rectangle through `WritePixelsBuffer`. Compositing takes the maximum alpha rather than blending over, which makes repeated drawing of the same ink idempotent and removes seams where separately drawn strokes meet.
-- API: `MapCanvas.new(resolution: number) -> MapCanvas` — creates the buffer and the EditableImage
+- API: `MapCanvas.new(resolution: number) -> MapCanvas` — creates the buffer, the EditableImage and its `Content`, which callers assign straight to `ImageContent`
 - API: `MapCanvas:Stamp(x, y, radius, color, alpha)` — one antialiased round brush dab
 - API: `MapCanvas:Stroke(points: { Vector2 }, widthAt: (number) -> number, color, alpha)` — stamps along a polyline with a width that varies by progress
 - API: `MapCanvas:Flush()` — writes the dirty rectangle and clears it
+- API: `MapCanvas:FillAll(color: Color3, alpha: number, grain: number?, feather: number?)` — floods the buffer for the shade wash, optionally with per-pixel grain and a wandering fade over a rounded-rectangle edge
+- API: `MapCanvas:ClearRect(minimum: Vector2, maximum: Vector2)` — zeroes an axis-aligned rectangle, cutting floor area out of the shade
 - API: `MapCanvas:Clear()` — zeroes the buffer and writes the whole canvas
 - API: `MapCanvas:ResetDirty()`
 - API: `MapCanvas:Destroy()`
 
 ### MapMarker.luau
 One symbol on the discoverable map: an inked disc with a handwriting-font glyph, a spring-driven pop scale, an expanding ping ring and a short glyph flash. Used for landmarks such as computers; a freshly discovered one pops, a restored one simply appears.
-- API: `MapMarker.new(parent: GuiObject, kind: string, userId: number?) -> MapMarker` — kind selects the glyph; a `userId` swaps it for that player's circular headshot
+- API: `MapMarker.new(parent: GuiObject, kind: string, userId: number?, size: number?) -> MapMarker` — kind selects the glyph; a `userId` swaps it for that player's circular headshot, and `size` overrides the configured extent
 - API: `MapMarker:SetPosition(position: UDim2)`
 - API: `MapMarker:SetFaded(faded: boolean)` — dims the glyph and disc
+- API: `MapMarker:SetComplete(complete: boolean)` — swaps to the green fill and tick glyph, popping as it changes
 - API: `MapMarker:Pop()` — plays the discovery pop, ping ring and flash together
 - API: `MapMarker:Destroy()`
 - Requires: `Configs.MapConfig`, `Services.GuiBuilderService`, `Classes.Spring`

@@ -26,6 +26,8 @@ return {
 		ContentName = "Content",
 		InkName = "Ink",
 		DangerName = "Danger",
+		ShadeName = "Shade",
+		LegendName = "Legend",
 		MarkerName = "Markers",
 	},
 
@@ -82,6 +84,33 @@ return {
 		RevealTime = 1.1,
 	},
 
+	Shade = {
+		Color = Color3.fromRGB(58, 48, 32),
+		Opacity = 0.6,
+		-- Studs the cleared floor area is grown by so ink sits on the boundary.
+		Bleed = 1.4,
+		Grain = 0.055,
+		EdgeWobble = 0.75,
+		-- Canvas pixels the wash fades out over at the sheet edge.
+		Feather = 58,
+		-- Canvas pixels of corner rounding on the wash so corners are not harsh.
+		CornerRadius = 150,
+	},
+
+	Legend = {
+		Font = Enum.Font.Kalam,
+		TextSize = 22,
+		SwatchSize = 26,
+		Width = 250,
+		Height = 92,
+		Spacing = 8,
+		Padding = 12,
+		Rows = {
+			{ Kind = "Hatch", Label = "computer room" },
+			{ Kind = "Done", Label = "hacked" },
+		},
+	},
+
 	Danger = {
 		Resolution = 128,
 		Opacity = 0.5,
@@ -96,10 +125,13 @@ return {
 		FillTransparency = 0.2,
 		StrokeWidth = 2.5,
 		PlayerSize = 22,
+		FriendSize = 24,
 		PopScale = 1.45,
 		PopTime = 0.45,
 		PingTime = 0.85,
 		PingSize = 5,
 		FlashTime = 0.6,
+		DoneFill = Color3.fromRGB(122, 162, 92),
+		DoneGlyph = "\u{2713}",
 	},
 }

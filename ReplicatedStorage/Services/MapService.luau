@@ -1,7 +1,9 @@
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local ComputerConfig = require(ReplicatedStorage.Configs.ComputerConfig)
 local MapConfig = require(ReplicatedStorage.Configs.MapConfig)
 local MapMarker = require(ReplicatedStorage.Classes.MapMarker)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
@@ -9,6 +11,7 @@ local CommunicationService = require(ReplicatedStorage.Services.CommunicationSer
 local MapControlService = require(ReplicatedStorage.Services.MapControlService)
 local MapInkService = require(ReplicatedStorage.Services.MapInkService)
 local MapLayoutService = require(ReplicatedStorage.Services.MapLayoutService)
+local ComputerService = require(ReplicatedStorage.Services.ComputerService)
 local xenterface = require(ReplicatedStorage.Frameworks.xenterface)
 
 local Gui = MapConfig.Gui
@@ -18,9 +21,9 @@ local MapService = {}
 
 local Player = Players.LocalPlayer
 local Paper: ImageLabel? = nil
-local Content: Frame? = nil
 local Layer: Frame? = nil
 local PlayerMarker: Frame? = nil
+local LegendPlaque: any = nil
 local Landmarks: { [string]: MapMarker.MapMarker } = {}
 local Friends: { [Player]: MapMarker.MapMarker } = {}
 local PendingRooms: { { Key: string, Packed: { number } } } = {}
@@ -37,10 +40,10 @@ local function getPaper(): ImageLabel
 	return Paper :: ImageLabel
 end
 
-local function buildViewport(paper: ImageLabel): (Frame, Frame)
+local function buildViewport(paper: ImageLabel): (CanvasGroup, Frame)
 	local inset = MapConfig.Controls.Inset
 
-	local viewport = Instance.new("Frame")
+	local viewport = Instance.new("CanvasGroup")
 	viewport.Name = Gui.ViewportName
 	viewport.AnchorPoint = Vector2.new(0.5, 0.5)
 	viewport.Position = UDim2.fromScale(0.5, 0.5)
@@ -61,6 +64,137 @@ local function buildViewport(paper: ImageLabel): (Frame, Frame)
 	content.Parent = viewport
 
 	return viewport, content
+end
+
+local function buildSwatch(parent: Frame, kind: string): Frame
+	local swatch = Instance.new("Frame")
+	swatch.Name = kind .. "Swatch"
+	swatch.Size = UDim2.fromOffset(MapConfig.Legend.SwatchSize, MapConfig.Legend.SwatchSize)
+	swatch.BackgroundColor3 = if kind == "Done" then MapConfig.Markers.DoneFill else MapConfig.Markers.Fill
+	swatch.BorderSizePixel = 0
+	swatch.ClipsDescendants = true
+	swatch.Parent = parent
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = MapConfig.Ink.Color
+	stroke.Thickness = 2
+	stroke.Parent = swatch
+
+	if kind == "Done" then
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(1, 0)
+		corner.Parent = swatch
+
+		local tick = Instance.new("TextLabel")
+		tick.Size = UDim2.fromScale(1, 1)
+		tick.BackgroundTransparency = 1
+		tick.Font = MapConfig.Legend.Font
+		tick.Text = MapConfig.Markers.DoneGlyph
+		tick.TextColor3 = MapConfig.Ink.Color
+		tick.TextScaled = true
+		tick.Parent = swatch
+		return swatch
+	end
+
+	for index = -2, 3 do
+		local line = Instance.new("Frame")
+		line.AnchorPoint = Vector2.new(0.5, 0.5)
+		line.Position = UDim2.fromScale(0.5 + index * 0.26, 0.5)
+		line.Size = UDim2.fromOffset(2, MapConfig.Legend.SwatchSize * 2)
+		line.Rotation = 45
+		line.BackgroundColor3 = MapConfig.Ink.Color
+		line.BorderSizePixel = 0
+		line.Parent = swatch
+	end
+	return swatch
+end
+
+local function buildLegend(paper: ImageLabel): Frame
+	local legend = Instance.new("Frame")
+	legend.Name = Gui.LegendName
+	legend.AnchorPoint = Vector2.new(0, 0)
+	legend.Position = UDim2.fromScale(MapConfig.Controls.Inset, MapConfig.Controls.Inset)
+	legend.Size = UDim2.fromOffset(MapConfig.Legend.Width, MapConfig.Legend.Height)
+	legend.BackgroundColor3 = MapConfig.Markers.Fill
+	legend.BackgroundTransparency = 0.12
+	legend.BorderSizePixel = 0
+	legend.ClipsDescendants = true
+	legend.ZIndex = 30
+	legend.Parent = paper
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = legend
+
+	if LegendPlaque then LegendPlaque:Destroy() end
+	LegendPlaque = MapInkService:CreatePlaque(MapConfig.Legend.Width, MapConfig.Legend.Height, "legend")
+
+	local extent = math.max(MapConfig.Legend.Width, MapConfig.Legend.Height)
+	local border = Instance.new("ImageLabel")
+	border.Name = "Border"
+	border.BackgroundTransparency = 1
+	border.Position = UDim2.fromOffset(0, 0)
+	border.Size = UDim2.fromOffset(extent, extent)
+	border.ScaleType = Enum.ScaleType.Stretch
+	border.ImageContent = LegendPlaque.Content
+	border.ZIndex = 32
+	border.Parent = legend
+
+	local rows = Instance.new("Frame")
+	rows.Name = "Rows"
+	rows.Size = UDim2.fromScale(1, 1)
+	rows.BackgroundTransparency = 1
+	rows.ZIndex = 33
+	rows.Parent = legend
+
+	local padding = Instance.new("UIPadding")
+	padding.PaddingTop = UDim.new(0, MapConfig.Legend.Padding)
+	padding.PaddingBottom = UDim.new(0, MapConfig.Legend.Padding)
+	padding.PaddingLeft = UDim.new(0, MapConfig.Legend.Padding)
+	padding.PaddingRight = UDim.new(0, MapConfig.Legend.Padding)
+	padding.Parent = rows
+
+	local list = Instance.new("UIListLayout")
+	list.FillDirection = Enum.FillDirection.Vertical
+	list.Padding = UDim.new(0, MapConfig.Legend.Spacing)
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Parent = rows
+
+	for index, row in MapConfig.Legend.Rows do
+		local line = Instance.new("Frame")
+		line.Name = row.Kind
+		line.LayoutOrder = index
+		line.AutomaticSize = Enum.AutomaticSize.X
+		line.Size = UDim2.fromOffset(0, MapConfig.Legend.SwatchSize)
+		line.BackgroundTransparency = 1
+		line.ZIndex = 33
+		line.Parent = rows
+
+		local rowList = Instance.new("UIListLayout")
+		rowList.FillDirection = Enum.FillDirection.Horizontal
+		rowList.VerticalAlignment = Enum.VerticalAlignment.Center
+		rowList.Padding = UDim.new(0, MapConfig.Legend.Padding)
+		rowList.Parent = line
+
+		local swatch = buildSwatch(line, row.Kind)
+		swatch.LayoutOrder = 1
+		swatch.ZIndex = 34
+
+		local label = Instance.new("TextLabel")
+		label.LayoutOrder = 2
+		label.AutomaticSize = Enum.AutomaticSize.X
+		label.Size = UDim2.fromOffset(0, MapConfig.Legend.SwatchSize)
+		label.BackgroundTransparency = 1
+		label.Font = MapConfig.Legend.Font
+		label.Text = row.Label
+		label.TextColor3 = MapConfig.Ink.Color
+		label.TextSize = MapConfig.Legend.TextSize
+		label.TextXAlignment = Enum.TextXAlignment.Left
+		label.ZIndex = 34
+		label.Parent = line
+	end
+
+	return legend
 end
 
 local function buildPlayerMarker(layer: Frame): Frame
@@ -131,6 +265,20 @@ local function playPending()
 	end
 end
 
+function MapService:RefreshComputers()
+	if not MapLayoutService:IsLoaded() then return end
+
+	for _, model in CollectionService:GetTagged(ComputerConfig.Tag) do
+		if not model:IsA("Model") then continue end
+
+		local pivot = model:GetPivot().Position
+		local marker = Landmarks[string.format("%d,%d", math.round(pivot.X), math.round(pivot.Z))]
+		if marker then
+			marker:SetComplete(ComputerService:IsHacked(model))
+		end
+	end
+end
+
 local function clearFriend(player: Player)
 	local marker = Friends[player]
 	if marker then
@@ -155,7 +303,7 @@ local function updateFriends()
 		end
 
 		if not marker then
-			marker = MapMarker.new(layer, "Friend", other.UserId)
+			marker = MapMarker.new(layer, "Friend", other.UserId, MapConfig.Markers.FriendSize)
 			Friends[other] = marker
 		end
 
@@ -178,11 +326,12 @@ local function onSync(layout: { any }, store: { [string]: { number } }, landmark
 		clearFriend(player)
 	end
 
-	local existing = paper:FindFirstChild(Gui.ViewportName)
-	if existing then existing:Destroy() end
+	for _, name in { Gui.ViewportName, Gui.LegendName } do
+		local existing = paper:FindFirstChild(name)
+		if existing then existing:Destroy() end
+	end
 
 	local viewport, content = buildViewport(paper)
-	Content = content
 
 	MapInkService:Attach(content)
 
@@ -196,6 +345,7 @@ local function onSync(layout: { any }, store: { [string]: { number } }, landmark
 
 	PlayerMarker = buildPlayerMarker(layer)
 	MapControlService:Attach(viewport, content)
+	buildLegend(paper)
 
 	for kind, found in landmarks do
 		for key in found do
@@ -242,7 +392,15 @@ xenterface:Controller(Gui.PageGroup).Fired:Connect(function(data)
 	if opened == IsOpen then return end
 
 	IsOpen = opened
-	if opened then playPending() end
+	if not opened then return end
+
+	MapControlService:Reset(true)
+	MapService:RefreshComputers()
+	playPending()
+end)
+
+ComputerService.Changed:Connect(function()
+	MapService:RefreshComputers()
 end)
 
 Players.PlayerRemoving:Connect(clearFriend)

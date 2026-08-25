@@ -6,6 +6,7 @@ MapCanvas.__index = MapCanvas
 export type MapCanvas = typeof(setmetatable({} :: {
 	Resolution: number,
 	Image: EditableImage,
+	Content: Content,
 	_pixels: buffer,
 	_minX: number,
 	_minY: number,
@@ -18,6 +19,7 @@ function MapCanvas.new(resolution: number): MapCanvas
 
 	self.Resolution = resolution
 	self.Image = AssetService:CreateEditableImage({ Size = Vector2.new(resolution, resolution) })
+	self.Content = Content.fromObject(self.Image)
 	self._pixels = buffer.create(resolution * resolution * 4)
 	self:ResetDirty()
 
@@ -34,6 +36,82 @@ function MapCanvas:Clear()
 	self._minX, self._minY = 0, 0
 	self._maxX, self._maxY = self.Resolution - 1, self.Resolution - 1
 	self:Flush()
+end
+
+function MapCanvas:FillAll(color: Color3, alpha: number, grain: number?, feather: number?, radius: number?)
+	local resolution = self.Resolution
+	local pixels = self._pixels
+	local red, green, blue = color.R * 255, color.G * 255, color.B * 255
+	local base = math.clamp(alpha, 0, 1) * 255
+	local spread = (grain or 0) * 255
+	local edge = feather or 0
+	local random = Random.new(20260824)
+
+	for row = 0, resolution - 1 do
+		local rowOffset = row * resolution * 4
+		for column = 0, resolution - 1 do
+			local value = base
+			if spread > 0 then
+				value += random:NextNumber(-spread, spread)
+			end
+
+			if edge > 0 then
+				local half = (resolution - 1) / 2
+				local corner = radius or 0
+				local offsetX = math.abs(column - half) - (half - corner)
+				local offsetY = math.abs(row - half) - (half - corner)
+				local outsideX, outsideY = math.max(offsetX, 0), math.max(offsetY, 0)
+				local outside = math.sqrt(outsideX * outsideX + outsideY * outsideY)
+					+ math.min(math.max(offsetX, offsetY), 0)
+					- corner
+				local distance = -outside
+
+				local angle = math.atan2(row - half, column - half)
+				local wander = 1
+					+ 0.22 * math.sin(angle * 3 + 0.7)
+					+ 0.13 * math.sin(angle * 7 + 2.3)
+					+ 0.20 * math.sin(column * 0.021 + 1.1)
+					+ 0.20 * math.sin(row * 0.019 + 3.4)
+					+ 0.10 * math.sin((column + row) * 0.033 + 5.2)
+					+ 0.08 * math.sin((column - row) * 0.027 + 0.4)
+				local ragged = edge * math.max(wander, 0.2) + random:NextNumber(-edge * 0.1, edge * 0.1)
+
+				if distance < ragged and ragged > 0 then
+					value *= math.clamp(distance / ragged, 0, 1) ^ 0.7
+				end
+			end
+
+			local index = rowOffset + column * 4
+			buffer.writeu8(pixels, index, red)
+			buffer.writeu8(pixels, index + 1, green)
+			buffer.writeu8(pixels, index + 2, blue)
+			buffer.writeu8(pixels, index + 3, math.clamp(value, 0, 255))
+		end
+	end
+
+	self._minX, self._minY = 0, 0
+	self._maxX, self._maxY = resolution - 1, resolution - 1
+end
+
+function MapCanvas:ClearRect(minimum: Vector2, maximum: Vector2)
+	local resolution = self.Resolution
+	local pixels = self._pixels
+
+	local left = math.max(math.floor(minimum.X), 0)
+	local right = math.min(math.ceil(maximum.X), resolution - 1)
+	local top = math.max(math.floor(minimum.Y), 0)
+	local bottom = math.min(math.ceil(maximum.Y), resolution - 1)
+	if left > right or top > bottom then return end
+
+	local width = (right - left + 1) * 4
+	for row = top, bottom do
+		buffer.fill(pixels, (row * resolution + left) * 4, 0, width)
+	end
+
+	self._minX = math.min(self._minX, left)
+	self._maxX = math.max(self._maxX, right)
+	self._minY = math.min(self._minY, top)
+	self._maxY = math.max(self._maxY, bottom)
 end
 
 function MapCanvas:Stamp(x: number, y: number, radius: number, color: Color3, alpha: number)
