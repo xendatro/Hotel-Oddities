@@ -56,7 +56,9 @@ return {
 	},
 
 	Canvas = {
-		Resolution = 1024,
+		Resolution = 2048,
+		-- Ink and wash sizes are authored against this resolution and scaled from it.
+		Reference = 1024,
 		-- Fraction of the canvas left as blank margin around the drawn map.
 		Margin = 0.06,
 	},

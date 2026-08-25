@@ -3,9 +3,18 @@ local AssetService = game:GetService("AssetService")
 local MapCanvas = {}
 MapCanvas.__index = MapCanvas
 
+export type Tile = {
+	Image: EditableImage,
+	Content: Content,
+	X: number,
+	Y: number,
+	Width: number,
+	Height: number,
+}
+
 export type MapCanvas = typeof(setmetatable({} :: {
 	Resolution: number,
-	Image: EditableImage,
+	Tiles: { Tile },
 	Content: Content,
 	_pixels: buffer,
 	_minX: number,
@@ -14,13 +23,32 @@ export type MapCanvas = typeof(setmetatable({} :: {
 	_maxY: number,
 }, MapCanvas))
 
+local MAX_TILE = 1024
+
 function MapCanvas.new(resolution: number): MapCanvas
 	local self = setmetatable({}, MapCanvas)
 
 	self.Resolution = resolution
-	self.Image = AssetService:CreateEditableImage({ Size = Vector2.new(resolution, resolution) })
-	self.Content = Content.fromObject(self.Image)
+	self.Tiles = {}
 	self._pixels = buffer.create(resolution * resolution * 4)
+
+	for y = 0, resolution - 1, MAX_TILE do
+		for x = 0, resolution - 1, MAX_TILE do
+			local width = math.min(MAX_TILE, resolution - x)
+			local height = math.min(MAX_TILE, resolution - y)
+			local image = AssetService:CreateEditableImage({ Size = Vector2.new(width, height) })
+			table.insert(self.Tiles, {
+				Image = image,
+				Content = Content.fromObject(image),
+				X = x,
+				Y = y,
+				Width = width,
+				Height = height,
+			})
+		end
+	end
+
+	self.Content = self.Tiles[1].Content
 	self:ResetDirty()
 
 	return self
@@ -38,55 +66,73 @@ function MapCanvas:Clear()
 	self:Flush()
 end
 
-function MapCanvas:FillAll(color: Color3, alpha: number, grain: number?, feather: number?, radius: number?)
+function MapCanvas:FillAll(color: Color3, alpha: number, grain: number?, feather: number?, radius: number?, budget: number?)
 	local resolution = self.Resolution
 	local pixels = self._pixels
 	local red, green, blue = color.R * 255, color.G * 255, color.B * 255
 	local base = math.clamp(alpha, 0, 1) * 255
 	local spread = (grain or 0) * 255
 	local edge = feather or 0
+	local corner = radius or 0
+	local half = (resolution - 1) / 2
 	local random = Random.new(20260824)
 
-	for row = 0, resolution - 1 do
-		local rowOffset = row * resolution * 4
-		for column = 0, resolution - 1 do
-			local value = base
-			if spread > 0 then
-				value += random:NextNumber(-spread, spread)
-			end
-
+	local BLOCK = 8
+	local clock = os.clock()
+	for blockY = 0, resolution - 1, BLOCK do
+		if budget and os.clock() - clock > budget then
+			task.wait()
+			clock = os.clock()
+		end
+		for blockX = 0, resolution - 1, BLOCK do
+			local ragged = 0
 			if edge > 0 then
-				local half = (resolution - 1) / 2
-				local corner = radius or 0
-				local offsetX = math.abs(column - half) - (half - corner)
-				local offsetY = math.abs(row - half) - (half - corner)
-				local outsideX, outsideY = math.max(offsetX, 0), math.max(offsetY, 0)
-				local outside = math.sqrt(outsideX * outsideX + outsideY * outsideY)
-					+ math.min(math.max(offsetX, offsetY), 0)
-					- corner
-				local distance = -outside
-
-				local angle = math.atan2(row - half, column - half)
+				local centreX = blockX + BLOCK / 2
+				local centreY = blockY + BLOCK / 2
+				local angle = math.atan2(centreY - half, centreX - half)
 				local wander = 1
 					+ 0.22 * math.sin(angle * 3 + 0.7)
 					+ 0.13 * math.sin(angle * 7 + 2.3)
-					+ 0.20 * math.sin(column * 0.021 + 1.1)
-					+ 0.20 * math.sin(row * 0.019 + 3.4)
-					+ 0.10 * math.sin((column + row) * 0.033 + 5.2)
-					+ 0.08 * math.sin((column - row) * 0.027 + 0.4)
-				local ragged = edge * math.max(wander, 0.55) + random:NextNumber(-edge * 0.08, edge * 0.08)
-
-				if ragged > 0 and distance < ragged then
-					local fade = math.clamp(distance / ragged, 0, 1)
-					value *= fade * fade * (3 - 2 * fade)
-				end
+					+ 0.20 * math.sin(centreX * 0.021 + 1.1)
+					+ 0.20 * math.sin(centreY * 0.019 + 3.4)
+					+ 0.10 * math.sin((centreX + centreY) * 0.033 + 5.2)
+					+ 0.08 * math.sin((centreX - centreY) * 0.027 + 0.4)
+				ragged = edge * math.max(wander, 0.55)
 			end
 
-			local index = rowOffset + column * 4
-			buffer.writeu8(pixels, index, red)
-			buffer.writeu8(pixels, index + 1, green)
-			buffer.writeu8(pixels, index + 2, blue)
-			buffer.writeu8(pixels, index + 3, math.clamp(value, 0, 255))
+			local lastY = math.min(blockY + BLOCK - 1, resolution - 1)
+			local lastX = math.min(blockX + BLOCK - 1, resolution - 1)
+
+			for row = blockY, lastY do
+				local rowOffset = row * resolution * 4
+				local offsetY = math.abs(row - half) - (half - corner)
+
+				for column = blockX, lastX do
+					local value = base
+					if spread > 0 then
+						value += random:NextNumber(-spread, spread)
+					end
+
+					if ragged > 0 then
+						local offsetX = math.abs(column - half) - (half - corner)
+						local outsideX, outsideY = math.max(offsetX, 0), math.max(offsetY, 0)
+						local distance = corner
+							- math.sqrt(outsideX * outsideX + outsideY * outsideY)
+							- math.min(math.max(offsetX, offsetY), 0)
+
+						if distance < ragged then
+							local fade = math.clamp(distance / ragged, 0, 1)
+							value *= fade * fade * (3 - 2 * fade)
+						end
+					end
+
+					local index = rowOffset + column * 4
+					buffer.writeu8(pixels, index, red)
+					buffer.writeu8(pixels, index + 1, green)
+					buffer.writeu8(pixels, index + 2, blue)
+					buffer.writeu8(pixels, index + 3, math.clamp(value, 0, 255))
+				end
+			end
 		end
 	end
 
@@ -245,23 +291,37 @@ function MapCanvas:Flush()
 	if self._minX > self._maxX or self._minY > self._maxY then return end
 
 	local resolution = self.Resolution
-	local left = math.clamp(self._minX, 0, resolution - 1)
-	local top = math.clamp(self._minY, 0, resolution - 1)
-	local width = math.clamp(self._maxX, 0, resolution - 1) - left + 1
-	local height = math.clamp(self._maxY, 0, resolution - 1) - top + 1
+	local dirtyLeft = math.clamp(self._minX, 0, resolution - 1)
+	local dirtyTop = math.clamp(self._minY, 0, resolution - 1)
+	local dirtyRight = math.clamp(self._maxX, 0, resolution - 1)
+	local dirtyBottom = math.clamp(self._maxY, 0, resolution - 1)
 
-	local region = buffer.create(width * height * 4)
-	for row = 0, height - 1 do
-		local source = ((top + row) * resolution + left) * 4
-		buffer.copy(region, row * width * 4, self._pixels, source, width * 4)
+	for _, tile in self.Tiles do
+		local left = math.max(dirtyLeft, tile.X)
+		local top = math.max(dirtyTop, tile.Y)
+		local right = math.min(dirtyRight, tile.X + tile.Width - 1)
+		local bottom = math.min(dirtyBottom, tile.Y + tile.Height - 1)
+		if left > right or top > bottom then continue end
+
+		local width = right - left + 1
+		local height = bottom - top + 1
+		local region = buffer.create(width * height * 4)
+		for row = 0, height - 1 do
+			local source = ((top + row) * resolution + left) * 4
+			buffer.copy(region, row * width * 4, self._pixels, source, width * 4)
+		end
+
+		tile.Image:WritePixelsBuffer(Vector2.new(left - tile.X, top - tile.Y), Vector2.new(width, height), region)
 	end
 
-	self.Image:WritePixelsBuffer(Vector2.new(left, top), Vector2.new(width, height), region)
 	self:ResetDirty()
 end
 
 function MapCanvas:Destroy()
-	self.Image:Destroy()
+	for _, tile in self.Tiles do
+		tile.Image:Destroy()
+	end
+	table.clear(self.Tiles)
 end
 
 return MapCanvas

@@ -5,6 +5,7 @@ local MapCanvas = require(ReplicatedStorage.Classes.MapCanvas)
 local MapLayoutService = require(ReplicatedStorage.Services.MapLayoutService)
 
 local Ink = MapConfig.Ink
+local PixelScale = MapConfig.Canvas.Resolution / MapConfig.Canvas.Reference
 local BOUNDARY_EPSILON = 0.75
 local MIN_PIECE = 2.5
 local BUDGET = 0.004
@@ -24,8 +25,8 @@ type Wobble = {
 
 local Canvas: MapCanvas.MapCanvas? = nil
 local Shade: MapCanvas.MapCanvas? = nil
-local Label: ImageLabel? = nil
-local ShadeLabel: ImageLabel? = nil
+local Label: Frame? = nil
+local ShadeLabel: Frame? = nil
 local Drawn: { [string]: { number } } = {}
 local Wobbles: { [string]: Wobble } = {}
 
@@ -115,7 +116,7 @@ local function strokePiece(
 	local function widthAt(progress: number): number
 		local along = start + length * progress
 		local variance = 1 + Ink.WidthVariance * 0.5 * math.sin(along * wobble.WidthFrequency + wobble.WidthPhase)
-		local width = Ink.Width * variance * widthScale
+		local width = Ink.Width * PixelScale * variance * widthScale
 
 		if taperLength > 0 then
 			local fromEnd = math.huge
@@ -126,11 +127,11 @@ local function strokePiece(
 			end
 		end
 
-		return math.max(width, 0.4)
+		return math.max(width, 0.4 * PixelScale)
 	end
 
 	local function bleedAt(progress: number): number
-		return widthAt(progress) + Ink.BleedOffset
+		return widthAt(progress) + Ink.BleedOffset * PixelScale
 	end
 
 	canvas:Stroke(points, bleedAt, Ink.Color, Ink.BleedOpacity * (opacity / Ink.Opacity))
@@ -367,38 +368,58 @@ function MapInkService:CreatePlaque(width: number, height: number, seed: string)
 	return canvas
 end
 
+local function buildLayer(parent: GuiObject, canvas: MapCanvas.MapCanvas, name: string, zIndex: number): Frame
+	local layer = Instance.new("Frame")
+	layer.Name = name
+	layer.Size = UDim2.fromScale(1, 1)
+	layer.BackgroundTransparency = 1
+	layer.ZIndex = zIndex
+	layer.Parent = parent
+
+	local resolution = canvas.Resolution
+	for index, tile in canvas.Tiles do
+		local label = Instance.new("ImageLabel")
+		label.Name = "Tile" .. index
+		label.BackgroundTransparency = 1
+		label.Position = UDim2.fromScale(tile.X / resolution, tile.Y / resolution)
+		label.Size = UDim2.fromScale(tile.Width / resolution, tile.Height / resolution)
+		label.ScaleType = Enum.ScaleType.Stretch
+		label.ImageContent = tile.Content
+		label.ZIndex = zIndex
+		label.Parent = layer
+	end
+
+	return layer
+end
+
 function MapInkService:Attach(paper: ImageLabel)
 	self:Detach()
 
 	local shade = MapCanvas.new(MapConfig.Canvas.Resolution)
-	shade:FillAll(MapConfig.Shade.Color, MapConfig.Shade.Opacity, MapConfig.Shade.Grain, MapConfig.Shade.Feather, MapConfig.Shade.CornerRadius)
-
-	local shadeLabel = Instance.new("ImageLabel")
-	shadeLabel.Name = MapConfig.Gui.ShadeName
-	shadeLabel.BackgroundTransparency = 1
-	shadeLabel.Size = UDim2.fromScale(1, 1)
-	shadeLabel.ScaleType = Enum.ScaleType.Stretch
-	shadeLabel.ImageContent = shade.Content
-	shadeLabel.ZIndex = (paper.ZIndex or 1) + 1
-	shadeLabel.Parent = paper
-
 	local canvas = MapCanvas.new(MapConfig.Canvas.Resolution)
-	local label = Instance.new("ImageLabel")
-	label.Name = MapConfig.Gui.InkName
-	label.BackgroundTransparency = 1
-	label.Size = UDim2.fromScale(1, 1)
-	label.ScaleType = Enum.ScaleType.Stretch
-	label.ImageContent = canvas.Content
-	label.ZIndex = (paper.ZIndex or 1) + 2
-	label.Parent = paper
+
+	local base = paper.ZIndex or 1
+	ShadeLabel = buildLayer(paper, shade, MapConfig.Gui.ShadeName, base + 1)
+	Label = buildLayer(paper, canvas, MapConfig.Gui.InkName, base + 2)
 
 	Canvas = canvas
 	Shade = shade
-	Label = label
-	ShadeLabel = shadeLabel
 	Drawn = {}
 	Wobbles = {}
+end
 
+function MapInkService:PrepareShade()
+	local shade = Shade
+	if not shade then return end
+
+	shade:FillAll(
+		MapConfig.Shade.Color,
+		MapConfig.Shade.Opacity,
+		MapConfig.Shade.Grain,
+		MapConfig.Shade.Feather * PixelScale,
+		MapConfig.Shade.CornerRadius * PixelScale,
+		BUDGET
+	)
 	shade:Flush()
 end
 

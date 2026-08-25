@@ -112,12 +112,12 @@ Per-player billboard marker for the player locator: headshot bubble, halo, name 
 - Requires: `Configs.PlayerLocatorConfig`, `Services.AudioService`
 
 ### MapCanvas.luau
-A software pixel canvas backing an `EditableImage`. Owns an RGBA `buffer` it composites into with a soft round brush, then pushes only the changed rectangle through `WritePixelsBuffer`. Compositing takes the maximum alpha rather than blending over, which makes repeated drawing of the same ink idempotent and removes seams where separately drawn strokes meet.
-- API: `MapCanvas.new(resolution: number) -> MapCanvas` — creates the buffer, the EditableImage and its `Content`, which callers assign straight to `ImageContent`
+A software pixel canvas backing a grid of `EditableImage` tiles. `EditableImage` is capped at 1024 on a side at runtime, so a canvas larger than that is split into tiles of at most 1024 and the caller lays out one `ImageLabel` per tile; drawing stays in one logical pixel space and `Flush` routes each dirty region into the tiles it touches. Owns an RGBA `buffer` it composites into with a soft round brush, then pushes only the changed rectangle through `WritePixelsBuffer`. Compositing takes the maximum alpha rather than blending over, which makes repeated drawing of the same ink idempotent and removes seams where separately drawn strokes meet.
+- API: `MapCanvas.new(resolution: number) -> MapCanvas` — creates the buffer and the tile grid; `Tiles` carries each tile's `Content`, logical offset and size, and `Content` is the first tile's for single-tile canvases
 - API: `MapCanvas:Stamp(x, y, radius, color, alpha)` — one antialiased round brush dab
 - API: `MapCanvas:Stroke(points: { Vector2 }, widthAt: (number) -> number, color, alpha)` — stamps along a polyline with a width that varies by progress
 - API: `MapCanvas:Flush()` — writes the dirty rectangle and clears it
-- API: `MapCanvas:FillAll(color: Color3, alpha: number, grain: number?, feather: number?)` — floods the buffer for the shade wash, optionally with per-pixel grain and a wandering fade over a rounded-rectangle edge that reaches full transparency, so the canvas never shows its own bounds
+- API: `MapCanvas:FillAll(color: Color3, alpha: number, grain: number?, feather: number?)` — floods the buffer for the shade wash, optionally with per-pixel grain and a wandering fade over a rounded-rectangle edge that reaches full transparency, so the canvas never shows its own bounds; the fade field is evaluated per 8x8 block rather than per pixel, and an optional budget yields between block rows so a large canvas does not stall a frame
 - API: `MapCanvas:FillRect(minimum: Vector2, maximum: Vector2, color: Color3, alpha: number)` — paints one axis-aligned rectangle, used for the legend plaque's paper fill
 - API: `MapCanvas:FadeRect(minimum: Vector2, maximum: Vector2, alpha: number)` — lowers alpha towards a ceiling without raising it, so overlapping reveals always take the clearest result
 - API: `MapCanvas:ClearRect(minimum: Vector2, maximum: Vector2)` — zeroes an axis-aligned rectangle, cutting floor area out of the shade
