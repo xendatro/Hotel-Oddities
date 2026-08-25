@@ -477,7 +477,6 @@ Small pure-math helper library shared across the codebase: easing, framerate-ind
 - API: `MathService.AngleBetween(a: Vector3, b: Vector3) -> number` — degrees, 0 for near-zero vectors
 - API: `MathService.IsWithinCone(origin: Vector3, direction: Vector3, point: Vector3, maximumAngle: number) -> boolean` — degrees
 - API: `MathService.LookDegrees(look: Vector3) -> number` — a look vector as a compass angle in degrees, clockwise from screen up, matching `GuiObject.Rotation`
-- API: `MathService.AngleDelta(from: number, to: number) -> number` — shortest signed difference between two degree angles, for wrap-free rotation lerps
 - API: `MathService.RandomRange(minimum: number, maximum: number) -> number` — continuous
 - API: `MathService.SinePulse(time: number, period: number) -> number` — 0..1 sine
 
@@ -495,7 +494,7 @@ Turns a recorded movement sample into discrete WASD-style key values so a mimic 
 ### MinimapService.luau
 Client-only corner minimap, built into the `Minimap` ScreenGui's `Main` frame. It draws no map of its own: it borrows the floor and ink layers straight off `MapInkService` while the full map is shut, and hands them back the moment the `Map` page opens, which is safe because the two are never on screen together. One canvas, one set of ink, two windows onto it.
 
-Inside `Main` it builds a clipped `Viewport` **CanvasGroup**, a `Rotor` frame pivoting on the viewport centre, and an oversized `Content` frame offset every render step so the player's canvas position sits dead centre. The rotor eases round to the negated player facing, so the window turns and the player always faces up. Its own `MapMarkerLayer` is registered with `MapService`, so landmarks, computers and other players appear with the same markers as the map; the layer is told to counter-rotate, keeping glyphs and headshots upright while facing chevrons still read as world directions.
+Inside `Main` it builds a clipped `Viewport` **CanvasGroup**, a `Rotor` frame pivoting on the viewport centre, and an oversized `Content` frame offset every render step so the player's canvas position sits dead centre. The rotor is set straight from the negated camera look each frame with no easing, so the window turns exactly as fast as you do; the player's dot is pinned to the viewport centre rather than positioned from world coordinates, which keeps it perfectly still instead of shivering as the content frame's offset rounds to whole pixels. Its own `MapMarkerLayer` is registered with `MapService`, so landmarks, computers and other players appear with the same markers as the map; the layer is told to counter-rotate, keeping glyphs and headshots upright while facing chevrons still read as world directions.
 - API: `MinimapService:IsShowing() -> boolean`
 - Hides itself whenever any interface page is active, whenever the layout has not synced yet, and until the map's close animation has finished handing the ink back
 - Clicking the frame opens the map: `Main` carries the same `Tab` tag and `PageGroup`/`PageId`/`Toggle` attributes as the side-bar map button

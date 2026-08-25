@@ -44,10 +44,6 @@ function MathService.LookDegrees(look: Vector3): number
 	return math.deg(math.atan2(look.X, -look.Z))
 end
 
-function MathService.AngleDelta(from: number, to: number): number
-	return (to - from + 180) % 360 - 180
-end
-
 function MathService.RandomRange(minimum: number, maximum: number): number
 	return minimum + math.random() * (maximum - minimum)
 end

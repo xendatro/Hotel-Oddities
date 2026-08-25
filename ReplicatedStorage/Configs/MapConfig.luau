@@ -41,7 +41,6 @@ return {
 		},
 		Inset = 0.055,
 		Studs = 70,
-		RotationLerp = 12,
 		PlayerSize = 16,
 		FriendSize = 16,
 		LandmarkSize = 22,

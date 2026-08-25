@@ -140,7 +140,7 @@ One symbol on the discoverable map: an inked disc with a handwriting-font glyph,
 
 ### MapMarkerLayer.luau
 One complete set of markers drawn over a map surface: every landmark, every other player's headshot dot, and the local player's own dot, each with its hand-drawn facing chevron. The map and the minimap each own one, which is why both show the same symbols without either duplicating the bookkeeping; `MapService` owns the data and fans it out.
-- API: `MapMarkerLayer.new(parent: GuiObject, options: { PlayerSize: number?, FriendSize: number?, LandmarkSize: number? }?) -> MapMarkerLayer` — builds the marker frame and the local player's dot
+- API: `MapMarkerLayer.new(parent: GuiObject, options: { PlayerSize: number?, FriendSize: number?, LandmarkSize: number?, PlayerParent: GuiObject? }?) -> MapMarkerLayer` — builds the marker frame and the local player's dot; a `PlayerParent` pins that dot to the centre of another frame instead of placing it by world position, which is how the minimap keeps it dead still and unrotated while everything else moves under it; a pinned dot's chevron always points straight up, since the window it sits in is already turned to the view
 - API: `MapMarkerLayer:PlaceLandmark(kind: string, key: string) -> boolean` — false when already placed, the key is malformed, or no layout has loaded
 - API: `MapMarkerLayer:Pop(key: string)`
 - API: `MapMarkerLayer:SetComplete(key: string, complete: boolean)`

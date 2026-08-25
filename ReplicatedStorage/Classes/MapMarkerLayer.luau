@@ -17,6 +17,7 @@ export type Options = {
 	PlayerSize: number?,
 	FriendSize: number?,
 	LandmarkSize: number?,
+	PlayerParent: GuiObject?,
 }
 
 export type MapMarkerLayer = typeof(setmetatable({} :: {
@@ -28,6 +29,7 @@ export type MapMarkerLayer = typeof(setmetatable({} :: {
 	_facings: { [Player]: ImageLabel },
 	_player: Frame,
 	_playerFacing: ImageLabel?,
+	_pinned: boolean,
 	_upright: number,
 }, MapMarkerLayer))
 
@@ -98,8 +100,15 @@ function MapMarkerLayer.new(parent: GuiObject, options: Options?): MapMarkerLaye
 	self.Frame = frame
 
 	local playerSize = self._options.PlayerSize or Markers.PlayerSize
-	self._player = buildPlayerMarker(frame, playerSize)
+	local pinned = self._options.PlayerParent
+	self._pinned = pinned ~= nil
+	self._player = buildPlayerMarker(pinned or frame, playerSize)
 	self._playerFacing = attachArrow(self._player, playerSize)
+
+	if pinned then
+		self._player.Position = UDim2.fromScale(0.5, 0.5)
+		self._player.ZIndex = pinned.ZIndex + 25
+	end
 
 	self.Connections = setUpConnections(self)
 
@@ -155,16 +164,22 @@ function MapMarkerLayer:SetUpright(degrees: number)
 	for _, marker in self._friends do
 		marker.Frame.Rotation = degrees
 	end
-	self._player.Rotation = degrees
+	if not self._pinned then
+		self._player.Rotation = degrees
+	end
 end
 
 function MapMarkerLayer:Update()
 	local root = CharacterService.GetAliveRoot(Player)
 	if root then
 		self._player.Visible = true
-		self._player.Position = toScale(root.Position.X, root.Position.Z)
+		if not self._pinned then
+			self._player.Position = toScale(root.Position.X, root.Position.Z)
+		end
 		if self._playerFacing then
-			self._playerFacing.Rotation = MathService.LookDegrees(root.CFrame.LookVector) - self._upright
+			self._playerFacing.Rotation = if self._pinned
+				then 0
+				else MathService.LookDegrees(root.CFrame.LookVector) - self._upright
 		end
 	else
 		self._player.Visible = false
@@ -208,6 +223,9 @@ function MapMarkerLayer:Destroy()
 	self:ClearLandmarks()
 	for player in self._friends do
 		self:ClearFriend(player)
+	end
+	if self._pinned then
+		self._player:Destroy()
 	end
 	self.Frame:Destroy()
 end

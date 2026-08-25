@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
 local MapConfig = require(ReplicatedStorage.Configs.MapConfig)
 local MapMarkerLayer = require(ReplicatedStorage.Classes.MapMarkerLayer)
@@ -27,7 +28,6 @@ local Viewport: CanvasGroup? = nil
 local Rotor: Frame? = nil
 local Content: Frame? = nil
 local Layer: MapMarkerLayer.MapMarkerLayer? = nil
-local Rotation = 0
 local ActiveId = ""
 local HandBack = 0
 
@@ -79,6 +79,7 @@ local function build()
 		PlayerSize = Minimap.PlayerSize,
 		FriendSize = Minimap.FriendSize,
 		LandmarkSize = Minimap.LandmarkSize,
+		PlayerParent = viewport,
 	})
 	MapService:RegisterLayer(Layer :: MapMarkerLayer.MapMarkerLayer)
 end
@@ -104,7 +105,7 @@ xenterface:Controller(MapConfig.Gui.PageGroup).Fired:Connect(function(data)
 	end
 end)
 
-RunService.RenderStepped:Connect(function(deltaTime: number)
+RunService.RenderStepped:Connect(function()
 	local screen, viewport, rotor, content, layer = Screen, Viewport, Rotor, Content, Layer
 	if not screen or not viewport or not rotor or not content or not layer then return end
 
@@ -115,7 +116,12 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 	MapInkService:Reparent(content)
 
 	local root = CharacterService.GetAliveRoot(Player)
-	if not root then return end
+	local camera = Workspace.CurrentCamera
+	if not root or not camera then return end
+
+	local rotation = -MathService.LookDegrees(camera.CFrame.LookVector)
+	rotor.Rotation = rotation
+	layer:SetUpright(-rotation)
 
 	local resolution = MapConfig.Canvas.Resolution
 	local span = math.max(Minimap.Studs * MapLayoutService:GetScale(), 1e-3)
@@ -125,11 +131,6 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 	local canvas = MapLayoutService:ToCanvas(root.Position.X, root.Position.Z)
 	content.Size = UDim2.fromOffset(extent, extent)
 	content.Position = UDim2.new(0.5, -canvas.X / resolution * extent, 0.5, -canvas.Y / resolution * extent)
-
-	local target = -MathService.LookDegrees(root.CFrame.LookVector)
-	Rotation += MathService.AngleDelta(Rotation, target) * MathService.ExpAlpha(Minimap.RotationLerp, deltaTime)
-	rotor.Rotation = Rotation
-	layer:SetUpright(-Rotation)
 end)
 
 return MinimapService
