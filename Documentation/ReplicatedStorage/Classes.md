@@ -117,7 +117,8 @@ A software pixel canvas backing an `EditableImage`. Owns an RGBA `buffer` it com
 - API: `MapCanvas:Stamp(x, y, radius, color, alpha)` — one antialiased round brush dab
 - API: `MapCanvas:Stroke(points: { Vector2 }, widthAt: (number) -> number, color, alpha)` — stamps along a polyline with a width that varies by progress
 - API: `MapCanvas:Flush()` — writes the dirty rectangle and clears it
-- API: `MapCanvas:FillAll(color: Color3, alpha: number, grain: number?, feather: number?)` — floods the buffer for the shade wash, optionally with per-pixel grain and a wandering fade over a rounded-rectangle edge
+- API: `MapCanvas:FillAll(color: Color3, alpha: number, grain: number?, feather: number?)` — floods the buffer for the shade wash, optionally with per-pixel grain and a wandering fade over a rounded-rectangle edge that reaches full transparency, so the canvas never shows its own bounds
+- API: `MapCanvas:FillRect(minimum: Vector2, maximum: Vector2, color: Color3, alpha: number)` — paints one axis-aligned rectangle, used for the legend plaque's paper fill
 - API: `MapCanvas:ClearRect(minimum: Vector2, maximum: Vector2)` — zeroes an axis-aligned rectangle, cutting floor area out of the shade
 - API: `MapCanvas:Clear()` — zeroes the buffer and writes the whole canvas
 - API: `MapCanvas:ResetDirty()`

@@ -406,7 +406,7 @@ Client-only. Rasterises the hand-drawn map onto a `MapCanvas`. Every wall and de
 - API: `MapInkService:Flush()` — pushes the dirty rectangle to the EditableImage
 - API: `MapInkService:RevealAnimated(key: string, packed: { number }, duration: number) -> boolean` — draws a room's sides and hatch progressively over `duration`
 - API: `MapInkService:IsDrawn(key: string) -> boolean`
-- API: `MapInkService:CreatePlaque(width: number, height: number, seed: string) -> MapCanvas` — a standalone canvas holding a wobbly hand-drawn rectangle border, used for the legend so its edges match the map's ink rather than a crisp `UIStroke`
+- API: `MapInkService:CreatePlaque(width: number, height: number, seed: string) -> MapCanvas` — a standalone canvas holding a wobbly hand-drawn rectangle border, used for the legend: it paints the paper fill and the border together, so the drawn edge defines the plaque's shape with no `UICorner` fighting it
 - API: `MapInkService:LoadDiscovered(store)` — replays a whole discovery table, yielding to stay inside a frame budget
 - Requires: `Configs.MapConfig`, `Classes.MapCanvas`, `Services.MapLayoutService`
 

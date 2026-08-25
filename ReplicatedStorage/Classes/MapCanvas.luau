@@ -74,10 +74,11 @@ function MapCanvas:FillAll(color: Color3, alpha: number, grain: number?, feather
 					+ 0.20 * math.sin(row * 0.019 + 3.4)
 					+ 0.10 * math.sin((column + row) * 0.033 + 5.2)
 					+ 0.08 * math.sin((column - row) * 0.027 + 0.4)
-				local ragged = edge * math.max(wander, 0.2) + random:NextNumber(-edge * 0.1, edge * 0.1)
+				local ragged = edge * math.max(wander, 0.55) + random:NextNumber(-edge * 0.08, edge * 0.08)
 
-				if distance < ragged and ragged > 0 then
-					value *= math.clamp(distance / ragged, 0, 1) ^ 0.7
+				if ragged > 0 and distance < ragged then
+					local fade = math.clamp(distance / ragged, 0, 1)
+					value *= fade * fade * (3 - 2 * fade)
 				end
 			end
 
@@ -91,6 +92,36 @@ function MapCanvas:FillAll(color: Color3, alpha: number, grain: number?, feather
 
 	self._minX, self._minY = 0, 0
 	self._maxX, self._maxY = resolution - 1, resolution - 1
+end
+
+function MapCanvas:FillRect(minimum: Vector2, maximum: Vector2, color: Color3, alpha: number)
+	local resolution = self.Resolution
+	local pixels = self._pixels
+
+	local left = math.max(math.floor(minimum.X), 0)
+	local right = math.min(math.ceil(maximum.X), resolution - 1)
+	local top = math.max(math.floor(minimum.Y), 0)
+	local bottom = math.min(math.ceil(maximum.Y), resolution - 1)
+	if left > right or top > bottom then return end
+
+	local red, green, blue = color.R * 255, color.G * 255, color.B * 255
+	local value = math.clamp(alpha, 0, 1) * 255
+
+	for row = top, bottom do
+		local rowOffset = row * resolution * 4
+		for column = left, right do
+			local index = rowOffset + column * 4
+			buffer.writeu8(pixels, index, red)
+			buffer.writeu8(pixels, index + 1, green)
+			buffer.writeu8(pixels, index + 2, blue)
+			buffer.writeu8(pixels, index + 3, value)
+		end
+	end
+
+	self._minX = math.min(self._minX, left)
+	self._maxX = math.max(self._maxX, right)
+	self._minY = math.min(self._minY, top)
+	self._maxY = math.max(self._maxY, bottom)
 end
 
 function MapCanvas:ClearRect(minimum: Vector2, maximum: Vector2)

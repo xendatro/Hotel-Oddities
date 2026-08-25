@@ -276,6 +276,13 @@ function MapInkService:CreatePlaque(width: number, height: number, seed: string)
 	local wobble = getWobble(seed)
 	local inset = Ink.Width * 2
 
+	canvas:FillRect(
+		Vector2.new(inset * 0.5, inset * 0.5),
+		Vector2.new(width - inset * 0.5, height - inset * 0.5),
+		MapConfig.Markers.Fill,
+		0.9
+	)
+
 	local corners = {
 		Vector2.new(inset, inset),
 		Vector2.new(width - inset, inset),

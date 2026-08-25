@@ -92,7 +92,7 @@ return {
 		Grain = 0.055,
 		EdgeWobble = 0.75,
 		-- Canvas pixels the wash fades out over at the sheet edge.
-		Feather = 58,
+		Feather = 105,
 		-- Canvas pixels of corner rounding on the wash so corners are not harsh.
 		CornerRadius = 150,
 	},

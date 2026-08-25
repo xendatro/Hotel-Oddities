@@ -115,16 +115,10 @@ local function buildLegend(paper: ImageLabel): Frame
 	legend.AnchorPoint = Vector2.new(0, 0)
 	legend.Position = UDim2.fromScale(MapConfig.Controls.Inset, MapConfig.Controls.Inset)
 	legend.Size = UDim2.fromOffset(MapConfig.Legend.Width, MapConfig.Legend.Height)
-	legend.BackgroundColor3 = MapConfig.Markers.Fill
-	legend.BackgroundTransparency = 0.12
+	legend.BackgroundTransparency = 1
 	legend.BorderSizePixel = 0
-	legend.ClipsDescendants = true
 	legend.ZIndex = 30
 	legend.Parent = paper
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 8)
-	corner.Parent = legend
 
 	if LegendPlaque then LegendPlaque:Destroy() end
 	LegendPlaque = MapInkService:CreatePlaque(MapConfig.Legend.Width, MapConfig.Legend.Height, "legend")
