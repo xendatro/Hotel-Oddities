@@ -112,44 +112,23 @@ Per-player billboard marker for the player locator: headshot bubble, halo, name 
 - Requires: `Configs.PlayerLocatorConfig`, `Services.AudioService`
 
 ### MapCanvas.luau
-A software pixel canvas backing a grid of `EditableImage` tiles. `EditableImage` is capped at 1024 on a side at runtime, so a canvas larger than that is split into tiles of at most 1024 and the caller lays out one `ImageLabel` per tile; drawing stays in one logical pixel space and `Flush` routes each dirty region into the tiles it touches. Owns an RGBA `buffer` it composites into with a soft round brush, then pushes only the changed rectangle through `WritePixelsBuffer`. Compositing takes the maximum alpha rather than blending over, which makes repeated drawing of the same ink idempotent and removes seams where separately drawn strokes meet.
-- API: `MapCanvas.new(resolution: number) -> MapCanvas` — creates the buffer and the tile grid; `Tiles` carries each tile's `Content`, logical offset and size, and `Content` is the first tile's for single-tile canvases
+A software pixel canvas backing an `EditableImage`. Owns an RGBA `buffer` it composites into with a soft round brush, then pushes only the changed rectangle through `WritePixelsBuffer`. Compositing takes the maximum alpha rather than blending over, which makes repeated drawing of the same ink idempotent and removes seams where separately drawn strokes meet.
+- API: `MapCanvas.new(resolution: number) -> MapCanvas` — creates the buffer and the EditableImage
 - API: `MapCanvas:Stamp(x, y, radius, color, alpha)` — one antialiased round brush dab
 - API: `MapCanvas:Stroke(points: { Vector2 }, widthAt: (number) -> number, color, alpha)` — stamps along a polyline with a width that varies by progress
 - API: `MapCanvas:Flush()` — writes the dirty rectangle and clears it
-- API: `MapCanvas:FillAll(color: Color3, alpha: number, grain: number?, feather: number?)` — floods the buffer for the shade wash, optionally with per-pixel grain and a wandering fade over a rounded-rectangle edge that reaches full transparency, so the canvas never shows its own bounds; the fade field is evaluated per 8x8 block rather than per pixel, and an optional budget yields between block rows so a large canvas does not stall a frame
-- API: `MapCanvas:FillRect(minimum: Vector2, maximum: Vector2, color: Color3, alpha: number)` — paints one axis-aligned rectangle, used for the legend plaque's paper fill
-- API: `MapCanvas:FadeRect(minimum: Vector2, maximum: Vector2, alpha: number)` — lowers alpha towards a ceiling without raising it, so overlapping reveals always take the clearest result
-- API: `MapCanvas:FillSlice(horizontal, fixed, from, to, color, alpha)` — paints one pixel line, keeping the strongest alpha where fills overlap
-- API: `MapCanvas:ClearSlice(horizontal, fixed, centre, inner, outer, residual, opacity)` — clears one pixel line with a smooth ramp out to a ceiling
-- API: `MapCanvas:ClearRect(minimum: Vector2, maximum: Vector2)` — zeroes an axis-aligned rectangle, cutting floor area out of the shade
 - API: `MapCanvas:Clear()` — zeroes the buffer and writes the whole canvas
 - API: `MapCanvas:ResetDirty()`
 - API: `MapCanvas:Destroy()`
 
 ### MapMarker.luau
 One symbol on the discoverable map: an inked disc with a handwriting-font glyph, a spring-driven pop scale, an expanding ping ring and a short glyph flash. Used for landmarks such as computers; a freshly discovered one pops, a restored one simply appears.
-- API: `MapMarker.new(parent: GuiObject, kind: string, userId: number?, size: number?) -> MapMarker` — kind selects the glyph; a `userId` swaps it for that player's circular headshot, and `size` overrides the configured extent
+- API: `MapMarker.new(parent: GuiObject, kind: string, userId: number?) -> MapMarker` — kind selects the glyph; a `userId` swaps it for that player's circular headshot
 - API: `MapMarker:SetPosition(position: UDim2)`
 - API: `MapMarker:SetFaded(faded: boolean)` — dims the glyph and disc
-- API: `MapMarker:SetComplete(complete: boolean)` — swaps to the green fill and tick glyph, popping as it changes
 - API: `MapMarker:Pop()` — plays the discovery pop, ping ring and flash together
 - API: `MapMarker:Destroy()`
-- The ping ring expands from the marker's own extent, so small markers on the minimap ping in proportion
 - Requires: `Configs.MapConfig`, `Services.GuiBuilderService`, `Classes.Spring`
-
-### MapMarkerLayer.luau
-One complete set of markers drawn over a map surface: every landmark, every other player's headshot dot, and the local player's own dot, each with its hand-drawn facing chevron. The map and the minimap each own one, which is why both show the same symbols without either duplicating the bookkeeping; `MapService` owns the data and fans it out.
-- API: `MapMarkerLayer.new(parent: GuiObject, options: { PlayerSize: number?, FriendSize: number?, LandmarkSize: number?, PlayerParent: GuiObject? }?) -> MapMarkerLayer` — builds the marker frame and the local player's dot; a `PlayerParent` pins that dot to the centre of another frame instead of placing it by world position, which is how the minimap keeps it dead still and unrotated while everything else moves under it; a pinned dot's chevron always points straight up, since the window it sits in is already turned to the view
-- API: `MapMarkerLayer:PlaceLandmark(kind: string, key: string) -> boolean` — false when already placed, the key is malformed, or no layout has loaded
-- API: `MapMarkerLayer:Pop(key: string)`
-- API: `MapMarkerLayer:SetComplete(key: string, complete: boolean)`
-- API: `MapMarkerLayer:ClearLandmarks()`
-- API: `MapMarkerLayer:ClearFriend(player: Player)`
-- API: `MapMarkerLayer:SetUpright(degrees: number)` — counter-rotates every marker by this much, so a rotating minimap keeps its glyphs and headshots readable; chevrons subtract it back out and keep pointing the true way
-- API: `MapMarkerLayer:Update()` — repositions the local player and every other player, creating markers for players it has not seen yet
-- API: `MapMarkerLayer:Destroy()`
-- Requires: `Configs.MapConfig`, `Classes.MapMarker`, `CharacterService`, `MapInkService`, `MapLayoutService`, `MathService`
 
 ### MotionTrail.luau
 Rolling buffer of a humanoid's recent position, move vector, look vector and jumping flag, trimmed to a duration window. Used to replay or follow a character a few seconds behind.

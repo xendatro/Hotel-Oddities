@@ -7,6 +7,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local Hallways = require(ReplicatedStorage.Services.HallwaysService)
 local HallwayGraph = require(ReplicatedStorage.Services.HallwayGraphService)
+local MapConfig = require(ReplicatedStorage.Configs.MapConfig)
 local Gaze = require(ServerStorage.Services.GazeService)
 local DeathService = require(ServerStorage.Services.DeathService)
 local HallwayOddity = require(ServerStorage.Classes.HallwayOddity)
@@ -23,6 +24,7 @@ local FLOOR_Y_EPSILON = 2
 local MINIMUM_SPAN_LENGTH = 4
 local MINIMUM_PIECE = 0.05
 local WALL_SINK = 0.05
+local COMPUTER_ROOM_CONNECTION_GAP = 1.5
 
 type Candidate = {
 	Span: HallwayRegion.Span,
@@ -40,6 +42,15 @@ type Rect = {
 	MaxX: number,
 	MinZ: number,
 	MaxZ: number,
+}
+
+type FloorRect = {
+	Center: Vector3,
+	Axis: Vector3,
+	Across: Vector3,
+	HalfLength: number,
+	HalfWidth: number,
+	FloorY: number,
 }
 
 type Cut = {
@@ -85,6 +96,62 @@ end
 local function horizontal(vector: Vector3): Vector3
 	local flat = Vector3.new(vector.X, 0, vector.Z)
 	return if flat.Magnitude > 1e-3 then flat.Unit else Vector3.xAxis
+end
+
+local function floorRect(part: BasePart): FloorRect
+	local runsAlongX = part.Size.X >= part.Size.Z
+	local axis = horizontal(if runsAlongX then part.CFrame.RightVector else part.CFrame.LookVector)
+	return {
+		Center = part.Position,
+		Axis = axis,
+		Across = Vector3.yAxis:Cross(axis).Unit,
+		HalfLength = (if runsAlongX then part.Size.X else part.Size.Z) / 2,
+		HalfWidth = (if runsAlongX then part.Size.Z else part.Size.X) / 2,
+		FloorY = part.Position.Y + part.Size.Y / 2,
+	}
+end
+
+local function rectanglesTouch(first: FloorRect, second: FloorRect, gap: number): boolean
+	if math.abs(first.FloorY - second.FloorY) > FLOOR_Y_EPSILON then return false end
+
+	for _, axis in { first.Axis, first.Across, second.Axis, second.Across } do
+		local offset = math.abs((second.Center - first.Center):Dot(axis))
+		local firstRadius = first.HalfLength * math.abs(first.Axis:Dot(axis))
+			+ first.HalfWidth * math.abs(first.Across:Dot(axis))
+		local secondRadius = second.HalfLength * math.abs(second.Axis:Dot(axis))
+			+ second.HalfWidth * math.abs(second.Across:Dot(axis))
+		if offset > firstRadius + secondRadius + gap then return false end
+	end
+	return true
+end
+
+local function spanRect(span: HallwayRegion.Span): FloorRect?
+	local hallway = Hallways.Nearest(span.Center)
+	if not hallway then return nil end
+	local _, boxSize = HallwayRegion.Box(span)
+
+	return {
+		Center = span.Center,
+		Axis = span.Axis,
+		Across = Vector3.yAxis:Cross(span.Axis).Unit,
+		HalfLength = span.Length / 2,
+		HalfWidth = boxSize.X / 2,
+		FloorY = hallway.FloorY,
+	}
+end
+
+local function hasComputerRoom(span: HallwayRegion.Span): boolean
+	local hallwayRect = spanRect(span)
+	if not hallwayRect then return false end
+
+	for _, instance in CollectionService:GetTagged(MapConfig.Rooms.ComputerTag) do
+		if instance:IsA("BasePart") and instance:IsDescendantOf(workspace)
+			and rectanglesTouch(hallwayRect, floorRect(instance), COMPUTER_ROOM_CONNECTION_GAP)
+		then
+			return true
+		end
+	end
+	return false
 end
 
 local function getFloors(): { BasePart }
@@ -356,6 +423,7 @@ end
 
 local function isUsable(class: any, candidate: Candidate): boolean
 	if isActive(candidate.Span) then return false end
+	if hasComputerRoom(candidate.Span) then return false end
 	if isOccupied(candidate.Span) then return false end
 	if isLookedAt(class, candidate) then return false end
 	return geometryFor(candidate) ~= nil
@@ -483,6 +551,7 @@ function HallwayVoid:CanStart(context: any): (boolean, string?)
 		else if type(context) == "table" then buildCandidateAt(self.Config, context.Center, context) else nil
 	if not candidate then return false, "that position does not contain a usable hallway gap" end
 	if isActive(candidate.Span) then return false, "that hallway already has a void gap" end
+	if hasComputerRoom(candidate.Span) then return false, "that hallway has a computer room" end
 	if not candidate.Manual and isOccupied(candidate.Span) then
 		return false, "that hallway or an attached room is occupied"
 	end

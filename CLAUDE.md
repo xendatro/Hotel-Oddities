@@ -9,8 +9,8 @@ modules (usually classes).
 
 ReplicatedStorage.Classes - Classes are any class in the form of Roblox's class
 syntax. These might be used through Tagger, they might not. Please take note of
-syntax. Please take note of how connections should be handled. Any
-connections should be stored in self.Connections
+syntax. Please take note of how
+connections should be handled. Any connections should be stored in self.Connections
 which is created from a local function called setUpConnections.
 
 ReplicatedStorage.Config - Configs are any predefined "settings" that relate

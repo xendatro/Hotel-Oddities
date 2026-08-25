@@ -65,6 +65,11 @@ return {
 			Name = "The Void",
 			Hint = "The plank was the only floor left. Cross gaps slowly and watch for the hotel opening below you.",
 		},
+
+		HallwayCrush = {
+			Name = "The Squeeze",
+			Hint = "The corridor was getting narrower the whole time. When the walls start to move, run for the nearest opening.",
+		},
 	} :: { [string]: Cause },
 
 	Screen = {

@@ -350,17 +350,6 @@ Extends `HallwayOddity`. Full panic event in one hallway: lights flicker chaotic
 - Remotes: `Oddities/MapDoors` (fired)
 - Requires: `Classes\HallwayOddity`, `Services\LightService`
 
-### Oddities\HallwayVoid.luau
-Extends `HallwayOddity`. Opens a bottomless pit in a hallway: the span is trimmed back to the far edge of each junction it meets — measured from the crossing corridor's own footprint, whether that corridor runs through the junction or merely ends at it, plus `IntersectionInset` — so an intersection and every side-corridor mouth keep their floor, then the floor slabs and carpet runners overlapping that rectangle are subtracted from — each part is resized to its first remaining piece and cloned for the rest, so cross-hallway floors at an intersection lose only the overlap and nothing is left hanging over the hole. Dark walls line the shaft, sunk beneath the thickest floor or carpet slab they sit under so nothing z-fights, stacked translucent layers fade the drop to black, a single plank crosses the gap, and anything that falls past `KillDepth` inside the opening dies with cause `HallwayVoid`. Every edited part is restored on stop.
-- API: `HallwayVoid.new(config: { [string]: any }?)` — adds `self.Candidate`, `self.Edits`, `self.Structure`, `self.KillConnection`
-- API: `HallwayVoid.Resolve(class: any, position: Vector3) -> Candidate?` — manual placement candidate for a position
-- API: `HallwayVoid.Pick(class: any) -> Candidate?` — random span whose floor can be cut, unoccupied and unseen
-- API: `HallwayVoid:CanStart(context: any) -> (boolean, string?)`, `HallwayVoid:Start(context: any, duration: number?) -> boolean`
-- API: `HallwayVoid:OnStart() -> boolean` — cuts the floor, builds the shaft, arms the kill loop
-- API: `HallwayVoid:OnStop()` — destroys the shaft, restores every cut part, frees the span
-- Tags: reads `MazeFloor`, re-applies it to cut floor pieces
-- Requires: `Classes\HallwayOddity`, `Classes\Oddity`, `Services\GazeService`, `Services\DeathService`, `Services\HallwayRegionService`, `Services\RoomService`, `ReplicatedStorage\Services\HallwaysService`, `ReplicatedStorage\Services\HallwayGraphService`, `ReplicatedStorage\Services\CharacterService`
-
 ### Oddities\LanternFall.luau
 Extends `FixtureFall` (via `PropOddity`). Unanchors a ceiling lantern so it falls, killing its light while it is down and restoring the light plus the `Floor1Light` tag when the fixture is put back.
 - API: `LanternFall.new(config: { [string]: any }?)` — adds `self.LightClaim`

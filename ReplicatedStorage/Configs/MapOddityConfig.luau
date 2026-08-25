@@ -81,6 +81,27 @@ return {
 			VoidBottomTransparency = 0.08,
 			KillDepth = 1.25,
 		},
+		HallwayCrush = {
+			RollInterval = 360,
+			InitialDelay = 180,
+			TriggerChance = 0.12,
+			MinDuration = 26,
+			MaxDuration = 40,
+
+			OccupiedChance = 0.55,
+			PickAttempts = 64,
+			-- Longest run that closes at once, snapped outward to whole intersections.
+			MaxLength = 130,
+
+			-- Seconds the walls take to meet, and to slide back on stop.
+			CloseTime = 9,
+			OpenTime = 4,
+			StepInterval = 1 / 30,
+			-- Studs the two sides overlap by once they have met.
+			SealOverlap = 0.3,
+			-- Clear corridor width at which anyone still inside is crushed.
+			KillWidth = 2.2,
+		},
 		ChaosWarning = {
 			Ambient = false,
 			OpeningSpeed = 1.2,

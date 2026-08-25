@@ -1,5 +1,6 @@
 return {
 	DoorwayTags = { "Doorway", "RoomDoor" },
+	AnchorName = "DoorHeader",
 
 	OpenAngle = 100,
 

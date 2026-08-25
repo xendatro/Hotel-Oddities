@@ -14,6 +14,16 @@ local function horizontal(vector: Vector3): Vector3
 	return Vector3.new(vector.X, 0, vector.Z)
 end
 
+local function findAnchor(part: BasePart): BasePart?
+	local instance: Instance? = part.Parent
+	while instance and instance ~= workspace do
+		local header = instance:FindFirstChild(DoorConfig.AnchorName)
+		if header and header:IsA("BasePart") then return header :: BasePart end
+		instance = instance.Parent
+	end
+	return nil
+end
+
 local function findDoorModel(part: BasePart): Model?
 	local instance: Instance? = part.Parent
 	while instance and instance ~= workspace do
@@ -57,7 +67,36 @@ function DoorPart.new(part: BasePart)
 	local outward = doorModel and horizontal(doorModel:GetPivot().LookVector)
 	self.Outward = if outward and outward.Magnitude > 1e-3 then outward.Unit else nil
 
+	self.Anchor = findAnchor(part)
+	self.AnchorOrigin = if self.Anchor then self.Anchor.CFrame else nil
+	self.AppliedAnchor = self.AnchorOrigin
+	self.BaseClosedPivot = self.ClosedPivot
+	self.BaseCenter = self.Center
+	self.BaseOutward = self.Outward
+
 	return self
+end
+
+function DoorPart:_syncAnchor(): boolean
+	local anchor = self.Anchor
+	local origin = self.AnchorOrigin
+	if not anchor or not origin or not anchor.Parent then return false end
+
+	local current = anchor.CFrame
+	if current == self.AppliedAnchor then return false end
+	self.AppliedAnchor = current
+
+	local delta = current * origin:Inverse()
+	self.ClosedPivot = delta * self.BaseClosedPivot
+	self.Hinge = self.ClosedPivot.Position
+	self.Center = delta * self.BaseCenter
+
+	local arm = self.Center - self.Hinge
+	self.Arm = Vector3.new(arm.X, 0, arm.Z)
+	if self.BaseOutward then
+		self.Outward = delta:VectorToWorldSpace(self.BaseOutward)
+	end
+	return true
 end
 
 function DoorPart:IsOpen(): boolean
@@ -227,6 +266,7 @@ function DoorPart:SetForced(forced: boolean)
 end
 
 function DoorPart:Step(deltaTime: number)
+	local moved = self:_syncAnchor()
 	local animationPlayer = self.AnimationPlayer
 	if animationPlayer then
 		local _, endPosition = AudioService:GetPlaybackBounds(animationPlayer)
@@ -261,8 +301,9 @@ function DoorPart:Step(deltaTime: number)
 	if spring.Target == 0 and math.abs(spring.Velocity) <= DoorConfig.SettleVelocity and math.abs(spring.Position) <= DoorConfig.SettleAngle then
 		if spring.Position ~= 0 then
 			spring:Snap(0)
-			self:_Apply()
+			moved = true
 		end
+		if moved then self:_Apply() end
 		self:_applyCollision()
 		return
 	end
