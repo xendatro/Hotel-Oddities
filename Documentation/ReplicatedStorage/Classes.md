@@ -135,7 +135,21 @@ One symbol on the discoverable map: an inked disc with a handwriting-font glyph,
 - API: `MapMarker:SetComplete(complete: boolean)` — swaps to the green fill and tick glyph, popping as it changes
 - API: `MapMarker:Pop()` — plays the discovery pop, ping ring and flash together
 - API: `MapMarker:Destroy()`
+- The ping ring expands from the marker's own extent, so small markers on the minimap ping in proportion
 - Requires: `Configs.MapConfig`, `Services.GuiBuilderService`, `Classes.Spring`
+
+### MapMarkerLayer.luau
+One complete set of markers drawn over a map surface: every landmark, every other player's headshot dot, and the local player's own dot, each with its hand-drawn facing chevron. The map and the minimap each own one, which is why both show the same symbols without either duplicating the bookkeeping; `MapService` owns the data and fans it out.
+- API: `MapMarkerLayer.new(parent: GuiObject, options: { PlayerSize: number?, FriendSize: number?, LandmarkSize: number? }?) -> MapMarkerLayer` — builds the marker frame and the local player's dot
+- API: `MapMarkerLayer:PlaceLandmark(kind: string, key: string) -> boolean` — false when already placed, the key is malformed, or no layout has loaded
+- API: `MapMarkerLayer:Pop(key: string)`
+- API: `MapMarkerLayer:SetComplete(key: string, complete: boolean)`
+- API: `MapMarkerLayer:ClearLandmarks()`
+- API: `MapMarkerLayer:ClearFriend(player: Player)`
+- API: `MapMarkerLayer:SetUpright(degrees: number)` — counter-rotates every marker by this much, so a rotating minimap keeps its glyphs and headshots readable; chevrons subtract it back out and keep pointing the true way
+- API: `MapMarkerLayer:Update()` — repositions the local player and every other player, creating markers for players it has not seen yet
+- API: `MapMarkerLayer:Destroy()`
+- Requires: `Configs.MapConfig`, `Classes.MapMarker`, `CharacterService`, `MapInkService`, `MapLayoutService`, `MathService`
 
 ### MotionTrail.luau
 Rolling buffer of a humanoid's recent position, move vector, look vector and jumping flag, trimmed to a duration window. Used to replay or follow a character a few seconds behind.

@@ -5,8 +5,7 @@ local RunService = game:GetService("RunService")
 
 local ComputerConfig = require(ReplicatedStorage.Configs.ComputerConfig)
 local MapConfig = require(ReplicatedStorage.Configs.MapConfig)
-local MapMarker = require(ReplicatedStorage.Classes.MapMarker)
-local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local MapMarkerLayer = require(ReplicatedStorage.Classes.MapMarkerLayer)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local MapControlService = require(ReplicatedStorage.Services.MapControlService)
 local MapInkService = require(ReplicatedStorage.Services.MapInkService)
@@ -21,14 +20,10 @@ local MapService = {}
 
 local Player = Players.LocalPlayer
 local Paper: ImageLabel? = nil
-local Layer: Frame? = nil
-local PlayerMarker: Frame? = nil
 local LegendPlaque: any = nil
-local ArrowCanvas: any = nil
-local PlayerFacing: ImageLabel? = nil
-local Facings: { [Player]: ImageLabel } = {}
-local Landmarks: { [string]: MapMarker.MapMarker } = {}
-local Friends: { [Player]: MapMarker.MapMarker } = {}
+local Layers: { MapMarkerLayer.MapMarkerLayer } = {}
+local Layer: MapMarkerLayer.MapMarkerLayer? = nil
+local LandmarkKinds: { [string]: string } = {}
 local PendingRooms: { { Key: string, Packed: { number } } } = {}
 local PendingPops: { string } = {}
 local IsOpen = false
@@ -194,46 +189,6 @@ local function buildLegend(paper: ImageLabel): Frame
 	return legend
 end
 
-local function attachArrow(parent: GuiObject, size: number): ImageLabel?
-	if not ArrowCanvas then return nil end
-
-	local extent = size * MapConfig.Markers.ArrowScale
-	local arrow = Instance.new("ImageLabel")
-	arrow.Name = "Facing"
-	arrow.AnchorPoint = Vector2.new(0.5, 0.5)
-	arrow.Position = UDim2.fromScale(0.5, 0.5)
-	arrow.Size = UDim2.fromOffset(extent, extent)
-	arrow.BackgroundTransparency = 1
-	arrow.ScaleType = Enum.ScaleType.Stretch
-	arrow.ImageContent = ArrowCanvas.Content
-	arrow.ZIndex = parent.ZIndex + 1
-	arrow.Parent = parent
-	return arrow
-end
-
-local function facingDegrees(root: BasePart): number
-	local look = root.CFrame.LookVector
-	return math.deg(math.atan2(look.X, -look.Z))
-end
-
-local function buildPlayerMarker(layer: Frame): Frame
-	local marker = Instance.new("Frame")
-	marker.Name = "You"
-	marker.AnchorPoint = Vector2.new(0.5, 0.5)
-	marker.Size = UDim2.fromOffset(MapConfig.Markers.PlayerSize, MapConfig.Markers.PlayerSize)
-	marker.BackgroundColor3 = MapConfig.Ink.Color
-	marker.BorderSizePixel = 0
-	marker.ZIndex = 25
-	marker.Visible = false
-	marker.Parent = layer
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(1, 0)
-	corner.Parent = marker
-
-	return marker
-end
-
 function MapService:GetPaper(): ImageLabel?
 	return Paper
 end
@@ -244,21 +199,33 @@ function MapService:ToPaperScale(worldX: number, worldZ: number): UDim2
 	return UDim2.fromScale(canvas.X / resolution, canvas.Y / resolution)
 end
 
+function MapService:RegisterLayer(layer: MapMarkerLayer.MapMarkerLayer)
+	table.insert(Layers, layer)
+
+	for key, kind in LandmarkKinds do
+		layer:PlaceLandmark(kind, key)
+	end
+	MapService:RefreshComputers()
+end
+
+function MapService:UnregisterLayer(layer: MapMarkerLayer.MapMarkerLayer)
+	local index = table.find(Layers, layer)
+	if index then table.remove(Layers, index) end
+end
+
 local function placeLandmark(kind: string, key: string, pop: boolean)
-	local layer = Layer
-	if not layer or Landmarks[key] then return end
+	if LandmarkKinds[key] or not MapLayoutService:IsLoaded() then return end
 
-	local x, z = key:match("^(-?%d+),(-?%d+)$")
-	if not x then return end
-
-	local marker = MapMarker.new(layer, kind)
-	marker:SetPosition(MapService:ToPaperScale(tonumber(x) :: number, tonumber(z) :: number))
-	Landmarks[key] = marker
+	LandmarkKinds[key] = kind
+	for _, layer in Layers do
+		layer:PlaceLandmark(kind, key)
+	end
 
 	if not pop then return end
-	if IsOpen then
-		marker:Pop()
-	else
+	for _, layer in Layers do
+		layer:Pop(key)
+	end
+	if not IsOpen then
 		table.insert(PendingPops, key)
 	end
 end
@@ -275,12 +242,11 @@ local function playPending()
 	local pops = PendingPops
 	PendingPops = {}
 	for index, key in pops do
-		local marker = Landmarks[key]
-		if marker then
-			task.delay((index - 1) * 0.18 + MapConfig.Ink.RevealTime * 0.55, function()
-				marker:Pop()
-			end)
-		end
+		task.delay((index - 1) * 0.18 + MapConfig.Ink.RevealTime * 0.55, function()
+			for _, layer in Layers do
+				layer:Pop(key)
+			end
+		end)
 	end
 end
 
@@ -291,48 +257,11 @@ function MapService:RefreshComputers()
 		if not model:IsA("Model") then continue end
 
 		local pivot = model:GetPivot().Position
-		local marker = Landmarks[string.format("%d,%d", math.round(pivot.X), math.round(pivot.Z))]
-		if marker then
-			marker:SetComplete(ComputerService:IsHacked(model))
+		local key = string.format("%d,%d", math.round(pivot.X), math.round(pivot.Z))
+		local complete = ComputerService:IsHacked(model)
+		for _, layer in Layers do
+			layer:SetComplete(key, complete)
 		end
-	end
-end
-
-local function clearFriend(player: Player)
-	local marker = Friends[player]
-	if marker then
-		marker:Destroy()
-		Friends[player] = nil
-	end
-	Facings[player] = nil
-end
-
-local function updateFriends()
-	local layer = Layer
-	if not layer then return end
-
-	for _, other in Players:GetPlayers() do
-		if other == Player then continue end
-
-		local root = CharacterService.GetAliveRoot(other)
-		local marker = Friends[other]
-
-		if not root then
-			if marker then marker.Frame.Visible = false end
-			continue
-		end
-
-		if not marker then
-			marker = MapMarker.new(layer, "Friend", other.UserId, MapConfig.Markers.FriendSize)
-			Friends[other] = marker
-			Facings[other] = attachArrow(marker.Frame, MapConfig.Markers.FriendSize)
-		end
-
-		marker.Frame.Visible = true
-		marker:SetPosition(MapService:ToPaperScale(root.Position.X, root.Position.Z))
-
-		local facing = Facings[other]
-		if facing then facing.Rotation = facingDegrees(root) end
 	end
 end
 
@@ -341,13 +270,15 @@ local function onSync(layout: { any }, store: { [string]: { number } }, landmark
 
 	MapLayoutService:Load(layout)
 
-	for _, marker in Landmarks do
-		marker:Destroy()
+	table.clear(LandmarkKinds)
+	for _, existing in Layers do
+		existing:ClearLandmarks()
 	end
-	table.clear(Landmarks)
 
-	for player in Friends do
-		clearFriend(player)
+	if Layer then
+		MapService:UnregisterLayer(Layer)
+		Layer:Destroy()
+		Layer = nil
 	end
 
 	for _, name in { Gui.ViewportName, Gui.LegendName } do
@@ -359,19 +290,10 @@ local function onSync(layout: { any }, store: { [string]: { number } }, landmark
 
 	MapInkService:Attach(content)
 
-	local layer = Instance.new("Frame")
-	layer.Name = Gui.MarkerName
-	layer.Size = UDim2.fromScale(1, 1)
-	layer.BackgroundTransparency = 1
-	layer.ZIndex = 10
-	layer.Parent = content
-	Layer = layer
+	local marks = MapMarkerLayer.new(content)
+	Layer = marks
+	MapService:RegisterLayer(marks)
 
-	if ArrowCanvas then ArrowCanvas:Destroy() end
-	ArrowCanvas = MapInkService:CreateArrow(MapConfig.Markers.ArrowResolution)
-
-	PlayerMarker = buildPlayerMarker(layer)
-	PlayerFacing = attachArrow(PlayerMarker :: Frame, MapConfig.Markers.PlayerSize)
 	MapControlService:Attach(viewport, content)
 	buildLegend(paper)
 
@@ -431,24 +353,12 @@ ComputerService.Changed:Connect(function()
 	MapService:RefreshComputers()
 end)
 
-Players.PlayerRemoving:Connect(clearFriend)
-
 RunService.RenderStepped:Connect(function()
 	if not MapLayoutService:IsLoaded() then return end
 
-	local marker = PlayerMarker
-	if marker then
-		local root = CharacterService.GetAliveRoot(Player)
-		if root then
-			marker.Visible = true
-			marker.Position = MapService:ToPaperScale(root.Position.X, root.Position.Z)
-			if PlayerFacing then PlayerFacing.Rotation = facingDegrees(root) end
-		else
-			marker.Visible = false
-		end
+	for _, layer in Layers do
+		layer:Update()
 	end
-
-	updateFriends()
 end)
 
 return MapService

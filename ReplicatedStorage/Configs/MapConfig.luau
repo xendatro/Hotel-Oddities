@@ -31,6 +31,22 @@ return {
 		MarkerName = "Markers",
 	},
 
+	Minimap = {
+		Gui = {
+			ScreenGui = "Minimap",
+			Frame = "Main",
+			ViewportName = "Viewport",
+			RotorName = "Rotor",
+			ContentName = "Content",
+		},
+		Inset = 0.055,
+		Studs = 70,
+		RotationLerp = 12,
+		PlayerSize = 16,
+		FriendSize = 16,
+		LandmarkSize = 22,
+	},
+
 	Controls = {
 		-- Fraction of the paper kept clear of the torn edges.
 		Inset = 0.055,

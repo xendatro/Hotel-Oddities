@@ -122,6 +122,8 @@ Settings for the look-direction system that replicates each player's aim to neck
 ### MapConfig.luau
 Everything tuning the discoverable map: remote names, the `Map` ScreenGui paths, discovery radius and tick rate, canvas resolution (tiled above 1024) and the reference resolution ink weights are authored against, margin, hand-drawn ink style (colour, opacity, width and its variance, wobble amplitude and frequency, overshoot, bleed), the room floor tags, the landmark tags and their discovery radii, line-of-sight sampling, pan and zoom limits, room and computer-room stroke weights and hatch settings, the floor fill colour, opacity, pad and frontier fade, the legend rows and font, danger layer colours, marker sizing and effect timings, and the facing chevron's scale, canvas size and stroke weight.
 
+The `Minimap` block tunes the corner minimap: its ScreenGui and frame names, the names of the viewport, rotor and content frames it builds, the fraction of the frame art kept clear of the drawn border, how many studs of world span the short side of the window, how fast the window swings round to the player's facing, and the player, friend and landmark marker sizes.
+
 ### MapOddityConfig.luau
 Roll timings, durations and per-effect tuning for the hallway/map oddity system (transparent hallways, doors opening, hallway chaos, gaze-gated blockers).
 - API: data table — `Enabled`, `RollInterval`, `InitialDelay`, `TriggerChance`, `MinDuration`, `MaxDuration`, `MinimumPlayerDistance`, `Effects` (`Transparency`, `DoorsOpen`, `HallwayChaos`, `HallwayBlocker`, `ChaosWarning`), plus hallway detection keys `HallwayTransparency`, `HallwayHeightWindow`, `HallwayBelowWindow`, `SpatialPadding`, `MinimumPartHallwayFraction`

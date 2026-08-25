@@ -22,6 +22,7 @@ export type MapMarker = typeof(setmetatable({} :: {
 	_ringClock: number,
 	_flashClock: number,
 	_stroke: UIStroke,
+	_extent: number,
 	_complete: boolean,
 }, MapMarker))
 
@@ -46,7 +47,7 @@ local function setUpConnections(self: MapMarker): { RBXScriptConnection }
 					self._ring.Visible = false
 				else
 					local eased = 1 - (1 - progress) ^ 3
-					local size = Markers.Size * (1 + eased * Markers.PingSize)
+					local size = self._extent * (1 + eased * Markers.PingSize)
 					self._ring.Size = UDim2.fromOffset(size, size)
 					self._ring.BackgroundTransparency = 1
 					self._stroke.Transparency = eased
@@ -143,6 +144,7 @@ function MapMarker.new(parent: GuiObject, kind: string, userId: number?, size: n
 	self._ring = ring
 	self._scale = scale
 	self._stroke = GuiBuilderService.Stroke(ring, MapConfig.Ink.Color, Markers.StrokeWidth)
+	self._extent = extent
 	self._spring = Spring.new(190, 0.5, 1 / 120)
 	self._spring:Snap(1)
 	self._spring.Target = 1

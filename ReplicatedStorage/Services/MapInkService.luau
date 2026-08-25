@@ -25,8 +25,10 @@ type Wobble = {
 
 local Canvas: MapCanvas.MapCanvas? = nil
 local Floor: MapCanvas.MapCanvas? = nil
+local Arrow: MapCanvas.MapCanvas? = nil
 local Label: Frame? = nil
 local FloorLabel: Frame? = nil
+local Home: GuiObject? = nil
 local Drawn: { [string]: { number } } = {}
 local Wobbles: { [string]: Wobble } = {}
 
@@ -373,7 +375,7 @@ function MapInkService:CreatePlaque(width: number, height: number, seed: string)
 	return canvas
 end
 
-function MapInkService:CreateArrow(resolution: number): MapCanvas.MapCanvas
+local function createArrow(resolution: number): MapCanvas.MapCanvas
 	local canvas = MapCanvas.new(resolution)
 	local wobble = getWobble("arrow")
 
@@ -412,6 +414,13 @@ function MapInkService:CreateArrow(resolution: number): MapCanvas.MapCanvas
 	return canvas
 end
 
+function MapInkService:GetArrow(): MapCanvas.MapCanvas
+	if not Arrow then
+		Arrow = createArrow(MapConfig.Markers.ArrowResolution)
+	end
+	return Arrow :: MapCanvas.MapCanvas
+end
+
 local function buildLayer(parent: GuiObject, canvas: MapCanvas.MapCanvas, name: string, zIndex: number): Frame
 	local layer = Instance.new("Frame")
 	layer.Name = name
@@ -446,6 +455,7 @@ function MapInkService:Attach(paper: ImageLabel)
 	FloorLabel = buildLayer(paper, floor, MapConfig.Gui.FloorName, base + 1)
 	Label = buildLayer(paper, canvas, MapConfig.Gui.InkName, base + 2)
 
+	Home = paper
 	Canvas = canvas
 	Floor = floor
 	Drawn = {}
@@ -469,7 +479,20 @@ function MapInkService:Detach()
 		Floor:Destroy()
 		Floor = nil
 	end
+	Home = nil
 	Drawn = {}
+end
+
+function MapInkService:Reparent(parent: GuiObject?)
+	local target = parent or Home
+	if not target then return end
+
+	if FloorLabel and FloorLabel.Parent ~= target then FloorLabel.Parent = target end
+	if Label and Label.Parent ~= target then Label.Parent = target end
+end
+
+function MapInkService:IsHostedBy(parent: GuiObject): boolean
+	return Label ~= nil and Label.Parent == parent
 end
 
 function MapInkService:IsAttached(): boolean

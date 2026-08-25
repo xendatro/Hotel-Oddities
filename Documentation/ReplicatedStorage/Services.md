@@ -403,11 +403,13 @@ Client-only. Rasterises the hand-drawn map onto a `MapCanvas`. Every wall and de
 Below the ink it owns a floor canvas. Discovered floor is filled with a flat grey that follows each wall's own wobble plus a small pad, so the fill tucks under the stroke with no gap and no spill. Rooms are drawn as complete boxes; a computer room gets a heavier outline and a diagonal hatch fill, and can draw itself on over time. The fill always covers the whole known interval rather than only the newly discovered sliver, without which every incremental reveal left a seam where its ends were shaded.
 - API: `MapInkService:Attach(paper: ImageLabel)` — builds the floor and ink canvases and a tiled `ImageLabel` layer for each, resetting drawn and style state
 - API: `MapInkService:Detach()` — destroys the layers and canvases
+- API: `MapInkService:Reparent(parent: GuiObject?)` — moves the floor and ink layers to another host, or back to the frame they were attached to when passed nothing; this is how the minimap borrows the drawn map without a second canvas
+- API: `MapInkService:IsHostedBy(parent: GuiObject) -> boolean`
 - API: `MapInkService:IsAttached() -> boolean`
 - API: `MapInkService:Reveal(key: string, packed: { number }) -> boolean` — fills the floor for the whole interval and inks only the not-yet-drawn part; false when nothing changed
 - API: `MapInkService:RevealAnimated(key, packed, duration) -> boolean` — draws a room's sides and hatch progressively
 - API: `MapInkService:IsDrawn(key: string) -> boolean`
-- API: `MapInkService:CreateArrow(resolution: number) -> MapCanvas` — a small canvas holding a hand-drawn chevron pointing up, shared by every facing indicator and rotated per marker
+- API: `MapInkService:GetArrow() -> MapCanvas` — a lazily drawn canvas holding a hand-drawn chevron pointing up, shared by every facing indicator on every layer and rotated per marker; it outlives `Detach` because it does not depend on the layout
 - API: `MapInkService:CreatePlaque(width, height, seed) -> MapCanvas` — paints the legend's paper fill and wobbly border together, so the drawn edge defines its shape with no `UICorner`
 - API: `MapInkService:Flush()` — pushes the dirty rectangles to both canvases
 - API: `MapInkService:LoadDiscovered(store)` — replays a whole discovery table, yielding to stay inside a frame budget
@@ -429,18 +431,20 @@ Corridor floors in this map **abut exactly rather than overlapping**, so testing
 - Requires: `Configs.MapConfig`
 
 ### MapService.luau
-Client-only front end for the map. Waits for the `Map` ScreenGui's paper `ImageLabel`, loads each sync into `MapLayoutService`, attaches `MapInkService` to the paper, replays stored discovery, and applies incremental reveals with a deferred flush so a burst of reveals costs one write. Also owns the local player marker, repositioned every render step.
+Client-only front end for the map. Waits for the `Map` ScreenGui's paper `ImageLabel`, loads each sync into `MapLayoutService`, attaches `MapInkService` to the paper, replays stored discovery, and applies incremental reveals with a deferred flush so a burst of reveals costs one write. It owns the landmark bookkeeping and fans it out to every registered `MapMarkerLayer`, so the map and the minimap draw the same markers from one source.
 - API: `MapService:GetPaper() -> ImageLabel?`
 - API: `MapService:ToPaperScale(worldX: number, worldZ: number) -> UDim2` — world position as a scale offset inside the paper
-- Builds a clipped `Viewport` **CanvasGroup** holding a pannable `Content` frame, so the whole map composites as one layer and fades cleanly with the page animation instead of clipping; the ink, markers, local player dot and other players' headshot markers all live inside it so they pan and zoom together
+- API: `MapService:RegisterLayer(layer: MapMarkerLayer)` — adds a marker layer, replaying every known landmark and computer state into it
+- API: `MapService:UnregisterLayer(layer: MapMarkerLayer)`
+- API: `MapService:RefreshComputers()` — repaints every computer marker on every layer from the current hacked set
+- Builds a clipped `Viewport` **CanvasGroup** holding a pannable `Content` frame, so the whole map composites as one layer and fades cleanly with the page animation instead of clipping; the ink and its own `MapMarkerLayer` live inside it so they pan and zoom together
 - Draws a fixed legend in the top-left, outside the pannable content, keyed by `MapConfig.Legend.Rows`
 - Recentres the view every time the page opens, so it never appears off to one side
-- Computer markers turn green with a tick once `ComputerService` reports that computer hacked; other players show as small headshot dots the size of the local player marker. The local player and every other player carry a facing chevron drawn in the same ink as the map, rotated each frame from their root part's look direction
-- A computer room discovered while the map is shut is queued, then draws itself on with its marker popping shortly after, the next time the `Map` page is opened; one discovered while the map is already open plays immediately
-- API: `MapService:RefreshComputers()` — repaints every computer marker from the current hacked set
+- Steps every registered marker layer once per render step, the minimap's included
+- A computer room discovered while the map is shut is queued, then draws itself on with its marker popping shortly after, the next time the `Map` page is opened; one discovered while the map is already open plays immediately. Landmark pops play on every layer as they are discovered, so the minimap shows them straight away
 - Remotes: `Map/Sync` (listened), `Map/Reveal` (listened), `Map/Landmark` (listened)
 - Tags: reads `ComputerConfig.Tag`
-- Requires: `Configs.MapConfig`, `Configs.ComputerConfig`, `Classes.MapMarker`, `CharacterService`, `CommunicationService`, `ComputerService`, `MapControlService`, `MapInkService`, `MapLayoutService`, `Frameworks.xenterface`
+- Requires: `Configs.MapConfig`, `Configs.ComputerConfig`, `Classes.MapMarkerLayer`, `CommunicationService`, `ComputerService`, `MapControlService`, `MapInkService`, `MapLayoutService`, `Frameworks.xenterface`
 
 ### MarketplaceService\init.luau
 Wrapper around Roblox's own MarketplaceService that adds a shared server/client gamepass-ownership cache, cross-boundary purchase prompts, and a registry of per-product receipt handlers. Server also grants the VIP pass to holders of a legacy VIP subscription. `extend` merges the real MarketplaceService in, so every native member is still reachable through this module.
@@ -472,6 +476,8 @@ Small pure-math helper library shared across the codebase: easing, framerate-ind
 - API: `MathService.DistanceToSegment(point: Vector3, origin: Vector3, destination: Vector3, minimumLengthSquared: number?) -> number` — degenerate segments fall back to distance from `origin`
 - API: `MathService.AngleBetween(a: Vector3, b: Vector3) -> number` — degrees, 0 for near-zero vectors
 - API: `MathService.IsWithinCone(origin: Vector3, direction: Vector3, point: Vector3, maximumAngle: number) -> boolean` — degrees
+- API: `MathService.LookDegrees(look: Vector3) -> number` — a look vector as a compass angle in degrees, clockwise from screen up, matching `GuiObject.Rotation`
+- API: `MathService.AngleDelta(from: number, to: number) -> number` — shortest signed difference between two degree angles, for wrap-free rotation lerps
 - API: `MathService.RandomRange(minimum: number, maximum: number) -> number` — continuous
 - API: `MathService.SinePulse(time: number, period: number) -> number` — 0..1 sine
 
@@ -485,6 +491,15 @@ Turns a recorded movement sample into discrete WASD-style key values so a mimic 
 - API: `MimicMotion.Drift(look: Vector3, clock: number, seed: number) -> Vector3` — two-frequency yaw wander
 - API: `MimicMotion.Turn(cframe: CFrame, look: Vector3, deltaTime: number, turnRate: number?) -> CFrame` — exponential turn toward a flattened look
 - Requires: `Configs.MimicConfig`, `Classes.MotionTrail`
+
+### MinimapService.luau
+Client-only corner minimap, built into the `Minimap` ScreenGui's `Main` frame. It draws no map of its own: it borrows the floor and ink layers straight off `MapInkService` while the full map is shut, and hands them back the moment the `Map` page opens, which is safe because the two are never on screen together. One canvas, one set of ink, two windows onto it.
+
+Inside `Main` it builds a clipped `Viewport` **CanvasGroup**, a `Rotor` frame pivoting on the viewport centre, and an oversized `Content` frame offset every render step so the player's canvas position sits dead centre. The rotor eases round to the negated player facing, so the window turns and the player always faces up. Its own `MapMarkerLayer` is registered with `MapService`, so landmarks, computers and other players appear with the same markers as the map; the layer is told to counter-rotate, keeping glyphs and headshots upright while facing chevrons still read as world directions.
+- API: `MinimapService:IsShowing() -> boolean`
+- Hides itself whenever any interface page is active, whenever the layout has not synced yet, and until the map's close animation has finished handing the ink back
+- Clicking the frame opens the map: `Main` carries the same `Tab` tag and `PageGroup`/`PageId`/`Toggle` attributes as the side-bar map button
+- Requires: `Configs.MapConfig`, `Classes.MapMarkerLayer`, `CharacterService`, `MapInkService`, `MapLayoutService`, `MapService`, `MathService`, `Frameworks.xenterface`
 
 ### MimicService.luau
 Client-side driver for the Mimic enemy: mirrors the local player's recorded movement onto the mimic model, runs its "spin to face you" mode, twitches and head-locks enemy necks, and plays the reveal sting. Disabled entirely when `FLAGS.Enemies` is off.
