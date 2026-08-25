@@ -60,6 +60,11 @@ return {
 			Name = "The Sisters",
 			Hint = "There are two of them walking side by side, and they are slower than you. Go around them, never between them.",
 		},
+
+		HallwayVoid = {
+			Name = "The Void",
+			Hint = "The plank was the only floor left. Cross gaps slowly and watch for the hotel opening below you.",
+		},
 	} :: { [string]: Cause },
 
 	Screen = {
