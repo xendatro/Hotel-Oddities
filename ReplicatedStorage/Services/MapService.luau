@@ -24,6 +24,9 @@ local Paper: ImageLabel? = nil
 local Layer: Frame? = nil
 local PlayerMarker: Frame? = nil
 local LegendPlaque: any = nil
+local ArrowCanvas: any = nil
+local PlayerFacing: ImageLabel? = nil
+local Facings: { [Player]: ImageLabel } = {}
 local Landmarks: { [string]: MapMarker.MapMarker } = {}
 local Friends: { [Player]: MapMarker.MapMarker } = {}
 local PendingRooms: { { Key: string, Packed: { number } } } = {}
@@ -191,6 +194,28 @@ local function buildLegend(paper: ImageLabel): Frame
 	return legend
 end
 
+local function attachArrow(parent: GuiObject, size: number): ImageLabel?
+	if not ArrowCanvas then return nil end
+
+	local extent = size * MapConfig.Markers.ArrowScale
+	local arrow = Instance.new("ImageLabel")
+	arrow.Name = "Facing"
+	arrow.AnchorPoint = Vector2.new(0.5, 0.5)
+	arrow.Position = UDim2.fromScale(0.5, 0.5)
+	arrow.Size = UDim2.fromOffset(extent, extent)
+	arrow.BackgroundTransparency = 1
+	arrow.ScaleType = Enum.ScaleType.Stretch
+	arrow.ImageContent = ArrowCanvas.Content
+	arrow.ZIndex = parent.ZIndex + 1
+	arrow.Parent = parent
+	return arrow
+end
+
+local function facingDegrees(root: BasePart): number
+	local look = root.CFrame.LookVector
+	return math.deg(math.atan2(look.X, -look.Z))
+end
+
 local function buildPlayerMarker(layer: Frame): Frame
 	local marker = Instance.new("Frame")
 	marker.Name = "You"
@@ -279,6 +304,7 @@ local function clearFriend(player: Player)
 		marker:Destroy()
 		Friends[player] = nil
 	end
+	Facings[player] = nil
 end
 
 local function updateFriends()
@@ -299,10 +325,14 @@ local function updateFriends()
 		if not marker then
 			marker = MapMarker.new(layer, "Friend", other.UserId, MapConfig.Markers.FriendSize)
 			Friends[other] = marker
+			Facings[other] = attachArrow(marker.Frame, MapConfig.Markers.FriendSize)
 		end
 
 		marker.Frame.Visible = true
 		marker:SetPosition(MapService:ToPaperScale(root.Position.X, root.Position.Z))
+
+		local facing = Facings[other]
+		if facing then facing.Rotation = facingDegrees(root) end
 	end
 end
 
@@ -337,7 +367,11 @@ local function onSync(layout: { any }, store: { [string]: { number } }, landmark
 	layer.Parent = content
 	Layer = layer
 
+	if ArrowCanvas then ArrowCanvas:Destroy() end
+	ArrowCanvas = MapInkService:CreateArrow(MapConfig.Markers.ArrowResolution)
+
 	PlayerMarker = buildPlayerMarker(layer)
+	PlayerFacing = attachArrow(PlayerMarker :: Frame, MapConfig.Markers.PlayerSize)
 	MapControlService:Attach(viewport, content)
 	buildLegend(paper)
 
@@ -409,6 +443,7 @@ RunService.RenderStepped:Connect(function()
 		if root then
 			marker.Visible = true
 			marker.Position = MapService:ToPaperScale(root.Position.X, root.Position.Z)
+			if PlayerFacing then PlayerFacing.Rotation = facingDegrees(root) end
 		else
 			marker.Visible = false
 		end

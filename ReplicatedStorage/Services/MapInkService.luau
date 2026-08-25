@@ -200,9 +200,10 @@ local function clearShade(entry: MapLayoutService.Entry, from: number, to: numbe
 	local settings = MapConfig.Shade
 	local wobble = getWobble(entry.Key .. ":shade")
 	local scale = MapLayoutService:GetScale()
+	local margin = settings.Bleed + settings.SoftEdge
 
-	local startWorld = entry.Center + entry.Axis * (from - settings.Bleed)
-	local finishWorld = entry.Center + entry.Axis * (to + settings.Bleed)
+	local startWorld = entry.Center + entry.Axis * (from - margin)
+	local finishWorld = entry.Center + entry.Axis * (to + margin)
 	local head = MapLayoutService:ToCanvas(startWorld.X, startWorld.Y)
 	local tail = MapLayoutService:ToCanvas(finishWorld.X, finishWorld.Y)
 
@@ -212,48 +213,46 @@ local function clearShade(entry: MapLayoutService.Entry, from: number, to: numbe
 
 	local direction = span / length
 	local perpendicular = Vector2.new(-direction.Y, direction.X)
+	local horizontal = math.abs(perpendicular.X) > math.abs(perpendicular.Y)
+	local soft = settings.SoftEdge * scale
 	local steps = math.ceil(length)
+
 	local fade = math.min(settings.FrontierFade, (to - from) * 0.35)
 	local openStart = isFrontier(entry, from)
 	local openFinish = isFrontier(entry, to)
 
 	for step = 0, steps do
 		local progress = step / steps
-		local along = (from - settings.Bleed) + (to - from + settings.Bleed * 2) * progress
+		local along = (from - margin) + (to - from + margin * 2) * progress
 		local jitter = offsetAt(wobble, along) * settings.EdgeWobble
 		local reach = (entry.HalfWidth + settings.Bleed + jitter) * scale
 		local centre = head + direction * (length * progress)
 
+		local residual = 0
+
 		local toEnd = math.huge
 		if openStart then toEnd = math.min(toEnd, along - from) end
 		if openFinish then toEnd = math.min(toEnd, to - along) end
-
-		local residual = 0
 		if fade > 0 and toEnd < fade then
 			local eased = math.clamp(toEnd / fade, 0, 1)
 			residual = settings.Opacity * (1 - eased * eased * (3 - 2 * eased))
 		end
 
-		local soft = settings.SoftEdge * scale
-		local steps = settings.SoftSteps
-
-		for band = 0, steps do
-			local depth = band / steps
-			local extent = reach + soft * depth
-			if extent <= 0 then continue end
-
-			local ceiling = math.max(residual, settings.Opacity * depth)
-			local first = centre - perpendicular * extent
-			local second = centre + perpendicular * extent
-			local low = Vector2.new(math.min(first.X, second.X), math.min(first.Y, second.Y))
-			local high = Vector2.new(math.max(first.X, second.X), math.max(first.Y, second.Y))
-
-			if ceiling <= 0 then
-				shade:ClearRect(low, high)
-			else
-				shade:FadeRect(low, high, ceiling)
-			end
+		local beyond = math.max(from - along, along - to, 0) * scale
+		if beyond > 0 then
+			local ramp = math.clamp(beyond / soft, 0, 1)
+			residual = math.max(residual, settings.Opacity * ramp * ramp * (3 - 2 * ramp))
 		end
+
+		shade:ClearSlice(
+			horizontal,
+			if horizontal then centre.Y else centre.X,
+			if horizontal then centre.X else centre.Y,
+			reach,
+			reach + soft,
+			residual,
+			settings.Opacity
+		)
 	end
 end
 
@@ -360,6 +359,45 @@ function MapInkService:CreatePlaque(width: number, height: number, seed: string)
 
 		canvas:Stroke(points, function(progress)
 			return widthAt(progress) + Ink.BleedOffset * 0.6
+		end, Ink.Color, Ink.BleedOpacity)
+		canvas:Stroke(points, widthAt, Ink.Color, Ink.Opacity)
+	end
+
+	canvas:Flush()
+	return canvas
+end
+
+function MapInkService:CreateArrow(resolution: number): MapCanvas.MapCanvas
+	local canvas = MapCanvas.new(resolution)
+	local wobble = getWobble("arrow")
+
+	local tip = Vector2.new(resolution * 0.5, resolution * 0.07)
+	local wings = {
+		Vector2.new(resolution * 0.24, resolution * 0.36),
+		Vector2.new(resolution * 0.76, resolution * 0.36),
+	}
+	local weight = resolution * MapConfig.Markers.ArrowWeight
+
+	for index, wing in wings do
+		local span = tip - wing
+		local length = span.Magnitude
+		local direction = span / length
+		local lateral = Vector2.new(-direction.Y, direction.X)
+		local steps = math.max(math.ceil(length / 6), 3)
+
+		local points = table.create(steps + 1)
+		for step = 0, steps do
+			local along = length * (step / steps)
+			local drift = offsetAt(wobble, along + index * 53) * 0.35
+			points[step + 1] = wing + direction * along + lateral * drift
+		end
+
+		local function widthAt(progress: number): number
+			return math.max(weight * (0.25 + 0.75 * progress), 0.6)
+		end
+
+		canvas:Stroke(points, function(progress)
+			return widthAt(progress) + weight * 0.25
 		end, Ink.Color, Ink.BleedOpacity)
 		canvas:Stroke(points, widthAt, Ink.Color, Ink.Opacity)
 	end

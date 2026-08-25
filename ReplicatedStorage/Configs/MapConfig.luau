@@ -97,7 +97,6 @@ return {
 		FrontierFade = 13,
 		-- Studs the lit floor softens over at its side edges.
 		SoftEdge = 3.2,
-		SoftSteps = 3,
 		-- Canvas pixels the wash fades out over at the sheet edge.
 		Feather = 105,
 		-- Canvas pixels of corner rounding on the wash so corners are not harsh.
@@ -133,6 +132,11 @@ return {
 		StrokeWidth = 2.5,
 		PlayerSize = 22,
 		FriendSize = 24,
+		-- Facing chevron, sized as a multiple of the marker it sits on.
+		ArrowScale = 1.9,
+		ArrowResolution = 128,
+		-- Chevron stroke weight as a fraction of its own canvas.
+		ArrowWeight = 0.058,
 		PopScale = 1.45,
 		PopTime = 0.45,
 		PingTime = 0.85,

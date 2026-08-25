@@ -120,6 +120,7 @@ A software pixel canvas backing a grid of `EditableImage` tiles. `EditableImage`
 - API: `MapCanvas:FillAll(color: Color3, alpha: number, grain: number?, feather: number?)` — floods the buffer for the shade wash, optionally with per-pixel grain and a wandering fade over a rounded-rectangle edge that reaches full transparency, so the canvas never shows its own bounds; the fade field is evaluated per 8x8 block rather than per pixel, and an optional budget yields between block rows so a large canvas does not stall a frame
 - API: `MapCanvas:FillRect(minimum: Vector2, maximum: Vector2, color: Color3, alpha: number)` — paints one axis-aligned rectangle, used for the legend plaque's paper fill
 - API: `MapCanvas:FadeRect(minimum: Vector2, maximum: Vector2, alpha: number)` — lowers alpha towards a ceiling without raising it, so overlapping reveals always take the clearest result
+- API: `MapCanvas:ClearSlice(horizontal, fixed, centre, inner, outer, residual, opacity)` — clears one pixel line with a smooth ramp from fully clear out to a ceiling, giving the lit floor a soft edge without banding
 - API: `MapCanvas:ClearRect(minimum: Vector2, maximum: Vector2)` — zeroes an axis-aligned rectangle, cutting floor area out of the shade
 - API: `MapCanvas:Clear()` — zeroes the buffer and writes the whole canvas
 - API: `MapCanvas:ResetDirty()`

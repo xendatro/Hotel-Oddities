@@ -120,7 +120,7 @@ Settings for the look-direction system that replicates each player's aim to neck
 - API: data table — `SendInterval`, `SendThreshold`, `MaxPitch`, `MaxYaw`, `Neck`, `Waist`, `Smoothing`, `MimicUpdateInterval`, `Debug`
 
 ### MapConfig.luau
-Everything tuning the discoverable map: remote names, the `Map` ScreenGui paths, discovery radius and tick rate, canvas resolution (tiled above 1024) and the reference resolution ink weights are authored against, margin, hand-drawn ink style (colour, opacity, width and its variance, wobble amplitude and frequency, overshoot, bleed), the room floor tags, the landmark tags and their discovery radii, line-of-sight sampling, pan and zoom limits, room and computer-room stroke weights and hatch settings, the shade wash colour and opacity, the legend rows and font, danger layer colours, and marker sizing and effect timings.
+Everything tuning the discoverable map: remote names, the `Map` ScreenGui paths, discovery radius and tick rate, canvas resolution (tiled above 1024) and the reference resolution ink weights are authored against, margin, hand-drawn ink style (colour, opacity, width and its variance, wobble amplitude and frequency, overshoot, bleed), the room floor tags, the landmark tags and their discovery radii, line-of-sight sampling, pan and zoom limits, room and computer-room stroke weights and hatch settings, the shade wash colour and opacity, the legend rows and font, danger layer colours, marker sizing and effect timings, and the facing chevron's scale, canvas size and stroke weight.
 
 ### MapOddityConfig.luau
 Roll timings, durations and per-effect tuning for the hallway/map oddity system (transparent hallways, doors opening, hallway chaos, gaze-gated blockers).
