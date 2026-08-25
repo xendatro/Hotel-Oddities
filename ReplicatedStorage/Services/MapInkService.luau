@@ -197,6 +197,9 @@ local function clearShade(entry: MapLayoutService.Entry, from: number, to: numbe
 	local direction = span / length
 	local perpendicular = Vector2.new(-direction.Y, direction.X)
 	local steps = math.ceil(length)
+	local fade = math.min(settings.FrontierFade, (to - from) * 0.35)
+	local openStart = math.abs(from + entry.HalfLength) > BOUNDARY_EPSILON
+	local openFinish = math.abs(to - entry.HalfLength) > BOUNDARY_EPSILON
 
 	for step = 0, steps do
 		local progress = step / steps
@@ -205,12 +208,26 @@ local function clearShade(entry: MapLayoutService.Entry, from: number, to: numbe
 		local reach = (entry.HalfWidth + settings.Bleed + jitter) * scale
 		local centre = head + direction * (length * progress)
 
+		local toEnd = math.huge
+		if openStart then toEnd = math.min(toEnd, along - from) end
+		if openFinish then toEnd = math.min(toEnd, to - along) end
+
+		local residual = 0
+		if fade > 0 and toEnd < fade then
+			local eased = math.clamp(toEnd / fade, 0, 1)
+			residual = settings.Opacity * (1 - eased * eased * (3 - 2 * eased))
+		end
+
 		local first = centre - perpendicular * reach
 		local second = centre + perpendicular * reach
-		shade:ClearRect(
-			Vector2.new(math.min(first.X, second.X), math.min(first.Y, second.Y)),
-			Vector2.new(math.max(first.X, second.X), math.max(first.Y, second.Y))
-		)
+		local low = Vector2.new(math.min(first.X, second.X), math.min(first.Y, second.Y))
+		local high = Vector2.new(math.max(first.X, second.X), math.max(first.Y, second.Y))
+
+		if residual > 0 then
+			shade:FadeRect(low, high, residual)
+		else
+			shade:ClearRect(low, high)
+		end
 	end
 end
 

@@ -91,6 +91,8 @@ return {
 		Bleed = 1.4,
 		Grain = 0.055,
 		EdgeWobble = 0.75,
+		-- Studs the lit floor fades back to dark at an undiscovered frontier.
+		FrontierFade = 13,
 		-- Canvas pixels the wash fades out over at the sheet edge.
 		Feather = 105,
 		-- Canvas pixels of corner rounding on the wash so corners are not harsh.

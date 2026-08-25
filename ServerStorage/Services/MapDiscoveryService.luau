@@ -272,10 +272,11 @@ function MapDiscoveryService:Update(player: Player)
 		local changed = false
 
 		if entry.Kind ~= "Hallway" then
-			if #known > 0 then continue end
+			local half = math.round(entry.Hallway.HalfLength)
+			if #known == 2 and known[1] <= -half and known[2] >= half then continue end
 			if #visibleRuns(entry.Hallway, eye, minimum, maximum) == 0 then continue end
 
-			known = { -math.round(entry.Hallway.HalfLength), math.round(entry.Hallway.HalfLength) }
+			known = { -half, half }
 			changed = true
 		else
 			for _, fresh in MapLayoutService:Subtract(minimum, maximum, known) do

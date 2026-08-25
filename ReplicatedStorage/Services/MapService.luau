@@ -66,8 +66,8 @@ local function buildViewport(paper: ImageLabel): (CanvasGroup, Frame)
 	return viewport, content
 end
 
-local function buildSwatch(parent: Frame, kind: string): Frame
-	local swatch = Instance.new("Frame")
+local function buildSwatch(parent: Frame, kind: string): CanvasGroup
+	local swatch = Instance.new("CanvasGroup")
 	swatch.Name = kind .. "Swatch"
 	swatch.Size = UDim2.fromOffset(MapConfig.Legend.SwatchSize, MapConfig.Legend.SwatchSize)
 	swatch.BackgroundColor3 = if kind == "Done" then MapConfig.Markers.DoneFill else MapConfig.Markers.Fill
