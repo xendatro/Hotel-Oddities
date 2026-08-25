@@ -26,7 +26,7 @@ return {
 		ContentName = "Content",
 		InkName = "Ink",
 		DangerName = "Danger",
-		ShadeName = "Shade",
+		FloorName = "Floor",
 		LegendName = "Legend",
 		MarkerName = "Markers",
 	},
@@ -72,9 +72,9 @@ return {
 		WidthVariance = 0.75,
 		-- Studs between generated polyline vertices before wobble is applied.
 		SegmentLength = 5,
-		Wobble = 1.9,
+		Wobble = 0.95,
 		WobbleScale = 0.11,
-		Overshoot = 3.6,
+		Overshoot = 2.6,
 		EndCapChance = 0.35,
 		RoomWidthScale = 1.15,
 		ComputerWidthScale = 1.45,
@@ -86,21 +86,13 @@ return {
 		RevealTime = 1.1,
 	},
 
-	Shade = {
-		Color = Color3.fromRGB(58, 48, 32),
-		Opacity = 0.6,
-		-- Studs the cleared floor area is grown by so ink sits on the boundary.
-		Bleed = 1.4,
-		Grain = 0.055,
-		EdgeWobble = 0.75,
-		-- Studs the lit floor fades back to dark at an undiscovered frontier.
-		FrontierFade = 13,
-		-- Studs the lit floor softens over at its side edges.
-		SoftEdge = 3.2,
-		-- Canvas pixels the wash fades out over at the sheet edge.
-		Feather = 105,
-		-- Canvas pixels of corner rounding on the wash so corners are not harsh.
-		CornerRadius = 150,
+	Floor = {
+		Color = Color3.fromRGB(108, 102, 84),
+		Opacity = 0.5,
+		-- Studs the fill is grown by so it tucks under the wall stroke.
+		Pad = 1.1,
+		-- Studs the fill fades out over at an undiscovered frontier. 0 for a hard edge.
+		FrontierFade = 0,
 	},
 
 	Legend = {

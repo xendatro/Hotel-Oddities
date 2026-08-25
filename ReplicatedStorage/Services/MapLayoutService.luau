@@ -3,7 +3,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local MapConfig = require(ReplicatedStorage.Configs.MapConfig)
 
 local AXIS_EPSILON = 1e-4
-local JUNCTION_INSET = -0.75
+local JUNCTION_INSET = 0
+-- Corridor floors abut exactly rather than overlapping, so openings are found by probing just
+-- outside a wall or past an end for continuing floor rather than by testing the line itself.
+local CAP_PROBE = 1.5
+local WALL_PROBE = 1.5
 
 local MapLayoutService = {}
 
@@ -98,10 +102,10 @@ local function buildOpenings(entry: Entry)
 	end
 
 	for _, side in { 1, -1 } do
-		local wall = entry.Center + entry.Across * (side * entry.HalfWidth)
+		local wall = entry.Center + entry.Across * (side * (entry.HalfWidth + WALL_PROBE))
 		entry.Openings[side] = openingsAlong(wall, entry.Axis, entry)
 
-		local cap = entry.Center + entry.Axis * (side * entry.HalfLength)
+		local cap = entry.Center + entry.Axis * (side * (entry.HalfLength + CAP_PROBE))
 		entry.CapOpenings[side] = openingsAlong(cap, entry.Across, entry)
 	end
 end

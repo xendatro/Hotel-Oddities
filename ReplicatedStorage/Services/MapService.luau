@@ -382,7 +382,6 @@ local function onSync(layout: { any }, store: { [string]: { number } }, landmark
 	end
 
 	task.spawn(function()
-		MapInkService:PrepareShade()
 		MapInkService:LoadDiscovered(store)
 	end)
 end

@@ -196,6 +196,50 @@ function MapCanvas:FadeRect(minimum: Vector2, maximum: Vector2, alpha: number)
 	self._maxY = math.max(self._maxY, bottom)
 end
 
+function MapCanvas:FillSlice(
+	horizontal: boolean,
+	fixed: number,
+	from: number,
+	to: number,
+	color: Color3,
+	alpha: number
+)
+	local resolution = self.Resolution
+	local pixels = self._pixels
+
+	local line = math.round(fixed)
+	if line < 0 or line > resolution - 1 then return end
+
+	local first = math.max(math.floor(math.min(from, to)), 0)
+	local last = math.min(math.ceil(math.max(from, to)), resolution - 1)
+	if first > last then return end
+
+	local red, green, blue = color.R * 255, color.G * 255, color.B * 255
+	local target = math.clamp(alpha, 0, 1) * 255
+
+	for step = first, last do
+		local index = if horizontal then (line * resolution + step) * 4 else (step * resolution + line) * 4
+		if target > buffer.readu8(pixels, index + 3) then
+			buffer.writeu8(pixels, index, red)
+			buffer.writeu8(pixels, index + 1, green)
+			buffer.writeu8(pixels, index + 2, blue)
+			buffer.writeu8(pixels, index + 3, target)
+		end
+	end
+
+	if horizontal then
+		self._minX = math.min(self._minX, first)
+		self._maxX = math.max(self._maxX, last)
+		self._minY = math.min(self._minY, line)
+		self._maxY = math.max(self._maxY, line)
+	else
+		self._minX = math.min(self._minX, line)
+		self._maxX = math.max(self._maxX, line)
+		self._minY = math.min(self._minY, first)
+		self._maxY = math.max(self._maxY, last)
+	end
+end
+
 function MapCanvas:ClearSlice(
 	horizontal: boolean,
 	fixed: number,

@@ -24,9 +24,9 @@ type Wobble = {
 }
 
 local Canvas: MapCanvas.MapCanvas? = nil
-local Shade: MapCanvas.MapCanvas? = nil
+local Floor: MapCanvas.MapCanvas? = nil
 local Label: Frame? = nil
-local ShadeLabel: Frame? = nil
+local FloorLabel: Frame? = nil
 local Drawn: { [string]: { number } } = {}
 local Wobbles: { [string]: Wobble } = {}
 
@@ -187,23 +187,31 @@ local function insideOpening(value: number, openings: { number }): boolean
 	return false
 end
 
+local function sameIntervals(first: { number }, second: { number }): boolean
+	if #first ~= #second then return false end
+	for index, value in first do
+		if math.abs(value - second[index]) > 1e-3 then return false end
+	end
+	return true
+end
+
 local function isFrontier(entry: MapLayoutService.Entry, value: number): boolean
 	if math.abs(math.abs(value) - entry.HalfLength) <= BOUNDARY_EPSILON then return false end
 	if insideOpening(value, entry.Openings[1]) or insideOpening(value, entry.Openings[-1]) then return false end
 	return true
 end
 
-local function clearShade(entry: MapLayoutService.Entry, from: number, to: number)
-	local shade = Shade
-	if not shade then return end
+local function fillFloor(entry: MapLayoutService.Entry, from: number, to: number)
+	local floor = Floor
+	if not floor then return end
 
-	local settings = MapConfig.Shade
-	local wobble = getWobble(entry.Key .. ":shade")
+	local settings = MapConfig.Floor
 	local scale = MapLayoutService:GetScale()
-	local margin = settings.Bleed + settings.SoftEdge
+	local plus = getWobble(entry.Key .. ":w1")
+	local minus = getWobble(entry.Key .. ":w-1")
 
-	local startWorld = entry.Center + entry.Axis * (from - margin)
-	local finishWorld = entry.Center + entry.Axis * (to + margin)
+	local startWorld = entry.Center + entry.Axis * from
+	local finishWorld = entry.Center + entry.Axis * to
 	local head = MapLayoutService:ToCanvas(startWorld.X, startWorld.Y)
 	local tail = MapLayoutService:ToCanvas(finishWorld.X, finishWorld.Y)
 
@@ -214,7 +222,6 @@ local function clearShade(entry: MapLayoutService.Entry, from: number, to: numbe
 	local direction = span / length
 	local perpendicular = Vector2.new(-direction.Y, direction.X)
 	local horizontal = math.abs(perpendicular.X) > math.abs(perpendicular.Y)
-	local soft = settings.SoftEdge * scale
 	local steps = math.ceil(length)
 
 	local fade = math.min(settings.FrontierFade, (to - from) * 0.35)
@@ -223,35 +230,34 @@ local function clearShade(entry: MapLayoutService.Entry, from: number, to: numbe
 
 	for step = 0, steps do
 		local progress = step / steps
-		local along = (from - margin) + (to - from + margin * 2) * progress
-		local jitter = offsetAt(wobble, along) * settings.EdgeWobble
-		local reach = (entry.HalfWidth + settings.Bleed + jitter) * scale
+		local along = from + (to - from) * progress
 		local centre = head + direction * (length * progress)
 
-		local residual = 0
+		local upper = (entry.HalfWidth + offsetAt(plus, along) + settings.Pad) * scale
+		local lower = (-entry.HalfWidth + offsetAt(minus, along) - settings.Pad) * scale
 
-		local toEnd = math.huge
-		if openStart then toEnd = math.min(toEnd, along - from) end
-		if openFinish then toEnd = math.min(toEnd, to - along) end
-		if fade > 0 and toEnd < fade then
-			local eased = math.clamp(toEnd / fade, 0, 1)
-			residual = settings.Opacity * (1 - eased * eased * (3 - 2 * eased))
+		local alpha = settings.Opacity
+		if fade > 0 then
+			local toEnd = math.huge
+			if openStart then toEnd = math.min(toEnd, along - from) end
+			if openFinish then toEnd = math.min(toEnd, to - along) end
+			if toEnd < fade then
+				local eased = math.clamp(toEnd / fade, 0, 1)
+				alpha *= eased * eased * (3 - 2 * eased)
+			end
 		end
 
-		local beyond = math.max(from - along, along - to, 0) * scale
-		if beyond > 0 then
-			local ramp = math.clamp(beyond / soft, 0, 1)
-			residual = math.max(residual, settings.Opacity * ramp * ramp * (3 - 2 * ramp))
-		end
+		if alpha <= 0 then continue end
 
-		shade:ClearSlice(
+		local first = centre + perpendicular * lower
+		local second = centre + perpendicular * upper
+		floor:FillSlice(
 			horizontal,
 			if horizontal then centre.Y else centre.X,
-			if horizontal then centre.X else centre.Y,
-			reach,
-			reach + soft,
-			residual,
-			settings.Opacity
+			if horizontal then first.X else first.Y,
+			if horizontal then second.X else second.Y,
+			settings.Color,
+			alpha
 		)
 	end
 end
@@ -433,32 +439,17 @@ end
 function MapInkService:Attach(paper: ImageLabel)
 	self:Detach()
 
-	local shade = MapCanvas.new(MapConfig.Canvas.Resolution)
+	local floor = MapCanvas.new(MapConfig.Canvas.Resolution)
 	local canvas = MapCanvas.new(MapConfig.Canvas.Resolution)
 
 	local base = paper.ZIndex or 1
-	ShadeLabel = buildLayer(paper, shade, MapConfig.Gui.ShadeName, base + 1)
+	FloorLabel = buildLayer(paper, floor, MapConfig.Gui.FloorName, base + 1)
 	Label = buildLayer(paper, canvas, MapConfig.Gui.InkName, base + 2)
 
 	Canvas = canvas
-	Shade = shade
+	Floor = floor
 	Drawn = {}
 	Wobbles = {}
-end
-
-function MapInkService:PrepareShade()
-	local shade = Shade
-	if not shade then return end
-
-	shade:FillAll(
-		MapConfig.Shade.Color,
-		MapConfig.Shade.Opacity,
-		MapConfig.Shade.Grain,
-		MapConfig.Shade.Feather * PixelScale,
-		MapConfig.Shade.CornerRadius * PixelScale,
-		BUDGET
-	)
-	shade:Flush()
 end
 
 function MapInkService:Detach()
@@ -466,17 +457,17 @@ function MapInkService:Detach()
 		Label:Destroy()
 		Label = nil
 	end
-	if ShadeLabel then
-		ShadeLabel:Destroy()
-		ShadeLabel = nil
+	if FloorLabel then
+		FloorLabel:Destroy()
+		FloorLabel = nil
 	end
 	if Canvas then
 		Canvas:Destroy()
 		Canvas = nil
 	end
-	if Shade then
-		Shade:Destroy()
-		Shade = nil
+	if Floor then
+		Floor:Destroy()
+		Floor = nil
 	end
 	Drawn = {}
 end
@@ -492,7 +483,7 @@ function MapInkService:Reveal(key: string, packed: { number }): boolean
 
 	if MapLayoutService:IsRoomKind(entry) then
 		if Drawn[key] or #packed == 0 then return false end
-		clearShade(entry, -entry.HalfLength, entry.HalfLength)
+		fillFloor(entry, -entry.HalfLength, entry.HalfLength)
 		for _, step in roomSteps(entry) do
 			step()
 		end
@@ -504,15 +495,16 @@ function MapInkService:Reveal(key: string, packed: { number }): boolean
 	local drew = false
 
 	for index = 1, #packed - 1, 2 do
+		fillFloor(entry, packed[index], packed[index + 1])
+
 		for _, fresh in MapLayoutService:Subtract(packed[index], packed[index + 1], drawn) do
-			clearShade(entry, fresh[1], fresh[2])
 			drawWall(entry, 1, fresh[1], fresh[2])
 			drawWall(entry, -1, fresh[1], fresh[2])
 			drew = true
 		end
 	end
 
-	if not drew then return false end
+	if not drew and sameIntervals(packed, drawn) then return false end
 
 	for _, side in { 1, -1 } do
 		local reached = false
@@ -537,7 +529,7 @@ function MapInkService:RevealAnimated(key: string, packed: { number }, duration:
 	if not MapLayoutService:IsRoomKind(entry) then return self:Reveal(key, packed) end
 
 	Drawn[key] = table.clone(packed)
-	clearShade(entry, -entry.HalfLength, entry.HalfLength)
+	fillFloor(entry, -entry.HalfLength, entry.HalfLength)
 	local steps = roomSteps(entry)
 
 	task.spawn(function()
@@ -557,7 +549,7 @@ function MapInkService:IsDrawn(key: string): boolean
 end
 
 function MapInkService:Flush()
-	if Shade then Shade:Flush() end
+	if Floor then Floor:Flush() end
 	if Canvas then Canvas:Flush() end
 end
 
