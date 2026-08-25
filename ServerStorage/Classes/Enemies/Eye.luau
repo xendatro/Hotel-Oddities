@@ -4,6 +4,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local EyeConfig = require(ReplicatedStorage.Configs.EyeConfig)
 local DeathService = require(ServerStorage.Services.DeathService)
 local EnemyBase = require(ServerStorage.Classes.EnemyBase)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
@@ -50,7 +51,13 @@ function Eye:GetViewAngle(player: Player): number?
 
 	local boundsCFrame, boundsSize = self.Model:GetBoundingBox()
 	local radius = boundsSize.Magnitude / 2
-	if (boundsCFrame.Position - root.Position).Magnitude - radius > self.Config.ObservationRange then
+	local fogStart, fogEnd = EnemyObservationService:GetFogRange(player)
+	local damageDistance = self.Config.ObservationRange
+	if fogStart and fogEnd then
+		damageDistance = fogStart + (fogEnd - fogStart) * EyeConfig.DamageFogFraction
+	end
+	local eye = EnemyObservationService:GetView(player)
+	if (boundsCFrame.Position - (eye or root.Position)).Magnitude - radius > damageDistance then
 		return nil
 	end
 	return EnemyObservationService:GetViewAngle(player, self.Model)

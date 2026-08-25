@@ -18,6 +18,8 @@ type Observation = {
 	Models: { [Model]: boolean },
 	Eye: Vector3?,
 	Look: Vector3?,
+	FogStart: number?,
+	FogEnd: number?,
 	ReceivedAt: number,
 }
 
@@ -32,7 +34,14 @@ local EnemyObservationService = {}
 local Observations: { [Player]: Observation } = {}
 local LastReports: { [Player]: number } = {}
 
-UpdateView.OnServerEvent:Connect(function(player: Player, reportedModels: any, reportedEye: any, reportedLook: any)
+UpdateView.OnServerEvent:Connect(function(
+	player: Player,
+	reportedModels: any,
+	reportedEye: any,
+	reportedLook: any,
+	reportedFogStart: any,
+	reportedFogEnd: any
+)
 	if type(reportedModels) ~= "table" then return end
 
 	local character = player.Character
@@ -73,10 +82,26 @@ UpdateView.OnServerEvent:Connect(function(player: Player, reportedModels: any, r
 		look = reportedLook
 	end
 
+	local fogStart = nil :: number?
+	if typeof(reportedFogStart) == "number" and reportedFogStart >= 0 and reportedFogStart < math.huge then
+		fogStart = reportedFogStart
+	end
+
+	local fogEnd = nil :: number?
+	if typeof(reportedFogEnd) == "number"
+		and reportedFogEnd >= 0
+		and reportedFogEnd < math.huge
+		and (not fogStart or reportedFogEnd >= fogStart)
+	then
+		fogEnd = reportedFogEnd
+	end
+
 	Observations[player] = {
 		Models = models,
 		Eye = eye,
 		Look = look,
+		FogStart = fogStart,
+		FogEnd = fogEnd,
 		ReceivedAt = now,
 	}
 end)
@@ -121,6 +146,12 @@ function EnemyObservationService:GetView(player: Player): (Vector3?, Vector3?)
 	end
 
 	return root.Position + Vector3.new(0, HEAD_OFFSET, 0), root.CFrame.LookVector
+end
+
+function EnemyObservationService:GetFogRange(player: Player): (number?, number?)
+	local observation = getFresh(player)
+	if not observation then return nil, nil end
+	return observation.FogStart, observation.FogEnd
 end
 
 function EnemyObservationService:GetViews(): { View }

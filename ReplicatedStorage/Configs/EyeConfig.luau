@@ -1,4 +1,6 @@
 return {
+	DamageFogFraction = 0.6,
+
 	TrackRange = 250,
 
 	TurnRate = 12,

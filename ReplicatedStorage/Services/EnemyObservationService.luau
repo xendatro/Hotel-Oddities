@@ -1,4 +1,5 @@
 local CollectionService = game:GetService("CollectionService")
+local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -59,6 +60,8 @@ local lastSentSet: { [Model]: boolean } = {}
 local lastSentCount = 0
 local lastSentPosition: Vector3? = nil
 local lastSentLook: Vector3? = nil
+local lastSentFogStart: number? = nil
+local lastSentFogEnd: number? = nil
 
 local function send(force: boolean?)
 	local character = localPlayer.Character
@@ -87,9 +90,15 @@ local function send(force: boolean?)
 	local cameraMoved = lastSentPosition == nil
 		or (position - lastSentPosition :: Vector3).Magnitude > 1e-2
 		or (look - lastSentLook :: Vector3).Magnitude > 1e-3
+	local fogStart = Lighting.FogStart
+	local fogEnd = Lighting.FogEnd
+	local fogChanged = lastSentFogStart == nil
+		or math.abs(fogStart - (lastSentFogStart :: number)) > 1e-3
+		or lastSentFogEnd == nil
+		or math.abs(fogEnd - (lastSentFogEnd :: number)) > 1e-3
 
 	accumulator = 0
-	if not force and not changed and not cameraMoved then return end
+	if not force and not changed and not cameraMoved and not fogChanged then return end
 
 	table.clear(lastSentSet)
 	for _, model in observed do
@@ -98,11 +107,13 @@ local function send(force: boolean?)
 	lastSentCount = #observed
 	lastSentPosition = position
 	lastSentLook = look
+	lastSentFogStart = fogStart
+	lastSentFogEnd = fogEnd
 
 	lastSentAt = os.clock()
 	pending = false
 
-	UpdateView:FireServer(observed, position, look)
+	UpdateView:FireServer(observed, position, look, fogStart, fogEnd)
 end
 
 function EnemyObservationService:SetSeen(model: Model, seen: boolean?)
