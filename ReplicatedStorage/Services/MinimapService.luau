@@ -28,6 +28,7 @@ local Viewport: CanvasGroup? = nil
 local Rotor: Frame? = nil
 local Content: Frame? = nil
 local Layer: MapMarkerLayer.MapMarkerLayer? = nil
+local Within = false
 local ActiveId = ""
 local HandBack = 0
 
@@ -109,13 +110,17 @@ RunService.RenderStepped:Connect(function()
 	local screen, viewport, rotor, content, layer = Screen, Viewport, Rotor, Content, Layer
 	if not screen or not viewport or not rotor or not content or not layer then return end
 
-	local showing = ActiveId == "" and os.clock() >= HandBack and MapLayoutService:IsLoaded()
+	local root = CharacterService.GetAliveRoot(Player)
+	if root then
+		Within = MapLayoutService:IsWithin(root.Position.X, root.Position.Z, Minimap.BoundsPadding)
+	end
+
+	local showing = Within and ActiveId == "" and os.clock() >= HandBack
 	if screen.Enabled ~= showing then screen.Enabled = showing end
 	if not showing then return end
 
 	MapInkService:Reparent(content)
 
-	local root = CharacterService.GetAliveRoot(Player)
 	local camera = Workspace.CurrentCamera
 	if not root or not camera then return end
 

@@ -12,7 +12,7 @@ return {
 	},
 
 	Landmarks = {
-		Computer = { Tag = "HackComputer", Radius = 34 },
+		Computer = { Tag = "HackComputer", Radius = 30 },
 		Spawn = { Tag = "Spawn", Radius = 40 },
 		Exit = { Tag = "Exit", Radius = 40 },
 	},
@@ -40,13 +40,15 @@ return {
 			ContentName = "Content",
 		},
 		Inset = 0.055,
-		Studs = 70,
+		Studs = 125,
+		BoundsPadding = 40,
 		PlayerSize = 16,
 		FriendSize = 16,
 		LandmarkSize = 22,
 	},
 
 	Controls = {
+		ToggleKey = Enum.KeyCode.M,
 		-- Fraction of the paper kept clear of the torn edges.
 		Inset = 0.055,
 		MinZoom = 1,

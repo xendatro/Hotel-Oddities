@@ -2,6 +2,7 @@ local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local ComputerConfig = require(ReplicatedStorage.Configs.ComputerConfig)
 local MapConfig = require(ReplicatedStorage.Configs.MapConfig)
@@ -347,6 +348,13 @@ xenterface:Controller(Gui.PageGroup).Fired:Connect(function(data)
 	MapControlService:Reset(true)
 	MapService:RefreshComputers()
 	playPending()
+end)
+
+UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
+	if processed or input.KeyCode ~= MapConfig.Controls.ToggleKey then return end
+
+	local controller = xenterface:Controller(Gui.PageGroup)
+	controller:Fire(if controller.Active == Gui.PageId then "" else Gui.PageId)
 end)
 
 ComputerService.Changed:Connect(function()

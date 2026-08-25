@@ -424,6 +424,8 @@ Corridor floors in this map **abut exactly rather than overlapping**, so testing
 - API: `MapLayoutService:GetEntries() -> { Entry }`
 - API: `MapLayoutService:Get(key: string) -> Entry?`
 - API: `MapLayoutService:IsRoomKind(entry: Entry) -> boolean` — true for `Room` and `ComputerRoom`
+- API: `MapLayoutService:GetBounds() -> (Vector2, Vector2)` — world-space XZ corners of everything the layout covers
+- API: `MapLayoutService:IsWithin(worldX: number, worldZ: number, padding: number?) -> boolean` — whether a world point sits inside those bounds, with optional slack; false when no layout has loaded. The minimap uses this to tell the maze from the lobby
 - API: `MapLayoutService:GetScale() -> number` — canvas pixels per stud
 - API: `MapLayoutService:ToCanvas(worldX: number, worldZ: number) -> Vector2`
 - API: `MapLayoutService:WallPoint(entry: Entry, side: number, along: number) -> Vector2`
@@ -443,6 +445,7 @@ Client-only front end for the map. Waits for the `Map` ScreenGui's paper `ImageL
 - Steps every registered marker layer once per render step, the minimap's included
 - A computer room discovered while the map is shut is queued, then draws itself on with its marker popping shortly after, the next time the `Map` page is opened; one discovered while the map is already open plays immediately. Landmark pops play on every layer as they are discovered, so the minimap shows them straight away
 - Remotes: `Map/Sync` (listened), `Map/Reveal` (listened), `Map/Landmark` (listened)
+- `MapConfig.Controls.ToggleKey` (M) opens and closes the map page, firing the same page group as the side-bar button, and is ignored while the keypress is already consumed by chat or another text field
 - Tags: reads `ComputerConfig.Tag`
 - Requires: `Configs.MapConfig`, `Configs.ComputerConfig`, `Classes.MapMarkerLayer`, `CommunicationService`, `ComputerService`, `MapControlService`, `MapInkService`, `MapLayoutService`, `Frameworks.xenterface`
 
@@ -496,7 +499,7 @@ Client-only corner minimap, built into the `Minimap` ScreenGui's `Main` frame. I
 
 Inside `Main` it builds a clipped `Viewport` **CanvasGroup**, a `Rotor` frame pivoting on the viewport centre, and an oversized `Content` frame offset every render step so the player's canvas position sits dead centre. The rotor is set straight from the negated camera look each frame with no easing, so the window turns exactly as fast as you do; the player's dot is pinned to the viewport centre rather than positioned from world coordinates, which keeps it perfectly still instead of shivering as the content frame's offset rounds to whole pixels. Its own `MapMarkerLayer` is registered with `MapService`, so landmarks, computers and other players appear with the same markers as the map; the layer is told to counter-rotate, keeping glyphs and headshots upright while facing chevrons still read as world directions.
 - API: `MinimapService:IsShowing() -> boolean`
-- Hides itself whenever any interface page is active, whenever the layout has not synced yet, and until the map's close animation has finished handing the ink back
+- Hides itself whenever any interface page is active, whenever the player stands outside the layout's bounds (the lobby sits hundreds of studs clear of the maze, so a padded bounds test separates them), and until the map's close animation has finished handing the ink back. The bounds verdict is only re-taken while a living root part exists, so it does not blink off across a respawn
 - Clicking the frame opens the map: `Main` carries the same `Tab` tag and `PageGroup`/`PageId`/`Toggle` attributes as the side-bar map button
 - Requires: `Configs.MapConfig`, `Classes.MapMarkerLayer`, `CharacterService`, `MapInkService`, `MapLayoutService`, `MapService`, `MathService`, `Frameworks.xenterface`
 

@@ -27,6 +27,8 @@ export type Entry = {
 local Entries: { Entry } = {}
 local ByKey: { [string]: Entry } = {}
 local Origin = Vector2.zero
+local Minimum = Vector2.zero
+local Maximum = Vector2.zero
 local Scale = 1
 
 local function slab(offset: number, slope: number, halfSize: number): (number?, number?)
@@ -149,6 +151,8 @@ function MapLayoutService:Load(layout: { any })
 	local usable = resolution * (1 - MapConfig.Canvas.Margin * 2)
 	Scale = usable / math.max(maxX - minX, maxZ - minZ)
 	Origin = Vector2.new((minX + maxX) / 2, (minZ + maxZ) / 2)
+	Minimum = Vector2.new(minX, minZ)
+	Maximum = Vector2.new(maxX, maxZ)
 
 	for _, entry in Entries do
 		buildOpenings(entry)
@@ -169,6 +173,20 @@ end
 
 function MapLayoutService:IsRoomKind(entry: Entry): boolean
 	return entry.Kind == "Room" or entry.Kind == "ComputerRoom"
+end
+
+function MapLayoutService:GetBounds(): (Vector2, Vector2)
+	return Minimum, Maximum
+end
+
+function MapLayoutService:IsWithin(worldX: number, worldZ: number, padding: number?): boolean
+	if #Entries == 0 then return false end
+
+	local slack = padding or 0
+	return worldX >= Minimum.X - slack
+		and worldX <= Maximum.X + slack
+		and worldZ >= Minimum.Y - slack
+		and worldZ <= Maximum.Y + slack
 end
 
 function MapLayoutService:GetScale(): number
