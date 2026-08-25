@@ -4,6 +4,7 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local Hallways = require(ReplicatedStorage.Services.HallwaysService)
 local DeathService = require(ServerStorage.Services.DeathService)
 local HallwayOddity = require(ServerStorage.Classes.HallwayOddity)
@@ -19,6 +20,11 @@ local CROSS_FIXTURE_SPAN = 8
 local FLAT_FIXTURE_SPAN = 3
 local JAMB_THICKNESS = 0.25
 local TEXTURE_SIGN = -1
+local DOORWAY_GAP = 8
+
+local MapCrush = CommunicationService.Ensure("Oddities", "MapCrush")
+
+local Running: { [number]: any } = {}
 
 type Candidate = {
 	Span: HallwayRegion.Span,
@@ -191,6 +197,9 @@ function HallwayCrush.new(config: { [string]: any }?)
 	self.Candidate = nil :: Candidate?
 	self.Edits = {} :: { WallEdit }
 	self.Movers = {} :: { Mover }
+	self.Coverage = { {}, {} } :: { { HallwayWall.Interval } }
+	self.Lethal = {} :: { HallwayWall.Interval }
+	self.SealedAt = nil :: number?
 	self.Shifters = {} :: { Shifter }
 	self.Shrinkers = {} :: { Shrinker }
 	self.Reveals = {} :: { Reveal }
@@ -266,6 +275,8 @@ function HallwayCrush:_collectWalls(frame: HallwayWall.Frame)
 				Size = target.Size,
 				ThicknessAxis = wall.ThicknessAxis,
 			})
+			local side = if wall.Sign > 0 then self.Coverage[1] else self.Coverage[2]
+			table.insert(side, { Minimum = piece.Minimum, Maximum = piece.Maximum })
 			self.ClearHalfWidth = math.min(
 				self.ClearHalfWidth,
 				math.abs(wall.Offset) - wall.Thickness / 2
@@ -389,25 +400,86 @@ function HallwayCrush:_apply(offset: number)
 	end
 end
 
-function HallwayCrush:_crush()
+function HallwayCrush:_buildLethal()
+	local positive = HallwayWall.Merge(self.Coverage[1], DOORWAY_GAP)
+	local negative = HallwayWall.Merge(self.Coverage[2], DOORWAY_GAP)
+	local both = HallwayWall.Merge(HallwayWall.Intersect(positive, negative), 0)
+	self.Lethal = HallwayWall.Inset(both, math.max(self:Setting("SafeMargin", 2), 0))
+end
+
+function HallwayCrush:_clearWidth(): number
+	return (self.ClearHalfWidth - self.Offset) * 2
+end
+
+function HallwayCrush:_isCaught(position: Vector3, slack: number): boolean
 	local frame = (self.Candidate :: Candidate).Frame
-	local clear = (self.ClearHalfWidth - self.Offset) * 2
-	if clear > math.max(self:Setting("KillWidth", 2.2), 0) then return end
+	if not HallwayWall.Contains(frame, position) then return false end
+
+	local along = (position - frame.Center):Dot(frame.Axis)
+	for _, interval in self.Lethal do
+		if along >= interval.Minimum - slack and along <= interval.Maximum + slack then return true end
+	end
+	return false
+end
+
+function HallwayCrush:Crush(player: Player, slack: number): boolean
+	if not self.Active or self.Killed[player] then return false end
+
+	local tolerance = math.max(self:Setting("KillTolerance", 0.75), 0)
+	if self:_clearWidth() > math.max(self:Setting("KillWidth", 2.2), 0) + tolerance then return false end
+
+	local root = CharacterService.GetAliveRoot(player)
+	if not root or not self:_isCaught(root.Position, slack) then return false end
+
+	local humanoid = CharacterService.GetHumanoid(root.Parent :: Model)
+	if not humanoid or humanoid.Health <= 0 then return false end
+
+	self.Killed[player] = true
+	DeathService:RecordCause(player, "HallwayCrush")
+	humanoid.Health = 0
+	return true
+end
+
+function HallwayCrush:_backstop()
+	if self:_clearWidth() > math.max(self:Setting("KillWidth", 2.2), 0) then
+		self.SealedAt = nil
+		return
+	end
+
+	self.SealedAt = self.SealedAt or os.clock()
+	if os.clock() - self.SealedAt < math.max(self:Setting("BackstopDelay", 1.5), 0) then return end
 
 	for _, player in Players:GetPlayers() do
-		if self.Killed[player] then continue end
-
-		local root = CharacterService.GetAliveRoot(player)
-		if not root or not HallwayWall.Contains(frame, root.Position) then continue end
-
-		local humanoid = CharacterService.GetHumanoid(root.Parent :: Model)
-		if not humanoid or humanoid.Health <= 0 then continue end
-
-		self.Killed[player] = true
-		DeathService:RecordCause(player, "HallwayCrush")
-		humanoid.Health = 0
+		self:Crush(player, 0)
 	end
 end
+
+function HallwayCrush:_broadcast()
+	local frame = (self.Candidate :: Candidate).Frame
+	MapCrush:FireAllClients("Start", self.Token, {
+		Center = frame.Center,
+		Axis = frame.Axis,
+		Across = frame.Across,
+		HalfWidth = frame.HalfWidth,
+		FloorY = frame.FloorY,
+		HeightWindow = HallwayWall.HeightWindow,
+		BelowWindow = HallwayWall.BelowWindow,
+		Lethal = self.Lethal,
+		ClearHalfWidth = self.ClearHalfWidth,
+		KillWidth = math.max(self:Setting("KillWidth", 2.2), 0),
+		MaximumOffset = self.MaximumOffset,
+		CloseTime = math.max(self:Setting("CloseTime", 9), 0.1),
+		StartedAt = workspace:GetServerTimeNow(),
+	})
+end
+
+MapCrush.OnServerEvent:Connect(function(player: Player, action: any, token: any)
+	if action ~= "Crushed" or type(token) ~= "number" then return end
+
+	local oddity = Running[token]
+	if not oddity then return end
+	oddity:Crush(player, math.max(oddity:Setting("SafeMargin", 2), 0))
+end)
 
 function HallwayCrush:CanStart(context: any): (boolean, string?)
 	local candidate = if type(context) == "table" and context.Frame then context :: Candidate else nil
@@ -452,7 +524,10 @@ function HallwayCrush:OnStart(): boolean
 	self:_apply(0)
 
 	self.MaximumOffset = math.max(self.ClearHalfWidth + math.max(self:Setting("SealOverlap", 0.3), 0), 0)
+	self:_buildLethal()
 	table.insert(ActiveSpans, candidate.Span)
+	Running[self.Token] = self
+	self:_broadcast()
 
 	local closeTime = math.max(self:Setting("CloseTime", 9), 0.1)
 	local stepInterval = math.max(self:Setting("StepInterval", 1 / 30), 0)
@@ -469,7 +544,7 @@ function HallwayCrush:OnStart(): boolean
 
 		local alpha = elapsed / closeTime
 		self:_apply(self.MaximumOffset * alpha * alpha * (3 - 2 * alpha))
-		self:_crush()
+		self:_backstop()
 	end)
 	return true
 end
@@ -486,6 +561,9 @@ function HallwayCrush:_restore()
 	end
 	table.clear(self.Edits)
 	table.clear(self.Movers)
+	table.clear(self.Lethal)
+	table.clear(self.Coverage[1])
+	table.clear(self.Coverage[2])
 
 	for _, shifter in self.Shifters do
 		if shifter.Model.Parent then shifter.Model:PivotTo(shifter.Pivot) end
@@ -515,6 +593,10 @@ function HallwayCrush:OnStop()
 	if self.StepConnection then
 		self.StepConnection:Disconnect()
 		self.StepConnection = nil
+	end
+	if Running[self.Token] then
+		Running[self.Token] = nil
+		MapCrush:FireAllClients("Stop", self.Token)
 	end
 	if not self.Candidate then return end
 

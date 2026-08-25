@@ -124,6 +124,54 @@ function HallwayWallService.Length(frame: Frame): number
 	return frame.Maximum - frame.Minimum
 end
 
+HallwayWallService.HeightWindow = HEIGHT_WINDOW
+HallwayWallService.BelowWindow = BELOW_WINDOW
+
+function HallwayWallService.Merge(intervals: { Interval }, gap: number?): { Interval }
+	local slack = gap or 0
+	local sorted = table.clone(intervals)
+	table.sort(sorted, function(first: Interval, second: Interval)
+		return first.Minimum < second.Minimum
+	end)
+
+	local merged = {}
+	for _, interval in sorted do
+		local last = merged[#merged]
+		if last and interval.Minimum <= last.Maximum + slack then
+			last.Maximum = math.max(last.Maximum, interval.Maximum)
+		else
+			table.insert(merged, { Minimum = interval.Minimum, Maximum = interval.Maximum })
+		end
+	end
+	return merged
+end
+
+function HallwayWallService.Intersect(first: { Interval }, second: { Interval }): { Interval }
+	local overlaps = {}
+	for _, left in first do
+		for _, right in second do
+			local minimum = math.max(left.Minimum, right.Minimum)
+			local maximum = math.min(left.Maximum, right.Maximum)
+			if maximum - minimum > EPSILON then
+				table.insert(overlaps, { Minimum = minimum, Maximum = maximum })
+			end
+		end
+	end
+	return overlaps
+end
+
+function HallwayWallService.Inset(intervals: { Interval }, amount: number): { Interval }
+	local inset = {}
+	for _, interval in intervals do
+		local minimum = interval.Minimum + amount
+		local maximum = interval.Maximum - amount
+		if maximum - minimum > EPSILON then
+			table.insert(inset, { Minimum = minimum, Maximum = maximum })
+		end
+	end
+	return inset
+end
+
 function HallwayWallService.Contains(frame: Frame, position: Vector3, margin: number?): boolean
 	local slack = margin or 0
 	local height = position.Y - frame.FloorY

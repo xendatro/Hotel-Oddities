@@ -275,6 +275,11 @@ Small shared helper for building GUI instances; every other UI service uses it t
 - API: `GuiBuilderService.Corner(parent: GuiObject, radius: UDim): UICorner` — adds a UICorner of that radius
 - API: `GuiBuilderService.Stroke(parent: GuiObject, color: Color3, thickness: number): UIStroke` — adds a border-mode UIStroke
 
+### HallwayCrushDamageService.luau
+Client-only. Owns the kill decision for the `HallwayCrush` map oddity. Listens on `Oddities/MapCrush` for the closing region — its centre/axis/across, the vertical window, the intervals that are genuinely lethal, and the closing curve — then each `Heartbeat` recomputes the current clear corridor width from `workspace:GetServerTimeNow()` (the same smoothstep the server runs, so both sides agree without any per-frame traffic) and reports once when the local character is inside a lethal interval and the gap has closed past `KillWidth`. Deciding here rather than on the server means the check uses the character's own authoritative position and the wall positions the player can actually see, instead of both lagged by a network hop. The server re-validates every report and keeps a backstop, so a client that never reports still dies.
+- Remotes: `Oddities/MapCrush` (listens for `"Start"`/`"Stop"`, fires `"Crushed"`)
+- Requires: `Services.CharacterService`, `Services.CommunicationService`
+
 ### HallwayGraphService.luau
 Builds a navigable node graph from the tagged maze floor parts by intersecting hallway rectangles (perpendicular crossings and end-to-end parallel joins), then offers nearest-node lookup, Dijkstra pathfinding, and walking-distance queries. Nodes inside a `SpawnSafeZone` part and edges crossing one are pruned from the graph, so nothing that routes over it ever passes through the spawn safe zone. The graph is cached and invalidated automatically whenever a tagged floor or spawn zone is added or removed.
 - API: `HallwayGraph:Build() -> { RouteNode }` — forces a fresh build, bypassing the cache

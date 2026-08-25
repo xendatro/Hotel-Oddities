@@ -101,6 +101,13 @@ return {
 			SealOverlap = 0.3,
 			-- Clear corridor width at which anyone still inside is crushed.
 			KillWidth = 2.2,
+			-- Studs trimmed off each end of a lethal stretch, so standing at the
+			-- mouth of an intersection is never counted as being crushed.
+			SafeMargin = 2,
+			-- Extra width allowed when validating a client's own crush report.
+			KillTolerance = 0.75,
+			-- Seconds a sealed corridor waits before the server kills without a report.
+			BackstopDelay = 1.5,
 		},
 		CeilingSisters = {
 			SpawnIntervalMin = 240,
