@@ -322,6 +322,7 @@ become Services or Classes.
 - ServerStorage\Services\GhostAreaService.luau — Picks area-weighted hover points over hallways for the Ghost, avoiding nearby players.
 - ServerStorage\Services\HallwayGridService.luau — Finds hallway corner mouths near a viewer for placing things just out of sight.
 - ServerStorage\Services\HallwayRegionService.luau — Straight-hallway span helpers for matching, bounding, occupancy and weighted random picks.
+- ServerStorage\Services\HallwayWallService.luau — Wall-level geometry for a straight hallway: junction mouths per side, the both-side cut list that keeps opposite walls aligned, and the tagged wall strips flanking the span.
 - ServerStorage\Services\HallwayStreamingService.luau — Custom per-player streaming: slices the maze into hallway chunks and gates teleports on them.
 - ServerStorage\Services\HearingService.luau — Registry of "ears" that receive NoiseService noises after a distance-based travel delay.
 - ServerStorage\Services\HideSpotService.luau — Finds a standing spot on the maze floor that breaks line of sight from every enemy eye.
@@ -400,6 +401,8 @@ become Services or Classes.
 - ServerStorage\Classes\Oddities\DoorsOpen.luau — Hallway oddity that swings all doors in an occupied span open and holds them.
 - ServerStorage\Classes\Oddities\HallwayBlocker.luau — Hallway oddity that drops a gate prop into an unseen corridor to wall it off.
 - ServerStorage\Classes\Oddities\HallwayChaos.luau — Hallway oddity combining chaotic light flicker with slamming doors.
+- ServerStorage\Classes\Oddities\HallwayCrush.luau — Hallway oddity that closes both walls of a corridor inward until they seal, dragging the pilasters, lanterns, paintings and doors with them and crushing whoever is left inside.
+- ServerStorage\Classes\Oddities\HallwayVoid.luau — Hallway oddity that cuts a bottomless pit into the corridor floor and kills whoever falls in.
 - ServerStorage\Classes\Oddities\LanternFall.luau — Fixture-fall oddity that drops a ceiling lantern and kills its light while down.
 - ServerStorage\Classes\Oddities\PaintingDweller.luau — Prop oddity that bursts a humanoid rig out of a painting canvas and attacks nearby players.
 - ServerStorage\Classes\Oddities\PaintingFall.luau — Fixture-fall oddity that shoves a wall painting off the wall with spin.

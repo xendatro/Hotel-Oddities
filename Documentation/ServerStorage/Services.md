@@ -223,6 +223,19 @@ Helpers for treating a straight hallway span as a region: comparing spans (in ei
 - API: `HallwayRegion.RandomOccupied() -> Span?`
 - Requires: `ReplicatedStorage.Configs.MapOddityConfig`, `ReplicatedStorage.Services.HallwaysService`, `ServerStorage.Services.DangerMapService`, `ReplicatedStorage.Services.CharacterService`
 
+### HallwayWallService.luau
+Geometry over the **walls** of a straight hallway span, the counterpart to `HallwayRegionService`'s floor-level view. Builds a `Frame` (centre, axis, across, half width, floor height and an along-range), trimming that range to the contiguous run of `MazeFloor` covering the centre line so a span never reaches into a connector whose walls are not tagged. `Mouths` reports, per side, the along-intervals where a perpendicular corridor or room floor opens through the side plane; `CutPoints` unions those boundaries from **both** sides into one sorted cut list, which is what makes opposite walls terminate at the same places. `Limit` snaps a frame outward to whole cells around a position without exceeding a length budget. `Walls` returns the tagged wall strips that run parallel to the span, sit in the side band by their inner face and are thin enough to be a wall — the inner-face test plus a thickness cap is what rejects perpendicular walls crossing the corridor at a junction — each carrying its along-range, side sign, across offset, thickness, and the local axes that map to thickness and length.
+- API: `HallwayWallService.Frame(span: Hallways.StraightSpan) -> Frame?`
+- API: `HallwayWallService.Length(frame: Frame) -> number`
+- API: `HallwayWallService.Contains(frame: Frame, position: Vector3, margin: number?) -> boolean`
+- API: `HallwayWallService.Mouths(frame: Frame) -> { Mouth }` — `{ Minimum, Maximum, Sign }` per side opening
+- API: `HallwayWallService.CutPoints(frame: Frame) -> { number }` — sorted, both-side union, ends included
+- API: `HallwayWallService.Limit(frame: Frame, position: Vector3, maximumLength: number) -> Frame`
+- API: `HallwayWallService.Walls(frame: Frame) -> { Wall }`
+- API: `HallwayWallService.Fixtures(frame: Frame, tag: string, margin: number?) -> { Instance }` — tagged parts/models inside the frame
+- Tags: reads `HallwayWall`
+- Requires: `ReplicatedStorage.Services.HallwaysService`
+
 ### HallwayStreamingService.luau
 Custom per-player streaming layer: it slices the `Maze15` map into per-hallway chunk Models (cut at junctions and lounge connectors), reparents map assets into them, and each Heartbeat tick adds/removes `PersistentPerPlayer` membership so each player only holds their current hallway plus warmed branches. It also gates teleports until the destination chunks are confirmed streamed in on the client, and repairs models the client reports as missing. If `StreamingConfig.Enabled` or `workspace.StreamingEnabled` is false it degrades to a plain `RequestStreamAroundAsync` wrapper.
 - API: `HallwayStreamingService:PrepareTeleport(player: Player, position: Vector3) -> boolean` — yields until the player's client confirms the destination models, false if it timed out
@@ -340,7 +353,7 @@ Admin `/map` command that teleports the caller straight into the maze via `Eleva
 - Requires: `ElevatorService:SendToMap`, `ChatCommandService`
 
 ### MapOddityCommandService.luau
-Chat command `/mapoddity` (alias `/mapodd`) that maps a friendly word to a map-oddity kind and triggers it on the hallway containing the caller (`sisters`/`twins`/`ceilingsisters` start the `CeilingSisters` patrol); `clear`/`stop`/`off` stops all active map oddities.
+Chat command `/mapoddity` (alias `/mapodd`) that maps a friendly word to a map-oddity kind (`transparency`, `doors`, `chaos`, `blocker`, `void`, `crush`, `sisters`/`twins`/`ceilingsisters`, plus aliases) and triggers it on the hallway containing the caller; `clear`/`stop`/`off` stops all active map oddities.
 - API: (no public methods; the module table is empty and exists only for its chat-command registration)
 - Requires: `MapOddityService`, `ChatCommandService`
 
@@ -350,7 +363,7 @@ Scope wrapper around `OddityService` for the `"Map"` scope: it resolves the hall
 - API: `MapOddityService:Warn(position: Vector3, duration: number) -> boolean` — starts the `ChaosWarning` oddity
 - API: `MapOddityService:Clear(token: number?) -> boolean` — one token, or every map oddity
 - API: `MapOddityService:GetActive() -> { [number]: any }`
-- Requires: `OddityService`, `ServerStorage.Classes.Oddities` map classes (`Transparency`, `DoorsOpen`, `HallwayChaos`, `HallwayBlocker`, `ChaosWarning`)
+- Requires: `OddityService`, `ServerStorage.Classes.Oddities` map classes (`Transparency`, `DoorsOpen`, `HallwayChaos`, `HallwayBlocker`, `HallwayVoid`, `HallwayCrush`, `ChaosWarning`)
 
 ### NoiseService.luau
 The game's sound-propagation source of truth: it emits `Noise` records (position, radius, source player) with a rate limit per source, keeps a one-second ring of recent noises for polling, and notifies observers immediately. A Heartbeat loop auto-emits footstep noise for every moving grounded player, with the radius chosen by crouch/walk/sprint state.
