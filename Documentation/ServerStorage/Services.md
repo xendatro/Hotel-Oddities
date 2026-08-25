@@ -340,7 +340,7 @@ Admin `/map` command that teleports the caller straight into the maze via `Eleva
 - Requires: `ElevatorService:SendToMap`, `ChatCommandService`
 
 ### MapOddityCommandService.luau
-Chat command `/mapoddity` (alias `/mapodd`) that maps a friendly word to a map-oddity kind and triggers it on the hallway containing the caller; `clear`/`stop`/`off` stops all active map oddities.
+Chat command `/mapoddity` (alias `/mapodd`) that maps a friendly word to a map-oddity kind and triggers it on the hallway containing the caller (`sisters`/`twins`/`ceilingsisters` start the `CeilingSisters` patrol); `clear`/`stop`/`off` stops all active map oddities.
 - API: (no public methods; the module table is empty and exists only for its chat-command registration)
 - Requires: `MapOddityService`, `ChatCommandService`
 

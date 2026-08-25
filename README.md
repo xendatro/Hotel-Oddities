@@ -395,6 +395,7 @@ become Services or Classes.
 - ServerStorage\Classes\Oddity.luau — Root oddity class: token, merged settings, timed start/stop lifecycle and subclass factory.
 - ServerStorage\Classes\PropOddity.luau — Intermediate oddity base whose context is a prop Model in the workspace.
 - ServerStorage\Classes\PlayerOddity.luau — Intermediate oddity base whose context is a Player, auto-stopping on death.
+- ServerStorage\Classes\Oddities\CeilingSisters.luau — Map oddity that walks two translucent, harmless Sister rigs upside down along the hallway ceilings, pathfinding between random graph nodes forever while both heads track the nearest player.
 - ServerStorage\Classes\Oddities\ChaosWarning.luau — Hallway oddity that slams every nearby door open and shut as a telegraph.
 - ServerStorage\Classes\Oddities\DoorsOpen.luau — Hallway oddity that swings all doors in an occupied span open and holds them.
 - ServerStorage\Classes\Oddities\HallwayBlocker.luau — Hallway oddity that drops a gate prop into an unseen corridor to wall it off.

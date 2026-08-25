@@ -34,6 +34,9 @@ local EFFECTS = {
 	close = "HallwayCrush",
 	closing = "HallwayCrush",
 	hallwaycrush = "HallwayCrush",
+	sisters = "CeilingSisters",
+	twins = "CeilingSisters",
+	ceilingsisters = "CeilingSisters",
 }
 
 local function run(player: Player, argument: string?)

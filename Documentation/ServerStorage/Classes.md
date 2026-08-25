@@ -318,6 +318,18 @@ Intermediate base for oddities that afflict one player; the start context is the
 
 ## Oddities
 
+### Oddities\CeilingSisters.luau
+Extends `Oddity` directly with `Scope = "Map"` and `ConfigName = "MapOddityConfig"`; its context is a `HallwayGraphService` route node. Clones the `Sister` enemy model twice, makes both translucent and harmless (no tags, no kill sweep), and walks them side by side upside down on the hallway ceilings via `SurfaceWalker`, pathfinding endlessly between random graph nodes with `HallwayGraphService:FindPath`. Both heads track the nearest player through the neck attachment each heartbeat. Runs indefinitely (`MinDuration`/`MaxDuration` 0) until stopped.
+- API: `CeilingSisters.new(config: { [string]: any }?)` — adds the rig folder, models, animators, walkers, neck maps and threads
+- API: `CeilingSisters.Resolve(class, position: Vector3)` — nearest graph node to the position
+- API: `CeilingSisters.Pick(class)` — random graph node at least `MinimumPlayerDistance` from every player
+- API: `CeilingSisters:CanStart(node) -> (boolean, string?)` — needs a node and no pair already active (one at a time)
+- API: `CeilingSisters:OnStart(node) -> boolean` — builds both rigs on the ceiling above the node and starts the patrol and face loops
+- API: `CeilingSisters:OnStop()` — cancels the patrol, destroys walkers, animators and the rig folder
+- Settings: `SpawnIntervalMin`/`SpawnIntervalMax`, `WalkSpeed`, `SideSpacing`, `Translucency`, `MinimumPlayerDistance`
+- Requires: `Classes\Oddity`, `Classes\SurfaceWalker`, `ReplicatedStorage\Classes\NpcAnimator`, `ReplicatedStorage\Services\HallwayGraphService`, `ReplicatedStorage\Services\CharacterService`, `ServerStorage\Configs\EnemyConfigs`, `ReplicatedStorage.Enemies.Sister`
+- Notes: parents both rigs under a `workspace.Oddities` folder; ceiling contact comes from an upward raycast per waypoint
+
 ### Oddities\ChaosWarning.luau
 Extends `HallwayOddity`. Fires the client `MapDoors` remote so every door in the hallway box (room floors included) slams open and shut in chaos mode as a telegraph, with no light effects.
 - API: `ChaosWarning.new(config: { [string]: any }?)`
