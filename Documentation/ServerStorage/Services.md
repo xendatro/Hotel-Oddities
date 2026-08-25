@@ -233,6 +233,10 @@ Geometry over the **walls** of a straight hallway span, the counterpart to `Hall
 - API: `HallwayWallService.Limit(frame: Frame, position: Vector3, maximumLength: number) -> Frame`
 - API: `HallwayWallService.Walls(frame: Frame) -> { Wall }`
 - API: `HallwayWallService.Fixtures(frame: Frame, tag: string, margin: number?) -> { Instance }` — tagged parts/models inside the frame
+- API: `HallwayWallService.Merge(intervals: { Interval }, gap: number?) -> { Interval }` — sort and coalesce, optionally closing gaps up to `gap`
+- API: `HallwayWallService.Intersect(first: { Interval }, second: { Interval }) -> { Interval }`
+- API: `HallwayWallService.Inset(intervals: { Interval }, amount: number) -> { Interval }` — trim both ends, dropping anything that collapses
+- API: `HallwayWallService.HeightWindow`, `HallwayWallService.BelowWindow` — the vertical window `Contains` uses, exposed so clients can run the same test
 - Tags: reads `HallwayWall`
 - Requires: `ReplicatedStorage.Services.HallwaysService`
 
