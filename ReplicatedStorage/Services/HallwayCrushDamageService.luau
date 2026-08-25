@@ -18,6 +18,15 @@ type Interval = {
 	Maximum: number,
 }
 
+type Alcove = {
+	Along: number,
+	HalfWidth: number,
+	Sign: number,
+	Inner: number,
+	Outer: number,
+	Top: number,
+}
+
 type Region = {
 	Center: Vector3,
 	Axis: Vector3,
@@ -27,6 +36,8 @@ type Region = {
 	HeightWindow: number,
 	BelowWindow: number,
 	Lethal: { Interval },
+	Alcoves: { Alcove },
+	AlcoveMargin: number,
 	ClearHalfWidth: number,
 	KillWidth: number,
 	MaximumOffset: number,
@@ -38,21 +49,40 @@ local localPlayer = Players.LocalPlayer
 local Regions: { [number]: Region } = {}
 local Reported: { [number]: true } = {}
 
-local function clearWidth(region: Region): number
+local function currentOffset(region: Region): number
 	local elapsed = math.clamp(workspace:GetServerTimeNow() - region.StartedAt, 0, region.CloseTime)
 	local alpha = elapsed / region.CloseTime
-	local offset = region.MaximumOffset * alpha * alpha * (3 - 2 * alpha)
-	return (region.ClearHalfWidth - offset) * 2
+	return region.MaximumOffset * alpha * alpha * (3 - 2 * alpha)
 end
 
-local function isCaught(region: Region, position: Vector3): boolean
+local function inAlcove(region: Region, position: Vector3, offset: number): boolean
+	local relative = position - region.Center
+	local along = relative:Dot(region.Axis)
+	local across = relative:Dot(region.Across)
+	local margin = region.AlcoveMargin
+	local carried = math.min(offset, region.ClearHalfWidth - region.KillWidth / 2)
+
+	for _, alcove in region.Alcoves do
+		if math.abs(along - alcove.Along) > alcove.HalfWidth + margin then continue end
+		if position.Y > alcove.Top or position.Y < region.FloorY - margin then continue end
+
+		local depth = across * alcove.Sign
+		if depth >= alcove.Inner - carried and depth <= alcove.Outer + margin then
+			return true
+		end
+	end
+	return false
+end
+
+local function isCaught(region: Region, position: Vector3, offset: number): boolean
 	local height = position.Y - region.FloorY
 	if height > region.HeightWindow or height < -region.BelowWindow then return false end
 
-	local offset = position - region.Center
-	if math.abs(offset:Dot(region.Across)) > region.HalfWidth then return false end
+	local relative = position - region.Center
+	if math.abs(relative:Dot(region.Across)) > region.HalfWidth then return false end
+	if inAlcove(region, position, offset) then return false end
 
-	local along = offset:Dot(region.Axis)
+	local along = relative:Dot(region.Axis)
 	for _, interval in region.Lethal do
 		if along >= interval.Minimum and along <= interval.Maximum then return true end
 	end
@@ -77,8 +107,10 @@ RunService.Heartbeat:Connect(function()
 
 	for token, region in Regions do
 		if Reported[token] then continue end
-		if clearWidth(region) > region.KillWidth then continue end
-		if not isCaught(region, root.Position) then continue end
+
+		local offset = currentOffset(region)
+		if (region.ClearHalfWidth - offset) * 2 > region.KillWidth then continue end
+		if not isCaught(region, root.Position, offset) then continue end
 
 		Reported[token] = true
 		MapCrush:FireServer("Crushed", token)

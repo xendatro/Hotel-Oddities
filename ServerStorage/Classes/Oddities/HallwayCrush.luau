@@ -10,6 +10,7 @@ local DeathService = require(ServerStorage.Services.DeathService)
 local HallwayOddity = require(ServerStorage.Classes.HallwayOddity)
 local HallwayRegion = require(ServerStorage.Services.HallwayRegionService)
 local HallwayWall = require(ServerStorage.Services.HallwayWallService)
+local EnemyService = require(ServerStorage.Services.EnemyService)
 local Oddity = require(ServerStorage.Classes.Oddity)
 
 local ODDITY_FOLDER_NAME = "Oddities"
@@ -21,6 +22,9 @@ local FLAT_FIXTURE_SPAN = 3
 local JAMB_THICKNESS = 0.25
 local TEXTURE_SIGN = -1
 local DOORWAY_GAP = 8
+local SEAM_OVERLAP = 0.06
+local SEAL_LIFT = 0.02
+local ALCOVE_MARGIN = 0.5
 
 local MapCrush = CommunicationService.Ensure("Oddities", "MapCrush")
 
@@ -59,6 +63,15 @@ type Shrinker = {
 	Part: BasePart,
 	Size: Vector3,
 	Axis: Vector3,
+}
+
+type Alcove = {
+	Along: number,
+	HalfWidth: number,
+	Sign: number,
+	Inner: number,
+	Outer: number,
+	Top: number,
 }
 
 type Reveal = {
@@ -113,10 +126,18 @@ local function candidateFromSpan(class: any, span: HallwayRegion.Span?, position
 	return { Span = span, Frame = frame }
 end
 
+local function inMouth(mouths: { HallwayWall.Mouth }, sign: number, along: number): boolean
+	for _, mouth in mouths do
+		if mouth.Sign == sign and along > mouth.Minimum and along < mouth.Maximum then return true end
+	end
+	return false
+end
+
 local function pieceIntervals(
 	wall: HallwayWall.Wall,
 	frame: HallwayWall.Frame,
-	cuts: { number }
+	cuts: { number },
+	mouths: { HallwayWall.Mouth }
 ): { { Minimum: number, Maximum: number, Moving: boolean } }
 	local boundaries = { wall.Minimum, wall.Maximum }
 	for _, cut in cuts do
@@ -136,7 +157,9 @@ local function pieceIntervals(
 		table.insert(pieces, {
 			Minimum = minimum,
 			Maximum = maximum,
-			Moving = middle > frame.Minimum and middle < frame.Maximum,
+			Moving = middle > frame.Minimum
+				and middle < frame.Maximum
+				and not inMouth(mouths, wall.Sign, middle),
 		})
 	end
 	return pieces
@@ -147,13 +170,21 @@ local function setPiece(
 	edit: WallEdit,
 	wall: HallwayWall.Wall,
 	frame: HallwayWall.Frame,
-	piece: { Minimum: number, Maximum: number }
+	piece: { Minimum: number, Maximum: number, Moving: boolean },
+	previous: { Moving: boolean }?,
+	following: { Moving: boolean }?
 )
-	local length = piece.Maximum - piece.Minimum
-	local baseLength = wall.Maximum - wall.Minimum
-	local shift = (piece.Minimum + piece.Maximum) / 2 - (wall.Minimum + wall.Maximum) / 2
+	local minimum = piece.Minimum
+	local maximum = piece.Maximum
+	if previous and previous.Moving == piece.Moving then minimum -= SEAM_OVERLAP end
+	if following and following.Moving == piece.Moving then maximum += SEAM_OVERLAP end
 
-	part.Size = edit.Size + wall.LengthAxis * (length - baseLength)
+	local length = maximum - minimum
+	local baseLength = wall.Maximum - wall.Minimum
+	local shift = (minimum + maximum) / 2 - (wall.Minimum + wall.Maximum) / 2
+	local lift = if piece.Moving and wall.Sign > 0 then SEAL_LIFT else 0
+
+	part.Size = edit.Size + wall.LengthAxis * (length - baseLength) + Vector3.yAxis * lift
 	part.CFrame = edit.CFrame + frame.Axis * shift
 
 	local offset = shift * wall.LengthSign * TEXTURE_SIGN
@@ -199,6 +230,7 @@ function HallwayCrush.new(config: { [string]: any }?)
 	self.Movers = {} :: { Mover }
 	self.Coverage = { {}, {} } :: { { HallwayWall.Interval } }
 	self.Lethal = {} :: { HallwayWall.Interval }
+	self.Alcoves = {} :: { Alcove }
 	self.SealedAt = nil :: number?
 	self.Shifters = {} :: { Shifter }
 	self.Shrinkers = {} :: { Shrinker }
@@ -236,8 +268,9 @@ end
 
 function HallwayCrush:_collectWalls(frame: HallwayWall.Frame)
 	local cuts = HallwayWall.CutPoints(frame)
+	local mouths = HallwayWall.Mouths(frame)
 	for _, wall in HallwayWall.Walls(frame) do
-		local pieces = pieceIntervals(wall, frame, cuts)
+		local pieces = pieceIntervals(wall, frame, cuts, mouths)
 		if #pieces == 0 then continue end
 
 		local part = wall.Part
@@ -264,7 +297,7 @@ function HallwayCrush:_collectWalls(frame: HallwayWall.Frame)
 				table.insert(edit.Clones, target)
 			end
 
-			setPiece(target, edit, wall, frame, piece)
+			setPiece(target, edit, wall, frame, piece, pieces[index - 1], pieces[index + 1])
 			if index > 1 then target.Parent = edit.Parent end
 			if not piece.Moving then continue end
 
@@ -351,6 +384,15 @@ function HallwayCrush:_collectReveals(frame: HallwayWall.Frame, structure: Model
 		local height = top - frame.FloorY
 		if width <= 0 or height <= 0 then continue end
 
+		table.insert(self.Alcoves, {
+			Along = offset:Dot(frame.Axis),
+			HalfWidth = width / 2,
+			Sign = sign,
+			Inner = math.abs(across) - extentAlong(doorway, frame.Across) / 2,
+			Outer = outward,
+			Top = top,
+		})
+
 		local base = frame.Center + frame.Axis * offset:Dot(frame.Axis) + frame.Across * (sign * outward)
 		local middle = Vector3.new(base.X, frame.FloorY + height / 2, base.Z)
 		table.insert(self.Reveals, {
@@ -411,15 +453,48 @@ function HallwayCrush:_clearWidth(): number
 	return (self.ClearHalfWidth - self.Offset) * 2
 end
 
+function HallwayCrush:_inAlcove(position: Vector3): boolean
+	local frame = (self.Candidate :: Candidate).Frame
+	local offset = position - frame.Center
+	local along = offset:Dot(frame.Axis)
+	local across = offset:Dot(frame.Across)
+
+	local killOffset = self.ClearHalfWidth - math.max(self:Setting("KillWidth", 2.2), 0) / 2
+	local carried = math.min(self.Offset, killOffset)
+
+	for _, alcove in self.Alcoves do
+		if math.abs(along - alcove.Along) > alcove.HalfWidth + ALCOVE_MARGIN then continue end
+		if position.Y > alcove.Top or position.Y < frame.FloorY - ALCOVE_MARGIN then continue end
+
+		local depth = across * alcove.Sign
+		if depth >= alcove.Inner - carried and depth <= alcove.Outer + ALCOVE_MARGIN then
+			return true
+		end
+	end
+	return false
+end
+
 function HallwayCrush:_isCaught(position: Vector3, slack: number): boolean
 	local frame = (self.Candidate :: Candidate).Frame
 	if not HallwayWall.Contains(frame, position) then return false end
+	if self:_inAlcove(position) then return false end
 
 	local along = (position - frame.Center):Dot(frame.Axis)
 	for _, interval in self.Lethal do
 		if along >= interval.Minimum - slack and along <= interval.Maximum + slack then return true end
 	end
 	return false
+end
+
+function HallwayCrush:_crushEnemies()
+	EnemyService:ForEachActive(function(enemy: any)
+		if not enemy.Active then return end
+
+		local model = enemy.Model
+		if not model or not model.Parent then return end
+		if not self:_isCaught(model:GetPivot().Position, 0) then return end
+		enemy:Despawn()
+	end)
 end
 
 function HallwayCrush:Crush(player: Player, slack: number): boolean
@@ -446,6 +521,7 @@ function HallwayCrush:_backstop()
 		return
 	end
 
+	if not self.SealedAt then self:_crushEnemies() end
 	self.SealedAt = self.SealedAt or os.clock()
 	if os.clock() - self.SealedAt < math.max(self:Setting("BackstopDelay", 1.5), 0) then return end
 
@@ -465,6 +541,8 @@ function HallwayCrush:_broadcast()
 		HeightWindow = HallwayWall.HeightWindow,
 		BelowWindow = HallwayWall.BelowWindow,
 		Lethal = self.Lethal,
+		Alcoves = self.Alcoves,
+		AlcoveMargin = ALCOVE_MARGIN,
 		ClearHalfWidth = self.ClearHalfWidth,
 		KillWidth = math.max(self:Setting("KillWidth", 2.2), 0),
 		MaximumOffset = self.MaximumOffset,
@@ -562,6 +640,7 @@ function HallwayCrush:_restore()
 	table.clear(self.Edits)
 	table.clear(self.Movers)
 	table.clear(self.Lethal)
+	table.clear(self.Alcoves)
 	table.clear(self.Coverage[1])
 	table.clear(self.Coverage[2])
 
