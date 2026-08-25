@@ -1,38 +1,53 @@
 --!strict
 
---[=[
-	@class GravityCamera
-
-	This module acts as a typed interface for client-sided control of the modifications made to the camera controller.
-]=]
-
 local Players = game:GetService("Players")
 
--- stylua: ignore
-local playerModuleObject = require(Players.LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule")) :: any
+local playerModuleScript = Players.LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule")
+local playerModuleObject = require(playerModuleScript) :: any
 local cameraModuleObject = playerModuleObject:GetCameras() :: any
 local controlModuleObject = playerModuleObject:GetControls() :: any
+
+if not cameraModuleObject.GetUpVector then
+	local applyModifier = require(script.Parent:WaitForChild("GravityCameraModifier")) :: (any) -> ()
+	local ok, err = pcall(applyModifier, playerModuleScript)
+	if not ok then
+		warn(`Wallstick GravityCamera: failed to patch the live PlayerModule ({err}); camera tilt/spin disabled`)
+	end
+end
 
 local GravityCamera = {}
 
 function GravityCamera.getUpVector(): Vector3
-	return cameraModuleObject:GetUpVector()
+	if cameraModuleObject.GetUpVector then
+		return cameraModuleObject:GetUpVector()
+	end
+	return Vector3.yAxis
 end
 
 function GravityCamera.setUpVector(target: Vector3)
-	cameraModuleObject:SetTargetUpVector(target)
+	if cameraModuleObject.SetTargetUpVector then
+		cameraModuleObject:SetTargetUpVector(target)
+	end
 end
 
 function GravityCamera.getSpinPart(): BasePart
-	return cameraModuleObject:GetSpinPart()
+	if cameraModuleObject.GetSpinPart then
+		return cameraModuleObject:GetSpinPart()
+	end
+	return workspace.Terrain
 end
 
 function GravityCamera.setSpinPart(part: BasePart)
-	cameraModuleObject:SetSpinPart(part)
+	if cameraModuleObject.SetSpinPart then
+		cameraModuleObject:SetSpinPart(part)
+	end
 end
 
 function GravityCamera.getRotationType(): Enum.RotationType
-	return cameraModuleObject:GetRotationType()
+	if cameraModuleObject.GetRotationType then
+		return cameraModuleObject:GetRotationType()
+	end
+	return UserSettings():GetService("UserGameSettings").RotationType
 end
 
 function GravityCamera.getMoveVector(cameraCF: CFrame, inputMove: Vector3?): Vector3

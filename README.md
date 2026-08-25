@@ -196,7 +196,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\Vow.luau — Cancellable single-function thread wrapper backing the state machine.
 - ReplicatedStorage\Classes\Watch.luau — Turns an NPC's neck and waist to look at the local player.
 - ReplicatedStorage\Classes\CameraShaker\ — Vendored third-party camera shake library used through ShakeService.
-- ReplicatedStorage\Classes\Wallstick\ — Vendored EgoMoose Rbx-Wallstick surface-sticking controller (modernized constraints), driven through WallstickService; its Assets folder holds the PlayerModule/Animate/RbxCharacterSounds replacements installed at runtime.
+- ReplicatedStorage\Classes\Wallstick\ — Vendored EgoMoose Rbx-Wallstick surface-sticking controller (modernized constraints), driven through WallstickService; self-contained — patches the live camera and swaps animation/sound drivers only while enabled.
 - ReplicatedStorage\Classes\Minigames\MinigameBase.luau — Base class every terminal minigame extends, providing themed GUI builders, input helpers, heartbeat and win/fail plumbing.
 - ReplicatedStorage\Classes\Minigames\AimTrainer.luau — Click-the-target minigame; 20 hits on shrinking timers, 3 misses wipe the run.
 - ReplicatedStorage\Classes\Minigames\Frogger.luau — Frogger minigame; cross six lanes of traffic twice without being hit.
@@ -364,7 +364,7 @@ become Services or Classes.
 - ServerStorage\Services\VoiceActivityService.luau — Tunes voice chat audio and emits noise at whoever is speaking so enemies can hear them.
 - ServerStorage\Services\VoiceDebugService.luau — Studio-only remote for live-tweaking voice and radio volumes behind the VoiceDebug flag.
 - ServerStorage\Services\WalkieTalkieService.luau — Builds the per-player radio audio graph, privacy modes, sound relays and radio noise.
-- ServerStorage\Services\WallstickService.luau — Server bootstrap for Wallstick: runtime install of the Assets player scripts, collision groups, the workspace Wallstick model, per-player streaming foci and the replication listener.
+- ServerStorage\Services\WallstickService.luau — Server bootstrap for Wallstick: collision groups, the workspace Wallstick model, per-player streaming foci and the replication listener.
 
 ### ServerStorage\Classes
 

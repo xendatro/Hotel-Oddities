@@ -8,8 +8,6 @@ if not RunService:IsClient() then
 	return WallstickService
 end
 
-local Wallstick = require(ReplicatedStorage.Classes.Wallstick)
-local RaycastHelper = require(ReplicatedStorage.Classes.Wallstick.RaycastHelper)
 local Replication = require(ReplicatedStorage.Classes.Wallstick.Replication)
 
 local FALL_RESET_DISTANCE = -50
@@ -67,6 +65,9 @@ function WallstickService.Enable(options: { tilt: boolean?, spin: boolean? }?): 
 
 	local wallstickModel = workspace:WaitForChild("Wallstick") :: Model
 	local wallstickOrigin = wallstickModel:WaitForChild("Origin") :: BasePart
+
+	local Wallstick = require(ReplicatedStorage.Classes.Wallstick) :: any
+	local RaycastHelper = require(ReplicatedStorage.Classes.Wallstick.RaycastHelper) :: any
 
 	local wallstick = Wallstick.new({
 		parent = wallstickModel,

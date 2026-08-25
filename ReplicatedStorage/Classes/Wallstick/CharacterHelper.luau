@@ -2,9 +2,8 @@
 
 local Players = game:GetService("Players")
 
-local PlayerScripts = Players.LocalPlayer:WaitForChild("PlayerScripts")
-local RbxCharacterSounds = PlayerScripts:WaitForChild("RbxCharacterSounds")
-local CharacterSoundsController = require(RbxCharacterSounds:WaitForChild("Controller")) :: any
+local CharacterAnimate = require(script.Parent:WaitForChild("CharacterAnimate")) :: any
+local CharacterSounds = require(script.Parent:WaitForChild("CharacterSounds")) :: any
 
 local STRIP: { [string]: boolean } = {
 	["Part"] = true,
@@ -162,14 +161,65 @@ function CharacterHelper.fake(player: Player): FakeCharacter
 	return packaged
 end
 
+local activeAnimateController: any = nil
+local activeSoundsController: any = nil
+local disabledAnimate: LocalScript? = nil
+local disabledSounds: LocalScript? = nil
+
 function CharacterHelper.setMyPerformer(real: Model, fake: Model?)
-	CharacterSoundsController.setPerformer(Players.LocalPlayer, fake)
+	if activeAnimateController then
+		activeAnimateController.cleanup()
+		activeAnimateController = nil
+	end
+	if activeSoundsController then
+		activeSoundsController.cleanup()
+		activeSoundsController = nil
+	end
 
-	local animate = real:WaitForChild("Animate")
-	local animateController = require(animate:WaitForChild("Controller")) :: any
+	local realHumanoid = real:WaitForChild("Humanoid") :: Humanoid
 
-	local humanoid = if fake then fake:WaitForChild("Humanoid") else real:WaitForChild("Humanoid")
-	animateController.matchAnimate(humanoid)
+	if fake then
+		local animate = real:FindFirstChild("Animate")
+		if animate and animate:IsA("LocalScript") and not animate.Disabled then
+			animate.Disabled = true
+			disabledAnimate = animate
+		end
+
+		local playerScripts = Players.LocalPlayer:FindFirstChild("PlayerScripts")
+		local sounds = playerScripts and playerScripts:FindFirstChild("RbxCharacterSounds")
+		if sounds and sounds:IsA("LocalScript") and not sounds.Disabled then
+			sounds.Disabled = true
+			disabledSounds = sounds
+		end
+
+		local animator = realHumanoid:FindFirstChildOfClass("Animator")
+		if animator then
+			for _, track in animator:GetPlayingAnimationTracks() do
+				track:Stop(0)
+			end
+		end
+
+		local fakeHumanoid = fake:WaitForChild("Humanoid") :: Humanoid
+		activeAnimateController = CharacterAnimate.animate(animate or real, fakeHumanoid, realHumanoid)
+		activeSoundsController = CharacterSounds.listen(fake, real)
+	else
+		local animator = realHumanoid:FindFirstChildOfClass("Animator")
+		if animator then
+			for _, track in animator:GetPlayingAnimationTracks() do
+				track:Stop(0)
+			end
+		end
+
+		if disabledAnimate and disabledAnimate.Parent then
+			disabledAnimate.Disabled = false
+		end
+		disabledAnimate = nil
+
+		if disabledSounds and disabledSounds.Parent then
+			disabledSounds.Disabled = false
+		end
+		disabledSounds = nil
+	end
 end
 
 export type StreamingFocus = {
