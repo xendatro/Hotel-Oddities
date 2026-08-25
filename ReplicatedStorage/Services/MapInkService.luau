@@ -177,6 +177,21 @@ local function drawCap(entry: MapLayoutService.Entry, side: number, style: Style
 	end
 end
 
+local function insideOpening(value: number, openings: { number }): boolean
+	for index = 1, #openings - 1, 2 do
+		if value >= openings[index] - BOUNDARY_EPSILON and value <= openings[index + 1] + BOUNDARY_EPSILON then
+			return true
+		end
+	end
+	return false
+end
+
+local function isFrontier(entry: MapLayoutService.Entry, value: number): boolean
+	if math.abs(math.abs(value) - entry.HalfLength) <= BOUNDARY_EPSILON then return false end
+	if insideOpening(value, entry.Openings[1]) or insideOpening(value, entry.Openings[-1]) then return false end
+	return true
+end
+
 local function clearShade(entry: MapLayoutService.Entry, from: number, to: number)
 	local shade = Shade
 	if not shade then return end
@@ -198,8 +213,8 @@ local function clearShade(entry: MapLayoutService.Entry, from: number, to: numbe
 	local perpendicular = Vector2.new(-direction.Y, direction.X)
 	local steps = math.ceil(length)
 	local fade = math.min(settings.FrontierFade, (to - from) * 0.35)
-	local openStart = math.abs(from + entry.HalfLength) > BOUNDARY_EPSILON
-	local openFinish = math.abs(to - entry.HalfLength) > BOUNDARY_EPSILON
+	local openStart = isFrontier(entry, from)
+	local openFinish = isFrontier(entry, to)
 
 	for step = 0, steps do
 		local progress = step / steps
@@ -218,15 +233,25 @@ local function clearShade(entry: MapLayoutService.Entry, from: number, to: numbe
 			residual = settings.Opacity * (1 - eased * eased * (3 - 2 * eased))
 		end
 
-		local first = centre - perpendicular * reach
-		local second = centre + perpendicular * reach
-		local low = Vector2.new(math.min(first.X, second.X), math.min(first.Y, second.Y))
-		local high = Vector2.new(math.max(first.X, second.X), math.max(first.Y, second.Y))
+		local soft = settings.SoftEdge * scale
+		local steps = settings.SoftSteps
 
-		if residual > 0 then
-			shade:FadeRect(low, high, residual)
-		else
-			shade:ClearRect(low, high)
+		for band = 0, steps do
+			local depth = band / steps
+			local extent = reach + soft * depth
+			if extent <= 0 then continue end
+
+			local ceiling = math.max(residual, settings.Opacity * depth)
+			local first = centre - perpendicular * extent
+			local second = centre + perpendicular * extent
+			local low = Vector2.new(math.min(first.X, second.X), math.min(first.Y, second.Y))
+			local high = Vector2.new(math.max(first.X, second.X), math.max(first.Y, second.Y))
+
+			if ceiling <= 0 then
+				shade:ClearRect(low, high)
+			else
+				shade:FadeRect(low, high, ceiling)
+			end
 		end
 	end
 end

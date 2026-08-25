@@ -93,6 +93,9 @@ return {
 		EdgeWobble = 0.75,
 		-- Studs the lit floor fades back to dark at an undiscovered frontier.
 		FrontierFade = 13,
+		-- Studs the lit floor softens over at its side edges.
+		SoftEdge = 3.2,
+		SoftSteps = 3,
 		-- Canvas pixels the wash fades out over at the sheet edge.
 		Feather = 105,
 		-- Canvas pixels of corner rounding on the wash so corners are not harsh.
