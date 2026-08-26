@@ -108,6 +108,9 @@ return {
 			KillTolerance = 0.75,
 			-- Seconds a sealed corridor waits before the server kills without a report.
 			BackstopDelay = 1.5,
+			-- Studs the wooden trim is pushed past the end of a closing run, so it
+			-- does not z-fight the wall it was never meant to sit flush against.
+			TrimOvershoot = 0.12,
 		},
 		CeilingSisters = {
 			SpawnIntervalMin = 240,

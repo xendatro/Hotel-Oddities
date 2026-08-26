@@ -213,6 +213,26 @@ function HallwayWallService.Mouths(frame: Frame): { Mouth }
 	return mouths
 end
 
+function HallwayWallService.Closing(frame: Frame): { Interval }
+	local blocked = {}
+	for _, mouth in HallwayWallService.Mouths(frame) do
+		table.insert(blocked, { Minimum = mouth.Minimum, Maximum = mouth.Maximum })
+	end
+
+	local open = {}
+	local cursor = frame.Minimum
+	for _, interval in HallwayWallService.Merge(blocked, 0) do
+		if interval.Minimum - cursor > EPSILON then
+			table.insert(open, { Minimum = cursor, Maximum = interval.Minimum })
+		end
+		cursor = math.max(cursor, interval.Maximum)
+	end
+	if frame.Maximum - cursor > EPSILON then
+		table.insert(open, { Minimum = cursor, Maximum = frame.Maximum })
+	end
+	return open
+end
+
 function HallwayWallService.CutPoints(frame: Frame): { number }
 	local raw = { frame.Minimum, frame.Maximum }
 	for _, mouth in HallwayWallService.Mouths(frame) do

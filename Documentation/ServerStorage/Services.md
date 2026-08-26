@@ -230,6 +230,7 @@ Geometry over the **walls** of a straight hallway span, the counterpart to `Hall
 - API: `HallwayWallService.Contains(frame: Frame, position: Vector3, margin: number?) -> boolean`
 - API: `HallwayWallService.Mouths(frame: Frame) -> { Mouth }` — `{ Minimum, Maximum, Sign }` per side opening
 - API: `HallwayWallService.CutPoints(frame: Frame) -> { number }` — sorted, both-side union, ends included
+- API: `HallwayWallService.Closing(frame: Frame) -> { Interval }` — the span with every mouth, from either side, cut out of it
 - API: `HallwayWallService.Limit(frame: Frame, position: Vector3, maximumLength: number) -> Frame`
 - API: `HallwayWallService.Walls(frame: Frame) -> { Wall }`
 - API: `HallwayWallService.Fixtures(frame: Frame, tag: string, margin: number?) -> { Instance }` — tagged parts/models inside the frame
