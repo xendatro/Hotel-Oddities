@@ -30,6 +30,14 @@ function GravityCamera.setUpVector(target: Vector3)
 	end
 end
 
+function GravityCamera.snapUpVector(target: Vector3)
+	if cameraModuleObject.SnapUpVector then
+		cameraModuleObject:SnapUpVector(target)
+	else
+		GravityCamera.setUpVector(target)
+	end
+end
+
 function GravityCamera.getSpinPart(): BasePart
 	if cameraModuleObject.GetSpinPart then
 		return cameraModuleObject:GetSpinPart()

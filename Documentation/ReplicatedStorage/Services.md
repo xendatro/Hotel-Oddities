@@ -700,6 +700,6 @@ Client front end for the vendored Wallstick controller. Always listens on the re
 - API: `WallstickService.Enable(options: { tilt: boolean?, spin: boolean?, surfaceNormal: Vector3? }?) -> Wallstick?` — starts wall-sticking for the local character; `surfaceNormal` rejects differently oriented surfaces and keeps accepted surfaces exactly aligned to that normal; returns the active (or existing) instance
 - API: `WallstickService.Disable()` — destroys the session and restores normal character physics
 - API: `WallstickService.IsEnabled() -> boolean`, `WallstickService.Get() -> Wallstick?`
-- API: `WallstickService.SetCameraUpVector(upVector: Vector3)` — updates the patched camera's gravity frame so camera-relative controls follow an externally driven rotation
+- API: `WallstickService.SnapCameraUpVector(upVector: Vector3)` — synchronously rotates the patched PlayerModule's camera and camera-relative control frame to an externally driven up vector before Roblox processes camera input
 - Remotes: `Wallstick/Replicator`, `Wallstick/Sync` (via `Classes.Wallstick.Replication`)
 - Requires: `Classes.Wallstick` (+ its `RaycastHelper` and `Replication` children); expects `workspace.Wallstick` from the server `WallstickService`

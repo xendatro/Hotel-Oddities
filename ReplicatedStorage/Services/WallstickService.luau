@@ -47,8 +47,8 @@ function WallstickService.Get(): any
 	return ActiveSession and ActiveSession.Wallstick
 end
 
-function WallstickService.SetCameraUpVector(upVector: Vector3)
-	GravityCamera.setUpVector(upVector)
+function WallstickService.SnapCameraUpVector(upVector: Vector3)
+	GravityCamera.snapUpVector(upVector)
 end
 
 function WallstickService.Disable()

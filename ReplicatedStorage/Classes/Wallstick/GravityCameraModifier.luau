@@ -49,6 +49,18 @@ local function calculateUpStep(_dt: number)
 	upCFrame = transitionCF * upCFrame
 end
 
+local function snapUp(nextUp: Vector3)
+	if nextUp.Magnitude == 0 then return end
+
+	nextUp = nextUp.Unit
+	local axis = workspace.CurrentCamera.CFrame.RightVector
+	local transitionCF = fromToRotation(upVector, nextUp, axis)
+
+	upVector = nextUp
+	targetUpVector = nextUp
+	upCFrame = transitionCF * upCFrame
+end
+
 local function calculateSpinStep(_dt: number, inVehicle: boolean)
 	local theta = 0
 
@@ -162,6 +174,10 @@ return function(PlayerModule: any)
 
 	function cameraObject:SetTargetUpVector(target: Vector3)
 		targetUpVector = target
+	end
+
+	function cameraObject:SnapUpVector(target: Vector3)
+		snapUp(target)
 	end
 
 	function cameraObject:GetSpinPart(): BasePart

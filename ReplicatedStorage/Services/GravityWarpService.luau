@@ -20,34 +20,23 @@ local Active = false
 local CAMERA_BIND = "GravityWarpCamera"
 local CameraRoot = nil :: BasePart?
 
-local function renderCameraRoll()
-	local camera = workspace.CurrentCamera
+local function updateCameraGravity()
 	local root = CameraRoot
-	if not camera or not root or not root.Parent then return end
+	if not root or not root.Parent then return end
 
-	local cameraCFrame = camera.CFrame
-	local look = cameraCFrame.LookVector
-	local rootUp = root.CFrame.UpVector
-	WallstickService.SetCameraUpVector(rootUp)
-
-	local projectedUp = rootUp - look * rootUp:Dot(look)
-	if projectedUp.Magnitude < 1e-4 then return end
-
-	local up = projectedUp.Unit
-	local right = look:Cross(up).Unit
-	camera.CFrame = CFrame.fromMatrix(cameraCFrame.Position, right, up, -look)
+	WallstickService.SnapCameraUpVector(root.CFrame.UpVector)
 end
 
 local function startCameraRoll(root: BasePart)
 	CameraRoot = root
-	WallstickService.SetCameraUpVector(root.CFrame.UpVector)
-	RunService:BindToRenderStep(CAMERA_BIND, Enum.RenderPriority.Camera.Value + 1, renderCameraRoll)
+	WallstickService.SnapCameraUpVector(root.CFrame.UpVector)
+	RunService:BindToRenderStep(CAMERA_BIND, Enum.RenderPriority.Camera.Value - 2, updateCameraGravity)
 end
 
 local function stopCameraRoll()
 	CameraRoot = nil
 	RunService:UnbindFromRenderStep(CAMERA_BIND)
-	WallstickService.SetCameraUpVector(Vector3.yAxis)
+	WallstickService.SnapCameraUpVector(Vector3.yAxis)
 end
 
 function GravityWarpService.IsActive(): boolean
