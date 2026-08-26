@@ -506,6 +506,11 @@ Client-only arcade shell for the hackable computers: picks which minigame a give
 - Tags: reads `HackComputer` (to enumerate peer terminals)
 - Requires: `Classes.Minigames.<Id>` modules, each exporting `Id`, `Title`, `SupportsReset`, `new(root, api)`
 
+### NotificationService.luau
+Client-only top-center notification banner. Listens for short server messages, renders them in a stacked panel with the shared GUI builder, and fades each one in and out automatically.
+- Remotes: `Notifications/Show` (listened)
+- Requires: `Configs.NotificationConfig`, `Services.CommunicationService`, `Services.GuiBuilderService`
+
 ### ObservedFreezeService.luau
 Client-side "weeping angel" renderer: while a tagged enemy is inside the camera frustum and unoccluded it is pinned in place visually (and its animation tracks are held at speed 0), then eased back to the server's real CFrame when you look away. Includes drift limits, a confirmation timeout, and a predicted-release slide so mispredictions self-correct. Disabled when `FLAGS.Enemies` is off.
 - API: none — side-effect only.

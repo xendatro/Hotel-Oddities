@@ -319,11 +319,12 @@ Intermediate base for oddities that afflict one player; the start context is the
 - Requires: `Classes\Oddity`, `ReplicatedStorage\Services\CharacterService`; `Configs\PlayerOddityConfig` via `ConfigName`
 
 ### PlayerOddityTool.luau
-Shared server-side base for inventory items that trigger a player oddity on their holder. It selects the configured effect or one configured choice, asks `PlayerOddityService` to start it, and consumes one item only after a successful start.
+Shared server-side base for inventory items that trigger a player oddity on their holder. It selects the configured effect or one configured choice, asks `PlayerOddityService` to start it, consumes one item only after a successful start, and shows a notification when the effect is rejected.
 - API: `PlayerOddityTool.new(tool: Tool, class: any?) -> PlayerOddityTool`
 - API: `PlayerOddityTool:OnActivated()` — starts the configured player oddity and consumes the item on success
 - API: `PlayerOddityTool:_ChooseEffect() -> (string?, {[string]: any}?)`
-- Requires: `Classes\ServerTool`, `Services\PlayerOddityService`
+- Remotes: `Notifications/Show` (fired on rejection)
+- Requires: `Classes\ServerTool`, `Services\PlayerOddityService`, `ReplicatedStorage.Services.CommunicationService`
 
 ## Oddities
 

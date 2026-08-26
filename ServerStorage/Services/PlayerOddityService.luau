@@ -65,6 +65,10 @@ local function chooseKind(): string?
 	return nil
 end
 
+function PlayerOddityService:IsActive(player: Player): boolean
+	return active[player] ~= nil
+end
+
 function PlayerOddityService:Trigger(player: Player, kind: string?, overrides: { [string]: any }?): (boolean, string?, string?)
 	if not OddityService:IsEnabled(SCOPE) then return false, nil, disabledReason() end
 	if not isLiving(player) then return false, nil, "that player has no living character" end
