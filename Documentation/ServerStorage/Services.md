@@ -35,6 +35,11 @@ Shared registry for `/command` chat commands: other modules call `.Register` and
 - API: `ChatCommandService.FindPlayer(name: string) -> Player?` — matches Name, DisplayName or UserId, case-insensitively
 - API: `ChatCommandService.AdminUserIds` — mutable `{ [number]: true }` table of allowed user ids
 
+### CameraCommandService.luau
+Initializes each player's `CameraMaxZoomDistance` to `0.5` and registers `/camera` (alias `/cam`) to toggle their maximum camera zoom between `0.5` and `128`.
+- API: (no public methods; the module table is empty and exists only for its player initialization and chat-command registration)
+- Requires: `ChatCommandService`
+
 ### ComputerCommandService.luau
 Implements the admin `/hack` chat command: lists every tagged computer with its assigned minigame and hacked state, teleports the caller in front of one, or force-sets computers hacked/locked. Computers are named by cycling a fixed game order per maze, and can be addressed by game name prefix or by `room_<name>`.
 - API: `ComputerCommandService:Execute(sender: Player, argument: string?) -> boolean` — handles `list`, `win <game|room|all>`, `reset [game|room|all]`, or a bare target to teleport to
@@ -463,6 +468,7 @@ Registers the `/oddity` chat command, parsing an optional effect name (size / he
 
 ### PlayerOddityService.luau
 Randomly afflicts a living player with a `Player`-scope oddity (size, head size, transparency, head stare) on a repeating roll, allowing one at a time per player and clearing it on respawn. Weights come from `PlayerOddityConfig.EffectWeights` and unavailable classes are skipped.
+- API: `PlayerOddityService:IsActive(player: Player) -> boolean` — reports whether that player already has a running player oddity
 - API: `PlayerOddityService:Trigger(player: Player, kind: string?, overrides: {[string]: any}?) -> (boolean, string?, string?)` — returns ok, the chosen kind, and a failure reason; overrides support fixed big/small character sizes for tools
 - Requires: `PlayerOddityConfig`, `OddityService` (scope `"Player"`), `CharacterService`
 

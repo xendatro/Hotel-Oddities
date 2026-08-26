@@ -141,6 +141,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\MimicMotionService.luau — Converts recorded movement samples into discrete key presses with reaction delay and aim drift.
 - ReplicatedStorage\Services\MimicService.luau — Client driver for the Mimic enemy: mirrors your recorded movement, spins to face you, twitches and head-locks enemy necks, plays the reveal sting.
 - ReplicatedStorage\Services\MinigameService.luau — Client arcade shell for hackable computers: picks the terminal's game, builds the CRT SurfaceGui and hosts one game module at a time.
+- ReplicatedStorage\Services\NotificationService.luau — Client top-center notification banner for short server feedback messages.
 - ReplicatedStorage\Services\ObservedFreezeService.luau — Client weeping-angel renderer that visually pins tagged enemies while they are in view and reconciles them when you look away.
 - ReplicatedStorage\Services\PaintingDwellerShakeService.luau — Fires a one-shot Slam camera shake when the painting dweller pops.
 - ReplicatedStorage\Services\PerfLogService.luau — Client performance watchdog for frame spikes, FPS drops and bursts of workspace instance churn.
@@ -260,6 +261,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\MapConfig.luau — Map discovery radius, canvas resolution, hand-drawn ink style, danger layer and marker tuning.
 - ReplicatedStorage\Configs\MapOddityConfig.luau — Roll timings and per-effect tuning for hallway/map oddities.
 - ReplicatedStorage\Configs\MimicConfig.luau — Behaviour tuning for the Mimic enemy's reactions, reveal and movement.
+- ReplicatedStorage\Configs\NotificationConfig.luau — Visual settings for the client notification banner.
 - ReplicatedStorage\Configs\ObservedFreezeConfig.luau — Tag, attribute and tolerances for freeze-when-observed enemies.
 - ReplicatedStorage\Configs\PerkConfig.luau — Per-perk settings for the gamepass/perk system.
 - ReplicatedStorage\Configs\PhotoConfig.luau — Placement, countdown, lens, ShadowFigure, capture, despawn and film-developing settings for the tripod camera.
@@ -307,6 +309,7 @@ become Services or Classes.
 
 ### ServerStorage\Services
 
+- ServerStorage\Services\CameraCommandService.luau — Initializes each player's maximum camera zoom to 0.5 and registers /camera (alias /cam) to toggle it between 0.5 and 128.
 - ServerStorage\Services\BadgeService.luau — Awards and caches Roblox badges limited to the ids listed in BadgeConfigs.
 - ServerStorage\Services\CeilingVentService.luau — Springs ceiling vents on approaching players and drops a CeilingDweller through them, after a telegraphed ceiling walk-in where the dweller crawls into the vent.
 - ServerStorage\Services\ChaosService.luau — Budgeted longest-path search through unvisited hallway nodes from the best of three far-from-players starts, schedules 7-second-lead light and oddity warnings, then spawns Chaos to run it into a wall.
@@ -413,7 +416,7 @@ become Services or Classes.
 - ServerStorage\Classes\Oddity.luau — Root oddity class: token, merged settings, timed start/stop lifecycle and subclass factory.
 - ServerStorage\Classes\PropOddity.luau — Intermediate oddity base whose context is a prop Model in the workspace.
 - ServerStorage\Classes\PlayerOddity.luau — Intermediate oddity base whose context is a Player, auto-stopping on death.
-- ServerStorage\Classes\PlayerOddityTool.luau — Shared server tool base that triggers a configured player oddity and consumes the item after success.
+- ServerStorage\Classes\PlayerOddityTool.luau — Shared server tool base that triggers a configured player oddity, notifies on rejection, and consumes the item after success.
 - ServerStorage\Classes\Oddities\ChaosWarning.luau — Hallway oddity that slams every nearby door open and shut as a telegraph.
 - ServerStorage\Classes\Oddities\DoorsOpen.luau — Hallway oddity that swings all doors in an occupied span open and holds them.
 - ServerStorage\Classes\Oddities\HallwayBlocker.luau — Hallway oddity that drops a gate prop into an unseen corridor to wall it off.
