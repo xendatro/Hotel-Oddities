@@ -11,7 +11,7 @@ Full documentation lives in `Documentation\`, mirroring the container layout:
 ```
 Documentation\
   ReplicatedFirst\Preload.md
-  ReplicatedStorage\Services.md   Classes.md   Configs.md   Modules.md   Frameworks.md
+  ReplicatedStorage\Services.md   Classes.md   Configs.md   Tools.md   Modules.md   Frameworks.md
   ServerScriptService\Init.md
   ServerStorage\Services.md   Classes.md   Configs.md   Modules.md
   StarterPlayer\Init.md
@@ -59,7 +59,7 @@ extend it instead of writing a second copy.
 | `MinigameBase` | `ReplicatedStorage\Classes\Minigames` | Base class every minigame extends |
 | `RigMotion` | `ReplicatedStorage\Classes` | Procedural motion applied to character rigs |
 | `Spring` | `ReplicatedStorage\Classes` | Spring integrator for smoothed motion |
-| `ToolBase` / `ClientTool` / `ServerTool` | `ReplicatedStorage\Classes`, `ServerStorage\Classes` | Base classes for the two halves of every tool |
+| `ToolBase` / `ClientTool` / `ServerTool` / `PlayerOddityTool` | `ReplicatedStorage\Classes`, `ServerStorage\Classes` | Base classes for the two halves of every tool and player-oddity items |
 | `EnemyBase` | `ServerStorage\Classes` | Base class every enemy extends |
 | `NPC` | `ServerStorage\Classes` | Base class for pathfinding humanoid enemies |
 | `SurfaceWalker` | `ServerStorage\Classes` | Walks any humanoid rig/NPC along walls or ceilings kinematically |
@@ -217,6 +217,14 @@ become Services or Classes.
 - ReplicatedStorage\Classes\Tools\SpellBook.luau — Client spell book tool that gates activation on its cast animation.
 - ReplicatedStorage\Classes\Tools\Visor.luau — Client visor tool that tweens a shared Lighting color correction while equipped.
 - ReplicatedStorage\Classes\Tools\Walkie Talkie.luau — Client tool that enables WalkieTalkieService while equipped.
+
+### ReplicatedStorage\Tools
+
+- ReplicatedStorage\Tools\Big Head — Single-part inventory tool that triggers the HeadSize player oddity.
+- ReplicatedStorage\Tools\Big Character — Single-part inventory tool that triggers the Size player oddity at 1.1 scale.
+- ReplicatedStorage\Tools\Small Character — Single-part inventory tool that triggers the Size player oddity at 0.9 scale.
+- ReplicatedStorage\Tools\Transparency — Single-part inventory tool that triggers the player Transparency oddity.
+- ReplicatedStorage\Tools\Random Oddity — Single-part inventory tool that randomly chooses among the four player-oddity item effects.
 
 ### ReplicatedStorage\Configs
 
@@ -405,6 +413,7 @@ become Services or Classes.
 - ServerStorage\Classes\Oddity.luau — Root oddity class: token, merged settings, timed start/stop lifecycle and subclass factory.
 - ServerStorage\Classes\PropOddity.luau — Intermediate oddity base whose context is a prop Model in the workspace.
 - ServerStorage\Classes\PlayerOddity.luau — Intermediate oddity base whose context is a Player, auto-stopping on death.
+- ServerStorage\Classes\PlayerOddityTool.luau — Shared server tool base that triggers a configured player oddity and consumes the item after success.
 - ServerStorage\Classes\Oddities\ChaosWarning.luau — Hallway oddity that slams every nearby door open and shut as a telegraph.
 - ServerStorage\Classes\Oddities\DoorsOpen.luau — Hallway oddity that swings all doors in an occupied span open and holds them.
 - ServerStorage\Classes\Oddities\HallwayBlocker.luau — Hallway oddity that drops a gate prop into an unseen corridor to wall it off.
@@ -421,15 +430,20 @@ become Services or Classes.
 - ServerStorage\Classes\Oddities\PlayerTransparency.luau — Player oddity that makes the victim's character parts near-invisible.
 - ServerStorage\Classes\Oddities\Transparency.luau — Hallway oddity that fades out every world part inside a hallway box.
 - ServerStorage\Classes\Tools\Bandage.luau — Server half of the Bandage tool; a plain Healer subclass.
+- ServerStorage\Classes\Tools\Big Character.luau — Server half of the Big Character item; applies the fixed large character oddity.
+- ServerStorage\Classes\Tools\Big Head.luau — Server half of the Big Head item; applies the head-size oddity.
 - ServerStorage\Classes\Tools\Camera.luau — Server half of the tripod camera; validates placement, spawns it and consumes the single use.
 - ServerStorage\Classes\Tools\Energy Drink.luau — Server half of the Energy Drink tool; a plain SpeedDrink subclass.
 - ServerStorage\Classes\Tools\Flashlight.luau — Server half of the flashlight, toggling the handle spotlight on activation.
 - ServerStorage\Classes\Tools\Gravity Warper.luau — Server half of the gravity warper; consumes one, tags the character IgnoreExceptEye for the warp duration and cues the client tween.
 - ServerStorage\Classes\Tools\Medkit.luau — Server half of the Medkit tool; a plain Healer subclass.
 - ServerStorage\Classes\Tools\Pathfinder.luau — Server half of the Pathfinder, spending a use per placed marker unless the perk is owned.
+- ServerStorage\Classes\Tools\Random Oddity.luau — Server half of the random player-oddity item; chooses among the four player effects.
+- ServerStorage\Classes\Tools\Small Character.luau — Server half of the Small Character item; applies the fixed small character oddity.
 - ServerStorage\Classes\Tools\Soda.luau — Server half of the Soda tool; a plain SpeedDrink subclass.
 - ServerStorage\Classes\Tools\SpellBook.luau — Server half of the spell book, vanishing and freezing the caster through the cast animation.
 - ServerStorage\Classes\Tools\Trap.luau — Server half of the bear trap, placing trap props and pruning the oldest.
+- ServerStorage\Classes\Tools\Transparency.luau — Server half of the Transparency item; applies the player transparency oddity.
 - ServerStorage\Classes\Tools\Visor.luau — Server half of the visor, wearing a face accessory and hiding competing ones.
 - ServerStorage\Classes\Tools\Walkie Talkie.luau — Server half of the walkie talkie, registering the owner with WalkieTalkieService.
 

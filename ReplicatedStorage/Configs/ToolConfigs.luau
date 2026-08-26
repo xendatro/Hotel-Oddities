@@ -131,4 +131,45 @@ return {
 	["Walkie Talkie"] = {
 		Tag = "Walkie Talkie",
 	},
+
+	["Big Head"] = {
+		Tag = "Big Head",
+		Cooldown = 1,
+		OddityKind = "HeadSize",
+	},
+
+	["Big Character"] = {
+		Tag = "Big Character",
+		Cooldown = 1,
+		OddityKind = "Size",
+		OddityOverrides = {
+			SizeOptions = { 1.1 },
+		},
+	},
+
+	["Small Character"] = {
+		Tag = "Small Character",
+		Cooldown = 1,
+		OddityKind = "Size",
+		OddityOverrides = {
+			SizeOptions = { 0.9 },
+		},
+	},
+
+	Transparency = {
+		Tag = "Transparency",
+		Cooldown = 1,
+		OddityKind = "Transparency",
+	},
+
+	["Random Oddity"] = {
+		Tag = "Random Oddity",
+		Cooldown = 1,
+		OddityChoices = {
+			{ Kind = "HeadSize" },
+			{ Kind = "Size", Settings = { SizeOptions = { 1.1 } } },
+			{ Kind = "Size", Settings = { SizeOptions = { 0.9 } } },
+			{ Kind = "Transparency" },
+		},
+	},
 }

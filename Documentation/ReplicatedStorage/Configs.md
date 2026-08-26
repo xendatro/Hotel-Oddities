@@ -180,8 +180,9 @@ Corridor-streaming settings — prediction, replication lead times, reconciliati
 - API: data table — `Enabled`, `ApproachLength`, `CapLength`, prediction/update keys (`BranchWarmDistance`, `ReplicationLeadTime`, `MaxPingLeadTime`, `PredictionSpeedCap`, `CorridorSelectionSlack`, `UpdateInterval`, `HysteresisTime`, `PersistenceRetryInterval`, `ReconcileInterval`, `ReconcileGraceTime`, `MissingReportCooldown`, `MaxMissingReport`), `GlobalAssetSize`, `TeleportTimeout`, `ClientReadyTimeout`, `FailureMessage`, `IgnoreTag`, `ModelTag`, `ModelIdAttribute`
 
 ### ToolConfigs.luau
-Per-tool settings keyed by tool name, giving each tool its CollectionService tag plus its own behaviour values (heal amounts, cooldowns, sounds and movement settings). Exports a `ToolConfig` type.
-- API: data table — one entry per tool: `Flashlight`, `Bandage`, `Medkit`, `SpellBook`, `Trap`, `Ball`, `Shovel`, `Pathfinder`, `Soda`, `Energy Drink`, `Visor`, `Gravity Warper`, `Player Locator`, `Walkie Talkie`
+Per-tool settings keyed by tool name, giving each tool its CollectionService tag plus its own behaviour values (heal amounts, cooldowns, sounds, movement settings and player-oddity effect selections). Exports a `ToolConfig` type.
+- API: data table — one entry per tool: `Flashlight`, `Bandage`, `Medkit`, `SpellBook`, `Trap`, `Ball`, `Shovel`, `Pathfinder`, `Soda`, `Energy Drink`, `Visor`, `Gravity Warper`, `Player Locator`, `Walkie Talkie`, `Big Head`, `Big Character`, `Small Character`, `Transparency`, `Random Oddity`
+- Player oddity entries use `OddityKind`, optional `OddityOverrides`, or `OddityChoices` for the random four-effect item.
 
 ### ViewmodelConfig.luau
 Placement, scale, sway/bob and per-tool orientation overrides for the first-person viewmodel and its fake arm. `Overrides.Camera` anchors the tripod by its handle, shrinks it with a per-tool `Scale` and tilts it so the body sits up and to the right instead of sprawling across the screen.

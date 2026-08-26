@@ -385,7 +385,7 @@ Registry and lifecycle manager for every oddity class in `ServerStorage.Classes.
 - API: `OddityService:Kinds(scope: string) -> { string }` — sorted
 - API: `OddityService:IsEnabled(scope: string) -> boolean`
 - API: `OddityService:IsAmbient(class: any) -> boolean`
-- API: `OddityService:Start(class: any, context: any, duration: number?) -> (any?, string?)` — returns the oddity or a failure reason
+- API: `OddityService:Start(class: any, context: any, duration: number?, overrides: {[string]: any}?) -> (any?, string?)` — returns the oddity or a failure reason; optional overrides are merged into that instance's class settings
 - API: `OddityService:Stop(token: number) -> boolean`
 - API: `OddityService:StopAll(scope: string?) -> number`
 - API: `OddityService:GetActive(scope: string?) -> { [number]: any }`
@@ -463,7 +463,7 @@ Registers the `/oddity` chat command, parsing an optional effect name (size / he
 
 ### PlayerOddityService.luau
 Randomly afflicts a living player with a `Player`-scope oddity (size, head size, transparency, head stare) on a repeating roll, allowing one at a time per player and clearing it on respawn. Weights come from `PlayerOddityConfig.EffectWeights` and unavailable classes are skipped.
-- API: `PlayerOddityService:Trigger(player: Player, kind: string?) -> (boolean, string?, string?)` — returns ok, the chosen kind, and a failure reason
+- API: `PlayerOddityService:Trigger(player: Player, kind: string?, overrides: {[string]: any}?) -> (boolean, string?, string?)` — returns ok, the chosen kind, and a failure reason; overrides support fixed big/small character sizes for tools
 - Requires: `PlayerOddityConfig`, `OddityService` (scope `"Player"`), `CharacterService`
 
 ### ProfileService.luau

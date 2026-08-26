@@ -318,6 +318,13 @@ Intermediate base for oddities that afflict one player; the start context is the
 - API: `PlayerOddity:Stop() -> boolean` — disconnects the death hook, then base stop
 - Requires: `Classes\Oddity`, `ReplicatedStorage\Services\CharacterService`; `Configs\PlayerOddityConfig` via `ConfigName`
 
+### PlayerOddityTool.luau
+Shared server-side base for inventory items that trigger a player oddity on their holder. It selects the configured effect or one configured choice, asks `PlayerOddityService` to start it, and consumes one item only after a successful start.
+- API: `PlayerOddityTool.new(tool: Tool, class: any?) -> PlayerOddityTool`
+- API: `PlayerOddityTool:OnActivated()` — starts the configured player oddity and consumes the item on success
+- API: `PlayerOddityTool:_ChooseEffect() -> (string?, {[string]: any}?)`
+- Requires: `Classes\ServerTool`, `Services\PlayerOddityService`
+
 ## Oddities
 
 ### Oddities\ChaosWarning.luau
@@ -454,6 +461,31 @@ Extends `HallwayOddity`. Fades every eligible world part that sits mostly inside
 - Requires: `Classes\HallwayOddity`
 
 ## Tools
+
+### Tools\Big Character.luau
+Server half of the Big Character item: starts the `Size` player oddity with a fixed `1.1` character scale and consumes one item on success.
+- API: `BigCharacter.new(tool: Tool)`
+- Requires: `Classes\PlayerOddityTool`
+
+### Tools\Big Head.luau
+Server half of the Big Head item: starts the `HeadSize` player oddity and consumes one item on success.
+- API: `BigHead.new(tool: Tool)`
+- Requires: `Classes\PlayerOddityTool`
+
+### Tools\Random Oddity.luau
+Server half of the Random Oddity item: chooses evenly among big head, big character, small character and transparency, then consumes one item on success.
+- API: `RandomOddity.new(tool: Tool)`
+- Requires: `Classes\PlayerOddityTool`
+
+### Tools\Small Character.luau
+Server half of the Small Character item: starts the `Size` player oddity with a fixed `0.9` character scale and consumes one item on success.
+- API: `SmallCharacter.new(tool: Tool)`
+- Requires: `Classes\PlayerOddityTool`
+
+### Tools\Transparency.luau
+Server half of the Transparency item: starts the player `Transparency` oddity and consumes one item on success.
+- API: `Transparency.new(tool: Tool)`
+- Requires: `Classes\PlayerOddityTool`
 
 ### Tools\Bandage.luau
 Server half of the Bandage tool: a bare `Healer` subclass, so activation consumes one and heals `HealAmount` from `ToolConfigs`.

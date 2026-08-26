@@ -65,7 +65,7 @@ local function chooseKind(): string?
 	return nil
 end
 
-function PlayerOddityService:Trigger(player: Player, kind: string?): (boolean, string?, string?)
+function PlayerOddityService:Trigger(player: Player, kind: string?, overrides: { [string]: any }?): (boolean, string?, string?)
 	if not OddityService:IsEnabled(SCOPE) then return false, nil, disabledReason() end
 	if not isLiving(player) then return false, nil, "that player has no living character" end
 	if active[player] then return false, nil, `{player.Name} already has an oddity` end
@@ -77,7 +77,7 @@ function PlayerOddityService:Trigger(player: Player, kind: string?): (boolean, s
 	local chosen = kind or chooseKind()
 	if not chosen then return false, nil, "no oddity is available right now" end
 
-	local oddity, reason = OddityService:Start(OddityService:Get(SCOPE, chosen), player)
+	local oddity, reason = OddityService:Start(OddityService:Get(SCOPE, chosen), player, nil, overrides)
 	if not oddity then return false, nil, reason or "could not start that oddity" end
 
 	active[player] = oddity
