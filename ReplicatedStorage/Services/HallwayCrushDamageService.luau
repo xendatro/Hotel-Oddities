@@ -27,13 +27,14 @@ type Alcove = {
 	Top: number,
 }
 
-type PlugRegion = {
+type SealRegion = {
 	Center: Vector3,
 	Axis: Vector3,
 	Across: Vector3,
 	Minimum: number,
 	Maximum: number,
-	ClearHalfWidth: number,
+	Plane: number,
+	Depth: number,
 	FloorY: number,
 }
 
@@ -47,7 +48,7 @@ type Region = {
 	BelowWindow: number,
 	Lethal: { Interval },
 	Alcoves: { Alcove },
-	Plugs: { PlugRegion },
+	Seals: { SealRegion },
 	AlcoveMargin: number,
 	AlongMargin: number,
 	ClearHalfWidth: number,
@@ -85,12 +86,12 @@ local function inAlcove(region: Region, position: Vector3, offset: number): bool
 	return false
 end
 
-local function inPlug(region: Region, position: Vector3): boolean
-	for _, plug in region.Plugs do
-		local relative = position - plug.Center
-		local along = relative:Dot(plug.Axis)
-		if along < plug.Minimum or along > plug.Maximum then continue end
-		if math.abs(relative:Dot(plug.Across)) > plug.ClearHalfWidth then continue end
+local function inSeal(region: Region, position: Vector3): boolean
+	for _, seal in region.Seals do
+		local relative = position - seal.Center
+		local along = relative:Dot(seal.Axis)
+		if along < seal.Minimum or along > seal.Maximum then continue end
+		if math.abs(relative:Dot(seal.Across) - seal.Plane) > seal.Depth then continue end
 		return true
 	end
 	return false
@@ -100,7 +101,7 @@ local function isCaught(region: Region, position: Vector3, offset: number): bool
 	local height = position.Y - region.FloorY
 	if height > region.HeightWindow or height < -region.BelowWindow then return false end
 	if inAlcove(region, position, offset) then return false end
-	if inPlug(region, position) then return true end
+	if inSeal(region, position) then return true end
 
 	local relative = position - region.Center
 	if math.abs(relative:Dot(region.Across)) > region.HalfWidth then return false end

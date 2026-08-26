@@ -35,9 +35,11 @@ local LAYER_NUDGE = {
 local HEADER_LIFT = 0.024
 local HEADER_RECESS = 0.006
 local FAR_SIDE_OVERSHOOT = 0.6
-local PLUG_BLEED = 0.02
-local PLUG_LIFT = 0.03
-local PLUG_REVEAL = 0.02
+local SEAL_REACH = 30
+local SEAL_SPAN = 1
+local SEAL_PROUD = 0.008
+local SEAL_REVEAL = 0.02
+local SEAL_KILL_DEPTH = 1.5
 
 local MapCrush = CommunicationService.Ensure("Oddities", "MapCrush")
 
@@ -96,24 +98,28 @@ type Header = {
 	LengthAxis: Vector3,
 }
 
-type Plug = {
+type Seal = {
 	Part: BasePart,
-	Sign: number,
 	CFrame: CFrame,
 	Size: Vector3,
 	Transparency: number,
-	ThicknessAxis: Vector3,
-	Across: Vector3,
-	Maximum: number,
+	LengthAxis: Vector3,
+	LengthSign: number,
+	Axis: Vector3,
+	BaseMinimum: number,
+	BaseMaximum: number,
+	From: number,
+	To: number,
 }
 
-type PlugRegion = {
+type SealRegion = {
 	Center: Vector3,
 	Axis: Vector3,
 	Across: Vector3,
 	Minimum: number,
 	Maximum: number,
-	ClearHalfWidth: number,
+	Plane: number,
+	Depth: number,
 	FloorY: number,
 }
 
@@ -169,18 +175,10 @@ local function candidateFromSpan(class: any, span: HallwayRegion.Span?, position
 	return { Span = span, Frame = frame }
 end
 
-local function inMouth(mouths: { HallwayWall.Mouth }, sign: number, along: number): boolean
-	for _, mouth in mouths do
-		if mouth.Sign == sign and along > mouth.Minimum and along < mouth.Maximum then return true end
-	end
-	return false
-end
-
 local function pieceIntervals(
 	wall: HallwayWall.Wall,
 	frame: HallwayWall.Frame,
-	cuts: { number },
-	mouths: { HallwayWall.Mouth }
+	cuts: { number }
 ): { { Minimum: number, Maximum: number, Moving: boolean } }
 	local boundaries = { wall.Minimum, wall.Maximum }
 	for _, cut in cuts do
@@ -200,9 +198,7 @@ local function pieceIntervals(
 		table.insert(pieces, {
 			Minimum = minimum,
 			Maximum = maximum,
-			Moving = middle > frame.Minimum
-				and middle < frame.Maximum
-				and not inMouth(mouths, wall.Sign, middle),
+			Moving = middle > frame.Minimum and middle < frame.Maximum,
 		})
 	end
 	return pieces
@@ -294,7 +290,6 @@ function HallwayCrush.new(config: { [string]: any }?)
 	self.Edits = {} :: { WallEdit }
 	self.Movers = {} :: { Mover }
 	self.Coverage = { {}, {} } :: { { HallwayWall.Interval } }
-	self.Closing = {} :: { HallwayWall.Interval }
 	self.Headers = {} :: { Header }
 	self.Lethal = {} :: { HallwayWall.Interval }
 	self.Alcoves = {} :: { Alcove }
@@ -302,8 +297,8 @@ function HallwayCrush.new(config: { [string]: any }?)
 	self.Shifters = {} :: { Shifter }
 	self.Shrinkers = {} :: { Shrinker }
 	self.Reveals = {} :: { Reveal }
-	self.Plugs = {} :: { Plug }
-	self.PlugRegions = {} :: { PlugRegion }
+	self.Seals = {} :: { Seal }
+	self.SealRegions = {} :: { SealRegion }
 	self.Structure = nil :: Model?
 	self.StepConnection = nil :: RBXScriptConnection?
 	self.ClearHalfWidth = 0
@@ -336,12 +331,10 @@ function HallwayCrush.Pick(class: any): Candidate?
 end
 
 function HallwayCrush:_collectWalls(frame: HallwayWall.Frame)
-	local cuts = HallwayWall.CutPoints(frame)
+	local cuts = { frame.Minimum, frame.Maximum }
 	local trimOvershoot = math.max(self:Setting("TrimOvershoot", 0.12), 0)
-	local mouths = HallwayWall.Mouths(frame)
-	self.Closing = HallwayWall.Closing(frame)
 	for _, wall in HallwayWall.Walls(frame) do
-		local pieces = pieceIntervals(wall, frame, cuts, mouths)
+		local pieces = pieceIntervals(wall, frame, cuts)
 		if #pieces == 0 then continue end
 
 		local part = wall.Part
@@ -444,7 +437,98 @@ function HallwayCrush:_collectFlat(frame: HallwayWall.Frame, tag: string)
 	end
 end
 
-function HallwayCrush:_collectPlugs(frame: HallwayWall.Frame, structure: Model)
+function HallwayCrush:_sealOpening(
+	band: HallwayWall.Frame,
+	walls: { HallwayWall.Wall },
+	sign: number,
+	structure: Model
+)
+	type Group = { Covered: boolean, Left: HallwayWall.Wall?, Right: HallwayWall.Wall? }
+	local groups: { [string]: Group } = {}
+
+	for _, wall in walls do
+		if wall.Sign ~= sign then continue end
+
+		local layer = wall.Part:GetAttribute("WallLayer")
+		local slot = if type(layer) == "string" then layer else wall.Part.Name
+		local group = groups[slot]
+		if not group then
+			group = { Covered = false }
+			groups[slot] = group
+		end
+
+		if wall.Minimum <= -SEAL_SPAN and wall.Maximum >= SEAL_SPAN then
+			group.Covered = true
+		elseif wall.Maximum <= SEAL_SPAN then
+			if not group.Left or wall.Maximum > (group.Left :: HallwayWall.Wall).Maximum then
+				group.Left = wall
+			end
+		elseif wall.Minimum >= -SEAL_SPAN then
+			if not group.Right or wall.Minimum < (group.Right :: HallwayWall.Wall).Minimum then
+				group.Right = wall
+			end
+		end
+	end
+
+	local overlap = math.max(self:Setting("SealOverlap", 0.3), 0) / 2
+	local sealed = false
+	local widest, thickest, plane = 0, 0, 0
+
+	for _, group in groups do
+		if group.Covered then continue end
+		local left, right = group.Left, group.Right
+		if not left or not right then continue end
+
+		local edges = { (left :: HallwayWall.Wall).Maximum, (right :: HallwayWall.Wall).Minimum }
+		local sources = { left :: HallwayWall.Wall, right :: HallwayWall.Wall }
+		local middle = (edges[1] + edges[2]) / 2
+		if edges[2] - edges[1] < MINIMUM_PIECE then continue end
+
+		sealed = true
+		widest = math.max(widest, math.abs(edges[1]), math.abs(edges[2]))
+		for index = 1, 2 do
+			local wall = sources[index]
+			if wall.Thickness > thickest then
+				thickest = wall.Thickness
+				plane = wall.Offset
+			end
+
+			local part = wall.Part:Clone()
+			part.Name = `{wall.Part.Name}_HallwayCrushSeal`
+			part.Size = wall.Part.Size + wall.ThicknessAxis * SEAL_PROUD * (if index == 1 then 2 else 1)
+			part.Transparency = 1
+			part.Parent = structure
+
+			table.insert(self.Seals, {
+				Part = part,
+				CFrame = wall.Part.CFrame,
+				Size = part.Size,
+				Transparency = wall.Part.Transparency,
+				LengthAxis = wall.LengthAxis,
+				LengthSign = wall.LengthSign,
+				Axis = band.Axis,
+				BaseMinimum = wall.Minimum,
+				BaseMaximum = wall.Maximum,
+				From = edges[index],
+				To = middle + (if index == 1 then overlap else -overlap),
+			})
+		end
+	end
+
+	if not sealed then return end
+	table.insert(self.SealRegions, {
+		Center = band.Center,
+		Axis = band.Axis,
+		Across = band.Across,
+		Minimum = -widest,
+		Maximum = widest,
+		Plane = plane,
+		Depth = thickest / 2 + SEAL_KILL_DEPTH,
+		FloorY = band.FloorY,
+	})
+end
+
+function HallwayCrush:_collectSeals(frame: HallwayWall.Frame, structure: Model)
 	local seen: { [string]: boolean } = {}
 
 	for _, mouth in HallwayWall.Mouths(frame) do
@@ -468,84 +552,15 @@ function HallwayCrush:_collectPlugs(frame: HallwayWall.Frame, structure: Model)
 			Across = frame.Axis,
 			CFrame = CFrame.new(centre),
 			HalfWidth = crossing.HalfWidth,
-			Minimum = -frame.HalfWidth,
-			Maximum = frame.HalfWidth,
+			Minimum = -(frame.HalfWidth + SEAL_REACH),
+			Maximum = frame.HalfWidth + SEAL_REACH,
 			FloorY = frame.FloorY,
 		}
 
 		local walls = HallwayWall.Walls(band)
 		if #walls == 0 then continue end
-
-		table.sort(walls, function(first: HallwayWall.Wall, second: HallwayWall.Wall)
-			local a = math.abs((first.Minimum + first.Maximum) / 2)
-			local b = math.abs((second.Minimum + second.Maximum) / 2)
-			return a < b
-		end)
-
-		local clear = math.huge
-		for _, wall in walls do
-			clear = math.min(clear, math.abs(wall.Offset) - wall.Thickness / 2)
-		end
-		if clear <= 0 or clear == math.huge then continue end
-
-		local reach = clear + math.max(self:Setting("SealOverlap", 0.3), 0) / 2
-		local trimOvershoot = math.max(self:Setting("TrimOvershoot", 0.12), 0)
-		local made: { [string]: boolean } = {}
-		for _, wall in walls do
-			local layer = wall.Part:GetAttribute("WallLayer")
-			local slot = `{wall.Sign}:{if type(layer) == "string" then layer else wall.Part.Name}`
-			if made[slot] then continue end
-			made[slot] = true
-
-			local nudge = if type(layer) == "string" then LAYER_NUDGE[layer] else nil
-			local sideScale = if wall.Sign > 0 then 1 else FAR_SIDE_OVERSHOOT
-			local overshoot = if nudge then nudge.Length * trimOvershoot * sideScale else 0
-			local lift = PLUG_LIFT + (if nudge then nudge.Height else 0)
-			local proud = if nudge then nudge.Across else 0
-
-			local minimum = band.Minimum - SEAM_OVERLAP - overshoot
-			local maximum = band.Maximum + SEAM_OVERLAP + overshoot
-			local length = maximum - minimum
-			local baseLength = wall.Maximum - wall.Minimum
-			local shift = (minimum + maximum) / 2 - (wall.Minimum + wall.Maximum) / 2
-
-			local part = wall.Part:Clone()
-			part.Name = `{wall.Part.Name}_HallwayCrushPlug`
-			part.Size = wall.Part.Size
-				+ wall.LengthAxis * (length - baseLength)
-				+ Vector3.yAxis * lift
-				+ wall.ThicknessAxis * proud
-			part.CFrame = wall.Part.CFrame + band.Axis * shift
-
-			local textureShift = shift * wall.LengthSign * TEXTURE_SIGN
-			for _, child in part:GetChildren() do
-				if child:IsA("Texture") then
-					child.OffsetStudsU += textureShift
-				end
-			end
-			part.Parent = structure
-
-			table.insert(self.Plugs, {
-				Part = part,
-				Sign = wall.Sign,
-				CFrame = part.CFrame,
-				Size = part.Size,
-				Transparency = wall.Part.Transparency,
-				ThicknessAxis = wall.ThicknessAxis,
-				Across = band.Across,
-				Maximum = reach,
-			})
-		end
-
-		table.insert(self.PlugRegions, {
-			Center = band.Center,
-			Axis = band.Axis,
-			Across = band.Across,
-			Minimum = band.Minimum,
-			Maximum = band.Maximum,
-			ClearHalfWidth = clear,
-			FloorY = frame.FloorY,
-		})
+		self:_sealOpening(band, walls, 1, structure)
+		self:_sealOpening(band, walls, -1, structure)
 	end
 end
 
@@ -626,14 +641,29 @@ function HallwayCrush:_apply(offset: number)
 		shifter.Model:PivotTo(shifter.Pivot + frame.Across * (-shifter.Sign * offset))
 	end
 
-	local progress = if self.MaximumOffset > 0 then offset / self.MaximumOffset else 0
-	for _, plug in self.Plugs do
-		local reach = progress * plug.Maximum
-		local total = reach + PLUG_BLEED
-		plug.Part.Size = plug.Size + plug.ThicknessAxis * total
-		plug.Part.CFrame = plug.CFrame + plug.Across * (-plug.Sign * (total / 2 - PLUG_BLEED))
-		plug.Part.Transparency = if progress > PLUG_REVEAL then plug.Transparency else 1
-		plug.Part.CanCollide = progress > PLUG_REVEAL
+	local progress = if self.MaximumOffset > 0 then math.clamp(offset / self.MaximumOffset, 0, 1) else 0
+	for _, seal in self.Seals do
+		local tip = seal.From + (seal.To - seal.From) * progress
+		local direction = if seal.To > seal.From then 1 else -1
+		local outer = seal.From - direction * SEAM_OVERLAP
+		local minimum = math.min(outer, tip)
+		local maximum = math.max(outer, tip)
+
+		local length = maximum - minimum
+		local baseLength = seal.BaseMaximum - seal.BaseMinimum
+		local shift = (minimum + maximum) / 2 - (seal.BaseMinimum + seal.BaseMaximum) / 2
+
+		seal.Part.Size = seal.Size + seal.LengthAxis * (length - baseLength)
+		seal.Part.CFrame = seal.CFrame + seal.Axis * shift
+		seal.Part.Transparency = if progress > SEAL_REVEAL then seal.Transparency else 1
+		seal.Part.CanCollide = progress > SEAL_REVEAL
+
+		local textureShift = shift * seal.LengthSign * TEXTURE_SIGN
+		for _, child in seal.Part:GetChildren() do
+			if child:IsA("Texture") then
+				child.OffsetStudsU = textureShift
+			end
+		end
 	end
 
 	for _, header in self.Headers do
@@ -698,16 +728,16 @@ function HallwayCrush:_inAlcove(position: Vector3): boolean
 	return false
 end
 
-function HallwayCrush:_inPlug(position: Vector3): boolean
+function HallwayCrush:_inSeal(position: Vector3): boolean
 	local frame = (self.Candidate :: Candidate).Frame
 	local height = position.Y - frame.FloorY
 	if height > HallwayWall.HeightWindow or height < -HallwayWall.BelowWindow then return false end
 
-	for _, region in self.PlugRegions do
+	for _, region in self.SealRegions do
 		local relative = position - region.Center
 		local along = relative:Dot(region.Axis)
 		if along < region.Minimum or along > region.Maximum then continue end
-		if math.abs(relative:Dot(region.Across)) > region.ClearHalfWidth then continue end
+		if math.abs(relative:Dot(region.Across) - region.Plane) > region.Depth then continue end
 		return true
 	end
 	return false
@@ -716,7 +746,7 @@ end
 function HallwayCrush:_isCaught(position: Vector3, slack: number): boolean
 	local frame = (self.Candidate :: Candidate).Frame
 	if self:_inAlcove(position) then return false end
-	if self:_inPlug(position) then return true end
+	if self:_inSeal(position) then return true end
 	if not HallwayWall.Contains(frame, position) then return false end
 
 	local along = (position - frame.Center):Dot(frame.Axis)
@@ -782,7 +812,7 @@ function HallwayCrush:_broadcast()
 		BelowWindow = HallwayWall.BelowWindow,
 		Lethal = self.Lethal,
 		Alcoves = self.Alcoves,
-		Plugs = self.PlugRegions,
+		Seals = self.SealRegions,
 		AlcoveMargin = ALCOVE_MARGIN,
 		AlongMargin = math.max(self:Setting("DoorwayMargin", 2), 0),
 		ClearHalfWidth = self.ClearHalfWidth,
@@ -841,7 +871,7 @@ function HallwayCrush:OnStart(): boolean
 	self:_collectFlat(frame, "PictureFrame")
 	self:_collectFlat(frame, "Doorway")
 	self:_collectReveals(frame, structure)
-	self:_collectPlugs(frame, structure)
+	self:_collectSeals(frame, structure)
 	self:_apply(0)
 
 	self.MaximumOffset = math.max(self.ClearHalfWidth + math.max(self:Setting("SealOverlap", 0.3), 0), 0)
@@ -882,7 +912,6 @@ function HallwayCrush:_restore()
 	end
 	table.clear(self.Edits)
 	table.clear(self.Movers)
-	table.clear(self.Closing)
 	table.clear(self.Lethal)
 	table.clear(self.Alcoves)
 	table.clear(self.Coverage[1])
@@ -906,8 +935,8 @@ function HallwayCrush:_restore()
 	end
 	table.clear(self.Shrinkers)
 	table.clear(self.Reveals)
-	table.clear(self.Plugs)
-	table.clear(self.PlugRegions)
+	table.clear(self.Seals)
+	table.clear(self.SealRegions)
 
 	if self.Structure then
 		self.Structure:Destroy()
