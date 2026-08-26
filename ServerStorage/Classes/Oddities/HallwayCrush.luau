@@ -549,8 +549,7 @@ function HallwayCrush:_inAlcove(position: Vector3): boolean
 		if position.Y > alcove.Top or position.Y < frame.FloorY - ALCOVE_MARGIN then continue end
 
 		local depth = across * alcove.Sign
-		local floor = math.max(self:Setting("KillWidth", 2.2), 0) / 2
-		local inner = math.max(math.max(alcove.Inner, self.ClearHalfWidth) - self.Offset, floor)
+		local inner = math.max(alcove.Inner - self.Offset, 0)
 		if depth >= inner and depth <= alcove.Outer + ALCOVE_MARGIN then
 			return true
 		end

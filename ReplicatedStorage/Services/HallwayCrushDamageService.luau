@@ -67,7 +67,7 @@ local function inAlcove(region: Region, position: Vector3, offset: number): bool
 		if position.Y > alcove.Top or position.Y < region.FloorY - margin then continue end
 
 		local depth = across * alcove.Sign
-		local inner = math.max(math.max(alcove.Inner, region.ClearHalfWidth) - offset, region.KillWidth / 2)
+		local inner = math.max(alcove.Inner - offset, 0)
 		if depth >= inner and depth <= alcove.Outer + margin then
 			return true
 		end
