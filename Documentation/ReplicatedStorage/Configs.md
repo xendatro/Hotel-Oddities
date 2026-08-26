@@ -155,8 +155,8 @@ Tag, interaction reach, input bindings, highlight styling and prompt-pill UI set
 - API: data table — `Tag`, `PageAttribute`, `Targeting`, `Input`, `Highlight`, `UI`, `SmileAnimationId`
 
 ### SpawnZoneConfig.luau
-Tag name and timing for the spawn safe zone system: which tag marks zone parts, how often the server polls player positions against the zones, and the per-enemy cooldown between touch repels.
-- API: data table — `Tag`, `PlayerPollInterval`, `RepelCooldown`
+Tag name, timing and geometry for the spawn safe zone system: which tag marks zone parts, how often the server polls player positions against the zones, the per-enemy cooldown between touch repels, the vertical padding applied to all zone containment tests, and the styling of the runtime border walls.
+- API: data table — `Tag`, `PlayerPollInterval`, `RepelCooldown`, `VerticalPad`, `Border` (`Thickness`, `Transparency`, `Color`)
 
 ### SprintBoostConfig.luau
 Visual definitions for speed-boost aura overlays drawn around the sprint bar, one styled entry per boost item. Exports a `BoostVisual` type.

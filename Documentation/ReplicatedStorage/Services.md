@@ -591,8 +591,8 @@ Camera visibility tests: builds a frustum from a Camera, does cone/sphere inters
 ### SpawnZoneService.luau
 Shared registry of the spawn safe zone parts (tagged `SpawnSafeZone`): keeps the tagged workspace parts cached and answers geometric queries against their oriented boxes. Used to keep the hallway graph, enemy spawn placement and enemy behaviour out of the safe area around the maze spawn.
 - API: `SpawnZoneService:GetZones() -> { BasePart }` — current zone parts
-- API: `SpawnZoneService:Contains(position: Vector3) -> boolean` — point inside any zone box
-- API: `SpawnZoneService:IntersectsSegment(from: Vector3, to: Vector3) -> boolean` — slab test of the segment against every zone box
+- API: `SpawnZoneService:Contains(position: Vector3) -> boolean` — point inside any zone box, with the box's vertical extent padded by `SpawnZoneConfig.VerticalPad` so floor-level points under a hovering zone still count
+- API: `SpawnZoneService:IntersectsSegment(from: Vector3, to: Vector3) -> boolean` — slab test of the segment against every zone box, vertically padded the same way
 - Tags: reads `SpawnSafeZone` (added/removed refresh the cache)
 - Requires: `Configs.SpawnZoneConfig`
 

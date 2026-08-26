@@ -22,10 +22,15 @@ function SpawnZoneService:GetZones(): { BasePart }
 	return Zones
 end
 
+local function halfExtents(zone: BasePart): Vector3
+	local half = zone.Size / 2
+	return Vector3.new(half.X, half.Y + SpawnZoneConfig.VerticalPad, half.Z)
+end
+
 function SpawnZoneService:Contains(position: Vector3): boolean
 	for _, zone in Zones do
 		local offset = zone.CFrame:PointToObjectSpace(position)
-		local half = zone.Size / 2
+		local half = halfExtents(zone)
 		if math.abs(offset.X) <= half.X
 			and math.abs(offset.Y) <= half.Y
 			and math.abs(offset.Z) <= half.Z then
@@ -39,7 +44,7 @@ function SpawnZoneService:IntersectsSegment(from: Vector3, to: Vector3): boolean
 	for _, zone in Zones do
 		local origin = zone.CFrame:PointToObjectSpace(from)
 		local delta = zone.CFrame:PointToObjectSpace(to) - origin
-		local half = zone.Size / 2
+		local half = halfExtents(zone)
 		local enter, exit = 0, 1
 		local separated = false
 

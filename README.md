@@ -152,7 +152,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\ShakeService.luau — Client camera-shake front end with named presets, keyed sustained shakes and adjustable rumble handles.
 - ReplicatedStorage\Services\ShopkeeperService.luau — Client service binding shopkeeper NPCs to interactions, smile animations and their interface page.
 - ReplicatedStorage\Services\SightlineService.luau — Camera frustum and raycast visibility tests with a self-maintaining per-model part cache.
-- ReplicatedStorage\Services\SpawnZoneService.luau — Shared registry of tagged spawn-safe-zone parts with point and segment queries against their boxes.
+- ReplicatedStorage\Services\SpawnZoneService.luau — Shared registry of tagged spawn-safe-zone parts with vertically padded point and segment queries against their boxes.
 - ReplicatedStorage\Services\SpeedBoostRenderService.luau — Tweens the FOV offset and colour-correction screen effect for speed boosts.
 - ReplicatedStorage\Services\SprintBoostUIService.luau — Decorated overlay drawn over the stamina bar while a speed boost is running.
 - ReplicatedStorage\Services\SprintService.luau — Client sprint state machine owning stamina, exhaustion, WalkSpeed and the sprint FOV blend.
@@ -358,7 +358,7 @@ become Services or Classes.
 - ServerStorage\Services\ReviveService.luau — Sells and grants the Revive product, restoring the player's death location, items and a ForceField.
 - ServerStorage\Services\RoomService.luau — Tags rooms, gives them enemy-only pathfinding blockers, and tracks which room each player is in.
 - ServerStorage\Services\SistersService.luau — Picks a danger-weighted hallway start point and spawns the Sisters ceiling patrol there.
-- ServerStorage\Services\SpawnZoneGuardService.luau — Tags players inside the spawn safe zone as Ignored and repels NPC enemies that touch it back to patrol.
+- ServerStorage\Services\SpawnZoneGuardService.luau — Tags players inside the spawn safe zone as Ignored, repels NPC enemies that touch it back to patrol, and builds the zone's translucent runtime border walls.
 - ServerStorage\Services\SpeedBoostService.luau — Central WalkSpeed arbiter for named, expiring speed boosts and perk multipliers.
 - ServerStorage\Services\StalkerService.luau — Spawns stalker-type enemies at a peek spot found behind the player.
 - ServerStorage\Services\StunService.luau — Stuns enemy NPCs and Eyes, and validates client ball-hit reports by range.
