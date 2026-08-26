@@ -1,6 +1,8 @@
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
+local GateConfig = require(ReplicatedStorage.Configs.GateConfig)
 local Gaze = require(ServerStorage.Services.GazeService)
 local HallwayGraph = require(ReplicatedStorage.Services.HallwayGraphService)
 local HallwayRegion = require(ServerStorage.Services.HallwayRegionService)
@@ -92,6 +94,7 @@ function HallwayBlocker:OnStart(): boolean
 	local bottomY = boundsCFrame.Position.Y - boundsSize.Y / 2
 	blocker:PivotTo(blocker:GetPivot() + Vector3.new(0, floorY - bottomY, 0))
 	blocker.Parent = blockerFolder()
+	CollectionService:AddTag(blocker, GateConfig.Tag)
 	self.Blocker = blocker
 	table.insert(ActiveSpans, self.Span :: HallwayRegion.Span)
 	return true

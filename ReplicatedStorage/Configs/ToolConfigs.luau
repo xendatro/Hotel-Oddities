@@ -11,6 +11,10 @@ return {
 		Cooldown = 0.15,
 	},
 
+	Key = {
+		Tag = "Key",
+	},
+
 	Bandage = {
 		Tag = "Bandage",
 		Sound = "Bandage",
