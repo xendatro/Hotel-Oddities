@@ -296,7 +296,7 @@ become Services or Classes.
 
 - ServerStorage\Services\BadgeService.luau — Awards and caches Roblox badges limited to the ids listed in BadgeConfigs.
 - ServerStorage\Services\CeilingVentService.luau — Springs ceiling vents on approaching players and drops a CeilingDweller through them, after a telegraphed ceiling walk-in where the dweller crawls into the vent.
-- ServerStorage\Services\ChaosService.luau — Greedily walks a random route through unvisited hallway nodes from a far-from-players start, schedules 7-second-lead light and oddity warnings, then spawns Chaos to run it into a wall.
+- ServerStorage\Services\ChaosService.luau — Budgeted longest-path search through unvisited hallway nodes from the best of three far-from-players starts, schedules 7-second-lead light and oddity warnings, then spawns Chaos to run it into a wall.
 - ServerStorage\Services\ChaseFlickerService.luau — Flickers the lights around a player being chased by a CeilingDweller or Mimic.
 - ServerStorage\Services\ChatCommandService.luau — Shared registry and dispatcher for `/` chat commands with an admin gate.
 - ServerStorage\Services\ComputerCommandService.luau — Admin `/hack` command for listing, teleporting to, and force-setting computers.

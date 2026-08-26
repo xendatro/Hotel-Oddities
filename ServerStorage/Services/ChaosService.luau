@@ -12,6 +12,9 @@ local LightService = require(ServerStorage.Services.LightService)
 local MapOddityService = require(ServerStorage.Services.MapOddityService)
 
 local ROUTE_ATTEMPTS = 8
+local START_CANDIDATES = 3
+local SEARCH_BUDGET = 15000
+local TIE_JITTER = 0.5
 local WARNING_POLL = 0.25
 local CRASH_PROBE = 96
 local CRASH_MARGIN = 1.5
@@ -93,21 +96,53 @@ local function crashPoint(route: { Vector3 }): Vector3?
 	return last + direction * CRASH_PROBE
 end
 
-local function extendGreedily(nodes: { RouteNode }, visited: { [RouteNode]: boolean })
-	local current = nodes[#nodes]
-	while true do
+local Rng = Random.new()
+
+local function unvisitedExits(node: RouteNode, visited: { [RouteNode]: boolean }): number
+	local count = 0
+	for neighbor in node.Neighbors do
+		if not visited[neighbor] then
+			count += 1
+		end
+	end
+	return count
+end
+
+local function findLongestWalk(path: { RouteNode }, visited: { [RouteNode]: boolean }): { RouteNode }
+	local best = table.clone(path)
+	local steps = 0
+
+	local function extend(current: RouteNode)
+		if steps >= SEARCH_BUDGET then return end
+		steps += 1
+		if #path > #best then
+			best = table.clone(path)
+		end
+
 		local options = {}
+		local ranks = {}
 		for neighbor in current.Neighbors do
 			if not visited[neighbor] then
 				table.insert(options, neighbor)
+				ranks[neighbor] = unvisitedExits(neighbor, visited) + Rng:NextNumber() * TIE_JITTER
 			end
 		end
-		if #options == 0 then return end
+		table.sort(options, function(first: RouteNode, second: RouteNode)
+			return ranks[first] < ranks[second]
+		end)
 
-		current = options[math.random(#options)]
-		visited[current] = true
-		table.insert(nodes, current)
+		for _, option in options do
+			visited[option] = true
+			table.insert(path, option)
+			extend(option)
+			table.remove(path)
+			visited[option] = nil
+			if steps >= SEARCH_BUDGET then return end
+		end
 	end
+
+	extend(path[#path])
+	return best
 end
 
 local function toRoute(nodes: { RouteNode }): { Vector3 }?
@@ -126,9 +161,7 @@ local function toRoute(nodes: { RouteNode }): { Vector3 }?
 end
 
 local function planRoute(start: RouteNode): { Vector3 }?
-	local visited: { [RouteNode]: boolean } = { [start] = true }
-	local nodes = { start }
-	extendGreedily(nodes, visited)
+	local nodes = findLongestWalk({ start }, { [start] = true })
 	return toRoute(nodes)
 end
 
@@ -144,8 +177,7 @@ local function planRouteThrough(start: RouteNode, targetPosition: Vector3): { Ve
 		visited[node] = true
 	end
 
-	local nodes = table.clone(approach)
-	extendGreedily(nodes, visited)
+	local nodes = findLongestWalk(table.clone(approach), visited)
 	return toRoute(nodes)
 end
 
@@ -326,17 +358,21 @@ local function drawStart(): RouteNode?
 end
 
 function ChaosService:Spawn(onSpawned: ((any) -> ())?): boolean
-	for _ = 1, ROUTE_ATTEMPTS do
+	local best: { Vector3 }? = nil
+	for _ = 1, START_CANDIDATES do
 		local start = drawStart()
-		if not start then return false end
-
-		local route = planRoute(start)
-		if route then
-			return beginRoute(route, onSpawned)
+		if start then
+			local route = planRoute(start)
+			if route and (not best or #route > #best) then
+				best = route
+			end
 		end
 	end
-	warn("[Chaos] found no route from any spawn node far from players")
-	return false
+	if not best then
+		warn("[Chaos] found no route from any spawn node far from players")
+		return false
+	end
+	return beginRoute(best, onSpawned)
 end
 
 function ChaosService:SpawnThrough(player: Player, onSpawned: ((any) -> ())?): boolean
