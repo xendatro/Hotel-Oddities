@@ -249,14 +249,14 @@ The most elaborate enemy: it copies a random living player's appearance, name, v
 - Notes: overrides `Start`, `Despawn`, `BuildStateMachine`; delegates the actual chase to `Chaser.Chase(..., false)`; sets `_laneProbeDrop` while floating so lane checks account for the raised hips
 
 ### Enemies\Sisters.luau
-A pair of anchored figures that walk a fixed hallway route in lockstep, driven by a tweened NumberValue rather than a humanoid. It clones itself into a twin at start, kills anything the swept segment passes through, tracks the nearest player with glitchy neck-attachment head twitches, and flickers hallway lights as it goes; if it goes unseen long enough it may simply forget to exist and despawn.
-- API: `Sisters.new(model: Model, config, startTip: Vector3, direction: Vector3, destinationTip: Vector3) -> self`
-- API: `Sisters:Start()` — clones the twin, prepares both models, tweens the pair down the hallway.
-- API: `Sisters:Despawn()` — cancels the tween, untags, destroys both animators and models.
-- API: `Sisters:Patrol()` — the per-Heartbeat loop (kill sweep, head tracking, forget roll).
+A pair of translucent, harmless figures that patrol the hallway ceilings forever. At start it clones itself into a twin, makes both rigs see-through, and walks them side by side upside down via `SurfaceWalker`, endlessly pathfinding between random `HallwayGraphService` nodes with each waypoint snapped to the ceiling by an upward raycast; both heads track the nearest player through the neck attachment each Heartbeat. No kill sweep, no light flicker, no forget-and-despawn — it patrols until despawned externally (config `Harmless = true` blocks touch kills).
+- API: `Sisters.new(model: Model, config, startTip: Vector3, direction: Vector3, destinationTip: Vector3?) -> self` — only `startTip`/`direction` are used now; the destination is accepted for the old call sites and ignored.
+- API: `Sisters:Start()` — clones the twin, prepares both models, places them on the ceiling, starts the patrol and face loops.
+- API: `Sisters:Despawn()` — disconnects, destroys walkers, animators and both models.
+- API: `Sisters:Patrol()` — the endless node-to-node ceiling walk loop.
 - API: `Sisters:GetCenter() -> Vector3` — midpoint of the pair.
 - Tags: applies `Enemy`, `Sisters`
-- Requires: `Classes.NpcAnimator`, `Classes.StateMachine`, `EnemyService` (collision group), `LightService`, `DeathService`, `EnemyObservationService`, `RoomService`
+- Requires: `Classes.NpcAnimator`, `Classes.StateMachine`, `Classes.SurfaceWalker`, `EnemyService` (collision group), `ReplicatedStorage\Services\HallwayGraphService`, `ReplicatedStorage\Services\CharacterService`
 - Notes: standalone class — it extends neither EnemyBase nor NPC, but exposes the same `new` / `Start` / `Despawn` / `EnemyId` contract `EnemyService:Spawn` needs
 
 ### Enemies\Stalker.luau
@@ -317,18 +317,6 @@ Intermediate base for oddities that afflict one player; the start context is the
 - Requires: `Classes\Oddity`, `ReplicatedStorage\Services\CharacterService`; `Configs\PlayerOddityConfig` via `ConfigName`
 
 ## Oddities
-
-### Oddities\CeilingSisters.luau
-Extends `Oddity` directly with `Scope = "Map"` and `ConfigName = "MapOddityConfig"`; its context is a `HallwayGraphService` route node. Clones the `Sister` enemy model twice, makes both translucent and harmless (no tags, no kill sweep), and walks them side by side upside down on the hallway ceilings via `SurfaceWalker`, pathfinding endlessly between random graph nodes with `HallwayGraphService:FindPath`. Both heads track the nearest player through the neck attachment each heartbeat. Runs indefinitely (`MinDuration`/`MaxDuration` 0) until stopped.
-- API: `CeilingSisters.new(config: { [string]: any }?)` — adds the rig folder, models, animators, walkers, neck maps and threads
-- API: `CeilingSisters.Resolve(class, position: Vector3)` — nearest graph node to the position
-- API: `CeilingSisters.Pick(class)` — random graph node at least `MinimumPlayerDistance` from every player
-- API: `CeilingSisters:CanStart(node) -> (boolean, string?)` — needs a node and no pair already active (one at a time)
-- API: `CeilingSisters:OnStart(node) -> boolean` — builds both rigs on the ceiling above the node and starts the patrol and face loops
-- API: `CeilingSisters:OnStop()` — cancels the patrol, destroys walkers, animators and the rig folder
-- Settings: `SpawnIntervalMin`/`SpawnIntervalMax`, `WalkSpeed`, `SideSpacing`, `Translucency`, `MinimumPlayerDistance`
-- Requires: `Classes\Oddity`, `Classes\SurfaceWalker`, `ReplicatedStorage\Classes\NpcAnimator`, `ReplicatedStorage\Services\HallwayGraphService`, `ReplicatedStorage\Services\CharacterService`, `ServerStorage\Configs\EnemyConfigs`, `ReplicatedStorage.Enemies.Sister`
-- Notes: parents both rigs under a `workspace.Oddities` folder; ceiling contact comes from an upward raycast per waypoint
 
 ### Oddities\ChaosWarning.luau
 Extends `HallwayOddity`. Fires the client `MapDoors` remote so every door in the hallway box (room floors included) slams open and shut in chaos mode as a telegraph, with no light effects.

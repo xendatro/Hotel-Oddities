@@ -68,8 +68,9 @@ return {
 			PlankWidth = 1.2,
 			PlankOverhang = 0.25,
 			PlankLift = 0.04,
+			PlankAngle = 8,
 			PlankColor = Color3.fromRGB(111, 70, 38),
-			PlankMaterial = Enum.Material.WoodPlanks,
+			PlankMaterial = Enum.Material.Wood,
 
 			VoidDepth = 36,
 			VoidLayerCount = 12,
@@ -111,17 +112,6 @@ return {
 			-- Studs the wooden trim is pushed past the end of a closing run, so it
 			-- does not z-fight the wall it was never meant to sit flush against.
 			TrimOvershoot = 0.12,
-		},
-		CeilingSisters = {
-			SpawnIntervalMin = 240,
-			SpawnIntervalMax = 600,
-			MinDuration = 0,
-			MaxDuration = 0,
-
-			WalkSpeed = 5,
-			SideSpacing = 5.5,
-			Translucency = 0.55,
-			MinimumPlayerDistance = 60,
 		},
 		ChaosWarning = {
 			Ambient = false,

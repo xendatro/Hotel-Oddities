@@ -513,25 +513,18 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 	Sisters = {
 		Model = "Sister",
+		Harmless = true,
 
 		WalkSpeed = 5,
 		SpawnPlayerDistance = 150,
-		KillRange = 12,
 		RouteHeight = 0.5,
 
 		SideSpacing = 5.5,
 		EndInset = 2,
-		WalkOffDistance = 10,
-		DespawnPastEnd = 6,
+		Translucency = 0.55,
 
 		DangerBias = 3,
 		MaxAlive = 1,
-
-		ForgetChance = 0.2,
-		ForgetDelay = 5,
-
-		LightFlickerDuration = 0.15,
-		LightFlickerInterval = 0.7,
 	},
 }
 

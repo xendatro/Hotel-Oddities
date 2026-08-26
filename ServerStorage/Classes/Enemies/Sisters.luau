@@ -2,49 +2,44 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
-local TweenService = game:GetService("TweenService")
 
 local NpcAnimator = require(ReplicatedStorage.Classes.NpcAnimator)
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
-local MathService = require(ReplicatedStorage.Services.MathService)
-local DeathService = require(ServerStorage.Services.DeathService)
-local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
+local HallwayGraph = require(ReplicatedStorage.Services.HallwayGraphService)
 local EnemyService = require(ServerStorage.Services.EnemyService)
-local LightService = require(ServerStorage.Services.LightService)
-local RoomService = require(ServerStorage.Services.RoomService)
-local Vanished = require(ReplicatedStorage.Services.VanishedService)
+local SurfaceWalker = require(ServerStorage.Classes.SurfaceWalker)
 
 local ENEMY_TAG = "Enemy"
 local SISTERS_TAG = "Sisters"
 local MINIMUM_LEG = 1e-3
-local SIGHT_INTERVAL = 0.5
-local HEAD_TWITCH_MIN = 0.5
-local HEAD_TWITCH_MAX = 1.2
-local HEAD_TWITCH_ANGLE = math.rad(30)
-local HEAD_GLITCH_SNAPS_MIN = 2
-local HEAD_GLITCH_SNAPS_MAX = 4
-local HEAD_GLITCH_SNAP_MIN = 0.025
-local HEAD_GLITCH_SNAP_MAX = 0.055
-local HEAD_GLITCH_HOLD_MIN = 0.08
-local HEAD_GLITCH_HOLD_MAX = 0.16
+local CEILING_RAY = 60
+local CEILING_START_OFFSET = 2
+local DESTINATION_ATTEMPTS = 10
+local RETRY_DELAY = 1
 
 local Sisters = {}
 Sisters.__index = Sisters
 Sisters.ClassName = "Sisters"
 
-local horizontal = MathService.Horizontal
-local distanceToSegment = MathService.DistanceToSegment
+local function flatten(vector: Vector3): Vector3
+	local flat = Vector3.new(vector.X, 0, vector.Z)
+	return if flat.Magnitude > MINIMUM_LEG then flat.Unit else Vector3.xAxis
+end
 
-local function prepare(model: Model)
+local function prepare(model: Model, config)
 	local neck = model.Head.Neck :: AnimationConstraint
 	neck.Attachment0 = model.UpperTorso.NeckRigAttachment
 	neck.Attachment1 = model.Head.NeckRigAttachment
 
+	local translucency = math.clamp(config.Translucency or 0.55, 0, 1)
 	for _, descendant in model:GetDescendants() do
 		if descendant:IsA("BasePart") then
-			descendant.Anchored = descendant.Name == "HumanoidRootPart"
 			descendant.CollisionGroup = EnemyService.CollisionGroup
+			if descendant.Name ~= "HumanoidRootPart" then
+				descendant.Transparency = math.max(descendant.Transparency, translucency)
+				descendant.CastShadow = false
+			end
 		end
 	end
 
@@ -54,34 +49,19 @@ local function prepare(model: Model)
 	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 end
 
-function Sisters.new(model: Model, config, startTip: Vector3, direction: Vector3, destinationTip: Vector3)
+function Sisters.new(model: Model, config, startTip: Vector3, direction: Vector3, _destinationTip: Vector3?)
 	local self = setmetatable({}, Sisters)
 
 	self.Model = model
 	self.Config = config
 	self.Models = { model }
 	self.Animators = {}
-	self.StartPosition = startTip
-		+ direction * config.EndInset
-		+ Vector3.yAxis * config.RouteHeight
-	self.DestinationTip = destinationTip
-	self.Facing = direction
-	self.FloorDistance = horizontal(self.DestinationTip - self.StartPosition):Dot(self.Facing)
-	self.LastPositions = {}
+	self.Walkers = {}
 	self.NeckAttachments = {}
 	self.NeckAttachmentBases = {}
-	self.HeadTwitches = {}
-	self.HeadTwitchOffsets = {}
-	self.NextHeadTwitch = 0
-	self.NextLightFlicker = 0
-	self._movementValue = nil :: NumberValue?
-	self._movementTween = nil :: Tween?
-	self._movementConnection = nil :: RBXScriptConnection?
-
-	self.HasBeenSeen = false
-	self.UnseenSince = nil :: number?
-	self.ForgetRolled = false
-	self.NextSightCheck = 0
+	self.StartPosition = startTip + direction * (config.EndInset or 0)
+	self.Facing = flatten(direction)
+	self.FaceConnection = nil :: RBXScriptConnection?
 
 	self.Active = false
 	self.StateMachine = StateMachine.new({
@@ -110,10 +90,49 @@ local function nearestPlayerPosition(origin: Vector3): Vector3?
 	return nearest
 end
 
+function Sisters:_ceilingContact(position: Vector3): Vector3
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.RespectCanCollide = true
+
+	local excluded: { Instance } = {}
+	for _, model in self.Models do
+		table.insert(excluded, model)
+	end
+	for _, player in Players:GetPlayers() do
+		if player.Character then
+			table.insert(excluded, player.Character)
+		end
+	end
+	params.FilterDescendantsInstances = excluded
+
+	local origin = position + Vector3.yAxis * CEILING_START_OFFSET
+	local result = workspace:Raycast(origin, Vector3.yAxis * CEILING_RAY, params)
+	if result then
+		return result.Position
+	end
+	return position + Vector3.yAxis * CEILING_RAY
+end
+
+function Sisters:_pathFor(route: { any }, side: number): { Vector3 }
+	local points = {}
+	for index, node in route do
+		local previous = route[math.max(index - 1, 1)]
+		local following = route[math.min(index + 1, #route)]
+		local direction = flatten(following.Position - previous.Position)
+		local across = Vector3.yAxis:Cross(direction).Unit
+		points[index] = self:_ceilingContact(node.Position + across * side)
+	end
+	return points
+end
+
 function Sisters:_facePlayers()
 	for _, model in self.Models do
-		local torso = model.UpperTorso :: BasePart
-		local head = model.Head :: BasePart
+		local torso = model:FindFirstChild("UpperTorso") :: BasePart?
+		local head = model:FindFirstChild("Head") :: BasePart?
+		local attachment = self.NeckAttachments[model]
+		if not torso or not head or not attachment then continue end
+
 		local target = nearestPlayerPosition(head.Position)
 		local tracking = CFrame.identity
 		if target then
@@ -129,9 +148,7 @@ function Sisters:_facePlayers()
 			tracking = CFrame.Angles(pitch, yaw, 0)
 		end
 
-		self.NeckAttachments[model].CFrame = self.NeckAttachmentBases[model]
-			* tracking
-			* (self.HeadTwitchOffsets[model] or CFrame.identity)
+		attachment.CFrame = self.NeckAttachmentBases[model] * tracking
 	end
 end
 
@@ -143,145 +160,57 @@ function Sisters:GetCenter(): Vector3
 	return total / #self.Models
 end
 
-function Sisters:_place(distance: number)
-	local side = Vector3.yAxis:Cross(self.Facing).Unit * (self.Config.SideSpacing / 2)
-	local center = self.StartPosition + self.Facing * distance
-	local marks = { center - side, center + side }
-	for index, model in self.Models do
-		model:PivotTo(CFrame.lookAt(marks[index], marks[index] + self.Facing))
-	end
-end
-
-function Sisters:_sweep()
-	local center = self:GetCenter()
-	for index, model in self.Models do
-		local position = (model.HumanoidRootPart :: BasePart).Position
-		local origin = self.LastPositions[index]
-		self.LastPositions[index] = position
-
-		for _, player in Players:GetPlayers() do
-			if RoomService:IsInRoom(player) then continue end
-			if Vanished.Is(player.Character) then continue end
-
-			local root = CharacterService.GetAliveRoot(player)
-			local humanoid = if root then CharacterService.GetHumanoid(root.Parent :: Model) else nil
-			if root and humanoid
-				and distanceToSegment(root.Position, origin, position) <= self.Config.KillRange
-			then
-				DeathService:RecordCause(player, self.EnemyId)
-				humanoid.Health = 0
-			end
-		end
-	end
-
-	local now = os.clock()
-	if now >= self.NextLightFlicker then
-		self.NextLightFlicker = now + (self.Config.LightFlickerInterval or 1)
-		LightService:FlickerAlongHallway(center, self.Config.LightFlickerDuration)
-	end
-end
-
-function Sisters:_twitchHeads(now: number)
-	if now < self.NextHeadTwitch then return end
-	self.NextHeadTwitch = now + HEAD_TWITCH_MIN + math.random() * (HEAD_TWITCH_MAX - HEAD_TWITCH_MIN)
-
-	for _, model in self.Models do
-		local attachment = self.NeckAttachments[model]
-		local twitch = (self.HeadTwitches[model] or 0) + 1
-		self.HeadTwitches[model] = twitch
-
-		task.spawn(function()
-			task.wait(math.random() * HEAD_GLITCH_SNAP_MAX)
-			for _ = 1, math.random(HEAD_GLITCH_SNAPS_MIN, HEAD_GLITCH_SNAPS_MAX) do
-				if self.HeadTwitches[model] ~= twitch or not attachment.Parent then return end
-				self.HeadTwitchOffsets[model] = CFrame.Angles(
-					(math.random() - 0.5) * HEAD_TWITCH_ANGLE,
-					(math.random() - 0.5) * HEAD_TWITCH_ANGLE * 2,
-					(math.random() - 0.5) * HEAD_TWITCH_ANGLE
-				)
-				task.wait(HEAD_GLITCH_SNAP_MIN
-					+ math.random() * (HEAD_GLITCH_SNAP_MAX - HEAD_GLITCH_SNAP_MIN))
-			end
-
-			task.wait(HEAD_GLITCH_HOLD_MIN
-				+ math.random() * (HEAD_GLITCH_HOLD_MAX - HEAD_GLITCH_HOLD_MIN))
-			if self.HeadTwitches[model] == twitch and attachment.Parent then
-				self.HeadTwitchOffsets[model] = CFrame.identity
-			end
-		end)
-	end
-end
-
-function Sisters:_step(): boolean
-	local center = self:GetCenter()
-	local travelled = horizontal(center - self.StartPosition):Dot(self.Facing)
-
-	if travelled >= self.FloorDistance + self.Config.DespawnPastEnd then
-		self:Despawn()
-		return false
-	end
-
-	self:_sweep()
-	self:_facePlayers()
-	self:_twitchHeads(os.clock())
-	return true
-end
-
-function Sisters:_isSeen(): boolean
-	local filter = { table.unpack(self.Models) }
-	for _, player in Players:GetPlayers() do
-		if player.Character then table.insert(filter, player.Character) end
-	end
-
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = filter
-	params.RespectCanCollide = true
-
-	for _, eye in EnemyObservationService:GetEyes() do
-		for _, model in self.Models do
-			local target = (model.HumanoidRootPart :: BasePart).Position
-			local offset = target - eye
-			if offset.Magnitude < MINIMUM_LEG or workspace:Raycast(eye, offset, params) == nil then
-				return true
-			end
-		end
-	end
-	return false
-end
-
-function Sisters:_shouldForget(now: number): boolean
-	if now < self.NextSightCheck then return false end
-	self.NextSightCheck = now + SIGHT_INTERVAL
-
-	if self:_isSeen() then
-		self.HasBeenSeen = true
-		self.UnseenSince = nil
-		self.ForgetRolled = false
-		return false
-	end
-
-	if not self.HasBeenSeen or self.ForgetRolled then return false end
-	if not self.UnseenSince then
-		self.UnseenSince = now
-		return false
-	end
-	if now - self.UnseenSince < (self.Config.ForgetDelay or math.huge) then return false end
-
-	self.ForgetRolled = true
-	return math.random() < (self.Config.ForgetChance or 0)
-end
-
 function Sisters:Patrol()
+	local walkSpeed = math.max(self.Config.WalkSpeed or 5, 0.5)
+	local sideSpacing = math.max(self.Config.SideSpacing or 5.5, 0)
+	local sides = { -sideSpacing / 2, sideSpacing / 2 }
+	local nodes = HallwayGraph:Get()
+	local current = HallwayGraph:FindNearestNode(self.StartPosition)
+
 	while self.Active do
-		RunService.Heartbeat:Wait()
+		if not current or #nodes < 2 then
+			task.wait(RETRY_DELAY)
+			if not self.Active then return end
+			nodes = HallwayGraph:Get()
+			current = HallwayGraph:FindNearestNode(self.StartPosition)
+			continue
+		end
+
+		local destination = current
+		for _ = 1, DESTINATION_ATTEMPTS do
+			local candidate = nodes[math.random(1, #nodes)]
+			if candidate ~= current then
+				destination = candidate
+				break
+			end
+		end
+		if destination == current then
+			task.wait(RETRY_DELAY)
+			continue
+		end
+
+		local route = HallwayGraph:FindPath(current, destination)
+		if not route or #route < 2 then
+			nodes = HallwayGraph:Get()
+			current = HallwayGraph:FindNearestNode(self:GetCenter())
+			task.wait(RETRY_DELAY)
+			continue
+		end
+
+		local finished = 0
+		for index, walker in self.Walkers do
+			local points = self:_pathFor(route, sides[index])
+			task.spawn(function()
+				walker:WalkAlong(points, walkSpeed)
+				finished += 1
+			end)
+		end
+		while self.Active and finished < #self.Walkers do
+			RunService.Heartbeat:Wait()
+		end
 		if not self.Active then return end
 
-		if self:_shouldForget(os.clock()) then
-			self:Despawn()
-			return
-		end
-		if not self:_step() then return end
+		current = destination
 	end
 end
 
@@ -294,43 +223,32 @@ function Sisters:Start()
 	twin.Parent = self.Model.Parent
 	table.insert(self.Models, twin)
 
-	for _, model in self.Models do
-		prepare(model)
+	local contact = self:_ceilingContact(self.StartPosition)
+	local across = Vector3.yAxis:Cross(self.Facing).Unit
+	local sideSpacing = math.max(self.Config.SideSpacing or 5.5, 0)
+	local sides = { -sideSpacing / 2, sideSpacing / 2 }
+
+	for index, model in self.Models do
+		prepare(model, self.Config)
 
 		local animator = NpcAnimator.new(model, self.Config.Animations)
-		animator:SetMovementSpeed(self.Config.WalkSpeed)
+		animator:Start()
 		table.insert(self.Animators, animator)
 
 		local neckAttachment = model.UpperTorso.NeckRigAttachment :: Attachment
 		self.NeckAttachments[model] = neckAttachment
 		self.NeckAttachmentBases[model] = neckAttachment.CFrame
-		self.HeadTwitchOffsets[model] = CFrame.identity
 		model:AddTag(ENEMY_TAG)
 		model:AddTag(SISTERS_TAG)
-	end
-	self:_place(0)
-	for index, model in self.Models do
-		self.LastPositions[index] = (model.HumanoidRootPart :: BasePart).Position
+
+		local walker = SurfaceWalker.new(model, animator, -Vector3.yAxis)
+		walker:PlaceAt(self:_ceilingContact(self.StartPosition + across * sides[index]), self.Facing)
+		table.insert(self.Walkers, walker)
 	end
 
-	local targetDistance = self.FloorDistance + self.Config.WalkOffDistance
-	local movementValue = Instance.new("NumberValue")
-	self._movementValue = movementValue
-	self._movementConnection = movementValue.Changed:Connect(function(distance)
-		self:_place(distance)
+	self.FaceConnection = RunService.Heartbeat:Connect(function()
+		self:_facePlayers()
 	end)
-	local tween = TweenService:Create(
-		movementValue,
-		TweenInfo.new(targetDistance / self.Config.WalkSpeed, Enum.EasingStyle.Linear),
-		{ Value = targetDistance }
-	)
-	self._movementTween = tween
-	tween.Completed:Once(function(state)
-		if state == Enum.PlaybackState.Completed and self.Active then
-			self:Despawn()
-		end
-	end)
-	tween:Play()
 
 	self.StateMachine:Start()
 end
@@ -338,15 +256,18 @@ end
 function Sisters:Despawn()
 	if not self.Active then return end
 	self.Active = false
-	if self._movementTween then self._movementTween:Cancel() end
-	if self._movementConnection then self._movementConnection:Disconnect() end
-	if self._movementValue then self._movementValue:Destroy() end
-	self._movementTween = nil
-	self._movementConnection = nil
-	self._movementValue = nil
+
+	if self.FaceConnection then
+		self.FaceConnection:Disconnect()
+		self.FaceConnection = nil
+	end
+
+	for _, walker in self.Walkers do
+		walker:Destroy()
+	end
+	table.clear(self.Walkers)
 
 	for _, model in self.Models do
-		self.HeadTwitches[model] = (self.HeadTwitches[model] or 0) + 1
 		local attachment = self.NeckAttachments[model]
 		if attachment then attachment.CFrame = self.NeckAttachmentBases[model] end
 		model:RemoveTag(ENEMY_TAG)

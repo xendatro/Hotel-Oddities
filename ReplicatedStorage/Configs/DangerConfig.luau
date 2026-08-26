@@ -55,7 +55,7 @@ return {
 			Chaser = { Count = 2 },
 			Blind = { Count = 2 },
 			Mimic = { Count = 2 },
-			Sisters = { Count = 0 },
+			Sisters = { Count = 1 },
 
 			Eye = { Count = 1, Lifetime = 60, Respawn = 20 },
 			Creep = { Count = 2, Respawn = 12 },

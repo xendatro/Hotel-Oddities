@@ -357,7 +357,7 @@ become Services or Classes.
 - ServerStorage\Services\RecordPlayerService.luau — Loops the record (or lobby record) sound on every tagged record player model.
 - ServerStorage\Services\ReviveService.luau — Sells and grants the Revive product, restoring the player's death location, items and a ForceField.
 - ServerStorage\Services\RoomService.luau — Tags rooms, gives them enemy-only pathfinding blockers, and tracks which room each player is in.
-- ServerStorage\Services\SistersService.luau — Spawns the Sisters enemy to walk a danger-weighted straight hallway span.
+- ServerStorage\Services\SistersService.luau — Picks a danger-weighted hallway start point and spawns the Sisters ceiling patrol there.
 - ServerStorage\Services\SpawnZoneGuardService.luau — Tags players inside the spawn safe zone as Ignored and repels NPC enemies that touch it back to patrol.
 - ServerStorage\Services\SpeedBoostService.luau — Central WalkSpeed arbiter for named, expiring speed boosts and perk multipliers.
 - ServerStorage\Services\StalkerService.luau — Spawns stalker-type enemies at a peek spot found behind the player.
@@ -391,14 +391,13 @@ become Services or Classes.
 - ServerStorage\Classes\Enemies\Eye.luau — Static hazard that damages players by view angle for looking at it.
 - ServerStorage\Classes\Enemies\Ghost.luau — Floating enemy that drifts on published motion legs and lurks unseen in dangerous hallways.
 - ServerStorage\Classes\Enemies\Mimic.luau — Copies a player's appearance and acts out odd encounter modes before revealing and chasing.
-- ServerStorage\Classes\Enemies\Sisters.luau — Twinned anchored figures that tween down a hallway, killing along their path.
+- ServerStorage\Classes\Enemies\Sisters.luau — Twinned translucent, harmless figures that patrol the hallway ceilings forever via SurfaceWalker, heads tracking the nearest player.
 - ServerStorage\Classes\Enemies\Stalker.luau — Tails a player from behind unseen, flees to cover when observed, and seizes the camera to kill.
 - ServerStorage\Classes\Enemies\WeepingAngel.luau — Chaser that freezes solid whenever any player is observing it.
 - ServerStorage\Classes\Enemies\Behaviors\Peek.luau — Shared state functions for hiding at a spot, leaning into view, and pulling back.
 - ServerStorage\Classes\Oddity.luau — Root oddity class: token, merged settings, timed start/stop lifecycle and subclass factory.
 - ServerStorage\Classes\PropOddity.luau — Intermediate oddity base whose context is a prop Model in the workspace.
 - ServerStorage\Classes\PlayerOddity.luau — Intermediate oddity base whose context is a Player, auto-stopping on death.
-- ServerStorage\Classes\Oddities\CeilingSisters.luau — Map oddity that walks two translucent, harmless Sister rigs upside down along the hallway ceilings, pathfinding between random graph nodes forever while both heads track the nearest player.
 - ServerStorage\Classes\Oddities\ChaosWarning.luau — Hallway oddity that slams every nearby door open and shut as a telegraph.
 - ServerStorage\Classes\Oddities\DoorsOpen.luau — Hallway oddity that swings all doors in an occupied span open and holds them.
 - ServerStorage\Classes\Oddities\HallwayBlocker.luau — Hallway oddity that drops a gate prop into an unseen corridor to wall it off.

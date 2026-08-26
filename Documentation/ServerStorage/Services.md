@@ -358,7 +358,7 @@ Admin `/map` command that teleports the caller straight into the maze via `Eleva
 - Requires: `ElevatorService:SendToMap`, `ChatCommandService`
 
 ### MapOddityCommandService.luau
-Chat command `/mapoddity` (alias `/mapodd`) that maps a friendly word to a map-oddity kind (`transparency`, `doors`, `chaos`, `blocker`, `void`, `crush`, `sisters`/`twins`/`ceilingsisters`, plus aliases) and triggers it on the hallway containing the caller; `clear`/`stop`/`off` stops all active map oddities.
+Chat command `/mapoddity` (alias `/mapodd`) that maps a friendly word to a map-oddity kind (`transparency`, `doors`, `chaos`, `blocker`, `void`, `crush`, plus aliases) and triggers it on the hallway containing the caller; `clear`/`stop`/`off` stops all active map oddities.
 - API: (no public methods; the module table is empty and exists only for its chat-command registration)
 - Requires: `MapOddityService`, `ChatCommandService`
 
@@ -493,7 +493,7 @@ Auto-tags `Room_*` models under a `Rooms` folder, gives each an invisible pathfi
 - Requires: registers the `RoomBlocker`, `Enemies`, `Players` and `Furniture` collision groups at load
 
 ### SistersService.luau
-Spawns the Sisters enemy at one end of a straight hallway span so it walks the length of it, choosing the span by a danger-map-weighted roll among spans far enough from every player.
+Spawns the Sisters ceiling patrol at one end of a straight hallway span, choosing the span by a danger-map-weighted roll among spans far enough from every player; the pair then patrols the whole map from there.
 - API: `SistersService:Spawn() -> any?` — pick a weighted route and spawn
 - API: `SistersService:SpawnInHallway(player: Player) -> any?` — spawn on the span the player is standing in, from the far end
 - Requires: `EnemyConfigs.Sisters`, `Hallways` module (`StraightSpans`, `StraightSpanAt`), `DangerMapService`, `HallwayGraphService:IsFarFromPlayers`, `EnemyService:Spawn`
