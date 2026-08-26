@@ -344,13 +344,13 @@ Snake on a 16x12 grid: eat 15 pellets to win, with the tick interval speeding up
 ## Tools
 
 ### Tools\Ball.luau
-Client half of the throwable ball: raycasts through the mouse at Enemy-tagged parts, plays the Throw animation while turning the character to face the target, then flies a cloned ball prop toward the enemy's head and tells the server it connected. Consumes one ball per throw and deletes the visible handle when the stack runs out.
+Client half of the throwable ball: raycasts through the mouse at Eye-tagged parts, plays the Throw animation while turning the character to face the target, then flies a cloned ball prop toward the Eye's head and tells the server it connected. Consumes one ball per throw and deletes the visible handle when the stack runs out.
 - API: `Ball.new(tool: Tool) -> self`
 - API: `Ball:OnEquipped()` — loads the Throw animation track
 - API: `Ball:OnActivated()` — find target, play throw, consume, launch the projectile
 - API: `Ball:OnCleanup()` / `Ball:OnDestroy()` — stops the face-target loop
 - Remotes: `Ball/Hit` (fired); `Backpack/Delete` (fired, via `ClientTool:Consume`)
-- Tags: reads `Enemy` via `TagService:GetTaggedOfAncestor`
+- Tags: reads `Eye` via `TagService:GetTaggedOfAncestor`
 - Requires: `Classes\ClientTool`, `TagService`, `ReplicatedStorage.Props.Other` (Ball prop)
 
 ### Tools\Camera.luau

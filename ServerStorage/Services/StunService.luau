@@ -19,6 +19,14 @@ function StunService:Stun(model: Instance?, duration: number): boolean
 	return enemy.StateMachine.State == "Stunned"
 end
 
+function StunService:KillEye(model: Instance?): boolean
+	local eye = Eye.FromModel(model)
+	if not eye or not eye.Active then return false end
+
+	eye:Despawn()
+	return true
+end
+
 local Hit = CommunicationService.Get("Ball", "Hit")
 
 Hit.OnServerEvent:Connect(function(player: Player, model: any)
@@ -28,15 +36,15 @@ Hit.OnServerEvent:Connect(function(player: Player, model: any)
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	if not root then return end
 
-	local enemy = NPC.FromModel(model) or Eye.FromModel(model)
-	if not enemy or not enemy.Active then return end
+	local eye = Eye.FromModel(model)
+	if not eye or not eye.Active then return end
 
-	local targetPosition = if enemy.RootPart
-		then enemy.RootPart.Position
+	local targetPosition = if eye.RootPart
+		then eye.RootPart.Position
 		else model:GetPivot().Position
 	if (targetPosition - root.Position).Magnitude > BALL_CONFIG.ServerRange then return end
 
-	StunService:Stun(model, BALL_CONFIG.StunDuration)
+	StunService:KillEye(model)
 end)
 
 return StunService

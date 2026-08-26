@@ -209,7 +209,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\Minigames\Minesweeper.luau — 8x8 Minesweeper minigame with flag mode and a safe first click.
 - ReplicatedStorage\Classes\Minigames\Simon.luau — Simon-says minigame; repeat a growing four-pad sequence up to length seven.
 - ReplicatedStorage\Classes\Minigames\Snake.luau — Snake minigame on a 16x12 grid; eat fifteen pellets as the tick speeds up.
-- ReplicatedStorage\Classes\Tools\Ball.luau — Client ball tool; throws a ball prop at a targeted enemy and reports the hit to the server.
+- ReplicatedStorage\Classes\Tools\Ball.luau — Client ball tool; throws a ball prop at a targeted Eye and reports the hit to the server.
 - ReplicatedStorage\Classes\Tools\Camera.luau — Client camera tool; shows a ghost placement preview and asks the server to stand the tripod where you aim.
 - ReplicatedStorage\Classes\Tools\Pathfinder.luau — Client pathfinder tool; drops limited, shaded breadcrumb markers on the floor.
 - ReplicatedStorage\Classes\Tools\Player Locator.luau — Client tool that enables PlayerLocatorService while equipped.
@@ -368,7 +368,7 @@ become Services or Classes.
 - ServerStorage\Services\SpawnZoneGuardService.luau — Tags players inside the spawn safe zone as Ignored, repels NPC enemies that touch it back to patrol, and builds the zone's translucent runtime border walls.
 - ServerStorage\Services\SpeedBoostService.luau — Central WalkSpeed arbiter for named, expiring speed boosts and perk multipliers.
 - ServerStorage\Services\StalkerService.luau — Spawns stalker-type enemies at a peek spot found behind the player.
-- ServerStorage\Services\StunService.luau — Stuns enemy NPCs and Eyes, and validates client ball-hit reports by range.
+- ServerStorage\Services\StunService.luau — Stuns enemy NPCs and Eyes, kills Eyes hit by the Ball, and validates client ball-hit reports by range.
 - ServerStorage\Services\ToolCommandService.luau — Admin-only /give chat command for handing out tools by name and amount.
 - ServerStorage\Services\ToolService.luau — Binds tagged Tools to their server tool classes and routes client tool events to them.
 - ServerStorage\Services\VoiceActivityService.luau — Tunes voice chat audio, cuts a dead player's input and emitter, and emits noise at whoever is speaking so enemies can hear them.

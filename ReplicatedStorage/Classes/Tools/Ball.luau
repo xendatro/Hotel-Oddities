@@ -31,13 +31,13 @@ function Ball:_findTarget(): Model?
 
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Include
-	params.FilterDescendantsInstances = TagService:GetTaggedOfAncestor(workspace, "Enemy")
+	params.FilterDescendantsInstances = TagService:GetTaggedOfAncestor(workspace, "Eye")
 
 	local result = workspace:Raycast(start, direction.Unit * self.Config.Range, params)
 	if not result then return nil end
 
 	local enemy = result.Instance
-	while enemy and not enemy:HasTag("Enemy") do
+	while enemy and not enemy:HasTag("Eye") do
 		enemy = enemy.Parent
 	end
 	return enemy

@@ -49,7 +49,6 @@ return {
 		Tag = "Ball",
 		Sound = "Ball",
 		RevealLimbs = true,
-		StunDuration = 3,
 		Range = 60,
 		ServerRange = 80,
 		FlightSpeed = 90,
