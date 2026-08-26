@@ -9,6 +9,7 @@ if not RunService:IsClient() then
 end
 
 local Replication = require(ReplicatedStorage.Classes.Wallstick.Replication)
+local GravityCamera = require(ReplicatedStorage.Classes.Wallstick.GravityCamera)
 
 local FALL_RESET_DISTANCE = -50
 
@@ -44,6 +45,10 @@ end
 
 function WallstickService.Get(): any
 	return ActiveSession and ActiveSession.Wallstick
+end
+
+function WallstickService.SetCameraUpVector(upVector: Vector3)
+	GravityCamera.setUpVector(upVector)
 end
 
 function WallstickService.Disable()

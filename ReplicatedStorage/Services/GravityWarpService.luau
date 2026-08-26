@@ -27,7 +27,10 @@ local function renderCameraRoll()
 
 	local cameraCFrame = camera.CFrame
 	local look = cameraCFrame.LookVector
-	local projectedUp = root.CFrame.UpVector - look * root.CFrame.UpVector:Dot(look)
+	local rootUp = root.CFrame.UpVector
+	WallstickService.SetCameraUpVector(rootUp)
+
+	local projectedUp = rootUp - look * rootUp:Dot(look)
 	if projectedUp.Magnitude < 1e-4 then return end
 
 	local up = projectedUp.Unit
@@ -37,12 +40,14 @@ end
 
 local function startCameraRoll(root: BasePart)
 	CameraRoot = root
+	WallstickService.SetCameraUpVector(root.CFrame.UpVector)
 	RunService:BindToRenderStep(CAMERA_BIND, Enum.RenderPriority.Camera.Value + 1, renderCameraRoll)
 end
 
 local function stopCameraRoll()
 	CameraRoot = nil
 	RunService:UnbindFromRenderStep(CAMERA_BIND)
+	WallstickService.SetCameraUpVector(Vector3.yAxis)
 end
 
 function GravityWarpService.IsActive(): boolean
@@ -111,7 +116,7 @@ local function warp(duration: number)
 	end
 
 	local wallstick = WallstickService.Enable({
-		tilt = false,
+		tilt = true,
 		spin = false,
 		surfaceNormal = -Vector3.yAxis,
 	})
@@ -124,6 +129,7 @@ local function warp(duration: number)
 	local ceilingPart = (ceiling.Instance :: BasePart).AssemblyRootPart
 	local ceilingNormal = ceilingPart.CFrame:VectorToObjectSpace(-Vector3.yAxis)
 	wallstick:setAndPivot(ceilingPart, ceilingNormal, ceiling.Position)
+	wallstick:snapCameraUp()
 
 	local elapsed = 0
 	while elapsed < duration do

@@ -323,6 +323,11 @@ function WallstickClass.getFallDistance(self: Wallstick)
 	return 0
 end
 
+function WallstickClass.snapCameraUp(self: Wallstick)
+	self.cameraUpSpring:setPosition(self.cameraUpSpring:getGoal())
+	self.cameraUpSpring:setVelocity(Vector3.zero)
+end
+
 function WallstickClass.set(self: Wallstick, part: BasePart, normal: Vector3, teleportCF: CFrame?)
 	local prevPart = self.part
 	local prevPartCF = prevPart.CFrame
