@@ -7,6 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local CameraFovService = require(ReplicatedStorage.Services.CameraFovService)
 local MathService = require(ReplicatedStorage.Services.MathService)
 local SprintConfig = require(ReplicatedStorage.Configs.SprintConfig)
+local WallstickService = require(ReplicatedStorage.Services.WallstickService)
 
 local SprintService = {}
 
@@ -129,7 +130,10 @@ local function canSprint(state: CharacterState?): boolean
 	if not state or state.Suppressed or state.BaseSpeed <= 0 then return false end
 
 	local humanoid = state.Humanoid
-	return humanoid.Health > 0 and humanoid.MoveDirection.Magnitude > MOVEMENT_THRESHOLD
+	if humanoid.Health <= 0 then return false end
+
+	return humanoid.MoveDirection.Magnitude > MOVEMENT_THRESHOLD
+		or WallstickService.GetMoveDirection().Magnitude > MOVEMENT_THRESHOLD
 end
 
 local function step(deltaTime: number)

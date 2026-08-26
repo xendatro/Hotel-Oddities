@@ -607,14 +607,14 @@ Client-only decorated overlay for the stamina bar while a speed boost is active:
 - Requires: `Configs.SprintBoostConfig`, `Configs.SprintConfig`, `SprintUIService` (`GetBar`, `SetForcedVisible`), `GuiBuilderService`; reads the `SpeedBoostName` and `SpeedBoostEndsAt` player attributes
 
 ### SprintService.luau
-Client sprint state machine: binds hold-to-sprint keys (plus a touch toggle button), drains and regenerates stamina with an exhaustion lockout, and owns the humanoid's `WalkSpeed`. It watches external WalkSpeed writes to re-derive the base speed and respects the server's speed-boost attributes, and drives the sprint FOV offset.
+Client sprint state machine: binds hold-to-sprint keys (plus a touch toggle button), drains and regenerates stamina with an exhaustion lockout, and owns the humanoid's `WalkSpeed`. It watches external WalkSpeed writes to re-derive the base speed and respects the server's speed-boost attributes, drives the sprint FOV offset, and uses Wallstick's movement source while the local character is surface-stuck.
 - API: `SprintService:GetStaminaFraction() -> number` — 0..1
 - API: `SprintService:IsSprinting() -> boolean`
 - API: `SprintService:IsExhausted() -> boolean`
 - API: `SprintService:GetWeight() -> number` — eased 0..1 sprint blend, used for camera effects
 - API: `SprintService:SetSpeedFactor(name: string, factor: number?)` — named multiplicative modifiers; `nil` removes
 - API: `SprintService:SetSprintBlocked(name: string, blocked: boolean)` — named blockers; blocking also drops held/toggled state
-- Requires: `Configs.SprintConfig`, `CameraFovService`; reads the `SpeedBoostSpeed` / `SpeedBoostBaseSpeed` player attributes
+- Requires: `Configs.SprintConfig`, `CameraFovService`, `WallstickService`; reads the `SpeedBoostSpeed` / `SpeedBoostBaseSpeed` player attributes
 
 ### SprintUIService.luau
 Client-only stamina bar: builds the CanvasGroup/track/fill GUI, follows the stamina fraction with an eased lerp, recolours through fill → low → empty bands, pulses the track while exhausted, and auto-fades the bar out once stamina has been full for a while.
@@ -700,6 +700,7 @@ Client front end for the vendored Wallstick controller. Always listens on the re
 - API: `WallstickService.Enable(options: { tilt: boolean?, spin: boolean?, surfaceNormal: Vector3? }?) -> Wallstick?` — starts wall-sticking for the local character; `surfaceNormal` rejects differently oriented surfaces and keeps accepted surfaces exactly aligned to that normal; returns the active (or existing) instance
 - API: `WallstickService.Disable()` — destroys the session and restores normal character physics
 - API: `WallstickService.IsEnabled() -> boolean`, `WallstickService.Get() -> Wallstick?`
+- API: `WallstickService.GetMoveDirection() -> Vector3` — current movement direction from the hidden surface-walking humanoid, or zero when disabled
 - API: `WallstickService.SetCameraInputRoll(roll: number)` — rotates PlayerModule's two-axis look input into the currently displayed camera roll without changing PlayerModule's cached world-up frame
 - Remotes: `Wallstick/Replicator`, `Wallstick/Sync` (via `Classes.Wallstick.Replication`)
 - Requires: `Classes.Wallstick` (+ its `RaycastHelper` and `Replication` children); expects `workspace.Wallstick` from the server `WallstickService`

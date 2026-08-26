@@ -281,6 +281,7 @@ function WallstickClass._stepRenderCharacter(self: Wallstick, _dt: number)
 	local rootCameraOffset = realRootCF:ToObjectSpace(workspace.CurrentCamera.CFrame)
 	local geometryCameraCF = fakeRootCF * rootCameraOffset
 
+	self.fake.humanoid.WalkSpeed = self.real.humanoid.WalkSpeed
 	self.fake.humanoid.Jump = self.real.humanoid.Jump
 	self.fake.humanoid:Move(GravityCamera.getMoveVector(geometryCameraCF), false)
 
@@ -331,6 +332,10 @@ function WallstickClass.getFallDistance(self: Wallstick)
 		return self.fake.rootPart.Position.Y - self.fallStartHeight
 	end
 	return 0
+end
+
+function WallstickClass.getMoveDirection(self: Wallstick): Vector3
+	return self.fake.humanoid.MoveDirection
 end
 
 function WallstickClass.set(self: Wallstick, part: BasePart, normal: Vector3, teleportCF: CFrame?)

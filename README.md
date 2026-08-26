@@ -155,7 +155,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\SpawnZoneService.luau — Shared registry of tagged spawn-safe-zone parts with vertically padded point and segment queries against their boxes.
 - ReplicatedStorage\Services\SpeedBoostRenderService.luau — Tweens the FOV offset and colour-correction screen effect for speed boosts.
 - ReplicatedStorage\Services\SprintBoostUIService.luau — Decorated overlay drawn over the stamina bar while a speed boost is running.
-- ReplicatedStorage\Services\SprintService.luau — Client sprint state machine owning stamina, exhaustion, WalkSpeed and the sprint FOV blend.
+- ReplicatedStorage\Services\SprintService.luau — Client sprint state machine owning stamina, exhaustion, WalkSpeed and the sprint FOV blend, including surface-stuck movement.
 - ReplicatedStorage\Services\SprintUIService.luau — The stamina bar itself: eased fill, colour bands, exhaustion pulse and auto-fade.
 - ReplicatedStorage\Services\StalkerCameraService.luau — Locks the camera onto the Stalker, anchoring the player and pushing FOV for kills.
 - ReplicatedStorage\Services\StatsHUDService.luau — Debug HUD showing FPS, ping, danger-field value and a live enemy list.
@@ -168,7 +168,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\VoiceDebugService.luau — Debug panel of sliders for local proximity-voice and radio volumes.
 - ReplicatedStorage\Services\WalkSoundService.luau — Footstep engine timing steps from locomotion animations for players and tagged enemies.
 - ReplicatedStorage\Services\WalkieTalkieService.luau — Walkie-talkie mode toggle, own-emitter muting and voice-eligibility gate.
-- ReplicatedStorage\Services\WallstickService.luau — Client opt-in wall-sticking with optional fixed surface orientation for the local character, plus replication rendering of other players' wall-stuck characters.
+- ReplicatedStorage\Services\WallstickService.luau — Client opt-in wall-sticking with optional fixed surface orientation for the local character, surface movement access for sprint, plus replication rendering of other players' wall-stuck characters.
 
 ### ReplicatedStorage\Classes
 
@@ -198,7 +198,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\Vow.luau — Cancellable single-function thread wrapper backing the state machine.
 - ReplicatedStorage\Classes\Watch.luau — Turns an NPC's neck and waist to look at the local player.
 - ReplicatedStorage\Classes\CameraShaker\ — Vendored third-party camera shake library used through ShakeService.
-- ReplicatedStorage\Classes\Wallstick\ — Vendored EgoMoose Rbx-Wallstick surface-sticking controller (modernized constraints), driven through WallstickService; patches gravity and screen-relative look handling into the live camera and fully restores humanoid state and constraints when disabled.
+- ReplicatedStorage\Classes\Wallstick\ — Vendored EgoMoose Rbx-Wallstick surface-sticking controller (modernized constraints), driven through WallstickService; mirrors WalkSpeed into its hidden mover, patches gravity and screen-relative look handling into the live camera, and fully restores humanoid state and constraints when disabled.
 - ReplicatedStorage\Classes\Minigames\MinigameBase.luau — Base class every terminal minigame extends, providing themed GUI builders, input helpers, heartbeat and win/fail plumbing.
 - ReplicatedStorage\Classes\Minigames\AimTrainer.luau — Click-the-target minigame; 20 hits on shrinking timers, 3 misses wipe the run.
 - ReplicatedStorage\Classes\Minigames\Frogger.luau — Frogger minigame; cross six lanes of traffic twice without being hit.

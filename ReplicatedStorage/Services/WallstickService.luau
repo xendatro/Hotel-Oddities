@@ -47,6 +47,11 @@ function WallstickService.Get(): any
 	return ActiveSession and ActiveSession.Wallstick
 end
 
+function WallstickService.GetMoveDirection(): Vector3
+	local session = ActiveSession
+	return session and session.Wallstick:getMoveDirection() or Vector3.zero
+end
+
 function WallstickService.SetCameraInputRoll(roll: number)
 	GravityCamera.setInputRoll(roll)
 end
