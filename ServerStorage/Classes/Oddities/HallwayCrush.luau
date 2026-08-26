@@ -145,9 +145,9 @@ local function candidateFromSpan(class: any, span: HallwayRegion.Span?, position
 	return { Span = span, Frame = frame }
 end
 
-local function inIntervals(intervals: { HallwayWall.Interval }, along: number): boolean
-	for _, interval in intervals do
-		if along >= interval.Minimum and along <= interval.Maximum then return true end
+local function inMouth(mouths: { HallwayWall.Mouth }, sign: number, along: number): boolean
+	for _, mouth in mouths do
+		if mouth.Sign == sign and along > mouth.Minimum and along < mouth.Maximum then return true end
 	end
 	return false
 end
@@ -156,7 +156,7 @@ local function pieceIntervals(
 	wall: HallwayWall.Wall,
 	frame: HallwayWall.Frame,
 	cuts: { number },
-	closing: { HallwayWall.Interval }
+	mouths: { HallwayWall.Mouth }
 ): { { Minimum: number, Maximum: number, Moving: boolean } }
 	local boundaries = { wall.Minimum, wall.Maximum }
 	for _, cut in cuts do
@@ -178,7 +178,7 @@ local function pieceIntervals(
 			Maximum = maximum,
 			Moving = middle > frame.Minimum
 				and middle < frame.Maximum
-				and inIntervals(closing, middle),
+				and not inMouth(mouths, wall.Sign, middle),
 		})
 	end
 	return pieces
@@ -312,9 +312,10 @@ end
 function HallwayCrush:_collectWalls(frame: HallwayWall.Frame)
 	local cuts = HallwayWall.CutPoints(frame)
 	local trimOvershoot = math.max(self:Setting("TrimOvershoot", 0.12), 0)
+	local mouths = HallwayWall.Mouths(frame)
 	self.Closing = HallwayWall.Closing(frame)
 	for _, wall in HallwayWall.Walls(frame) do
-		local pieces = pieceIntervals(wall, frame, cuts, self.Closing)
+		local pieces = pieceIntervals(wall, frame, cuts, mouths)
 		if #pieces == 0 then continue end
 
 		local part = wall.Part
@@ -549,8 +550,7 @@ function HallwayCrush:_inAlcove(position: Vector3): boolean
 		if position.Y > alcove.Top or position.Y < frame.FloorY - ALCOVE_MARGIN then continue end
 
 		local depth = across * alcove.Sign
-		local inner = math.max(alcove.Inner - self.Offset, 0)
-		if depth >= inner and depth <= alcove.Outer + ALCOVE_MARGIN then
+		if depth >= -ALCOVE_MARGIN and depth <= alcove.Outer + ALCOVE_MARGIN then
 			return true
 		end
 	end

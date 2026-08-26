@@ -653,14 +653,20 @@ function HallwayVoid:OnStart(): boolean
 	local plankThickness = math.max(self:Setting("PlankThickness", 0.35), 0.05)
 	local plankWidth = math.max(self:Setting("PlankWidth", 1.2), 0.2)
 	local plankOverhang = math.max(self:Setting("PlankOverhang", 0), 0)
-	local plankLength = math.max(openingLength + plankOverhang * 2, 1)
+	local plankAngle = math.rad(self:Setting("PlankAngle", 8))
+	local plankReach = math.max(openingLength + plankOverhang * 2, 1)
+	local maximumAngle = math.atan(math.max(openingWidth + wallThickness * 2 - plankWidth, 0) / plankReach)
+	plankAngle = math.clamp(plankAngle, -maximumAngle, maximumAngle)
+	local plankLength = math.max(plankReach / math.cos(plankAngle), 1)
 	local plankColor = colorSetting(self.Config, "PlankColor", Color3.fromRGB(111, 70, 38))
-	local plankMaterial = materialSetting(self.Config, "PlankMaterial", Enum.Material.WoodPlanks)
+	local plankMaterial = materialSetting(self.Config, "PlankMaterial", Enum.Material.Wood)
 	newPart(
 		structure,
 		"Plank",
 		Vector3.new(plankWidth, plankThickness, plankLength),
-		candidate.CFrame * CFrame.new(0, self:Setting("PlankLift", 0.04) + plankThickness / 2, 0),
+		candidate.CFrame
+			* CFrame.new(0, self:Setting("PlankLift", 0.04) + plankThickness / 2, 0)
+			* CFrame.Angles(0, plankAngle, 0),
 		plankMaterial,
 		plankColor,
 		0,
