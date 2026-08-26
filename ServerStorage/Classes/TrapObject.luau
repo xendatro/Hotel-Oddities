@@ -15,8 +15,11 @@ TrapObject.__index = TrapObject
 local function findNpcModel(instance: Instance?): Model?
 	local current = instance
 	while current and current ~= workspace do
-		if current:IsA("Model") and NPC.FromModel(current) then
-			return current
+		if current:IsA("Model") then
+			local npc = NPC.FromModel(current)
+			if npc and npc.EnemyId ~= "Ghost" then
+				return current
+			end
 		end
 		current = current.Parent
 	end
@@ -62,7 +65,7 @@ function TrapObject:Spring(model: Instance?)
 	if not npcModel then return end
 
 	self.Trap:SetAttribute("Closed", true)
-	StunService:Stun(npcModel, CONFIG.StunDuration)
+	StunService:KillNpc(npcModel)
 
 	if self.Track then
 		self.Track:Play()

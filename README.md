@@ -368,7 +368,7 @@ become Services or Classes.
 - ServerStorage\Services\SpawnZoneGuardService.luau — Tags players inside the spawn safe zone as Ignored, repels NPC enemies that touch it back to patrol, and builds the zone's translucent runtime border walls.
 - ServerStorage\Services\SpeedBoostService.luau — Central WalkSpeed arbiter for named, expiring speed boosts and perk multipliers.
 - ServerStorage\Services\StalkerService.luau — Spawns stalker-type enemies at a peek spot found behind the player.
-- ServerStorage\Services\StunService.luau — Stuns enemy NPCs and Eyes, kills Eyes hit by the Ball, and validates client ball-hit reports by range.
+- ServerStorage\Services\StunService.luau — Stuns enemy NPCs and Eyes, kills NPCs caught by traps and Eyes hit by the Ball, and validates client ball-hit reports by range.
 - ServerStorage\Services\ToolCommandService.luau — Admin-only /give chat command for handing out tools by name and amount.
 - ServerStorage\Services\ToolService.luau — Binds tagged Tools to their server tool classes and routes client tool events to them.
 - ServerStorage\Services\VoiceActivityService.luau — Tunes voice chat audio, cuts a dead player's input and emitter, and emits noise at whoever is speaking so enemies can hear them.
@@ -389,7 +389,7 @@ become Services or Classes.
 - ServerStorage\Classes\Sound.luau — Attaches an ambient AudioEmitter clone to a tagged instance from its Sound attribute.
 - ServerStorage\Classes\SpeedDrink.luau — Server tool that plays a drink sequence and grants a temporary speed boost.
 - ServerStorage\Classes\SurfaceWalker.luau — Kinematic wall/ceiling locomotion for any humanoid rig or NPC; walks a rig along surface contact points with animation.
-- ServerStorage\Classes\TrapObject.luau — Placeable trap that snaps shut and stuns the first NPC to touch it.
+- ServerStorage\Classes\TrapObject.luau — Placeable trap that snaps shut and kills the first non-Ghost NPC to touch it.
 - ServerStorage\Classes\Enemies\Blind.luau — Hearing-driven hunter whose determination builds from noise and decays in silence.
 - ServerStorage\Classes\Enemies\CeilingDweller.luau — Chaser that drops from the ceiling onto its victim before hunting normally.
 - ServerStorage\Classes\Enemies\Chaos.luau — Fast hazard that sweeps a precomputed route, killing everything along the segment, and despawns crashing into the wall at the route's end.

@@ -147,9 +147,9 @@ Server tool that grants a temporary speed boost. Plays an open sound, waits `Use
 - Notes: config keys `OpenSound`, `DrinkSound`, `Visual`, `UseDelay`, `WalkSpeed`, `Duration`, `FovBoost` (sounds and visual are descendants of the Tool, not global assets)
 
 ### TrapObject.luau
-Bear-trap style placeable that snaps shut on the first NPC to touch it. Springing stuns the NPC, plays the trap animation until its "Finished" marker, plays the close sound, and schedules the trap for removal.
+Bear-trap style placeable that snaps shut on the first non-Ghost NPC to touch it. Springing despawns the NPC, plays the trap animation until its "Finished" marker, plays the close sound, and schedules the trap for removal.
 - API: `TrapObject.new(trap: Model) -> self` — connects Touched on every descendant part plus Destroying.
-- API: `TrapObject:Spring(model: Instance?)` — fires once (`Closed` attribute guards re-entry); ignores anything that is not a live NPC.
+- API: `TrapObject:Spring(model: Instance?)` — fires once (`Closed` attribute guards re-entry); ignores Ghost and anything that is not a live NPC.
 - API: `TrapObject:Destroy()` — disconnects all connections.
 - Requires: `ServerStorage.Classes.NPC` (for `NPC.FromModel`), `StunService`, `AudioService`, `ToolConfigs.Trap`
 

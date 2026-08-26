@@ -27,6 +27,14 @@ function StunService:KillEye(model: Instance?): boolean
 	return true
 end
 
+function StunService:KillNpc(model: Instance?): boolean
+	local npc = NPC.FromModel(model)
+	if not npc or not npc.Active then return false end
+
+	npc:Despawn()
+	return true
+end
+
 local Hit = CommunicationService.Get("Ball", "Hit")
 
 Hit.OnServerEvent:Connect(function(player: Player, model: any)

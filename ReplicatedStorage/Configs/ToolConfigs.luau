@@ -40,7 +40,6 @@ return {
 		Tag = "Trap",
 		Sound = "PlaceTrap",
 		CloseSound = "TrapClose",
-		StunDuration = 5,
 		MaxInWorld = 10,
 		DespawnDelay = 5,
 	},
