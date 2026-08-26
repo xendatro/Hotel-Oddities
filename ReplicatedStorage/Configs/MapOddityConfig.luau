@@ -105,6 +105,9 @@ return {
 			-- Studs trimmed off each end of a lethal stretch, so standing at the
 			-- mouth of an intersection is never counted as being crushed.
 			SafeMargin = 2,
+			-- Studs past each edge of a doorway that still count as standing in it,
+			-- so being off to one side of a door is not lethal.
+			DoorwayMargin = 2,
 			-- Extra width allowed when validating a client's own crush report.
 			KillTolerance = 0.75,
 			-- Seconds a sealed corridor waits before the server kills without a report.

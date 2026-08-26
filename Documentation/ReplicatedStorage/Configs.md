@@ -124,7 +124,7 @@ Everything tuning the discoverable map: remote names, the `Map` ScreenGui paths,
 
 ### MapOddityConfig.luau
 Roll timings, durations and per-effect tuning for the hallway/map oddity system (transparent hallways, doors opening, hallway chaos, gaze-gated blockers).
-- API: data table — `Enabled`, `RollInterval`, `InitialDelay`, `TriggerChance`, `MinDuration`, `MaxDuration`, `MinimumPlayerDistance`, `Effects` (`Transparency`, `DoorsOpen`, `HallwayChaos`, `HallwayBlocker`, `HallwayVoid`, `HallwayCrush` (incl. `SafeMargin`, `KillTolerance`, `BackstopDelay`, `TrimOvershoot`), `ChaosWarning`), plus hallway detection keys `HallwayTransparency`, `HallwayHeightWindow`, `HallwayBelowWindow`, `SpatialPadding`, `MinimumPartHallwayFraction`
+- API: data table — `Enabled`, `RollInterval`, `InitialDelay`, `TriggerChance`, `MinDuration`, `MaxDuration`, `MinimumPlayerDistance`, `Effects` (`Transparency`, `DoorsOpen`, `HallwayChaos`, `HallwayBlocker`, `HallwayVoid`, `HallwayCrush` (incl. `SafeMargin`, `KillTolerance`, `BackstopDelay`, `TrimOvershoot`, `DoorwayMargin`), `ChaosWarning`), plus hallway detection keys `HallwayTransparency`, `HallwayHeightWindow`, `HallwayBelowWindow`, `SpatialPadding`, `MinimumPartHallwayFraction`
 
 ### MimicConfig.luau
 Behaviour tuning for the Mimic enemy — reaction delays, idle emotes, its reveal sequence, floating, turning and approach distances.

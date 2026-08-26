@@ -543,15 +543,14 @@ function HallwayCrush:_inAlcove(position: Vector3): boolean
 	local along = offset:Dot(frame.Axis)
 	local across = offset:Dot(frame.Across)
 
-	local killOffset = self.ClearHalfWidth - math.max(self:Setting("KillWidth", 2.2), 0) / 2
-	local carried = math.min(self.Offset, killOffset)
-
+	local alongMargin = math.max(self:Setting("DoorwayMargin", 2), 0)
 	for _, alcove in self.Alcoves do
-		if math.abs(along - alcove.Along) > alcove.HalfWidth + ALCOVE_MARGIN then continue end
+		if math.abs(along - alcove.Along) > alcove.HalfWidth + alongMargin then continue end
 		if position.Y > alcove.Top or position.Y < frame.FloorY - ALCOVE_MARGIN then continue end
 
 		local depth = across * alcove.Sign
-		if depth >= alcove.Inner - carried and depth <= alcove.Outer + ALCOVE_MARGIN then
+		local inner = math.max(alcove.Inner - self.Offset, 0)
+		if depth >= inner and depth <= alcove.Outer + ALCOVE_MARGIN then
 			return true
 		end
 	end
@@ -627,6 +626,7 @@ function HallwayCrush:_broadcast()
 		Lethal = self.Lethal,
 		Alcoves = self.Alcoves,
 		AlcoveMargin = ALCOVE_MARGIN,
+		AlongMargin = math.max(self:Setting("DoorwayMargin", 2), 0),
 		ClearHalfWidth = self.ClearHalfWidth,
 		KillWidth = math.max(self:Setting("KillWidth", 2.2), 0),
 		MaximumOffset = self.MaximumOffset,

@@ -38,6 +38,7 @@ type Region = {
 	Lethal: { Interval },
 	Alcoves: { Alcove },
 	AlcoveMargin: number,
+	AlongMargin: number,
 	ClearHalfWidth: number,
 	KillWidth: number,
 	MaximumOffset: number,
@@ -60,14 +61,14 @@ local function inAlcove(region: Region, position: Vector3, offset: number): bool
 	local along = relative:Dot(region.Axis)
 	local across = relative:Dot(region.Across)
 	local margin = region.AlcoveMargin
-	local carried = math.min(offset, region.ClearHalfWidth - region.KillWidth / 2)
 
 	for _, alcove in region.Alcoves do
-		if math.abs(along - alcove.Along) > alcove.HalfWidth + margin then continue end
+		if math.abs(along - alcove.Along) > alcove.HalfWidth + region.AlongMargin then continue end
 		if position.Y > alcove.Top or position.Y < region.FloorY - margin then continue end
 
 		local depth = across * alcove.Sign
-		if depth >= alcove.Inner - carried and depth <= alcove.Outer + margin then
+		local inner = math.max(alcove.Inner - offset, 0)
+		if depth >= inner and depth <= alcove.Outer + margin then
 			return true
 		end
 	end
