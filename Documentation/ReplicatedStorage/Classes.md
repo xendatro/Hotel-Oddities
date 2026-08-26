@@ -353,6 +353,14 @@ Client half of the throwable ball: raycasts through the mouse at Enemy-tagged pa
 - Tags: reads `Enemy` via `TagService:GetTaggedOfAncestor`
 - Requires: `Classes\ClientTool`, `TagService`, `ReplicatedStorage.Props.Other` (Ball prop)
 
+### Tools\Camera.luau
+Client half of the tripod Camera: while equipped it keeps a local ForceField-material ghost of the tripod standing wherever the shot would land, updated every render step and hidden when there is no valid spot. On activation it raycasts from the camera through the crosshair for a floor within `Place.Range`, rejects steep surfaces and spots too close to the player, and asks the server to stand the tripod there facing the way the player is looking. The photo itself is taken later by PhotoCaptureService.
+- API: `Camera.new(tool: Tool) -> self`
+- API: `Camera:OnEquipped()` / `Camera:OnUnequipped()` — build and tear down the placement ghost
+- API: `Camera:OnActivated()` — find a floor spot and fire the placement request
+- Remotes: `Tools/Signal` (fired, `Place`)
+- Requires: `Classes\ClientTool`, `Configs.PhotoConfig`
+
 ### Tools\Pathfinder.luau
 Drops breadcrumb markers on the floor beneath the player, ray-snapping to ground and refusing to place one within `MinSpacing` of an existing marker (it pulses that marker instead). Markers live in a module-level list shared by every Pathfinder instance, are re-shaded oldest-to-newest and culled past `MaxInWorld`. Shows a `ToolCounter` of uses left unless the player owns the unlimited-Pathfinder perk attribute.
 - API: `Pathfinder.new(tool: Tool) -> self`

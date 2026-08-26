@@ -145,6 +145,9 @@ become Services or Classes.
 - ReplicatedStorage\Services\PaintingDwellerShakeService.luau — Fires a one-shot Slam camera shake when the painting dweller pops.
 - ReplicatedStorage\Services\PerfLogService.luau — Client performance watchdog for frame spikes, FPS drops and bursts of workspace instance churn.
 - ReplicatedStorage\Services\PerfLoggerService.luau — Flag-gated startup timing log broadcast from server to all clients.
+- ReplicatedStorage\Services\PhotoCaptureService.luau — Client shutter for the tripod camera: flash, GUI hide, local ShadowFigure clone, lens-locked CaptureService screenshot and restore.
+- ReplicatedStorage\Services\PhotoDevelopService.luau — Shows a capture as a sheet of film developing in the corner of the screen.
+- ReplicatedStorage\Services\PhotoTimerService.luau — Countdown billboard over every placed tripod camera, flashing SNAP when it fires.
 - ReplicatedStorage\Services\PlayerLocatorService.luau — Client teleport-to-player HUD with per-player markers, crosshair focus and a shared cooldown readout.
 - ReplicatedStorage\Services\PlayerOddityRenderService.luau — Client renderer that turns every other player's head toward you while the stare oddity is active.
 - ReplicatedStorage\Services\RecordPlayerAudioService.luau — Muffles and fades tagged in-world record players while the elevator is loading or the death screen is up.
@@ -207,6 +210,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\Minigames\Simon.luau — Simon-says minigame; repeat a growing four-pad sequence up to length seven.
 - ReplicatedStorage\Classes\Minigames\Snake.luau — Snake minigame on a 16x12 grid; eat fifteen pellets as the tick speeds up.
 - ReplicatedStorage\Classes\Tools\Ball.luau — Client ball tool; throws a ball prop at a targeted enemy and reports the hit to the server.
+- ReplicatedStorage\Classes\Tools\Camera.luau — Client camera tool; shows a ghost placement preview and asks the server to stand the tripod where you aim.
 - ReplicatedStorage\Classes\Tools\Pathfinder.luau — Client pathfinder tool; drops limited, shaded breadcrumb markers on the floor.
 - ReplicatedStorage\Classes\Tools\Player Locator.luau — Client tool that enables PlayerLocatorService while equipped.
 - ReplicatedStorage\Classes\Tools\Shovel.luau — Client shovel tool; plays the dig sequence and asks the server to create an escape hole.
@@ -250,6 +254,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\MimicConfig.luau — Behaviour tuning for the Mimic enemy's reactions, reveal and movement.
 - ReplicatedStorage\Configs\ObservedFreezeConfig.luau — Tag, attribute and tolerances for freeze-when-observed enemies.
 - ReplicatedStorage\Configs\PerkConfig.luau — Per-perk settings for the gamepass/perk system.
+- ReplicatedStorage\Configs\PhotoConfig.luau — Placement, countdown, lens, ShadowFigure, capture, despawn and film-developing settings for the tripod camera.
 - ReplicatedStorage\Configs\PlayerLocatorConfig.luau — Marker layout, focus animation and palette for the Player Locator tool.
 - ReplicatedStorage\Configs\PlayerOddityConfig.luau — Roll timings and effect weights for player-character oddities.
 - ReplicatedStorage\Configs\PropOddityConfig.luau — Per-effect tuning for falling lanterns, falling paintings and the painting dweller.
@@ -347,6 +352,8 @@ become Services or Classes.
 - ServerStorage\Services\PaintingFallService.luau — FixturePool wrapper that arms and drops falling paintings, plus its /painting command.
 - ServerStorage\Services\PeekSpotService.luau — Geometry search for corners an enemy can hide behind and lean out of into the player's view.
 - ServerStorage\Services\PerkService.luau — Resolves gamepass ownership and applies the double speed, visor and keep-items perks on spawn.
+- ServerStorage\Services\PhotoCameraService.luau — Runs placed tripod cameras: countdown, subject detection, ShadowFigure placement, snap broadcast and unseen despawn.
+- ServerStorage\Services\PhotoCommandService.luau — /photo chat command for placing a test camera, snapping it early and forcing the ShadowFigure into frame.
 - ServerStorage\Services\PlayerCharacterStreamingService.luau — Marks every player character as persistent so it is never streamed out.
 - ServerStorage\Services\PlayerLocatorService.luau — Cooldown-gated teleport behind another player for the Player Locator tool.
 - ServerStorage\Services\PlayerOddityCommandService.luau — Registers the /oddity chat command for triggering player oddities by effect and target.
@@ -413,6 +420,7 @@ become Services or Classes.
 - ServerStorage\Classes\Oddities\PlayerTransparency.luau — Player oddity that makes the victim's character parts near-invisible.
 - ServerStorage\Classes\Oddities\Transparency.luau — Hallway oddity that fades out every world part inside a hallway box.
 - ServerStorage\Classes\Tools\Bandage.luau — Server half of the Bandage tool; a plain Healer subclass.
+- ServerStorage\Classes\Tools\Camera.luau — Server half of the tripod camera; validates placement, spawns it and consumes the single use.
 - ServerStorage\Classes\Tools\Energy Drink.luau — Server half of the Energy Drink tool; a plain SpeedDrink subclass.
 - ServerStorage\Classes\Tools\Flashlight.luau — Server half of the flashlight, toggling the handle spotlight on activation.
 - ServerStorage\Classes\Tools\Gravity Warper.luau — Server half of the gravity warper; consumes one, tags the character IgnoreExceptEye for the warp duration and cues the client tween.

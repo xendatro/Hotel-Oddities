@@ -427,6 +427,24 @@ Resolves each player's gamepass ownership once on join, mirrors it to `Perk*` pl
 - API: `PerkService:WaitForPasses(player: Player) -> boolean` — yields up to 20s until ownership is resolved
 - Requires: `PerkConfig`, `MarketplaceService.Gamepasses`, `InventoryService`, `LoadoutService` (death snapshot/restore), `SpeedBoostService` (sets the DoubleSpeed multiplier)
 
+### PhotoCameraService.luau
+Owns every placed tripod camera. Builds the world model out of the Camera tool's parts (anchored, joints, welds and scripts stripped), turns it by `Place.ModelYaw` so the body faces away from the placer, parents it before tagging it so clients never see the tag before the parts, stamps it with the owner and a server-time `SnapAt`, and after the countdown works out the shot: which living players sit inside the lens cone with a clear ray that ignores every player character (so standing behind a teammate still counts), where the figure should stand behind them (clamped to the tripod's own floor level when the ray finds a surface more than `Figure.MaxFloorRise` above or below it, so it never ends up hovering in a lift shaft), and which clients to fire `Photo/Snap` at — the subjects plus the owner. Afterwards a GazeService tracker watches the model and destroys it once nobody has looked at it for `Despawn.UnseenFor`.
+- API: `PhotoCameraService:Place(player: Player, pivot: CFrame) -> Model?` — range-checked placement, starts the countdown
+- API: `PhotoCameraService:Snap(model: Model)` — take the shot now and start the despawn watch; ignores a model that already fired
+- API: `PhotoCameraService:GetSubjects(model: Model, lens: CFrame) -> { Player }`
+- API: `PhotoCameraService:GetFigureCFrame(model: Model, lens: CFrame, subjects: { Player }) -> CFrame?` — nil when the only room available is closer than `Figure.MinStandoff`, so the figure lurks in the background or not at all
+- API: `PhotoCameraService:GetActive() -> { Model }`
+- API: `PhotoCameraService.ForceFigure` — when true the figure is planted straight down the lens at `Figure.ForcedDepth` regardless of subjects, and falls back to a closer spot or a floorless one rather than being skipped
+- API: `PhotoCameraService.FigureName` — which rig under `ReplicatedStorage.Enemies` the clients clone into the photo; defaults to `Figure.Name`
+- Remotes: `Photo/Snap` (fired)
+- Tags: applies `PhotoConfig.Tag`
+- Requires: `Configs.PhotoConfig`, `CharacterService`, `CommunicationService`, `GazeService`, `ReplicatedStorage.Tools.Camera`
+
+### PhotoCommandService.luau
+Registers the `/photo` chat command for testing the tripod camera: bare `/photo` (or `/photo place`) stands a camera on the floor in front of the caller without spending a tool, `/photo now` snaps every camera that has not fired yet, and `/photo figure [on|off|<rig name>]` toggles `PhotoCameraService.ForceFigure` so the figure is guaranteed to be dead centre in frame, optionally swapping `PhotoCameraService.FigureName` to any rig under `ReplicatedStorage.Enemies` (matched case-insensitively) for testing before the real ShadowFigure exists.
+- API: none — registers its command on require.
+- Requires: `ChatCommandService`, `PhotoCameraService`, `CharacterService`, `Configs.PhotoConfig`
+
 ### PlayerCharacterStreamingService.luau
 Sets every player character's `ModelStreamingMode` to `Persistent` so characters are never streamed out on other clients.
 - API: data table — empty; all behaviour is in the connections

@@ -17,6 +17,7 @@ local Interaction = require(ReplicatedStorage.Services.InteractionService)
 local TagService = require(ReplicatedStorage.Services.TagService)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
+local InterfaceService = require(ReplicatedStorage.Services.InterfaceService)
 
 local INPUT = ComputerConfig.Input
 local CAMERA = ComputerConfig.Camera
@@ -390,6 +391,7 @@ local function renderSession()
 	local current = session
 	if not current then return end
 
+	InterfaceService:SetCameraFreed(true)
 	UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 	UserInputService.MouseIconEnabled = true
 
@@ -434,6 +436,7 @@ function restore()
 		camera.CameraType = current.SavedType
 	end
 
+	InterfaceService:SetCameraFreed(false)
 	UserInputService.MouseIconEnabled = current.SavedMouseIcon
 	UserInputService.MouseBehavior = current.SavedMouseBehavior
 	if cursor and UI.HideCursorInSession then

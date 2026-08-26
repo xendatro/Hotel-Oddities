@@ -138,6 +138,11 @@ Tag name, attribute name and reconciliation tolerances for the "freeze while obs
 Per-perk settings for the gamepass/perk system, keyed by perk name under a shared attribute prefix.
 - API: data table — `AttributePrefix`, `Loadout`, `Visor`, `DoubleSpeed`, `FriendRevive`
 
+### PhotoConfig.luau
+Every value the tripod Camera photo system uses: the placed-model tag and attribute names, placement raycast limits, body height, the 180-degree model yaw and the ghost placement preview, countdown length, lens offset/FOV and the subject cone, ShadowFigure placement rules (including the forced test placement), capture flash timings including the figure render warmup, the unseen-despawn rule, the countdown billboard styling, and the film-developing photo UI with its full-screen arrival, expanded view and close button.
+`Lens.Offset` is relative to the model's own pivot, which `Place.ModelYaw` has already turned around, so the tripod faces away from whoever placed it while still shooting forward.
+- API: data table — `Tag`, `ModelName`, `Attributes`, `Place`, `Countdown`, `Lens`, `Figure`, `Capture`, `Despawn`, `Timer`, `Develop`
+
 ### PlayerLocatorConfig.luau
 Cooldown, marker layout, focus animation and colour/font palette for the Player Locator tool's on-screen teammate markers.
 - API: data table — `Modes`, `Cooldown`, `CooldownFormat`, `MarkerCooldownFormat`, `ArriveDistance`, `Highlight`, `Marker`, `Focus`, `Press`, `Colors`, `Fonts`
@@ -179,7 +184,7 @@ Per-tool settings keyed by tool name, giving each tool its CollectionService tag
 - API: data table — one entry per tool: `Flashlight`, `Bandage`, `Medkit`, `SpellBook`, `Trap`, `Ball`, `Shovel`, `Pathfinder`, `Soda`, `Energy Drink`, `Visor`, `Gravity Warper`, `Player Locator`, `Walkie Talkie`
 
 ### ViewmodelConfig.luau
-Placement, scale, sway/bob and per-tool orientation overrides for the first-person viewmodel and its fake arm.
+Placement, scale, sway/bob and per-tool orientation overrides for the first-person viewmodel and its fake arm. `Overrides.Camera` anchors the tripod by its handle, shrinks it with a per-tool `Scale` and tilts it so the body sits up and to the right instead of sprawling across the screen.
 - API: data table — `HandOffset`, `Scale`, `Fit`, `SwayAmount`, `SwaySpeed`, `BobAmount`, `BobSpeed`, `Arm`, `Overrides`
 
 ### VoiceChatConfig.luau

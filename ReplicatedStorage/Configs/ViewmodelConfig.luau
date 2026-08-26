@@ -21,6 +21,12 @@ return {
 	},
 
 	Overrides = {
+		Camera = {
+			AnchorAt = "Handle",
+			Scale = 0.4,
+			Anchor = Vector3.new(1, -0.95, -3),
+			Rotate = CFrame.Angles(0, math.rad(-20), math.rad(55)),
+		},
 		Medkit = { AnchorAt = "Handle", Anchor = Vector3.new(0.8, -0.3, -1.7) },
 		Soda = { Rotate = CFrame.Angles(math.rad(-90), 0, 0) },
 		SpellBook = { Rotate = CFrame.Angles(math.rad(-15), math.rad(-95), 0) },

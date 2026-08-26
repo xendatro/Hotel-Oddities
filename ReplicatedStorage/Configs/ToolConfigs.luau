@@ -124,6 +124,12 @@ return {
 		Tag = "Player Locator",
 	},
 
+	Camera = {
+		Tag = "Camera",
+		Sound = "PlaceTrap",
+		Cooldown = 1,
+	},
+
 	["Walkie Talkie"] = {
 		Tag = "Walkie Talkie",
 	},

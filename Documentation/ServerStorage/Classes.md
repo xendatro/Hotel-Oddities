@@ -453,6 +453,12 @@ Server half of the Bandage tool: a bare `Healer` subclass, so activation consume
 - API: `Bandage.new(tool: Tool)`
 - Requires: `Classes\Healer` (extends `ServerTool`)
 
+### Tools\Camera.luau
+Server half of the tripod Camera: validates the client's placement CFrame, hands it to PhotoCameraService, and consumes the tool so each camera is single use.
+- API: `Camera.new(tool: Tool) -> self`
+- Remotes: `Tools/Signal` (listened, `Place`)
+- Requires: `Classes\ServerTool`, `Services.PhotoCameraService`
+
 ### Tools\Energy Drink.luau
 Server half of the Energy Drink tool: a bare `SpeedDrink` subclass, so activation consumes one and applies the configured walk-speed and FOV boost.
 - API: `EnergyDrink.new(tool: Tool)`
