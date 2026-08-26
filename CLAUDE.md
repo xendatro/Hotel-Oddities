@@ -64,8 +64,15 @@ Documentation/<Container>/<Folder>.md
 
 4. GIT
 
-Commit only the files you changed. Commit and push to main. There are no
-branches - do not create one, do not switch to one.
+Commit only the files you changed. The sequence is always: add only those
+files, commit, `git pull --no-rebase -X ours`, then push to main. Never force
+push. There are no branches - do not create one, do not switch to one.
+
+Why `-X ours`: Roblox script sync writes every collaborator's edits onto this
+disk automatically, so the working tree is always the latest version of the
+game and must win any merge conflict - but collaborators still push their own
+commits to GitHub for attribution, so their history has to be merged in rather
+than overwritten.
 
 5. NEVER WRITE CODE COMMENTS
 
