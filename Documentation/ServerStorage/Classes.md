@@ -251,11 +251,11 @@ The most elaborate enemy: it copies a random living player's appearance, name, v
 - Notes: overrides `Start`, `Despawn`, `BuildStateMachine`; delegates the actual chase to `Chaser.Chase(..., false)`; sets `_laneProbeDrop` while floating so lane checks account for the raised hips
 
 ### Enemies\Sisters.luau
-A pair of translucent, harmless figures that patrol the hallway ceilings forever. At start it clones itself into a twin, makes both rigs see-through, and walks them side by side upside down via `SurfaceWalker`, endlessly pathfinding between random `HallwayGraphService` nodes with each waypoint snapped to the ceiling by an upward raycast; both heads track the nearest player through the neck attachment each Heartbeat. No kill sweep, no light flicker, no forget-and-despawn — it patrols until despawned externally (config `Harmless = true` blocks touch kills).
+A pair of translucent, harmless figures that patrol the hallway ceilings forever. At start it clones itself into a twin, makes both rigs see-through, and walks them upside down via `SurfaceWalker`, endlessly pathfinding between random `HallwayGraphService` nodes. Both sisters are driven as one formation: a single virtual center walks the ceiling-snapped route and every Heartbeat each sister is placed abreast of it at her assigned side of `SideSpacing`, so they stay exactly side by side through corners; when a new leg reverses direction the side assignments are negated so the pair turns in place instead of circling each other. Both heads track the nearest player through the neck attachment each Heartbeat. No kill sweep, no light flicker, no forget-and-despawn — it patrols until despawned externally (config `Harmless = true` blocks touch kills).
 - API: `Sisters.new(model: Model, config, startTip: Vector3, direction: Vector3, destinationTip: Vector3?) -> self` — only `startTip`/`direction` are used now; the destination is accepted for the old call sites and ignored.
 - API: `Sisters:Start()` — clones the twin, prepares both models, places them on the ceiling, starts the patrol and face loops.
 - API: `Sisters:Despawn()` — disconnects, destroys walkers, animators and both models.
-- API: `Sisters:Patrol()` — the endless node-to-node ceiling walk loop.
+- API: `Sisters:Patrol()` — the endless node-to-node ceiling walk loop, one formation leg at a time.
 - API: `Sisters:GetCenter() -> Vector3` — midpoint of the pair.
 - Tags: applies `Enemy`, `Sisters`
 - Requires: `Classes.NpcAnimator`, `Classes.StateMachine`, `Classes.SurfaceWalker`, `EnemyService` (collision group), `ReplicatedStorage\Services\HallwayGraphService`, `ReplicatedStorage\Services\CharacterService`

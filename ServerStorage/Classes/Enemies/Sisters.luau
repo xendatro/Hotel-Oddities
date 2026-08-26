@@ -7,6 +7,7 @@ local NpcAnimator = require(ReplicatedStorage.Classes.NpcAnimator)
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local HallwayGraph = require(ReplicatedStorage.Services.HallwayGraphService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 local EnemyService = require(ServerStorage.Services.EnemyService)
 local SurfaceWalker = require(ServerStorage.Classes.SurfaceWalker)
 
@@ -15,6 +16,10 @@ local SISTERS_TAG = "Sisters"
 local MINIMUM_LEG = 1e-3
 local DESTINATION_ATTEMPTS = 10
 local RETRY_DELAY = 1
+local TURN_RESPONSIVENESS = 10
+local REVERSAL_DOT = -0.5
+local SNAP_DOT = -0.999
+local PROBE_DROP = 4
 
 local Sisters = {}
 Sisters.__index = Sisters
@@ -59,6 +64,8 @@ function Sisters.new(model: Model, config, startTip: Vector3, direction: Vector3
 	self.NeckAttachmentBases = {}
 	self.StartPosition = startTip + direction * (config.EndInset or 0)
 	self.Facing = flatten(direction)
+	self.FormationLook = self.Facing
+	self.WalkerSides = {} :: { number }
 	self.FaceConnection = nil :: RBXScriptConnection?
 
 	self.Active = false
@@ -122,10 +129,83 @@ function Sisters:GetCenter(): Vector3
 	return total / #self.Models
 end
 
+function Sisters:_placeFormation(position: Vector3, look: Vector3)
+	local across = Vector3.yAxis:Cross(look).Unit
+	for index, walker in self.Walkers do
+		local offset = position + across * self.WalkerSides[index]
+		local contact = SurfaceWalker.CeilingContact(
+			offset - Vector3.yAxis * PROBE_DROP,
+			self.Models,
+			offset.Y
+		)
+		walker:PlaceAt(contact, look)
+	end
+end
+
+function Sisters:_walkFormation(points: { Vector3 }, walkSpeed: number): boolean
+	if #points < 2 then return true end
+
+	local look = self.FormationLook
+	local tangent = flatten(points[2] - points[1])
+	if look:Dot(tangent) <= REVERSAL_DOT then
+		for index, side in self.WalkerSides do
+			self.WalkerSides[index] = -side
+		end
+		look = tangent
+	end
+	self.FormationLook = look
+
+	for _, animator in self.Animators do
+		animator:SetMovementTrack("Walk")
+		animator:SetMovementSpeed(walkSpeed)
+	end
+
+	local position = points[1]
+	local index = 1
+	while true do
+		self:_placeFormation(position, look)
+		if index >= #points then break end
+
+		local deltaTime = RunService.Heartbeat:Wait()
+		if not self.Active then return false end
+		for _, model in self.Models do
+			if not model.Parent then return false end
+		end
+
+		local remaining = walkSpeed * deltaTime
+		while remaining > 0 and index < #points do
+			local target = points[index + 1]
+			local offset = target - position
+			local distance = offset.Magnitude
+			if distance <= remaining then
+				position = target
+				index += 1
+				remaining -= distance
+			else
+				position += offset.Unit * remaining
+				remaining = 0
+			end
+		end
+
+		local segmentEnd = points[math.min(index + 1, #points)]
+		local segmentStart = points[math.min(index, #points - 1)]
+		local desired = flatten(segmentEnd - segmentStart)
+		if look:Dot(desired) <= SNAP_DOT then
+			look = desired
+		else
+			look = flatten(look:Lerp(desired, MathService.ExpAlpha(TURN_RESPONSIVENESS, deltaTime)))
+		end
+		self.FormationLook = look
+	end
+
+	for _, animator in self.Animators do
+		animator:SetMovementSpeed(0)
+	end
+	return true
+end
+
 function Sisters:Patrol()
 	local walkSpeed = math.max(self.Config.WalkSpeed or 5, 0.5)
-	local sideSpacing = math.max(self.Config.SideSpacing or 5.5, 0)
-	local sides = { -sideSpacing / 2, sideSpacing / 2 }
 	local nodes = HallwayGraph:Get()
 	local current = HallwayGraph:FindNearestNode(self.StartPosition)
 
@@ -159,18 +239,8 @@ function Sisters:Patrol()
 			continue
 		end
 
-		local finished = 0
-		for index, walker in self.Walkers do
-			local points = SurfaceWalker.CeilingRoute(route, self.Models, sides[index])
-			task.spawn(function()
-				walker:WalkAlong(points, walkSpeed)
-				finished += 1
-			end)
-		end
-		while self.Active and finished < #self.Walkers do
-			RunService.Heartbeat:Wait()
-		end
-		if not self.Active then return end
+		local points = SurfaceWalker.CeilingRoute(route, self.Models)
+		if not self:_walkFormation(points, walkSpeed) then return end
 
 		current = destination
 	end
@@ -185,11 +255,10 @@ function Sisters:Start()
 	twin.Parent = self.Model.Parent
 	table.insert(self.Models, twin)
 
-	local across = Vector3.yAxis:Cross(self.Facing).Unit
 	local sideSpacing = math.max(self.Config.SideSpacing or 5.5, 0)
-	local sides = { -sideSpacing / 2, sideSpacing / 2 }
+	self.WalkerSides = { -sideSpacing / 2, sideSpacing / 2 }
 
-	for index, model in self.Models do
+	for _, model in self.Models do
 		prepare(model, self.Config)
 
 		local animator = NpcAnimator.new(model, self.Config.Animations)
@@ -202,13 +271,9 @@ function Sisters:Start()
 		model:AddTag(ENEMY_TAG)
 		model:AddTag(SISTERS_TAG)
 
-		local walker = SurfaceWalker.new(model, animator, -Vector3.yAxis)
-		walker:PlaceAt(
-			SurfaceWalker.CeilingContact(self.StartPosition + across * sides[index], self.Models),
-			self.Facing
-		)
-		table.insert(self.Walkers, walker)
+		table.insert(self.Walkers, SurfaceWalker.new(model, animator, -Vector3.yAxis))
 	end
+	self:_placeFormation(SurfaceWalker.CeilingContact(self.StartPosition, self.Models), self.Facing)
 
 	self.FaceConnection = RunService.Heartbeat:Connect(function()
 		self:_facePlayers()
