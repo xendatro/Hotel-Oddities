@@ -114,7 +114,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\GhostMotionService.luau — Ghost drift leg math and the model-attribute protocol the server and clients share.
 - ReplicatedStorage\Services\GhostRenderService.luau — Renders ghosts as translucent friend-avatar rigs driven by replicated motion.
 - ReplicatedStorage\Services\GraphicsFogService.luau — Distance fog and a camera-parented cage on low graphics levels.
-- ReplicatedStorage\Services\GravityWarpService.luau — Client executor for the Gravity Warper; tweens the player onto the ceiling, runs WallstickService for the warp duration, then tweens them back down.
+- ReplicatedStorage\Services\GravityWarpService.luau — Client executor for the Gravity Warper; rolls the player and camera onto a ceiling-locked gravity plane for the warp duration, then rolls them back down.
 - ReplicatedStorage\Services\GuiBuilderService.luau — Shared helper for PlayerGui access, ScreenGuis, corners and strokes.
 - ReplicatedStorage\Services\HallwayCrushDamageService.luau — Client-side kill decision for the closing-walls oddity, using the local character's own position against the server's lethal intervals.
 - ReplicatedStorage\Services\HallwayGraphService.luau — Navigable node graph built from tagged maze floors, with Dijkstra pathfinding and walking distance; nodes and edges touching spawn safe zones are pruned.
@@ -168,7 +168,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\VoiceDebugService.luau — Debug panel of sliders for local proximity-voice and radio volumes.
 - ReplicatedStorage\Services\WalkSoundService.luau — Footstep engine timing steps from locomotion animations for players and tagged enemies.
 - ReplicatedStorage\Services\WalkieTalkieService.luau — Walkie-talkie mode toggle, own-emitter muting and voice-eligibility gate.
-- ReplicatedStorage\Services\WallstickService.luau — Client opt-in wall-sticking for the local character plus replication rendering of other players' wall-stuck characters.
+- ReplicatedStorage\Services\WallstickService.luau — Client opt-in wall-sticking with optional fixed surface orientation for the local character, plus replication rendering of other players' wall-stuck characters.
 
 ### ReplicatedStorage\Classes
 

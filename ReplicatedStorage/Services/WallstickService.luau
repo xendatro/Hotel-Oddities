@@ -17,6 +17,12 @@ type Session = {
 	Connections: { RBXScriptConnection },
 }
 
+type EnableOptions = {
+	tilt: boolean?,
+	spin: boolean?,
+	surfaceNormal: Vector3?,
+}
+
 local ActiveSession: Session? = nil
 
 local function ignoreCharacterParts(result: RaycastResult): boolean
@@ -51,7 +57,7 @@ function WallstickService.Disable()
 	session.Wallstick:Destroy()
 end
 
-function WallstickService.Enable(options: { tilt: boolean?, spin: boolean? }?): any
+function WallstickService.Enable(options: EnableOptions?): any
 	if ActiveSession then
 		return ActiveSession.Wallstick
 	end
@@ -83,6 +89,12 @@ function WallstickService.Enable(options: { tilt: boolean?, spin: boolean? }?): 
 		filterType = Enum.RaycastFilterType.Exclude,
 		instances = { character :: Instance },
 	})
+	local surfaceNormal = options and options.surfaceNormal
+	if surfaceNormal and surfaceNormal.Magnitude > 0 then
+		surfaceNormal = surfaceNormal.Unit
+	else
+		surfaceNormal = nil
+	end
 
 	local session: Session = {
 		Wallstick = wallstick,
@@ -109,8 +121,12 @@ function WallstickService.Enable(options: { tilt: boolean?, spin: boolean? }?): 
 		})
 
 		if result then
+			if surfaceNormal and result.Normal:Dot(surfaceNormal) < 0.9 then
+				return
+			end
+
 			local stickPart = (result.Instance :: BasePart).AssemblyRootPart
-			local stickNormal = stickPart.CFrame:VectorToObjectSpace(result.Normal)
+			local stickNormal = stickPart.CFrame:VectorToObjectSpace(surfaceNormal or result.Normal)
 
 			wallstick:setAndPivot(stickPart, stickNormal, result.Position)
 		end

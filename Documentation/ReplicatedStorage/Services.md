@@ -269,7 +269,7 @@ Applies heavy distance fog on low graphics settings to cut render load: reads th
 - Requires: `Configs.GraphicsFogConfig`, `MathService`
 
 ### GravityWarpService.luau
-Client executor for the Gravity Warper item, deliberately independent of the tool instance's lifetime (consuming the last charge destroys the Tool mid-warp). On `GravityWarp/Warp` it tweens the anchored root up to the ceiling while flipping the character upside down, enables `WallstickService` so the player walks the ceiling for the given duration, then disables it and tweens the character back down upright onto the floor (raycast to the floor, falling back to a short drop). Bails out safely on death or character removal at any stage; only one warp runs at a time.
+Client executor for the Gravity Warper item, deliberately independent of the tool instance's lifetime (consuming the last charge destroys the Tool mid-warp). On `GravityWarp/Warp` it tweens the anchored root up to the ceiling while rolling the camera in sync, enables `WallstickService` with a fixed world-down surface normal so the player remains level on ceilings and cannot transfer onto walls for the given duration, then disables it and tweens the character and camera back down upright onto the floor (raycast to the floor, falling back to a short drop). Bails out safely on death or character removal at any stage; only one warp runs at a time.
 - API: `GravityWarpService.IsActive() -> boolean`
 - Remotes: `GravityWarp/Warp` (listened)
 - Requires: `CharacterService`, `CommunicationService`, `WallstickService`, `Configs.ToolConfigs` (`Gravity Warper`: `AscendTime`, `DescendTime`, `MaxCeilingDistance`)
@@ -696,8 +696,8 @@ Client walkie-talkie mode control. Reuses the `PlayerLocator` GUI's mode frame f
 - Requires: `Configs.WalkieTalkieConfig`, `GuiBuilderService`; shares the `PlayerLocator` ScreenGui with `PlayerLocatorService`
 
 ### WallstickService.luau
-Client front end for the vendored Wallstick controller. Always listens on the replication channel so other players' wall-stuck characters render correctly; wall-sticking for the local character is opt-in via `Enable`, which runs an auto-stick raycast loop under the character's feet each `PreSimulation` (like the upstream demo, resetting to normal gravity after a long fall) and tears down on death or character removal. Guarded to be inert on the server.
-- API: `WallstickService.Enable(options: { tilt: boolean?, spin: boolean? }?) -> Wallstick?` — starts wall-sticking for the local character; returns the active (or existing) instance
+Client front end for the vendored Wallstick controller. Always listens on the replication channel so other players' wall-stuck characters render correctly; wall-sticking for the local character is opt-in via `Enable`, which runs an auto-stick raycast loop under the character's feet each `PreSimulation` (like the upstream demo, resetting to normal gravity after a long fall), optionally limits transfers to surfaces aligned with a fixed world-space normal, and tears down on death or character removal. Guarded to be inert on the server.
+- API: `WallstickService.Enable(options: { tilt: boolean?, spin: boolean?, surfaceNormal: Vector3? }?) -> Wallstick?` — starts wall-sticking for the local character; `surfaceNormal` rejects differently oriented surfaces and keeps accepted surfaces exactly aligned to that normal; returns the active (or existing) instance
 - API: `WallstickService.Disable()` — destroys the session and restores normal character physics
 - API: `WallstickService.IsEnabled() -> boolean`, `WallstickService.Get() -> Wallstick?`
 - Remotes: `Wallstick/Replicator`, `Wallstick/Sync` (via `Classes.Wallstick.Replication`)

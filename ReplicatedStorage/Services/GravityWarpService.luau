@@ -17,6 +17,33 @@ local WallstickService = require(ReplicatedStorage.Services.WallstickService)
 local Config = ToolConfigs["Gravity Warper"]
 
 local Active = false
+local CAMERA_BIND = "GravityWarpCamera"
+local CameraRoot = nil :: BasePart?
+
+local function renderCameraRoll()
+	local camera = workspace.CurrentCamera
+	local root = CameraRoot
+	if not camera or not root or not root.Parent then return end
+
+	local cameraCFrame = camera.CFrame
+	local look = cameraCFrame.LookVector
+	local projectedUp = root.CFrame.UpVector - look * root.CFrame.UpVector:Dot(look)
+	if projectedUp.Magnitude < 1e-4 then return end
+
+	local up = projectedUp.Unit
+	local right = look:Cross(up).Unit
+	camera.CFrame = CFrame.fromMatrix(cameraCFrame.Position, right, up, -look)
+end
+
+local function startCameraRoll(root: BasePart)
+	CameraRoot = root
+	RunService:BindToRenderStep(CAMERA_BIND, Enum.RenderPriority.Camera.Value + 1, renderCameraRoll)
+end
+
+local function stopCameraRoll()
+	CameraRoot = nil
+	RunService:UnbindFromRenderStep(CAMERA_BIND)
+end
 
 function GravityWarpService.IsActive(): boolean
 	return Active
@@ -30,7 +57,7 @@ local function rayParamsFor(character: Model): RaycastParams
 	return params
 end
 
-local function tweenRoot(root: BasePart, goal: CFrame, time: number)
+local function tweenRoot(root: BasePart, goal: CFrame, time: number): boolean
 	root.Anchored = true
 	root.AssemblyLinearVelocity = Vector3.zero
 	root.AssemblyAngularVelocity = Vector3.zero
@@ -40,8 +67,13 @@ local function tweenRoot(root: BasePart, goal: CFrame, time: number)
 		{ CFrame = goal }
 	)
 	tween:Play()
-	tween.Completed:Wait()
-	root.Anchored = false
+	local playbackState = tween.Completed:Wait()
+
+	if root.Parent then
+		root.Anchored = false
+	end
+
+	return playbackState == Enum.PlaybackState.Completed
 end
 
 local function warp(duration: number)
@@ -57,6 +89,7 @@ local function warp(duration: number)
 	if not ceiling then return end
 
 	Active = true
+	startCameraRoll(root)
 
 	local hipHeight = humanoid.HipHeight
 	if humanoid.RigType == Enum.HumanoidRigType.R6 then
@@ -65,19 +98,39 @@ local function warp(duration: number)
 	local clearance = hipHeight + root.Size.Y / 2 + 0.05
 
 	local flipped = root.CFrame.Rotation * CFrame.Angles(0, 0, math.pi)
-	tweenRoot(root, CFrame.new(ceiling.Position - Vector3.new(0, clearance, 0)) * flipped, Config.AscendTime)
+	local reachedCeiling = tweenRoot(
+		root,
+		CFrame.new(ceiling.Position - Vector3.new(0, clearance, 0)) * flipped,
+		Config.AscendTime
+	)
 
-	if not CharacterService.IsAlive(character) or root.Parent == nil then
+	if not reachedCeiling or not CharacterService.IsAlive(character) or root.Parent == nil then
+		stopCameraRoll()
 		Active = false
 		return
 	end
 
-	WallstickService.Enable()
+	local wallstick = WallstickService.Enable({
+		tilt = false,
+		spin = false,
+		surfaceNormal = -Vector3.yAxis,
+	})
+	if not wallstick then
+		stopCameraRoll()
+		Active = false
+		return
+	end
+
+	local ceilingPart = (ceiling.Instance :: BasePart).AssemblyRootPart
+	local ceilingNormal = ceilingPart.CFrame:VectorToObjectSpace(-Vector3.yAxis)
+	wallstick:setAndPivot(ceilingPart, ceilingNormal, ceiling.Position)
 
 	local elapsed = 0
 	while elapsed < duration do
 		elapsed += task.wait(0.1)
 		if not CharacterService.IsAlive(character) or root.Parent == nil then
+			WallstickService.Disable()
+			stopCameraRoll()
 			Active = false
 			return
 		end
@@ -93,6 +146,7 @@ local function warp(duration: number)
 		tweenRoot(root, CFrame.new(goalPosition) * uprightRotation, Config.DescendTime)
 	end
 
+	stopCameraRoll()
 	Active = false
 end
 
