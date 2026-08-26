@@ -141,10 +141,10 @@ local function addParallelIntersection(first: Hallway, second: Hallway, nodes: {
 		second.Center - second.Direction * second.HalfLength,
 		second.Center + second.Direction * second.HalfLength,
 	}
+	local endGapTolerance = math.min(first.HalfWidth, second.HalfWidth) * 2 + CONNECTION_EPSILON
 	for _, firstPoint in firstEnds do
 		for _, secondPoint in secondEnds do
-			if horizontal(firstPoint - secondPoint).Magnitude
-				<= first.HalfWidth + second.HalfWidth + CONNECTION_EPSILON then
+			if horizontal(firstPoint - secondPoint).Magnitude <= endGapTolerance then
 				local node = getOrCreateNode(nodes, firstPoint:Lerp(secondPoint, 0.5))
 				addNode(first, node)
 				addNode(second, node)

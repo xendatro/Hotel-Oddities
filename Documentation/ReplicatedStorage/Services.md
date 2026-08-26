@@ -287,7 +287,7 @@ Client-only. Owns the kill decision for the `HallwayCrush` map oddity. Listens o
 - Requires: `Services.CharacterService`, `Services.CommunicationService`
 
 ### HallwayGraphService.luau
-Builds a navigable node graph from the tagged maze floor parts by intersecting hallway rectangles (perpendicular crossings and end-to-end parallel joins), then offers nearest-node lookup, Dijkstra pathfinding, and walking-distance queries. Nodes inside a `SpawnSafeZone` part and edges crossing one are pruned from the graph, so nothing that routes over it ever passes through the spawn safe zone. The graph is cached and invalidated automatically whenever a tagged floor or spawn zone is added or removed.
+Builds a navigable node graph from the tagged maze floor parts by intersecting hallway rectangles (perpendicular crossings and end-to-end parallel joins; the join's end-gap tolerance is twice the narrower floor's half-width, so a wide connector floor cannot bridge to a hallway dead-ending outside its walls), then offers nearest-node lookup, Dijkstra pathfinding, and walking-distance queries. Nodes inside a `SpawnSafeZone` part and edges crossing one are pruned from the graph, so nothing that routes over it ever passes through the spawn safe zone. The graph is cached and invalidated automatically whenever a tagged floor or spawn zone is added or removed.
 - API: `HallwayGraph:Build() -> { RouteNode }` — forces a fresh build, bypassing the cache
 - API: `HallwayGraph:Get() -> { RouteNode }` — cached node list
 - API: `HallwayGraph:Invalidate()` — drops the cache
