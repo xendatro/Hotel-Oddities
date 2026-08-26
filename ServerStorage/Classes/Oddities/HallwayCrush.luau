@@ -25,6 +25,16 @@ local DOORWAY_GAP = 8
 local SEAM_OVERLAP = 0.06
 local SEAL_LIFT = 0.02
 local ALCOVE_MARGIN = 0.5
+local LAYER_NUDGE = {
+	Baseboard = { Length = 1, Height = 0.030, Across = 0 },
+	ChairRail = { Length = 0.83, Height = 0.042, Across = 0 },
+	Crown = { Length = 0.67, Height = 0.012, Across = 0 },
+	Wainscot = { Length = 0.42, Height = 0.018, Across = 0.012 },
+	Wallpaper = { Length = 0.25, Height = 0, Across = 0 },
+}
+local HEADER_LIFT = 0.024
+local HEADER_RECESS = 0.006
+local FAR_SIDE_OVERSHOOT = 0.6
 
 local MapCrush = CommunicationService.Ensure("Oddities", "MapCrush")
 
@@ -72,6 +82,15 @@ type Alcove = {
 	Inner: number,
 	Outer: number,
 	Top: number,
+}
+
+type Header = {
+	Part: BasePart,
+	Sign: number,
+	CFrame: CFrame,
+	Size: Vector3,
+	ThicknessAxis: Vector3,
+	LengthAxis: Vector3,
 }
 
 type Reveal = {
@@ -126,9 +145,9 @@ local function candidateFromSpan(class: any, span: HallwayRegion.Span?, position
 	return { Span = span, Frame = frame }
 end
 
-local function inMouth(mouths: { HallwayWall.Mouth }, sign: number, along: number): boolean
-	for _, mouth in mouths do
-		if mouth.Sign == sign and along > mouth.Minimum and along < mouth.Maximum then return true end
+local function inIntervals(intervals: { HallwayWall.Interval }, along: number): boolean
+	for _, interval in intervals do
+		if along >= interval.Minimum and along <= interval.Maximum then return true end
 	end
 	return false
 end
@@ -137,7 +156,7 @@ local function pieceIntervals(
 	wall: HallwayWall.Wall,
 	frame: HallwayWall.Frame,
 	cuts: { number },
-	mouths: { HallwayWall.Mouth }
+	closing: { HallwayWall.Interval }
 ): { { Minimum: number, Maximum: number, Moving: boolean } }
 	local boundaries = { wall.Minimum, wall.Maximum }
 	for _, cut in cuts do
@@ -159,7 +178,7 @@ local function pieceIntervals(
 			Maximum = maximum,
 			Moving = middle > frame.Minimum
 				and middle < frame.Maximum
-				and not inMouth(mouths, wall.Sign, middle),
+				and inIntervals(closing, middle),
 		})
 	end
 	return pieces
@@ -172,19 +191,41 @@ local function setPiece(
 	frame: HallwayWall.Frame,
 	piece: { Minimum: number, Maximum: number, Moving: boolean },
 	previous: { Moving: boolean }?,
-	following: { Moving: boolean }?
+	following: { Moving: boolean }?,
+	trimOvershoot: number
 )
+	local layer = part:GetAttribute("WallLayer")
+	local nudge = if piece.Moving and type(layer) == "string" then LAYER_NUDGE[layer] else nil
+	local sideScale = if wall.Sign > 0 then 1 else FAR_SIDE_OVERSHOOT
+	local overshoot = if nudge then nudge.Length * trimOvershoot * sideScale else 0
+
 	local minimum = piece.Minimum
 	local maximum = piece.Maximum
-	if previous and previous.Moving == piece.Moving then minimum -= SEAM_OVERLAP end
-	if following and following.Moving == piece.Moving then maximum += SEAM_OVERLAP end
+	if previous and previous.Moving == piece.Moving then
+		minimum -= SEAM_OVERLAP
+	else
+		minimum -= overshoot
+	end
+	if following and following.Moving == piece.Moving then
+		maximum += SEAM_OVERLAP
+	else
+		maximum += overshoot
+	end
 
 	local length = maximum - minimum
 	local baseLength = wall.Maximum - wall.Minimum
 	local shift = (minimum + maximum) / 2 - (wall.Minimum + wall.Maximum) / 2
 	local lift = if piece.Moving and wall.Sign > 0 then SEAL_LIFT else 0
+	local proud = 0
+	if nudge then
+		lift += nudge.Height
+		proud = nudge.Across
+	end
 
-	part.Size = edit.Size + wall.LengthAxis * (length - baseLength) + Vector3.yAxis * lift
+	part.Size = edit.Size
+		+ wall.LengthAxis * (length - baseLength)
+		+ Vector3.yAxis * lift
+		+ wall.ThicknessAxis * proud
 	part.CFrame = edit.CFrame + frame.Axis * shift
 
 	local offset = shift * wall.LengthSign * TEXTURE_SIGN
@@ -229,6 +270,8 @@ function HallwayCrush.new(config: { [string]: any }?)
 	self.Edits = {} :: { WallEdit }
 	self.Movers = {} :: { Mover }
 	self.Coverage = { {}, {} } :: { { HallwayWall.Interval } }
+	self.Closing = {} :: { HallwayWall.Interval }
+	self.Headers = {} :: { Header }
 	self.Lethal = {} :: { HallwayWall.Interval }
 	self.Alcoves = {} :: { Alcove }
 	self.SealedAt = nil :: number?
@@ -268,9 +311,10 @@ end
 
 function HallwayCrush:_collectWalls(frame: HallwayWall.Frame)
 	local cuts = HallwayWall.CutPoints(frame)
-	local mouths = HallwayWall.Mouths(frame)
+	local trimOvershoot = math.max(self:Setting("TrimOvershoot", 0.12), 0)
+	self.Closing = HallwayWall.Closing(frame)
 	for _, wall in HallwayWall.Walls(frame) do
-		local pieces = pieceIntervals(wall, frame, cuts, mouths)
+		local pieces = pieceIntervals(wall, frame, cuts, self.Closing)
 		if #pieces == 0 then continue end
 
 		local part = wall.Part
@@ -297,7 +341,16 @@ function HallwayCrush:_collectWalls(frame: HallwayWall.Frame)
 				table.insert(edit.Clones, target)
 			end
 
-			setPiece(target, edit, wall, frame, piece, pieces[index - 1], pieces[index + 1])
+			setPiece(
+				target,
+				edit,
+				wall,
+				frame,
+				piece,
+				pieces[index - 1],
+				pieces[index + 1],
+				trimOvershoot
+			)
 			if index > 1 then target.Parent = edit.Parent end
 			if not piece.Moving then continue end
 
@@ -378,6 +431,28 @@ function HallwayCrush:_collectReveals(frame: HallwayWall.Frame, structure: Model
 		if math.abs(across) < 1 then continue end
 
 		local sign = if across >= 0 then 1 else -1
+		local headerRight = header.CFrame.RightVector
+		local headerLook = header.CFrame.LookVector
+		if math.abs(headerRight:Dot(frame.Axis)) >= 0.95 then
+			table.insert(self.Headers, {
+				Part = header,
+				Sign = sign,
+				CFrame = header.CFrame,
+				Size = header.Size,
+				ThicknessAxis = Vector3.zAxis,
+				LengthAxis = Vector3.xAxis,
+			})
+		elseif math.abs(headerLook:Dot(frame.Axis)) >= 0.95 then
+			table.insert(self.Headers, {
+				Part = header,
+				Sign = sign,
+				CFrame = header.CFrame,
+				Size = header.Size,
+				ThicknessAxis = Vector3.xAxis,
+				LengthAxis = Vector3.zAxis,
+			})
+		end
+
 		local outward = math.abs(across) + extentAlong(doorway, frame.Across) / 2
 		local width = extentAlong(doorway, frame.Axis)
 		local top = header.Position.Y - header.Size.Y / 2
@@ -417,6 +492,15 @@ function HallwayCrush:_apply(offset: number)
 
 	for _, shifter in self.Shifters do
 		shifter.Model:PivotTo(shifter.Pivot + frame.Across * (-shifter.Sign * offset))
+	end
+
+	for _, header in self.Headers do
+		local thickness = math.max(offset - HEADER_RECESS, 0)
+		header.Part.Size = header.Size
+			+ header.ThicknessAxis * thickness
+			+ header.LengthAxis * (SEAM_OVERLAP * 2)
+			+ Vector3.yAxis * HEADER_LIFT
+		header.Part.CFrame = header.CFrame + frame.Across * (-header.Sign * thickness / 2)
 	end
 
 	for _, shrinker in self.Shrinkers do
@@ -639,6 +723,7 @@ function HallwayCrush:_restore()
 	end
 	table.clear(self.Edits)
 	table.clear(self.Movers)
+	table.clear(self.Closing)
 	table.clear(self.Lethal)
 	table.clear(self.Alcoves)
 	table.clear(self.Coverage[1])
@@ -648,6 +733,14 @@ function HallwayCrush:_restore()
 		if shifter.Model.Parent then shifter.Model:PivotTo(shifter.Pivot) end
 	end
 	table.clear(self.Shifters)
+
+	for _, header in self.Headers do
+		if header.Part.Parent then
+			header.Part.Size = header.Size
+			header.Part.CFrame = header.CFrame
+		end
+	end
+	table.clear(self.Headers)
 
 	for _, shrinker in self.Shrinkers do
 		if shrinker.Part.Parent then shrinker.Part.Size = shrinker.Size end
