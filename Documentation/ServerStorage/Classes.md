@@ -420,6 +420,13 @@ Extends `PlayerOddity`. Rescales the victim's character by a random multiplier f
 - API: `PlayerSize:OnStop()` — restores the original scale
 - Requires: `Classes\PlayerOddity`
 
+### Oddities\PlayerHeadSize.luau
+Extends `PlayerOddity`. Sets the victim humanoid's `HeadScale` to `HeadSizeMultiplier` times its existing value, which scales the head and attached accessories for every client, then restores the original value on stop.
+- API: `PlayerHeadSize.new(config: { [string]: any }?)` — adds the tracked head-scale value and original scale
+- API: `PlayerHeadSize:OnStart() -> boolean` — applies `HeadSizeMultiplier` (default 1.5)
+- API: `PlayerHeadSize:OnStop()` — restores the original head scale
+- Requires: `Classes\PlayerOddity`
+
 ### Oddities\PlayerTransparency.luau
 Extends `PlayerOddity`. Makes every fully opaque part of the victim's character slightly see-through (including parts added while it runs) and restores them on stop.
 - API: `PlayerTransparency.new(config: { [string]: any }?)` — adds the original-transparency map and `DescendantAdded` hook

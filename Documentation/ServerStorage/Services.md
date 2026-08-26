@@ -457,12 +457,12 @@ Backs the Player Locator tool: teleports the holder behind a chosen player, on a
 - Requires: `PlayerLocatorConfig`, `HallwayStreamingService:PrepareTeleport`, `InventoryService` (equip check)
 
 ### PlayerOddityCommandService.luau
-Registers the `/oddity` chat command, parsing an optional effect name (size / transparency / stare) and an optional player name — with exact, display-name and prefix matching — then asking `PlayerOddityService` to trigger it. Reports results and failures via `warn`.
+Registers the `/oddity` chat command, parsing an optional effect name (size / headsize / transparency / stare) and an optional player name — with exact, display-name and prefix matching — then asking `PlayerOddityService` to trigger it. `headsize` also accepts `bighead`. Reports results and failures via `warn`.
 - API: data table — empty; the module only registers the command
 - Requires: `ChatCommandService`, `PlayerOddityService`
 
 ### PlayerOddityService.luau
-Randomly afflicts a living player with a `Player`-scope oddity (size, transparency, head stare) on a repeating roll, allowing one at a time per player and clearing it on respawn. Weights come from `PlayerOddityConfig.EffectWeights` and unavailable classes are skipped.
+Randomly afflicts a living player with a `Player`-scope oddity (size, head size, transparency, head stare) on a repeating roll, allowing one at a time per player and clearing it on respawn. Weights come from `PlayerOddityConfig.EffectWeights` and unavailable classes are skipped.
 - API: `PlayerOddityService:Trigger(player: Player, kind: string?) -> (boolean, string?, string?)` — returns ok, the chosen kind, and a failure reason
 - Requires: `PlayerOddityConfig`, `OddityService` (scope `"Player"`), `CharacterService`
 

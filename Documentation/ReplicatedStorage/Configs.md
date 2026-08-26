@@ -148,8 +148,8 @@ Cooldown, marker layout, focus animation and colour/font palette for the Player 
 - API: data table — `Modes`, `Cooldown`, `CooldownFormat`, `MarkerCooldownFormat`, `ArriveDistance`, `Highlight`, `Marker`, `Focus`, `Press`, `Colors`, `Fonts`
 
 ### PlayerOddityConfig.luau
-Roll timings and effect weights for the player oddity system that randomly resizes, fades or head-stares a player's own character.
-- API: data table — `Enabled`, `RollInterval`, `InitialDelay`, `TriggerChance`, `MinDuration`, `MaxDuration`, `MinimumPlayersForHeadStare`, `EffectWeights`, `SizeOptions`, `OddTransparency`, `HeadTurnRate`, `HeadReturnRate`
+Roll timings and effect weights for the player oddity system that randomly resizes a whole character, enlarges a player's head and head accessories, fades or head-stares a player's own character.
+- API: data table — `Enabled`, `RollInterval`, `InitialDelay`, `TriggerChance`, `MinDuration`, `MaxDuration`, `MinimumPlayersForHeadStare`, `EffectWeights`, `SizeOptions`, `HeadSizeMultiplier`, `OddTransparency`, `HeadTurnRate`, `HeadReturnRate`
 
 ### PropOddityConfig.luau
 Per-effect tuning for prop-based oddities — falling lanterns, falling paintings, the painting dweller, and the scurrying rat — covering arming, approach detection, candidate selection, and either repair rules (the fixture effects) or crossing-site sampling and rat motion (`RatScurry`).

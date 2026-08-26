@@ -71,7 +71,7 @@ function PlayerOddityService:Trigger(player: Player, kind: string?): (boolean, s
 	if active[player] then return false, nil, `{player.Name} already has an oddity` end
 
 	if kind and not OddityService:Get(SCOPE, kind) then
-		return false, nil, "unknown effect; use size, transparency, or stare"
+		return false, nil, "unknown effect; use size, headsize, transparency, or stare"
 	end
 
 	local chosen = kind or chooseKind()

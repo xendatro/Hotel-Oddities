@@ -256,7 +256,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\PerkConfig.luau — Per-perk settings for the gamepass/perk system.
 - ReplicatedStorage\Configs\PhotoConfig.luau — Placement, countdown, lens, ShadowFigure, capture, despawn and film-developing settings for the tripod camera.
 - ReplicatedStorage\Configs\PlayerLocatorConfig.luau — Marker layout, focus animation and palette for the Player Locator tool.
-- ReplicatedStorage\Configs\PlayerOddityConfig.luau — Roll timings and effect weights for player-character oddities.
+- ReplicatedStorage\Configs\PlayerOddityConfig.luau — Roll timings and effect weights for whole-character size, head-size, transparency and head-stare player oddities.
 - ReplicatedStorage\Configs\PropOddityConfig.luau — Per-effect tuning for falling lanterns, falling paintings and the painting dweller.
 - ReplicatedStorage\Configs\ShopkeeperConfig.luau — Shopkeeper NPC tag, reach, input bindings and prompt UI styling.
 - ReplicatedStorage\Configs\SpawnZoneConfig.luau — Tag, poll interval and repel cooldown for the spawn safe zone system.
@@ -416,6 +416,7 @@ become Services or Classes.
 - ServerStorage\Classes\Oddities\PaintingFall.luau — Fixture-fall oddity that shoves a wall painting off the wall with spin.
 - ServerStorage\Classes\Oddities\RatScurry.luau — Runs a rat across a hallway from one wall to the other and destroys it on the far side.
 - ServerStorage\Classes\Oddities\PlayerHeadStare.luau — Player oddity that runs the client head-stare effect when enough players are alive.
+- ServerStorage\Classes\Oddities\PlayerHeadSize.luau — Player oddity that enlarges a player's head and attached accessories by the configured multiplier for every client.
 - ServerStorage\Classes\Oddities\PlayerSize.luau — Player oddity that rescales the victim's character to a random configured size.
 - ServerStorage\Classes\Oddities\PlayerTransparency.luau — Player oddity that makes the victim's character parts near-invisible.
 - ServerStorage\Classes\Oddities\Transparency.luau — Hallway oddity that fades out every world part inside a hallway box.
