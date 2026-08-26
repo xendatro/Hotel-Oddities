@@ -1,3 +1,4 @@
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -5,6 +6,8 @@ local MathService = require(ReplicatedStorage.Services.MathService)
 
 local TURN_RESPONSIVENESS = 10
 local SNAP_DOT = -0.999
+local CEILING_RAY = 60
+local CEILING_START_OFFSET = 2
 
 local SurfaceWalker = {}
 SurfaceWalker.__index = SurfaceWalker
@@ -39,6 +42,53 @@ local function setUpConnections(self)
 			self:Destroy()
 		end
 	end)
+end
+
+function SurfaceWalker.CeilingContact(position: Vector3, exclusions: { Instance }, fallbackY: number?): Vector3
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.RespectCanCollide = true
+
+	local excluded = table.clone(exclusions)
+	for _, player in Players:GetPlayers() do
+		if player.Character then
+			table.insert(excluded, player.Character)
+		end
+	end
+	params.FilterDescendantsInstances = excluded
+
+	local origin = position + Vector3.yAxis * CEILING_START_OFFSET
+	local result = workspace:Raycast(origin, Vector3.yAxis * CEILING_RAY, params)
+	if result then
+		return result.Position
+	end
+	return Vector3.new(position.X, fallbackY or position.Y + CEILING_RAY, position.Z)
+end
+
+function SurfaceWalker.CeilingRoute(
+	route: { any },
+	exclusions: { Instance },
+	lateralOffset: number?,
+	fallbackY: number?
+): { Vector3 }
+	local side = lateralOffset or 0
+	local points = {}
+	for index, node in route do
+		local position = node.Position
+		if side ~= 0 then
+			local previous = route[math.max(index - 1, 1)]
+			local following = route[math.min(index + 1, #route)]
+			local direction = Vector3.new(
+				following.Position.X - previous.Position.X,
+				0,
+				following.Position.Z - previous.Position.Z
+			)
+			local flat = if direction.Magnitude > 1e-3 then direction.Unit else Vector3.xAxis
+			position += Vector3.yAxis:Cross(flat).Unit * side
+		end
+		points[index] = SurfaceWalker.CeilingContact(position, exclusions, fallbackY)
+	end
+	return points
 end
 
 function SurfaceWalker.new(model: Model, animator: any?, surfaceNormal: Vector3)

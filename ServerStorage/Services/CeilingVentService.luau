@@ -61,7 +61,6 @@ local WALK_IN_MIN_DISTANCE = 24
 local WALK_IN_MAX_DISTANCE = 140
 local WALK_IN_MIN_PLAYER_DISTANCE = 22
 local WALK_IN_START_ATTEMPTS = 8
-local WALK_IN_CEILING_RAY = 60
 local WALK_IN_DOOR_STOP = 3
 local CLIMB_RISE = 8
 local ENTRY_TIME = 1.1
@@ -274,24 +273,7 @@ local function isPointHiddenFromPlayers(state: VentState, point: Vector3): boole
 end
 
 local function getCeilingContact(state: VentState, position: Vector3): Vector3
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.RespectCanCollide = true
-
-	local excluded: { Instance } = { state.Vent, WalkInFolder }
-	for _, player in Players:GetPlayers() do
-		if player.Character then
-			table.insert(excluded, player.Character)
-		end
-	end
-	params.FilterDescendantsInstances = excluded
-
-	local origin = position + Vector3.yAxis * 2
-	local result = workspace:Raycast(origin, Vector3.yAxis * WALK_IN_CEILING_RAY, params)
-	if result then
-		return result.Position
-	end
-	return Vector3.new(position.X, state.SpawnPosition.Y, position.Z)
+	return SurfaceWalker.CeilingContact(position, { state.Vent, WalkInFolder }, state.SpawnPosition.Y)
 end
 
 local function buildWalkInPath(state: VentState): { Vector3 }?
@@ -321,10 +303,7 @@ local function buildWalkInPath(state: VentState): { Vector3 }?
 		local route = HallwayGraphService:FindPath(startNode, targetNode)
 		if not route then continue end
 
-		local points = {}
-		for _, routeNode in route do
-			table.insert(points, getCeilingContact(state, routeNode.Position))
-		end
+		local points = SurfaceWalker.CeilingRoute(route, { state.Vent, WalkInFolder }, nil, state.SpawnPosition.Y)
 
 		local doorContact = getCeilingContact(state, floorPosition)
 		local approach = doorContact - points[#points]

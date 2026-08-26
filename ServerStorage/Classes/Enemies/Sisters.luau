@@ -13,8 +13,6 @@ local SurfaceWalker = require(ServerStorage.Classes.SurfaceWalker)
 local ENEMY_TAG = "Enemy"
 local SISTERS_TAG = "Sisters"
 local MINIMUM_LEG = 1e-3
-local CEILING_RAY = 60
-local CEILING_START_OFFSET = 2
 local DESTINATION_ATTEMPTS = 10
 local RETRY_DELAY = 1
 
@@ -90,42 +88,6 @@ local function nearestPlayerPosition(origin: Vector3): Vector3?
 	return nearest
 end
 
-function Sisters:_ceilingContact(position: Vector3): Vector3
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.RespectCanCollide = true
-
-	local excluded: { Instance } = {}
-	for _, model in self.Models do
-		table.insert(excluded, model)
-	end
-	for _, player in Players:GetPlayers() do
-		if player.Character then
-			table.insert(excluded, player.Character)
-		end
-	end
-	params.FilterDescendantsInstances = excluded
-
-	local origin = position + Vector3.yAxis * CEILING_START_OFFSET
-	local result = workspace:Raycast(origin, Vector3.yAxis * CEILING_RAY, params)
-	if result then
-		return result.Position
-	end
-	return position + Vector3.yAxis * CEILING_RAY
-end
-
-function Sisters:_pathFor(route: { any }, side: number): { Vector3 }
-	local points = {}
-	for index, node in route do
-		local previous = route[math.max(index - 1, 1)]
-		local following = route[math.min(index + 1, #route)]
-		local direction = flatten(following.Position - previous.Position)
-		local across = Vector3.yAxis:Cross(direction).Unit
-		points[index] = self:_ceilingContact(node.Position + across * side)
-	end
-	return points
-end
-
 function Sisters:_facePlayers()
 	for _, model in self.Models do
 		local torso = model:FindFirstChild("UpperTorso") :: BasePart?
@@ -199,7 +161,7 @@ function Sisters:Patrol()
 
 		local finished = 0
 		for index, walker in self.Walkers do
-			local points = self:_pathFor(route, sides[index])
+			local points = SurfaceWalker.CeilingRoute(route, self.Models, sides[index])
 			task.spawn(function()
 				walker:WalkAlong(points, walkSpeed)
 				finished += 1
@@ -223,7 +185,6 @@ function Sisters:Start()
 	twin.Parent = self.Model.Parent
 	table.insert(self.Models, twin)
 
-	local contact = self:_ceilingContact(self.StartPosition)
 	local across = Vector3.yAxis:Cross(self.Facing).Unit
 	local sideSpacing = math.max(self.Config.SideSpacing or 5.5, 0)
 	local sides = { -sideSpacing / 2, sideSpacing / 2 }
@@ -242,7 +203,10 @@ function Sisters:Start()
 		model:AddTag(SISTERS_TAG)
 
 		local walker = SurfaceWalker.new(model, animator, -Vector3.yAxis)
-		walker:PlaceAt(self:_ceilingContact(self.StartPosition + across * sides[index]), self.Facing)
+		walker:PlaceAt(
+			SurfaceWalker.CeilingContact(self.StartPosition + across * sides[index], self.Models),
+			self.Facing
+		)
 		table.insert(self.Walkers, walker)
 	end
 
