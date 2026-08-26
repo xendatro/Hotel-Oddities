@@ -47,8 +47,8 @@ function WallstickService.Get(): any
 	return ActiveSession and ActiveSession.Wallstick
 end
 
-function WallstickService.SnapCameraUpVector(upVector: Vector3)
-	GravityCamera.snapUpVector(upVector)
+function WallstickService.SetCameraInputRoll(roll: number)
+	GravityCamera.setInputRoll(roll)
 end
 
 function WallstickService.Disable()

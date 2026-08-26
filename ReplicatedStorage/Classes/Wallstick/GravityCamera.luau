@@ -30,11 +30,9 @@ function GravityCamera.setUpVector(target: Vector3)
 	end
 end
 
-function GravityCamera.snapUpVector(target: Vector3)
-	if cameraModuleObject.SnapUpVector then
-		cameraModuleObject:SnapUpVector(target)
-	else
-		GravityCamera.setUpVector(target)
+function GravityCamera.setInputRoll(roll: number)
+	if cameraModuleObject.SetInputRoll then
+		cameraModuleObject:SetInputRoll(roll)
 	end
 end
 

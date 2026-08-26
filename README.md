@@ -114,7 +114,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\GhostMotionService.luau — Ghost drift leg math and the model-attribute protocol the server and clients share.
 - ReplicatedStorage\Services\GhostRenderService.luau — Renders ghosts as translucent friend-avatar rigs driven by replicated motion.
 - ReplicatedStorage\Services\GraphicsFogService.luau — Distance fog and a camera-parented cage on low graphics levels.
-- ReplicatedStorage\Services\GravityWarpService.luau — Client executor for the Gravity Warper; rolls the player, camera and gravity-relative controls onto a ceiling-locked plane for the warp duration, then rolls them back down.
+- ReplicatedStorage\Services\GravityWarpService.luau — Client executor for the Gravity Warper; rolls the player and camera onto a ceiling-locked plane while keeping look input relative to the displayed screen, then rolls them back down.
 - ReplicatedStorage\Services\GuiBuilderService.luau — Shared helper for PlayerGui access, ScreenGuis, corners and strokes.
 - ReplicatedStorage\Services\HallwayCrushDamageService.luau — Client-side kill decision for the closing-walls oddity, using the local character's own position against the server's lethal intervals.
 - ReplicatedStorage\Services\HallwayGraphService.luau — Navigable node graph built from tagged maze floors, with Dijkstra pathfinding and walking distance; nodes and edges touching spawn safe zones are pruned.
@@ -198,7 +198,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\Vow.luau — Cancellable single-function thread wrapper backing the state machine.
 - ReplicatedStorage\Classes\Watch.luau — Turns an NPC's neck and waist to look at the local player.
 - ReplicatedStorage\Classes\CameraShaker\ — Vendored third-party camera shake library used through ShakeService.
-- ReplicatedStorage\Classes\Wallstick\ — Vendored EgoMoose Rbx-Wallstick surface-sticking controller (modernized constraints), driven through WallstickService; self-contained — patches and can snap the gravity-aware camera, and swaps animation/sound drivers only while enabled.
+- ReplicatedStorage\Classes\Wallstick\ — Vendored EgoMoose Rbx-Wallstick surface-sticking controller (modernized constraints), driven through WallstickService; self-contained — patches gravity and screen-relative look handling into the live camera and swaps animation/sound drivers only while enabled.
 - ReplicatedStorage\Classes\Minigames\MinigameBase.luau — Base class every terminal minigame extends, providing themed GUI builders, input helpers, heartbeat and win/fail plumbing.
 - ReplicatedStorage\Classes\Minigames\AimTrainer.luau — Click-the-target minigame; 20 hits on shrinking timers, 3 misses wipe the run.
 - ReplicatedStorage\Classes\Minigames\Frogger.luau — Frogger minigame; cross six lanes of traffic twice without being hit.

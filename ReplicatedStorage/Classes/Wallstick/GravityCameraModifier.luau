@@ -6,6 +6,7 @@ local upCFrame: CFrame = CFrame.identity
 local upVector: Vector3 = upCFrame.YVector
 local targetUpVector: Vector3 = upVector
 local twistCFrame: CFrame = CFrame.identity
+local inputRoll: number = 0
 
 local spinPart: BasePart = workspace.Terrain
 local prevSpinPart: BasePart = spinPart
@@ -46,18 +47,6 @@ local function calculateUpStep(_dt: number)
 	local transitionCF = CFrame.new():Lerp(sphericalArc, transitionRate)
 
 	upVector = transitionCF * upVector
-	upCFrame = transitionCF * upCFrame
-end
-
-local function snapUp(nextUp: Vector3)
-	if nextUp.Magnitude == 0 then return end
-
-	nextUp = nextUp.Unit
-	local axis = workspace.CurrentCamera.CFrame.RightVector
-	local transitionCF = fromToRotation(upVector, nextUp, axis)
-
-	upVector = nextUp
-	targetUpVector = nextUp
 	upCFrame = transitionCF * upCFrame
 end
 
@@ -137,6 +126,13 @@ return function(PlayerModule: any)
 	local min_y = math.rad(-80)
 
 	function baseCamera:CalculateNewLookCFrameFromArg(suppliedLookVector: Vector3?, rotateInput: Vector2): CFrame
+		local c = math.cos(inputRoll)
+		local s = math.sin(inputRoll)
+		rotateInput = Vector2.new(
+			c * rotateInput.X + s * rotateInput.Y,
+			-s * rotateInput.X + c * rotateInput.Y
+		)
+
 		local currLookVector: Vector3 = suppliedLookVector or self:GetCameraLookVector()
 		currLookVector = upCFrame:VectorToObjectSpace(currLookVector)
 
@@ -176,8 +172,8 @@ return function(PlayerModule: any)
 		targetUpVector = target
 	end
 
-	function cameraObject:SnapUpVector(target: Vector3)
-		snapUp(target)
+	function cameraObject:SetInputRoll(roll: number)
+		inputRoll = roll
 	end
 
 	function cameraObject:GetSpinPart(): BasePart

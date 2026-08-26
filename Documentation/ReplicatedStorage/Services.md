@@ -269,7 +269,7 @@ Applies heavy distance fog on low graphics settings to cut render load: reads th
 - Requires: `Configs.GraphicsFogConfig`, `MathService`
 
 ### GravityWarpService.luau
-Client executor for the Gravity Warper item, deliberately independent of the tool instance's lifetime (consuming the last charge destroys the Tool mid-warp). On `GravityWarp/Warp` it tweens the anchored root up to the ceiling while rolling the camera and its gravity-aware control frame in sync, enables `WallstickService` with a fixed world-down surface normal so the player remains level on ceilings and cannot transfer onto walls for the given duration, then disables it and tweens the character, camera and controls back down upright onto the floor (raycast to the floor, falling back to a short drop). Bails out safely on death or character removal at any stage; only one warp runs at a time.
+Client executor for the Gravity Warper item, deliberately independent of the tool instance's lifetime (consuming the last charge destroys the Tool mid-warp). On `GravityWarp/Warp` it tweens the anchored root up to the ceiling, applies the matching visual camera roll after the stock camera step, and rotates PlayerModule's two-axis look input by that roll so left/down remain left/down on screen without mutating the cached world-up frame. It enables `WallstickService` with a fixed world-down surface normal so the player remains level on ceilings and cannot transfer onto walls for the given duration, then disables it and reverses the character, camera and input roll onto the floor (raycast to the floor, falling back to a short drop). Bails out safely on death or character removal at any stage; only one warp runs at a time.
 - API: `GravityWarpService.IsActive() -> boolean`
 - Remotes: `GravityWarp/Warp` (listened)
 - Requires: `CharacterService`, `CommunicationService`, `WallstickService`, `Configs.ToolConfigs` (`Gravity Warper`: `AscendTime`, `DescendTime`, `MaxCeilingDistance`)
@@ -700,6 +700,6 @@ Client front end for the vendored Wallstick controller. Always listens on the re
 - API: `WallstickService.Enable(options: { tilt: boolean?, spin: boolean?, surfaceNormal: Vector3? }?) -> Wallstick?` — starts wall-sticking for the local character; `surfaceNormal` rejects differently oriented surfaces and keeps accepted surfaces exactly aligned to that normal; returns the active (or existing) instance
 - API: `WallstickService.Disable()` — destroys the session and restores normal character physics
 - API: `WallstickService.IsEnabled() -> boolean`, `WallstickService.Get() -> Wallstick?`
-- API: `WallstickService.SnapCameraUpVector(upVector: Vector3)` — synchronously rotates the patched PlayerModule's camera and camera-relative control frame to an externally driven up vector before Roblox processes camera input
+- API: `WallstickService.SetCameraInputRoll(roll: number)` — rotates PlayerModule's two-axis look input into the currently displayed camera roll without changing PlayerModule's cached world-up frame
 - Remotes: `Wallstick/Replicator`, `Wallstick/Sync` (via `Classes.Wallstick.Replication`)
 - Requires: `Classes.Wallstick` (+ its `RaycastHelper` and `Replication` children); expects `workspace.Wallstick` from the server `WallstickService`

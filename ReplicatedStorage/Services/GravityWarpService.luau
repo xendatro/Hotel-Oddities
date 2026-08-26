@@ -20,23 +20,34 @@ local Active = false
 local CAMERA_BIND = "GravityWarpCamera"
 local CameraRoot = nil :: BasePart?
 
-local function updateCameraGravity()
+local function renderCameraRoll()
+	local camera = workspace.CurrentCamera
 	local root = CameraRoot
-	if not root or not root.Parent then return end
+	if not camera or not root or not root.Parent then return end
 
-	WallstickService.SnapCameraUpVector(root.CFrame.UpVector)
+	local cameraCFrame = camera.CFrame
+	local look = cameraCFrame.LookVector
+	local projectedUp = root.CFrame.UpVector - look * root.CFrame.UpVector:Dot(look)
+	if projectedUp.Magnitude < 1e-4 then return end
+
+	local up = projectedUp.Unit
+	local roll = -math.atan2(look:Dot(cameraCFrame.UpVector:Cross(up)), cameraCFrame.UpVector:Dot(up))
+	local right = look:Cross(up).Unit
+
+	WallstickService.SetCameraInputRoll(roll)
+	camera.CFrame = CFrame.fromMatrix(cameraCFrame.Position, right, up, -look)
 end
 
 local function startCameraRoll(root: BasePart)
 	CameraRoot = root
-	WallstickService.SnapCameraUpVector(root.CFrame.UpVector)
-	RunService:BindToRenderStep(CAMERA_BIND, Enum.RenderPriority.Camera.Value - 2, updateCameraGravity)
+	WallstickService.SetCameraInputRoll(0)
+	RunService:BindToRenderStep(CAMERA_BIND, Enum.RenderPriority.Camera.Value + 1, renderCameraRoll)
 end
 
 local function stopCameraRoll()
 	CameraRoot = nil
 	RunService:UnbindFromRenderStep(CAMERA_BIND)
-	WallstickService.SnapCameraUpVector(Vector3.yAxis)
+	WallstickService.SetCameraInputRoll(0)
 end
 
 function GravityWarpService.IsActive(): boolean
@@ -105,7 +116,7 @@ local function warp(duration: number)
 	end
 
 	local wallstick = WallstickService.Enable({
-		tilt = true,
+		tilt = false,
 		spin = false,
 		surfaceNormal = -Vector3.yAxis,
 	})
@@ -118,7 +129,6 @@ local function warp(duration: number)
 	local ceilingPart = (ceiling.Instance :: BasePart).AssemblyRootPart
 	local ceilingNormal = ceilingPart.CFrame:VectorToObjectSpace(-Vector3.yAxis)
 	wallstick:setAndPivot(ceilingPart, ceilingNormal, ceiling.Position)
-	wallstick:snapCameraUp()
 
 	local elapsed = 0
 	while elapsed < duration do
