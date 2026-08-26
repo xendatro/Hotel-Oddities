@@ -164,7 +164,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\TweenProxyService.luau — Tweens arbitrary values through a throwaway ValueBase and a callback, including model scaling.
 - ReplicatedStorage\Services\VanishedService.luau — Checks whether a character is tagged Ignore or IgnoreExceptEye or holds a ForceField, with an Eye-specific check that skips the exempt tag.
 - ReplicatedStorage\Services\ViewmodelService.luau — First-person viewmodel that clones the equipped tool under the camera with sway and bob.
-- ReplicatedStorage\Services\VoiceActivityService.luau — Detects when the local player is speaking from an AudioAnalyzer and reports it to the server.
+- ReplicatedStorage\Services\VoiceActivityService.luau — Detects when the local player is speaking from an AudioAnalyzer, reports it to the server, and cuts incoming proximity voice and radio off while the local player is dead.
 - ReplicatedStorage\Services\VoiceDebugService.luau — Debug panel of sliders for local proximity-voice and radio volumes.
 - ReplicatedStorage\Services\WalkSoundService.luau — Footstep engine timing steps from locomotion animations for players and tagged enemies.
 - ReplicatedStorage\Services\WalkieTalkieService.luau — Walkie-talkie mode toggle, own-emitter muting and voice-eligibility gate.
@@ -364,9 +364,9 @@ become Services or Classes.
 - ServerStorage\Services\StunService.luau — Stuns enemy NPCs and Eyes, and validates client ball-hit reports by range.
 - ServerStorage\Services\ToolCommandService.luau — Admin-only /give chat command for handing out tools by name and amount.
 - ServerStorage\Services\ToolService.luau — Binds tagged Tools to their server tool classes and routes client tool events to them.
-- ServerStorage\Services\VoiceActivityService.luau — Tunes voice chat audio and emits noise at whoever is speaking so enemies can hear them.
+- ServerStorage\Services\VoiceActivityService.luau — Tunes voice chat audio, cuts a dead player's input and emitter, and emits noise at whoever is speaking so enemies can hear them.
 - ServerStorage\Services\VoiceDebugService.luau — Studio-only remote for live-tweaking voice and radio volumes behind the VoiceDebug flag.
-- ServerStorage\Services\WalkieTalkieService.luau — Builds the per-player radio audio graph, privacy modes, sound relays and radio noise.
+- ServerStorage\Services\WalkieTalkieService.luau — Builds the per-player radio audio graph, privacy modes, dead-player route cutoff, sound relays and radio noise.
 - ServerStorage\Services\WallstickService.luau — Server bootstrap for Wallstick: collision groups, the workspace Wallstick model, per-player streaming foci and the replication listener.
 
 ### ServerStorage\Classes

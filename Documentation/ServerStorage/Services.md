@@ -536,7 +536,7 @@ Binds each entry in `ToolConfigs` to its matching class under `ServerStorage.Cla
 - Requires: `ToolConfigs`, `ServerStorage.Classes.Tools.*`, `InventoryService`
 
 ### VoiceActivityService.luau
-Tunes each player's voice input volume and character AudioEmitter attenuation (disabling acoustic simulation, occlusion, diffraction and reverb), tracks who is talking from a client remote, and emits noise at the speaker's position every 0.05s so enemies can hear voice chat. Speaking flags time out after `VoiceChatConfig.Activity.Timeout`.
+Tunes each player's voice input volume and character AudioEmitter attenuation (disabling acoustic simulation, occlusion, diffraction and reverb), tracks who is talking from a client remote, and emits noise at the speaker's position every 0.05s so enemies can hear voice chat. Mutes the input and moves the character voice emitter out of the default interaction group on death, restoring both on respawn. Speaking flags time out after `VoiceChatConfig.Activity.Timeout`.
 - API: `VoiceActivityService:SetActive(player: Player, active: boolean)` — set the talking flag and emit noise
 - API: `VoiceActivityService:GetState(player: Player) -> State?` — `{Active, LastActiveAt}`
 - API: `VoiceActivityService:ApplyVolume()` — re-apply the configured input volume to everyone
@@ -550,7 +550,7 @@ Studio-only debug hook, gated behind `FLAGS.VoiceDebug`: lets a client set any v
 - Requires: `VoiceDebugConfig`, `FLAGS`, `VoiceActivityService:ApplyVolume`, `WalkieTalkieService:ApplyVolumes`
 
 ### WalkieTalkieService.luau
-Builds a full per-player radio audio graph on the equipped Walkie Talkie — compressor, bandpass, EQ, distortion and limiter into a mixer feeding one `AudioDeviceOutput` per eligible listener plus a physical emitter on the handle — and keeps the listener set in sync with the All/Friends privacy mode. Also picks up the nearest tagged ambient emitter into the radio, relays client-requested sounds with a rate limit, plays a static death burst when a transmitting holder dies, and emits noise so enemies hear radio traffic.
+Builds a full per-player radio audio graph on the equipped Walkie Talkie — compressor, bandpass, EQ, distortion and limiter into a mixer feeding one `AudioDeviceOutput` per eligible listener plus a physical emitter on the handle — and keeps the listener set in sync with the All/Friends privacy mode. Removes a dead player's radio routes as both sender and listener, restoring them on respawn. Also picks up the nearest tagged ambient emitter into the radio, relays client-requested sounds with a rate limit, plays a static death burst when a transmitting holder dies, and emits noise so enemies hear radio traffic.
 - API: `WalkieTalkieService:Equip(player: Player, tool: Tool)` — build the audio graph (no-op if voice chat is unavailable for that user)
 - API: `WalkieTalkieService:Unequip(player: Player, tool: Tool)` — tear it down
 - API: `WalkieTalkieService:SetMode(player: Player, mode: string)` — `"All"` or `"Friends"`; mirrored to the `WalkieTalkieMode` attribute

@@ -18,12 +18,16 @@ export type State = {
 
 local States: { [Player]: State } = {}
 local CharacterConnections: { [Player]: RBXScriptConnection } = {}
+local DeathConnections: { [Player]: RBXScriptConnection } = {}
+local MutedPlayers: { [Player]: boolean } = {}
 
-local function tuneInput(instance: Instance)
-	if instance:IsA("AudioDeviceInput") then instance.Volume = Config.Volume end
+local function tuneInput(player: Player, instance: Instance)
+	if not instance:IsA("AudioDeviceInput") then return end
+	instance.Volume = Config.Volume
+	instance.Muted = MutedPlayers[player] == true
 end
 
-local function tuneVoiceEmitter(instance: Instance)
+local function tuneVoiceEmitter(player: Player, instance: Instance)
 	if not instance:IsA("AudioEmitter") or instance.Name ~= "AudioEmitter" then return end
 	pcall(function() instance.AcousticSimulationEnabled = false end)
 	pcall(function() instance.OcclusionEnabled = Enum.SimulationMode.Disabled end)
@@ -35,27 +39,68 @@ local function tuneVoiceEmitter(instance: Instance)
 		[Config.Distance.Minimum] = 1,
 		[Config.Distance.Maximum] = 0,
 	})
+	instance.AudioInteractionGroup = if MutedPlayers[player]
+		then `VoiceDead_{player.UserId}`
+		else ""
 end
 
 local function watchCharacter(player: Player, character: Model)
 	local previous = CharacterConnections[player]
 	if previous then previous:Disconnect() end
 	for _, child in character:GetChildren() do
-		tuneVoiceEmitter(child)
+		tuneVoiceEmitter(player, child)
 	end
-	CharacterConnections[player] = character.ChildAdded:Connect(tuneVoiceEmitter)
+	CharacterConnections[player] = character.ChildAdded:Connect(function(child)
+		tuneVoiceEmitter(player, child)
+	end)
+end
+
+local function handlePlayerDeath(player: Player)
+	if MutedPlayers[player] then return end
+	MutedPlayers[player] = true
+
+	local source = player:FindFirstChild("AudioDeviceInput")
+	if source then tuneInput(player, source) end
+
+	local character = player.Character
+	if character then
+		for _, descendant in character:GetDescendants() do
+			tuneVoiceEmitter(player, descendant)
+		end
+	end
+
+	local state = States[player]
+	if state then state.Active = false end
 end
 
 local function watchPlayer(player: Player)
 	local source = player:FindFirstChild("AudioDeviceInput")
-	if source then tuneInput(source) end
+	if source then tuneInput(player, source) end
 	player.ChildAdded:Connect(function(child)
-		if child.Name == "AudioDeviceInput" then tuneInput(child) end
+		if child.Name == "AudioDeviceInput" then tuneInput(player, child) end
 	end)
 	player.CharacterAdded:Connect(function(character)
+		MutedPlayers[player] = nil
 		watchCharacter(player, character)
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			if DeathConnections[player] then DeathConnections[player]:Disconnect() end
+			DeathConnections[player] = humanoid.Died:Connect(function()
+				handlePlayerDeath(player)
+			end)
+			if humanoid.Health <= 0 then handlePlayerDeath(player) end
+		end
 	end)
-	if player.Character then watchCharacter(player, player.Character) end
+	if player.Character then
+		watchCharacter(player, player.Character)
+		local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			DeathConnections[player] = humanoid.Died:Connect(function()
+				handlePlayerDeath(player)
+			end)
+			if humanoid.Health <= 0 then handlePlayerDeath(player) end
+		end
+	end
 end
 
 local function getPlayerPosition(player: Player): Vector3?
@@ -74,7 +119,7 @@ end
 function VoiceActivityService:ApplyVolume()
 	for _, player in Players:GetPlayers() do
 		local source = player:FindFirstChild("AudioDeviceInput")
-		if source then tuneInput(source) end
+		if source then tuneInput(player, source) end
 	end
 end
 
@@ -83,6 +128,7 @@ function VoiceActivityService:GetState(player: Player): State?
 end
 
 function VoiceActivityService:SetActive(player: Player, active: boolean)
+	if MutedPlayers[player] and active then return end
 	local now = os.clock()
 	local state = States[player]
 	if not state then
@@ -124,6 +170,10 @@ Players.PlayerRemoving:Connect(function(player)
 	local connection = CharacterConnections[player]
 	if connection then connection:Disconnect() end
 	CharacterConnections[player] = nil
+	local deathConnection = DeathConnections[player]
+	if deathConnection then deathConnection:Disconnect() end
+	DeathConnections[player] = nil
+	MutedPlayers[player] = nil
 end)
 
 Players.PlayerAdded:Connect(watchPlayer)

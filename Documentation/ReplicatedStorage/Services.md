@@ -672,7 +672,7 @@ Client first-person viewmodel: clones the equipped Tool (stripped of scripts, so
 - Requires: `Configs.ViewmodelConfig` (`Scale`, `Fit`, `HandOffset`, `Arm`, `Overrides`)
 
 ### VoiceActivityService.luau
-Client voice-activity detector: wires an `AudioAnalyzer` onto the local player's `AudioDeviceInput`, polls RMS level against a threshold, and tells the server when you start and stop speaking (with a heartbeat re-send and a release delay). Rebuilds itself if the input device appears or disappears.
+Client voice-activity detector: wires an `AudioAnalyzer` onto the local player's `AudioDeviceInput`, polls RMS level against a threshold, and tells the server when you start and stop speaking (with a heartbeat re-send and a release delay). Stops analyzing on death, mutes remote voice emitters and radio output faders locally until respawn, and rebuilds itself if the input device appears or disappears.
 - API: none — side-effect only.
 - Remotes: `WalkieTalkie/VoiceActivity` (fired)
 - Requires: `Configs.VoiceChatConfig` (`Activity.PollInterval`, `.Threshold`, `.Heartbeat`, `.Release`)
