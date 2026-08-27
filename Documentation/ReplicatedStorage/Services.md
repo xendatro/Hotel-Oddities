@@ -36,9 +36,10 @@ Sine-wave vertical bobbing helper: pick a random phase once, then sample a Y off
 - API: `Bob.Offset(clock: number, phase: number, height: number, period: number) -> Vector3` — Y-axis sine offset
 
 ### CameraFovService.luau
-Client-only. Owns additive field-of-view offsets so multiple effects can push the camera FOV without fighting each other: each caller registers a named offset, the total is applied on a render step above the camera priority, and the raw FOV is restored when nothing is registered.
+Client-only. Owns additive field-of-view offsets so multiple effects can push the camera FOV without fighting each other: each caller registers a named offset, the total is applied on a render step above the camera priority, and the raw FOV is restored when nothing is registered. A lock captures the current raw FOV and holds it against later camera effects until released.
 - API: `CameraFovService:SetOffset(name: string, degrees: number)` — set or clear (near-zero) a named offset
 - API: `CameraFovService:GetOffset() -> number` — current summed offset
+- API: `CameraFovService:SetLocked(locked: boolean)` — hold the current raw FOV and suppress all named offsets while locked
 - API: `CameraFovService:TweenOffset(name: string, degrees: number, tweenInfo: TweenInfo)` — tweens one named offset, cancelling any prior tween of that name
 
 ### CeilingVentDoorService.luau
@@ -96,7 +97,7 @@ Client-only. Builds the small "hacked / total" pill in the top-right corner, rea
 - Requires: `Configs.ComputerConfig`, `ComputerService`, `GuiBuilderService`; optionally `Configs.ComputerAssets` for the icon image (falls back to a text glyph)
 
 ### ComputerService.luau
-Client-only. Owns the hackable computers: registers each tagged model with `InteractionService` (selectable only once its screen part has streamed in), draws the animated idle SurfaceGui on its screen part, and on activation tweens the camera onto the screen, frees the camera lock through `InterfaceService:SetCameraFreed` so the cursor works during the session, disables player controls, and hands the model to `MinigameService`. Completing the minigame marks the computer hacked locally and tells the server the moment the win fanfare starts, so leaving or dying during the fanfare cannot drop the completion; the server's snapshot remote is authoritative. Hacked state is keyed by each model's `ComputerConfig.IdAttribute` string, so it survives the model instance being destroyed and recreated by streaming; a fresh snapshot is requested over the Sync remote at startup.
+Client-only. Owns the hackable computers: registers each tagged model with `InteractionService` (selectable only once its screen part has streamed in), draws the animated idle SurfaceGui on its screen part, and on activation locks the raw camera FOV, tweens the camera onto the screen, frees the camera lock through `InterfaceService:SetCameraFreed` so the cursor works during the session, disables player controls, and hands the model to `MinigameService`. Completing the minigame marks the computer hacked locally and tells the server the moment the win fanfare starts, so leaving or dying during the fanfare cannot drop the completion; the server's snapshot remote is authoritative. Hacked state is keyed by each model's `ComputerConfig.IdAttribute` string, so it survives the model instance being destroyed and recreated by streaming; a fresh snapshot is requested over the Sync remote at startup.
 - API: `ComputerService.Changed` — `RBXScriptSignal` fired whenever the hacked set changes
 - API: `ComputerService:IsHacked(model: Model) -> boolean` — whether that computer is already done
 - API: `ComputerService:GetProgress() -> (number, number)` — hacked count and the server-synced total (falls back to counting replicated tags before the first snapshot)
@@ -105,7 +106,7 @@ Client-only. Owns the hackable computers: registers each tagged model with `Inte
 - API: `ComputerService:Activate(model: Model?) -> boolean` — opens a session on the given (or focused) computer
 - Remotes: `Computer/Complete` (fired), `Computer/Sync` (listened — `{ Hacked = { id, ... }, Total = n }` replaces the whole hacked set; also fired once to request the initial snapshot)
 - Tags: listens `HackComputer`
-- Requires: `Configs.ComputerConfig`, `InterfaceService`, `InteractionService`, `GuiBuilderService`, `CharacterService`; lazily and optionally requires `MinigameService` (retried once a second, and a session cannot open without it)
+- Requires: `Configs.ComputerConfig`, `InterfaceService`, `CameraFovService`, `InteractionService`, `GuiBuilderService`, `CharacterService`; lazily and optionally requires `MinigameService` (retried once a second, and a session cannot open without it)
 
 ### CreepRenderService.luau
 Gated on `FLAGS.Enemies`. Renders the Creep enemy: turns every part of the model to face the camera each frame, and places a black neon backdrop across the hallway a set distance behind it so the creep reads as a silhouette. When the creep is untagged it launches a `CreepDistortion` effect that sweeps down the hallway away from where it stood.

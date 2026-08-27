@@ -86,7 +86,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\AmbienceService.luau — Plays the looping ambience playlist, ducking it by distance to the nearest enemy and swapping to death ambience.
 - ReplicatedStorage\Services\AudioService.luau — Central sound playback helper for 2D and positional audio, bus volumes and walkie-talkie relaying.
 - ReplicatedStorage\Services\BobService.luau — Random phase plus sine-wave vertical bob offset.
-- ReplicatedStorage\Services\CameraFovService.luau — Combines named additive field-of-view offsets from multiple effects into one camera FOV.
+- ReplicatedStorage\Services\CameraFovService.luau — Combines named additive field-of-view offsets from multiple effects into one camera FOV, with a lock for fixed-FOV camera sessions.
 - ReplicatedStorage\Services\CeilingVentDoorService.luau — Tweens ceiling vent doors on the client when the server commands them.
 - ReplicatedStorage\Services\ChaosLightService.luau — Turns tagged floor lights red while the server-set ChaosRed attribute is on, restoring their original colours when it clears.
 - ReplicatedStorage\Services\ChaosWarningSoundService.luau — Plays hallway ambience and an incoming sting near the server's chaos warning regions.
@@ -95,7 +95,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\ChaserCameraService.luau — Drives chase FOV pushes and per-enemy camera rumble, plus vent-open and scream reactions.
 - ReplicatedStorage\Services\CommunicationService.luau — Shared accessor for the ReplicatedStorage.Communication remote folders.
 - ReplicatedStorage\Services\ComputerHUDService.luau — Shows the hacked/total computer counter pill and flashes it when all are done.
-- ReplicatedStorage\Services\ComputerService.luau — Runs hackable computers: idle screens, camera sessions and the minigame handoff.
+- ReplicatedStorage\Services\ComputerService.luau — Runs hackable computers: idle screens, fixed-FOV camera sessions and the minigame handoff.
 - ReplicatedStorage\Services\CreepRenderService.luau — Renders the Creep as a camera-facing silhouette against a hallway backdrop, with a parting distortion sweep.
 - ReplicatedStorage\Services\CrouchService.luau — Owns crouch input, speed, camera drop and crouch animations.
 - ReplicatedStorage\Services\DangerDebugService.luau — F4 developer panel for tuning and heatmapping the danger field.

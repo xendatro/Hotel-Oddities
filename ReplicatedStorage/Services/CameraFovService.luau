@@ -8,12 +8,14 @@ if not RunService:IsClient() then
 end
 
 local BIND_NAME = "CameraFovOffsets"
+local LOCK_BIND_NAME = "CameraFovLock"
 
 local Offsets: { [string]: number } = {}
 local total = 0
 local bound = false
 local lastCamera: Camera? = nil
 local lastApplied = 0
+local lockedFov: number? = nil
 
 local function restoreCamera()
 	if lastCamera and lastCamera.Parent and lastApplied ~= 0 then
@@ -30,11 +32,27 @@ local function render()
 		lastCamera = camera
 	end
 	if not camera then return end
+	if lockedFov then
+		lastApplied = 0
+		camera.FieldOfView = lockedFov
+		return
+	end
 
 	local base = camera.FieldOfView - lastApplied
 	local written = math.clamp(base + total, 1, 120)
 	lastApplied = written - base
 	camera.FieldOfView = written
+end
+
+local function renderLock()
+	local camera = workspace.CurrentCamera
+	if camera ~= lastCamera then
+		restoreCamera()
+		lastCamera = camera
+	end
+	if camera and lockedFov then
+		camera.FieldOfView = lockedFov
+	end
 end
 
 local function setBound(value: boolean)
@@ -62,6 +80,28 @@ end
 
 function CameraFovService:GetOffset(): number
 	return total
+end
+
+function CameraFovService:SetLocked(locked: boolean)
+	if locked then
+		if lockedFov then return end
+
+		local camera = workspace.CurrentCamera
+		if not camera then return end
+		if camera ~= lastCamera then
+			restoreCamera()
+			lastCamera = camera
+		end
+		lockedFov = math.clamp(camera.FieldOfView - lastApplied, 1, 120)
+		camera.FieldOfView = lockedFov
+		RunService:BindToRenderStep(LOCK_BIND_NAME, Enum.RenderPriority.Camera.Value + 6, renderLock)
+	else
+		if not lockedFov then return end
+
+		lockedFov = nil
+		RunService:UnbindFromRenderStep(LOCK_BIND_NAME)
+		if bound then render() end
+	end
 end
 
 local ActiveTweens: { [string]: { Tween: Tween, Value: NumberValue, Connection: RBXScriptConnection } } = {}

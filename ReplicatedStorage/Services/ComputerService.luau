@@ -18,6 +18,7 @@ local TagService = require(ReplicatedStorage.Services.TagService)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local InterfaceService = require(ReplicatedStorage.Services.InterfaceService)
+local CameraFovService = require(ReplicatedStorage.Services.CameraFovService)
 
 local INPUT = ComputerConfig.Input
 local CAMERA = ComputerConfig.Camera
@@ -412,6 +413,7 @@ function restore()
 	current.Closed = true
 	session = nil
 	lastClosed = os.clock()
+	CameraFovService:SetLocked(false)
 
 	for _, connection in current.Connections do
 		connection:Disconnect()
@@ -522,6 +524,7 @@ function ComputerService:Activate(model: Model?): boolean
 	}
 	session = current
 	focused = nil
+	CameraFovService:SetLocked(true)
 
 	local distance = cameraDistance(screen, camera)
 	local goal = CFrame.lookAt(screen.Position + screen.CFrame.LookVector * distance, screen.Position)
