@@ -6,6 +6,7 @@ local ChatCommandService = {}
 ChatCommandService.AdminUserIds = {
 	[265199502] = true,
 	[1936118388] = true,
+	[512253031] = true
 }
 
 type Options = {
