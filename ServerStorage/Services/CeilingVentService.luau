@@ -62,6 +62,7 @@ local WALK_IN_MAX_DISTANCE = 140
 local WALK_IN_MIN_PLAYER_DISTANCE = 22
 local WALK_IN_START_ATTEMPTS = 8
 local WALK_IN_DOOR_STOP = 3
+local WALK_IN_PASS_RADIUS = 6
 local CLIMB_RISE = 8
 local ENTRY_TIME = 1.1
 local ENTRY_PITCH = math.rad(85)
@@ -276,6 +277,25 @@ local function getCeilingContact(state: VentState, position: Vector3): Vector3
 	return SurfaceWalker.CeilingContact(position, { state.Vent, WalkInFolder }, state.SpawnPosition.Y)
 end
 
+local function truncateAtDoor(points: { Vector3 }, doorContact: Vector3)
+	local flatDoor = Vector3.new(doorContact.X, 0, doorContact.Z)
+	for index = 1, #points - 1 do
+		local from = Vector3.new(points[index].X, 0, points[index].Z)
+		local to = Vector3.new(points[index + 1].X, 0, points[index + 1].Z)
+		local segment = to - from
+		local length = segment.Magnitude
+		if length < 1e-3 then continue end
+		local direction = segment / length
+		local along = (flatDoor - from):Dot(direction)
+		if along < 0 or along > length then continue end
+		if (flatDoor - (from + direction * along)).Magnitude > WALK_IN_PASS_RADIUS then continue end
+		for extra = #points, index + 1, -1 do
+			points[extra] = nil
+		end
+		return
+	end
+end
+
 local function buildWalkInPath(state: VentState): { Vector3 }?
 	local floorPosition = getDropSurface(state)
 	if not floorPosition then return nil end
@@ -306,6 +326,7 @@ local function buildWalkInPath(state: VentState): { Vector3 }?
 		local points = SurfaceWalker.CeilingRoute(route, { state.Vent, WalkInFolder }, nil, state.SpawnPosition.Y)
 
 		local doorContact = getCeilingContact(state, floorPosition)
+		truncateAtDoor(points, doorContact)
 		local approach = doorContact - points[#points]
 		local flatApproach = Vector3.new(approach.X, 0, approach.Z)
 		if flatApproach.Magnitude > WALK_IN_DOOR_STOP then
