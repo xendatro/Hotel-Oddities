@@ -138,13 +138,18 @@ Tag name, attribute name and reconciliation tolerances for the "freeze while obs
 Per-perk settings for the gamepass/perk system, keyed by perk name under a shared attribute prefix.
 - API: data table — `AttributePrefix`, `Loadout`, `Visor`, `DoubleSpeed`, `FriendRevive`
 
+### PhotoConfig.luau
+Every value the tripod Camera photo system uses: the placed-model tag and attribute names, placement raycast limits, body height, the 180-degree model yaw and the ghost placement preview, countdown length, lens offset/FOV and the subject cone, ShadowFigure placement rules (including the forced test placement), capture flash timings including the figure render warmup, the unseen-despawn rule, the countdown billboard styling, and the film-developing photo UI with its full-screen arrival, expanded view and close button.
+`Lens.Offset` is relative to the model's own pivot, which `Place.ModelYaw` has already turned around, so the tripod faces away from whoever placed it while still shooting forward.
+- API: data table — `Tag`, `ModelName`, `Attributes`, `Place`, `Countdown`, `Lens`, `Figure`, `Capture`, `Despawn`, `Timer`, `Develop`
+
 ### PlayerLocatorConfig.luau
 Cooldown, marker layout, focus animation and colour/font palette for the Player Locator tool's on-screen teammate markers.
 - API: data table — `Modes`, `Cooldown`, `CooldownFormat`, `MarkerCooldownFormat`, `ArriveDistance`, `Highlight`, `Marker`, `Focus`, `Press`, `Colors`, `Fonts`
 
 ### PlayerOddityConfig.luau
-Roll timings and effect weights for the player oddity system that randomly resizes, fades or head-stares a player's own character.
-- API: data table — `Enabled`, `RollInterval`, `InitialDelay`, `TriggerChance`, `MinDuration`, `MaxDuration`, `MinimumPlayersForHeadStare`, `EffectWeights`, `SizeOptions`, `OddTransparency`, `HeadTurnRate`, `HeadReturnRate`
+Roll timings and effect weights for the player oddity system that randomly resizes a whole character, enlarges a player's head and head accessories, fades or head-stares a player's own character.
+- API: data table — `Enabled`, `RollInterval`, `InitialDelay`, `TriggerChance`, `MinDuration`, `MaxDuration`, `MinimumPlayersForHeadStare`, `EffectWeights`, `SizeOptions`, `HeadSizeMultiplier`, `OddTransparency`, `HeadTurnRate`, `HeadReturnRate`
 
 ### PropOddityConfig.luau
 Per-effect tuning for prop-based oddities — falling lanterns, falling paintings, the painting dweller, and the scurrying rat — covering arming, approach detection, candidate selection, and either repair rules (the fixture effects) or crossing-site sampling and rat motion (`RatScurry`).
@@ -175,11 +180,12 @@ Corridor-streaming settings — prediction, replication lead times, reconciliati
 - API: data table — `Enabled`, `ApproachLength`, `CapLength`, prediction/update keys (`BranchWarmDistance`, `ReplicationLeadTime`, `MaxPingLeadTime`, `PredictionSpeedCap`, `CorridorSelectionSlack`, `UpdateInterval`, `HysteresisTime`, `PersistenceRetryInterval`, `ReconcileInterval`, `ReconcileGraceTime`, `MissingReportCooldown`, `MaxMissingReport`), `GlobalAssetSize`, `TeleportTimeout`, `ClientReadyTimeout`, `FailureMessage`, `IgnoreTag`, `ModelTag`, `ModelIdAttribute`
 
 ### ToolConfigs.luau
-Per-tool settings keyed by tool name, giving each tool its CollectionService tag plus its own behaviour values (heal amounts, stun durations, cooldowns, sounds). Exports a `ToolConfig` type.
-- API: data table — one entry per tool: `Flashlight`, `Bandage`, `Medkit`, `SpellBook`, `Trap`, `Ball`, `Shovel`, `Pathfinder`, `Soda`, `Energy Drink`, `Visor`, `Gravity Warper`, `Player Locator`, `Walkie Talkie`
+Per-tool settings keyed by tool name, giving each tool its CollectionService tag plus its own behaviour values (heal amounts, cooldowns, sounds, movement settings and player-oddity effect selections). Exports a `ToolConfig` type.
+- API: data table — one entry per tool: `Flashlight`, `Bandage`, `Medkit`, `SpellBook`, `Trap`, `Ball`, `Shovel`, `Pathfinder`, `Soda`, `Energy Drink`, `Visor`, `Gravity Warper`, `Player Locator`, `Walkie Talkie`, `Big Head`, `Big Character`, `Small Character`, `Transparency`, `Random Oddity`
+- Player oddity entries use `OddityKind`, optional `OddityOverrides`, or `OddityChoices` for the random four-effect item.
 
 ### ViewmodelConfig.luau
-Placement, scale, sway/bob and per-tool orientation overrides for the first-person viewmodel and its fake arm.
+Placement, scale, sway/bob and per-tool orientation overrides for the first-person viewmodel and its fake arm. `Overrides.Camera` anchors the tripod by its handle, shrinks it with a per-tool `Scale` and tilts it so the body sits up and to the right instead of sprawling across the screen.
 - API: data table — `HandOffset`, `Scale`, `Fit`, `SwayAmount`, `SwaySpeed`, `BobAmount`, `BobSpeed`, `Arm`, `Overrides`
 
 ### VoiceChatConfig.luau

@@ -147,9 +147,9 @@ Server tool that grants a temporary speed boost. Plays an open sound, waits `Use
 - Notes: config keys `OpenSound`, `DrinkSound`, `Visual`, `UseDelay`, `WalkSpeed`, `Duration`, `FovBoost` (sounds and visual are descendants of the Tool, not global assets)
 
 ### TrapObject.luau
-Bear-trap style placeable that snaps shut on the first NPC to touch it. Springing stuns the NPC, plays the trap animation until its "Finished" marker, plays the close sound, and schedules the trap for removal.
+Bear-trap style placeable that snaps shut on the first non-Ghost NPC to touch it. Springing despawns the NPC, plays the trap animation until its "Finished" marker, plays the close sound, and schedules the trap for removal.
 - API: `TrapObject.new(trap: Model) -> self` — connects Touched on every descendant part plus Destroying.
-- API: `TrapObject:Spring(model: Instance?)` — fires once (`Closed` attribute guards re-entry); ignores anything that is not a live NPC.
+- API: `TrapObject:Spring(model: Instance?)` — fires once (`Closed` attribute guards re-entry); ignores Ghost and anything that is not a live NPC.
 - API: `TrapObject:Destroy()` — disconnects all connections.
 - Requires: `ServerStorage.Classes.NPC` (for `NPC.FromModel`), `StunService`, `AudioService`, `ToolConfigs.Trap`
 
@@ -318,6 +318,13 @@ Intermediate base for oddities that afflict one player; the start context is the
 - API: `PlayerOddity:Stop() -> boolean` — disconnects the death hook, then base stop
 - Requires: `Classes\Oddity`, `ReplicatedStorage\Services\CharacterService`; `Configs\PlayerOddityConfig` via `ConfigName`
 
+### PlayerOddityTool.luau
+Shared server-side base for inventory items that trigger a player oddity on their holder. It selects the configured effect or one configured choice, asks `PlayerOddityService` to start it, and consumes one item only after a successful start.
+- API: `PlayerOddityTool.new(tool: Tool, class: any?) -> PlayerOddityTool`
+- API: `PlayerOddityTool:OnActivated()` — starts the configured player oddity and consumes the item on success
+- API: `PlayerOddityTool:_ChooseEffect() -> (string?, {[string]: any}?)`
+- Requires: `Classes\ServerTool`, `Services\PlayerOddityService`
+
 ## Oddities
 
 ### Oddities\ChaosWarning.luau
@@ -420,6 +427,13 @@ Extends `PlayerOddity`. Rescales the victim's character by a random multiplier f
 - API: `PlayerSize:OnStop()` — restores the original scale
 - Requires: `Classes\PlayerOddity`
 
+### Oddities\PlayerHeadSize.luau
+Extends `PlayerOddity`. Sets the victim humanoid's `HeadScale` to `HeadSizeMultiplier` times its existing value, which scales the head and attached accessories for every client, then restores the original value on stop.
+- API: `PlayerHeadSize.new(config: { [string]: any }?)` — adds the tracked head-scale value and original scale
+- API: `PlayerHeadSize:OnStart() -> boolean` — applies `HeadSizeMultiplier` (default 1.5)
+- API: `PlayerHeadSize:OnStop()` — restores the original head scale
+- Requires: `Classes\PlayerOddity`
+
 ### Oddities\PlayerTransparency.luau
 Extends `PlayerOddity`. Makes every fully opaque part of the victim's character slightly see-through (including parts added while it runs) and restores them on stop.
 - API: `PlayerTransparency.new(config: { [string]: any }?)` — adds the original-transparency map and `DescendantAdded` hook
@@ -448,10 +462,41 @@ Extends `HallwayOddity`. Fades every eligible world part that sits mostly inside
 
 ## Tools
 
+### Tools\Big Character.luau
+Server half of the Big Character item: starts the `Size` player oddity with a fixed `1.1` character scale and consumes one item on success.
+- API: `BigCharacter.new(tool: Tool)`
+- Requires: `Classes\PlayerOddityTool`
+
+### Tools\Big Head.luau
+Server half of the Big Head item: starts the `HeadSize` player oddity and consumes one item on success.
+- API: `BigHead.new(tool: Tool)`
+- Requires: `Classes\PlayerOddityTool`
+
+### Tools\Random Oddity.luau
+Server half of the Random Oddity item: chooses evenly among big head, big character, small character and transparency, then consumes one item on success.
+- API: `RandomOddity.new(tool: Tool)`
+- Requires: `Classes\PlayerOddityTool`
+
+### Tools\Small Character.luau
+Server half of the Small Character item: starts the `Size` player oddity with a fixed `0.9` character scale and consumes one item on success.
+- API: `SmallCharacter.new(tool: Tool)`
+- Requires: `Classes\PlayerOddityTool`
+
+### Tools\Transparency.luau
+Server half of the Transparency item: starts the player `Transparency` oddity and consumes one item on success.
+- API: `Transparency.new(tool: Tool)`
+- Requires: `Classes\PlayerOddityTool`
+
 ### Tools\Bandage.luau
 Server half of the Bandage tool: a bare `Healer` subclass, so activation consumes one and heals `HealAmount` from `ToolConfigs`.
 - API: `Bandage.new(tool: Tool)`
 - Requires: `Classes\Healer` (extends `ServerTool`)
+
+### Tools\Camera.luau
+Server half of the tripod Camera: validates the client's placement CFrame, hands it to PhotoCameraService, and consumes the tool so each camera is single use.
+- API: `Camera.new(tool: Tool) -> self`
+- Remotes: `Tools/Signal` (listened, `Place`)
+- Requires: `Classes\ServerTool`, `Services.PhotoCameraService`
 
 ### Tools\Energy Drink.luau
 Server half of the Energy Drink tool: a bare `SpeedDrink` subclass, so activation consumes one and applies the configured walk-speed and FOV boost.

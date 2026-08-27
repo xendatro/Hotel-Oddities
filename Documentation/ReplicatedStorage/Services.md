@@ -96,7 +96,7 @@ Client-only. Builds the small "hacked / total" pill in the top-right corner, rea
 - Requires: `Configs.ComputerConfig`, `ComputerService`, `GuiBuilderService`; optionally `Configs.ComputerAssets` for the icon image (falls back to a text glyph)
 
 ### ComputerService.luau
-Client-only. Owns the hackable computers: registers each tagged model with `InteractionService` (selectable only once its screen part has streamed in), draws the animated idle SurfaceGui on its screen part, and on activation tweens the camera onto the screen, disables player controls, and hands the model to `MinigameService`. Completing the minigame marks the computer hacked locally and tells the server the moment the win fanfare starts, so leaving or dying during the fanfare cannot drop the completion; the server's snapshot remote is authoritative. Hacked state is keyed by each model's `ComputerConfig.IdAttribute` string, so it survives the model instance being destroyed and recreated by streaming; a fresh snapshot is requested over the Sync remote at startup.
+Client-only. Owns the hackable computers: registers each tagged model with `InteractionService` (selectable only once its screen part has streamed in), draws the animated idle SurfaceGui on its screen part, and on activation tweens the camera onto the screen, frees the camera lock through `InterfaceService:SetCameraFreed` so the cursor works during the session, disables player controls, and hands the model to `MinigameService`. Completing the minigame marks the computer hacked locally and tells the server the moment the win fanfare starts, so leaving or dying during the fanfare cannot drop the completion; the server's snapshot remote is authoritative. Hacked state is keyed by each model's `ComputerConfig.IdAttribute` string, so it survives the model instance being destroyed and recreated by streaming; a fresh snapshot is requested over the Sync remote at startup.
 - API: `ComputerService.Changed` — `RBXScriptSignal` fired whenever the hacked set changes
 - API: `ComputerService:IsHacked(model: Model) -> boolean` — whether that computer is already done
 - API: `ComputerService:GetProgress() -> (number, number)` — hacked count and the server-synced total (falls back to counting replicated tags before the first snapshot)
@@ -105,7 +105,7 @@ Client-only. Owns the hackable computers: registers each tagged model with `Inte
 - API: `ComputerService:Activate(model: Model?) -> boolean` — opens a session on the given (or focused) computer
 - Remotes: `Computer/Complete` (fired), `Computer/Sync` (listened — `{ Hacked = { id, ... }, Total = n }` replaces the whole hacked set; also fired once to request the initial snapshot)
 - Tags: listens `HackComputer`
-- Requires: `Configs.ComputerConfig`, `InteractionService`, `GuiBuilderService`, `CharacterService`; lazily and optionally requires `MinigameService` (retried once a second, and a session cannot open without it)
+- Requires: `Configs.ComputerConfig`, `InterfaceService`, `InteractionService`, `GuiBuilderService`, `CharacterService`; lazily and optionally requires `MinigameService` (retried once a second, and a session cannot open without it)
 
 ### CreepRenderService.luau
 Gated on `FLAGS.Enemies`. Renders the Creep enemy: turns every part of the model to face the camera each frame, and places a black neon backdrop across the hallway a set distance behind it so the creep reads as a silhouette. When the creep is untagged it launches a `CreepDistortion` effect that sweeps down the hallway away from where it stood.
@@ -269,10 +269,10 @@ Applies heavy distance fog on low graphics settings to cut render load: reads th
 - Requires: `Configs.GraphicsFogConfig`, `MathService`
 
 ### GravityWarpService.luau
-Client executor for the Gravity Warper item, deliberately independent of the tool instance's lifetime (consuming the last charge destroys the Tool mid-warp). On `GravityWarp/Warp` it tweens the anchored root up to the ceiling while flipping the character upside down, enables `WallstickService` so the player walks the ceiling for the given duration, then disables it and tweens the character back down upright onto the floor (raycast to the floor, falling back to a short drop). Bails out safely on death or character removal at any stage; only one warp runs at a time.
+Client executor for the Gravity Warper item, deliberately independent of the tool instance's lifetime (consuming the last charge destroys the Tool mid-warp). On `GravityWarp/Warp` it tweens the anchored root up to the ceiling while an explicit camera-roll value follows the same easing from zero to pi, applies that roll after the stock camera step, and rotates PlayerModule's two-axis look input by the same value so left/down remain left/down on screen without mutating the cached world-up frame. It enables `WallstickService` with a fixed world-down surface normal so the player remains level on ceilings and cannot transfer onto walls for the given duration, then disables it and reverses the character, camera and input roll onto the floor (raycast to the floor, falling back to a short drop). Bails out safely on death or character removal at any stage; only one warp runs at a time.
 - API: `GravityWarpService.IsActive() -> boolean`
 - Remotes: `GravityWarp/Warp` (listened)
-- Requires: `CharacterService`, `CommunicationService`, `WallstickService`, `Configs.ToolConfigs` (`Gravity Warper`: `AscendTime`, `DescendTime`, `MaxCeilingDistance`)
+- Requires: `CharacterService`, `CommunicationService`, `TweenProxyService`, `WallstickService`, `Configs.ToolConfigs` (`Gravity Warper`: `AscendTime`, `DescendTime`, `MaxCeilingDistance`)
 
 ### GuiBuilderService.luau
 Small shared helper for building GUI instances; every other UI service uses it to reach the PlayerGui and to create ScreenGuis and common UI modifiers. All four functions are dot-defined and return the instance they created.
@@ -365,6 +365,7 @@ Owns the main menu page group: enables/disables the Index, Shop, VIP, Gems, and 
 - API: `InterfaceService:Close()` — close whatever page is open
 - API: `InterfaceService:GetActive(): string` — the active page id (empty string when closed)
 - API: `InterfaceService:SetMouseUnlocked(unlocked: boolean, force: boolean?)` — unlock/relock the mouse; `force` pins it unlocked until cleared
+- API: `InterfaceService:SetCameraFreed(freed: boolean)` — the half of unlocking that fights the camera: drops `Player.CameraMode` from `LockFirstPerson` to `Classic` (zoom stays pinned, so the view stays first person) and holds `MouseBehavior` on `Default` from a late render step, restoring the saved mode when relocked. Under `LockFirstPerson` the PlayerModule re-locks the mouse every frame and `GuiButton.Modal` has no effect, so without this the cursor appears but cannot move. Used by the Q toggle, the menu pages and `ComputerService` terminal sessions.
 - Tags: listens `SideButton`, `InterfaceCloseButton`
 - Requires: `Frameworks.xenterface` and its `Config.PresetConfig`, `CameraFovService`, `GuiBuilderService`, `Lighting.InterfaceBlur`
 - Page ids map to their ScreenGui and page-root child name, including `Map` -> `Map`/`Main`; a page missing from that table never gets enabled.
@@ -534,6 +535,26 @@ Flag-gated startup timing log. The server stamps a start time on ReplicatedStora
 - Remotes: `Communication/PerfLog` (fired to all clients; created directly by this service, sitting in Communication with no topic subfolder)
 - Requires: `Configs.FLAGS`
 
+### PhotoCaptureService.luau
+Client half of the tripod Camera's shutter. On the snap remote it flashes the screen white, hides every `LayerCollector` under PlayerGui plus every core GUI type and the topbar, hides the viewmodel, clones the named figure rig locally (anchored, never replicated) at the server-chosen CFrame, and pins the camera to the tripod's lens while calling `CaptureService:CaptureScreenshot`. The figure is cloned and the camera is moved `Capture.WarmupFrames` before the shutter, all of it behind the opaque flash, because a model parented the same frame it is photographed renders unshaded — that warmup is what keeps a dark rig from coming out default grey. Frame waits are deadline-bounded and every restore is guarded, so a client that stops rendering mid-shot (alt-tab) still gets its camera, character and interface back. GUIs are unparented rather than merely disabled, because services like MinimapService re-assert `Enabled` every render step and would otherwise win the frame the shutter fires. Every held frame re-asserts the whole disguise — GUIs stay unparented, the local character's parts stay visible, and its root is turned to the player's real camera yaw so a first-person player is photographed facing where they were looking rather than where they last walked.
+The camera never visibly snaps back: the finished photo is handed to PhotoDevelopService full-screen while the flash is still white, and only then are the camera, viewmodel, character and interface restored behind it, so the flash covers the jump out and the photo covers the jump home. Warns when the figure rig is missing from `ReplicatedStorage.Enemies`. Captures are per-client `rbxtemp://` ids, so every player in the shot takes their own copy of the same framing.
+- API: `PhotoCaptureService:Take(lens: CFrame, fieldOfView: number, figure: CFrame?, figureName: string?)` — run the whole flash/capture/restore sequence
+- Remotes: `Photo/Snap` (listened)
+- Requires: `Configs.PhotoConfig`, `CommunicationService`, `GuiBuilderService`, `PhotoDevelopService`
+
+### PhotoDevelopService.luau
+Shows a captured photo as a sheet of film developing. A photo arriving from the shutter fills the whole screen (oversized so its frame sits off-view, masking the camera's return to the player), holds, then flies down into the corner. The image carries its final grade from the first frame it exists, so nothing about it changes tone while the player is looking at it; the film feel comes from a developer sheen that sweeps across once as it travels. Clicking the preview grows a large copy out of the preview's own rectangle over a dimmed backdrop, and closing it shrinks back into the same rectangle rather than cutting. The preview stays until it is closed with its own corner button; clicking the photo itself opens a large centred copy over a dimmed backdrop, closed by its close button or by clicking the backdrop. A new photo replaces whatever is on screen.
+- API: `PhotoDevelopService:Show(contentId: string, fullscreen: boolean?)` — build and animate a photo from a capture content id, arriving full-screen when `fullscreen` is set
+- API: `PhotoDevelopService:Expand()` / `PhotoDevelopService:Collapse()` — open and close the large view of the current photo
+- API: `PhotoDevelopService:Hide()` — slide the preview away and destroy it
+- Requires: `Configs.PhotoConfig`, `GuiBuilderService`
+
+### PhotoTimerService.luau
+Draws the countdown above every placed tripod camera: a billboard over the camera body that ticks down whole seconds against the model's server-time `SnapAt` attribute, pulsing each change and turning red near zero, then flashes `SNAP` and hides itself once the `Snapped` attribute is set. The tagged model can arrive before its parts replicate, so the billboard waits (up to five seconds) for the camera body to exist rather than silently skipping that camera.
+- API: none — side-effect only.
+- Tags: listens `PhotoConfig.Tag`
+- Requires: `Configs.PhotoConfig`, `TagService`
+
 ### PlayerLocatorService.luau
 Client-only teleport-to-player HUD: keeps a `LocatorMarker` per eligible player (all players, or friends only, depending on the toggled mode), highlights whichever marker is nearest the crosshair each frame, and fires the teleport remote on click. Renders the shared cooldown readout. If the `PlayerLocator` GUI is missing its expected children it degrades to a disabled stub exposing only `SetEnabled`/`IsEnabled`.
 - API: `PlayerLocatorService:SetEnabled(value: boolean)` — shows/hides the GUI, rebuilds markers, binds/unbinds the render step
@@ -607,14 +628,14 @@ Client-only decorated overlay for the stamina bar while a speed boost is active:
 - Requires: `Configs.SprintBoostConfig`, `Configs.SprintConfig`, `SprintUIService` (`GetBar`, `SetForcedVisible`), `GuiBuilderService`; reads the `SpeedBoostName` and `SpeedBoostEndsAt` player attributes
 
 ### SprintService.luau
-Client sprint state machine: binds hold-to-sprint keys (plus a touch toggle button), drains and regenerates stamina with an exhaustion lockout, and owns the humanoid's `WalkSpeed`. It watches external WalkSpeed writes to re-derive the base speed and respects the server's speed-boost attributes, and drives the sprint FOV offset.
+Client sprint state machine: binds hold-to-sprint keys (plus a touch toggle button), drains and regenerates stamina with an exhaustion lockout, and owns the humanoid's `WalkSpeed`. It watches external WalkSpeed writes to re-derive the base speed and respects the server's speed-boost attributes, drives the sprint FOV offset, and uses Wallstick's movement source while the local character is surface-stuck.
 - API: `SprintService:GetStaminaFraction() -> number` — 0..1
 - API: `SprintService:IsSprinting() -> boolean`
 - API: `SprintService:IsExhausted() -> boolean`
 - API: `SprintService:GetWeight() -> number` — eased 0..1 sprint blend, used for camera effects
 - API: `SprintService:SetSpeedFactor(name: string, factor: number?)` — named multiplicative modifiers; `nil` removes
 - API: `SprintService:SetSprintBlocked(name: string, blocked: boolean)` — named blockers; blocking also drops held/toggled state
-- Requires: `Configs.SprintConfig`, `CameraFovService`; reads the `SpeedBoostSpeed` / `SpeedBoostBaseSpeed` player attributes
+- Requires: `Configs.SprintConfig`, `CameraFovService`, `WallstickService`; reads the `SpeedBoostSpeed` / `SpeedBoostBaseSpeed` player attributes
 
 ### SprintUIService.luau
 Client-only stamina bar: builds the CanvasGroup/track/fill GUI, follows the stamina fraction with an eased lerp, recolours through fill → low → empty bands, pulses the track while exhausted, and auto-fades the bar out once stamina has been full for a while.
@@ -667,12 +688,12 @@ One-question helper for whether a character should be treated as absent: it carr
 - API: `Vanished.EyeExemptTag` — the string `"IgnoreExceptEye"`
 - Tags: reads `Ignore`, `IgnoreExceptEye`
 ### ViewmodelService.luau
-Client first-person viewmodel: clones the equipped Tool (stripped of scripts, sounds and effects) under the camera, hides the real tool, and each render step positions the clone from camera CFrame plus yaw sway and speed-scaled bob. Auto-hides when not in first person or when the character's real hand is visible; supports per-tool anchor/rotation overrides.
+Client first-person viewmodel: clones the equipped Tool (stripped of scripts, sounds and effects) under the camera, hides the real tool, and each render step positions the clone from camera CFrame plus yaw sway and speed-scaled bob. Auto-hides when not in first person or when the character's real hand is visible; supports per-tool anchor/rotation overrides, and a per-tool `Scale` override for props too large for the shared scale.
 - API: none — side-effect only.
 - Requires: `Configs.ViewmodelConfig` (`Scale`, `Fit`, `HandOffset`, `Arm`, `Overrides`)
 
 ### VoiceActivityService.luau
-Client voice-activity detector: wires an `AudioAnalyzer` onto the local player's `AudioDeviceInput`, polls RMS level against a threshold, and tells the server when you start and stop speaking (with a heartbeat re-send and a release delay). Rebuilds itself if the input device appears or disappears.
+Client voice-activity detector: wires an `AudioAnalyzer` onto the local player's `AudioDeviceInput`, polls RMS level against a threshold, and tells the server when you start and stop speaking (with a heartbeat re-send and a release delay). Stops analyzing on death, mutes remote voice emitters and radio output faders locally until respawn, and rebuilds itself if the input device appears or disappears.
 - API: none — side-effect only.
 - Remotes: `WalkieTalkie/VoiceActivity` (fired)
 - Requires: `Configs.VoiceChatConfig` (`Activity.PollInterval`, `.Threshold`, `.Heartbeat`, `.Release`)
@@ -696,9 +717,11 @@ Client walkie-talkie mode control. Reuses the `PlayerLocator` GUI's mode frame f
 - Requires: `Configs.WalkieTalkieConfig`, `GuiBuilderService`; shares the `PlayerLocator` ScreenGui with `PlayerLocatorService`
 
 ### WallstickService.luau
-Client front end for the vendored Wallstick controller. Always listens on the replication channel so other players' wall-stuck characters render correctly; wall-sticking for the local character is opt-in via `Enable`, which runs an auto-stick raycast loop under the character's feet each `PreSimulation` (like the upstream demo, resetting to normal gravity after a long fall) and tears down on death or character removal. Guarded to be inert on the server.
-- API: `WallstickService.Enable(options: { tilt: boolean?, spin: boolean? }?) -> Wallstick?` — starts wall-sticking for the local character; returns the active (or existing) instance
+Client front end for the vendored Wallstick controller. Always listens on the replication channel so other players' wall-stuck characters render correctly; wall-sticking for the local character is opt-in via `Enable`, which runs an auto-stick raycast loop under the character's feet each `PreSimulation` (like the upstream demo, resetting to normal gravity after a long fall), optionally limits transfers to surfaces aligned with a fixed world-space normal, and tears down on death or character removal. Guarded to be inert on the server.
+- API: `WallstickService.Enable(options: { tilt: boolean?, spin: boolean?, surfaceNormal: Vector3? }?) -> Wallstick?` — starts wall-sticking for the local character; `surfaceNormal` rejects differently oriented surfaces and keeps accepted surfaces exactly aligned to that normal; returns the active (or existing) instance
 - API: `WallstickService.Disable()` — destroys the session and restores normal character physics
 - API: `WallstickService.IsEnabled() -> boolean`, `WallstickService.Get() -> Wallstick?`
+- API: `WallstickService.GetMoveDirection() -> Vector3` — current movement direction from the hidden surface-walking humanoid, or zero when disabled
+- API: `WallstickService.SetCameraInputRoll(roll: number)` — rotates PlayerModule's two-axis look input into the currently displayed camera roll without changing PlayerModule's cached world-up frame
 - Remotes: `Wallstick/Replicator`, `Wallstick/Sync` (via `Classes.Wallstick.Replication`)
 - Requires: `Classes.Wallstick` (+ its `RaycastHelper` and `Replication` children); expects `workspace.Wallstick` from the server `WallstickService`

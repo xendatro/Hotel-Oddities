@@ -35,6 +35,11 @@ Shared registry for `/command` chat commands: other modules call `.Register` and
 - API: `ChatCommandService.FindPlayer(name: string) -> Player?` — matches Name, DisplayName or UserId, case-insensitively
 - API: `ChatCommandService.AdminUserIds` — mutable `{ [number]: true }` table of allowed user ids
 
+### CameraCommandService.luau
+Initializes each player's `CameraMaxZoomDistance` to `0.5` and registers `/camera` (alias `/cam`) to toggle their maximum camera zoom between `0.5` and `128`.
+- API: (no public methods; the module table is empty and exists only for its player initialization and chat-command registration)
+- Requires: `ChatCommandService`
+
 ### ComputerCommandService.luau
 Implements the admin `/hack` chat command: lists every tagged computer with its assigned minigame and hacked state, teleports the caller in front of one, or force-sets computers hacked/locked. Computers are named by cycling a fixed game order per maze, and can be addressed by game name prefix or by `room_<name>`.
 - API: `ComputerCommandService:Execute(sender: Player, argument: string?) -> boolean` — handles `list`, `win <game|room|all>`, `reset [game|room|all]`, or a bare target to teleport to
@@ -385,7 +390,7 @@ Registry and lifecycle manager for every oddity class in `ServerStorage.Classes.
 - API: `OddityService:Kinds(scope: string) -> { string }` — sorted
 - API: `OddityService:IsEnabled(scope: string) -> boolean`
 - API: `OddityService:IsAmbient(class: any) -> boolean`
-- API: `OddityService:Start(class: any, context: any, duration: number?) -> (any?, string?)` — returns the oddity or a failure reason
+- API: `OddityService:Start(class: any, context: any, duration: number?, overrides: {[string]: any}?) -> (any?, string?)` — returns the oddity or a failure reason; optional overrides are merged into that instance's class settings
 - API: `OddityService:Stop(token: number) -> boolean`
 - API: `OddityService:StopAll(scope: string?) -> number`
 - API: `OddityService:GetActive(scope: string?) -> { [number]: any }`
@@ -427,6 +432,24 @@ Resolves each player's gamepass ownership once on join, mirrors it to `Perk*` pl
 - API: `PerkService:WaitForPasses(player: Player) -> boolean` — yields up to 20s until ownership is resolved
 - Requires: `PerkConfig`, `MarketplaceService.Gamepasses`, `InventoryService`, `LoadoutService` (death snapshot/restore), `SpeedBoostService` (sets the DoubleSpeed multiplier)
 
+### PhotoCameraService.luau
+Owns every placed tripod camera. Builds the world model out of the Camera tool's parts (anchored, joints, welds and scripts stripped), turns it by `Place.ModelYaw` so the body faces away from the placer, parents it before tagging it so clients never see the tag before the parts, stamps it with the owner and a server-time `SnapAt`, and after the countdown works out the shot: which living players sit inside the lens cone with a clear ray that ignores every player character (so standing behind a teammate still counts), where the figure should stand behind them (clamped to the tripod's own floor level when the ray finds a surface more than `Figure.MaxFloorRise` above or below it, so it never ends up hovering in a lift shaft), and which clients to fire `Photo/Snap` at — the subjects plus the owner. Afterwards a GazeService tracker watches the model and destroys it once nobody has looked at it for `Despawn.UnseenFor`.
+- API: `PhotoCameraService:Place(player: Player, pivot: CFrame) -> Model?` — range-checked placement, starts the countdown
+- API: `PhotoCameraService:Snap(model: Model)` — take the shot now and start the despawn watch; ignores a model that already fired
+- API: `PhotoCameraService:GetSubjects(model: Model, lens: CFrame) -> { Player }`
+- API: `PhotoCameraService:GetFigureCFrame(model: Model, lens: CFrame, subjects: { Player }) -> CFrame?` — nil when the only room available is closer than `Figure.MinStandoff`, so the figure lurks in the background or not at all
+- API: `PhotoCameraService:GetActive() -> { Model }`
+- API: `PhotoCameraService.ForceFigure` — when true the figure is planted straight down the lens at `Figure.ForcedDepth` regardless of subjects, and falls back to a closer spot or a floorless one rather than being skipped
+- API: `PhotoCameraService.FigureName` — which rig under `ReplicatedStorage.Enemies` the clients clone into the photo; defaults to `Figure.Name`
+- Remotes: `Photo/Snap` (fired)
+- Tags: applies `PhotoConfig.Tag`
+- Requires: `Configs.PhotoConfig`, `CharacterService`, `CommunicationService`, `GazeService`, `ReplicatedStorage.Tools.Camera`
+
+### PhotoCommandService.luau
+Registers the `/photo` chat command for testing the tripod camera: bare `/photo` (or `/photo place`) stands a camera on the floor in front of the caller without spending a tool, `/photo now` snaps every camera that has not fired yet, and `/photo figure [on|off|<rig name>]` toggles `PhotoCameraService.ForceFigure` so the figure is guaranteed to be dead centre in frame, optionally swapping `PhotoCameraService.FigureName` to any rig under `ReplicatedStorage.Enemies` (matched case-insensitively) for testing before the real ShadowFigure exists.
+- API: none — registers its command on require.
+- Requires: `ChatCommandService`, `PhotoCameraService`, `CharacterService`, `Configs.PhotoConfig`
+
 ### PlayerCharacterStreamingService.luau
 Sets every player character's `ModelStreamingMode` to `Persistent` so characters are never streamed out on other clients.
 - API: data table — empty; all behaviour is in the connections
@@ -439,13 +462,14 @@ Backs the Player Locator tool: teleports the holder behind a chosen player, on a
 - Requires: `PlayerLocatorConfig`, `HallwayStreamingService:PrepareTeleport`, `InventoryService` (equip check)
 
 ### PlayerOddityCommandService.luau
-Registers the `/oddity` chat command, parsing an optional effect name (size / transparency / stare) and an optional player name — with exact, display-name and prefix matching — then asking `PlayerOddityService` to trigger it. Reports results and failures via `warn`.
+Registers the `/oddity` chat command, parsing an optional effect name (size / headsize / transparency / stare) and an optional player name — with exact, display-name and prefix matching — then asking `PlayerOddityService` to trigger it. `headsize` also accepts `bighead`. Reports results and failures via `warn`.
 - API: data table — empty; the module only registers the command
 - Requires: `ChatCommandService`, `PlayerOddityService`
 
 ### PlayerOddityService.luau
-Randomly afflicts a living player with a `Player`-scope oddity (size, transparency, head stare) on a repeating roll, allowing one at a time per player and clearing it on respawn. Weights come from `PlayerOddityConfig.EffectWeights` and unavailable classes are skipped.
-- API: `PlayerOddityService:Trigger(player: Player, kind: string?) -> (boolean, string?, string?)` — returns ok, the chosen kind, and a failure reason
+Randomly afflicts a living player with a `Player`-scope oddity (size, head size, transparency, head stare) on a repeating roll, allowing one at a time per player and clearing it on respawn. Weights come from `PlayerOddityConfig.EffectWeights` and unavailable classes are skipped.
+- API: `PlayerOddityService:IsActive(player: Player) -> boolean` — reports whether that player already has a running player oddity
+- API: `PlayerOddityService:Trigger(player: Player, kind: string?, overrides: {[string]: any}?) -> (boolean, string?, string?)` — returns ok, the chosen kind, and a failure reason; overrides support fixed big/small character sizes for tools
 - Requires: `PlayerOddityConfig`, `OddityService` (scope `"Player"`), `CharacterService`
 
 ### ProfileService.luau
@@ -518,8 +542,10 @@ Finds a peek spot behind the player and spawns a stalker-type enemy standing the
 - Requires: `PeekSpotService`, `EnemyConfigs`, `ServerStorage.Classes.Enemies.Behaviors.Peek` (find options), `EnemyService:Spawn`, `ReplicatedStorage.Services.SpawnZoneService`
 
 ### StunService.luau
-Puts an enemy NPC or Eye into its `Stunned` state for a duration, and handles the client Ball hit report by re-verifying the thrower is within `ToolConfigs.Ball.ServerRange` of the target before stunning.
+Puts an enemy NPC or Eye into its `Stunned` state for a duration, and handles the client Ball hit report by re-verifying the thrower is within `ToolConfigs.Ball.ServerRange` of a live Eye before despawning it.
 - API: `StunService:Stun(model: Instance?, duration: number) -> boolean` — stun the enemy behind that model
+- API: `StunService:KillEye(model: Instance?) -> boolean` — despawn the live Eye behind that model
+- API: `StunService:KillNpc(model: Instance?) -> boolean` — despawn the live NPC behind that model
 - Remotes: `Ball/Hit` (listened)
 - Requires: `ServerStorage.Classes.NPC`, `ServerStorage.Classes.Enemies.Eye`, `ToolConfigs.Ball`
 
@@ -536,7 +562,7 @@ Binds each entry in `ToolConfigs` to its matching class under `ServerStorage.Cla
 - Requires: `ToolConfigs`, `ServerStorage.Classes.Tools.*`, `InventoryService`
 
 ### VoiceActivityService.luau
-Tunes each player's voice input volume and character AudioEmitter attenuation (disabling acoustic simulation, occlusion, diffraction and reverb), tracks who is talking from a client remote, and emits noise at the speaker's position every 0.05s so enemies can hear voice chat. Speaking flags time out after `VoiceChatConfig.Activity.Timeout`.
+Tunes each player's voice input volume and character AudioEmitter attenuation (disabling acoustic simulation, occlusion, diffraction and reverb), tracks who is talking from a client remote, and emits noise at the speaker's position every 0.05s so enemies can hear voice chat. Mutes the input and moves the character voice emitter out of the default interaction group on death, restoring both on respawn. Speaking flags time out after `VoiceChatConfig.Activity.Timeout`.
 - API: `VoiceActivityService:SetActive(player: Player, active: boolean)` — set the talking flag and emit noise
 - API: `VoiceActivityService:GetState(player: Player) -> State?` — `{Active, LastActiveAt}`
 - API: `VoiceActivityService:ApplyVolume()` — re-apply the configured input volume to everyone
@@ -550,7 +576,7 @@ Studio-only debug hook, gated behind `FLAGS.VoiceDebug`: lets a client set any v
 - Requires: `VoiceDebugConfig`, `FLAGS`, `VoiceActivityService:ApplyVolume`, `WalkieTalkieService:ApplyVolumes`
 
 ### WalkieTalkieService.luau
-Builds a full per-player radio audio graph on the equipped Walkie Talkie — compressor, bandpass, EQ, distortion and limiter into a mixer feeding one `AudioDeviceOutput` per eligible listener plus a physical emitter on the handle — and keeps the listener set in sync with the All/Friends privacy mode. Also picks up the nearest tagged ambient emitter into the radio, relays client-requested sounds with a rate limit, plays a static death burst when a transmitting holder dies, and emits noise so enemies hear radio traffic.
+Builds a full per-player radio audio graph on the equipped Walkie Talkie — compressor, bandpass, EQ, distortion and limiter into a mixer feeding one `AudioDeviceOutput` per eligible listener plus a physical emitter on the handle — and keeps the listener set in sync with the All/Friends privacy mode. Removes a dead player's radio routes as both sender and listener, restoring them on respawn. Also picks up the nearest tagged ambient emitter into the radio, relays client-requested sounds with a rate limit, plays a static death burst when a transmitting holder dies, and emits noise so enemies hear radio traffic.
 - API: `WalkieTalkieService:Equip(player: Player, tool: Tool)` — build the audio graph (no-op if voice chat is unavailable for that user)
 - API: `WalkieTalkieService:Unequip(player: Player, tool: Tool)` — tear it down
 - API: `WalkieTalkieService:SetMode(player: Player, mode: string)` — `"All"` or `"Friends"`; mirrored to the `WalkieTalkieMode` attribute

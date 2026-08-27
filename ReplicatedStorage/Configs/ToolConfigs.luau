@@ -40,7 +40,6 @@ return {
 		Tag = "Trap",
 		Sound = "PlaceTrap",
 		CloseSound = "TrapClose",
-		StunDuration = 5,
 		MaxInWorld = 10,
 		DespawnDelay = 5,
 	},
@@ -49,7 +48,6 @@ return {
 		Tag = "Ball",
 		Sound = "Ball",
 		RevealLimbs = true,
-		StunDuration = 3,
 		Range = 60,
 		ServerRange = 80,
 		FlightSpeed = 90,
@@ -124,7 +122,54 @@ return {
 		Tag = "Player Locator",
 	},
 
+	Camera = {
+		Tag = "Camera",
+		Sound = "PlaceTrap",
+		Cooldown = 1,
+	},
+
 	["Walkie Talkie"] = {
 		Tag = "Walkie Talkie",
+	},
+
+	["Big Head"] = {
+		Tag = "Big Head",
+		Cooldown = 1,
+		OddityKind = "HeadSize",
+	},
+
+	["Big Character"] = {
+		Tag = "Big Character",
+		Cooldown = 1,
+		OddityKind = "Size",
+		OddityOverrides = {
+			SizeOptions = { 1.1 },
+		},
+	},
+
+	["Small Character"] = {
+		Tag = "Small Character",
+		Cooldown = 1,
+		OddityKind = "Size",
+		OddityOverrides = {
+			SizeOptions = { 0.9 },
+		},
+	},
+
+	Transparency = {
+		Tag = "Transparency",
+		Cooldown = 1,
+		OddityKind = "Transparency",
+	},
+
+	["Random Oddity"] = {
+		Tag = "Random Oddity",
+		Cooldown = 1,
+		OddityChoices = {
+			{ Kind = "HeadSize" },
+			{ Kind = "Size", Settings = { SizeOptions = { 1.1 } } },
+			{ Kind = "Size", Settings = { SizeOptions = { 0.9 } } },
+			{ Kind = "Transparency" },
+		},
 	},
 }

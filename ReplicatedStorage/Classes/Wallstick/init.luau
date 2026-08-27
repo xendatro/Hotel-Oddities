@@ -51,6 +51,8 @@ export type Wallstick = typeof(setmetatable(
 		options: Options,
 		fallStartHeight: number,
 		replicateTick: number,
+		platformStand: boolean,
+		evaluateStateMachine: boolean,
 
 		part: BasePart,
 		normal: Vector3,
@@ -93,6 +95,8 @@ function WallstickClass.new(options: Options): Wallstick
 	self.real = CharacterHelper.real(Players.LocalPlayer)
 	self.fake = CharacterHelper.fake(Players.LocalPlayer)
 	self.streamingFocus = assert(CharacterHelper.findStreamingFocus(Players.LocalPlayer), "No streaming focus found.")
+	self.platformStand = self.real.humanoid.PlatformStand
+	self.evaluateStateMachine = self.real.humanoid.EvaluateStateMachine
 
 	self.trove:Add(CharacterHelper.applyCollisionGroup(self.real.character, "WallstickNoCollision"))
 
@@ -138,7 +142,13 @@ function WallstickClass.new(options: Options): Wallstick
 
 		CharacterHelper.setMyPerformer(self.real.character, nil)
 
-		self.real.humanoid.EvaluateStateMachine = true
+		self.real.alignPosition:Destroy()
+		self.real.alignOrientation:Destroy()
+		self.real.humanoid.PlatformStand = self.platformStand
+		self.real.humanoid.EvaluateStateMachine = self.evaluateStateMachine
+		if not self.platformStand and self.real.humanoid.Health > 0 then
+			self.real.humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+		end
 		self.real.rootPart.Anchored = false
 
 		self.streamingFocus.part.CFrame = self.options.origin
@@ -271,6 +281,7 @@ function WallstickClass._stepRenderCharacter(self: Wallstick, _dt: number)
 	local rootCameraOffset = realRootCF:ToObjectSpace(workspace.CurrentCamera.CFrame)
 	local geometryCameraCF = fakeRootCF * rootCameraOffset
 
+	self.fake.humanoid.WalkSpeed = self.real.humanoid.WalkSpeed
 	self.fake.humanoid.Jump = self.real.humanoid.Jump
 	self.fake.humanoid:Move(GravityCamera.getMoveVector(geometryCameraCF), false)
 
@@ -321,6 +332,10 @@ function WallstickClass.getFallDistance(self: Wallstick)
 		return self.fake.rootPart.Position.Y - self.fallStartHeight
 	end
 	return 0
+end
+
+function WallstickClass.getMoveDirection(self: Wallstick): Vector3
+	return self.fake.humanoid.MoveDirection
 end
 
 function WallstickClass.set(self: Wallstick, part: BasePart, normal: Vector3, teleportCF: CFrame?)

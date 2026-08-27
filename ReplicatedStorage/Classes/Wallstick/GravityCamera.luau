@@ -30,6 +30,12 @@ function GravityCamera.setUpVector(target: Vector3)
 	end
 end
 
+function GravityCamera.setInputRoll(roll: number)
+	if cameraModuleObject.SetInputRoll then
+		cameraModuleObject:SetInputRoll(roll)
+	end
+end
+
 function GravityCamera.getSpinPart(): BasePart
 	if cameraModuleObject.GetSpinPart then
 		return cameraModuleObject:GetSpinPart()

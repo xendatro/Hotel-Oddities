@@ -1,0 +1,1 @@
+C:/users/caden/documents/github/hotel-oddities/CLAUDE.md

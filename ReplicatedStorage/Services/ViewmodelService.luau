@@ -84,7 +84,9 @@ local function buildRig(tool: Tool)
 	end
 	clone.Parent = model
 	model.WorldPivot = handle:GetPivot()
-	model:ScaleTo(ViewmodelConfig.Scale)
+
+	local override = ViewmodelConfig.Overrides[tool.Name]
+	model:ScaleTo(override and override.Scale or ViewmodelConfig.Scale)
 
 	local armConfig = ViewmodelConfig.Arm
 	if armConfig.Enabled then

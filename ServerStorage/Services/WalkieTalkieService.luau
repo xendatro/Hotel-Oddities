@@ -57,6 +57,7 @@ local RelaySounds: { [AudioPlayer]: RelaySoundState } = {}
 local RelayIds: { [Player]: { [string]: AudioPlayer } } = {}
 local DeathConnections: { [Player]: RBXScriptConnection } = {}
 local CharacterConnections: { [Player]: RBXScriptConnection } = {}
+local DeadPlayers: { [Player]: boolean } = {}
 local RadioEquippedAt: { [Player]: number } = {}
 local LastRadioPosition: { [Player]: Vector3 } = {}
 local RebuildQueued = false
@@ -326,6 +327,7 @@ local function playDeathBurst(sourcePlayer: Player)
 
 	for receiver in States do
 		local wanted = receiver ~= sourcePlayer
+			and not DeadPlayers[receiver]
 			and allows(sourcePlayer, receiver)
 			and allows(receiver, sourcePlayer)
 		if wanted then
@@ -482,6 +484,7 @@ function WalkieTalkieService:ApplyVolumes()
 end
 
 function WalkieTalkieService:SetVoiceActivity(player: Player, active: boolean)
+	if DeadPlayers[player] and active then return end
 	local state = States[player]
 	if state then updateSpeaking(state, active) end
 end
@@ -499,7 +502,11 @@ end
 
 ensureOutputs = function(state: State)
 	for receiver in States do
-		local wanted = receiver ~= state.Player and allows(state.Player, receiver) and allows(receiver, state.Player)
+		local wanted = not DeadPlayers[state.Player]
+			and not DeadPlayers[receiver]
+			and receiver ~= state.Player
+			and allows(state.Player, receiver)
+			and allows(receiver, state.Player)
 		local existing = state.OutputWires[receiver]
 		if not wanted then
 			if existing then
@@ -559,6 +566,7 @@ local function teardown(state: State)
 end
 
 local function handlePlayerDeath(player: Player)
+	if DeadPlayers[player] then return end
 	local state = States[player]
 	local voiceState = VoiceActivityService:GetState(player)
 	local now = os.clock()
@@ -566,6 +574,26 @@ local function handlePlayerDeath(player: Player)
 		or (voiceState ~= nil and (voiceState.Active or now - voiceState.LastActiveAt <= Config.DeathActiveGrace))
 	local hasRadio = state ~= nil
 		or (RadioEquippedAt[player] ~= nil and now - RadioEquippedAt[player] <= Config.DeathActiveGrace)
+	DeadPlayers[player] = true
+	if state then
+		updateSpeaking(state, false)
+		state.RadioOutputFader.Volume = 0
+		for receiver in state.OutputWires do
+			local route = state.OutputWires[receiver]
+			route.Wire:Destroy()
+			route.Output:Destroy()
+			state.OutputWires[receiver] = nil
+		end
+	end
+	for _, senderState in States do
+		local route = senderState.OutputWires[player]
+		if route then
+			route.Wire:Destroy()
+			route.Output:Destroy()
+			senderState.OutputWires[player] = nil
+		end
+	end
+	queueRebuild()
 	if hasRadio and active then playDeathBurst(player) end
 end
 
@@ -579,6 +607,7 @@ local function bindCharacterDeath(player: Player, character: Model)
 		DeathConnections[player] = humanoid.Died:Connect(function()
 			handlePlayerDeath(player)
 		end)
+		if humanoid.Health <= 0 then handlePlayerDeath(player) end
 		return
 	end
 	local childConnection: RBXScriptConnection?
@@ -592,7 +621,11 @@ end
 local function watchCharacter(player: Player)
 	if CharacterConnections[player] then CharacterConnections[player]:Disconnect() end
 	CharacterConnections[player] = player.CharacterAdded:Connect(function(character)
+		DeadPlayers[player] = nil
+		local state = States[player]
+		if state then state.RadioOutputFader.Volume = 1 end
 		bindCharacterDeath(player, character)
+		queueRebuild()
 	end)
 	if player.Character then bindCharacterDeath(player, player.Character) end
 end
@@ -605,6 +638,7 @@ function WalkieTalkieService:SetMode(player: Player, mode: string)
 end
 
 function WalkieTalkieService:Equip(player: Player, tool: Tool)
+	DeadPlayers[player] = nil
 	if States[player] then
 		teardown(States[player])
 		States[player] = nil
@@ -930,6 +964,7 @@ Players.PlayerRemoving:Connect(function(player)
 	LastRadioPosition[player] = nil
 	DeathConnections[player] = nil
 	CharacterConnections[player] = nil
+	DeadPlayers[player] = nil
 	local userId = tostring(player.UserId)
 	for key in FriendCache do
 		local first, second = key:match("^(%d+):(%d+)$")

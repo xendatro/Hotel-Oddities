@@ -71,11 +71,19 @@ function OddityService:IsAmbient(class: any): boolean
 	return class.Ambient ~= false and class.Settings.Ambient ~= false
 end
 
-function OddityService:Start(class: any, context: any, duration: number?): (any?, string?)
+function OddityService:Start(class: any, context: any, duration: number?, overrides: { [string]: any }?): (any?, string?)
 	if EDIT_MODE then return nil, "oddities are disabled in Studio edit mode" end
 	if class.Settings.Enabled == false then return nil, "that oddity is disabled" end
 
-	local oddity = class.new(class.Settings)
+	local settings = class.Settings
+	if type(overrides) == "table" then
+		settings = table.clone(class.Settings)
+		for key, value in overrides do
+			settings[key] = value
+		end
+	end
+
+	local oddity = class.new(settings)
 	local ok, reason = oddity:CanStart(context)
 	if not ok then return nil, reason end
 

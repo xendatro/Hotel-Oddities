@@ -247,10 +247,10 @@ RigMotion subclass that turns an NPC's neck and waist to look at the local playe
 - Requires: `Classes.RigMotion`, `Configs.WatchConfig`, `Services.MathService`
 
 ### Wallstick\ (init.luau, CharacterHelper.luau, GravityCamera.luau, GravityCameraModifier.luau, Replication.luau, RotationSpring.luau, CharacterAnimate\, CharacterSounds\, Signal.luau, Trove.luau, RaycastHelper.luau)
-Vendored EgoMoose Rbx-Wallstick (June 2026 upstream): sticks the local player's character to any surface -- walls, ceilings, moving parts -- by simulating a hidden "fake" character in a de-rotated geometry world under `workspace.Wallstick` and CFraming the real character to match every physics step. Uses modern `AlignPosition`/`AlignOrientation` constraints; the upstream's one deprecated call (`FindPartsInRegion3WithIgnoreList`) was replaced with `GetPartBoundsInBox`, `Replication.luau` was adapted to `CommunicationService` remotes instead of TypedRemote, and `Trove`/`RaycastHelper`/`Signal` (stravant goodsignal) are vendored as children. Nothing in StarterPlayer is replaced or installed — everything applies at runtime, client-side, only when wallstick is first enabled: `GravityCamera` monkey-patches the live stock `PlayerModule` with `GravityCameraModifier` (adds `SetTargetUpVector`/`GetUpVector`/`SetSpinPart`/`GetRotationType` to the camera; falls back to a tilt-less camera if patching fails), and `CharacterHelper.setMyPerformer` temporarily disables the character's stock `Animate` and the player's stock `RbxCharacterSounds` LocalScripts, driving the real character's animations and sounds from the fake humanoid via the vendored `CharacterAnimate`/`CharacterSounds` packages, then restores the stock scripts when wallstick is disabled. Client-only; other players' stuck characters render through the replication channel. Drive it through `Services.WallstickService` rather than constructing directly.
+Vendored EgoMoose Rbx-Wallstick (June 2026 upstream): sticks the local player's character to any surface -- walls, ceilings, moving parts -- by simulating a hidden "fake" character in a de-rotated geometry world under `workspace.Wallstick` and CFraming the real character to match every physics step. Uses modern `AlignPosition`/`AlignOrientation` constraints; the upstream's one deprecated call (`FindPartsInRegion3WithIgnoreList`) was replaced with `GetPartBoundsInBox`, `Replication.luau` was adapted to `CommunicationService` remotes instead of TypedRemote, and `Trove`/`RaycastHelper`/`Signal` (stravant goodsignal) are vendored as children. Nothing in StarterPlayer is replaced or installed — everything applies at runtime, client-side, only when wallstick is first enabled: `GravityCamera` monkey-patches the live stock `PlayerModule` with `GravityCameraModifier` (adds gravity up-vector, spin-part, rotation-type and screen-relative look-input control to the camera; falls back to a tilt-less camera if patching fails), and `CharacterHelper.setMyPerformer` temporarily disables the character's stock `Animate` and the player's stock `RbxCharacterSounds` LocalScripts, driving the real character's animations and sounds from the fake humanoid via the vendored `CharacterAnimate`/`CharacterSounds` packages, then restores the stock scripts when wallstick is disabled. The fake humanoid mirrors the real humanoid's `WalkSpeed` so movement modifiers such as sprint continue to apply while stuck. Destroying the controller removes its real-character alignment constraints and restores the original `PlatformStand` and `EvaluateStateMachine` values before returning the humanoid to `GettingUp`. Client-only; other players' stuck characters render through the replication channel. Drive it through `Services.WallstickService` rather than constructing directly.
 - API: `Wallstick.new(options: { parent: Instance, origin: CFrame, retainWorldVelocity: boolean, camera: { tilt: boolean, spin: boolean } }) -> Wallstick`
 - API: `Wallstick:set(part: BasePart, normal: Vector3, teleportCF: CFrame?)` / `:setAndPivot(part, normal, position)` / `:setAndTeleport(part, normal, position)` -- stick to a surface
-- API: `Wallstick:getPart() -> BasePart`, `:getNormal(worldSpace: boolean) -> Vector3`, `:getFallDistance() -> number`, `:Destroy()`
+- API: `Wallstick:getPart() -> BasePart`, `:getNormal(worldSpace: boolean) -> Vector3`, `:getFallDistance() -> number`, `:getMoveDirection() -> Vector3`, `:Destroy()`
 - Remotes: `Wallstick/Replicator`, `Wallstick/Sync` (via `Replication.luau`)
 - Requires: `Services.CommunicationService`; expects the server `WallstickService` collision groups and streaming foci
 
@@ -344,14 +344,22 @@ Snake on a 16x12 grid: eat 15 pellets to win, with the tick interval speeding up
 ## Tools
 
 ### Tools\Ball.luau
-Client half of the throwable ball: raycasts through the mouse at Enemy-tagged parts, plays the Throw animation while turning the character to face the target, then flies a cloned ball prop toward the enemy's head and tells the server it connected. Consumes one ball per throw and deletes the visible handle when the stack runs out.
+Client half of the throwable ball: raycasts through the mouse at Eye-tagged parts, plays the Throw animation while turning the character to face the target, then flies a cloned ball prop toward the Eye's head and tells the server it connected. Consumes one ball per throw and deletes the visible handle when the stack runs out.
 - API: `Ball.new(tool: Tool) -> self`
 - API: `Ball:OnEquipped()` — loads the Throw animation track
 - API: `Ball:OnActivated()` — find target, play throw, consume, launch the projectile
 - API: `Ball:OnCleanup()` / `Ball:OnDestroy()` — stops the face-target loop
 - Remotes: `Ball/Hit` (fired); `Backpack/Delete` (fired, via `ClientTool:Consume`)
-- Tags: reads `Enemy` via `TagService:GetTaggedOfAncestor`
+- Tags: reads `Eye` via `TagService:GetTaggedOfAncestor`
 - Requires: `Classes\ClientTool`, `TagService`, `ReplicatedStorage.Props.Other` (Ball prop)
+
+### Tools\Camera.luau
+Client half of the tripod Camera: while equipped it keeps a local ForceField-material ghost of the tripod standing wherever the shot would land, updated every render step and hidden when there is no valid spot. On activation it raycasts from the camera through the crosshair for a floor within `Place.Range`, rejects steep surfaces and spots too close to the player, and asks the server to stand the tripod there facing the way the player is looking. The photo itself is taken later by PhotoCaptureService.
+- API: `Camera.new(tool: Tool) -> self`
+- API: `Camera:OnEquipped()` / `Camera:OnUnequipped()` — build and tear down the placement ghost
+- API: `Camera:OnActivated()` — find a floor spot and fire the placement request
+- Remotes: `Tools/Signal` (fired, `Place`)
+- Requires: `Classes\ClientTool`, `Configs.PhotoConfig`
 
 ### Tools\Pathfinder.luau
 Drops breadcrumb markers on the floor beneath the player, ray-snapping to ground and refusing to place one within `MinSpacing` of an existing marker (it pulses that marker instead). Markers live in a module-level list shared by every Pathfinder instance, are re-shaded oldest-to-newest and culled past `MaxInWorld`. Shows a `ToolCounter` of uses left unless the player owns the unlimited-Pathfinder perk attribute.

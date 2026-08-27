@@ -18,6 +18,65 @@ local analyzer: AudioAnalyzer?
 local analyzerWire: Wire?
 local speaking = false
 local lastActivitySentAt = -math.huge
+local voiceCutoffActive = false
+local voiceMuteGroup = `VoiceDead_{player.UserId}`
+local mutedVoiceEmitters: { [AudioEmitter]: string } = {}
+local mutedRadioOutputVolumes: { [AudioFader]: number } = {}
+
+local function muteRemoteVoiceEmitter(instance: Instance)
+	local character = player.Character
+	if not voiceCutoffActive
+		or not instance:IsA("AudioEmitter")
+		or instance.Name ~= "AudioEmitter"
+		or (character and instance:IsDescendantOf(character))
+	then
+		return
+	end
+
+	if mutedVoiceEmitters[instance] == nil then
+		mutedVoiceEmitters[instance] = instance.AudioInteractionGroup
+	end
+	instance.AudioInteractionGroup = voiceMuteGroup
+end
+
+local function refreshMutedVoiceEmitters()
+	for _, other in Players:GetPlayers() do
+		if other == player or not other.Character then continue end
+		for _, descendant in other.Character:GetDescendants() do
+			muteRemoteVoiceEmitter(descendant)
+		end
+	end
+end
+
+local function restoreMutedVoiceEmitters()
+	for emitter, group in mutedVoiceEmitters do
+		if emitter.Parent and emitter.AudioInteractionGroup == voiceMuteGroup then
+			emitter.AudioInteractionGroup = group
+		end
+		mutedVoiceEmitters[emitter] = nil
+	end
+end
+
+local function muteRadioOutput(instance: Instance)
+	if not voiceCutoffActive or not instance:IsA("AudioFader") or instance.Name ~= "RadioOutputVolume" then return end
+	if mutedRadioOutputVolumes[instance] == nil then mutedRadioOutputVolumes[instance] = instance.Volume end
+	instance.Volume = 0
+end
+
+local function refreshMutedRadioOutputs()
+	for _, other in Players:GetPlayers() do
+		for _, descendant in other:GetDescendants() do
+			muteRadioOutput(descendant)
+		end
+	end
+end
+
+local function restoreMutedRadioOutputs()
+	for fader, volume in mutedRadioOutputVolumes do
+		if fader.Parent and fader.Volume == 0 then fader.Volume = volume end
+		mutedRadioOutputVolumes[fader] = nil
+	end
+end
 
 local function sendActivity(active: boolean, heartbeat: boolean?)
 	local now = os.clock()
@@ -45,6 +104,7 @@ end
 
 local function startAnalyzer()
 	stopAnalyzer()
+	if voiceCutoffActive then return end
 
 	local source = player:FindFirstChild("AudioDeviceInput")
 	if not source or not source:IsA("AudioDeviceInput") then return end
@@ -84,14 +144,76 @@ local function startAnalyzer()
 	end)
 end
 
+local function setVoiceCutoff(active: boolean)
+	if voiceCutoffActive == active then return end
+	voiceCutoffActive = active
+
+	local source = player:FindFirstChild("AudioDeviceInput")
+	if source and source:IsA("AudioDeviceInput") then source.Muted = active end
+
+	if active then
+		stopAnalyzer()
+		refreshMutedVoiceEmitters()
+		refreshMutedRadioOutputs()
+	else
+		restoreMutedVoiceEmitters()
+		restoreMutedRadioOutputs()
+		startAnalyzer()
+	end
+end
+
+local characterDeathConnection: RBXScriptConnection?
+local characterAddedConnection: RBXScriptConnection?
+
+local function bindCharacter(character: Model)
+	if characterDeathConnection then
+		characterDeathConnection:Disconnect()
+		characterDeathConnection = nil
+	end
+	if characterAddedConnection then
+		characterAddedConnection:Disconnect()
+		characterAddedConnection = nil
+	end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		characterDeathConnection = humanoid.Died:Connect(function()
+			setVoiceCutoff(true)
+		end)
+		if humanoid.Health <= 0 then setVoiceCutoff(true) end
+		return
+	end
+
+	characterAddedConnection = character.ChildAdded:Connect(function(child)
+		if child:IsA("Humanoid") then bindCharacter(character) end
+	end)
+end
+
 player.ChildAdded:Connect(function(child)
-	if child.Name == "AudioDeviceInput" then startAnalyzer() end
+	if child.Name == "AudioDeviceInput" then
+		if child:IsA("AudioDeviceInput") then child.Muted = voiceCutoffActive end
+		startAnalyzer()
+	end
 end)
 
 player.ChildRemoved:Connect(function(child)
 	if child.Name == "AudioDeviceInput" then stopAnalyzer() end
 end)
 
+Players.DescendantAdded:Connect(function(descendant)
+	if voiceCutoffActive then
+		muteRemoteVoiceEmitter(descendant)
+		muteRadioOutput(descendant)
+	end
+end)
+
+player.CharacterAdded:Connect(function(character)
+	setVoiceCutoff(false)
+	bindCharacter(character)
+	if not voiceCutoffActive then startAnalyzer() end
+end)
+
+if player.Character then bindCharacter(player.Character) end
 startAnalyzer()
 
 return VoiceActivityService

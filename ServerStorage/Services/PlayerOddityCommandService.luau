@@ -8,6 +8,8 @@ local PlayerOddityCommandService = {}
 
 local EFFECTS = {
 	size = "Size",
+	headsize = "HeadSize",
+	bighead = "HeadSize",
 	transparency = "Transparency",
 	stare = "HeadStare",
 	headstare = "HeadStare",
@@ -52,7 +54,7 @@ local function run(caller: Player, argument: string?)
 		local normalized = EFFECTS[token:lower()]
 		if normalized then
 			if effect then
-				warn("[oddity] choose only one effect: size, transparency, or stare")
+				warn("[oddity] choose only one effect: size, headsize, transparency, or stare")
 				return
 			end
 			effect = normalized
