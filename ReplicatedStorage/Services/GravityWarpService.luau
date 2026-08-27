@@ -17,6 +17,9 @@ local WallstickService = require(ReplicatedStorage.Services.WallstickService)
 
 local Config = ToolConfigs["Gravity Warper"]
 
+local WarpRemote = CommunicationService.Get("GravityWarp", "Warp")
+local FinishedRemote = CommunicationService.Get("GravityWarp", "Finished")
+
 local Active = false
 local CAMERA_BIND = "GravityWarpCamera"
 local CameraRoot = nil :: BasePart?
@@ -93,11 +96,17 @@ local function warp(duration: number)
 	local character = Players.LocalPlayer.Character
 	local humanoid = CharacterService.GetHumanoid(character)
 	local root = character and CharacterService.GetAliveRootFromCharacter(character)
-	if not character or not humanoid or not root then return end
+	if not character or not humanoid or not root or WallstickService.IsEnabled() then
+		FinishedRemote:FireServer()
+		return
+	end
 
 	local params = rayParamsFor(character)
 	local ceiling = workspace:Raycast(root.Position, Vector3.new(0, Config.MaxCeilingDistance, 0), params)
-	if not ceiling then return end
+	if not ceiling then
+		FinishedRemote:FireServer()
+		return
+	end
 
 	Active = true
 	startCameraRoll(root)
@@ -119,6 +128,7 @@ local function warp(duration: number)
 	if not reachedCeiling or not CharacterService.IsAlive(character) or root.Parent == nil then
 		stopCameraRoll()
 		Active = false
+		FinishedRemote:FireServer()
 		return
 	end
 
@@ -130,6 +140,7 @@ local function warp(duration: number)
 	if not wallstick then
 		stopCameraRoll()
 		Active = false
+		FinishedRemote:FireServer()
 		return
 	end
 
@@ -144,6 +155,7 @@ local function warp(duration: number)
 			WallstickService.Disable()
 			stopCameraRoll()
 			Active = false
+			FinishedRemote:FireServer()
 			return
 		end
 	end
@@ -160,9 +172,10 @@ local function warp(duration: number)
 
 	stopCameraRoll()
 	Active = false
+	FinishedRemote:FireServer()
 end
 
-CommunicationService.Get("GravityWarp", "Warp").OnClientEvent:Connect(function(duration: number)
+WarpRemote.OnClientEvent:Connect(function(duration: number)
 	task.spawn(warp, duration)
 end)
 

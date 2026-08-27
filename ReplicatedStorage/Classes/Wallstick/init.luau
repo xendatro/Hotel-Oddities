@@ -103,6 +103,8 @@ function WallstickClass.new(options: Options): Wallstick
 	self.real.humanoid.PlatformStand = true
 	self.real.rootPart.Anchored = false
 
+	GravityCamera.setRotationTypeForced(true)
+
 	self.fake.character.Parent = self.options.parent
 	self.trove:Add(self.fake.character)
 
@@ -137,8 +139,11 @@ function WallstickClass.new(options: Options): Wallstick
 		RunService:UnbindFromRenderStep(renderBeforeCameraBindKey)
 		RunService:UnbindFromRenderStep(renderCharacterBindKey)
 
+		Replication.sendClear()
+
 		GravityCamera.setSpinPart(workspace.Terrain)
 		GravityCamera.setUpVector(Vector3.yAxis)
+		GravityCamera.setRotationTypeForced(false)
 
 		CharacterHelper.setMyPerformer(self.real.character, nil)
 

@@ -36,6 +36,12 @@ function GravityCamera.setInputRoll(roll: number)
 	end
 end
 
+function GravityCamera.setRotationTypeForced(forced: boolean)
+	if cameraModuleObject.SetRotationTypeForced then
+		cameraModuleObject:SetRotationTypeForced(forced)
+	end
+end
+
 function GravityCamera.getSpinPart(): BasePart
 	if cameraModuleObject.GetSpinPart then
 		return cameraModuleObject:GetSpinPart()

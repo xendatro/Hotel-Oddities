@@ -89,18 +89,24 @@ return function(PlayerModule: any)
 	end
 
 	local currentRotationType = UserGameSettings.RotationType
+	local rotationTypeForced = false
+
 	local unmodifiedSetRotationTypeOverride = cameraUtils.setRotationTypeOverride
 	function cameraUtils.setRotationTypeOverride(...)
 		unmodifiedSetRotationTypeOverride(...)
 		currentRotationType = UserGameSettings.RotationType
-		UserGameSettings.RotationType = Enum.RotationType.MovementRelative
+		if rotationTypeForced then
+			UserGameSettings.RotationType = Enum.RotationType.MovementRelative
+		end
 	end
 
 	local unmodifiedRestoreRotationType = cameraUtils.restoreRotationType
 	function cameraUtils.restoreRotationType(...)
 		unmodifiedRestoreRotationType(...)
 		currentRotationType = UserGameSettings.RotationType
-		UserGameSettings.RotationType = Enum.RotationType.MovementRelative
+		if rotationTypeForced then
+			UserGameSettings.RotationType = Enum.RotationType.MovementRelative
+		end
 	end
 
 	------------
@@ -174,6 +180,19 @@ return function(PlayerModule: any)
 
 	function cameraObject:SetInputRoll(roll: number)
 		inputRoll = roll
+	end
+
+	function cameraObject:SetRotationTypeForced(forced: boolean)
+		if rotationTypeForced == forced then
+			return
+		end
+		rotationTypeForced = forced
+		if forced then
+			currentRotationType = UserGameSettings.RotationType
+			UserGameSettings.RotationType = Enum.RotationType.MovementRelative
+		else
+			UserGameSettings.RotationType = currentRotationType
+		end
 	end
 
 	function cameraObject:GetSpinPart(): BasePart

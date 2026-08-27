@@ -37,6 +37,13 @@ function Replication.send(part: BasePart, offset: CFrame)
 	end
 end
 
+function Replication.sendClear()
+	assert(RunService:IsClient(), "This API can only be called from the client")
+	if Replication.ENABLED then
+		replicatorRemote:FireServer(nil)
+	end
+end
+
 function Replication.listenServer()
 	assert(RunService:IsServer(), "This API can only be called from the server")
 
@@ -113,7 +120,16 @@ function Replication.listenClient()
 					receivedAt = now,
 				}
 			else
+				local frame = clientFrameByPlayer[player]
 				clientFrameByPlayer[player] = nil
+
+				if frame and player ~= Players.LocalPlayer then
+					local character = player.Character
+					local rootPart = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+					if rootPart then
+						rootPart.Anchored = false
+					end
+				end
 			end
 		end)
 
