@@ -137,6 +137,8 @@ function WallstickClass.new(options: Options): Wallstick
 		RunService:UnbindFromRenderStep(renderBeforeCameraBindKey)
 		RunService:UnbindFromRenderStep(renderCharacterBindKey)
 
+		Replication.sendClear()
+
 		GravityCamera.setSpinPart(workspace.Terrain)
 		GravityCamera.setUpVector(Vector3.yAxis)
 

@@ -7,8 +7,19 @@ local CommunicationService = require(ReplicatedStorage.Services.CommunicationSer
 local Vanished = require(ReplicatedStorage.Services.VanishedService)
 
 local WarpRemote = CommunicationService.Ensure("GravityWarp", "Warp")
+local FinishedRemote = CommunicationService.Ensure("GravityWarp", "Finished")
 
 local WARPING_ATTRIBUTE = "GravityWarping"
+local FINISH_FALLBACK_SLACK = 5
+
+local PendingFinishByPlayer: { [Player]: () -> () } = {}
+
+FinishedRemote.OnServerEvent:Connect(function(player: Player)
+	local finish = PendingFinishByPlayer[player]
+	if finish then
+		finish()
+	end
+end)
 
 local GravityWarper = ServerTool.extend("GravityWarper")
 
@@ -40,16 +51,20 @@ function GravityWarper:OnActivated()
 
 	character:SetAttribute(WARPING_ATTRIBUTE, true)
 	character:AddTag(Vanished.EyeExemptTag)
-	WarpRemote:FireClient(player, duration)
 
 	local function finish()
+		if PendingFinishByPlayer[player] == finish then
+			PendingFinishByPlayer[player] = nil
+		end
 		if not character:GetAttribute(WARPING_ATTRIBUTE) then return end
 		character:SetAttribute(WARPING_ATTRIBUTE, nil)
 		character:RemoveTag(Vanished.EyeExemptTag)
 	end
 
+	PendingFinishByPlayer[player] = finish
 	humanoid.Died:Once(finish)
-	task.delay(totalTime, finish)
+	task.delay(totalTime + FINISH_FALLBACK_SLACK, finish)
+	WarpRemote:FireClient(player, duration)
 end
 
 return GravityWarper
