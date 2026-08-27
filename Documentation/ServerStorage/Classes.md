@@ -21,6 +21,7 @@ The full humanoid-enemy base: pathfinding with prefetch, direct-pursuit/lane-cle
 - API: `NPC.new(model: Model, config: EnemyConfigs.EnemyConfig, class: any?) -> self` — needs `model.Humanoid` and `model.HumanoidRootPart`; builds `NpcAnimator` and calls `BuildStateMachine`.
 - API: `NPC.FromModel(model: Instance?) -> any?` — reverse lookup for live NPCs (registered only while active).
 - API: `NPC:BuildStateMachine() -> StateMachine` — default Idle/Wander/Patrol/Despawn machine; the main override point.
+- Detection: `CanSee` and `IsValidTarget` scale `DetectionRange` and `GiveUpRange` by the target character's `DetectionRadius` attribute (`HumanoidStatsService.GetDetectionRadius`, 1 when absent), which is how a kit's stealth stat shortens the range at which enemies notice and keep chasing that player.
 - API: `NPC:Start()` — tags the model, applies WalkSpeed, takes network ownership, starts animator and machine, mirrors state to the `State` attribute.
 - API: `NPC:Despawn()` — untags, tears down ownership watchers, defers machine stop, animator destroy and model destroy.
 - API: `NPC:SetSpeed(speed: number)` — sets `Humanoid.WalkSpeed`.

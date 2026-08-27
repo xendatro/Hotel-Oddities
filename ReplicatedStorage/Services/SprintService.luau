@@ -6,6 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local CameraFovService = require(ReplicatedStorage.Services.CameraFovService)
 local MathService = require(ReplicatedStorage.Services.MathService)
+local HumanoidStatsService = require(ReplicatedStorage.Services.HumanoidStatsService)
 local SprintConfig = require(ReplicatedStorage.Configs.SprintConfig)
 local WallstickService = require(ReplicatedStorage.Services.WallstickService)
 
@@ -48,6 +49,14 @@ local weight = 0
 local speedFactors: { [string]: number } = {}
 local sprintBlocks: { [string]: true } = {}
 
+local function maxStamina(): number
+	return HumanoidStatsService.ReadAttribute(player.Character, "Stamina")
+end
+
+local function sprintMultiplier(): number
+	return HumanoidStatsService.ReadAttribute(player.Character, "SprintMultiplier")
+end
+
 local function externalFactor(): number
 	local factor = 1
 	for _, value in speedFactors do
@@ -77,7 +86,7 @@ local function isLastBoostedSpeed(state: CharacterState, speed: number): boolean
 
 	local factor = externalFactor()
 	return math.abs(speed - boosted * factor) <= 0.01
-		or math.abs(speed - boosted * factor * SprintConfig.SpeedMultiplier) <= 0.01
+		or math.abs(speed - boosted * factor * sprintMultiplier()) <= 0.01
 end
 
 local function applySpeed()
@@ -90,7 +99,7 @@ local function applySpeed()
 		desired = math.max(desired, boosted)
 	end
 	if sprinting then
-		desired *= SprintConfig.SpeedMultiplier
+		desired *= sprintMultiplier()
 	end
 	if math.abs(state.Humanoid.WalkSpeed - desired) > 0.01 then
 		writeSpeed(state, desired)
@@ -137,7 +146,7 @@ local function canSprint(state: CharacterState?): boolean
 end
 
 local function step(deltaTime: number)
-	if exhausted and stamina >= STAMINA.Max then
+	if exhausted and stamina >= maxStamina() then
 		exhausted = false
 	end
 
@@ -158,10 +167,10 @@ local function step(deltaTime: number)
 			sprinting = false
 			applySpeed()
 		end
-	elseif stamina < STAMINA.Max then
+	elseif stamina < maxStamina() then
 		idleTime += deltaTime
 		if idleTime >= STAMINA.RegenDelay then
-			stamina = math.min(stamina + STAMINA.RegenRate * deltaTime, STAMINA.Max)
+			stamina = math.min(stamina + STAMINA.RegenRate * deltaTime, maxStamina())
 		end
 	end
 
@@ -172,7 +181,7 @@ local function step(deltaTime: number)
 end
 
 function SprintService:GetStaminaFraction(): number
-	return stamina / STAMINA.Max
+	return math.clamp(stamina / maxStamina(), 0, 1)
 end
 
 function SprintService:IsSprinting(): boolean
@@ -235,7 +244,7 @@ local function bindCharacter(character: Model)
 		Connections = {},
 	}
 	characterState = state
-	stamina = STAMINA.Max
+	stamina = maxStamina()
 	exhausted = false
 	idleTime = 0
 

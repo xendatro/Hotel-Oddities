@@ -60,6 +60,10 @@ extend it instead of writing a second copy.
 | `RigMotion` | `ReplicatedStorage\Classes` | Procedural motion applied to character rigs |
 | `Spring` | `ReplicatedStorage\Classes` | Spring integrator for smoothed motion |
 | `ToolBase` / `ClientTool` / `ServerTool` / `PlayerOddityTool` | `ReplicatedStorage\Classes`, `ServerStorage\Classes` | Base classes for the two halves of every tool and player-oddity items |
+| `HumanoidStatsService` | `ReplicatedStorage\Services` | Named-source stat stack (health, speed, jump, stamina, sprint speed, detection radius) for any humanoid |
+| `KitVisualService` / `KitCard` | `ReplicatedStorage\Services`, `ReplicatedStorage\Classes` | Kit tile dressing, rarity styling, viewport previews and stat/item rows |
+| `KitStateService` | `ReplicatedStorage\Services` | Client's owned-kits, equipped-kit and gem balance view, and every kit remote call |
+| `GemService` | `ServerStorage\Services` | Gem balance: read, award, spend and replicate |
 | `EnemyBase` | `ServerStorage\Classes` | Base class every enemy extends |
 | `NPC` | `ServerStorage\Classes` | Base class for pathfinding humanoid enemies |
 | `SurfaceWalker` | `ServerStorage\Classes` | Walks any humanoid rig/NPC along walls or ceilings kinematically |
@@ -122,11 +126,17 @@ become Services or Classes.
 - ReplicatedStorage\Services\HallwaysService.luau — Geometry queries over tagged floor parts: containment, closest point, and longest straight span.
 - ReplicatedStorage\Services\HearingRenderService.luau — Flies glowing motes from a noise source to an enemy's ear.
 - ReplicatedStorage\Services\HeartbeatService.luau — Proximity heartbeat audio that swells and quickens near a pursuing enemy.
+- ReplicatedStorage\Services\HumanoidStatsService.luau — Named-source stat stack applied to any humanoid, restoring untouched stats to their spawn values.
 - ReplicatedStorage\Services\IndexUIService.luau — Paginated bestiary UI with viewport headshots and progressive text reveals.
 - ReplicatedStorage\Services\InteractionService.luau — Singleton crosshair interaction target registry, highlight and key prompt.
 - ReplicatedStorage\Services\InterfaceService.luau — Main menu page switching, blur, FOV pull-back and mouse unlocking.
 - ReplicatedStorage\Services\InventoryUIService.luau — Custom hotbar and backpack with equipping and drag-and-drop slots.
 - ReplicatedStorage\Services\ItemsUIService.luau — Item shop page with tool previews and coin or Robux purchases.
+- ReplicatedStorage\Services\KitInventoryUIService.luau — Owned-kit grid sorted rarest first, with equip control and the kit's stats and items.
+- ReplicatedStorage\Services\KitRollUIService.luau — The kit roll carousel: server-authoritative result, weighted filler, scaling/tilting tiles, rarity bloom and shake.
+- ReplicatedStorage\Services\KitShopUIService.luau — Straight-purchase kit catalogue for players who cannot roll, sorted most common first.
+- ReplicatedStorage\Services\KitStateService.luau — Client-side owned kits, equipped kit, gem balance and roll eligibility shared by all three kit pages.
+- ReplicatedStorage\Services\KitVisualService.luau — Kit previews, rarity card dressing and the stacked BUFFS/ITEMS list shared by every kit page.
 - ReplicatedStorage\Services\LanternSwayService.luau — Physics-hinged swinging for hanging lanterns during the chaos-red state.
 - ReplicatedStorage\Services\LobbyService.luau — Checks whether a player is standing on the tagged lobby floor.
 - ReplicatedStorage\Services\LookService.luau — Reports local camera pitch/yaw and bends other characters' neck and waist to match.
@@ -186,6 +196,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\Hole.luau — Crawl-hole prompt that teleports the player to the twin hole with the same ID.
 - ReplicatedStorage\Classes\Interaction.luau — Camera-raycast interaction system with highlight and animated key prompt.
 - ReplicatedStorage\Classes\InventorySlot.luau — One hotbar slot with a viewport preview of the tool model.
+- ReplicatedStorage\Classes\KitCard.luau — One kit tile: rarity dressing, viewport preview and hover/press/select motion.
 - ReplicatedStorage\Classes\LocatorMarker.luau — Per-player billboard marker with headshot bubble, name plate and highlight.
 - ReplicatedStorage\Classes\MapMarker.luau — One inked map symbol with a spring pop, ping ring and flash for the moment it is discovered.
 - ReplicatedStorage\Classes\MapCanvas.luau — Soft-brush pixel canvas over an EditableImage with max-alpha stamping and dirty-rect flushing.
@@ -256,6 +267,8 @@ become Services or Classes.
 - ReplicatedStorage\Configs\IndexConfig.luau — Enemy Index UI styling, reveal animation and all bestiary entries.
 - ReplicatedStorage\Configs\InventoryConfig.luau — Hotbar/backpack sizes, keybinds and inventory slot styling.
 - ReplicatedStorage\Configs\ItemShopConfig.luau — Item shop catalogue, prices, viewport framing and card animation settings.
+- ReplicatedStorage\Configs\KitCatalogConfig.luau — The 24 kits: name, rarity, description, stat changes and granted items.
+- ReplicatedStorage\Configs\KitConfig.luau — Rarities, the six stat definitions, the point budget economy, roll settings and kit UI animation.
 - ReplicatedStorage\Configs\LanternSwayConfig.luau — Tuning for the swinging hallway lantern simulation.
 - ReplicatedStorage\Configs\LookConfig.luau — Replicated aim/look angle limits and neck-waist blend weights.
 - ReplicatedStorage\Configs\MapConfig.luau — Map discovery radius, canvas resolution, hand-drawn ink style, danger layer and marker tuning.
@@ -336,6 +349,7 @@ become Services or Classes.
 - ServerStorage\Services\FixtureCommandService.luau — Registers a chat command to teleport to or force-drop a pool's nearest fixture.
 - ServerStorage\Services\FriendReviveService.luau — Paid "revive your friend" offers, friend checks and the product receipt that grants the revive.
 - ServerStorage\Services\GamepassService.luau — Caches each player's gamepass ownership at join and keeps it current after purchases.
+- ServerStorage\Services\GemService.luau — Gem balance in the save profile, mirrored to an attribute and replicated to the client.
 - ServerStorage\Services\GazeService.luau — Server line-of-sight library for cone and raycast visibility checks, with a seen/unseen tracker.
 - ServerStorage\Services\GhostAreaService.luau — Picks area-weighted hover points over hallways for the Ghost, avoiding nearby players.
 - ServerStorage\Services\HallwayGridService.luau — Finds hallway corner mouths near a viewer for placing things just out of sight.
@@ -348,6 +362,9 @@ become Services or Classes.
 - ServerStorage\Services\InventoryService.luau — Authoritative slot-ordered backpack/hotbar with client sync and profile persistence.
 - ServerStorage\Services\InvincibleCommandService.luau — Admin /invincible toggle that tags a character as Vanished so nothing can touch it.
 - ServerStorage\Services\ItemShopService.luau — Coin and Robux item shop with voice gating, receipt dedupe and inventory grants.
+- ServerStorage\Services\KitRollService.luau — Policy-gated gem rolls with weighted rarities and duplicate refunds.
+- ServerStorage\Services\KitService.luau — Kit ownership, the equipped kit, and applying its stats and items on every spawn.
+- ServerStorage\Services\KitShopService.luau — Buying a named kit outright for its rarity's gem price.
 - ServerStorage\Services\LanternFallService.luau — Fixture pool that arms lanterns and drops one when a player approaches.
 - ServerStorage\Services\LanternSwingCommandService.luau — /lantern swing command that flags the nearest swayable lantern red for a duration.
 - ServerStorage\Services\LightService.luau — Central control of every tagged light model: reference-counted blackout claims and flicker effects.

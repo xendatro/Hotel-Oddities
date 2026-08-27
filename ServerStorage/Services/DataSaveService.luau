@@ -17,6 +17,11 @@ local PROFILE_TEMPLATE = {
 	Inventory = {},
 	ProcessedItemReceipts = {},
 
+	OwnedKits = {},
+	EquippedKit = "",
+	KitGrant = {},
+	ProcessedKitReceipts = {},
+
 	DiscoveredEnemies = {},
 	DiscoveredMap = {},
 	DiscoveredLandmarks = {},

@@ -13,6 +13,7 @@ local DeathService = require(ServerStorage.Services.DeathService)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local HallwayGraphService = require(ReplicatedStorage.Services.HallwayGraphService)
+local HumanoidStatsService = require(ReplicatedStorage.Services.HumanoidStatsService)
 local NpcAnimator = require(ReplicatedStorage.Classes.NpcAnimator)
 local Race = require(ReplicatedStorage.Classes.Race)
 local RoomService = require(ServerStorage.Services.RoomService)
@@ -932,7 +933,9 @@ function NPC:IsValidTarget(player: Player): boolean
 	if not root then return false end
 	if Vanished.Is(root.Parent) then return false end
 	if self.Config.RespectsSafeRooms and RoomService:IsInRoom(player) then return false end
-	return (root.Position - self.RootPart.Position).Magnitude <= self.Config.GiveUpRange
+
+	local giveUpRange = self.Config.GiveUpRange * HumanoidStatsService.GetDetectionRadius(root.Parent)
+	return (root.Position - self.RootPart.Position).Magnitude <= giveUpRange
 end
 
 function NPC:GetTargetPosition(player: Player): Vector3?
@@ -981,7 +984,8 @@ function NPC:CanSee(player: Player): boolean
 	if self.Config.RespectsSafeRooms and RoomService:IsInRoom(player) then return false end
 
 	local origin = self.RootPart.Position
-	if (root.Position - origin).Magnitude > self.Config.DetectionRange then return false end
+	local detectionRange = self.Config.DetectionRange * HumanoidStatsService.GetDetectionRadius(root.Parent)
+	if (root.Position - origin).Magnitude > detectionRange then return false end
 	if not isWithinCone(origin, self.RootPart.CFrame.LookVector, root.Position, self.Config.FieldOfView) then
 		return false
 	end

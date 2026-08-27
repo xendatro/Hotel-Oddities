@@ -331,6 +331,16 @@ Plays a looping heartbeat that swells as the configured enemy gets closer and sp
 - Tags: reads `Enemy` (filtered by the `EnemyId` attribute)
 - Requires: `Configs.HeartbeatConfig`, `Configs.FLAGS`, `AudioService` (`FindTemplate`, `Play2D`, `Wire`, `GetBus`), `TagService`, `CharacterService`, `MathService`
 
+### HumanoidStatsService.luau
+Generic named-source stat stack for any Humanoid, not just players. Sources are set by name and compose: `Absolute` stats (`MaxHealth`, `WalkSpeed`, `JumpPower`, `Stamina`) sum their deltas from base, `Scale` stats (`SprintMultiplier`, `DetectionRadius`) multiply, and the result is clamped to each stat's configured range. Only stats a source actually names are written - the humanoid's own spawn values are captured on first use and restored when the last source stops naming that stat, so a kit that says nothing about jump never touches jump. Each stat declares an `Apply` of `Humanoid` or `Attribute`: the first three are Humanoid properties, while `Stamina`, `SprintMultiplier` and `DetectionRadius` are published as attributes on the character model, because they are consumed elsewhere - the first two by the client's `SprintService`, the last by enemy code on the server.
+- API: `HumanoidStatsService:SetSource(humanoid: Humanoid, source: string, stats: { [string]: number }?)`
+- API: `HumanoidStatsService:ClearSource(humanoid: Humanoid, source: string)`
+- API: `HumanoidStatsService:Get(humanoid: Humanoid, statId: string) -> number`
+- API: `HumanoidStatsService.ReadAttribute(character: Instance?, statId: string) -> number` - the attribute-applied stat, clamped, falling back to the stat's base when unset
+- API: `HumanoidStatsService.GetDetectionRadius(character: Instance?) -> number` - 1 when the character has no modifier
+- API: `HumanoidStatsService.Describe(stats) -> { { Stat, Value, Delta, Better } }` - display rows for the UI, base-valued stats omitted
+- Requires: `Configs.KitConfig`
+
 ### IndexUIService.luau
 Builds and drives the bestiary/index UI: a paginated grid of cards with ViewportFrame headshots (real models, stand-in primitives, or a friend-avatar rig), hover/press/select card motion, and an info panel whose description is progressively unredacted as discovery progress rises. Also plays the word-by-word reveal animation after a death, waiting for the death screen to clear before opening the page itself.
 - API: `IndexUIService:Refresh()` — rebuild the listed entries, repaint every card, and repaint the info panel
@@ -359,7 +369,7 @@ Client-only singleton wrapper: returns a single `Interaction` instance (an empty
 - Requires: `Classes.Interaction` (which reads `Configs.DrawerConfig` and clones its prompt from the `Cursor` ScreenGui)
 
 ### InterfaceService.luau
-Owns the main menu page group: enables/disables the Index, Shop, VIP, Gems, and Items ScreenGuis through an xenterface controller, blurs and pulls back the camera FOV while a page is open, and manages mouse unlocking (including a Q toggle when no page is open). Also wires hover/press motion onto tagged side buttons and close buttons using named motion presets.
+Owns the main menu page group: enables/disables the Index, Shop, VIP, Gems, Items, KitInventory, KitsShop, RollGui and Map ScreenGuis through an xenterface controller, blurs and pulls back the camera FOV while a page is open, and manages mouse unlocking (including a Q toggle when no page is open). Also wires hover/press motion onto tagged side buttons and close buttons using named motion presets.
 - API: `InterfaceService.WireMotion(button: GuiButton, visual: GuiObject?, motionPreset: any?)` — add hover/press scale and tilt motion to any button (defaults to the button itself and the `HotelSideButton` preset)
 - API: `InterfaceService:Open(pageId: string)` — open one of the known pages, warning on an unknown id
 - API: `InterfaceService:Close()` — close whatever page is open
@@ -381,6 +391,46 @@ Drives the `ItemsGui` item shop: builds a card per shop entry with a live Viewpo
 - API: data table — empty; the shop is built and wired on require.
 - Remotes: `Items/Purchase` (fired), `Items/Sync` (listened and fired)
 - Requires: `Configs.ItemShopConfig`, `MarketplaceService` (project wrapper, for `Products.Items` and product info), `TweenProxyService`, `GuiBuilderService`, `ReplicatedStorage.Tools`
+
+### KitInventoryUIService.luau
+Drives the `KitInventory` page: builds a `KitCard` for every kit the player owns, sorted rarest first, into the `Kits` ScrollingFrame (wrapped in a `KitsCanvas` CanvasGroup so hover-scaled tiles clip at the grid edge instead of bleeding over the page), marks the equipped kit on its tile, and fills the info panel with the kit's name in its rarity colour, a ViewportFrame of its showcase item, and its BUFFS/ITEMS list. The Equip button flips to EQUIPPED and goes uninteractable for the kit already worn. The nav button follows roll eligibility: it reads ROLL and opens `RollGui` for players who may use paid random items, and SHOP into `KitsShop` for everyone else. Cards deal in with a stagger each time the page opens.
+- Remotes: through `KitStateService` (`Kits/Sync`, `Kits/Equip`)
+- Requires: `Classes.KitCard`, `Configs.KitConfig`, `KitStateService`, `KitVisualService`, `InterfaceService`, `GuiBuilderService`, `TweenProxyService`; expects a pre-built `KitInventory.Design` tree
+
+### KitRollUIService.luau
+Drives the `RollGui` reel, the only kit-buying surface players who may use paid random items ever see. A roll asks the server first - the result is authoritative and arrives before anything moves - then a strip of `ReelLength` tiles is built with rarity-weighted filler and the real kit planted at `WinnerIndex`, and the strip slides under the centre marker on a quintic ease-out, lands slightly off centre, and settles back with a small back-ease so the stop reads as mechanical rather than snapped.
+The motion is a carousel, not a sliding line: a render-step job scales every tile by how near its centre is to the marker and tilts it by its signed offset, the reel is a CanvasGroup whose `EdgeFade` UIGradient dissolves tiles at both edges, and the marker kicks each time a new tile takes the centre. On landing the winner grows and its rarity stroke flares, a rarity-coloured `Backdrop` blooms and fades behind the reel, the reel shakes with a strength scaled by rarity order, and the result panel slams in from `ResultPop`. Duplicates say so and name the gem refund. Failures (not enough gems, restricted account, save still loading) show as a notice instead of a spin, and the button reads UNAVAILABLE for restricted accounts.
+- Remotes: through `KitStateService` (`Kits/Roll`, `Gems/Sync`)
+- Requires: `Configs.KitConfig`, `KitStateService`, `KitVisualService`, `InterfaceService`, `GuiBuilderService`; borrows the card template from `KitsShop.Design.Kits.Template`
+
+### KitShopUIService.luau
+Drives the `KitsShop` page - the straight-purchase path, reached only by players who cannot use paid random items; anyone who can roll is sent to `RollGui` instead and never sees this page. A `KitCard` for every kit in the catalogue, sorted most common first, with owned kits dimmed and marked OWNED and the rest showing their rarity's gem price. The info panel mirrors the inventory's, plus the gem price badge and a buy button that reads BUY, OWNED or NOT ENOUGH and only stays interactable when the purchase can actually go through. The gem balance flashes green or red on the purchase result. The Robux button gets hover/press motion but is deliberately inert - it prompts nothing yet.
+- Remotes: through `KitStateService` (`Kits/Sync`, `Kits/Purchase`, `Gems/Sync`)
+- Requires: `Classes.KitCard`, `Configs.KitConfig`, `KitStateService`, `KitVisualService`, `InterfaceService`, `GuiBuilderService`, `TweenProxyService`; expects a pre-built `KitsShop.Design` tree
+
+### KitStateService.luau
+Client-side single source of truth for kits and gems: owns the `Kits/Sync` and `Gems/Sync` subscriptions plus the `Gems` and `CanRoll` player attributes, and hands the three kit pages one shared view instead of three competing ones. Also the client's outbound side - equipping, buying and rolling all go through here.
+- API: `KitStateService:IsOwned(kitId: string) -> boolean`
+- API: `KitStateService:GetEquipped() -> string`
+- API: `KitStateService:GetGems() -> number`
+- API: `KitStateService:CanAfford(kitId: string) -> boolean`
+- API: `KitStateService:CanRoll() -> boolean` - false until the server's PolicyService lookup lands, and for restricted accounts
+- API: `KitStateService:Equip(kitId: string)` / `:Buy(kitId: string)`
+- API: `KitStateService:RequestRoll() -> { Ok, Reason?, KitId?, Duplicate?, Refund?, Gems }` - yields on the server
+- API: `KitStateService.KitsChanged` / `.GemsChanged` - signals carrying the server's result code
+- Remotes: `Kits/Sync`, `Kits/Equip`, `Kits/Purchase`, `Kits/Roll`, `Gems/Sync` (all listened and fired)
+- Requires: `Configs.KitConfig`, `CommunicationService`
+
+### KitVisualService.luau
+The look of a kit, shared by all three kit pages so they cannot drift: renders a tool model into a ViewportFrame with the framing and lighting from `KitConfig.Viewport` (an explicit `Ambient`/`LightColor`/`LightDirection`, without which tool models read as near-black silhouettes), picks a kit's showcase item (explicit `Showcase`, else its most expensive item), dresses a card with its rarity stroke, rarity ribbon, name, status line and dim overlay, and fills a details holder with a `BUFFS` section and an `ITEMS` section. The sections stack vertically at the holder's full width rather than sitting side by side - the info column is only ~180px wide, so two columns made every row width-bound and tiny. Row height is the holder divided by the line count (floored at `MINIMUM_LINES` so short kits do not get comically large rows) and rows fade in on a stagger. Rows keep `TextScaled` on and never set `TextWrapped = false` - in Roblox that assignment silently clears `TextScaled` too, which drops every row to the default 8px. Stat rows are green when the change helps and red when it hurts, which is how a lower `DetectionRadius` reads as a gain.
+- API: `KitVisualService.Showcase(kit) -> string?`
+- API: `KitVisualService.BuildPreview(viewport: ViewportFrame, itemName: string?)`
+- API: `KitVisualService.DressCard(button: ImageButton, kit)`
+- API: `KitVisualService.SetCardStatus(button: ImageButton, text: string, dimmed: boolean, color: Color3?)`
+- API: `KitVisualService.FillDetails(holder: Frame, kit, animate: boolean)`
+- API: `KitVisualService.SortByRarity(entries, rarestFirst: boolean) -> { Kit }`
+- API: constants - `Ink`, `Good`, `Bad`, `Font`, `BoldFont`
+- Requires: `Configs.ItemShopConfig`, `Configs.KitConfig`, `HumanoidStatsService`
 
 ### LanternSwayService.luau
 Makes named hanging lantern models physically swing while their light is in the chaos-red state. Each active lantern gets an invisible hinged proxy part with wind torque, random jolts, gravity scaling, and a swing limit computed from raycast wall clearance; the visible model is pivoted to the hinge angle each frame. Lanterns are culled by camera distance and a maximum simulated count, and are settled and torn down when the red state ends.
@@ -633,7 +683,7 @@ Client-only decorated overlay for the stamina bar while a speed boost is active:
 - Requires: `Configs.SprintBoostConfig`, `Configs.SprintConfig`, `SprintUIService` (`GetBar`, `SetForcedVisible`), `GuiBuilderService`; reads the `SpeedBoostName` and `SpeedBoostEndsAt` player attributes
 
 ### SprintService.luau
-Client sprint state machine: binds hold-to-sprint keys (plus a touch toggle button), drains and regenerates stamina with an exhaustion lockout, and owns the humanoid's `WalkSpeed`. It watches external WalkSpeed writes to re-derive the base speed and respects the server's speed-boost attributes, drives the sprint FOV offset, and uses Wallstick's movement source while the local character is surface-stuck.
+Client sprint state machine: binds hold-to-sprint keys (plus a touch toggle button), drains and regenerates stamina with an exhaustion lockout, and owns the humanoid's `WalkSpeed`. Maximum stamina and the sprint speed multiplier are per-character rather than fixed: both are read every time they are needed from the `Stamina` and `SprintMultiplier` character attributes through `HumanoidStatsService.ReadAttribute`, falling back to `SprintConfig` when unset, which is how a kit raises a player's stamina pool or sprint speed. It watches external WalkSpeed writes to re-derive the base speed and respects the server's speed-boost attributes, drives the sprint FOV offset, and uses Wallstick's movement source while the local character is surface-stuck.
 - API: `SprintService:GetStaminaFraction() -> number` — 0..1
 - API: `SprintService:IsSprinting() -> boolean`
 - API: `SprintService:IsExhausted() -> boolean`

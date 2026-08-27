@@ -107,6 +107,21 @@ The enemy Index (bestiary) UI: pagination, locked/undiscovered styling, the disc
 Hotbar/backpack sizes, keybinds, drag thresholds and slot styling for the inventory UI.
 - API: data table — `HotbarSlots`, `BackpackSlots`, `ToggleKey`, `HotbarKeys`, `DragThreshold`, `TouchDragThreshold`, `SlotSize`, `SlotPadding`, `CornerRadius`, `Colors`, `Transparency`, `PlaceholderIcon`
 
+### KitCatalogConfig.luau
+The 24 kits themselves: four per rarity across Common, Uncommon, Rare, Epic, Legendary and Mythic. Each entry carries an `Id`, a short `Name`, its `Rarity`, a one-line `Description`, an absolute `Stats` map (`MaxHealth`, `WalkSpeed`, `JumpPower`, `Stamina`, `SprintMultiplier`, `DetectionRadius` - omitted keys stay at base), an `Items` map of `ReplicatedStorage.Tools` name to count, and an optional `Showcase` naming which item's model represents the kit in a ViewportFrame. `Guest` is the free default every player owns. Split out from `KitConfig` so the catalogue can grow without the system settings moving.
+- API: data table - `Entries`, `EntriesById`, `DefaultKit`
+- Requires: nothing
+
+### KitConfig.luau
+Everything about kits that is not a kit: the six rarities (gem price, roll weight, point budget, colour and accent), the six stat definitions (base value, allowed range, whether higher is better, its point cost, and whether it is applied as a Humanoid property or a character attribute - `Stamina` and `SprintMultiplier` take their bases straight from `SprintConfig` so there is one source of truth), rolling settings, ViewportFrame framing, card/button/info/row animation numbers, and the button strings. It re-exports `KitCatalogConfig`'s entries so callers only require one module. `Roll` also carries the reel's feel - `CardTilt`, `MinScale`/`MaxScale` for the carousel, `ShakeTime`/`ShakeStrength`, `BackdropTime`/`BackdropTransparency` and `ResultPop`. The point economy is the balancing spine: an item costs its `ItemShopConfig` coin price divided by `ItemPointDivisor`, a stat costs its distance from base times the stat's `Cost`, stats set in the bad direction refund points up to `MaxRefundFraction` of the budget, and `Validate` reports every kit that overspends its rarity's budget or names an unknown stat, item or rarity.
+- API: data table - `Rarities`, `RaritiesById`, `Stats`, `StatsById`, `Entries`, `EntriesById`, `DefaultKit`, `Roll`, `Viewport`, `Animation`, `Text`
+- API: `KitConfig.GetRarity(kit) -> Rarity`
+- API: `KitConfig.ItemPoints(itemId: string) -> number`
+- API: `KitConfig.StatPoints(statId: string, value: number) -> number`
+- API: `KitConfig.Spend(kit) -> number` - the kit's total point cost after refunds
+- API: `KitConfig.Validate() -> { string }` - human-readable problems, empty when the catalogue is sound
+- Requires: `KitCatalogConfig`, `ItemShopConfig`
+
 ### ItemShopConfig.luau
 Catalogue and presentation settings for the in-game item shop, including every purchasable entry's prices, blurb and viewport framing. At load time it builds an `EntriesById` lookup by iterating `Entries`, and exports an `Entry` type.
 - API: data table — `StartingCoins`, `RobuxIcon`, `Entries`, `EntriesById`, `Viewport`, `Animation`

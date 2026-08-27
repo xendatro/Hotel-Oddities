@@ -77,7 +77,7 @@ Bakes and serves the map-wide "danger" field: measures the extent of all `MazeFl
 - Requires: `Services.DangerFieldService`, `SpawnZoneService`, `DangerConfig`
 
 ### DataSaveService.luau
-ProfileService front-end: loads, reconciles and releases one `PlayerData` profile per player, and lets other code either grab a loaded profile or yield until it arrives. The template holds currency, sword ownership, inventory, processed receipts, discovered enemies and discovered map intervals.
+ProfileService front-end: loads, reconciles and releases one `PlayerData` profile per player, and lets other code either grab a loaded profile or yield until it arrives. The template holds currency (coins and gems), sword ownership, inventory, kit ownership and the equipped kit, the item counts a kit last granted, processed receipts, discovered enemies and discovered map intervals.
 - API: `DataSaveService:Get(player: Player) -> Profile?` — nil until the profile finishes loading
 - API: `DataSaveService:Wait(player: Player) -> Profile?` — yields the calling thread until loaded
 - Requires: `ServerStorage.Services.ProfileService` (third-party), `ItemShopConfig`
@@ -192,6 +192,15 @@ Caches each player's gamepass ownership at join time by querying every id in `Ga
 - API: `GamepassService:UserOwnsGamepass(player: Player, id: number) -> boolean` — cache lookup only, never yields
 - Requires: `ServerStorage.Configs.GamepassConfigs`, `CharacterService.ForEachPlayer` / `.CleanupOnLeave`
 
+### GemService.luau
+Owns the gem balance in the player's DataSave profile: reads and normalises it, mirrors it to a `Gems` player attribute, and pushes it to the client over `Gems/Sync` with an optional result code. Spending is checked and atomic, so a failed grant can be refunded by the caller. Gems are the currency for both kit purchases and rolls.
+- API: `GemService:Get(player: Player) -> number`
+- API: `GemService:Award(player: Player, amount: number) -> boolean`
+- API: `GemService:Spend(player: Player, amount: number) -> boolean` - false and no deduction when the balance is short
+- API: `GemService:Sync(player: Player, result: string?)`
+- Remotes: `Gems/Sync` (listened and fired)
+- Requires: `DataSaveService`, `CommunicationService`
+
 ### GazeService.luau
 Server-side line-of-sight library: builds a short-lived cache of living, non-vanished player viewers (eye position and look vector from `EnemyObservationService`) and answers whether a point, part or model falls inside a viewer's cone with a clear raycast. Also provides a small Tracker object that accumulates seen/unseen durations across updates.
 - API: `Gaze.Viewers() -> { Viewer }` — cached ~0.05s
@@ -303,6 +312,31 @@ Coin-and-Robux item shop: it validates a purchase against `ItemShopConfig`, chec
 - API: `ItemShopService:Sync(player: Player, result: string?, itemId: string?)` — pushes coins plus a result code (`Purchased`, `InsufficientCoins`, `InventoryFull`, `VoiceUnavailable`)
 - Remotes: `Items/Purchase` (listened), `Items/Sync` (fired and listened)
 - Requires: `ItemShopConfig`, `MarketplaceService.Products.Items` / `:CreateReceipt`, `DataSaveService`, `InventoryService`
+
+### KitRollService.luau
+The paid-random-items path. Eligibility comes from `PolicyService.ArePaidRandomItemsRestricted`, resolved once on join and published as a `CanRoll` player attribute; a restricted account is refused server-side, not merely hidden in the UI. A roll spends `KitConfig.Roll.GemCost`, picks a rarity by its configured weight and then a kit uniformly inside that rarity, and grants it. Rolling a kit already owned refunds `DuplicateRefundFraction` of that rarity's gem price. Every early exit refunds the cost, and a per-player flag blocks concurrent rolls.
+- API: `KitRollService:CanRoll(player: Player) -> boolean`
+- API: `KitRollService:Roll(player: Player) -> { Ok, Reason?, KitId?, Rarity?, Duplicate?, Refund?, Gems }`
+- Remotes: `Kits/Roll` (RemoteFunction, server invoke)
+- Requires: `Configs.KitConfig`, `GemService`, `KitService`, `DataSaveService`, `CommunicationService`, `PolicyService`
+
+### KitService.luau
+Owns kit ownership, the equipped kit, and applying a kit to a spawning character. Ownership and the equipped id live in the DataSave profile (`OwnedKits`, `EquippedKit`) and always fall back to `KitConfig.DefaultKit`, which every player owns. On each `CharacterAdded` the equipped kit's stats go onto the Humanoid through `HumanoidStatsService` under the `Kit` source, and its items are granted through `InventoryService`. Because granted tools are persisted by the inventory like any other, the exact counts last granted are recorded in `profile.Data.KitGrant` and removed before the next grant - that is what stops a kit's items from stacking up over sessions. Warns once at startup for every kit that fails `KitConfig.Validate`.
+- API: `KitService:Owns(player: Player, kitId: string) -> boolean`
+- API: `KitService:GetEquipped(player: Player) -> string?`
+- API: `KitService:Grant(player: Player, kitId: string) -> boolean` - false when already owned or unknown
+- API: `KitService:SetEquipped(player: Player, kitId: string) -> boolean`
+- API: `KitService:ApplyTo(player: Player, character: Model)`
+- API: `KitService:Sync(player: Player, result: string?, kitId: string?)`
+- Remotes: `Kits/Sync`, `Kits/Equip` (listened and fired)
+- Requires: `Configs.KitConfig`, `HumanoidStatsService`, `DataSaveService`, `InventoryService`, `CommunicationService`
+
+### KitShopService.luau
+The non-gambling path: buying a named kit outright for its rarity's gem price. Validates the kit, refuses one already owned, spends the gems and grants it, refunding if the grant fails, then syncs both the gem balance and the kit list with the result code.
+- API: `KitShopService:PriceOf(kitId: string) -> number?`
+- API: `KitShopService:Buy(player: Player, kitId: string) -> string` - `Purchased`, `AlreadyOwned`, `InsufficientGems`, `UnknownKit`, `NotLoaded`, `GrantFailed`
+- Remotes: `Kits/Purchase` (listened)
+- Requires: `Configs.KitConfig`, `GemService`, `KitService`, `DataSaveService`, `CommunicationService`
 
 ### LanternFallService.luau
 Wires the `Prop/LanternFall` oddity class into a `FixturePool` labelled "lantern", which arms nearby lanterns, drops one when a player approaches, and repairs it afterwards. Returns an empty table if the oddity class was never registered.
