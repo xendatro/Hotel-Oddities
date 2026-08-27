@@ -65,7 +65,7 @@ return {
 			WallMaterial = Enum.Material.Slate,
 
 			PlankThickness = 0.35,
-			PlankWidth = 1.2,
+			PlankWidth = 1.8,
 			PlankOverhang = 0.25,
 			PlankLift = 0.04,
 			PlankAngle = 8,

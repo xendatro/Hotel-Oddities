@@ -272,7 +272,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\LanternSwayConfig.luau — Tuning for the swinging hallway lantern simulation.
 - ReplicatedStorage\Configs\LookConfig.luau — Replicated aim/look angle limits and neck-waist blend weights.
 - ReplicatedStorage\Configs\MapConfig.luau — Map discovery radius, canvas resolution, hand-drawn ink style, danger layer and marker tuning.
-- ReplicatedStorage\Configs\MapOddityConfig.luau — Roll timings and per-effect tuning for hallway/map oddities.
+- ReplicatedStorage\Configs\MapOddityConfig.luau — Roll timings and per-effect tuning for hallway/map oddities, including the Void crossing plank width.
 - ReplicatedStorage\Configs\MimicConfig.luau — Behaviour tuning for the Mimic enemy's reactions, reveal and movement.
 - ReplicatedStorage\Configs\NotificationConfig.luau — Visual settings for the client notification banner.
 - ReplicatedStorage\Configs\ObservedFreezeConfig.luau — Tag, attribute and tolerances for freeze-when-observed enemies.
