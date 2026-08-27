@@ -6,6 +6,7 @@ return {
 	DeathActiveGrace = 0.75,
 	TransmissionGrace = 0.5,
 	VoiceVolume = 0.32,
+	ProximityRadioBlend = 0.08,
 	TaggedSoundVolume = 0.06,
 	RadioPhysicalVolume = 0,
 	RadioNoiseRadius = 35,

@@ -181,7 +181,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\VoiceActivityService.luau — Detects when the local player is speaking from an AudioAnalyzer, reports it to the server, and cuts incoming proximity voice and radio off while the local player is dead.
 - ReplicatedStorage\Services\VoiceDebugService.luau — Debug panel of sliders for local proximity-voice and radio volumes.
 - ReplicatedStorage\Services\WalkSoundService.luau — Footstep engine timing steps from locomotion animations for players and tagged enemies.
-- ReplicatedStorage\Services\WalkieTalkieService.luau — Walkie-talkie mode toggle, own-emitter muting and voice-eligibility gate.
+- ReplicatedStorage\Services\WalkieTalkieService.luau — Walkie-talkie mode toggle, own-emitter muting, voice-eligibility gate and distance-based selection between proximity voice and radio voice.
 - ReplicatedStorage\Services\WallstickService.luau — Client opt-in wall-sticking with optional fixed surface orientation for the local character, surface movement access for sprint, plus replication rendering of other players' wall-stuck characters.
 
 ### ReplicatedStorage\Classes

@@ -222,7 +222,7 @@ Small overrides for footstep sound playback rate and per-enemy step volume.
 
 ### WalkieTalkieConfig.luau
 Radio ranges, volumes, friend/all modes and the full DSP effect chain (compressor, bandpass, EQ, distortion, limiter, static) for walkie-talkie voice transmission.
-- API: data table — `PhysicalDistance`, `TaggedSoundDistance`, `TaggedSoundPickupFalloff`, `RadioAllowedTag`, `DeathActiveGrace`, `TransmissionGrace`, `VoiceVolume`, `TaggedSoundVolume`, `RadioPhysicalVolume`, `RadioNoiseRadius`, `RelaySyncInterval`, `Modes`, `Effects`
+- API: data table — `PhysicalDistance`, `TaggedSoundDistance`, `TaggedSoundPickupFalloff`, `RadioAllowedTag`, `DeathActiveGrace`, `TransmissionGrace`, `VoiceVolume`, `ProximityRadioBlend`, `TaggedSoundVolume`, `RadioPhysicalVolume`, `RadioNoiseRadius`, `RelaySyncInterval`, `Modes`, `Effects`
 
 ### WatchConfig.luau
 Range, angle limits and joint weighting for the Watch class, which makes an NPC's head and torso track the local player.

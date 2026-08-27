@@ -765,11 +765,11 @@ Client footstep engine for players and tagged enemies. Silences the default Robl
 - Requires: `AudioService.Play3DSound`, `CharacterService.ForEachPlayer`, `TagService`, `Configs.WalkSoundConfig`, `Configs.CrouchConfig` (`Stealth`)
 
 ### WalkieTalkieService.luau
-Client walkie-talkie mode control. Reuses the `PlayerLocator` GUI's mode frame for its label and toggle button, cycles through `WalkieTalkieConfig.Modes` and reports the choice to the server, and mutes the player's own radio emitter by moving it into a private `AudioInteractionGroup`. Refuses to enable if voice chat is not available for the user.
+Client walkie-talkie mode control and per-listener voice selection. Reuses the `PlayerLocator` GUI's mode frame for its label and toggle button, cycles through `WalkieTalkieConfig.Modes` and reports the choice to the server, mutes the player's own radio emitter by moving it into a private `AudioInteractionGroup`, and crossfades each remote player's proximity voice against that player's incoming radio route using listener distance. Refuses to enable if voice chat is not available for the user.
 - API: `WalkieTalkieService:SetEnabled(value: boolean, tool: Tool?)` — enabling checks voice eligibility and starts watching `tool` for its `RadioEmitter`
 - API: `WalkieTalkieService:IsEnabled() -> boolean`
 - Remotes: `WalkieTalkie/SetMode` (fired)
-- Requires: `Configs.WalkieTalkieConfig`, `GuiBuilderService`; shares the `PlayerLocator` ScreenGui with `PlayerLocatorService`
+- Requires: `Configs.WalkieTalkieConfig`, `Configs.VoiceChatConfig`, `GuiBuilderService`; shares the `PlayerLocator` ScreenGui with `PlayerLocatorService`
 
 ### WallstickService.luau
 Client front end for the vendored Wallstick controller. Always listens on the replication channel so other players' wall-stuck characters render correctly; wall-sticking for the local character is opt-in via `Enable`, which runs an auto-stick raycast loop under the character's feet each `PreSimulation` (like the upstream demo, resetting to normal gravity after a long fall), optionally limits transfers to surfaces aligned with a fixed world-space normal, and tears down on death or character removal. Guarded to be inert on the server.
