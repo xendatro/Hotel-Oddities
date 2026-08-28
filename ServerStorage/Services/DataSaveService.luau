@@ -1,6 +1,7 @@
 local DataSaveService = {}
 
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,12 +18,21 @@ local PROFILE_TEMPLATE = {
 	Inventory = {},
 	ProcessedItemReceipts = {},
 
+	OwnedKits = {},
+	EquippedKit = "",
+	KitGrant = {},
+	ProcessedKitReceipts = {},
+
+	WalkieAudio = {},
+	WalkieMode = "All",
+
 	DiscoveredEnemies = {},
 	DiscoveredMap = {},
 	DiscoveredLandmarks = {},
 }
 
 local ProfileStore = ProfileService.GetProfileStore(PROFILE_STORE_NAME, PROFILE_TEMPLATE)
+local KEY_PREFIX = RunService:IsStudio() and "Studio_Player_" or "Player_"
 local Profiles = {}
 local Waiters: { [Player]: { thread } } = {}
 
@@ -57,7 +67,7 @@ local function resolveWaiters(player: Player)
 end
 
 Players.PlayerAdded:Connect(function(player)
-	local profile = ProfileStore:LoadProfileAsync("Player_" .. player.UserId)
+	local profile = ProfileStore:LoadProfileAsync(KEY_PREFIX .. player.UserId)
 
 	if profile then
 		profile:AddUserId(player.UserId)
