@@ -297,7 +297,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\VoiceChatConfig.luau — Proximity voice chat volume, distance and activity detection settings.
 - ReplicatedStorage\Configs\VoiceDebugConfig.luau — Slider definitions for the F6 voice volume debug panel, holding live config references.
 - ReplicatedStorage\Configs\WalkSoundConfig.luau — Footstep sound rate and per-enemy step volume overrides.
-- ReplicatedStorage\Configs\WalkieTalkieConfig.luau — Radio ranges, category gain limits, keybinds, screen UI palette and the walkie-talkie DSP effect chain.
+- ReplicatedStorage\Configs\WalkieTalkieConfig.luau — Radio ranges, category and per-player gain limits, keybinds, screen UI palette and the walkie-talkie DSP effect chain.
 - ReplicatedStorage\Configs\WatchConfig.luau — Range, angle limits and joint weights for NPC head tracking of the local player.
 
 ### ReplicatedStorage\Modules
@@ -404,7 +404,7 @@ become Services or Classes.
 - ServerStorage\Services\StunService.luau — Stuns enemy NPCs and Eyes, kills NPCs caught by traps and Eyes hit by the Ball, and validates client ball-hit reports by range.
 - ServerStorage\Services\ToolCommandService.luau — Admin-only /give chat command for handing out tools by name and amount.
 - ServerStorage\Services\ToolService.luau — Binds tagged Tools to their server tool classes and routes client tool events to them.
-- ServerStorage\Services\VoiceActivityService.luau — Tunes voice chat audio, cuts a dead player's input and emitter, and emits noise at whoever is speaking so enemies can hear them.
+- ServerStorage\Services\VoiceActivityService.luau — Tunes nested voice emitters, restores microphone input after respawn, and emits noise at whoever is speaking so enemies can hear them.
 - ServerStorage\Services\VoiceDebugService.luau — Studio-only remote for live-tweaking voice and radio volumes behind the VoiceDebug flag.
 - ServerStorage\Services\WalkieTalkieService.luau — Builds the power-gated radio audio graph with per-listener category faders, push-to-talk gating, privacy modes, clean death/respawn rebuilds, sound relays and radio noise.
 - ServerStorage\Services\WallstickService.luau — Server bootstrap for Wallstick: collision groups, the workspace Wallstick model, per-player streaming foci and the replication listener.

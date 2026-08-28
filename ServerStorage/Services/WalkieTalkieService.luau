@@ -25,6 +25,8 @@ type Receiver = {
 	Voice: AudioFader,
 	Monster: AudioFader,
 	Noise: AudioFader,
+	GlobalFirst: AudioFader,
+	GlobalSecond: AudioFader,
 	Wires: { Wire },
 }
 type State = {
@@ -210,9 +212,12 @@ end
 local function applyReceiverVolumes(state: State, receiver: Player, route: Receiver)
 	local settings = getSettings(receiver)
 	local global = settings.Global or 1
-	route.Voice.Volume = Config.VoiceVolume * global * (settings.Voices or 1)
-	route.Monster.Volume = Config.TaggedSoundVolume * global * (settings.Monster or 1)
-	route.Noise.Volume = global * (settings.Noise or 1)
+	local globalStage = math.sqrt(global)
+	route.Voice.Volume = Config.VoiceVolume * (settings.Voices or 1)
+	route.Monster.Volume = Config.TaggedSoundVolume * (settings.Monster or 1)
+	route.Noise.Volume = settings.Noise or 1
+	route.GlobalFirst.Volume = globalStage
+	route.GlobalSecond.Volume = globalStage
 end
 
 local function updateTransmitting(state: State, active: boolean)
@@ -358,16 +363,22 @@ local function playDeathBurst(sourcePlayer: Player)
 		if not wanted then continue end
 
 		local settings = getSettings(receiver)
-		local gain = createEffect("AudioFader", `RadioDeathGain_{receiver.UserId}`, folder) :: AudioFader
-		gain.Volume = (settings.Global or 1) * (settings.Noise or 1)
+		local gainValue = (settings.Global or 1) * (settings.Noise or 1)
+		local gainStage = math.sqrt(gainValue)
+		local firstGain = createEffect("AudioFader", `RadioDeathGainA_{receiver.UserId}`, folder) :: AudioFader
+		firstGain.Volume = gainStage
+		local secondGain = createEffect("AudioFader", `RadioDeathGainB_{receiver.UserId}`, folder) :: AudioFader
+		secondGain.Volume = gainStage
 		local output = Instance.new("AudioDeviceOutput")
 		output.Name = `RadioDeathOutput_{receiver.UserId}`
 		output.Player = receiver
 		output.Parent = folder
-		table.insert(outputs, gain)
+		table.insert(outputs, firstGain)
+		table.insert(outputs, secondGain)
 		table.insert(outputs, output)
-		table.insert(wires, connect(fader, gain, folder))
-		table.insert(wires, connect(gain, output, folder))
+		table.insert(wires, connect(fader, firstGain, folder))
+		table.insert(wires, connect(firstGain, secondGain, folder))
+		table.insert(wires, connect(secondGain, output, folder))
 	end
 
 	if #outputs == 0 then
@@ -555,6 +566,8 @@ local function destroyReceiver(state: State, receiver: Player)
 	route.Voice:Destroy()
 	route.Monster:Destroy()
 	route.Noise:Destroy()
+	route.GlobalFirst:Destroy()
+	route.GlobalSecond:Destroy()
 	route.Mixer:Destroy()
 	route.Output:Destroy()
 	state.Receivers[receiver] = nil
@@ -586,6 +599,8 @@ ensureReceivers = function(state: State)
 		local noise = createEffect("AudioFader", `RadioNoise_{suffix}`, state.Tool) :: AudioFader
 		local mixer = createEffect("AudioChannelMixer", `RadioMix_{suffix}`, state.Tool) :: AudioChannelMixer
 		mixer.Layout = Enum.AudioChannelLayout.Mono
+		local globalFirst = createEffect("AudioFader", `RadioGlobalA_{suffix}`, state.Tool) :: AudioFader
+		local globalSecond = createEffect("AudioFader", `RadioGlobalB_{suffix}`, state.Tool) :: AudioFader
 		local output = Instance.new("AudioDeviceOutput")
 		output.Name = `RadioOutput_{suffix}`
 		output.Player = receiver
@@ -597,6 +612,8 @@ ensureReceivers = function(state: State)
 			Voice = voice,
 			Monster = monster,
 			Noise = noise,
+			GlobalFirst = globalFirst,
+			GlobalSecond = globalSecond,
 			Wires = {
 				connect(state.VoiceGate, voice, state.Tool),
 				connect(state.TaggedLimiter, monster, state.Tool),
@@ -604,7 +621,9 @@ ensureReceivers = function(state: State)
 				connect(voice, mixer, state.Tool, nil, "Input"),
 				connect(monster, mixer, state.Tool, nil, "Input"),
 				connect(noise, mixer, state.Tool, nil, "Center"),
-				connect(mixer, output, state.Tool),
+				connect(mixer, globalFirst, state.Tool),
+				connect(globalFirst, globalSecond, state.Tool),
+				connect(globalSecond, output, state.Tool),
 			},
 		}
 		state.Receivers[receiver] = route

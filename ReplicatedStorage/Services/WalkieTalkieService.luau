@@ -301,7 +301,7 @@ end
 local function getPlayerGain(target: Player): number
 	if playerMuted[target.UserId] then return 0 end
 	local volume = playerVolumes[target.UserId]
-	return if volume then math.clamp(volume, 0, 1) else 1
+	return if volume then math.clamp(volume, 0, Config.PlayerVolumeMaximum) else 1
 end
 
 local function smooth(current: number, target: number, deltaTime: number): number
@@ -534,11 +534,11 @@ function WalkieTalkieService:SetMuted(target: Player, value: boolean)
 end
 
 function WalkieTalkieService:GetPlayerVolume(target: Player): number
-	return playerVolumes[target.UserId] or 1
+	return (playerVolumes[target.UserId] or 1) / Config.PlayerVolumeMaximum
 end
 
 function WalkieTalkieService:SetPlayerVolume(target: Player, value: number)
-	playerVolumes[target.UserId] = math.clamp(value, 0, 1)
+	playerVolumes[target.UserId] = math.clamp(value, 0, 1) * Config.PlayerVolumeMaximum
 end
 
 function WalkieTalkieService:GetLevel(target: Player): number

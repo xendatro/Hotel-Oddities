@@ -11,6 +11,7 @@ return {
 	RadioPhysicalVolume = 0,
 	RadioNoiseRadius = 35,
 	RelaySyncInterval = 0.15,
+	PlayerVolumeMaximum = 2.5,
 
 	ToolName = "Walkie Talkie",
 	PowerAttribute = "WalkiePowered",
@@ -28,8 +29,8 @@ return {
 	},
 
 	Categories = {
-		{ Id = "Global", Label = "GLOBAL" },
-		{ Id = "Voices", Label = "VOICES", Maximum = 2.5 },
+		{ Id = "Global", Label = "GLOBAL", Maximum = 5 },
+		{ Id = "Voices", Label = "VOICES", Maximum = 6.25 },
 		{ Id = "Monster", Label = "MONSTER" },
 		{ Id = "Noise", Label = "RADIO NOISE" },
 	},
