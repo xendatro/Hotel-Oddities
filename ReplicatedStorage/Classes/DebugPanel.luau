@@ -121,6 +121,28 @@ function DebugPanel:AddLabel(text: string): TextLabel
 	return label
 end
 
+function DebugPanel:AddTextBox(text: string): TextBox
+	local box = Instance.new("TextBox")
+	box.Size = UDim2.new(1, 0, 0, 0)
+	box.AutomaticSize = Enum.AutomaticSize.Y
+	box.LayoutOrder = self:_nextOrder()
+	box.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
+	box.BackgroundTransparency = 0.1
+	box.BorderSizePixel = 0
+	box.ClearTextOnFocus = false
+	box.Font = Enum.Font.Code
+	box.MultiLine = true
+	box.Selectable = true
+	box.Text = text
+	box.TextColor3 = Color3.fromRGB(220, 220, 230)
+	box.TextSize = 10
+	box.TextWrapped = true
+	box.TextXAlignment = Enum.TextXAlignment.Left
+	box.TextYAlignment = Enum.TextYAlignment.Top
+	box.Parent = self.Panel
+	return box
+end
+
 function DebugPanel:AddButton(text: string, activated: () -> ()): TextButton
 	local button = Instance.new("TextButton")
 	button.Modal = false

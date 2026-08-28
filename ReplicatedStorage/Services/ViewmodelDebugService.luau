@@ -29,7 +29,7 @@ local values = {
 	RotateZ = 15,
 }
 local resetters: { () -> () } = {}
-local output = panel:AddLabel("")
+local output = panel:AddTextBox("")
 
 local function updateOutput()
 	output.Text = string.format(

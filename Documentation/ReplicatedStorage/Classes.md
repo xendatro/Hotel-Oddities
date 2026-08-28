@@ -38,6 +38,7 @@ Builds a keyboard-toggled developer overlay ScreenGui with labels, buttons and d
 - API: `DebugPanel.new(title: string, toggleKey: Enum.KeyCode) -> DebugPanel` — creates the hidden panel in PlayerGui
 - API: `DebugPanel:SetTitle(title: string)`
 - API: `DebugPanel:AddLabel(text: string) -> TextLabel`
+- API: `DebugPanel:AddTextBox(text: string) -> TextBox` — creates selectable, editable multiline text
 - API: `DebugPanel:AddButton(text: string, activated: () -> ()) -> TextButton`
 - API: `DebugPanel:AddSlider(label, minimum, maximum, initial, step, apply: (number) -> ()) -> (number) -> ()` — returns a setter that redraws the slider
 - API: `DebugPanel:Destroy()`
