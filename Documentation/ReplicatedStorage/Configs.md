@@ -107,6 +107,21 @@ The enemy Index (bestiary) UI: pagination, locked/undiscovered styling, the disc
 Hotbar/backpack sizes, keybinds, drag thresholds and slot styling for the inventory UI.
 - API: data table — `HotbarSlots`, `BackpackSlots`, `ToggleKey`, `HotbarKeys`, `DragThreshold`, `TouchDragThreshold`, `SlotSize`, `SlotPadding`, `CornerRadius`, `Colors`, `Transparency`, `PlaceholderIcon`
 
+### KitCatalogConfig.luau
+The 24 kits themselves: four per rarity across Common, Uncommon, Rare, Epic, Legendary and Mythic. Each entry carries an `Id`, a short `Name`, its `Rarity`, a one-line `Description`, an absolute `Stats` map (`MaxHealth`, `WalkSpeed`, `JumpPower`, `Stamina`, `SprintMultiplier`, `DetectionRadius` - omitted keys stay at base), an `Items` map of `ReplicatedStorage.Tools` name to count, and an optional `Showcase` naming which item's model represents the kit in a ViewportFrame. `Guest` is the free default every player owns. Split out from `KitConfig` so the catalogue can grow without the system settings moving.
+- API: data table - `Entries`, `EntriesById`, `DefaultKit`
+- Requires: nothing
+
+### KitConfig.luau
+Everything about kits that is not a kit: the six rarities (gem price, roll weight, point budget, colour and accent), the six stat definitions (base value, allowed range, whether higher is better, its point cost, and whether it is applied as a Humanoid property or a character attribute - `Stamina` and `SprintMultiplier` take their bases straight from `SprintConfig` so there is one source of truth), rolling settings, ViewportFrame framing, card/button/info/row animation numbers, and the button strings (`Text.BalancePrefix` is what every gem balance label reads before its number). It re-exports `KitCatalogConfig`'s entries so callers only require one module. `Roll` also carries the reel's feel - `CardWidth`/`CardHeight` (kept under 1 so the winner's flash can grow without the CanvasGroup cutting it), `CardTilt`, `MinScale`/`MaxScale` for the carousel, `ShakeTime`/`ShakeStrength`, `BackdropTime`/`BackdropTransparency` and `ResultPop`. The point economy is the balancing spine: an item costs its `ItemShopConfig` coin price divided by `ItemPointDivisor`, a stat costs its distance from base times the stat's `Cost`, stats set in the bad direction refund points up to `MaxRefundFraction` of the budget, and `Validate` reports every kit that overspends its rarity's budget or names an unknown stat, item or rarity.
+- API: data table - `Rarities`, `RaritiesById`, `Stats`, `StatsById`, `Entries`, `EntriesById`, `DefaultKit`, `Roll`, `Viewport`, `Animation`, `Text`
+- API: `KitConfig.GetRarity(kit) -> Rarity`
+- API: `KitConfig.ItemPoints(itemId: string) -> number`
+- API: `KitConfig.StatPoints(statId: string, value: number) -> number`
+- API: `KitConfig.Spend(kit) -> number` - the kit's total point cost after refunds
+- API: `KitConfig.Validate() -> { string }` - human-readable problems, empty when the catalogue is sound
+- Requires: `KitCatalogConfig`, `ItemShopConfig`, `SprintConfig`
+
 ### ItemShopConfig.luau
 Catalogue and presentation settings for the in-game item shop, including every purchasable entry's prices, blurb and viewport framing. At load time it builds an `EntriesById` lookup by iterating `Entries`, and exports an `Entry` type.
 - API: data table — `StartingCoins`, `RobuxIcon`, `Entries`, `EntriesById`, `Viewport`, `Animation`
@@ -123,12 +138,16 @@ Settings for the look-direction system that replicates each player's aim to neck
 Everything tuning the discoverable map: remote names, the `Map` ScreenGui paths, discovery radius and tick rate, canvas resolution and margin, hand-drawn ink style (colour, opacity, width and its variance, wobble amplitude and frequency, overshoot, bleed), the room floor tags, the landmark tags and their discovery radii, line-of-sight sampling, pan and zoom limits, room and computer-room stroke weights and hatch settings, danger layer colours, and marker sizing and effect timings.
 
 ### MapOddityConfig.luau
-Roll timings, durations and per-effect tuning for the hallway/map oddity system (transparent hallways, doors opening, hallway chaos, gaze-gated blockers).
-- API: data table — `Enabled`, `RollInterval`, `InitialDelay`, `TriggerChance`, `MinDuration`, `MaxDuration`, `MinimumPlayerDistance`, `Effects` (`Transparency`, `DoorsOpen`, `HallwayChaos`, `HallwayBlocker`, `HallwayVoid`, `HallwayCrush` (incl. `SafeMargin`, `KillTolerance`, `BackstopDelay`, `TrimOvershoot`, `DoorwayMargin`), `ChaosWarning`), plus hallway detection keys `HallwayTransparency`, `HallwayHeightWindow`, `HallwayBelowWindow`, `SpatialPadding`, `MinimumPartHallwayFraction`
+Roll timings, durations and per-effect tuning for the hallway/map oddity system (transparent hallways, doors opening, hallway chaos, gaze-gated blockers and the Void's widened crossing plank).
+- API: data table — `Enabled`, `RollInterval`, `InitialDelay`, `TriggerChance`, `MinDuration`, `MaxDuration`, `MinimumPlayerDistance`, `Effects` (`Transparency`, `DoorsOpen`, `HallwayChaos`, `HallwayBlocker`, `HallwayVoid` including `PlankWidth`, `HallwayCrush` (incl. `SafeMargin`, `KillTolerance`, `BackstopDelay`, `TrimOvershoot`, `DoorwayMargin`, `MinimumHRPOverlap`), `ChaosWarning`), plus hallway detection keys `HallwayTransparency`, `HallwayHeightWindow`, `HallwayBelowWindow`, `SpatialPadding`, `MinimumPartHallwayFraction`
 
 ### MimicConfig.luau
 Behaviour tuning for the Mimic enemy — reaction delays, idle emotes, its reveal sequence, floating, turning and approach distances.
 - API: data table — reaction keys (`ReactionDelayMin/Max`, `KeyDeadzone`, `ReactionJitterMin/Max`), emote/spin keys, reveal keys (`HeadSnapDuration`, `RevealHoldTime`, `RevealSound*`, `RevealReverb*`, `RevealSub*`), float keys (`FloatHipRise`, `FloatRiseTime`, `FloatSettleTime`, `FloatBob*`), turning keys (`TurnRate`, `InteractionTurnRate`, `AimDrift*`, `FacingTorque`, `FacingResponsiveness`), and positioning keys (`WallProbeDistance`, `ApproachStopDistance`, `WithdrawGap`, `ShadowGap`, `Behind*`, `ImmediateBehindTurnChance`)
+
+### NotificationConfig.luau
+Visual settings for the top-center notification banner used for short player-facing feedback.
+- API: data table — `DisplayOrder`, `Width`, `Height`, `TopMargin`, `Gap`, `Duration`, `FadeTime`, `BackgroundColor`, `BackgroundTransparency`, `StrokeColor`, `AccentColor`, `TextColor`, `TextStrokeColor`, `TextSize`
 
 ### ObservedFreezeConfig.luau
 Tag name, attribute name and reconciliation tolerances for the "freeze while observed" enemy movement system. Assembled field-by-field on a named local table rather than as a literal, but returns only that table.
@@ -185,8 +204,12 @@ Per-tool settings keyed by tool name, giving each tool its CollectionService tag
 - Player oddity entries use `OddityKind`, optional `OddityOverrides`, or `OddityChoices` for the random four-effect item.
 
 ### ViewmodelConfig.luau
-Placement, scale, sway/bob and per-tool orientation overrides for the first-person viewmodel and its fake arm. `Overrides.Camera` anchors the tripod by its handle, shrinks it with a per-tool `Scale` and tilts it so the body sits up and to the right instead of sprawling across the screen.
+Placement, scale, sway/bob and per-tool orientation overrides for the first-person viewmodel and its fake arm. `Overrides.Camera` anchors the tripod by its handle, while `Overrides["Walkie Talkie"]` separately positions the radio and fake hand with `Anchor` and `ArmAnchor`, then scales and rolls the radio so its screen stays visible. An override may also carry `Poses` — variants selected by `ViewmodelService:SetPose` and blended in at `PoseSpeed`. A pose offsets the base (`AnchorOffset`/`ArmAnchorOffset`/`RotateOffset`), replaces it (`Anchor`/`ArmAnchor`/`Rotate`), or declares `Framing` (`Part`, `Element`, `Coverage`) and is solved from the rig's geometry instead. The walkie defines `Talk`, which offsets the base so hand tuning carries into it, and `Raised`, which is framed on the screen's `Main` element so it stays centred and square whatever the base pose and scale are.
 - API: data table — `HandOffset`, `Scale`, `Fit`, `SwayAmount`, `SwaySpeed`, `BobAmount`, `BobSpeed`, `Arm`, `Overrides`
+
+### ViewmodelDebugConfig.luau
+F3 developer-panel settings for tuning the walkie-talkie first-person viewmodel live. `PoseOrder` lists which poses the panel offers as tunable states, after Live and Base.
+- API: data table — `ToggleKey`, `Step`, `AngleStep`
 
 ### VoiceChatConfig.luau
 Volume, attenuation distance and voice-activity detection settings for proximity voice chat.
@@ -202,8 +225,8 @@ Small overrides for footstep sound playback rate and per-enemy step volume.
 - API: data table — `PlayerStepFrequencyMultiplier`, `EnemyStepVolume`
 
 ### WalkieTalkieConfig.luau
-Radio ranges, volumes, friend/all modes and the full DSP effect chain (compressor, bandpass, EQ, distortion, limiter, static) for walkie-talkie voice transmission.
-- API: data table — `PhysicalDistance`, `TaggedSoundDistance`, `TaggedSoundPickupFalloff`, `RadioAllowedTag`, `DeathActiveGrace`, `TransmissionGrace`, `VoiceVolume`, `TaggedSoundVolume`, `RadioPhysicalVolume`, `RadioNoiseRadius`, `RelaySyncInterval`, `Modes`, `Effects`
+Radio ranges, volumes, keybinds, friend/all modes, the on-model screen UI palette and the full DSP effect chain (compressor, bandpass, EQ, distortion, limiter, static) for walkie-talkie voice transmission. `Categories` defines the four player-facing volume sliders (`Global`, `Voices`, `Monster`, `Noise`) by id, and both the client and server key their settings tables off those ids. `PowerAttribute`, `VoiceAttribute` and `TransmitAttribute` name the Player attributes the server replicates so every client can colour the roster. Layout and styling are not here — the walkie screen and the `WalkieHud` ScreenGui are authored in Studio, and `Ui.Colors` holds only the state colours the roster swaps at runtime.
+- API: data table — `PhysicalDistance`, `TaggedSoundDistance`, `TaggedSoundPickupFalloff`, `RadioAllowedTag`, `DeathActiveGrace`, `TransmissionGrace`, `VoiceVolume`, `ProximityRadioBlend`, `TaggedSoundVolume`, `RadioPhysicalVolume`, `RadioNoiseRadius`, `RelaySyncInterval`, `ToolName`, `PowerAttribute`, `VoiceAttribute`, `TransmitAttribute`, `Keys`, `Modes`, `Categories`, `Ui`, `Prompt`, `Touch`, `Effects`
 
 ### WatchConfig.luau
 Range, angle limits and joint weighting for the Watch class, which makes an NPC's head and torso track the local player.

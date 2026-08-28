@@ -1,0 +1,340 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local Config = require(ReplicatedStorage.Configs.ViewmodelDebugConfig)
+local ViewmodelConfig = require(ReplicatedStorage.Configs.ViewmodelConfig)
+local ViewmodelService = require(ReplicatedStorage.Services.ViewmodelService)
+local DebugPanel = require(ReplicatedStorage.Classes.DebugPanel)
+local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
+
+local ViewmodelDebugService = {}
+
+if not (FLAGS.ViewmodelDebug and RunService:IsClient()) then
+	return ViewmodelDebugService
+end
+
+local LIVE_STATE = "Live"
+local BASE_STATE = "Base"
+
+local panel = DebugPanel.new("viewmodel", Config.ToggleKey)
+local resetters: { () -> () } = {}
+local stateButton: TextButton? = nil
+local output = panel:AddTextBox("")
+
+local currentTool: Tool? = nil
+local override: any? = nil
+local states: { string } = { LIVE_STATE, BASE_STATE }
+local stateIndex = 1
+
+local values = {
+	Scale = 0,
+	AnchorX = 0,
+	AnchorY = 0,
+	AnchorZ = 0,
+	ArmX = 0,
+	ArmY = 0,
+	ArmZ = 0,
+	RotateX = 0,
+	RotateY = 0,
+	RotateZ = 0,
+	Coverage = 0,
+}
+
+local function currentState(): string
+	return states[stateIndex]
+end
+
+local function currentPose(): any?
+	local state = currentState()
+	if state == LIVE_STATE or state == BASE_STATE then return nil end
+	return override and override.Poses and override.Poses[state]
+end
+
+local function buildStates(toolOverride: any?): { string }
+	local result = { LIVE_STATE, BASE_STATE }
+	local poses = toolOverride and toolOverride.Poses
+	if not poses then return result end
+
+	local ordered: { [string]: boolean } = {}
+	for _, name in Config.PoseOrder do
+		if poses[name] then
+			table.insert(result, name)
+			ordered[name] = true
+		end
+	end
+
+	local extraNames = {}
+	for name in poses do
+		if not ordered[name] then table.insert(extraNames, name) end
+	end
+	table.sort(extraNames)
+	for _, name in extraNames do table.insert(result, name) end
+
+	return result
+end
+
+local function defaultAnchor(): Vector3
+	return ViewmodelService:GetDefaultAnchor() or ViewmodelConfig.Fit.Base
+end
+
+local function ensureOverride(tool: Tool): any
+	local toolOverride = ViewmodelConfig.Overrides[tool.Name]
+	if not toolOverride then
+		toolOverride = {
+			Scale = ViewmodelConfig.Scale,
+			Anchor = defaultAnchor(),
+			Rotate = CFrame.identity,
+		}
+		ViewmodelConfig.Overrides[tool.Name] = toolOverride
+	elseif not toolOverride.Anchor then
+		toolOverride.Anchor = defaultAnchor()
+	end
+	return toolOverride
+end
+
+local function angles(cframe: CFrame?): (number, number, number)
+	if not cframe then return 0, 0, 0 end
+	local x, y, z = cframe:ToEulerAnglesYXZ()
+	return math.deg(x), math.deg(y), math.deg(z)
+end
+
+local function readState()
+	values.Scale = override and (override.Scale or ViewmodelConfig.Scale) or ViewmodelConfig.Scale
+	local pose = currentPose()
+	if not override then
+		values.AnchorX, values.AnchorY, values.AnchorZ = 0, 0, 0
+		values.ArmX, values.ArmY, values.ArmZ = 0, 0, 0
+		values.RotateX, values.RotateY, values.RotateZ = 0, 0, 0
+		values.Coverage = 0.5
+		return
+	end
+
+	if not pose then
+		local anchor = override.Anchor or defaultAnchor()
+		local arm = override.ArmAnchor or anchor
+		values.AnchorX, values.AnchorY, values.AnchorZ = anchor.X, anchor.Y, anchor.Z
+		values.ArmX, values.ArmY, values.ArmZ = arm.X, arm.Y, arm.Z
+		values.RotateX, values.RotateY, values.RotateZ = angles(override.Rotate)
+		values.Coverage = 0.5
+		return
+	end
+
+	local anchor = pose.AnchorOffset or pose.Anchor or Vector3.zero
+	local arm = pose.ArmAnchorOffset or pose.ArmAnchor or Vector3.zero
+	values.AnchorX, values.AnchorY, values.AnchorZ = anchor.X, anchor.Y, anchor.Z
+	values.ArmX, values.ArmY, values.ArmZ = arm.X, arm.Y, arm.Z
+	values.RotateX, values.RotateY, values.RotateZ = angles(pose.RotateOffset or pose.Rotate)
+	values.Coverage = if pose.Framing then pose.Framing.Coverage or 0.5 else 0.5
+end
+
+local function formatVector(x: number, y: number, z: number): string
+	return string.format("Vector3.new(%.2f, %.2f, %.2f)", x, y, z)
+end
+
+local function formatAngles(cframe: CFrame?): string
+	local x, y, z = angles(cframe)
+	return string.format("CFrame.Angles(math.rad(%.0f), math.rad(%.0f), math.rad(%.0f))", x, y, z)
+end
+
+local function formatPose(name: string, pose: any): string
+	local lines = { string.format("\t\t\t\t[%q] = {", name) }
+	if pose.AnchorOffset then
+		table.insert(lines, `\t\t\t\t\tAnchorOffset = {formatVector(pose.AnchorOffset.X, pose.AnchorOffset.Y, pose.AnchorOffset.Z)},`)
+	elseif pose.Anchor then
+		table.insert(lines, `\t\t\t\t\tAnchor = {formatVector(pose.Anchor.X, pose.Anchor.Y, pose.Anchor.Z)},`)
+	end
+	if pose.ArmAnchorOffset then
+		table.insert(lines, `\t\t\t\t\tArmAnchorOffset = {formatVector(pose.ArmAnchorOffset.X, pose.ArmAnchorOffset.Y, pose.ArmAnchorOffset.Z)},`)
+	elseif pose.ArmAnchor then
+		table.insert(lines, `\t\t\t\t\tArmAnchor = {formatVector(pose.ArmAnchor.X, pose.ArmAnchor.Y, pose.ArmAnchor.Z)},`)
+	end
+	if pose.RotateOffset then
+		table.insert(lines, `\t\t\t\t\tRotateOffset = {formatAngles(pose.RotateOffset)},`)
+	elseif pose.Rotate then
+		table.insert(lines, `\t\t\t\t\tRotate = {formatAngles(pose.Rotate)},`)
+	end
+	if pose.Framing then
+		table.insert(lines, "\t\t\t\t\tFraming = {")
+		table.insert(lines, string.format("\t\t\t\t\t\tPart = %q,", pose.Framing.Part))
+		if pose.Framing.Face then
+			table.insert(lines, `\t\t\t\t\t\tFace = {tostring(pose.Framing.Face)},`)
+		end
+		if pose.Framing.Element then
+			table.insert(lines, string.format("\t\t\t\t\t\tElement = %q,", pose.Framing.Element))
+		end
+		table.insert(lines, string.format("\t\t\t\t\t\tCoverage = %.2f,", pose.Framing.Coverage or 0.5))
+		table.insert(lines, "\t\t\t\t\t},")
+	end
+	table.insert(lines, "\t\t\t\t},")
+	return table.concat(lines, "\n")
+end
+
+local function updateOutput()
+	if not currentTool or not override then
+		output.Text = "Equip a tool to tune its viewmodel."
+		return
+	end
+
+	local lines = { string.format("\t\t[%q] = {", currentTool.Name) }
+	if override.AnchorAt then
+		table.insert(lines, string.format("\t\t\tAnchorAt = %q,", override.AnchorAt))
+	end
+	table.insert(lines, string.format("\t\t\tScale = %.2f,", override.Scale or ViewmodelConfig.Scale))
+	if override.Anchor then
+		table.insert(lines, `\t\t\tAnchor = {formatVector(override.Anchor.X, override.Anchor.Y, override.Anchor.Z)},`)
+	end
+	if override.ArmAnchor then
+		table.insert(lines, `\t\t\tArmAnchor = {formatVector(override.ArmAnchor.X, override.ArmAnchor.Y, override.ArmAnchor.Z)},`)
+	end
+	if override.Rotate then
+		table.insert(lines, `\t\t\tRotate = {formatAngles(override.Rotate)},`)
+	end
+	if override.PoseSpeed then
+		table.insert(lines, string.format("\t\t\tPoseSpeed = %.0f,", override.PoseSpeed))
+	end
+	if #states > 2 then
+		table.insert(lines, "\t\t\tPoses = {")
+		for index = 3, #states do
+			table.insert(lines, formatPose(states[index], override.Poses[states[index]]))
+		end
+		table.insert(lines, "\t\t\t},")
+	end
+	table.insert(lines, "\t\t},")
+	output.Text = table.concat(lines, "\n")
+end
+
+local function apply(refresh: boolean)
+	if not override then return end
+
+	local pose = currentPose()
+	override.Scale = values.Scale
+	if not pose then
+		override.Anchor = Vector3.new(values.AnchorX, values.AnchorY, values.AnchorZ)
+		override.ArmAnchor = Vector3.new(values.ArmX, values.ArmY, values.ArmZ)
+		override.Rotate = CFrame.Angles(
+			math.rad(values.RotateX),
+			math.rad(values.RotateY),
+			math.rad(values.RotateZ)
+		)
+	elseif pose.Framing then
+		pose.ArmAnchorOffset = Vector3.new(values.ArmX, values.ArmY, values.ArmZ)
+		pose.Framing.Coverage = values.Coverage
+	else
+		if pose.AnchorOffset or not pose.Anchor then
+			pose.AnchorOffset = Vector3.new(values.AnchorX, values.AnchorY, values.AnchorZ)
+		else
+			pose.Anchor = Vector3.new(values.AnchorX, values.AnchorY, values.AnchorZ)
+		end
+		if pose.ArmAnchorOffset or not pose.ArmAnchor then
+			pose.ArmAnchorOffset = Vector3.new(values.ArmX, values.ArmY, values.ArmZ)
+		else
+			pose.ArmAnchor = Vector3.new(values.ArmX, values.ArmY, values.ArmZ)
+		end
+		if pose.RotateOffset or not pose.Rotate then
+			pose.RotateOffset = CFrame.Angles(
+				math.rad(values.RotateX),
+				math.rad(values.RotateY),
+				math.rad(values.RotateZ)
+			)
+		else
+			pose.Rotate = CFrame.Angles(
+				math.rad(values.RotateX),
+				math.rad(values.RotateY),
+				math.rad(values.RotateZ)
+			)
+		end
+	end
+
+	if refresh then ViewmodelService:Refresh() end
+	updateOutput()
+end
+
+local function setState(index: number)
+	stateIndex = (index - 1) % #states + 1
+	local state = currentState()
+	if state == LIVE_STATE then
+		ViewmodelService:SetPoseOverride(false)
+	else
+		ViewmodelService:SetPoseOverride(true, if state == BASE_STATE then nil else state)
+	end
+	readState()
+	for _, reset in resetters do reset() end
+	if stateButton then
+		stateButton.Text = `state: {state} (click to cycle)`
+		stateButton.Visible = currentTool ~= nil and #states > 2
+	end
+	updateOutput()
+end
+
+local function setTool(tool: Tool?)
+	if tool == currentTool then return end
+
+	ViewmodelService:SetPoseOverride(false)
+	currentTool = tool
+	override = if tool then ensureOverride(tool) else nil
+	states = buildStates(override)
+	stateIndex = 1
+	panel:SetTitle(if tool then `viewmodel: {tool.Name}` else "viewmodel")
+	readState()
+	for _, reset in resetters do reset() end
+	if stateButton then
+		stateButton.Text = `state: {currentState()} (click to cycle)`
+		stateButton.Visible = tool ~= nil and #states > 2
+	end
+	updateOutput()
+end
+
+stateButton = panel:AddButton("", function()
+	setState(stateIndex + 1)
+end)
+stateButton.Visible = false
+
+local function addSlider(
+	key: string,
+	label: string,
+	minimum: number,
+	maximum: number,
+	step: number,
+	refresh: boolean
+)
+	local display = panel:AddSlider(label, minimum, maximum, values[key], step, function(value)
+		values[key] = value
+		apply(refresh)
+	end)
+	table.insert(resetters, function()
+		display(values[key])
+	end)
+end
+
+addSlider("Scale", "Scale", 0.1, 1.5, Config.Step, true)
+addSlider("Coverage", "Screen coverage (framed states)", 0.1, 1, Config.Step, false)
+addSlider("AnchorX", "Anchor X", -2, 2, Config.Step, false)
+addSlider("AnchorY", "Anchor Y", -2, 1, Config.Step, false)
+addSlider("AnchorZ", "Anchor Z", -4, 2, Config.Step, false)
+addSlider("ArmX", "Hand X", -2, 2, Config.Step, false)
+addSlider("ArmY", "Hand Y", -2, 1, Config.Step, false)
+addSlider("ArmZ", "Hand Z", -4, 2, Config.Step, false)
+addSlider("RotateX", "Rotate X", -180, 180, Config.AngleStep, false)
+addSlider("RotateY", "Rotate Y", -180, 180, Config.AngleStep, false)
+addSlider("RotateZ", "Rotate Z", -180, 180, Config.AngleStep, false)
+
+panel:AddButton("reset this state", function()
+	readState()
+	for _, reset in resetters do reset() end
+	apply(true)
+end)
+
+panel:AddLabel(
+	"Live follows the game; the other states hold the viewmodel still so you can tune them. Base uses"
+		.. " absolute anchors, poses use offsets from it, and framed states solve their own placement so"
+		.. " only coverage and hand offset apply. Changes are local to this session - paste the whole"
+		.. " generated entry into ViewmodelConfig, poses included."
+)
+
+RunService.RenderStepped:Connect(function()
+	setTool(ViewmodelService:GetTool())
+end)
+
+setTool(ViewmodelService:GetTool())
+
+return ViewmodelDebugService

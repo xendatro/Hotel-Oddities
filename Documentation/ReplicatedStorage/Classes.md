@@ -38,6 +38,7 @@ Builds a keyboard-toggled developer overlay ScreenGui with labels, buttons and d
 - API: `DebugPanel.new(title: string, toggleKey: Enum.KeyCode) -> DebugPanel` — creates the hidden panel in PlayerGui
 - API: `DebugPanel:SetTitle(title: string)`
 - API: `DebugPanel:AddLabel(text: string) -> TextLabel`
+- API: `DebugPanel:AddTextBox(text: string) -> TextBox` — creates selectable, editable multiline text
 - API: `DebugPanel:AddButton(text: string, activated: () -> ()) -> TextButton`
 - API: `DebugPanel:AddSlider(label, minimum, maximum, initial, step, apply: (number) -> ()) -> (number) -> ()` — returns a setter that redraws the slider
 - API: `DebugPanel:Destroy()`
@@ -97,6 +98,16 @@ One inventory hotbar slot: an ImageButton with a ViewportFrame preview of the to
 - API: `InventorySlot:SetDropTarget(active: boolean)`
 - API: `InventorySlot:Destroy()`
 - Requires: `Configs.InventoryConfig`, `Configs.ItemShopConfig`
+
+### KitCard.luau
+One kit tile in the inventory or shop grid: clones the GUI's `Template` ImageButton into a layout holder, dresses it with its rarity stroke, rarity ribbon, kit name, status line and dim overlay through `KitVisualService`, renders the kit's showcase item into the tile's ViewportFrame, and owns the hover/press/select/deal motion. Used by both kit pages so the two grids cannot drift apart.
+- API: `KitCard.new(template: ImageButton, parent: Instance, kit, order: number, onSelect: (kit) -> ()) -> KitCard`
+- API: `KitCard:Pose(override: TweenInfo?)` - re-tween to whatever the current hover/press/selected state implies
+- API: `KitCard:SetSelected(selected: boolean)`
+- API: `KitCard:SetStatus(text: string, dimmed: boolean, color: Color3?)` - the per-page status line (price, OWNED, EQUIPPED)
+- API: `KitCard:Deal(delay: number)` - drop-in entrance used when a page opens
+- API: `KitCard:Destroy()`
+- Requires: `Configs.KitConfig`, `Services.KitVisualService`
 
 ### LocatorMarker.luau
 Per-player billboard marker for the player locator: headshot bubble, halo, name plate and distance readout, all tweened between an idle and a focused state, plus a character Highlight. Rebinds itself as the player's character spawns, dies and is removed.
@@ -401,7 +412,7 @@ Applies a night-vision-style `ColorCorrectionEffect` in Lighting while equipped,
 - Requires: `Classes\ClientTool`
 
 ### Tools\Walkie Talkie.luau
-Thin wrapper that enables `WalkieTalkieService` (passing the tool instance) while equipped and disables it on unequip or destroy.
+Thin wrapper that reports equip state to `WalkieTalkieService`. Equipping does not power the radio on — that is the player's G press — but transmitting and raising the radio both require it.
 - API: `WalkieTalkie.new(tool: Tool) -> self`
 - API: `WalkieTalkie:OnEquipped()` / `WalkieTalkie:OnUnequipped()` / `WalkieTalkie:OnDestroy()`
 - Requires: `Classes\ClientTool`, `WalkieTalkieService`

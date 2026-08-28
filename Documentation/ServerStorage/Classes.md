@@ -21,6 +21,7 @@ The full humanoid-enemy base: pathfinding with prefetch, direct-pursuit/lane-cle
 - API: `NPC.new(model: Model, config: EnemyConfigs.EnemyConfig, class: any?) -> self` — needs `model.Humanoid` and `model.HumanoidRootPart`; builds `NpcAnimator` and calls `BuildStateMachine`.
 - API: `NPC.FromModel(model: Instance?) -> any?` — reverse lookup for live NPCs (registered only while active).
 - API: `NPC:BuildStateMachine() -> StateMachine` — default Idle/Wander/Patrol/Despawn machine; the main override point.
+- Detection: `CanSee` and `IsValidTarget` scale `DetectionRange` and `GiveUpRange` by the target character's `DetectionRadius` attribute (`HumanoidStatsService.GetDetectionRadius`, 1 when absent), which is how a kit's stealth stat shortens the range at which enemies notice and keep chasing that player.
 - API: `NPC:Start()` — tags the model, applies WalkSpeed, takes network ownership, starts animator and machine, mirrors state to the `State` attribute.
 - API: `NPC:Despawn()` — untags, tears down ownership watchers, defers machine stop, animator destroy and model destroy.
 - API: `NPC:SetSpeed(speed: number)` — sets `Humanoid.WalkSpeed`.
@@ -319,11 +320,12 @@ Intermediate base for oddities that afflict one player; the start context is the
 - Requires: `Classes\Oddity`, `ReplicatedStorage\Services\CharacterService`; `Configs\PlayerOddityConfig` via `ConfigName`
 
 ### PlayerOddityTool.luau
-Shared server-side base for inventory items that trigger a player oddity on their holder. It selects the configured effect or one configured choice, asks `PlayerOddityService` to start it, and consumes one item only after a successful start.
+Shared server-side base for inventory items that trigger a player oddity on their holder. It selects the configured effect or one configured choice, asks `PlayerOddityService` to start it, consumes one item only after a successful start, and shows a notification when the effect is rejected.
 - API: `PlayerOddityTool.new(tool: Tool, class: any?) -> PlayerOddityTool`
 - API: `PlayerOddityTool:OnActivated()` — starts the configured player oddity and consumes the item on success
 - API: `PlayerOddityTool:_ChooseEffect() -> (string?, {[string]: any}?)`
-- Requires: `Classes\ServerTool`, `Services\PlayerOddityService`
+- Remotes: `Notifications/Show` (fired on rejection)
+- Requires: `Classes\ServerTool`, `Services\PlayerOddityService`, `ReplicatedStorage.Services.CommunicationService`
 
 ## Oddities
 
@@ -365,12 +367,13 @@ Extends `HallwayOddity`. Closes both walls of a straight hallway in until they m
 - API: `HallwayCrush.Resolve(class: any, position: Vector3) -> Candidate?` — manual placement candidate, on the junction-free stretch the request position stands in
 - API: `HallwayCrush.Pick(class: any) -> Candidate?` — random span biased toward occupied ones by `OccupiedChance`, closing the stretch the occupant is in and otherwise the longest stretch of the span
 - API: `HallwayCrush:CanStart(context: any) -> (boolean, string?)`, `HallwayCrush:Start(context: any, duration: number?) -> boolean`
+- API: `HallwayCrush.Resolve` and `HallwayCrush.Pick` keep the capped run inside one contiguous junction-free interval and centre occupied selections around the player's position
 - API: `HallwayCrush:OnStart() -> boolean` — splits the walls, collects the fixtures, builds the reveals, computes the lethal intervals, broadcasts the region and starts the closing loop
 - API: `HallwayCrush:Crush(player: Player, slack: number) -> boolean` — validates and applies one kill; used by both the client report and the backstop
 - API: `HallwayCrush:OnStop()` — retracts over `OpenTime`, then restores every edit and frees the span
 - Remotes: `Oddities/MapCrush` (fired to clients on start/stop, listens for the client's `"Crushed"` report)
 - Tags: reads `HallwayWall`, `HallwayStation`, `PictureFrame`, `Doorway`
-- Requires: `Classes\HallwayOddity`, `Classes\Oddity`, `Services\HallwayWallService`, `Services\HallwayRegionService`, `Services\DeathService`, `Services\EnemyService` (despawns enemies caught in the seal), `ReplicatedStorage\Services\HallwaysService`, `ReplicatedStorage\Services\CharacterService`
+- Requires: `Classes\HallwayOddity`, `Classes\Oddity`, `Services\HallwayWallService`, `Services\HallwayRegionService`, `Services\DeathService`, `Services\EnemyService` (despawns enemies caught in the seal), `ReplicatedStorage\Services\HallwaysService`, `ReplicatedStorage\Services\CharacterService`, `ReplicatedStorage\Services\HallwayCrushDamageService`
 
 ### Oddities\HallwayVoid.luau
 Extends `HallwayOddity`. Opens a bottomless pit in a hallway: the span is trimmed back to the far edge of each junction it meets — measured from the crossing corridor's own footprint, whether that corridor runs through the junction or merely ends at it, plus `IntersectionInset` — so an intersection and every side-corridor mouth keep their floor, then the floor slabs and carpet runners overlapping that rectangle are subtracted from — each part is resized to its first remaining piece and cloned for the rest, so cross-hallway floors at an intersection lose only the overlap and nothing is left hanging over the hole. Dark walls line the shaft, sunk beneath the thickest floor or carpet slab they sit under so nothing z-fights, stacked translucent layers fade the drop to black, a single plank crosses the gap end to end — its angle comes from two endpoints whose sideways offset is clamped inside the hallway walls, so `PlankAngle` is only honoured up to the tilt the corridor width allows and the plank never enters a wall — and anything that falls past `KillDepth` inside the opening dies with cause `HallwayVoid`. Every edited part is restored on stop.
@@ -378,6 +381,7 @@ Extends `HallwayOddity`. Opens a bottomless pit in a hallway: the span is trimme
 - API: `HallwayVoid.Resolve(class: any, position: Vector3) -> Candidate?` — manual placement candidate for a position
 - API: `HallwayVoid.Pick(class: any) -> Candidate?` — random span whose floor can be cut, unoccupied and unseen
 - API: `HallwayVoid:CanStart(context: any) -> (boolean, string?)`, `HallwayVoid:Start(context: any, duration: number?) -> boolean`
+- API: `HallwayVoid:OnStart` clamps the crossing plank's angle and length to the opening width using `WidthPadding`
 - API: `HallwayVoid:OnStart() -> boolean` — cuts the floor, builds the shaft, arms the kill loop
 - API: `HallwayVoid:OnStop()` — destroys the shaft, restores every cut part, frees the span
 - Tags: reads `MazeFloor`, re-applies it to cut floor pieces
@@ -555,7 +559,7 @@ Server half of the visor: equipping clones the tool's face `Accessory` onto the 
 - Requires: `Classes\ServerTool`
 
 ### Tools\Walkie Talkie.luau
-Server half of the walkie talkie: registers and unregisters the owning player with `WalkieTalkieService` on equip, unequip and destruction.
+Server half of the walkie talkie: asks `WalkieTalkieService` to reconcile the owner whenever the tool is created, equipped, unequipped or destroyed, so a powered radio rebuilds its audio graph onto whichever tool instance the player currently holds.
 - API: `WalkieTalkie.new(tool: Tool)`
 - API: `WalkieTalkie:OnEquipped()` / `WalkieTalkie:OnUnequipped()` / `WalkieTalkie:OnDestroy()`
 - Requires: `Classes\ServerTool`, `Services\WalkieTalkieService`

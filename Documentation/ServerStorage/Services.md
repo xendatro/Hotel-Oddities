@@ -192,6 +192,15 @@ Caches each player's gamepass ownership at join time by querying every id in `Ga
 - API: `GamepassService:UserOwnsGamepass(player: Player, id: number) -> boolean` — cache lookup only, never yields
 - Requires: `ServerStorage.Configs.GamepassConfigs`, `CharacterService.ForEachPlayer` / `.CleanupOnLeave`
 
+### GemService.luau
+Owns the gem balance in the player's DataSave profile: reads and normalises it, mirrors it to a `Gems` player attribute, and pushes it to the client over `Gems/Sync` with an optional result code. Spending is checked and atomic, so a failed grant can be refunded by the caller. Gems are the currency for both kit purchases and rolls.
+- API: `GemService:Get(player: Player) -> number`
+- API: `GemService:Award(player: Player, amount: number) -> boolean`
+- API: `GemService:Spend(player: Player, amount: number) -> boolean` - false and no deduction when the balance is short
+- API: `GemService:Sync(player: Player, result: string?)`
+- Remotes: `Gems/Sync` (listened and fired)
+- Requires: `DataSaveService`, `CommunicationService`
+
 ### GazeService.luau
 Server-side line-of-sight library: builds a short-lived cache of living, non-vanished player viewers (eye position and look vector from `EnemyObservationService`) and answers whether a point, part or model falls inside a viewer's cone with a clear raycast. Also provides a small Tracker object that accumulates seen/unseen durations across updates.
 - API: `Gaze.Viewers() -> { Viewer }` — cached ~0.05s
@@ -304,6 +313,31 @@ Coin-and-Robux item shop: it validates a purchase against `ItemShopConfig`, chec
 - API: `ItemShopService:Sync(player: Player, result: string?, itemId: string?)` — pushes coins plus a result code (`Purchased`, `InsufficientCoins`, `InventoryFull`, `VoiceUnavailable`)
 - Remotes: `Items/Purchase` (listened), `Items/Sync` (fired and listened)
 - Requires: `ItemShopConfig`, `MarketplaceService.Products.Items` / `:CreateReceipt`, `DataSaveService`, `InventoryService`
+
+### KitRollService.luau
+The paid-random-items path. Eligibility comes from `PolicyService.ArePaidRandomItemsRestricted`, resolved once on join and published as a `CanRoll` player attribute; a restricted account is refused server-side, not merely hidden in the UI. A roll spends `KitConfig.Roll.GemCost`, picks a rarity by its configured weight and then a kit uniformly inside that rarity, and grants it. Rolling a kit already owned refunds `DuplicateRefundFraction` of that rarity's gem price. Every early exit refunds the cost, and a per-player flag blocks concurrent rolls.
+- API: `KitRollService:CanRoll(player: Player) -> boolean`
+- API: `KitRollService:Roll(player: Player) -> { Ok, Reason?, KitId?, Rarity?, Duplicate?, Refund?, Gems }`
+- Remotes: `Kits/Roll` (RemoteFunction, server invoke)
+- Requires: `Configs.KitConfig`, `GemService`, `KitService`, `DataSaveService`, `CommunicationService`, `PolicyService`
+
+### KitService.luau
+Owns kit ownership, the equipped kit, and applying a kit to a spawning character. Ownership and the equipped id live in the DataSave profile (`OwnedKits`, `EquippedKit`) and always fall back to `KitConfig.DefaultKit`, which every player owns. On each `CharacterAdded` the equipped kit's stats go onto the Humanoid through `HumanoidStatsService` under the `Kit` source, and its items are granted through `InventoryService`. Because granted tools are persisted by the inventory like any other, the exact counts last granted are recorded in `profile.Data.KitGrant` and removed before the next grant - that is what stops a kit's items from stacking up over sessions. Warns once at startup for every kit that fails `KitConfig.Validate`.
+- API: `KitService:Owns(player: Player, kitId: string) -> boolean`
+- API: `KitService:GetEquipped(player: Player) -> string?`
+- API: `KitService:Grant(player: Player, kitId: string) -> boolean` - false when already owned or unknown
+- API: `KitService:SetEquipped(player: Player, kitId: string) -> boolean`
+- API: `KitService:ApplyTo(player: Player, character: Model)`
+- API: `KitService:Sync(player: Player, result: string?, kitId: string?)`
+- Remotes: `Kits/Sync`, `Kits/Equip` (listened and fired)
+- Requires: `Configs.KitConfig`, `HumanoidStatsService`, `DataSaveService`, `InventoryService`, `CommunicationService`
+
+### KitShopService.luau
+The non-gambling path: buying a named kit outright for its rarity's gem price. Validates the kit, refuses one already owned, spends the gems and grants it, refunding if the grant fails, then syncs both the gem balance and the kit list with the result code.
+- API: `KitShopService:PriceOf(kitId: string) -> number?`
+- API: `KitShopService:Buy(player: Player, kitId: string) -> string` - `Purchased`, `AlreadyOwned`, `InsufficientGems`, `UnknownKit`, `NotLoaded`, `GrantFailed`
+- Remotes: `Kits/Purchase` (listened)
+- Requires: `Configs.KitConfig`, `GemService`, `KitService`, `DataSaveService`, `CommunicationService`
 
 ### LanternFallService.luau
 Wires the `Prop/LanternFall` oddity class into a `FixturePool` labelled "lantern", which arms nearby lanterns, drops one when a player approaches, and repairs it afterwards. Returns an empty table if the oddity class was never registered.
@@ -577,20 +611,20 @@ Studio-only debug hook, gated behind `FLAGS.VoiceDebug`: lets a client set any v
 - Requires: `VoiceDebugConfig`, `FLAGS`, `VoiceActivityService:ApplyVolume`, `WalkieTalkieService:ApplyVolumes`
 
 ### WalkieTalkieService.luau
-Builds a full per-player radio audio graph on the equipped Walkie Talkie — compressor, bandpass, EQ, distortion and limiter into a mixer feeding one `AudioDeviceOutput` per eligible listener plus a physical emitter on the handle — and keeps the listener set in sync with the All/Friends privacy mode. Removes a dead player's radio routes as both sender and listener, restoring them on respawn. Also picks up the nearest tagged ambient emitter into the radio, relays client-requested sounds with a rate limit, plays a static death burst when a transmitting holder dies, and emits noise so enemies hear radio traffic.
-- API: `WalkieTalkieService:Equip(player: Player, tool: Tool)` — build the audio graph (no-op if voice chat is unavailable for that user)
-- API: `WalkieTalkieService:Unequip(player: Player, tool: Tool)` — tear it down
-- API: `WalkieTalkieService:SetMode(player: Player, mode: string)` — `"All"` or `"Friends"`; mirrored to the `WalkieTalkieMode` attribute
-- API: `WalkieTalkieService:SetVoiceActivity(player: Player, active: boolean)` — drive the transmit-click loop
-- API: `WalkieTalkieService:StartSound(player, relayId: string, name: string, looped: boolean, timePosition: number?, playbackSpeed: number?, volume: number?)` — relay a tagged sound over the radio
-- API: `WalkieTalkieService:SyncSound(player, relayId: string, timePosition: number, playbackSpeed: number, volume: number)` — correct a running relay
-- API: `WalkieTalkieService:StopSound(player: Player, relayId: string)` — stop a relay
-- API: `WalkieTalkieService:SetLooping(player: Player, relayId: string, looped: boolean)` — toggle looping on a relay
-- API: `WalkieTalkieService:RegisterAmbientEmitter(emitter: AudioEmitter)` — allow an emitter to be picked up by nearby radios
+Authoritative walkie-talkie. A player's radio graph is built when they power it on, not when they equip it, and lives on their Walkie Talkie tool wherever it sits, so a powered radio keeps receiving from the backpack; `Reconcile` rebinds it whenever the tool instance is replaced (respawn, inventory rebuild). One shared DSP chain per sender — compressor, bandpass, EQ, distortion, limiter for voice, and a parallel tagged chain for picked-up sounds — then splits per listener into `RadioVoice_<id>`, `RadioMonster_<id>` and `RadioNoise_<id>` faders feeding that listener's own mixer and `AudioDeviceOutput`, which is what lets each listener set their own category volumes. Both the voice and tagged paths pass a gate that is open only while the sender holds push-to-talk, so nothing — voice, monster sounds or relayed audio — leaves a radio that is not transmitting, and only transmitting radios can pick up nearby ambient emitters. Removes a dead player's routes as both sender and listener and restores them on respawn, plays a static death burst (also scaled by each listener's Global x Noise) when a transmitting holder dies, relays client-requested sounds with a rate limit, and emits noise so enemies hear radio traffic. Publishes `WalkiePowered`, `VoiceEligible` and `WalkieTransmitting` as Player attributes for the client roster, and persists category volumes and the All/Friends mode into the player's DataSave profile.
+- API: `WalkieTalkieService:SetPower(player: Player, on: boolean)` — build or tear down the graph; refused when voice chat is unavailable for that user
+- API: `WalkieTalkieService:SetTransmitting(player: Player, active: boolean)` — open/close the push-to-talk gates and the transmit static loop
+- API: `WalkieTalkieService:Reconcile(player: Player)` — rebind the graph to the player's current tool
+- API: `WalkieTalkieService:SetMode(player: Player, mode: string)` — `"All"` or `"Friends"`; mirrored to the `WalkieTalkieMode` attribute and saved
+- API: `WalkieTalkieService:SetAudioSettings(player: Player, incoming: { [string]: number })` — that listener's `Config.Categories` volumes, applied to every sender's faders and saved
+- API: `WalkieTalkieService:StartSound(player, relayId, name, looped, timePosition?, playbackSpeed?, volume?)` — relay a tagged sound over the radio
+- API: `WalkieTalkieService:SyncSound(player, relayId, timePosition, playbackSpeed, volume)` — correct a running relay
+- API: `WalkieTalkieService:StopSound(player: Player, relayId: string)` / `:SetLooping(player, relayId, looped)`
+- API: `WalkieTalkieService:RegisterAmbientEmitter(emitter: AudioEmitter)` — allow an emitter to be picked up by nearby transmitting radios
 - API: `WalkieTalkieService:ApplyVolumes()` — re-read config volumes into every live graph
-- Remotes: `WalkieTalkie/SetMode`, `WalkieTalkie/TransmitSound`, `WalkieTalkie/VoiceActivity` (all listened; created with `.Ensure`)
+- Remotes: `WalkieTalkie/SetMode`, `WalkieTalkie/SetPower`, `WalkieTalkie/SetTransmit`, `WalkieTalkie/TransmitSound` (listened), `WalkieTalkie/SetAudio` (listened, and fired once per player with their saved settings); all created with `.Ensure`
 - Tags: reads `WalkieTalkieConfig.RadioAllowedTag` on AudioEmitters/AudioPlayers
-- Requires: `WalkieTalkieConfig`, `VoiceActivityService` (speaking state), `NoiseService:Emit`, `VoiceChatService:IsVoiceEnabledForUserIdAsync`
+- Requires: `WalkieTalkieConfig`, `DataSaveService`, `NoiseService:Emit`, `VoiceChatService:IsVoiceEnabledForUserIdAsync`
 
 ### WallstickService.luau
 Server bootstrap for the vendored Wallstick controller: registers the `WallstickCollision`/`WallstickNoCollision` collision groups (non-collidable with every other group; the fake-world group collides only with itself), builds the persistent `workspace.Wallstick` model with its far-away `Origin` part and `StreamingFoci` folder, creates a client-owned streaming-focus part (AlignPosition/AlignOrientation, added as a replication focus under StreamingEnabled) for every player, and starts the replication listener that rebroadcasts each client's stick part/offset to everyone.

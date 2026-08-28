@@ -36,9 +36,10 @@ Sine-wave vertical bobbing helper: pick a random phase once, then sample a Y off
 - API: `Bob.Offset(clock: number, phase: number, height: number, period: number) -> Vector3` — Y-axis sine offset
 
 ### CameraFovService.luau
-Client-only. Owns additive field-of-view offsets so multiple effects can push the camera FOV without fighting each other: each caller registers a named offset, the total is applied on a render step above the camera priority, and the raw FOV is restored when nothing is registered.
+Client-only. Owns additive field-of-view offsets so multiple effects can push the camera FOV without fighting each other: each caller registers a named offset, the total is applied on a render step above the camera priority, and the raw FOV is restored when nothing is registered. A lock captures the current raw FOV and holds it against later camera effects until released.
 - API: `CameraFovService:SetOffset(name: string, degrees: number)` — set or clear (near-zero) a named offset
 - API: `CameraFovService:GetOffset() -> number` — current summed offset
+- API: `CameraFovService:SetLocked(locked: boolean)` — hold the current raw FOV and suppress all named offsets while locked
 - API: `CameraFovService:TweenOffset(name: string, degrees: number, tweenInfo: TweenInfo)` — tweens one named offset, cancelling any prior tween of that name
 
 ### CeilingVentDoorService.luau
@@ -96,7 +97,7 @@ Client-only. Builds the small "hacked / total" pill in the top-right corner, rea
 - Requires: `Configs.ComputerConfig`, `ComputerService`, `GuiBuilderService`; optionally `Configs.ComputerAssets` for the icon image (falls back to a text glyph)
 
 ### ComputerService.luau
-Client-only. Owns the hackable computers: registers each tagged model with `InteractionService` (selectable only once its screen part has streamed in), draws the animated idle SurfaceGui on its screen part, and on activation tweens the camera onto the screen, frees the camera lock through `InterfaceService:SetCameraFreed` so the cursor works during the session, disables player controls, and hands the model to `MinigameService`. Completing the minigame marks the computer hacked locally and tells the server the moment the win fanfare starts, so leaving or dying during the fanfare cannot drop the completion; the server's snapshot remote is authoritative. Hacked state is keyed by each model's `ComputerConfig.IdAttribute` string, so it survives the model instance being destroyed and recreated by streaming; a fresh snapshot is requested over the Sync remote at startup.
+Client-only. Owns the hackable computers: registers each tagged model with `InteractionService` (selectable only once its screen part has streamed in), draws the animated idle SurfaceGui on its screen part, and on activation locks the raw camera FOV, tweens the camera onto the screen, frees the camera lock through `InterfaceService:SetCameraFreed` so the cursor works during the session, disables player controls, and hands the model to `MinigameService`. Completing the minigame marks the computer hacked locally and tells the server the moment the win fanfare starts, so leaving or dying during the fanfare cannot drop the completion; the server's snapshot remote is authoritative. Hacked state is keyed by each model's `ComputerConfig.IdAttribute` string, so it survives the model instance being destroyed and recreated by streaming; a fresh snapshot is requested over the Sync remote at startup.
 - API: `ComputerService.Changed` — `RBXScriptSignal` fired whenever the hacked set changes
 - API: `ComputerService:IsHacked(model: Model) -> boolean` — whether that computer is already done
 - API: `ComputerService:GetProgress() -> (number, number)` — hacked count and the server-synced total (falls back to counting replicated tags before the first snapshot)
@@ -105,7 +106,7 @@ Client-only. Owns the hackable computers: registers each tagged model with `Inte
 - API: `ComputerService:Activate(model: Model?) -> boolean` — opens a session on the given (or focused) computer
 - Remotes: `Computer/Complete` (fired), `Computer/Sync` (listened — `{ Hacked = { id, ... }, Total = n }` replaces the whole hacked set; also fired once to request the initial snapshot)
 - Tags: listens `HackComputer`
-- Requires: `Configs.ComputerConfig`, `InterfaceService`, `InteractionService`, `GuiBuilderService`, `CharacterService`; lazily and optionally requires `MinigameService` (retried once a second, and a session cannot open without it)
+- Requires: `Configs.ComputerConfig`, `InterfaceService`, `CameraFovService`, `InteractionService`, `GuiBuilderService`, `CharacterService`; lazily and optionally requires `MinigameService` (retried once a second, and a session cannot open without it)
 
 ### CreepRenderService.luau
 Gated on `FLAGS.Enemies`. Renders the Creep enemy: turns every part of the model to face the camera each frame, and places a black neon backdrop across the hallway a set distance behind it so the creep reads as a silhouette. When the creep is untagged it launches a `CreepDistortion` effect that sweeps down the hallway away from where it stood.
@@ -282,8 +283,9 @@ Small shared helper for building GUI instances; every other UI service uses it t
 - API: `GuiBuilderService.Stroke(parent: GuiObject, color: Color3, thickness: number): UIStroke` — adds a border-mode UIStroke
 
 ### HallwayCrushDamageService.luau
-Client-only. Owns the kill decision for the `HallwayCrush` map oddity. Listens on `Oddities/MapCrush` for the closing region — its centre/axis/across, the vertical window, the intervals that are genuinely lethal, and the closing curve — then each `Heartbeat` recomputes the current clear corridor width from `workspace:GetServerTimeNow()` (the same smoothstep the server runs, so both sides agree without any per-frame traffic) and reports once when the local character is inside a lethal interval, outside every doorway alcove, and the gap has closed past `KillWidth`. Deciding here rather than on the server means the check uses the character's own authoritative position and the wall positions the player can actually see, instead of both lagged by a network hop. The server re-validates every report and keeps a backstop, so a client that never reports still dies.
+Shared crush-volume helper plus the client-side kill decision for the `HallwayCrush` map oddity. Listens on `Oddities/MapCrush` for the closing region — its centre/axis/across, the vertical window, the intervals that are genuinely lethal, doorway alcoves, seals and the closing curve — then each `Heartbeat` recomputes the current clear corridor width from `workspace:GetServerTimeNow()` (the same smoothstep the server runs, so both sides agree without any per-frame traffic) and reports once when at least `MinimumHRPOverlap` of the local HRP's sampled volume is inside a lethal region, outside every doorway alcove, and the gap has closed past `KillWidth`. The server reuses the same overlap helper for every report and its delayed backstop, so a client that never reports still dies.
 - Remotes: `Oddities/MapCrush` (listens for `"Start"`/`"Stop"`, fires `"Crushed"`)
+- API: `HallwayCrushDamageService.GetSquishFraction(root: BasePart, region, slack: number) -> number` — sampled HRP volume fraction inside the lethal hallway/seal regions, excluding doorway alcoves
 - Requires: `Services.CharacterService`, `Services.CommunicationService`
 
 ### HallwayGraphService.luau
@@ -331,6 +333,16 @@ Plays a looping heartbeat that swells as the configured enemy gets closer and sp
 - Tags: reads `Enemy` (filtered by the `EnemyId` attribute)
 - Requires: `Configs.HeartbeatConfig`, `Configs.FLAGS`, `AudioService` (`FindTemplate`, `Play2D`, `Wire`, `GetBus`), `TagService`, `CharacterService`, `MathService`
 
+### HumanoidStatsService.luau
+Generic named-source stat stack for any Humanoid, not just players. Sources are set by name and compose: `Absolute` stats (`MaxHealth`, `WalkSpeed`, `JumpPower`, `Stamina`) sum their deltas from base, `Scale` stats (`SprintMultiplier`, `DetectionRadius`) multiply, and the result is clamped to each stat's configured range. Only stats a source actually names are written - the humanoid's own spawn values are captured on first use and restored when the last source stops naming that stat, so a kit that says nothing about jump never touches jump. Each stat declares an `Apply` of `Humanoid` or `Attribute`: the first three are Humanoid properties, while `Stamina`, `SprintMultiplier` and `DetectionRadius` are published as attributes on the character model, because they are consumed elsewhere - the first two by the client's `SprintService`, the last by enemy code on the server.
+- API: `HumanoidStatsService:SetSource(humanoid: Humanoid, source: string, stats: { [string]: number }?)`
+- API: `HumanoidStatsService:ClearSource(humanoid: Humanoid, source: string)`
+- API: `HumanoidStatsService:Get(humanoid: Humanoid, statId: string) -> number`
+- API: `HumanoidStatsService.ReadAttribute(character: Instance?, statId: string) -> number` - the attribute-applied stat, clamped, falling back to the stat's base when unset
+- API: `HumanoidStatsService.GetDetectionRadius(character: Instance?) -> number` - 1 when the character has no modifier
+- API: `HumanoidStatsService.Describe(stats) -> { { Stat, Value, Delta, Better } }` - display rows for the UI, base-valued stats omitted
+- Requires: `Configs.KitConfig`
+
 ### IndexUIService.luau
 Builds and drives the bestiary/index UI: a paginated grid of cards with ViewportFrame headshots (real models, stand-in primitives, or a friend-avatar rig), hover/press/select card motion, and an info panel whose description is progressively unredacted as discovery progress rises. Also plays the word-by-word reveal animation after a death, waiting for the death screen to clear before opening the page itself.
 - API: `IndexUIService:Refresh()` — rebuild the listed entries, repaint every card, and repaint the info panel
@@ -359,7 +371,7 @@ Client-only singleton wrapper: returns a single `Interaction` instance (an empty
 - Requires: `Classes.Interaction` (which reads `Configs.DrawerConfig` and clones its prompt from the `Cursor` ScreenGui)
 
 ### InterfaceService.luau
-Owns the main menu page group: enables/disables the Index, Shop, VIP, Gems, and Items ScreenGuis through an xenterface controller, blurs and pulls back the camera FOV while a page is open, and manages mouse unlocking (including a Q toggle when no page is open). Also wires hover/press motion onto tagged side buttons and close buttons using named motion presets.
+Owns the main menu page group: enables/disables the Index, Shop, VIP, Gems, Items, KitInventory, KitsShop, RollGui and Map ScreenGuis through an xenterface controller, blurs and pulls back the camera FOV while a page is open, and manages mouse unlocking (including a Q toggle when no page is open). Also wires hover/press motion onto tagged side buttons and close buttons using named motion presets.
 - API: `InterfaceService.WireMotion(button: GuiButton, visual: GuiObject?, motionPreset: any?)` — add hover/press scale and tilt motion to any button (defaults to the button itself and the `HotelSideButton` preset)
 - API: `InterfaceService:Open(pageId: string)` — open one of the known pages, warning on an unknown id
 - API: `InterfaceService:Close()` — close whatever page is open
@@ -381,6 +393,46 @@ Drives the `ItemsGui` item shop: builds a card per shop entry with a live Viewpo
 - API: data table — empty; the shop is built and wired on require.
 - Remotes: `Items/Purchase` (fired), `Items/Sync` (listened and fired)
 - Requires: `Configs.ItemShopConfig`, `MarketplaceService` (project wrapper, for `Products.Items` and product info), `TweenProxyService`, `GuiBuilderService`, `ReplicatedStorage.Tools`
+
+### KitInventoryUIService.luau
+Drives the `KitInventory` page: builds a `KitCard` for every kit the player owns, sorted rarest first, into the `Kits` ScrollingFrame (wrapped in a `KitsCanvas` CanvasGroup so hover-scaled tiles clip at the grid edge instead of bleeding over the page), marks the equipped kit on its tile, and fills the info panel with the kit's name in its rarity colour, a ViewportFrame of its showcase item, and its BUFFS/ITEMS list. The Equip button flips to EQUIPPED and goes uninteractable for the kit already worn. The nav button follows roll eligibility: it reads ROLL and opens `RollGui` for players who may use paid random items, and SHOP into `KitsShop` for everyone else. The grid's ScrollingFrame carries a `UIPadding` inset so hover-scaled and tilted tiles have room to grow inside the clip region instead of being cut at the edge. Cards deal in with a stagger each time the page opens.
+- Remotes: through `KitStateService` (`Kits/Sync`, `Kits/Equip`)
+- Requires: `Classes.KitCard`, `Configs.KitConfig`, `KitStateService`, `KitVisualService`, `InterfaceService`, `GuiBuilderService`, `TweenProxyService`; expects a pre-built `KitInventory.Design` tree
+
+### KitRollUIService.luau
+Drives the `RollGui` reel, the only kit-buying surface players who may use paid random items ever see. A roll asks the server first - the result is authoritative and arrives before anything moves - then a strip of `ReelLength` tiles is built with rarity-weighted filler and the real kit planted at `WinnerIndex`, and the strip slides under the centre marker on a quintic ease-out, lands slightly off centre, and settles back with a small back-ease so the stop reads as mechanical rather than snapped.
+The motion is a carousel, not a sliding line: a render-step job scales every tile by how near its centre is to the marker and tilts it by its signed offset (tiles are centre-anchored, so a `UIScale` grows and a rotation turns them about their own middle - anchored at the left edge they grew rightwards and the gaps either side of the winner came out uneven), the reel is a CanvasGroup whose `EdgeFade` UIGradient dissolves tiles at both edges, and the marker kicks each time a new tile takes the centre. On landing the winner grows and its rarity stroke flares, a rarity-coloured `Backdrop` blooms and fades behind the reel, the reel shakes with a strength scaled by rarity order, and the result panel slams in from `ResultPop`. Duplicates say so and name the gem refund. Failures (not enough gems, restricted account, save still loading) show as a notice instead of a spin, and the button reads UNAVAILABLE for restricted accounts.
+- Remotes: through `KitStateService` (`Kits/Roll`, `Gems/Sync`)
+- Requires: `Configs.KitConfig`, `KitStateService`, `KitVisualService`, `MathService`, `InterfaceService`, `GuiBuilderService`; borrows the card template from `KitsShop.Design.Kits.Template`
+
+### KitShopUIService.luau
+Drives the `KitsShop` page - the straight-purchase path, reached only by players who cannot use paid random items; anyone who can roll is sent to `RollGui` instead and never sees this page. A `KitCard` for every kit in the catalogue, sorted most common first, with owned kits dimmed and marked OWNED and the rest showing their rarity's gem price. Like the inventory's, the grid is inset with a `UIPadding` so hover-scaled tiles do not clip at the edges. Every gem figure - prices, the tile badges and the balance - goes through `MathService.Comma`, and the balance reads `KitConfig.Text.BalancePrefix` before its number. The info panel mirrors the inventory's, plus the gem price badge and a buy button that reads BUY, OWNED or NOT ENOUGH and only stays interactable when the purchase can actually go through. The gem balance flashes green or red on the purchase result. The Robux button gets hover/press motion but is deliberately inert - it prompts nothing yet.
+- Remotes: through `KitStateService` (`Kits/Sync`, `Kits/Purchase`, `Gems/Sync`)
+- Requires: `Classes.KitCard`, `Configs.KitConfig`, `KitStateService`, `KitVisualService`, `MathService`, `InterfaceService`, `GuiBuilderService`, `TweenProxyService`; expects a pre-built `KitsShop.Design` tree
+
+### KitStateService.luau
+Client-side single source of truth for kits and gems: owns the `Kits/Sync` and `Gems/Sync` subscriptions plus the `Gems` and `CanRoll` player attributes, and hands the three kit pages one shared view instead of three competing ones. Also the client's outbound side - equipping, buying and rolling all go through here.
+- API: `KitStateService:IsOwned(kitId: string) -> boolean`
+- API: `KitStateService:GetEquipped() -> string`
+- API: `KitStateService:GetGems() -> number`
+- API: `KitStateService:CanAfford(kitId: string) -> boolean`
+- API: `KitStateService:CanRoll() -> boolean` - false until the server's PolicyService lookup lands, and for restricted accounts
+- API: `KitStateService:Equip(kitId: string)` / `:Buy(kitId: string)`
+- API: `KitStateService:RequestRoll() -> { Ok, Reason?, KitId?, Duplicate?, Refund?, Gems }` - yields on the server
+- API: `KitStateService.KitsChanged` / `.GemsChanged` - signals carrying the server's result code
+- Remotes: `Kits/Sync`, `Kits/Equip`, `Kits/Purchase`, `Kits/Roll`, `Gems/Sync` (all listened and fired)
+- Requires: `Configs.KitConfig`, `CommunicationService`
+
+### KitVisualService.luau
+The look of a kit, shared by all three kit pages so they cannot drift: renders a tool model into a ViewportFrame with the framing and lighting from `KitConfig.Viewport` (an explicit `Ambient`/`LightColor`/`LightDirection`, without which tool models read as near-black silhouettes), picks a kit's showcase item (explicit `Showcase`, else its most expensive item), dresses a card with its rarity stroke, rarity ribbon, name, status line and dim overlay, and fills a details holder with a `BUFFS` section and an `ITEMS` section. The sections stack vertically at the holder's full width rather than sitting side by side - the info column is only ~180px wide, so two columns made every row width-bound and tiny. Row height is the holder divided by the line count (floored at `MINIMUM_LINES` so short kits do not get comically large rows) and rows fade in on a stagger. Rows keep `TextScaled` on and never set `TextWrapped = false` - in Roblox that assignment silently clears `TextScaled` too, which drops every row to the default 8px. Stat rows are green when the change helps and red when it hurts, which is how a lower `DetectionRadius` reads as a gain.
+- API: `KitVisualService.Showcase(kit) -> string?`
+- API: `KitVisualService.BuildPreview(viewport: ViewportFrame, itemName: string?)`
+- API: `KitVisualService.DressCard(button: ImageButton, kit)`
+- API: `KitVisualService.SetCardStatus(button: ImageButton, text: string, dimmed: boolean, color: Color3?)`
+- API: `KitVisualService.FillDetails(holder: Frame, kit, animate: boolean)`
+- API: `KitVisualService.SortByRarity(entries, rarestFirst: boolean) -> { Kit }`
+- API: constants - `Ink`, `Good`, `Bad`, `Font`, `BoldFont`
+- Requires: `Configs.ItemShopConfig`, `Configs.KitConfig`, `HumanoidStatsService`, `MathService`
 
 ### LanternSwayService.luau
 Makes named hanging lantern models physically swing while their light is in the chaos-red state. Each active lantern gets an invisible hinged proxy part with wind torque, random jolts, gravity scaling, and a swing limit computed from raycast wall clearance; the visible model is pivoted to the hinge angle each frame. Lanterns are culled by camera distance and a maximum simulated count, and are settled and torn down when the red state ends.
@@ -464,7 +516,7 @@ Developer-product asset ids, with per-item product ids nested under `Items`.
 - API: data table — `Revive`, `ReviveFriend`, and `Items` (Ball, Bandage, EnergyDrink, Flashlight, Medkit, Pathfinder, Shovel, Soda, SpellBook, Trap, Visor); only `Revive` has a real id
 
 ### MathService.luau
-Small pure-math helper library shared across the codebase: easing, framerate-independent lerp alphas, horizontal-plane vector work, angles, and pulses. No state, no connections.
+Small pure-math helper library shared across the codebase: easing, framerate-independent lerp alphas, horizontal-plane vector work, angles, pulses, and number formatting. No state, no connections.
 - API: `MathService.TAU` — `math.pi * 2`
 - API: `MathService.Smoothstep(alpha: number) -> number` — clamped 3t²-2t³ ease
 - API: `MathService.ExpAlpha(speed: number, deltaTime: number) -> number` — `1 - exp(-speed*dt)`, the standard lerp alpha used by every render loop here
@@ -475,6 +527,7 @@ Small pure-math helper library shared across the codebase: easing, framerate-ind
 - API: `MathService.IsWithinCone(origin: Vector3, direction: Vector3, point: Vector3, maximumAngle: number) -> boolean` — degrees
 - API: `MathService.RandomRange(minimum: number, maximum: number) -> number` — continuous
 - API: `MathService.SinePulse(time: number, period: number) -> number` — 0..1 sine
+- API: `MathService.Comma(value: number) -> string` — rounds to a whole number and groups thousands with commas; the single place any UI turns a currency or count into text
 
 ### MimicMotionService.luau
 Turns a recorded movement sample into discrete WASD-style key values so a mimic can replay a player's inputs, with mirroring, reaction-delay latching, and idle aim drift.
@@ -505,6 +558,11 @@ Client-only arcade shell for the hackable computers: picks which minigame a give
 - API: `MinigameService.List` — ids that actually loaded, from `{ "Memory", "AimTrainer", "Frogger", "Snake", "Simon" }`
 - Tags: reads `HackComputer` (to enumerate peer terminals)
 - Requires: `Classes.Minigames.<Id>` modules, each exporting `Id`, `Title`, `SupportsReset`, `new(root, api)`
+
+### NotificationService.luau
+Client-only top-center notification banner. Listens for short server messages, renders them in a stacked panel with the shared GUI builder, and fades each one in and out automatically.
+- Remotes: `Notifications/Show` (listened)
+- Requires: `Configs.NotificationConfig`, `Services.CommunicationService`, `Services.GuiBuilderService`
 
 ### ObservedFreezeService.luau
 Client-side "weeping angel" renderer: while a tagged enemy is inside the camera frustum and unoccluded it is pinned in place visually (and its animation tracks are held at speed 0), then eased back to the server's real CFrame when you look away. Includes drift limits, a confirmation timeout, and a predicted-release slide so mispredictions self-correct. Disabled when `FLAGS.Enemies` is off.
@@ -627,8 +685,18 @@ Client-only decorated overlay for the stamina bar while a speed boost is active:
 - API: none — side-effect only.
 - Requires: `Configs.SprintBoostConfig`, `Configs.SprintConfig`, `SprintUIService` (`GetBar`, `SetForcedVisible`), `GuiBuilderService`; reads the `SpeedBoostName` and `SpeedBoostEndsAt` player attributes
 
+### SurfaceCursorService.luau
+Maps a viewport point onto a `SurfaceGui` canvas by intersecting the camera ray with the adorned face's plane, so in-world screens stay clickable even when their part is parented to the camera (where Roblox delivers no native GUI input). Handles all six `NormalId` faces and returns nil when the ray misses or the plane is behind the camera.
+- API: `SurfaceCursorService:Project(part, face, viewportPoint, canvasSize) -> Vector2?` — canvas pixel coordinates
+- API: `SurfaceCursorService:Contains(element, point, padding?) -> boolean` — hit-test a `GuiObject` against a projected point, optionally growing it by `padding` canvas pixels
+- API: `SurfaceCursorService:GetAlpha(element, point) -> number` — 0-1 position across an element, for sliders
+- API: `SurfaceCursorService:GetFaceSize(part, face) -> Vector2` — the face's stud dimensions
+- API: `SurfaceCursorService:GetFaceBasis(face)` — the face's right/up/normal unit vectors in part space
+- API: `SurfaceCursorService:GetElementFrame(part, face, element, canvasSize) -> (Vector3, Vector2)` — a GUI element's centre offset in part space and its size in studs, for framing a screen in view
+- Requires: nothing
+
 ### SprintService.luau
-Client sprint state machine: binds hold-to-sprint keys (plus a touch toggle button), drains and regenerates stamina with an exhaustion lockout, and owns the humanoid's `WalkSpeed`. It watches external WalkSpeed writes to re-derive the base speed and respects the server's speed-boost attributes, drives the sprint FOV offset, and uses Wallstick's movement source while the local character is surface-stuck.
+Client sprint state machine: binds hold-to-sprint keys (plus a touch toggle button), drains and regenerates stamina with an exhaustion lockout, and owns the humanoid's `WalkSpeed`. Maximum stamina and the sprint speed multiplier are per-character rather than fixed: both are read every time they are needed from the `Stamina` and `SprintMultiplier` character attributes through `HumanoidStatsService.ReadAttribute`, falling back to `SprintConfig` when unset, which is how a kit raises a player's stamina pool or sprint speed. It watches external WalkSpeed writes to re-derive the base speed and respects the server's speed-boost attributes, drives the sprint FOV offset, and uses Wallstick's movement source while the local character is surface-stuck.
 - API: `SprintService:GetStaminaFraction() -> number` — 0..1
 - API: `SprintService:IsSprinting() -> boolean`
 - API: `SprintService:IsExhausted() -> boolean`
@@ -688,18 +756,28 @@ One-question helper for whether a character should be treated as absent: it carr
 - API: `Vanished.EyeExemptTag` — the string `"IgnoreExceptEye"`
 - Tags: reads `Ignore`, `IgnoreExceptEye`
 ### ViewmodelService.luau
-Client first-person viewmodel: clones the equipped Tool (stripped of scripts, sounds and effects) under the camera, hides the real tool, and each render step positions the clone from camera CFrame plus yaw sway and speed-scaled bob. Auto-hides when not in first person or when the character's real hand is visible; supports per-tool anchor/rotation overrides, and a per-tool `Scale` override for props too large for the shared scale.
-- API: none — side-effect only.
-- Requires: `Configs.ViewmodelConfig` (`Scale`, `Fit`, `HandOffset`, `Arm`, `Overrides`)
+Client first-person viewmodel: clones the equipped Tool (stripped of scripts, sounds and effects) under the camera, hides the real tool (its parts *and* its SurfaceGuis, which transparency alone cannot hide), and each render step positions the clone from camera CFrame plus yaw sway and speed-scaled bob. Auto-hides when not in first person or when the character's real hand is visible; supports per-tool anchor/rotation overrides, a per-tool `Scale` override for props too large for the shared scale, and named poses that other services switch between, lerped at the override's `PoseSpeed`. A pose either shifts the base placement (`AnchorOffset`, `ArmAnchorOffset`, `RotateOffset`, so live tuning of the base carries into it), replaces it outright (`Anchor`, `ArmAnchor`, `Rotate`), or declares a `Framing` block and is solved from the rig's own geometry — squaring a named part's face to the camera and backing off until a named GUI element covers the requested fraction of the viewport, which keeps it centred and upright no matter how the base pose or `Scale` are tuned. Exposes the currently equipped Tool for client debug panels.
+- API: `ViewmodelService:SetPose(pose: string?)` — select a named entry from the current tool's `Overrides[tool].Poses`, or `nil` for the base placement
+- API: `ViewmodelService:SetPoseOverride(active: boolean, pose: string?)` — pin a pose regardless of `SetPose`, for the debug panel
+- API: `ViewmodelService:GetDefaultAnchor() -> Vector3?` — default fit anchor for the equipped viewmodel
+- API: `ViewmodelService:GetTool() -> Tool?` — currently equipped tool in the viewmodel
+- API: `ViewmodelService:GetPose() -> string?`
+- API: `ViewmodelService:GetRig() -> Model?` — the live viewmodel clone, for services that drive its contents
+- API: `ViewmodelService:Refresh()` — rebuild the rig for the current tool
+- Requires: `Configs.ViewmodelConfig` (`Scale`, `Fit`, `HandOffset`, `Arm`, `Overrides`), `MathService`, `SurfaceCursorService` (face geometry for framed poses)
+
+### ViewmodelDebugService.luau
+F3 developer panel for live tuning of every equipped first-person tool. It follows the selected tool's override, seeds tools without one from the viewmodel's default fit, and updates the title and selectable generated config entry as tools change. A state button cycles Live (the game drives the pose), Base and each configured pose; it only appears when the selected tool has pose states, and pose overrides are released when another tool is selected. Sliders control scale, tool anchor, fake-hand anchor and all three rotation axes — reading absolute values for the base state and offsets for a pose — plus screen coverage for framed poses, which is the only placement control those have. The selectable text box emits the whole config entry including every pose, so pasting it back cannot drop them.
+- Requires: `Configs.ViewmodelDebugConfig` (`ToggleKey`, `Step`, `AngleStep`, `PoseOrder`), `Configs.ViewmodelConfig`, `Configs.FLAGS`, `Classes.DebugPanel`, `ViewmodelService`
 
 ### VoiceActivityService.luau
-Client voice-activity detector: wires an `AudioAnalyzer` onto the local player's `AudioDeviceInput`, polls RMS level against a threshold, and tells the server when you start and stop speaking (with a heartbeat re-send and a release delay). Stops analyzing on death, mutes remote voice emitters and radio output faders locally until respawn, and rebuilds itself if the input device appears or disappears.
-- API: none — side-effect only.
+Client voice-activity detector: wires an `AudioAnalyzer` onto the local player's `AudioDeviceInput`, polls RMS level against a threshold, and tells the server when you start and stop speaking (with a heartbeat re-send and a release delay). Stops analyzing on death, mutes remote voice emitters locally until respawn, and rebuilds itself if the input device appears or disappears. This drives proximity voice and enemy hearing only — walkie-talkie transmission is push-to-talk and does not use it.
+- API: `VoiceActivityService:GetLevel() -> number` — the analyser's current RMS level, or 0 when there is no live unmuted input
 - Remotes: `WalkieTalkie/VoiceActivity` (fired)
 - Requires: `Configs.VoiceChatConfig` (`Activity.PollInterval`, `.Threshold`, `.Heartbeat`, `.Release`)
 
 ### VoiceDebugService.luau
-Client-only debug panel behind `FLAGS.VoiceDebug` with sliders for proximity-voice and radio volumes. To make proximity voice adjustable it rewires every remote player's direct voice wire through an inserted `AudioFader`; radio sliders write straight into the named faders it finds in Players and Workspace. All changes are local and session-only.
+Client-only debug panel behind `FLAGS.VoiceDebug` with sliders for proximity-voice and radio volumes. To make proximity voice adjustable it rewires every remote player's direct voice wire through an inserted `AudioFader`; radio sliders write straight into the named faders it finds in Players and Workspace, matching the local listener's own per-sender `RadioVoice_<id>` and `RadioMonster_<id>` faders. All changes are local and session-only.
 - API: none — side-effect only.
 - Requires: `Classes.DebugPanel`, `Configs.VoiceDebugConfig`, `Configs.FLAGS`
 
@@ -710,11 +788,28 @@ Client footstep engine for players and tagged enemies. Silences the default Robl
 - Requires: `AudioService.Play3DSound`, `CharacterService.ForEachPlayer`, `TagService`, `Configs.WalkSoundConfig`, `Configs.CrouchConfig` (`Stealth`)
 
 ### WalkieTalkieService.luau
-Client walkie-talkie mode control. Reuses the `PlayerLocator` GUI's mode frame for its label and toggle button, cycles through `WalkieTalkieConfig.Modes` and reports the choice to the server, and mutes the player's own radio emitter by moving it into a private `AudioInteractionGroup`. Refuses to enable if voice chat is not available for the user.
-- API: `WalkieTalkieService:SetEnabled(value: boolean, tool: Tool?)` — enabling checks voice eligibility and starts watching `tool` for its `RadioEmitter`
-- API: `WalkieTalkieService:IsEnabled() -> boolean`
-- Remotes: `WalkieTalkie/SetMode` (fired)
-- Requires: `Configs.WalkieTalkieConfig`, `GuiBuilderService`; shares the `PlayerLocator` ScreenGui with `PlayerLocatorService`
+Client walkie-talkie brain: owns power, equip, raised and push-to-talk state, and all local audio routing. Power (`Keys.Power`, default G) is independent of holding the tool — a powered radio keeps receiving from the backpack, but transmitting needs it equipped. Transmission is push-to-talk on left mouse (or the touch TALK button) and drives the `Talk` viewmodel pose; `Keys.Raise` (default R) lifts the radio into the `Raised` pose for the full-screen UI. Mutes the player's own radio emitter via a private `AudioInteractionGroup`, crossfades each remote player's proximity voice against their incoming radio route by listener distance, multiplies that route by the local per-player mute/volume, and reads each route's level from an `AudioAnalyzer` for the roster meters. Your own meter follows your microphone through `VoiceActivityService:GetLevel` while you hold push-to-talk, with the same gain and attack/release ballistics as everyone else's, rather than pinning to full. Refuses to power on when voice chat is unavailable for the user.
+- API: `WalkieTalkieService:SetPowered(value)` / `:TogglePower()` / `:IsPowered() -> boolean`
+- API: `WalkieTalkieService:SetEquipped(value)` / `:IsEquipped() -> boolean` — driven by the tool class
+- API: `WalkieTalkieService:SetRaised(value)` / `:ToggleRaised()` / `:IsRaised() -> boolean`
+- API: `WalkieTalkieService:SetTransmitting(value)` / `:IsTransmitting() -> boolean`
+- API: `WalkieTalkieService:GetMode() -> string` / `:GetModeLabel() -> string` / `:CycleMode()`
+- API: `WalkieTalkieService:GetCategory(id) -> number` / `:SetCategory(id, value)` — the `Config.Categories` volume sliders
+- API: `WalkieTalkieService:IsMuted(player)` / `:SetMuted(player, value)` / `:GetPlayerVolume(player)` / `:SetPlayerVolume(player, value)` — local only
+- API: `WalkieTalkieService:GetRoster() -> { { Player, Category, Level } }` — sorted Enabled, then Disabled, then NoVoice; alphabetical by display name within each
+- API: `WalkieTalkieService:GetLevel(player) -> number` / `:GetCategoryFor(player) -> string` / `:GetTool() -> Tool?`
+- Remotes: `WalkieTalkie/SetMode`, `WalkieTalkie/SetPower`, `WalkieTalkie/SetTransmit` (fired), `WalkieTalkie/SetAudio` (fired and listened — the server replies with the saved settings on join)
+- Requires: `Configs.WalkieTalkieConfig`, `Configs.VoiceChatConfig`, `MathService`, `ViewmodelService`, `VoiceActivityService`
+
+### WalkieUIService.luau
+Client owner of the walkie-talkie's on-model screen. Binds to the `SurfaceGui` inside the viewmodel rig (falling back to the real tool), clones the authored `Row` and `SettingRow` templates out of `Main.Body`, and each render step repaints the roster — status dot, display name, status line and level meter — plus the header, footer hint and the OFF overlay. Raising the radio unlocks the cursor through `InterfaceService` and swaps each row's meter for its mute button and volume slider; the header's `Mode` button cycles All/Friends and `Settings` flips to the category sliders. Because a `SurfaceGui` on a part parented to the camera receives no native input, every click, drag and slider is dispatched from `SurfaceCursorService` projections against the gui's authored `CanvasSize`; the system mouse cursor is the pointer, and the game's own `Cursor` crosshair is disabled while the radio is raised. Ray points are always inset-included screen coordinates — `GetMouseLocation()` for the mouse, and the touch `InputObject.Position` plus `GetGuiInset()` — because `InputObject.Position` alone lands one GUI inset above the visible cursor. The scroll wheel scrolls the roster whenever the radio is on and equipped, without the cursor being over it; touch drags on the surface do the same.
+- API: none — side-effect only.
+- Requires: `Configs.WalkieTalkieConfig`, `InterfaceService`, `SurfaceCursorService`, `ViewmodelService`, `WalkieTalkieService`; the `Main` frame authored inside `ReplicatedStorage.Tools["Walkie Talkie"].Screen.Screen`
+
+### WalkieHudService.luau
+Client screen-space companion to the walkie-talkie. Drives the `WalkieHud` ScreenGui authored in StarterGui: fades `Main.Prompt` (text and stroke together) in while the radio is equipped but off, and shows `Main.Touch`'s PWR / RADIO / TALK buttons on touch devices to toggle power, raise the radio and hold push-to-talk. Layout and colours live on the instances; the service only supplies the prompt strings, the fade time and the pressed-state background.
+- API: none — side-effect only.
+- Requires: `Configs.WalkieTalkieConfig` (`Prompt`, `Touch.ActiveBackground`, `Keys`), `GuiBuilderService`, `WalkieTalkieService`; the `WalkieHud` ScreenGui in StarterGui
 
 ### WallstickService.luau
 Client front end for the vendored Wallstick controller. Always listens on the replication channel so other players' wall-stuck characters render correctly; wall-sticking for the local character is opt-in via `Enable`, which runs an auto-stick raycast loop under the character's feet each `PreSimulation` (like the upstream demo, resetting to normal gravity after a long fall), optionally limits transfers to surfaces aligned with a fixed world-space normal, and tears down on death or character removal. Guarded to be inert on the server.

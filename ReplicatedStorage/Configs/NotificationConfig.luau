@@ -1,0 +1,16 @@
+return {
+	DisplayOrder = 60,
+	Width = 360,
+	Height = 56,
+	TopMargin = 24,
+	Gap = 8,
+	Duration = 2.5,
+	FadeTime = 0.18,
+	BackgroundColor = Color3.fromRGB(28, 23, 32),
+	BackgroundTransparency = 0.08,
+	StrokeColor = Color3.fromRGB(255, 190, 70),
+	AccentColor = Color3.fromRGB(255, 190, 70),
+	TextColor = Color3.fromRGB(255, 245, 232),
+	TextStrokeColor = Color3.fromRGB(0, 0, 0),
+	TextSize = 16,
+}
