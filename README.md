@@ -170,6 +170,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\SpeedBoostRenderService.luau — Tweens the FOV offset and colour-correction screen effect for speed boosts.
 - ReplicatedStorage\Services\SprintBoostUIService.luau — Decorated overlay drawn over the stamina bar while a speed boost is running.
 - ReplicatedStorage\Services\SprintService.luau — Client sprint state machine owning stamina, exhaustion, WalkSpeed and the sprint FOV blend, including surface-stuck movement.
+- ReplicatedStorage\Services\SurfaceCursorService.luau — Projects viewport points onto a SurfaceGui canvas so in-world screens stay clickable under the camera.
 - ReplicatedStorage\Services\SprintUIService.luau — The stamina bar itself: eased fill, colour bands, exhaustion pulse and auto-fade.
 - ReplicatedStorage\Services\StalkerCameraService.luau — Locks the camera onto the Stalker, anchoring the player and pushing FOV for kills.
 - ReplicatedStorage\Services\StatsHUDService.luau — Debug HUD showing FPS, ping, danger-field value and a live enemy list.
@@ -177,12 +178,14 @@ become Services or Classes.
 - ReplicatedStorage\Services\ToolClientService.luau — Bootstraps tool classes for the local player's tools and routes server tool events to them.
 - ReplicatedStorage\Services\TweenProxyService.luau — Tweens arbitrary values through a throwaway ValueBase and a callback, including model scaling.
 - ReplicatedStorage\Services\VanishedService.luau — Checks whether a character is tagged Ignore or IgnoreExceptEye or holds a ForceField, with an Eye-specific check that skips the exempt tag.
-- ReplicatedStorage\Services\ViewmodelService.luau — First-person viewmodel that clones the equipped tool under the camera with sway and bob.
+- ReplicatedStorage\Services\ViewmodelService.luau — First-person viewmodel that clones the equipped tool under the camera with sway, bob and named per-tool poses.
 - ReplicatedStorage\Services\ViewmodelDebugService.luau — F3 developer panel for live walkie-talkie placement and fake-hand tuning with config-value output.
-- ReplicatedStorage\Services\VoiceActivityService.luau — Detects when the local player is speaking from an AudioAnalyzer, reports it to the server, and cuts incoming proximity voice and radio off while the local player is dead.
+- ReplicatedStorage\Services\VoiceActivityService.luau — Detects when the local player is speaking from an AudioAnalyzer, reports it to the server, and cuts incoming proximity voice off while the local player is dead.
 - ReplicatedStorage\Services\VoiceDebugService.luau — Debug panel of sliders for local proximity-voice and radio volumes.
 - ReplicatedStorage\Services\WalkSoundService.luau — Footstep engine timing steps from locomotion animations for players and tagged enemies.
-- ReplicatedStorage\Services\WalkieTalkieService.luau — Walkie-talkie mode toggle, own-emitter muting, voice-eligibility gate and distance-based selection between proximity voice and radio voice.
+- ReplicatedStorage\Services\WalkieTalkieService.luau — Walkie-talkie power, push-to-talk, raised mode, per-player mute/volume and distance-based selection between proximity voice and radio voice.
+- ReplicatedStorage\Services\WalkieUIService.luau — Draws and drives the walkie-talkie's on-model screen: player roster, per-player mute and volume, and the audio settings page.
+- ReplicatedStorage\Services\WalkieHudService.luau — Drives the WalkieHud ScreenGui: keybind prompt and the touch power, raise and talk buttons.
 - ReplicatedStorage\Services\WallstickService.luau — Client opt-in wall-sticking with optional fixed surface orientation for the local character, surface movement access for sprint, plus replication rendering of other players' wall-stuck characters.
 
 ### ReplicatedStorage\Classes
@@ -229,7 +232,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\Tools\Shovel.luau — Client shovel tool; plays the dig sequence and asks the server to create an escape hole.
 - ReplicatedStorage\Classes\Tools\SpellBook.luau — Client spell book tool that gates activation on its cast animation.
 - ReplicatedStorage\Classes\Tools\Visor.luau — Client visor tool that tweens a shared Lighting color correction while equipped.
-- ReplicatedStorage\Classes\Tools\Walkie Talkie.luau — Client tool that enables WalkieTalkieService while equipped.
+- ReplicatedStorage\Classes\Tools\Walkie Talkie.luau — Client tool that reports walkie-talkie equip state to WalkieTalkieService.
 
 ### ReplicatedStorage\Tools
 
@@ -289,12 +292,12 @@ become Services or Classes.
 - ReplicatedStorage\Configs\StatsHUDConfig.luau — Layout and thresholds for the debug stats HUD panel.
 - ReplicatedStorage\Configs\StreamingConfig.luau — Corridor streaming prediction, reconciliation and tag settings (currently disabled).
 - ReplicatedStorage\Configs\ToolConfigs.luau — Per-tool tags and behaviour values for every usable tool.
-- ReplicatedStorage\Configs\ViewmodelConfig.luau — First-person viewmodel placement, sway, bob and per-tool overrides.
+- ReplicatedStorage\Configs\ViewmodelConfig.luau — First-person viewmodel placement, sway, bob, per-tool overrides and named poses.
 - ReplicatedStorage\Configs\ViewmodelDebugConfig.luau — F3 walkie-talkie viewmodel tuning panel keybind and slider steps.
 - ReplicatedStorage\Configs\VoiceChatConfig.luau — Proximity voice chat volume, distance and activity detection settings.
 - ReplicatedStorage\Configs\VoiceDebugConfig.luau — Slider definitions for the F6 voice volume debug panel, holding live config references.
 - ReplicatedStorage\Configs\WalkSoundConfig.luau — Footstep sound rate and per-enemy step volume overrides.
-- ReplicatedStorage\Configs\WalkieTalkieConfig.luau — Radio ranges, volumes, modes and the walkie-talkie DSP effect chain.
+- ReplicatedStorage\Configs\WalkieTalkieConfig.luau — Radio ranges, volumes, keybinds, volume categories, screen UI palette and the walkie-talkie DSP effect chain.
 - ReplicatedStorage\Configs\WatchConfig.luau — Range, angle limits and joint weights for NPC head tracking of the local player.
 
 ### ReplicatedStorage\Modules
@@ -403,7 +406,7 @@ become Services or Classes.
 - ServerStorage\Services\ToolService.luau — Binds tagged Tools to their server tool classes and routes client tool events to them.
 - ServerStorage\Services\VoiceActivityService.luau — Tunes voice chat audio, cuts a dead player's input and emitter, and emits noise at whoever is speaking so enemies can hear them.
 - ServerStorage\Services\VoiceDebugService.luau — Studio-only remote for live-tweaking voice and radio volumes behind the VoiceDebug flag.
-- ServerStorage\Services\WalkieTalkieService.luau — Builds the per-player radio audio graph, privacy modes, dead-player route cutoff, sound relays and radio noise.
+- ServerStorage\Services\WalkieTalkieService.luau — Builds the power-gated radio audio graph with per-listener category faders, push-to-talk gating, privacy modes, dead-player route cutoff, sound relays and radio noise.
 - ServerStorage\Services\WallstickService.luau — Server bootstrap for Wallstick: collision groups, the workspace Wallstick model, per-player streaming foci and the replication listener.
 
 ### ServerStorage\Classes
@@ -467,7 +470,7 @@ become Services or Classes.
 - ServerStorage\Classes\Tools\Trap.luau — Server half of the bear trap, placing trap props and pruning the oldest.
 - ServerStorage\Classes\Tools\Transparency.luau — Server half of the Transparency item; applies the player transparency oddity.
 - ServerStorage\Classes\Tools\Visor.luau — Server half of the visor, wearing a face accessory and hiding competing ones.
-- ServerStorage\Classes\Tools\Walkie Talkie.luau — Server half of the walkie talkie, registering the owner with WalkieTalkieService.
+- ServerStorage\Classes\Tools\Walkie Talkie.luau — Server half of the walkie talkie, reconciling the owner's radio graph with WalkieTalkieService.
 
 ### ServerStorage\Configs
 

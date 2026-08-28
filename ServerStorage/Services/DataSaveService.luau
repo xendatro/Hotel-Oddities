@@ -22,6 +22,9 @@ local PROFILE_TEMPLATE = {
 	KitGrant = {},
 	ProcessedKitReceipts = {},
 
+	WalkieAudio = {},
+	WalkieMode = "All",
+
 	DiscoveredEnemies = {},
 	DiscoveredMap = {},
 	DiscoveredLandmarks = {},

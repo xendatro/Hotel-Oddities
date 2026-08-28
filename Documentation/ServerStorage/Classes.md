@@ -559,7 +559,7 @@ Server half of the visor: equipping clones the tool's face `Accessory` onto the 
 - Requires: `Classes\ServerTool`
 
 ### Tools\Walkie Talkie.luau
-Server half of the walkie talkie: registers and unregisters the owning player with `WalkieTalkieService` on equip, unequip and destruction.
+Server half of the walkie talkie: asks `WalkieTalkieService` to reconcile the owner whenever the tool is created, equipped, unequipped or destroyed, so a powered radio rebuilds its audio graph onto whichever tool instance the player currently holds.
 - API: `WalkieTalkie.new(tool: Tool)`
 - API: `WalkieTalkie:OnEquipped()` / `WalkieTalkie:OnUnequipped()` / `WalkieTalkie:OnDestroy()`
 - Requires: `Classes\ServerTool`, `Services\WalkieTalkieService`

@@ -204,7 +204,7 @@ Per-tool settings keyed by tool name, giving each tool its CollectionService tag
 - Player oddity entries use `OddityKind`, optional `OddityOverrides`, or `OddityChoices` for the random four-effect item.
 
 ### ViewmodelConfig.luau
-Placement, scale, sway/bob and per-tool orientation overrides for the first-person viewmodel and its fake arm. `Overrides.Camera` anchors the tripod by its handle, while `Overrides["Walkie Talkie"]` separately positions the radio and fake hand with `Anchor` and `ArmAnchor`, then scales and rolls the radio so its screen stays visible.
+Placement, scale, sway/bob and per-tool orientation overrides for the first-person viewmodel and its fake arm. `Overrides.Camera` anchors the tripod by its handle, while `Overrides["Walkie Talkie"]` separately positions the radio and fake hand with `Anchor` and `ArmAnchor`, then scales and rolls the radio so its screen stays visible. An override may also carry `Poses` — named `Anchor`/`ArmAnchor`/`Rotate` variants selected by `ViewmodelService:SetPose` and blended in at `PoseSpeed`; the walkie defines `Talk` (held to the mouth while transmitting) and `Raised` (screen square to the camera and close enough to read).
 - API: data table — `HandOffset`, `Scale`, `Fit`, `SwayAmount`, `SwaySpeed`, `BobAmount`, `BobSpeed`, `Arm`, `Overrides`
 
 ### ViewmodelDebugConfig.luau
@@ -225,8 +225,8 @@ Small overrides for footstep sound playback rate and per-enemy step volume.
 - API: data table — `PlayerStepFrequencyMultiplier`, `EnemyStepVolume`
 
 ### WalkieTalkieConfig.luau
-Radio ranges, volumes, friend/all modes and the full DSP effect chain (compressor, bandpass, EQ, distortion, limiter, static) for walkie-talkie voice transmission.
-- API: data table — `PhysicalDistance`, `TaggedSoundDistance`, `TaggedSoundPickupFalloff`, `RadioAllowedTag`, `DeathActiveGrace`, `TransmissionGrace`, `VoiceVolume`, `ProximityRadioBlend`, `TaggedSoundVolume`, `RadioPhysicalVolume`, `RadioNoiseRadius`, `RelaySyncInterval`, `Modes`, `Effects`
+Radio ranges, volumes, keybinds, friend/all modes, the on-model screen UI palette and the full DSP effect chain (compressor, bandpass, EQ, distortion, limiter, static) for walkie-talkie voice transmission. `Categories` defines the four player-facing volume sliders (`Global`, `Voices`, `Monster`, `Noise`) by id, and both the client and server key their settings tables off those ids. `PowerAttribute`, `VoiceAttribute` and `TransmitAttribute` name the Player attributes the server replicates so every client can colour the roster. Layout and styling are not here — the walkie screen and the `WalkieHud` ScreenGui are authored in Studio, and `Ui.Colors` holds only the state colours the roster swaps at runtime.
+- API: data table — `PhysicalDistance`, `TaggedSoundDistance`, `TaggedSoundPickupFalloff`, `RadioAllowedTag`, `DeathActiveGrace`, `TransmissionGrace`, `VoiceVolume`, `ProximityRadioBlend`, `TaggedSoundVolume`, `RadioPhysicalVolume`, `RadioNoiseRadius`, `RelaySyncInterval`, `ToolName`, `PowerAttribute`, `VoiceAttribute`, `TransmitAttribute`, `Keys`, `Modes`, `Categories`, `Ui`, `Prompt`, `Touch`, `Effects`
 
 ### WatchConfig.luau
 Range, angle limits and joint weighting for the Watch class, which makes an NPC's head and torso track the local player.

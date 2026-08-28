@@ -685,6 +685,14 @@ Client-only decorated overlay for the stamina bar while a speed boost is active:
 - API: none — side-effect only.
 - Requires: `Configs.SprintBoostConfig`, `Configs.SprintConfig`, `SprintUIService` (`GetBar`, `SetForcedVisible`), `GuiBuilderService`; reads the `SpeedBoostName` and `SpeedBoostEndsAt` player attributes
 
+### SurfaceCursorService.luau
+Maps a viewport point onto a `SurfaceGui` canvas by intersecting the camera ray with the adorned face's plane, so in-world screens stay clickable even when their part is parented to the camera (where Roblox delivers no native GUI input). Handles all six `NormalId` faces and returns nil when the ray misses or the plane is behind the camera.
+- API: `SurfaceCursorService:Project(part, face, viewportPoint, canvasSize) -> Vector2?` — canvas pixel coordinates
+- API: `SurfaceCursorService:Contains(element, point, padding?) -> boolean` — hit-test a `GuiObject` against a projected point, optionally growing it by `padding` canvas pixels
+- API: `SurfaceCursorService:GetAlpha(element, point) -> number` — 0-1 position across an element, for sliders
+- API: `SurfaceCursorService:GetFaceSize(part, face) -> Vector2` — the face's stud dimensions
+- Requires: nothing
+
 ### SprintService.luau
 Client sprint state machine: binds hold-to-sprint keys (plus a touch toggle button), drains and regenerates stamina with an exhaustion lockout, and owns the humanoid's `WalkSpeed`. Maximum stamina and the sprint speed multiplier are per-character rather than fixed: both are read every time they are needed from the `Stamina` and `SprintMultiplier` character attributes through `HumanoidStatsService.ReadAttribute`, falling back to `SprintConfig` when unset, which is how a kit raises a player's stamina pool or sprint speed. It watches external WalkSpeed writes to re-derive the base speed and respects the server's speed-boost attributes, drives the sprint FOV offset, and uses Wallstick's movement source while the local character is surface-stuck.
 - API: `SprintService:GetStaminaFraction() -> number` — 0..1
@@ -746,22 +754,25 @@ One-question helper for whether a character should be treated as absent: it carr
 - API: `Vanished.EyeExemptTag` — the string `"IgnoreExceptEye"`
 - Tags: reads `Ignore`, `IgnoreExceptEye`
 ### ViewmodelService.luau
-Client first-person viewmodel: clones the equipped Tool (stripped of scripts, sounds and effects) under the camera, hides the real tool, and each render step positions the clone from camera CFrame plus yaw sway and speed-scaled bob. Auto-hides when not in first person or when the character's real hand is visible; supports per-tool anchor/rotation overrides, and a per-tool `Scale` override for props too large for the shared scale.
-- API: none — side-effect only.
-- Requires: `Configs.ViewmodelConfig` (`Scale`, `Fit`, `HandOffset`, `Arm`, `Overrides`)
+Client first-person viewmodel: clones the equipped Tool (stripped of scripts, sounds and effects) under the camera, hides the real tool (its parts *and* its SurfaceGuis, which transparency alone cannot hide), and each render step positions the clone from camera CFrame plus yaw sway and speed-scaled bob. Auto-hides when not in first person or when the character's real hand is visible; supports per-tool anchor/rotation overrides, a per-tool `Scale` override for props too large for the shared scale, and named poses that other services switch between, lerped at the override's `PoseSpeed`.
+- API: `ViewmodelService:SetPose(pose: string?)` — select a named entry from the current tool's `Overrides[tool].Poses`, or `nil` for the base placement
+- API: `ViewmodelService:GetPose() -> string?`
+- API: `ViewmodelService:GetRig() -> Model?` — the live viewmodel clone, for services that drive its contents
+- API: `ViewmodelService:Refresh()` — rebuild the rig for the current tool
+- Requires: `Configs.ViewmodelConfig` (`Scale`, `Fit`, `HandOffset`, `Arm`, `Overrides`), `MathService`
 
 ### ViewmodelDebugService.luau
 F3 developer panel for live tuning of the Walkie Talkie first-person viewmodel. Sliders separately control radio anchor, fake-hand anchor, scale and all three rotation axes, rebuild the preview immediately when scale changes, and show the exact config entry in a selectable text box for copying when tuning is complete. Changes last only for the current client session.
 - Requires: `Configs.ViewmodelDebugConfig`, `Configs.ViewmodelConfig`, `Configs.FLAGS`, `Classes.DebugPanel`, `ViewmodelService`
 
 ### VoiceActivityService.luau
-Client voice-activity detector: wires an `AudioAnalyzer` onto the local player's `AudioDeviceInput`, polls RMS level against a threshold, and tells the server when you start and stop speaking (with a heartbeat re-send and a release delay). Stops analyzing on death, mutes remote voice emitters and radio output faders locally until respawn, and rebuilds itself if the input device appears or disappears.
+Client voice-activity detector: wires an `AudioAnalyzer` onto the local player's `AudioDeviceInput`, polls RMS level against a threshold, and tells the server when you start and stop speaking (with a heartbeat re-send and a release delay). Stops analyzing on death, mutes remote voice emitters locally until respawn, and rebuilds itself if the input device appears or disappears. This drives proximity voice and enemy hearing only — walkie-talkie transmission is push-to-talk and does not use it.
 - API: none — side-effect only.
 - Remotes: `WalkieTalkie/VoiceActivity` (fired)
 - Requires: `Configs.VoiceChatConfig` (`Activity.PollInterval`, `.Threshold`, `.Heartbeat`, `.Release`)
 
 ### VoiceDebugService.luau
-Client-only debug panel behind `FLAGS.VoiceDebug` with sliders for proximity-voice and radio volumes. To make proximity voice adjustable it rewires every remote player's direct voice wire through an inserted `AudioFader`; radio sliders write straight into the named faders it finds in Players and Workspace. All changes are local and session-only.
+Client-only debug panel behind `FLAGS.VoiceDebug` with sliders for proximity-voice and radio volumes. To make proximity voice adjustable it rewires every remote player's direct voice wire through an inserted `AudioFader`; radio sliders write straight into the named faders it finds in Players and Workspace, matching the local listener's own per-sender `RadioVoice_<id>` and `RadioMonster_<id>` faders. All changes are local and session-only.
 - API: none — side-effect only.
 - Requires: `Classes.DebugPanel`, `Configs.VoiceDebugConfig`, `Configs.FLAGS`
 
@@ -772,11 +783,28 @@ Client footstep engine for players and tagged enemies. Silences the default Robl
 - Requires: `AudioService.Play3DSound`, `CharacterService.ForEachPlayer`, `TagService`, `Configs.WalkSoundConfig`, `Configs.CrouchConfig` (`Stealth`)
 
 ### WalkieTalkieService.luau
-Client walkie-talkie mode control and per-listener voice selection. Reuses the `PlayerLocator` GUI's mode frame for its label and toggle button, cycles through `WalkieTalkieConfig.Modes` and reports the choice to the server, mutes the player's own radio emitter by moving it into a private `AudioInteractionGroup`, and crossfades each remote player's proximity voice against that player's incoming radio route using listener distance. Refuses to enable if voice chat is not available for the user.
-- API: `WalkieTalkieService:SetEnabled(value: boolean, tool: Tool?)` — enabling checks voice eligibility and starts watching `tool` for its `RadioEmitter`
-- API: `WalkieTalkieService:IsEnabled() -> boolean`
-- Remotes: `WalkieTalkie/SetMode` (fired)
-- Requires: `Configs.WalkieTalkieConfig`, `Configs.VoiceChatConfig`, `GuiBuilderService`; shares the `PlayerLocator` ScreenGui with `PlayerLocatorService`
+Client walkie-talkie brain: owns power, equip, raised and push-to-talk state, and all local audio routing. Power (`Keys.Power`, default G) is independent of holding the tool — a powered radio keeps receiving from the backpack, but transmitting needs it equipped. Transmission is push-to-talk on left mouse (or the touch TALK button) and drives the `Talk` viewmodel pose; `Keys.Raise` (default R) lifts the radio into the `Raised` pose for the full-screen UI. Mutes the player's own radio emitter via a private `AudioInteractionGroup`, crossfades each remote player's proximity voice against their incoming radio route by listener distance, multiplies that route by the local per-player mute/volume, and reads each route's level from an `AudioAnalyzer` for the roster meters. Refuses to power on when voice chat is unavailable for the user.
+- API: `WalkieTalkieService:SetPowered(value)` / `:TogglePower()` / `:IsPowered() -> boolean`
+- API: `WalkieTalkieService:SetEquipped(value)` / `:IsEquipped() -> boolean` — driven by the tool class
+- API: `WalkieTalkieService:SetRaised(value)` / `:ToggleRaised()` / `:IsRaised() -> boolean`
+- API: `WalkieTalkieService:SetTransmitting(value)` / `:IsTransmitting() -> boolean`
+- API: `WalkieTalkieService:GetMode() -> string` / `:GetModeLabel() -> string` / `:CycleMode()`
+- API: `WalkieTalkieService:GetCategory(id) -> number` / `:SetCategory(id, value)` — the `Config.Categories` volume sliders
+- API: `WalkieTalkieService:IsMuted(player)` / `:SetMuted(player, value)` / `:GetPlayerVolume(player)` / `:SetPlayerVolume(player, value)` — local only
+- API: `WalkieTalkieService:GetRoster() -> { { Player, Category, Level } }` — sorted Enabled, then Disabled, then NoVoice; alphabetical by display name within each
+- API: `WalkieTalkieService:GetLevel(player) -> number` / `:GetCategoryFor(player) -> string` / `:GetTool() -> Tool?`
+- Remotes: `WalkieTalkie/SetMode`, `WalkieTalkie/SetPower`, `WalkieTalkie/SetTransmit` (fired), `WalkieTalkie/SetAudio` (fired and listened — the server replies with the saved settings on join)
+- Requires: `Configs.WalkieTalkieConfig`, `Configs.VoiceChatConfig`, `MathService`, `ViewmodelService`
+
+### WalkieUIService.luau
+Client owner of the walkie-talkie's on-model screen. Binds to the `SurfaceGui` inside the viewmodel rig (falling back to the real tool), clones the authored `Row` and `SettingRow` templates out of `Main.Body`, and each render step repaints the roster — status dot, display name, status line and level meter — plus the header, footer hint and the OFF overlay. Raising the radio unlocks the cursor through `InterfaceService` and swaps each row's meter for its mute button and volume slider; the header's `Mode` button cycles All/Friends and `Settings` flips to the category sliders. Because a `SurfaceGui` on a part parented to the camera receives no native input, every click, drag and slider is dispatched from `SurfaceCursorService` projections against the gui's authored `CanvasSize`; the system mouse cursor is the pointer, and the game's own `Cursor` crosshair is disabled while the radio is raised. Ray points are always inset-included screen coordinates — `GetMouseLocation()` for the mouse, and the touch `InputObject.Position` plus `GetGuiInset()` — because `InputObject.Position` alone lands one GUI inset above the visible cursor. The scroll wheel scrolls the roster whenever the radio is on and equipped, without the cursor being over it; touch drags on the surface do the same.
+- API: none — side-effect only.
+- Requires: `Configs.WalkieTalkieConfig`, `InterfaceService`, `SurfaceCursorService`, `ViewmodelService`, `WalkieTalkieService`; the `Main` frame authored inside `ReplicatedStorage.Tools["Walkie Talkie"].Screen.Screen`
+
+### WalkieHudService.luau
+Client screen-space companion to the walkie-talkie. Drives the `WalkieHud` ScreenGui authored in StarterGui: fades `Main.Prompt` (text and stroke together) in while the radio is equipped but off, and shows `Main.Touch`'s PWR / RADIO / TALK buttons on touch devices to toggle power, raise the radio and hold push-to-talk. Layout and colours live on the instances; the service only supplies the prompt strings, the fade time and the pressed-state background.
+- API: none — side-effect only.
+- Requires: `Configs.WalkieTalkieConfig` (`Prompt`, `Touch.ActiveBackground`, `Keys`), `GuiBuilderService`, `WalkieTalkieService`; the `WalkieHud` ScreenGui in StarterGui
 
 ### WallstickService.luau
 Client front end for the vendored Wallstick controller. Always listens on the replication channel so other players' wall-stuck characters render correctly; wall-sticking for the local character is opt-in via `Enable`, which runs an auto-stick raycast loop under the character's feet each `PreSimulation` (like the upstream demo, resetting to normal gravity after a long fall), optionally limits transfers to surfaces aligned with a fixed world-space normal, and tears down on death or character removal. Guarded to be inert on the server.

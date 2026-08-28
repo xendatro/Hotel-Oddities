@@ -21,7 +21,6 @@ local lastActivitySentAt = -math.huge
 local voiceCutoffActive = false
 local voiceMuteGroup = `VoiceDead_{player.UserId}`
 local mutedVoiceEmitters: { [AudioEmitter]: string } = {}
-local mutedRadioOutputVolumes: { [AudioFader]: number } = {}
 
 local function muteRemoteVoiceEmitter(instance: Instance)
 	local character = player.Character
@@ -54,27 +53,6 @@ local function restoreMutedVoiceEmitters()
 			emitter.AudioInteractionGroup = group
 		end
 		mutedVoiceEmitters[emitter] = nil
-	end
-end
-
-local function muteRadioOutput(instance: Instance)
-	if not voiceCutoffActive or not instance:IsA("AudioFader") or instance.Name ~= "RadioOutputVolume" then return end
-	if mutedRadioOutputVolumes[instance] == nil then mutedRadioOutputVolumes[instance] = instance.Volume end
-	instance.Volume = 0
-end
-
-local function refreshMutedRadioOutputs()
-	for _, other in Players:GetPlayers() do
-		for _, descendant in other:GetDescendants() do
-			muteRadioOutput(descendant)
-		end
-	end
-end
-
-local function restoreMutedRadioOutputs()
-	for fader, volume in mutedRadioOutputVolumes do
-		if fader.Parent and fader.Volume == 0 then fader.Volume = volume end
-		mutedRadioOutputVolumes[fader] = nil
 	end
 end
 
@@ -154,10 +132,8 @@ local function setVoiceCutoff(active: boolean)
 	if active then
 		stopAnalyzer()
 		refreshMutedVoiceEmitters()
-		refreshMutedRadioOutputs()
 	else
 		restoreMutedVoiceEmitters()
-		restoreMutedRadioOutputs()
 		startAnalyzer()
 	end
 end
@@ -201,10 +177,7 @@ player.ChildRemoved:Connect(function(child)
 end)
 
 Players.DescendantAdded:Connect(function(descendant)
-	if voiceCutoffActive then
-		muteRemoteVoiceEmitter(descendant)
-		muteRadioOutput(descendant)
-	end
+	if voiceCutoffActive then muteRemoteVoiceEmitter(descendant) end
 end)
 
 player.CharacterAdded:Connect(function(character)

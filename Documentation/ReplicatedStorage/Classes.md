@@ -412,7 +412,7 @@ Applies a night-vision-style `ColorCorrectionEffect` in Lighting while equipped,
 - Requires: `Classes\ClientTool`
 
 ### Tools\Walkie Talkie.luau
-Thin wrapper that enables `WalkieTalkieService` (passing the tool instance) while equipped and disables it on unequip or destroy.
+Thin wrapper that reports equip state to `WalkieTalkieService`. Equipping does not power the radio on — that is the player's G press — but transmitting and raising the radio both require it.
 - API: `WalkieTalkie.new(tool: Tool) -> self`
 - API: `WalkieTalkie:OnEquipped()` / `WalkieTalkie:OnUnequipped()` / `WalkieTalkie:OnDestroy()`
 - Requires: `Classes\ClientTool`, `WalkieTalkieService`

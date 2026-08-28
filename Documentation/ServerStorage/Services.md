@@ -77,7 +77,7 @@ Bakes and serves the map-wide "danger" field: measures the extent of all `MazeFl
 - Requires: `Services.DangerFieldService`, `SpawnZoneService`, `DangerConfig`
 
 ### DataSaveService.luau
-ProfileService front-end: loads, reconciles and releases one `PlayerData` profile per player, and lets other code either grab a loaded profile or yield until it arrives. The template holds currency (coins and gems), sword ownership, inventory, kit ownership and the equipped kit, the item counts a kit last granted, processed receipts, discovered enemies and discovered map intervals.
+ProfileService front-end: loads, reconciles and releases one `PlayerData` profile per player, and lets other code either grab a loaded profile or yield until it arrives. The template holds currency (coins and gems), sword ownership, inventory, kit ownership and the equipped kit, the item counts a kit last granted, processed receipts, walkie-talkie audio settings and mode, discovered enemies and discovered map intervals.
 - API: `DataSaveService:Get(player: Player) -> Profile?` — nil until the profile finishes loading
 - API: `DataSaveService:Wait(player: Player) -> Profile?` — yields the calling thread until loaded
 - Requires: `ServerStorage.Services.ProfileService` (third-party), `ItemShopConfig`
@@ -611,20 +611,20 @@ Studio-only debug hook, gated behind `FLAGS.VoiceDebug`: lets a client set any v
 - Requires: `VoiceDebugConfig`, `FLAGS`, `VoiceActivityService:ApplyVolume`, `WalkieTalkieService:ApplyVolumes`
 
 ### WalkieTalkieService.luau
-Builds a full per-player radio audio graph on the equipped Walkie Talkie — compressor, bandpass, EQ, distortion and limiter into a mixer feeding one `AudioDeviceOutput` per eligible listener plus a physical emitter on the handle — and keeps the listener set in sync with the All/Friends privacy mode. Removes a dead player's radio routes as both sender and listener, restoring them on respawn. Also picks up the nearest tagged ambient emitter into the radio, relays client-requested sounds with a rate limit, plays a static death burst when a transmitting holder dies, and emits noise so enemies hear radio traffic.
-- API: `WalkieTalkieService:Equip(player: Player, tool: Tool)` — build the audio graph (no-op if voice chat is unavailable for that user)
-- API: `WalkieTalkieService:Unequip(player: Player, tool: Tool)` — tear it down
-- API: `WalkieTalkieService:SetMode(player: Player, mode: string)` — `"All"` or `"Friends"`; mirrored to the `WalkieTalkieMode` attribute
-- API: `WalkieTalkieService:SetVoiceActivity(player: Player, active: boolean)` — drive the transmit-click loop
-- API: `WalkieTalkieService:StartSound(player, relayId: string, name: string, looped: boolean, timePosition: number?, playbackSpeed: number?, volume: number?)` — relay a tagged sound over the radio
-- API: `WalkieTalkieService:SyncSound(player, relayId: string, timePosition: number, playbackSpeed: number, volume: number)` — correct a running relay
-- API: `WalkieTalkieService:StopSound(player: Player, relayId: string)` — stop a relay
-- API: `WalkieTalkieService:SetLooping(player: Player, relayId: string, looped: boolean)` — toggle looping on a relay
-- API: `WalkieTalkieService:RegisterAmbientEmitter(emitter: AudioEmitter)` — allow an emitter to be picked up by nearby radios
+Authoritative walkie-talkie. A player's radio graph is built when they power it on, not when they equip it, and lives on their Walkie Talkie tool wherever it sits, so a powered radio keeps receiving from the backpack; `Reconcile` rebinds it whenever the tool instance is replaced (respawn, inventory rebuild). One shared DSP chain per sender — compressor, bandpass, EQ, distortion, limiter for voice, and a parallel tagged chain for picked-up sounds — then splits per listener into `RadioVoice_<id>`, `RadioMonster_<id>` and `RadioNoise_<id>` faders feeding that listener's own mixer and `AudioDeviceOutput`, which is what lets each listener set their own category volumes. Both the voice and tagged paths pass a gate that is open only while the sender holds push-to-talk, so nothing — voice, monster sounds or relayed audio — leaves a radio that is not transmitting, and only transmitting radios can pick up nearby ambient emitters. Removes a dead player's routes as both sender and listener and restores them on respawn, plays a static death burst (also scaled by each listener's Global x Noise) when a transmitting holder dies, relays client-requested sounds with a rate limit, and emits noise so enemies hear radio traffic. Publishes `WalkiePowered`, `VoiceEligible` and `WalkieTransmitting` as Player attributes for the client roster, and persists category volumes and the All/Friends mode into the player's DataSave profile.
+- API: `WalkieTalkieService:SetPower(player: Player, on: boolean)` — build or tear down the graph; refused when voice chat is unavailable for that user
+- API: `WalkieTalkieService:SetTransmitting(player: Player, active: boolean)` — open/close the push-to-talk gates and the transmit static loop
+- API: `WalkieTalkieService:Reconcile(player: Player)` — rebind the graph to the player's current tool
+- API: `WalkieTalkieService:SetMode(player: Player, mode: string)` — `"All"` or `"Friends"`; mirrored to the `WalkieTalkieMode` attribute and saved
+- API: `WalkieTalkieService:SetAudioSettings(player: Player, incoming: { [string]: number })` — that listener's `Config.Categories` volumes, applied to every sender's faders and saved
+- API: `WalkieTalkieService:StartSound(player, relayId, name, looped, timePosition?, playbackSpeed?, volume?)` — relay a tagged sound over the radio
+- API: `WalkieTalkieService:SyncSound(player, relayId, timePosition, playbackSpeed, volume)` — correct a running relay
+- API: `WalkieTalkieService:StopSound(player: Player, relayId: string)` / `:SetLooping(player, relayId, looped)`
+- API: `WalkieTalkieService:RegisterAmbientEmitter(emitter: AudioEmitter)` — allow an emitter to be picked up by nearby transmitting radios
 - API: `WalkieTalkieService:ApplyVolumes()` — re-read config volumes into every live graph
-- Remotes: `WalkieTalkie/SetMode`, `WalkieTalkie/TransmitSound`, `WalkieTalkie/VoiceActivity` (all listened; created with `.Ensure`)
+- Remotes: `WalkieTalkie/SetMode`, `WalkieTalkie/SetPower`, `WalkieTalkie/SetTransmit`, `WalkieTalkie/TransmitSound` (listened), `WalkieTalkie/SetAudio` (listened, and fired once per player with their saved settings); all created with `.Ensure`
 - Tags: reads `WalkieTalkieConfig.RadioAllowedTag` on AudioEmitters/AudioPlayers
-- Requires: `WalkieTalkieConfig`, `VoiceActivityService` (speaking state), `NoiseService:Emit`, `VoiceChatService:IsVoiceEnabledForUserIdAsync`
+- Requires: `WalkieTalkieConfig`, `DataSaveService`, `NoiseService:Emit`, `VoiceChatService:IsVoiceEnabledForUserIdAsync`
 
 ### WallstickService.luau
 Server bootstrap for the vendored Wallstick controller: registers the `WallstickCollision`/`WallstickNoCollision` collision groups (non-collidable with every other group; the fake-world group collides only with itself), builds the persistent `workspace.Wallstick` model with its far-away `Origin` part and `StreamingFoci` folder, creates a client-owned streaming-focus part (AlignPosition/AlignOrientation, added as a replication focus under StreamingEnabled) for every player, and starts the replication listener that rebroadcasts each client's stick part/offset to everyone.

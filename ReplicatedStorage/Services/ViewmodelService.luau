@@ -22,10 +22,15 @@ local rigRadius = 0.5
 local rigParts: { BasePart } = {}
 local lastShowViewmodel: boolean? = nil
 local hiddenParts: { BasePart } = {}
+local hiddenGuis: { SurfaceGui } = {}
 local swayCFrame = CFrame.identity
 local lastCameraCFrame: CFrame? = nil
 local bobClock = 0
 local bobWeight = 0
+local currentPose: string? = nil
+local poseAnchor: Vector3? = nil
+local poseArmAnchor: Vector3? = nil
+local poseRotate: CFrame? = nil
 
 local function isFirstPerson(character: Model): boolean
 	if player.CameraMode == Enum.CameraMode.LockFirstPerson then return true end
@@ -43,6 +48,11 @@ local function setRealToolHidden(hidden: boolean)
 	for _, part in hiddenParts do
 		if part.Parent then
 			part.LocalTransparencyModifier = hidden and 1 or 0
+		end
+	end
+	for _, gui in hiddenGuis do
+		if gui.Parent then
+			gui.Enabled = not hidden
 		end
 	end
 end
@@ -126,13 +136,19 @@ local function step(deltaTime: number)
 	if tool ~= currentTool then
 		setRealToolHidden(false)
 		hiddenParts = {}
+		hiddenGuis = {}
 		currentTool = tool
+		poseAnchor = nil
+		poseArmAnchor = nil
+		poseRotate = nil
 		destroyRig()
 
 		if tool then
 			for _, descendant in tool:GetDescendants() do
 				if descendant:IsA("BasePart") then
 					table.insert(hiddenParts, descendant)
+				elseif descendant:IsA("SurfaceGui") then
+					table.insert(hiddenGuis, descendant)
 				end
 			end
 			buildRig(tool)
@@ -200,12 +216,25 @@ local function step(deltaTime: number)
 			fit.Base.Y - rigRadius * fit.PerStud.Y,
 			fit.Base.Z - rigRadius * fit.PerStud.Z
 		)
-	local centerTarget = (base * CFrame.new(anchor)).Position
 	local armAnchor = (override and override.ArmAnchor) or anchor
-	local armTarget = (base * CFrame.new(armAnchor)).Position
+	local rotate = (override and override.Rotate) or CFrame.identity
 
-	local rotation = (base * ViewmodelConfig.HandOffset * tool.Grip:Inverse()
-		* ((override and override.Rotate) or CFrame.identity)).Rotation
+	local pose = override and override.Poses and currentPose and override.Poses[currentPose]
+	if pose then
+		anchor = pose.Anchor or anchor
+		armAnchor = pose.ArmAnchor or armAnchor
+		rotate = pose.Rotate or rotate
+	end
+
+	local poseAlpha = MathService.ExpAlpha((override and override.PoseSpeed) or 10, deltaTime)
+	poseAnchor = if poseAnchor then poseAnchor:Lerp(anchor, poseAlpha) else anchor
+	poseArmAnchor = if poseArmAnchor then poseArmAnchor:Lerp(armAnchor, poseAlpha) else armAnchor
+	poseRotate = if poseRotate then poseRotate:Lerp(rotate, poseAlpha) else rotate
+
+	local centerTarget = (base * CFrame.new(poseAnchor)).Position
+	local armTarget = (base * CFrame.new(poseArmAnchor)).Position
+
+	local rotation = (base * ViewmodelConfig.HandOffset * tool.Grip:Inverse() * poseRotate).Rotation
 
 	local gripOffset = if override and override.AnchorAt == "Handle" then Vector3.zero else rigCenterOffset
 	local handlePosition = centerTarget - rotation:VectorToWorldSpace(gripOffset)
@@ -217,6 +246,18 @@ local function step(deltaTime: number)
 		local mid = shoulder:Lerp(armTarget, 0.45)
 		sleeve.CFrame = CFrame.lookAt(mid, armTarget, base.UpVector)
 	end
+end
+
+function ViewmodelService:SetPose(pose: string?)
+	currentPose = pose
+end
+
+function ViewmodelService:GetPose(): string?
+	return currentPose
+end
+
+function ViewmodelService:GetRig(): Model?
+	return rig
 end
 
 function ViewmodelService:Refresh()

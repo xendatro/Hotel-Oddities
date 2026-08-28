@@ -30,10 +30,23 @@ return {
 		Medkit = { AnchorAt = "Handle", Anchor = Vector3.new(0.8, -0.3, -1.7) },
 		["Walkie Talkie"] = {
 			AnchorAt = "Handle",
-			Scale = 0.5,
-			Anchor = Vector3.new(1.35, -0.5, -1.8),
-			ArmAnchor = Vector3.new(1.65, -1.05, -1.35),
-			Rotate = CFrame.Angles(0, 0, math.rad(15)),
+			Scale = 0.50,
+			Anchor = Vector3.new(1.09, -0.61, -1.65),
+			ArmAnchor = Vector3.new(1.33, -0.45, -2.40),
+			Rotate = CFrame.Angles(math.rad(1), math.rad(-51), math.rad(15)),
+			PoseSpeed = 9,
+			Poses = {
+				Talk = {
+					Anchor = Vector3.new(0.45, -0.32, -0.85),
+					ArmAnchor = Vector3.new(0.95, -0.9, -1.35),
+					Rotate = CFrame.Angles(math.rad(-10), math.rad(-40), math.rad(20)),
+				},
+				Raised = {
+					Anchor = Vector3.new(0, -0.236, -0.46),
+					ArmAnchor = Vector3.new(0.35, -0.8, -0.65),
+					Rotate = CFrame.Angles(math.rad(-3), math.rad(4), 0),
+				},
+			},
 		},
 		Soda = { Rotate = CFrame.Angles(math.rad(-90), 0, 0) },
 		SpellBook = { Rotate = CFrame.Angles(math.rad(-15), math.rad(-95), 0) },
