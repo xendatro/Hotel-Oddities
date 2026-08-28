@@ -77,7 +77,7 @@ Bakes and serves the map-wide "danger" field: measures the extent of all `MazeFl
 - Requires: `Services.DangerFieldService`, `SpawnZoneService`, `DangerConfig`
 
 ### DataSaveService.luau
-ProfileService front-end: loads, reconciles and releases one `PlayerData` profile per player, and lets other code either grab a loaded profile or yield until it arrives. The template holds currency (coins and gems), sword ownership, inventory, kit ownership and the equipped kit, the item counts a kit last granted, processed receipts, walkie-talkie audio settings and mode, discovered enemies and discovered map intervals.
+ProfileService front-end: loads, reconciles and releases one `PlayerData` profile per player, and lets other code either grab a loaded profile or yield until it arrives. The template holds currency, sword ownership, inventory, processed receipts, discovered enemies and discovered map intervals. Studio sessions load `Studio_Player_<UserId>` keys instead of `Player_<UserId>` (via `RunService:IsStudio()`), so a Studio playtest and a live game client hold separate profiles and never contest the session lock — Studio keeps its own separately saved data.
 - API: `DataSaveService:Get(player: Player) -> Profile?` — nil until the profile finishes loading
 - API: `DataSaveService:Wait(player: Player) -> Profile?` — yields the calling thread until loaded
 - Requires: `ServerStorage.Services.ProfileService` (third-party), `ItemShopConfig`
@@ -226,12 +226,12 @@ Finds hallway "corner mouths" near a viewer — graph nodes with a side branch r
 - Requires: `HallwayGraphService`, `ReplicatedStorage.Services.HallwaysService`, `MathService.Horizontal`
 
 ### HallwayRegionService.luau
-Helpers for treating a straight hallway span as a region: comparing spans (in either direction), finding the span at a position, building a padded bounding box for it, finding a living player's position inside it, checking for players inside, and picking random spans that are distant, occupied, or danger-weighted.
+Helpers for treating a straight hallway span as a region: comparing spans (in either direction), finding the span at a position, building a padded bounding box for it, locating a player inside one, and picking random spans that are distant, occupied, or danger-weighted.
 - API: `HallwayRegion.Same(first: Span, second: Span) -> boolean` — direction-agnostic within `SpatialPadding`
 - API: `HallwayRegion.At(position: Vector3, includeRoomFloors: boolean?) -> Span?`
 - API: `HallwayRegion.Box(span: Span) -> (CFrame, Vector3)` — padded volume using the config height windows
-- API: `HallwayRegion.Occupant(span: Span) -> Vector3?`
-- API: `HallwayRegion.HasPlayer(span: Span) -> boolean`
+- API: `HallwayRegion.Occupant(span: Span) -> Vector3?` — where the first living player standing in the span is
+- API: `HallwayRegion.HasPlayer(span: Span) -> boolean` — `Occupant` reduced to a yes/no
 - API: `HallwayRegion.RandomDistant() -> Span?`
 - API: `HallwayRegion.RandomDistantWeighted(dangerWeight: number, accept: ((Span) -> boolean)?) -> Span?`
 - API: `HallwayRegion.RandomBiased(occupiedChance: number) -> Span?`
@@ -239,14 +239,14 @@ Helpers for treating a straight hallway span as a region: comparing spans (in ei
 - Requires: `ReplicatedStorage.Configs.MapOddityConfig`, `ReplicatedStorage.Services.HallwaysService`, `ServerStorage.Services.DangerMapService`, `ReplicatedStorage.Services.CharacterService`
 
 ### HallwayWallService.luau
-Geometry over the **walls** of a straight hallway span, the counterpart to `HallwayRegionService`'s floor-level view. Builds a `Frame` (centre, axis, across, half width, floor height and an along-range), trimming that range to the contiguous run of `MazeFloor` covering the centre line so a span never reaches into a connector whose walls are not tagged. `Mouths` reports, per side, the along-intervals where a perpendicular corridor or room floor opens through the side plane; `CutPoints` unions those boundaries from **both** sides into one sorted cut list, which is what makes opposite walls terminate at the same places. `Limit` snaps a frame outward to whole cells around a position without exceeding a length budget. `Walls` returns the tagged wall strips that run parallel to the span, sit in the side band by their inner face and are thin enough to be a wall — the inner-face test plus a thickness cap is what rejects perpendicular walls crossing the corridor at a junction — each carrying its along-range, side sign, across offset, thickness, and the local axes that map to thickness and length.
+Geometry over the **walls** of a straight hallway span, the counterpart to `HallwayRegionService`'s floor-level view. Builds a `Frame` (centre, axis, across, half width, floor height and an along-range), trimming that range to the contiguous run of `MazeFloor` covering the centre line so a span never reaches into a connector whose walls are not tagged. `Mouths` reports, per side, the along-intervals where a perpendicular corridor or room floor opens through the side plane; `CutPoints` unions those boundaries from **both** sides into one sorted cut list, and `Closing` is the complement of that union — the stretches of the span no opening from either side reaches into. `Limit` clips a frame to one of those junction-free stretches and never crosses a mouth: given a position it takes the stretch that position stands in, or the nearest one when the position is inside a mouth itself; given no position it takes the longest. Only a stretch that is on its own longer than the budget gets cut down, to a window of exactly that length centred on the position (or on the stretch), so wherever the corridor between two junctions is short enough the ends land on the junction boundaries themselves. It returns `nil` when openings cover the span end to end and no closable stretch is left. `Walls` returns the tagged wall strips that run parallel to the span, sit in the side band by their inner face and are thin enough to be a wall — the inner-face test plus a thickness cap is what rejects perpendicular walls crossing the corridor at a junction — each carrying its along-range, side sign, across offset, thickness, and the local axes that map to thickness and length.
 - API: `HallwayWallService.Frame(span: Hallways.StraightSpan) -> Frame?`
 - API: `HallwayWallService.Length(frame: Frame) -> number`
 - API: `HallwayWallService.Contains(frame: Frame, position: Vector3, margin: number?) -> boolean`
 - API: `HallwayWallService.Mouths(frame: Frame) -> { Mouth }` — `{ Minimum, Maximum, Sign }` per side opening
 - API: `HallwayWallService.CutPoints(frame: Frame) -> { number }` — sorted, both-side union, ends included
 - API: `HallwayWallService.Closing(frame: Frame) -> { Interval }` — the span with every mouth, from either side, cut out of it
-- API: `HallwayWallService.Limit(frame: Frame, position: Vector3?, maximumLength: number) -> Frame?`
+- API: `HallwayWallService.Limit(frame: Frame, position: Vector3?, maximumLength: number) -> Frame?` — the junction-free stretch at `position`, or the longest one when it is omitted, capped to `maximumLength`
 - API: `HallwayWallService.Walls(frame: Frame) -> { Wall }`
 - API: `HallwayWallService.Fixtures(frame: Frame, tag: string, margin: number?) -> { Instance }` — tagged parts/models inside the frame
 - API: `HallwayWallService.Merge(intervals: { Interval }, gap: number?) -> { Interval }` — sort and coalesce, optionally closing gaps up to `gap`
