@@ -37,9 +37,9 @@ return {
 			PoseSpeed = 9,
 			Poses = {
 				Talk = {
-					AnchorOffset = Vector3.new(-0.12, 0.36, -0.02),
-					ArmAnchorOffset = Vector3.new(-0.06, 0.24, 0.05),
-					RotateOffset = CFrame.Angles(math.rad(-14), math.rad(10), math.rad(10)),
+					AnchorOffset = Vector3.new(-0.41, 0.19, 0.35),
+					ArmAnchorOffset = Vector3.new(-0.93, 0.55, -0.01),
+					RotateOffset = CFrame.Angles(math.rad(5), math.rad(9), math.rad(8)),
 				},
 				Raised = {
 					ArmAnchorOffset = Vector3.new(0.34, -0.62, -0.22),
