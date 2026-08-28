@@ -131,10 +131,13 @@ local function forEachAudioDescendant(callback: (Instance) -> ())
 	end
 end
 
+local ownVoiceFaderName = `RadioVoice_{Players.LocalPlayer.UserId}`
+local ownMonsterFaderName = `RadioMonster_{Players.LocalPlayer.UserId}`
+
 local function getRadioVolume(instanceName: string): number?
-	if instanceName == "RadioVoiceVolume" then
+	if instanceName == ownVoiceFaderName then
 		return localVolumes.RadioVoice
-	elseif instanceName == "RadioTaggedSoundVolume" then
+	elseif instanceName == ownMonsterFaderName then
 		return localVolumes.RadioTaggedSound
 	elseif instanceName == "RadioPhysicalVolume" then
 		return localVolumes.RadioSpeaker

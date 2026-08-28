@@ -4,6 +4,7 @@ local RunService = game:GetService("RunService")
 
 local ViewmodelConfig = require(ReplicatedStorage.Configs.ViewmodelConfig)
 local MathService = require(ReplicatedStorage.Services.MathService)
+local SurfaceCursorService = require(ReplicatedStorage.Services.SurfaceCursorService)
 
 local ViewmodelService = {}
 
@@ -20,12 +21,20 @@ local rig: Model? = nil
 local rigCenterOffset = Vector3.zero
 local rigRadius = 0.5
 local rigParts: { BasePart } = {}
+local rigHandle: BasePart? = nil
 local lastShowViewmodel: boolean? = nil
 local hiddenParts: { BasePart } = {}
+local hiddenGuis: { SurfaceGui } = {}
 local swayCFrame = CFrame.identity
 local lastCameraCFrame: CFrame? = nil
 local bobClock = 0
 local bobWeight = 0
+local currentPose: string? = nil
+local poseOverrideActive = false
+local poseOverrideName: string? = nil
+local poseAnchor: Vector3? = nil
+local poseArmAnchor: Vector3? = nil
+local poseRotate: CFrame? = nil
 
 local function isFirstPerson(character: Model): boolean
 	if player.CameraMode == Enum.CameraMode.LockFirstPerson then return true end
@@ -45,6 +54,11 @@ local function setRealToolHidden(hidden: boolean)
 			part.LocalTransparencyModifier = hidden and 1 or 0
 		end
 	end
+	for _, gui in hiddenGuis do
+		if gui.Parent then
+			gui.Enabled = not hidden
+		end
+	end
 end
 
 local function destroyRig()
@@ -52,6 +66,7 @@ local function destroyRig()
 		rig:Destroy()
 		rig = nil
 	end
+	rigHandle = nil
 	table.clear(rigParts)
 	lastShowViewmodel = nil
 end
@@ -115,8 +130,55 @@ local function buildRig(tool: Tool)
 	local boundsCFrame, boundsSize = model:GetBoundingBox()
 	if sleeve then sleeve.Parent = model end
 	local cloneHandle = clone:FindFirstChild("Handle") :: BasePart
+	rigHandle = cloneHandle
 	rigCenterOffset = cloneHandle:GetPivot():ToObjectSpace(boundsCFrame).Position
 	rigRadius = boundsSize.Magnitude / 2
+end
+
+local function solveFraming(framing: any, base: CFrame): (Vector3?, CFrame?)
+	local model = rig
+	local handle = rigHandle
+	local tool = currentTool
+	local camera = workspace.CurrentCamera
+	if not model or not handle or not handle.Parent or not tool or not camera then
+		return nil, nil
+	end
+
+	local part = model:FindFirstChild(framing.Part, true)
+	if not part or not part:IsA("BasePart") then return nil, nil end
+
+	local face = framing.Face or Enum.NormalId.Front
+	local basis = SurfaceCursorService:GetFaceBasis(face)
+	local offset = Vector3.zero
+	local size = SurfaceCursorService:GetFaceSize(part, face)
+
+	local gui = part:FindFirstChildOfClass("SurfaceGui")
+	local element = if gui and framing.Element then gui:FindFirstChild(framing.Element, true) else nil
+	if gui and element and element:IsA("GuiObject") then
+		offset, size = SurfaceCursorService:GetElementFrame(part, face, element, gui.AbsoluteSize)
+	end
+	if size.Y <= 0 then return nil, nil end
+
+	local coverage = math.clamp(framing.Coverage or 0.5, 0.05, 1)
+	local distance = size.Y / (2 * coverage * math.tan(math.rad(camera.FieldOfView) / 2))
+
+	local view = (base * (framing.Rotate or CFrame.identity)).Rotation
+	local localFrame = CFrame.fromMatrix(
+		Vector3.zero,
+		basis.Up:Cross(basis.Normal),
+		basis.Up,
+		basis.Normal
+	)
+	local partRotation = view * localFrame:Inverse()
+
+	local centre = (base * CFrame.new(0, 0, -distance)).Position
+	local partCFrame = CFrame.new(centre) * partRotation * CFrame.new(-offset)
+	local handleCFrame = partCFrame * handle.CFrame:ToObjectSpace(part.CFrame):Inverse()
+
+	local anchor = base:PointToObjectSpace(handleCFrame.Position)
+	local rotate = (base * ViewmodelConfig.HandOffset * tool.Grip:Inverse()):Inverse()
+		* handleCFrame.Rotation
+	return anchor, rotate.Rotation
 end
 
 local function step(deltaTime: number)
@@ -126,13 +188,19 @@ local function step(deltaTime: number)
 	if tool ~= currentTool then
 		setRealToolHidden(false)
 		hiddenParts = {}
+		hiddenGuis = {}
 		currentTool = tool
+		poseAnchor = nil
+		poseArmAnchor = nil
+		poseRotate = nil
 		destroyRig()
 
 		if tool then
 			for _, descendant in tool:GetDescendants() do
 				if descendant:IsA("BasePart") then
 					table.insert(hiddenParts, descendant)
+				elseif descendant:IsA("SurfaceGui") then
+					table.insert(hiddenGuis, descendant)
 				end
 			end
 			buildRig(tool)
@@ -200,10 +268,37 @@ local function step(deltaTime: number)
 			fit.Base.Y - rigRadius * fit.PerStud.Y,
 			fit.Base.Z - rigRadius * fit.PerStud.Z
 		)
-	local centerTarget = (base * CFrame.new(anchor)).Position
+	local armAnchor = (override and override.ArmAnchor) or anchor
+	local rotate = (override and override.Rotate) or CFrame.identity
 
-	local rotation = (base * ViewmodelConfig.HandOffset * tool.Grip:Inverse()
-		* ((override and override.Rotate) or CFrame.identity)).Rotation
+	local activePose = if poseOverrideActive then poseOverrideName else currentPose
+	local pose = override and override.Poses and activePose and override.Poses[activePose]
+	if pose then
+		local framedAnchor, framedRotate = nil, nil
+		if pose.Framing then
+			framedAnchor, framedRotate = solveFraming(pose.Framing, base)
+		end
+
+		if framedAnchor and framedRotate then
+			anchor = framedAnchor
+			rotate = framedRotate
+			armAnchor = framedAnchor + (pose.ArmAnchorOffset or Vector3.zero)
+		else
+			anchor = pose.Anchor or (anchor + (pose.AnchorOffset or Vector3.zero))
+			rotate = pose.Rotate or (rotate * (pose.RotateOffset or CFrame.identity))
+			armAnchor = pose.ArmAnchor or (armAnchor + (pose.ArmAnchorOffset or Vector3.zero))
+		end
+	end
+
+	local poseAlpha = MathService.ExpAlpha((override and override.PoseSpeed) or 10, deltaTime)
+	poseAnchor = if poseAnchor then poseAnchor:Lerp(anchor, poseAlpha) else anchor
+	poseArmAnchor = if poseArmAnchor then poseArmAnchor:Lerp(armAnchor, poseAlpha) else armAnchor
+	poseRotate = if poseRotate then poseRotate:Lerp(rotate, poseAlpha) else rotate
+
+	local centerTarget = (base * CFrame.new(poseAnchor)).Position
+	local armTarget = (base * CFrame.new(poseArmAnchor)).Position
+
+	local rotation = (base * ViewmodelConfig.HandOffset * tool.Grip:Inverse() * poseRotate).Rotation
 
 	local gripOffset = if override and override.AnchorAt == "Handle" then Vector3.zero else rigCenterOffset
 	local handlePosition = centerTarget - rotation:VectorToWorldSpace(gripOffset)
@@ -212,8 +307,45 @@ local function step(deltaTime: number)
 	local sleeve = rig:FindFirstChild("Sleeve")
 	if sleeve and sleeve:IsA("BasePart") then
 		local shoulder = (base * ViewmodelConfig.Arm.Shoulder).Position
-		local mid = shoulder:Lerp(centerTarget, 0.45)
-		sleeve.CFrame = CFrame.lookAt(mid, centerTarget, base.UpVector)
+		local mid = shoulder:Lerp(armTarget, 0.45)
+		sleeve.CFrame = CFrame.lookAt(mid, armTarget, base.UpVector)
+	end
+end
+
+function ViewmodelService:SetPose(pose: string?)
+	currentPose = pose
+end
+
+function ViewmodelService:GetDefaultAnchor(): Vector3?
+	if not currentTool or not rig then return nil end
+	local fit = ViewmodelConfig.Fit
+	return Vector3.new(
+		fit.Base.X + rigRadius * fit.PerStud.X,
+		fit.Base.Y - rigRadius * fit.PerStud.Y,
+		fit.Base.Z - rigRadius * fit.PerStud.Z
+	)
+end
+
+function ViewmodelService:GetTool(): Tool?
+	return currentTool
+end
+
+function ViewmodelService:GetPose(): string?
+	return if poseOverrideActive then poseOverrideName else currentPose
+end
+
+function ViewmodelService:SetPoseOverride(active: boolean, pose: string?)
+	poseOverrideActive = active
+	poseOverrideName = pose
+end
+
+function ViewmodelService:GetRig(): Model?
+	return rig
+end
+
+function ViewmodelService:Refresh()
+	if currentTool then
+		buildRig(currentTool)
 	end
 end
 

@@ -28,6 +28,29 @@ return {
 			Rotate = CFrame.Angles(0, math.rad(-20), math.rad(55)),
 		},
 		Medkit = { AnchorAt = "Handle", Anchor = Vector3.new(0.8, -0.3, -1.7) },
+		["Walkie Talkie"] = {
+			AnchorAt = "Handle",
+			Scale = 0.84,
+			Anchor = Vector3.new(1.09, -0.44, -1.65),
+			ArmAnchor = Vector3.new(1.21, -0.45, -2.40),
+			Rotate = CFrame.Angles(math.rad(0), math.rad(-48), math.rad(15)),
+			PoseSpeed = 9,
+			Poses = {
+				Talk = {
+					AnchorOffset = Vector3.new(-0.41, 0.19, 0.35),
+					ArmAnchorOffset = Vector3.new(-0.93, 0.55, -0.01),
+					RotateOffset = CFrame.Angles(math.rad(5), math.rad(9), math.rad(8)),
+				},
+				Raised = {
+					ArmAnchorOffset = Vector3.new(0.34, -0.62, -0.22),
+					Framing = {
+						Part = "Screen",
+						Element = "Main",
+						Coverage = 0.52,
+					},
+				},
+			},
+		},
 		Soda = { Rotate = CFrame.Angles(math.rad(-90), 0, 0) },
 		SpellBook = { Rotate = CFrame.Angles(math.rad(-15), math.rad(-95), 0) },
 		Pathfinder = { Rotate = CFrame.Angles(0, math.rad(-25), 0) },

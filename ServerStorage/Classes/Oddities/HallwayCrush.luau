@@ -5,6 +5,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local HallwayCrushDamageService = require(ReplicatedStorage.Services.HallwayCrushDamageService)
 local Hallways = require(ReplicatedStorage.Services.HallwaysService)
 local DeathService = require(ServerStorage.Services.DeathService)
 local HallwayOddity = require(ServerStorage.Classes.HallwayOddity)
@@ -170,9 +171,9 @@ local function candidateFromSpan(class: any, span: HallwayRegion.Span?, position
 	local frame = HallwayWall.Frame(span)
 	if not frame then return nil end
 
-	frame = HallwayWall.Limit(frame, position or span.Center, setting(class, "MaxLength", 130))
-	if HallwayWall.Length(frame) < MINIMUM_SPAN_LENGTH then return nil end
-	return { Span = span, Frame = frame }
+	local limited = HallwayWall.Limit(frame, position, setting(class, "MaxLength", 130))
+	if not limited or HallwayWall.Length(limited) < MINIMUM_SPAN_LENGTH then return nil end
+	return { Span = span, Frame = limited }
 end
 
 local function pieceIntervals(
@@ -321,10 +322,14 @@ function HallwayCrush.Pick(class: any): Candidate?
 	local attempts = math.max(math.floor(setting(class, "PickAttempts", 64)), 1)
 	local occupiedChance = setting(class, "OccupiedChance", 0.4)
 	for _ = 1, attempts do
-		local span = if math.random() <= occupiedChance
-			then HallwayRegion.RandomOccupied() or spans[math.random(1, #spans)]
-			else spans[math.random(1, #spans)]
-		local candidate = candidateFromSpan(class, span)
+		local span: HallwayRegion.Span? = nil
+		local target: Vector3? = nil
+		if math.random() <= occupiedChance then
+			span = HallwayRegion.RandomOccupied()
+			if span then target = HallwayRegion.Occupant(span :: HallwayRegion.Span) end
+		end
+
+		local candidate = candidateFromSpan(class, span or spans[math.random(1, #spans)], target)
 		if candidate and not isActive(candidate.Span) then return candidate end
 	end
 	return nil
@@ -756,6 +761,26 @@ function HallwayCrush:_isCaught(position: Vector3, slack: number): boolean
 	return false
 end
 
+function HallwayCrush:_isPlayerCaught(root: BasePart, slack: number): boolean
+	local frame = (self.Candidate :: Candidate).Frame
+	local region = {
+		Center = frame.Center,
+		Axis = frame.Axis,
+		Across = frame.Across,
+		HalfWidth = frame.HalfWidth,
+		FloorY = frame.FloorY,
+		HeightWindow = HallwayWall.HeightWindow,
+		BelowWindow = HallwayWall.BelowWindow,
+		Lethal = self.Lethal,
+		Alcoves = self.Alcoves,
+		Seals = self.SealRegions,
+		AlcoveMargin = ALCOVE_MARGIN,
+		AlongMargin = math.max(self:Setting("DoorwayMargin", 2), 0),
+	}
+	local fraction = HallwayCrushDamageService.GetSquishFraction(root, region, slack)
+	return fraction >= math.clamp(self:Setting("MinimumHRPOverlap", 0.55), 0, 1)
+end
+
 function HallwayCrush:_crushEnemies()
 	EnemyService:ForEachActive(function(enemy: any)
 		if not enemy.Active then return end
@@ -774,7 +799,7 @@ function HallwayCrush:Crush(player: Player, slack: number): boolean
 	if self:_clearWidth() > math.max(self:Setting("KillWidth", 2.2), 0) + tolerance then return false end
 
 	local root = CharacterService.GetAliveRoot(player)
-	if not root or not self:_isCaught(root.Position, slack) then return false end
+	if not root or not self:_isPlayerCaught(root, slack) then return false end
 
 	local humanoid = CharacterService.GetHumanoid(root.Parent :: Model)
 	if not humanoid or humanoid.Health <= 0 then return false end
@@ -817,6 +842,7 @@ function HallwayCrush:_broadcast()
 		AlongMargin = math.max(self:Setting("DoorwayMargin", 2), 0),
 		ClearHalfWidth = self.ClearHalfWidth,
 		KillWidth = math.max(self:Setting("KillWidth", 2.2), 0),
+		MinimumHRPOverlap = math.clamp(self:Setting("MinimumHRPOverlap", 0.55), 0, 1),
 		MaximumOffset = self.MaximumOffset,
 		CloseTime = math.max(self:Setting("CloseTime", 9), 0.1),
 		StartedAt = workspace:GetServerTimeNow(),
@@ -828,7 +854,7 @@ MapCrush.OnServerEvent:Connect(function(player: Player, action: any, token: any)
 
 	local oddity = Running[token]
 	if not oddity then return end
-	oddity:Crush(player, math.max(oddity:Setting("SafeMargin", 2), 0))
+	oddity:Crush(player, 0)
 end)
 
 function HallwayCrush:CanStart(context: any): (boolean, string?)

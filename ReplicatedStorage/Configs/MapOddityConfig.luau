@@ -65,7 +65,7 @@ return {
 			WallMaterial = Enum.Material.Slate,
 
 			PlankThickness = 0.35,
-			PlankWidth = 1.2,
+			PlankWidth = 1.8,
 			PlankOverhang = 0.25,
 			PlankLift = 0.04,
 			PlankAngle = 8,
@@ -91,7 +91,7 @@ return {
 
 			OccupiedChance = 0.55,
 			PickAttempts = 64,
-			-- Longest run that closes at once, snapped outward to whole intersections.
+			-- Longest run that closes at once.
 			MaxLength = 130,
 
 			-- Seconds the walls take to meet, and to slide back on stop.
@@ -102,6 +102,7 @@ return {
 			SealOverlap = 0.3,
 			-- Clear corridor width at which anyone still inside is crushed.
 			KillWidth = 2.2,
+			MinimumHRPOverlap = 0.55,
 			-- Studs trimmed off each end of a lethal stretch, so standing at the
 			-- mouth of an intersection is never counted as being crushed.
 			SafeMargin = 2,

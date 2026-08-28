@@ -65,15 +65,19 @@ function HallwayRegion.Box(span: Span): (CFrame, Vector3)
 	return cframe, size
 end
 
-function HallwayRegion.HasPlayer(span: Span): boolean
+function HallwayRegion.Occupant(span: Span): Vector3?
 	for _, player in Players:GetPlayers() do
 		local root = livingRoot(player)
 		if root then
 			local playerSpan = HallwayRegion.At(root.Position)
-			if playerSpan and HallwayRegion.Same(playerSpan, span) then return true end
+			if playerSpan and HallwayRegion.Same(playerSpan, span) then return root.Position end
 		end
 	end
-	return false
+	return nil
+end
+
+function HallwayRegion.HasPlayer(span: Span): boolean
+	return HallwayRegion.Occupant(span) ~= nil
 end
 
 function HallwayRegion.RandomDistant(): Span?

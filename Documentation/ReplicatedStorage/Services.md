@@ -350,12 +350,12 @@ Builds and drives the bestiary/index UI: a paginated grid of cards with Viewport
 - Requires: `Configs.IndexConfig`, `Services.RedactionService`, `Services.FriendAvatarService`, `DeathScreenService`, `InterfaceService`, `TweenProxyService`, `GuiBuilderService`; expects a pre-built `IndexGui.Design` tree
 
 ### InteractionService.luau
-Client-only singleton wrapper: returns a single `Interaction` instance (an empty table on the server), which raycasts from the camera each frame to find the registered model under the crosshair, highlights it, and draws the key prompt.
+Client-only singleton wrapper: returns a single `Interaction` instance (an empty table on the server), which raycasts from the camera each frame to find the registered model under the crosshair, highlights it, and draws the key prompt. The `Highlight` itself is created per selection and destroyed when the selection fades out, so no Highlight instance outlives the model it adorns.
 - API: `InteractionService:Register(model: Model, options: Interaction.TargetOptions)` — register a target with its prompt text/function, reach, `CanSelect`, `IgnoreOcclusion`, and `OnActivated` callback
 - API: `InteractionService:Unregister(model: Model)` — drop a target and clear the selection if it was selected
 - API: `InteractionService:GetSelected(): Model?` — the model currently under the crosshair
 - API: `InteractionService.Selected` — BindableEvent signal fired with the newly selected model, or `nil`
-- API: `InteractionService:Destroy()` — unbind the render step, action, and connections and destroy the highlight and prompt
+- API: `InteractionService:Destroy()` — unbind the render step, action, and connections and destroy the current highlight and the prompt
 - Requires: `Classes.Interaction` (which reads `Configs.DrawerConfig` and clones its prompt from the `Cursor` ScreenGui)
 
 ### InterfaceService.luau
