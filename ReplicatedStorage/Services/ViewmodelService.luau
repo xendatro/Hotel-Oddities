@@ -22,7 +22,6 @@ local rigCenterOffset = Vector3.zero
 local rigRadius = 0.5
 local rigParts: { BasePart } = {}
 local rigHandle: BasePart? = nil
-local rigMetrics: { [string]: { CenterOffset: Vector3, Radius: number } } = {}
 local lastShowViewmodel: boolean? = nil
 local hiddenParts: { BasePart } = {}
 local hiddenGuis: { SurfaceGui } = {}
@@ -85,8 +84,6 @@ local function buildRig(tool: Tool)
 	for _, descendant in clone:GetDescendants() do
 		if descendant:IsA("LuaSourceContainer") or descendant:IsA("Sound") or descendant:IsA("AudioEmitter") then
 			descendant:Destroy()
-		elseif descendant:IsA("JointInstance") or descendant:IsA("Constraint") then
-			descendant:Destroy()
 		elseif descendant:IsA("BasePart") then
 			descendant.Anchored = true
 			descendant.CanCollide = false
@@ -100,17 +97,11 @@ local function buildRig(tool: Tool)
 			descendant.Enabled = false
 		end
 	end
-	local cloneHandle = clone:FindFirstChild("Handle")
-	if not cloneHandle or not cloneHandle:IsA("BasePart") then
-		model:Destroy()
-		table.clear(rigParts)
-		return
-	end
 	clone.Parent = model
-	model.WorldPivot = cloneHandle:GetPivot()
+	model.WorldPivot = handle:GetPivot()
 
 	local override = ViewmodelConfig.Overrides[tool.Name]
-	local scale = override and override.Scale or ViewmodelConfig.Scale
+	model:ScaleTo(override and override.Scale or ViewmodelConfig.Scale)
 
 	local armConfig = ViewmodelConfig.Arm
 	if armConfig.Enabled then
@@ -138,18 +129,10 @@ local function buildRig(tool: Tool)
 	if sleeve then sleeve.Parent = nil end
 	local boundsCFrame, boundsSize = model:GetBoundingBox()
 	if sleeve then sleeve.Parent = model end
-	local metrics = rigMetrics[tool.Name]
-	if not metrics then
-		metrics = {
-			CenterOffset = cloneHandle:GetPivot():ToObjectSpace(boundsCFrame).Position,
-			Radius = boundsSize.Magnitude / 2,
-		}
-		rigMetrics[tool.Name] = metrics
-	end
-	model:ScaleTo(scale)
+	local cloneHandle = clone:FindFirstChild("Handle") :: BasePart
 	rigHandle = cloneHandle
-	rigCenterOffset = metrics.CenterOffset * scale
-	rigRadius = metrics.Radius * scale
+	rigCenterOffset = cloneHandle:GetPivot():ToObjectSpace(boundsCFrame).Position
+	rigRadius = boundsSize.Magnitude / 2
 end
 
 local function solveFraming(framing: any, base: CFrame): (Vector3?, CFrame?)
@@ -207,10 +190,6 @@ local function step(deltaTime: number)
 		hiddenParts = {}
 		hiddenGuis = {}
 		currentTool = tool
-		swayCFrame = CFrame.identity
-		lastCameraCFrame = nil
-		bobClock = 0
-		bobWeight = 0
 		poseAnchor = nil
 		poseArmAnchor = nil
 		poseRotate = nil
@@ -232,8 +211,6 @@ local function step(deltaTime: number)
 		if not tool then
 			swayCFrame = CFrame.identity
 			lastCameraCFrame = nil
-			bobClock = 0
-			bobWeight = 0
 		end
 		return
 	end
