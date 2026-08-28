@@ -8,6 +8,7 @@ local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local InterfaceService = require(ReplicatedStorage.Services.InterfaceService)
 local KitStateService = require(ReplicatedStorage.Services.KitStateService)
 local KitVisualService = require(ReplicatedStorage.Services.KitVisualService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 local TweenProxyService = require(ReplicatedStorage.Services.TweenProxyService)
 
 local KitShopUIService = {}
@@ -95,7 +96,7 @@ local function paintInfo(animate: boolean)
 	infoName.Text = string.upper(kit.Name)
 	infoName.TextColor3 = rarity.Accent
 	infoDescription.Text = kit.Description
-	priceLabel.Text = tostring(rarity.GemPrice)
+	priceLabel.Text = MathService.Comma(rarity.GemPrice)
 	KitVisualService.BuildPreview(infoViewport, KitVisualService.Showcase(kit))
 	KitVisualService.FillDetails(infoStats, kit, animate)
 	paintBuyButton()
@@ -109,7 +110,7 @@ local function paintCards()
 		if KitStateService:IsOwned(id) then
 			card:SetStatus(TEXT.Owned, true, KitVisualService.Good)
 		else
-			card:SetStatus(tostring(rarity.GemPrice), false, rarity.Accent)
+			card:SetStatus(MathService.Comma(rarity.GemPrice), false, rarity.Accent)
 		end
 	end
 end
@@ -168,7 +169,7 @@ local function flashBalance(success: boolean)
 end
 
 local function refreshBalance()
-	balance.Text = tostring(KitStateService:GetGems())
+	balance.Text = `{KitConfig.Text.BalancePrefix}{MathService.Comma(KitStateService:GetGems())}`
 	paintBuyButton()
 	paintCards()
 end

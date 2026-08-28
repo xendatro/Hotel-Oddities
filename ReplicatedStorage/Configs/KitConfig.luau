@@ -199,6 +199,7 @@ local KitConfig = {
 		TickInterval = 0.06,
 		RevealTime = 0.35,
 		CardWidth = 0.2,
+		CardHeight = 0.78,
 		CardPadding = 0.03,
 		CardTilt = 9,
 		MinScale = 0.74,
@@ -265,6 +266,7 @@ local KitConfig = {
 		Equipped = "EQUIPPED",
 		Buy = "BUY",
 		CannotAfford = "NOT ENOUGH",
+		BalancePrefix = "BALANCE: ",
 	},
 }
 

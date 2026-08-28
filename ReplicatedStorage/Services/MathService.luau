@@ -48,6 +48,14 @@ function MathService.RandomRange(minimum: number, maximum: number): number
 	return minimum + math.random() * (maximum - minimum)
 end
 
+function MathService.Comma(value: number): string
+	local rounded = math.floor(math.abs(value) + 0.5)
+	local digits = tostring(rounded):reverse():gsub("(%d%d%d)", "%1,"):reverse()
+	local trimmed = digits:gsub("^,", "")
+	local sign = if value < 0 and rounded > 0 then "-" else ""
+	return sign .. trimmed
+end
+
 function MathService.SinePulse(time: number, period: number): number
 	return (math.sin(time * MathService.TAU / math.max(period, 1e-6)) + 1) * 0.5
 end

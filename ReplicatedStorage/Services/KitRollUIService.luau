@@ -7,6 +7,7 @@ local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local InterfaceService = require(ReplicatedStorage.Services.InterfaceService)
 local KitStateService = require(ReplicatedStorage.Services.KitStateService)
 local KitVisualService = require(ReplicatedStorage.Services.KitVisualService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 
 local KitRollUIService = {}
 
@@ -81,9 +82,9 @@ local function makeReelCard(kit: KitConfig.Kit, index: number): ImageButton
 	card.Selectable = false
 	card.AutoButtonColor = false
 	card.Modal = false
-	card.AnchorPoint = Vector2.new(0, 0.5)
-	card.Position = UDim2.fromScale((index - 1) * PITCH, 0.5)
-	card.Size = UDim2.fromScale(ROLL.CardWidth, 0.92)
+	card.AnchorPoint = Vector2.new(0.5, 0.5)
+	card.Position = UDim2.fromScale((index - 1) * PITCH + ROLL.CardWidth * 0.5, 0.5)
+	card.Size = UDim2.fromScale(ROLL.CardWidth, ROLL.CardHeight)
 	card.ZIndex = 22
 	card.Parent = strip
 
@@ -198,7 +199,7 @@ local function setResult(kit: KitConfig.Kit?, duplicate: boolean, refund: number
 	kitNameLabel.Text = string.upper(kit.Name)
 	kitNameLabel.TextColor3 = rarity.Accent
 	kitDescLabel.Text = if duplicate
-		then `Already owned. {refund} gems refunded.`
+		then `Already owned. {MathService.Comma(refund)} gems refunded.`
 		else kit.Description
 	kitDescLabel.TextColor3 = KitVisualService.Ink
 
@@ -266,8 +267,8 @@ local function refreshButton()
 	local canRoll = KitStateService:CanRoll()
 	local affordable = KitStateService:GetGems() >= ROLL.GemCost
 
-	balance.Text = tostring(KitStateService:GetGems())
-	costLabel.Text = tostring(ROLL.GemCost)
+	balance.Text = `{KitConfig.Text.BalancePrefix}{MathService.Comma(KitStateService:GetGems())}`
+	costLabel.Text = MathService.Comma(ROLL.GemCost)
 
 	if busy then
 		rollLabel.Text = "ROLLING"

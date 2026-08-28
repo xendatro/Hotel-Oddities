@@ -395,20 +395,20 @@ Drives the `ItemsGui` item shop: builds a card per shop entry with a live Viewpo
 - Requires: `Configs.ItemShopConfig`, `MarketplaceService` (project wrapper, for `Products.Items` and product info), `TweenProxyService`, `GuiBuilderService`, `ReplicatedStorage.Tools`
 
 ### KitInventoryUIService.luau
-Drives the `KitInventory` page: builds a `KitCard` for every kit the player owns, sorted rarest first, into the `Kits` ScrollingFrame (wrapped in a `KitsCanvas` CanvasGroup so hover-scaled tiles clip at the grid edge instead of bleeding over the page), marks the equipped kit on its tile, and fills the info panel with the kit's name in its rarity colour, a ViewportFrame of its showcase item, and its BUFFS/ITEMS list. The Equip button flips to EQUIPPED and goes uninteractable for the kit already worn. The nav button follows roll eligibility: it reads ROLL and opens `RollGui` for players who may use paid random items, and SHOP into `KitsShop` for everyone else. Cards deal in with a stagger each time the page opens.
+Drives the `KitInventory` page: builds a `KitCard` for every kit the player owns, sorted rarest first, into the `Kits` ScrollingFrame (wrapped in a `KitsCanvas` CanvasGroup so hover-scaled tiles clip at the grid edge instead of bleeding over the page), marks the equipped kit on its tile, and fills the info panel with the kit's name in its rarity colour, a ViewportFrame of its showcase item, and its BUFFS/ITEMS list. The Equip button flips to EQUIPPED and goes uninteractable for the kit already worn. The nav button follows roll eligibility: it reads ROLL and opens `RollGui` for players who may use paid random items, and SHOP into `KitsShop` for everyone else. The grid's ScrollingFrame carries a `UIPadding` inset so hover-scaled and tilted tiles have room to grow inside the clip region instead of being cut at the edge. Cards deal in with a stagger each time the page opens.
 - Remotes: through `KitStateService` (`Kits/Sync`, `Kits/Equip`)
 - Requires: `Classes.KitCard`, `Configs.KitConfig`, `KitStateService`, `KitVisualService`, `InterfaceService`, `GuiBuilderService`, `TweenProxyService`; expects a pre-built `KitInventory.Design` tree
 
 ### KitRollUIService.luau
 Drives the `RollGui` reel, the only kit-buying surface players who may use paid random items ever see. A roll asks the server first - the result is authoritative and arrives before anything moves - then a strip of `ReelLength` tiles is built with rarity-weighted filler and the real kit planted at `WinnerIndex`, and the strip slides under the centre marker on a quintic ease-out, lands slightly off centre, and settles back with a small back-ease so the stop reads as mechanical rather than snapped.
-The motion is a carousel, not a sliding line: a render-step job scales every tile by how near its centre is to the marker and tilts it by its signed offset, the reel is a CanvasGroup whose `EdgeFade` UIGradient dissolves tiles at both edges, and the marker kicks each time a new tile takes the centre. On landing the winner grows and its rarity stroke flares, a rarity-coloured `Backdrop` blooms and fades behind the reel, the reel shakes with a strength scaled by rarity order, and the result panel slams in from `ResultPop`. Duplicates say so and name the gem refund. Failures (not enough gems, restricted account, save still loading) show as a notice instead of a spin, and the button reads UNAVAILABLE for restricted accounts.
+The motion is a carousel, not a sliding line: a render-step job scales every tile by how near its centre is to the marker and tilts it by its signed offset (tiles are centre-anchored, so a `UIScale` grows and a rotation turns them about their own middle - anchored at the left edge they grew rightwards and the gaps either side of the winner came out uneven), the reel is a CanvasGroup whose `EdgeFade` UIGradient dissolves tiles at both edges, and the marker kicks each time a new tile takes the centre. On landing the winner grows and its rarity stroke flares, a rarity-coloured `Backdrop` blooms and fades behind the reel, the reel shakes with a strength scaled by rarity order, and the result panel slams in from `ResultPop`. Duplicates say so and name the gem refund. Failures (not enough gems, restricted account, save still loading) show as a notice instead of a spin, and the button reads UNAVAILABLE for restricted accounts.
 - Remotes: through `KitStateService` (`Kits/Roll`, `Gems/Sync`)
-- Requires: `Configs.KitConfig`, `KitStateService`, `KitVisualService`, `InterfaceService`, `GuiBuilderService`; borrows the card template from `KitsShop.Design.Kits.Template`
+- Requires: `Configs.KitConfig`, `KitStateService`, `KitVisualService`, `MathService`, `InterfaceService`, `GuiBuilderService`; borrows the card template from `KitsShop.Design.Kits.Template`
 
 ### KitShopUIService.luau
-Drives the `KitsShop` page - the straight-purchase path, reached only by players who cannot use paid random items; anyone who can roll is sent to `RollGui` instead and never sees this page. A `KitCard` for every kit in the catalogue, sorted most common first, with owned kits dimmed and marked OWNED and the rest showing their rarity's gem price. The info panel mirrors the inventory's, plus the gem price badge and a buy button that reads BUY, OWNED or NOT ENOUGH and only stays interactable when the purchase can actually go through. The gem balance flashes green or red on the purchase result. The Robux button gets hover/press motion but is deliberately inert - it prompts nothing yet.
+Drives the `KitsShop` page - the straight-purchase path, reached only by players who cannot use paid random items; anyone who can roll is sent to `RollGui` instead and never sees this page. A `KitCard` for every kit in the catalogue, sorted most common first, with owned kits dimmed and marked OWNED and the rest showing their rarity's gem price. Like the inventory's, the grid is inset with a `UIPadding` so hover-scaled tiles do not clip at the edges. Every gem figure - prices, the tile badges and the balance - goes through `MathService.Comma`, and the balance reads `KitConfig.Text.BalancePrefix` before its number. The info panel mirrors the inventory's, plus the gem price badge and a buy button that reads BUY, OWNED or NOT ENOUGH and only stays interactable when the purchase can actually go through. The gem balance flashes green or red on the purchase result. The Robux button gets hover/press motion but is deliberately inert - it prompts nothing yet.
 - Remotes: through `KitStateService` (`Kits/Sync`, `Kits/Purchase`, `Gems/Sync`)
-- Requires: `Classes.KitCard`, `Configs.KitConfig`, `KitStateService`, `KitVisualService`, `InterfaceService`, `GuiBuilderService`, `TweenProxyService`; expects a pre-built `KitsShop.Design` tree
+- Requires: `Classes.KitCard`, `Configs.KitConfig`, `KitStateService`, `KitVisualService`, `MathService`, `InterfaceService`, `GuiBuilderService`, `TweenProxyService`; expects a pre-built `KitsShop.Design` tree
 
 ### KitStateService.luau
 Client-side single source of truth for kits and gems: owns the `Kits/Sync` and `Gems/Sync` subscriptions plus the `Gems` and `CanRoll` player attributes, and hands the three kit pages one shared view instead of three competing ones. Also the client's outbound side - equipping, buying and rolling all go through here.
@@ -432,7 +432,7 @@ The look of a kit, shared by all three kit pages so they cannot drift: renders a
 - API: `KitVisualService.FillDetails(holder: Frame, kit, animate: boolean)`
 - API: `KitVisualService.SortByRarity(entries, rarestFirst: boolean) -> { Kit }`
 - API: constants - `Ink`, `Good`, `Bad`, `Font`, `BoldFont`
-- Requires: `Configs.ItemShopConfig`, `Configs.KitConfig`, `HumanoidStatsService`
+- Requires: `Configs.ItemShopConfig`, `Configs.KitConfig`, `HumanoidStatsService`, `MathService`
 
 ### LanternSwayService.luau
 Makes named hanging lantern models physically swing while their light is in the chaos-red state. Each active lantern gets an invisible hinged proxy part with wind torque, random jolts, gravity scaling, and a swing limit computed from raycast wall clearance; the visible model is pivoted to the hinge angle each frame. Lanterns are culled by camera distance and a maximum simulated count, and are settled and torn down when the red state ends.
@@ -516,7 +516,7 @@ Developer-product asset ids, with per-item product ids nested under `Items`.
 - API: data table — `Revive`, `ReviveFriend`, and `Items` (Ball, Bandage, EnergyDrink, Flashlight, Medkit, Pathfinder, Shovel, Soda, SpellBook, Trap, Visor); only `Revive` has a real id
 
 ### MathService.luau
-Small pure-math helper library shared across the codebase: easing, framerate-independent lerp alphas, horizontal-plane vector work, angles, and pulses. No state, no connections.
+Small pure-math helper library shared across the codebase: easing, framerate-independent lerp alphas, horizontal-plane vector work, angles, pulses, and number formatting. No state, no connections.
 - API: `MathService.TAU` — `math.pi * 2`
 - API: `MathService.Smoothstep(alpha: number) -> number` — clamped 3t²-2t³ ease
 - API: `MathService.ExpAlpha(speed: number, deltaTime: number) -> number` — `1 - exp(-speed*dt)`, the standard lerp alpha used by every render loop here
@@ -527,6 +527,7 @@ Small pure-math helper library shared across the codebase: easing, framerate-ind
 - API: `MathService.IsWithinCone(origin: Vector3, direction: Vector3, point: Vector3, maximumAngle: number) -> boolean` — degrees
 - API: `MathService.RandomRange(minimum: number, maximum: number) -> number` — continuous
 - API: `MathService.SinePulse(time: number, period: number) -> number` — 0..1 sine
+- API: `MathService.Comma(value: number) -> string` — rounds to a whole number and groups thousands with commas; the single place any UI turns a currency or count into text
 
 ### MimicMotionService.luau
 Turns a recorded movement sample into discrete WASD-style key values so a mimic can replay a player's inputs, with mirroring, reaction-delay latching, and idle aim drift.

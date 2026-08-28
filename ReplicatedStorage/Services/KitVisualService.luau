@@ -4,6 +4,7 @@ local TweenService = game:GetService("TweenService")
 local ItemShopConfig = require(ReplicatedStorage.Configs.ItemShopConfig)
 local KitConfig = require(ReplicatedStorage.Configs.KitConfig)
 local HumanoidStatsService = require(ReplicatedStorage.Services.HumanoidStatsService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 
 local ROW = KitConfig.Animation.Row
 local VIEWPORT = KitConfig.Viewport
@@ -188,13 +189,13 @@ local function formatStat(row): string
 
 	if stat.Mode == "Scale" then
 		local ratio = if stat.Base ~= 0 then row.Value / stat.Base - 1 else 0
-		local percent = math.floor(math.abs(ratio) * 100 + 0.5)
+		local percent = MathService.Comma(math.abs(ratio) * 100)
 		local sign = if ratio < 0 then "-" else "+"
 		return `{string.upper(stat.Name)} {sign}{percent}%`
 	end
 
 	local delta = row.Delta
-	local rounded = math.floor(math.abs(delta) + 0.5)
+	local rounded = MathService.Comma(math.abs(delta))
 	local sign = if delta < 0 then "-" else "+"
 	return `{string.upper(stat.Name)} {sign}{rounded}`
 end
