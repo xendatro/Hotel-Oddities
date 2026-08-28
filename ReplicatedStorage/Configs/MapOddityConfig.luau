@@ -91,7 +91,7 @@ return {
 
 			OccupiedChance = 0.55,
 			PickAttempts = 64,
-			-- Longest run that closes at once, snapped outward to whole intersections.
+			-- Longest run that closes at once.
 			MaxLength = 130,
 
 			-- Seconds the walls take to meet, and to slide back on stop.

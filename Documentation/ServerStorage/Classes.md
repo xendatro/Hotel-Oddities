@@ -367,6 +367,7 @@ Extends `HallwayOddity`. Closes both walls of a straight hallway in until they m
 - API: `HallwayCrush.Resolve(class: any, position: Vector3) -> Candidate?` — manual placement candidate, limited around the request position
 - API: `HallwayCrush.Pick(class: any) -> Candidate?` — random span biased toward occupied ones by `OccupiedChance`
 - API: `HallwayCrush:CanStart(context: any) -> (boolean, string?)`, `HallwayCrush:Start(context: any, duration: number?) -> boolean`
+- API: `HallwayCrush.Resolve` and `HallwayCrush.Pick` keep the capped run inside one contiguous junction-free interval and centre occupied selections around the player's position
 - API: `HallwayCrush:OnStart() -> boolean` — splits the walls, collects the fixtures, builds the reveals, computes the lethal intervals, broadcasts the region and starts the closing loop
 - API: `HallwayCrush:Crush(player: Player, slack: number) -> boolean` — validates and applies one kill; used by both the client report and the backstop
 - API: `HallwayCrush:OnStop()` — retracts over `OpenTime`, then restores every edit and frees the span
@@ -380,6 +381,7 @@ Extends `HallwayOddity`. Opens a bottomless pit in a hallway: the span is trimme
 - API: `HallwayVoid.Resolve(class: any, position: Vector3) -> Candidate?` — manual placement candidate for a position
 - API: `HallwayVoid.Pick(class: any) -> Candidate?` — random span whose floor can be cut, unoccupied and unseen
 - API: `HallwayVoid:CanStart(context: any) -> (boolean, string?)`, `HallwayVoid:Start(context: any, duration: number?) -> boolean`
+- API: `HallwayVoid:OnStart` clamps the crossing plank's angle and length to the opening width using `WidthPadding`
 - API: `HallwayVoid:OnStart() -> boolean` — cuts the floor, builds the shaft, arms the kill loop
 - API: `HallwayVoid:OnStop()` — destroys the shaft, restores every cut part, frees the span
 - Tags: reads `MazeFloor`, re-applies it to cut floor pieces

@@ -76,17 +76,7 @@ function Interaction.new()
 	self._includeParams = RaycastParams.new()
 	self._includeParams.FilterType = Enum.RaycastFilterType.Include
 
-	local highlight = Instance.new("Highlight")
-	highlight.Name = HIGHLIGHT_NAME
-	highlight.FillColor = HIGHLIGHT.FillColor
-	highlight.OutlineColor = HIGHLIGHT.OutlineColor
-	highlight.DepthMode = HIGHLIGHT.DepthMode
-	highlight.FillTransparency = 1
-	highlight.OutlineTransparency = 1
-	highlight.Enabled = false
-	highlight.Adornee = nil
-	highlight.Parent = workspace
-	self._highlight = highlight
+	self._highlight = nil :: Highlight?
 
 	self:_buildPrompt()
 
@@ -304,6 +294,39 @@ function Interaction:_findSelection(): (Target?, string?)
 	return nil, nil
 end
 
+function Interaction:_applyHighlightAlpha()
+	local highlight = self._highlight
+	if not highlight then return end
+
+	highlight.FillTransparency = 1 - (1 - HIGHLIGHT.FillTransparency) * self._highlightAlpha
+	highlight.OutlineTransparency = 1 - (1 - HIGHLIGHT.OutlineTransparency) * self._highlightAlpha
+end
+
+function Interaction:_destroyHighlight()
+	if not self._highlight then return end
+
+	self._highlight:Destroy()
+	self._highlight = nil
+end
+
+function Interaction:_createHighlight(model: Model)
+	self:_destroyHighlight()
+
+	local highlight = Instance.new("Highlight")
+	highlight.Name = HIGHLIGHT_NAME
+	highlight.FillColor = HIGHLIGHT.FillColor
+	highlight.OutlineColor = HIGHLIGHT.OutlineColor
+	highlight.DepthMode = HIGHLIGHT.DepthMode
+	highlight.FillTransparency = 1
+	highlight.OutlineTransparency = 1
+	highlight.Adornee = model
+	highlight.Enabled = true
+	highlight.Parent = workspace
+	self._highlight = highlight
+
+	self:_applyHighlightAlpha()
+end
+
 function Interaction:_setSelected(target: Target?, immediate: boolean?)
 	local model = target and target.Model or nil
 	if model == self._selected then
@@ -316,20 +339,21 @@ function Interaction:_setSelected(target: Target?, immediate: boolean?)
 	self._selectionChanged:Fire(model)
 
 	if model then
-		self._highlight.Adornee = model
-		self._highlight.Enabled = true
+		self:_createHighlight(model)
 	elseif immediate then
 		self._highlightAlpha = 0
-		self._highlight.Enabled = false
-		self._highlight.Adornee = nil
+		self:_destroyHighlight()
 	end
 end
 
 function Interaction:_ensureHighlight()
-	if self._highlight.Parent ~= workspace then
-		self._highlight.Parent = workspace
+	local highlight = self._highlight
+	if not highlight then return end
+
+	if highlight.Parent ~= workspace then
+		highlight.Parent = workspace
 	end
-	if self._highlight.Adornee and not self._highlight.Adornee:IsDescendantOf(workspace) then
+	if highlight.Adornee and not highlight.Adornee:IsDescendantOf(workspace) then
 		self:_setSelected(nil, true)
 	end
 end
@@ -389,6 +413,10 @@ function Interaction:_onAction(_action: string, inputState: Enum.UserInputState)
 end
 
 function Interaction:_renderHighlight(deltaTime: number)
+	if self._selected and not self._highlight then
+		self:_createHighlight(self._selected)
+	end
+
 	local target = if self._selected then 1 else 0
 	local previousAlpha = self._highlightAlpha
 	self._highlightAlpha += (target - self._highlightAlpha)
@@ -398,16 +426,12 @@ function Interaction:_renderHighlight(deltaTime: number)
 	end
 
 	if self._highlightAlpha <= 0 then
-		if self._highlight.Enabled then
-			self._highlight.Enabled = false
-			self._highlight.Adornee = nil
-		end
+		self:_destroyHighlight()
 		return
 	end
 
 	if self._highlightAlpha ~= previousAlpha then
-		self._highlight.FillTransparency = 1 - (1 - HIGHLIGHT.FillTransparency) * self._highlightAlpha
-		self._highlight.OutlineTransparency = 1 - (1 - HIGHLIGHT.OutlineTransparency) * self._highlightAlpha
+		self:_applyHighlightAlpha()
 	end
 end
 
@@ -474,8 +498,7 @@ function Interaction:_reset()
 	self._selected = nil
 	self._selectedTarget = nil
 	self._highlightAlpha = 0
-	self._highlight.Enabled = false
-	self._highlight.Adornee = nil
+	self:_destroyHighlight()
 	self._promptAlpha = 0
 	self._pressFlash = 0
 	if wasSelected then
@@ -496,7 +519,7 @@ function Interaction:Destroy()
 	self._characterRemoving:Disconnect()
 	self._characterAdded:Disconnect()
 	self._selectionChanged:Destroy()
-	self._highlight:Destroy()
+	self:_destroyHighlight()
 	if self._prompt then
 		self._prompt.Container:Destroy()
 	end

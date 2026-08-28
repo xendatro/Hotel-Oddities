@@ -253,32 +253,45 @@ function HallwayWallService.CutPoints(frame: Frame): { number }
 	return cuts
 end
 
-function HallwayWallService.Limit(frame: Frame, position: Vector3, maximumLength: number): Frame
-	local cuts = HallwayWallService.CutPoints(frame)
-	if #cuts < 3 or maximumLength <= 0 then return frame end
+function HallwayWallService.Limit(frame: Frame, position: Vector3?, maximumLength: number): Frame?
+	local open = HallwayWallService.Closing(frame)
+	if #open == 0 then return nil end
 
-	local along = math.clamp((position - frame.Center):Dot(frame.Axis), frame.Minimum, frame.Maximum)
-	local low = 1
-	for index = 1, #cuts - 1 do
-		if along >= cuts[index] then low = index end
-	end
-	local high = low + 1
+	local along = if position
+		then math.clamp((position - frame.Center):Dot(frame.Axis), frame.Minimum, frame.Maximum)
+		else nil
 
-	while true do
-		local canGrowLow = low > 1 and cuts[high] - cuts[low - 1] <= maximumLength
-		local canGrowHigh = high < #cuts and cuts[high + 1] - cuts[low] <= maximumLength
-		if canGrowLow and (not canGrowHigh or cuts[low] - cuts[low - 1] <= cuts[high + 1] - cuts[high]) then
-			low -= 1
-		elseif canGrowHigh then
-			high += 1
-		else
-			break
+	local chosen = open[1]
+	if along then
+		local nearest = math.huge
+		for _, interval in open do
+			local distance = math.max(interval.Minimum - along, along - interval.Maximum, 0)
+			if distance < nearest then
+				chosen, nearest = interval, distance
+			end
+		end
+	else
+		for _, interval in open do
+			if interval.Maximum - interval.Minimum > chosen.Maximum - chosen.Minimum then
+				chosen = interval
+			end
 		end
 	end
 
 	local limited = table.clone(frame)
-	limited.Minimum = cuts[low]
-	limited.Maximum = cuts[high]
+	limited.Minimum = chosen.Minimum
+	limited.Maximum = chosen.Maximum
+	if maximumLength <= 0 or chosen.Maximum - chosen.Minimum <= maximumLength then return limited end
+
+	local middle = if along
+		then math.clamp(along, chosen.Minimum, chosen.Maximum)
+		else (chosen.Minimum + chosen.Maximum) / 2
+	limited.Minimum = math.clamp(
+		middle - maximumLength / 2,
+		chosen.Minimum,
+		chosen.Maximum - maximumLength
+	)
+	limited.Maximum = limited.Minimum + maximumLength
 	return limited
 end
 

@@ -171,9 +171,9 @@ local function candidateFromSpan(class: any, span: HallwayRegion.Span?, position
 	local frame = HallwayWall.Frame(span)
 	if not frame then return nil end
 
-	frame = HallwayWall.Limit(frame, position or span.Center, setting(class, "MaxLength", 130))
-	if HallwayWall.Length(frame) < MINIMUM_SPAN_LENGTH then return nil end
-	return { Span = span, Frame = frame }
+	local limited = HallwayWall.Limit(frame, position, setting(class, "MaxLength", 130))
+	if not limited or HallwayWall.Length(limited) < MINIMUM_SPAN_LENGTH then return nil end
+	return { Span = span, Frame = limited }
 end
 
 local function pieceIntervals(
@@ -322,10 +322,14 @@ function HallwayCrush.Pick(class: any): Candidate?
 	local attempts = math.max(math.floor(setting(class, "PickAttempts", 64)), 1)
 	local occupiedChance = setting(class, "OccupiedChance", 0.4)
 	for _ = 1, attempts do
-		local span = if math.random() <= occupiedChance
-			then HallwayRegion.RandomOccupied() or spans[math.random(1, #spans)]
-			else spans[math.random(1, #spans)]
-		local candidate = candidateFromSpan(class, span)
+		local span: HallwayRegion.Span? = nil
+		local target: Vector3? = nil
+		if math.random() <= occupiedChance then
+			span = HallwayRegion.RandomOccupied()
+			if span then target = HallwayRegion.Occupant(span :: HallwayRegion.Span) end
+		end
+
+		local candidate = candidateFromSpan(class, span or spans[math.random(1, #spans)], target)
 		if candidate and not isActive(candidate.Span) then return candidate end
 	end
 	return nil

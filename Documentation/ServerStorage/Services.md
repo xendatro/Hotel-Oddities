@@ -226,10 +226,11 @@ Finds hallway "corner mouths" near a viewer — graph nodes with a side branch r
 - Requires: `HallwayGraphService`, `ReplicatedStorage.Services.HallwaysService`, `MathService.Horizontal`
 
 ### HallwayRegionService.luau
-Helpers for treating a straight hallway span as a region: comparing spans (in either direction), finding the span at a position, building a padded bounding box for it, checking for players inside, and picking random spans that are distant, occupied, or danger-weighted.
+Helpers for treating a straight hallway span as a region: comparing spans (in either direction), finding the span at a position, building a padded bounding box for it, finding a living player's position inside it, checking for players inside, and picking random spans that are distant, occupied, or danger-weighted.
 - API: `HallwayRegion.Same(first: Span, second: Span) -> boolean` — direction-agnostic within `SpatialPadding`
 - API: `HallwayRegion.At(position: Vector3, includeRoomFloors: boolean?) -> Span?`
 - API: `HallwayRegion.Box(span: Span) -> (CFrame, Vector3)` — padded volume using the config height windows
+- API: `HallwayRegion.Occupant(span: Span) -> Vector3?`
 - API: `HallwayRegion.HasPlayer(span: Span) -> boolean`
 - API: `HallwayRegion.RandomDistant() -> Span?`
 - API: `HallwayRegion.RandomDistantWeighted(dangerWeight: number, accept: ((Span) -> boolean)?) -> Span?`
@@ -245,7 +246,7 @@ Geometry over the **walls** of a straight hallway span, the counterpart to `Hall
 - API: `HallwayWallService.Mouths(frame: Frame) -> { Mouth }` — `{ Minimum, Maximum, Sign }` per side opening
 - API: `HallwayWallService.CutPoints(frame: Frame) -> { number }` — sorted, both-side union, ends included
 - API: `HallwayWallService.Closing(frame: Frame) -> { Interval }` — the span with every mouth, from either side, cut out of it
-- API: `HallwayWallService.Limit(frame: Frame, position: Vector3, maximumLength: number) -> Frame`
+- API: `HallwayWallService.Limit(frame: Frame, position: Vector3?, maximumLength: number) -> Frame?`
 - API: `HallwayWallService.Walls(frame: Frame) -> { Wall }`
 - API: `HallwayWallService.Fixtures(frame: Frame, tag: string, margin: number?) -> { Instance }` — tagged parts/models inside the frame
 - API: `HallwayWallService.Merge(intervals: { Interval }, gap: number?) -> { Interval }` — sort and coalesce, optionally closing gaps up to `gap`
