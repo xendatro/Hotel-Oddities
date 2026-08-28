@@ -750,6 +750,10 @@ Client first-person viewmodel: clones the equipped Tool (stripped of scripts, so
 - API: none — side-effect only.
 - Requires: `Configs.ViewmodelConfig` (`Scale`, `Fit`, `HandOffset`, `Arm`, `Overrides`)
 
+### ViewmodelDebugService.luau
+F3 developer panel for live tuning of the Walkie Talkie first-person viewmodel. Sliders control scale, anchor position and all three rotation axes, rebuild the preview immediately when scale changes, and show the exact config entry to copy when tuning is complete. Changes last only for the current client session.
+- Requires: `Configs.ViewmodelDebugConfig`, `Configs.ViewmodelConfig`, `Configs.FLAGS`, `Classes.DebugPanel`, `ViewmodelService`
+
 ### VoiceActivityService.luau
 Client voice-activity detector: wires an `AudioAnalyzer` onto the local player's `AudioDeviceInput`, polls RMS level against a threshold, and tells the server when you start and stop speaking (with a heartbeat re-send and a release delay). Stops analyzing on death, mutes remote voice emitters and radio output faders locally until respawn, and rebuilds itself if the input device appears or disappears.
 - API: none — side-effect only.

@@ -217,6 +217,12 @@ local function step(deltaTime: number)
 	end
 end
 
+function ViewmodelService:Refresh()
+	if currentTool then
+		buildRig(currentTool)
+	end
+end
+
 RunService:BindToRenderStep(BIND_NAME, Enum.RenderPriority.Camera.Value + 2, step)
 
 return ViewmodelService

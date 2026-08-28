@@ -207,6 +207,10 @@ Per-tool settings keyed by tool name, giving each tool its CollectionService tag
 Placement, scale, sway/bob and per-tool orientation overrides for the first-person viewmodel and its fake arm. `Overrides.Camera` anchors the tripod by its handle, while `Overrides["Walkie Talkie"]` scales, anchors and rolls the radio into the palm so its screen stays visible.
 - API: data table — `HandOffset`, `Scale`, `Fit`, `SwayAmount`, `SwaySpeed`, `BobAmount`, `BobSpeed`, `Arm`, `Overrides`
 
+### ViewmodelDebugConfig.luau
+F3 developer-panel settings for tuning the walkie-talkie first-person viewmodel live.
+- API: data table — `ToggleKey`, `Step`, `AngleStep`
+
 ### VoiceChatConfig.luau
 Volume, attenuation distance and voice-activity detection settings for proximity voice chat.
 - API: data table — `Volume`, `Distance`, `NoiseRadius`, `Activity`

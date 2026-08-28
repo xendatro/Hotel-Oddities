@@ -4,5 +4,6 @@ return {
 	Director = true,
 	DangerDebug = true,
 	VoiceDebug = true,
+	ViewmodelDebug = true,
 	PerfLog = false,
 }

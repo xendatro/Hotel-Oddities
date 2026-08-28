@@ -178,6 +178,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\TweenProxyService.luau — Tweens arbitrary values through a throwaway ValueBase and a callback, including model scaling.
 - ReplicatedStorage\Services\VanishedService.luau — Checks whether a character is tagged Ignore or IgnoreExceptEye or holds a ForceField, with an Eye-specific check that skips the exempt tag.
 - ReplicatedStorage\Services\ViewmodelService.luau — First-person viewmodel that clones the equipped tool under the camera with sway and bob.
+- ReplicatedStorage\Services\ViewmodelDebugService.luau — F3 developer panel for live walkie-talkie viewmodel placement tuning and config-value output.
 - ReplicatedStorage\Services\VoiceActivityService.luau — Detects when the local player is speaking from an AudioAnalyzer, reports it to the server, and cuts incoming proximity voice and radio off while the local player is dead.
 - ReplicatedStorage\Services\VoiceDebugService.luau — Debug panel of sliders for local proximity-voice and radio volumes.
 - ReplicatedStorage\Services\WalkSoundService.luau — Footstep engine timing steps from locomotion animations for players and tagged enemies.
@@ -289,6 +290,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\StreamingConfig.luau — Corridor streaming prediction, reconciliation and tag settings (currently disabled).
 - ReplicatedStorage\Configs\ToolConfigs.luau — Per-tool tags and behaviour values for every usable tool.
 - ReplicatedStorage\Configs\ViewmodelConfig.luau — First-person viewmodel placement, sway, bob and per-tool overrides.
+- ReplicatedStorage\Configs\ViewmodelDebugConfig.luau — F3 walkie-talkie viewmodel tuning panel keybind and slider steps.
 - ReplicatedStorage\Configs\VoiceChatConfig.luau — Proximity voice chat volume, distance and activity detection settings.
 - ReplicatedStorage\Configs\VoiceDebugConfig.luau — Slider definitions for the F6 voice volume debug panel, holding live config references.
 - ReplicatedStorage\Configs\WalkSoundConfig.luau — Footstep sound rate and per-enemy step volume overrides.
