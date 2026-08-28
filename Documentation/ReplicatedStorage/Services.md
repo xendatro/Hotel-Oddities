@@ -751,7 +751,7 @@ Client first-person viewmodel: clones the equipped Tool (stripped of scripts, so
 - Requires: `Configs.ViewmodelConfig` (`Scale`, `Fit`, `HandOffset`, `Arm`, `Overrides`)
 
 ### ViewmodelDebugService.luau
-F3 developer panel for live tuning of the Walkie Talkie first-person viewmodel. Sliders control scale, anchor position and all three rotation axes, rebuild the preview immediately when scale changes, and show the exact config entry to copy when tuning is complete. Changes last only for the current client session.
+F3 developer panel for live tuning of the Walkie Talkie first-person viewmodel. Sliders separately control radio anchor, fake-hand anchor, scale and all three rotation axes, rebuild the preview immediately when scale changes, and show the exact config entry to copy when tuning is complete. Changes last only for the current client session.
 - Requires: `Configs.ViewmodelDebugConfig`, `Configs.ViewmodelConfig`, `Configs.FLAGS`, `Classes.DebugPanel`, `ViewmodelService`
 
 ### VoiceActivityService.luau

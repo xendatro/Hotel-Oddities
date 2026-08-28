@@ -21,6 +21,9 @@ local values = {
 	AnchorX = override.Anchor.X,
 	AnchorY = override.Anchor.Y,
 	AnchorZ = override.Anchor.Z,
+	ArmX = (override.ArmAnchor or override.Anchor).X,
+	ArmY = (override.ArmAnchor or override.Anchor).Y,
+	ArmZ = (override.ArmAnchor or override.Anchor).Z,
 	RotateX = 0,
 	RotateY = 0,
 	RotateZ = 15,
@@ -30,11 +33,14 @@ local output = panel:AddLabel("")
 
 local function updateOutput()
 	output.Text = string.format(
-		'["Walkie Talkie"] = { AnchorAt = "Handle", Scale = %.2f, Anchor = Vector3.new(%.2f, %.2f, %.2f), Rotate = CFrame.Angles(math.rad(%.0f), math.rad(%.0f), math.rad(%.0f)), },',
+		'["Walkie Talkie"] = { AnchorAt = "Handle", Scale = %.2f, Anchor = Vector3.new(%.2f, %.2f, %.2f), ArmAnchor = Vector3.new(%.2f, %.2f, %.2f), Rotate = CFrame.Angles(math.rad(%.0f), math.rad(%.0f), math.rad(%.0f)), },',
 		values.Scale,
 		values.AnchorX,
 		values.AnchorY,
 		values.AnchorZ,
+		values.ArmX,
+		values.ArmY,
+		values.ArmZ,
 		values.RotateX,
 		values.RotateY,
 		values.RotateZ
@@ -44,6 +50,7 @@ end
 local function apply(refresh: boolean)
 	override.Scale = values.Scale
 	override.Anchor = Vector3.new(values.AnchorX, values.AnchorY, values.AnchorZ)
+	override.ArmAnchor = Vector3.new(values.ArmX, values.ArmY, values.ArmZ)
 	override.Rotate = CFrame.Angles(
 		math.rad(values.RotateX),
 		math.rad(values.RotateY),
@@ -76,6 +83,9 @@ addSlider("Scale", "Scale", 0.1, 1.5, Config.Step, true)
 addSlider("AnchorX", "Anchor X", -2, 2, Config.Step, false)
 addSlider("AnchorY", "Anchor Y", -2, 1, Config.Step, false)
 addSlider("AnchorZ", "Anchor Z", -4, -0.2, Config.Step, false)
+addSlider("ArmX", "Hand X", -2, 2, Config.Step, false)
+addSlider("ArmY", "Hand Y", -2, 1, Config.Step, false)
+addSlider("ArmZ", "Hand Z", -4, -0.2, Config.Step, false)
 addSlider("RotateX", "Rotate X", -180, 180, Config.AngleStep, false)
 addSlider("RotateY", "Rotate Y", -180, 180, Config.AngleStep, false)
 addSlider("RotateZ", "Rotate Z", -180, 180, Config.AngleStep, false)
@@ -85,6 +95,9 @@ panel:AddButton("reset to config defaults", function()
 	values.AnchorX = override.Anchor.X
 	values.AnchorY = override.Anchor.Y
 	values.AnchorZ = override.Anchor.Z
+	values.ArmX = (override.ArmAnchor or override.Anchor).X
+	values.ArmY = (override.ArmAnchor or override.Anchor).Y
+	values.ArmZ = (override.ArmAnchor or override.Anchor).Z
 	values.RotateX = 0
 	values.RotateY = 0
 	values.RotateZ = 15

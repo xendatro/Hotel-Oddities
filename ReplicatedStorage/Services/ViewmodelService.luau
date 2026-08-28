@@ -201,6 +201,8 @@ local function step(deltaTime: number)
 			fit.Base.Z - rigRadius * fit.PerStud.Z
 		)
 	local centerTarget = (base * CFrame.new(anchor)).Position
+	local armAnchor = (override and override.ArmAnchor) or anchor
+	local armTarget = (base * CFrame.new(armAnchor)).Position
 
 	local rotation = (base * ViewmodelConfig.HandOffset * tool.Grip:Inverse()
 		* ((override and override.Rotate) or CFrame.identity)).Rotation
@@ -212,8 +214,8 @@ local function step(deltaTime: number)
 	local sleeve = rig:FindFirstChild("Sleeve")
 	if sleeve and sleeve:IsA("BasePart") then
 		local shoulder = (base * ViewmodelConfig.Arm.Shoulder).Position
-		local mid = shoulder:Lerp(centerTarget, 0.45)
-		sleeve.CFrame = CFrame.lookAt(mid, centerTarget, base.UpVector)
+		local mid = shoulder:Lerp(armTarget, 0.45)
+		sleeve.CFrame = CFrame.lookAt(mid, armTarget, base.UpVector)
 	end
 end
 

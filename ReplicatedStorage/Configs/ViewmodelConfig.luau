@@ -32,6 +32,7 @@ return {
 			AnchorAt = "Handle",
 			Scale = 0.5,
 			Anchor = Vector3.new(1.35, -0.5, -1.8),
+			ArmAnchor = Vector3.new(1.65, -1.05, -1.35),
 			Rotate = CFrame.Angles(0, 0, math.rad(15)),
 		},
 		Soda = { Rotate = CFrame.Angles(math.rad(-90), 0, 0) },
