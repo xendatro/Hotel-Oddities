@@ -186,6 +186,23 @@ end
 stateButton = panel:AddButton("", function()
 	setState(stateIndex + 1)
 end)
+stateButton.Visible = false
+
+local lastTool: Tool? = nil
+
+RunService.RenderStepped:Connect(function()
+	local tool = ViewmodelService:GetTool()
+	local isWalkieTalkie = tool ~= nil and tool.Name == TOOL_NAME
+	stateButton.Visible = isWalkieTalkie
+
+	if tool == lastTool then return end
+	lastTool = tool
+	if isWalkieTalkie then
+		setState(stateIndex)
+	else
+		ViewmodelService:SetPoseOverride(false)
+	end
+end)
 
 local function addSlider(
 	key: string,

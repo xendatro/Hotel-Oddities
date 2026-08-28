@@ -316,6 +316,10 @@ function ViewmodelService:SetPose(pose: string?)
 	currentPose = pose
 end
 
+function ViewmodelService:GetTool(): Tool?
+	return currentTool
+end
+
 function ViewmodelService:GetPose(): string?
 	return if poseOverrideActive then poseOverrideName else currentPose
 end
