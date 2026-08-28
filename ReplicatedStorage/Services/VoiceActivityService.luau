@@ -56,6 +56,16 @@ local function restoreMutedVoiceEmitters()
 	end
 end
 
+function VoiceActivityService:GetLevel(): number
+	local current = analyzer
+	if not current or not current.Parent then return 0 end
+	local source = player:FindFirstChild("AudioDeviceInput")
+	if not source or not source:IsA("AudioDeviceInput") or not source.Active or source.Muted then
+		return 0
+	end
+	return current.RmsLevel
+end
+
 local function sendActivity(active: boolean, heartbeat: boolean?)
 	local now = os.clock()
 	if speaking == active and not heartbeat then return end

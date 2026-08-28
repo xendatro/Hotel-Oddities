@@ -19,6 +19,33 @@ local function axisExtent(size: Vector3, axis: Vector3): number
 	return math.abs(size.X * axis.X) + math.abs(size.Y * axis.Y) + math.abs(size.Z * axis.Z)
 end
 
+function SurfaceCursorService:GetFaceBasis(face: Enum.NormalId)
+	return FACES[face] or FACES[Enum.NormalId.Front]
+end
+
+function SurfaceCursorService:GetElementFrame(
+	part: BasePart,
+	face: Enum.NormalId,
+	element: GuiObject,
+	canvasSize: Vector2
+): (Vector3, Vector2)
+	local basis = FACES[face] or FACES[Enum.NormalId.Front]
+	local width = axisExtent(part.Size, basis.Right)
+	local height = axisExtent(part.Size, basis.Up)
+	if canvasSize.X <= 0 or canvasSize.Y <= 0 then
+		return Vector3.zero, Vector2.new(width, height)
+	end
+
+	local centre = element.AbsolutePosition + element.AbsoluteSize / 2
+	local offset = basis.Right * ((centre.X / canvasSize.X - 0.5) * width)
+		+ basis.Up * ((0.5 - centre.Y / canvasSize.Y) * height)
+	local size = Vector2.new(
+		element.AbsoluteSize.X / canvasSize.X * width,
+		element.AbsoluteSize.Y / canvasSize.Y * height
+	)
+	return offset, size
+end
+
 function SurfaceCursorService:GetFaceSize(part: BasePart, face: Enum.NormalId): Vector2
 	local basis = FACES[face] or FACES[Enum.NormalId.Front]
 	return Vector2.new(axisExtent(part.Size, basis.Right), axisExtent(part.Size, basis.Up))

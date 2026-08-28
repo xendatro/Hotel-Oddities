@@ -8,6 +8,7 @@ local VoiceChatConfig = require(ReplicatedStorage.Configs.VoiceChatConfig)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local MathService = require(ReplicatedStorage.Services.MathService)
 local ViewmodelService = require(ReplicatedStorage.Services.ViewmodelService)
+local VoiceActivityService = require(ReplicatedStorage.Services.VoiceActivityService)
 
 local WalkieTalkieService = {}
 
@@ -38,6 +39,7 @@ end
 local playerVolumes: { [number]: number } = {}
 local playerMuted: { [number]: boolean } = {}
 local levels: { [Player]: number } = {}
+local selfLevel = 0
 
 type VoiceRoute = {
 	Target: Player,
@@ -300,6 +302,19 @@ local function getPlayerGain(target: Player): number
 	return if volume then math.clamp(volume, 0, 1) else 1
 end
 
+local function smooth(current: number, target: number, deltaTime: number): number
+	local meter = Config.Ui.Meter
+	local speed = if target > current then meter.Attack else meter.Release
+	return current + (target - current) * MathService.ExpAlpha(speed, deltaTime)
+end
+
+local function updateSelfLevel(deltaTime: number)
+	local target = if transmitting
+		then math.clamp(VoiceActivityService:GetLevel() * Config.Ui.Meter.Gain, 0, 1)
+		else 0
+	selfLevel = smooth(selfLevel, target, deltaTime)
+end
+
 local function updateRouteVolumes(deltaTime: number)
 	local listenerPosition = getListenerPosition()
 	if not listenerPosition then return end
@@ -326,10 +341,11 @@ local function updateRouteVolumes(deltaTime: number)
 		end
 		route.Fader.Volume = weight * getPlayerGain(route.Sender)
 
-		local target = math.clamp(route.Analyzer.RmsLevel * meter.Gain, 0, 1)
-		local current = levels[route.Sender] or 0
-		local speed = if target > current then meter.Attack else meter.Release
-		levels[route.Sender] = current + (target - current) * MathService.ExpAlpha(speed, deltaTime)
+		levels[route.Sender] = smooth(
+			levels[route.Sender] or 0,
+			math.clamp(route.Analyzer.RmsLevel * meter.Gain, 0, 1),
+			deltaTime
+		)
 	end
 end
 
@@ -350,6 +366,7 @@ local function isOwnedRadioOutput(descendant: Instance): boolean
 end
 
 local function refreshRoutes(deltaTime: number)
+	updateSelfLevel(deltaTime)
 	if not powered then return end
 	local seenEmitters: { [AudioEmitter]: boolean } = {}
 	local seenOutputs: { [AudioDeviceOutput]: boolean } = {}
@@ -542,9 +559,7 @@ function WalkieTalkieService:GetRoster(): { RosterEntry }
 		table.insert(roster, {
 			Player = target,
 			Category = self:GetCategoryFor(target),
-			Level = if target == player
-				then (if transmitting then 1 else 0)
-				else self:GetLevel(target),
+			Level = if target == player then selfLevel else self:GetLevel(target),
 		})
 	end
 	table.sort(roster, function(a, b)

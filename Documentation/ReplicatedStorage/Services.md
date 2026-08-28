@@ -691,6 +691,8 @@ Maps a viewport point onto a `SurfaceGui` canvas by intersecting the camera ray 
 - API: `SurfaceCursorService:Contains(element, point, padding?) -> boolean` — hit-test a `GuiObject` against a projected point, optionally growing it by `padding` canvas pixels
 - API: `SurfaceCursorService:GetAlpha(element, point) -> number` — 0-1 position across an element, for sliders
 - API: `SurfaceCursorService:GetFaceSize(part, face) -> Vector2` — the face's stud dimensions
+- API: `SurfaceCursorService:GetFaceBasis(face)` — the face's right/up/normal unit vectors in part space
+- API: `SurfaceCursorService:GetElementFrame(part, face, element, canvasSize) -> (Vector3, Vector2)` — a GUI element's centre offset in part space and its size in studs, for framing a screen in view
 - Requires: nothing
 
 ### SprintService.luau
@@ -754,20 +756,21 @@ One-question helper for whether a character should be treated as absent: it carr
 - API: `Vanished.EyeExemptTag` — the string `"IgnoreExceptEye"`
 - Tags: reads `Ignore`, `IgnoreExceptEye`
 ### ViewmodelService.luau
-Client first-person viewmodel: clones the equipped Tool (stripped of scripts, sounds and effects) under the camera, hides the real tool (its parts *and* its SurfaceGuis, which transparency alone cannot hide), and each render step positions the clone from camera CFrame plus yaw sway and speed-scaled bob. Auto-hides when not in first person or when the character's real hand is visible; supports per-tool anchor/rotation overrides, a per-tool `Scale` override for props too large for the shared scale, and named poses that other services switch between, lerped at the override's `PoseSpeed`.
+Client first-person viewmodel: clones the equipped Tool (stripped of scripts, sounds and effects) under the camera, hides the real tool (its parts *and* its SurfaceGuis, which transparency alone cannot hide), and each render step positions the clone from camera CFrame plus yaw sway and speed-scaled bob. Auto-hides when not in first person or when the character's real hand is visible; supports per-tool anchor/rotation overrides, a per-tool `Scale` override for props too large for the shared scale, and named poses that other services switch between, lerped at the override's `PoseSpeed`. A pose either shifts the base placement (`AnchorOffset`, `ArmAnchorOffset`, `RotateOffset`, so live tuning of the base carries into it), replaces it outright (`Anchor`, `ArmAnchor`, `Rotate`), or declares a `Framing` block and is solved from the rig's own geometry — squaring a named part's face to the camera and backing off until a named GUI element covers the requested fraction of the viewport, which keeps it centred and upright no matter how the base pose or `Scale` are tuned.
 - API: `ViewmodelService:SetPose(pose: string?)` — select a named entry from the current tool's `Overrides[tool].Poses`, or `nil` for the base placement
+- API: `ViewmodelService:SetPoseOverride(active: boolean, pose: string?)` — pin a pose regardless of `SetPose`, for the debug panel
 - API: `ViewmodelService:GetPose() -> string?`
 - API: `ViewmodelService:GetRig() -> Model?` — the live viewmodel clone, for services that drive its contents
 - API: `ViewmodelService:Refresh()` — rebuild the rig for the current tool
-- Requires: `Configs.ViewmodelConfig` (`Scale`, `Fit`, `HandOffset`, `Arm`, `Overrides`), `MathService`
+- Requires: `Configs.ViewmodelConfig` (`Scale`, `Fit`, `HandOffset`, `Arm`, `Overrides`), `MathService`, `SurfaceCursorService` (face geometry for framed poses)
 
 ### ViewmodelDebugService.luau
-F3 developer panel for live tuning of the Walkie Talkie first-person viewmodel. Sliders separately control radio anchor, fake-hand anchor, scale and all three rotation axes, rebuild the preview immediately when scale changes, and show the exact config entry in a selectable text box for copying when tuning is complete. Changes last only for the current client session.
-- Requires: `Configs.ViewmodelDebugConfig`, `Configs.ViewmodelConfig`, `Configs.FLAGS`, `Classes.DebugPanel`, `ViewmodelService`
+F3 developer panel for live tuning of the Walkie Talkie first-person viewmodel. A state button cycles Live (the game drives the pose) and one entry per pose, pinning the viewmodel through `ViewmodelService:SetPoseOverride` so a pose can be held still while it is tuned. Sliders control scale, radio anchor, fake-hand anchor and all three rotation axes — reading absolute values for the base state and offsets for a pose — plus screen coverage for framed poses, which is the only placement control those have. The selectable text box emits the whole config entry including every pose, so pasting it back cannot drop them.
+- Requires: `Configs.ViewmodelDebugConfig` (`ToggleKey`, `Step`, `AngleStep`, `PoseOrder`), `Configs.ViewmodelConfig`, `Configs.FLAGS`, `Classes.DebugPanel`, `ViewmodelService`
 
 ### VoiceActivityService.luau
 Client voice-activity detector: wires an `AudioAnalyzer` onto the local player's `AudioDeviceInput`, polls RMS level against a threshold, and tells the server when you start and stop speaking (with a heartbeat re-send and a release delay). Stops analyzing on death, mutes remote voice emitters locally until respawn, and rebuilds itself if the input device appears or disappears. This drives proximity voice and enemy hearing only — walkie-talkie transmission is push-to-talk and does not use it.
-- API: none — side-effect only.
+- API: `VoiceActivityService:GetLevel() -> number` — the analyser's current RMS level, or 0 when there is no live unmuted input
 - Remotes: `WalkieTalkie/VoiceActivity` (fired)
 - Requires: `Configs.VoiceChatConfig` (`Activity.PollInterval`, `.Threshold`, `.Heartbeat`, `.Release`)
 
@@ -783,7 +786,7 @@ Client footstep engine for players and tagged enemies. Silences the default Robl
 - Requires: `AudioService.Play3DSound`, `CharacterService.ForEachPlayer`, `TagService`, `Configs.WalkSoundConfig`, `Configs.CrouchConfig` (`Stealth`)
 
 ### WalkieTalkieService.luau
-Client walkie-talkie brain: owns power, equip, raised and push-to-talk state, and all local audio routing. Power (`Keys.Power`, default G) is independent of holding the tool — a powered radio keeps receiving from the backpack, but transmitting needs it equipped. Transmission is push-to-talk on left mouse (or the touch TALK button) and drives the `Talk` viewmodel pose; `Keys.Raise` (default R) lifts the radio into the `Raised` pose for the full-screen UI. Mutes the player's own radio emitter via a private `AudioInteractionGroup`, crossfades each remote player's proximity voice against their incoming radio route by listener distance, multiplies that route by the local per-player mute/volume, and reads each route's level from an `AudioAnalyzer` for the roster meters. Refuses to power on when voice chat is unavailable for the user.
+Client walkie-talkie brain: owns power, equip, raised and push-to-talk state, and all local audio routing. Power (`Keys.Power`, default G) is independent of holding the tool — a powered radio keeps receiving from the backpack, but transmitting needs it equipped. Transmission is push-to-talk on left mouse (or the touch TALK button) and drives the `Talk` viewmodel pose; `Keys.Raise` (default R) lifts the radio into the `Raised` pose for the full-screen UI. Mutes the player's own radio emitter via a private `AudioInteractionGroup`, crossfades each remote player's proximity voice against their incoming radio route by listener distance, multiplies that route by the local per-player mute/volume, and reads each route's level from an `AudioAnalyzer` for the roster meters. Your own meter follows your microphone through `VoiceActivityService:GetLevel` while you hold push-to-talk, with the same gain and attack/release ballistics as everyone else's, rather than pinning to full. Refuses to power on when voice chat is unavailable for the user.
 - API: `WalkieTalkieService:SetPowered(value)` / `:TogglePower()` / `:IsPowered() -> boolean`
 - API: `WalkieTalkieService:SetEquipped(value)` / `:IsEquipped() -> boolean` — driven by the tool class
 - API: `WalkieTalkieService:SetRaised(value)` / `:ToggleRaised()` / `:IsRaised() -> boolean`
@@ -794,7 +797,7 @@ Client walkie-talkie brain: owns power, equip, raised and push-to-talk state, an
 - API: `WalkieTalkieService:GetRoster() -> { { Player, Category, Level } }` — sorted Enabled, then Disabled, then NoVoice; alphabetical by display name within each
 - API: `WalkieTalkieService:GetLevel(player) -> number` / `:GetCategoryFor(player) -> string` / `:GetTool() -> Tool?`
 - Remotes: `WalkieTalkie/SetMode`, `WalkieTalkie/SetPower`, `WalkieTalkie/SetTransmit` (fired), `WalkieTalkie/SetAudio` (fired and listened — the server replies with the saved settings on join)
-- Requires: `Configs.WalkieTalkieConfig`, `Configs.VoiceChatConfig`, `MathService`, `ViewmodelService`
+- Requires: `Configs.WalkieTalkieConfig`, `Configs.VoiceChatConfig`, `MathService`, `ViewmodelService`, `VoiceActivityService`
 
 ### WalkieUIService.luau
 Client owner of the walkie-talkie's on-model screen. Binds to the `SurfaceGui` inside the viewmodel rig (falling back to the real tool), clones the authored `Row` and `SettingRow` templates out of `Main.Body`, and each render step repaints the roster — status dot, display name, status line and level meter — plus the header, footer hint and the OFF overlay. Raising the radio unlocks the cursor through `InterfaceService` and swaps each row's meter for its mute button and volume slider; the header's `Mode` button cycles All/Friends and `Settings` flips to the category sliders. Because a `SurfaceGui` on a part parented to the camera receives no native input, every click, drag and slider is dispatched from `SurfaceCursorService` projections against the gui's authored `CanvasSize`; the system mouse cursor is the pointer, and the game's own `Cursor` crosshair is disabled while the radio is raised. Ray points are always inset-included screen coordinates — `GetMouseLocation()` for the mouse, and the touch `InputObject.Position` plus `GetGuiInset()` — because `InputObject.Position` alone lands one GUI inset above the visible cursor. The scroll wheel scrolls the roster whenever the radio is on and equipped, without the cursor being over it; touch drags on the surface do the same.

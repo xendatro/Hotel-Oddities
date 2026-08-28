@@ -204,11 +204,11 @@ Per-tool settings keyed by tool name, giving each tool its CollectionService tag
 - Player oddity entries use `OddityKind`, optional `OddityOverrides`, or `OddityChoices` for the random four-effect item.
 
 ### ViewmodelConfig.luau
-Placement, scale, sway/bob and per-tool orientation overrides for the first-person viewmodel and its fake arm. `Overrides.Camera` anchors the tripod by its handle, while `Overrides["Walkie Talkie"]` separately positions the radio and fake hand with `Anchor` and `ArmAnchor`, then scales and rolls the radio so its screen stays visible. An override may also carry `Poses` — named `Anchor`/`ArmAnchor`/`Rotate` variants selected by `ViewmodelService:SetPose` and blended in at `PoseSpeed`; the walkie defines `Talk` (held to the mouth while transmitting) and `Raised` (screen square to the camera and close enough to read).
+Placement, scale, sway/bob and per-tool orientation overrides for the first-person viewmodel and its fake arm. `Overrides.Camera` anchors the tripod by its handle, while `Overrides["Walkie Talkie"]` separately positions the radio and fake hand with `Anchor` and `ArmAnchor`, then scales and rolls the radio so its screen stays visible. An override may also carry `Poses` — variants selected by `ViewmodelService:SetPose` and blended in at `PoseSpeed`. A pose offsets the base (`AnchorOffset`/`ArmAnchorOffset`/`RotateOffset`), replaces it (`Anchor`/`ArmAnchor`/`Rotate`), or declares `Framing` (`Part`, `Element`, `Coverage`) and is solved from the rig's geometry instead. The walkie defines `Talk`, which offsets the base so hand tuning carries into it, and `Raised`, which is framed on the screen's `Main` element so it stays centred and square whatever the base pose and scale are.
 - API: data table — `HandOffset`, `Scale`, `Fit`, `SwayAmount`, `SwaySpeed`, `BobAmount`, `BobSpeed`, `Arm`, `Overrides`
 
 ### ViewmodelDebugConfig.luau
-F3 developer-panel settings for tuning the walkie-talkie first-person viewmodel live.
+F3 developer-panel settings for tuning the walkie-talkie first-person viewmodel live. `PoseOrder` lists which poses the panel offers as tunable states, after Live and Base.
 - API: data table — `ToggleKey`, `Step`, `AngleStep`
 
 ### VoiceChatConfig.luau
