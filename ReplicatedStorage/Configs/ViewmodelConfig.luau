@@ -28,6 +28,7 @@ return {
 			Rotate = CFrame.Angles(0, math.rad(-20), math.rad(55)),
 		},
 		Medkit = { AnchorAt = "Handle", Anchor = Vector3.new(0.8, -0.3, -1.7) },
+		["Walkie Talkie"] = { AnchorAt = "Handle", Anchor = Vector3.new(1.05, -0.45, -1.8) },
 		Soda = { Rotate = CFrame.Angles(math.rad(-90), 0, 0) },
 		SpellBook = { Rotate = CFrame.Angles(math.rad(-15), math.rad(-95), 0) },
 		Pathfinder = { Rotate = CFrame.Angles(0, math.rad(-25), 0) },
