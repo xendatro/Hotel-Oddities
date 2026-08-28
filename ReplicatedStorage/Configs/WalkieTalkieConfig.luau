@@ -60,7 +60,7 @@ return {
 			Release = 6,
 		},
 		Hints = {
-			Talk = "HOLD LMB - TALK",
+			Talk = "CLICK LMB - TOGGLE TALK",
 			Talking = "TRANSMITTING",
 			Raised = "%s - LOWER RADIO",
 			Settings = "%s - LOWER RADIO",

@@ -459,6 +459,10 @@ function WalkieTalkieService:SetTransmitting(value: boolean)
 	applyPose()
 end
 
+function WalkieTalkieService:ToggleTransmitting()
+	self:SetTransmitting(not transmitting)
+end
+
 function WalkieTalkieService:SetRaised(value: boolean)
 	local wanted = value == true and powered and equipped
 	if raised == wanted then return end
@@ -603,13 +607,7 @@ UserInputService.InputBegan:Connect(function(input: InputObject, processed: bool
 	elseif input.KeyCode == Config.Keys.Raise then
 		WalkieTalkieService:ToggleRaised()
 	elseif input.UserInputType == Enum.UserInputType.MouseButton1 and not raised then
-		WalkieTalkieService:SetTransmitting(true)
-	end
-end)
-
-UserInputService.InputEnded:Connect(function(input: InputObject)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		WalkieTalkieService:SetTransmitting(false)
+		WalkieTalkieService:ToggleTransmitting()
 	end
 end)
 
