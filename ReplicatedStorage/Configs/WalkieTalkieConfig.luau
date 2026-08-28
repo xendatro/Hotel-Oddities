@@ -29,7 +29,7 @@ return {
 
 	Categories = {
 		{ Id = "Global", Label = "GLOBAL" },
-		{ Id = "Voices", Label = "VOICES" },
+		{ Id = "Voices", Label = "VOICES", Maximum = 2.5 },
 		{ Id = "Monster", Label = "MONSTER" },
 		{ Id = "Noise", Label = "RADIO NOISE" },
 	},

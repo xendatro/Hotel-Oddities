@@ -511,7 +511,7 @@ function WalkieTalkieService:SetAudioSettings(player: Player, incoming: { [strin
 	for _, entry in Config.Categories do
 		local value = incoming[entry.Id]
 		if isFiniteNumber(value) then
-			settings[entry.Id] = math.clamp(value, 0, 1)
+			settings[entry.Id] = math.clamp(value, 0, entry.Maximum or 1)
 		end
 	end
 
@@ -807,7 +807,9 @@ end
 
 reconcile = function(player: Player)
 	local state = States[player]
-	local wanted = Powered[player] == true and player:GetAttribute(Config.VoiceAttribute) ~= false
+	local wanted = Powered[player] == true
+		and not DeadPlayers[player]
+		and player:GetAttribute(Config.VoiceAttribute) ~= false
 	local tool = if wanted then findTool(player) else nil
 
 	if state and (not wanted or state.Tool ~= tool or not state.Tool.Parent) then
@@ -850,21 +852,20 @@ end
 local function handlePlayerDeath(player: Player)
 	if DeadPlayers[player] then return end
 	local wasTransmitting = Transmitting[player] == true
-	local hadRadio = States[player] ~= nil
+	local state = States[player]
 	DeadPlayers[player] = true
 	WalkieTalkieService:SetTransmitting(player, false)
 
-	local state = States[player]
 	if state then
-		for receiver in state.Receivers do
-			destroyReceiver(state, receiver)
-		end
+		LastRadioPosition[player] = getWorldPosition(state.Emitter) or getPlayerPosition(player)
+		if wasTransmitting then playDeathBurst(player) end
+		teardown(state)
+		States[player] = nil
 	end
 	for _, senderState in States do
 		destroyReceiver(senderState, player)
 	end
 	queueRebuild()
-	if hadRadio and wasTransmitting then playDeathBurst(player) end
 end
 
 local function bindCharacterDeath(player: Player, character: Model)
@@ -908,7 +909,9 @@ local function loadProfile(player: Player)
 	if type(saved) == "table" then
 		for _, entry in Config.Categories do
 			local value = saved[entry.Id]
-			if isFiniteNumber(value) then settings[entry.Id] = math.clamp(value, 0, 1) end
+			if isFiniteNumber(value) then
+				settings[entry.Id] = math.clamp(value, 0, entry.Maximum or 1)
+			end
 		end
 	end
 	local mode = profile.Data.WalkieMode

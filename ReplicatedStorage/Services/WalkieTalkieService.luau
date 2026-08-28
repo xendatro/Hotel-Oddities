@@ -32,8 +32,10 @@ local emitterConnection: RBXScriptConnection?
 local mutedEmitterGroup = `WalkieTalkieMuted_{player.UserId}`
 
 local categories: { [string]: number } = {}
+local categoryMaximums: { [string]: number } = {}
 for _, entry in Config.Categories do
 	categories[entry.Id] = 1
+	categoryMaximums[entry.Id] = entry.Maximum or 1
 end
 
 local playerVolumes: { [number]: number } = {}
@@ -514,12 +516,12 @@ function WalkieTalkieService:CycleMode()
 end
 
 function WalkieTalkieService:GetCategory(id: string): number
-	return categories[id] or 1
+	return (categories[id] or 1) / (categoryMaximums[id] or 1)
 end
 
 function WalkieTalkieService:SetCategory(id: string, value: number)
 	if categories[id] == nil then return end
-	categories[id] = math.clamp(value, 0, 1)
+	categories[id] = math.clamp(value, 0, 1) * categoryMaximums[id]
 	SetAudio:FireServer(categories)
 end
 
@@ -576,7 +578,7 @@ SetAudio.OnClientEvent:Connect(function(saved: any, mode: any)
 	if type(saved) == "table" then
 		for id, value in saved do
 			if categories[id] ~= nil and type(value) == "number" then
-				categories[id] = math.clamp(value, 0, 1)
+				categories[id] = math.clamp(value, 0, categoryMaximums[id])
 			end
 		end
 	end
