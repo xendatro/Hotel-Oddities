@@ -316,6 +316,16 @@ function ViewmodelService:SetPose(pose: string?)
 	currentPose = pose
 end
 
+function ViewmodelService:GetDefaultAnchor(): Vector3?
+	if not currentTool or not rig then return nil end
+	local fit = ViewmodelConfig.Fit
+	return Vector3.new(
+		fit.Base.X + rigRadius * fit.PerStud.X,
+		fit.Base.Y - rigRadius * fit.PerStud.Y,
+		fit.Base.Z - rigRadius * fit.PerStud.Z
+	)
+end
+
 function ViewmodelService:GetTool(): Tool?
 	return currentTool
 end
