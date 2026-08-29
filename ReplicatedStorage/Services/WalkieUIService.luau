@@ -44,6 +44,8 @@ type Slider = { Element: GuiObject, Apply: (alpha: number) -> () }
 local gameCursor = playerGui:FindFirstChild("Cursor") :: ScreenGui?
 local screen: Screen? = nil
 local rows: { [Player]: Frame } = {}
+local rowBackgrounds: { [Frame]: Color3 } = {}
+local rowStrokeColors: { [Frame]: Color3 } = {}
 local settingRows: { [string]: Frame } = {}
 local settingsOpen = false
 local dragging = false
@@ -89,6 +91,8 @@ local function clearRows()
 		if row.Parent then row:Destroy() end
 	end
 	table.clear(rows)
+	table.clear(rowBackgrounds)
+	table.clear(rowStrokeColors)
 end
 
 local function buildSettingRows(current: Screen)
@@ -144,31 +148,50 @@ local function acquireRow(current: Screen, target: Player): Frame
 	row.Visible = true
 	row.Parent = current.List
 	rows[target] = row
+	rowBackgrounds[row] = row.BackgroundColor3
+	local stroke = row:FindFirstChildOfClass("UIStroke")
+	if stroke then rowStrokeColors[row] = stroke.Color end
 	return row
+end
+
+local function setStruckText(label: TextLabel, text: string, struck: boolean)
+	label.RichText = struck
+	label.Text = if struck then `<s>{text}</s>` else text
 end
 
 local function updateRow(row: Frame, entry: any, raised: boolean)
 	local target = entry.Player
 	local isSelf = target == player
-	local color = COLORS[entry.Category]
+	local dead = entry.Category == "Dead"
+	local color = if dead then COLORS.Dead else COLORS[entry.Category]
 	local muted = not isSelf and WalkieTalkieService:IsMuted(target)
-	local tint = if muted then COLORS.Muted else color
+	local tint = if dead then COLORS.Dead elseif muted then COLORS.Muted else color
+	row.BackgroundColor3 = if dead then COLORS.Dead else rowBackgrounds[row] or row.BackgroundColor3
+	local stroke = row:FindFirstChildOfClass("UIStroke")
+	if stroke then stroke.Color = if dead then COLORS.Dead else rowStrokeColors[row] or stroke.Color end
 
 	row.Dot.BackgroundColor3 = tint
-	row.PlayerName.Text = target.DisplayName
+	setStruckText(row.PlayerName, target.DisplayName, dead)
 	row.PlayerName.TextColor3 = tint
-	row.Status.Text = if isSelf
+	local status = if dead
+		then STATUS.Dead
+		elseif isSelf
 		then STATUS.Self
 		elseif muted then STATUS.Muted
 		else STATUS[entry.Category]
+	setStruckText(row.Status, status, dead)
 	row.Status.TextColor3 = COLORS.Dim
 
-	local showControls = raised and not isSelf
+	if dead then row.Status.TextColor3 = COLORS.Dead end
+	local showControls = raised and not isSelf and not dead
 	row.Controls.Visible = showControls
 	row.Meter.Visible = not showControls and entry.Category == "Enabled"
 	if row.Meter.Visible then
 		row.Meter.Fill.Size = UDim2.fromScale(entry.Level, 1)
-		row.Meter.Fill.BackgroundColor3 = color
+		row.Meter.Fill.BackgroundColor3 = if entry.Level <= UI.Meter.QuietThreshold
+			then COLORS.Disabled
+			elseif entry.Level >= UI.Meter.LoudThreshold then COLORS.NoVoice
+			else color
 	end
 	if not showControls then return end
 
@@ -194,6 +217,8 @@ local function refreshRoster(current: Screen, raised: boolean)
 		if seen[target] then continue end
 		row:Destroy()
 		rows[target] = nil
+		rowBackgrounds[row] = nil
+		rowStrokeColors[row] = nil
 	end
 	current.Roster.Empty.Visible = #roster == 0
 end

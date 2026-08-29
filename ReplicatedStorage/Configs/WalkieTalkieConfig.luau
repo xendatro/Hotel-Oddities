@@ -17,6 +17,7 @@ return {
 	PowerAttribute = "WalkiePowered",
 	VoiceAttribute = "VoiceEligible",
 	TransmitAttribute = "WalkieTransmitting",
+	DeathAttribute = "WalkieDead",
 
 	Keys = {
 		Power = Enum.KeyCode.G,
@@ -43,6 +44,7 @@ return {
 			Enabled = Color3.fromRGB(126, 240, 158),
 			Disabled = Color3.fromRGB(240, 186, 74),
 			NoVoice = Color3.fromRGB(238, 92, 78),
+			Dead = Color3.fromRGB(238, 92, 78),
 			Dim = Color3.fromRGB(70, 122, 88),
 			Idle = Color3.fromRGB(24, 46, 32),
 			Muted = Color3.fromRGB(238, 92, 78),
@@ -53,11 +55,14 @@ return {
 			NoVoice = "NO VOICE",
 			Muted = "MUTED",
 			Self = "YOU",
+			Dead = "DEAD",
 		},
 		Meter = {
 			Gain = 6,
 			Attack = 22,
 			Release = 6,
+			QuietThreshold = 0.2,
+			LoudThreshold = 0.8,
 		},
 		Hints = {
 			Talk = "CLICK LMB - TOGGLE TALK",
