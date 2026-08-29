@@ -30,7 +30,7 @@ The full humanoid-enemy base: pathfinding with prefetch, direct-pursuit/lane-cle
 - API: `NPC:SetNetworkOwner(player: Player?)` — pins every descendant part's owner; refreshed on a loop.
 - API: `NPC:FaceTowards(position: Vector3)` — instant flat snap of root CFrame.
 - API: `NPC:TurnTowardsSmooth(position: Vector3, duration: number?)` — lerped turn over Heartbeat.
-- API: `NPC:ReactAtRoomDoor(room: Model, movementSpeed: number?, shouldCancel: (() -> boolean)?) -> boolean` — walk to a safe-room door, turn, play the cheer emote.
+- API: `NPC:ReactAtRoomDoor(room: Model, movementSpeed: number?, shouldCancel: (() -> boolean)?) -> boolean` — walk to a safe-room door, turn, then play the animation set's `RoomReaction` override (the Chaser's door knock) or fall back to the cheer emote.
 - API: `NPC:PrefetchPath(destination: Vector3, origin: Vector3?)` — starts an async path compute other calls can claim.
 - API: `NPC:ComputePath(destination: Vector3, tolerance: number?) -> Path?` — consumes a matching prefetch or computes synchronously.
 - API: `NPC:TakePrefetchedPath(destination: Vector3, tolerance: number?) -> Path?` — non-blocking claim of a finished prefetch.
@@ -168,11 +168,11 @@ Kinematic surface locomotion for any humanoid rig -- the NPC-side counterpart to
 ## Enemies
 
 ### Enemies\Blind.luau
-A deaf-to-sight, hearing-driven hunter: it registers an "ear" with `HearingService` and builds *Determination* from noises, which decays in silence and controls its speed tier (Investigate / Alert / Chase). Distinct behaviours are the flinch-and-turn "notice", coasting past a noise position after overshooting, and only killing when highly certain.
+A deaf-to-sight, hearing-driven hunter: it registers an "ear" with `HearingService` and builds *Determination* from noises, which decays in silence and controls its speed tier (Investigate / Alert / Chase). Distinct behaviours are the flinch-and-turn "notice", coasting past a noise position after overshooting, playing the looping `Listen` animation override while standing at its search point, and only killing when highly certain.
 - API: `Blind.new(model: Model, config) -> self` — adds the heard-noise and determination fields.
-- API: `Blind:BuildStateMachine() -> StateMachine` — Investigate/Pursue/Attack/Search plus the shared Idle/Wander/Patrol/Despawn/Stunned; evaluators `Hearing` and `Contact`.
+- API: `Blind:BuildStateMachine() -> StateMachine` — Investigate/Pursue/Attack/Search plus the shared Idle/Wander/Patrol/Despawn and a Stunned wrapper that stops the listen override; evaluators `Hearing` and `Contact`.
 - Requires: `ServerStorage.Classes.NPC`, `HearingService`, `Configs.HeartbeatConfig`
-- Notes: overrides `NPC.new` and `BuildStateMachine`; writes the heartbeat `PursuitAttribute` on the model while pursuing or attacking
+- Notes: overrides `NPC.new` and `BuildStateMachine`; writes the heartbeat `PursuitAttribute` on the model while pursuing or attacking; the Search state plays `Config.Animations.Listen` through `NpcAnimator:PlayOverride` for `SearchTime`, and Investigate/Pursue/Attack/Stunned each stop it on entry
 
 ### Enemies\CeilingDweller.luau
 A Chaser that spawns on the ceiling and physically drops onto the floor before behaving normally: `Start` tweens the model down with collisions and humanoid states disabled, cues the victim's client camera ("Drop" then "Scream"), and only then hands off to `NPC.Start`.
@@ -263,7 +263,7 @@ A pair of translucent, harmless figures that patrol the hallway ceilings forever
 - Notes: standalone class — it extends neither EnemyBase nor NPC, but exposes the same `new` / `Start` / `Despawn` / `EnemyId` contract `EnemyService:Spawn` needs
 
 ### Enemies\Stalker.luau
-Follows a player from behind without ever being seen: it tails at `FollowDistance` while unobserved, and being looked at throws it into a Flee state that sprint-routes to a hide spot, rejecting any path that would carry it through a player's view cone. If it survives its stalk timer it Reveals — seizing the victim's camera, turning to face them, and killing. It also owns the shared Peek behaviour states.
+Follows a player from behind without ever being seen: it tails at `FollowDistance` while unobserved, for as long as it takes, and being looked at throws it into a Flee state that sprint-routes to a hide spot, rejecting any path that would carry it through a player's view cone. The stalk ends only when it closes to `StrikeDistance` of the victim, at which point it Reveals — seizing their camera, turning to face them, and killing. It also owns the shared Peek behaviour states.
 - API: `Stalker.new(model: Model, config, spot: PeekSpotService.PeekSpot?, player: Player?) -> self` — passing a spot starts it in `Seek` (peek mode) instead of Idle.
 - API: `Stalker:Start()` — hides the name display, sets the walk track, then `NPC.Start`.
 - API: `Stalker:Despawn()` — releases the camera and exits Peek, then `NPC.Despawn`.
@@ -396,7 +396,7 @@ Extends `FixtureFall` (via `PropOddity`). Unanchors a ceiling lantern so it fall
 - Requires: `Classes\FixtureFall`, `Services\LightService`
 
 ### Oddities\PaintingDweller.luau
-Extends `PropOddity`. Spawns a humanoid rig hidden behind a painting's `Canvas`, tweens it forward through a hole decal so it lunges out of the wall, flickers nearby lights and shakes nearby players' cameras, then attacks any living non-vanished player who comes within reach until it retreats and is destroyed on stop. Only paintings whose canvas has empty space (no hallway, no room) behind it are eligible.
+Extends `PropOddity`. Spawns a humanoid rig hidden behind a painting's `Canvas`, tweens it forward through a hole decal so it lunges out of the wall, flickers nearby lights and shakes nearby players' cameras, then attacks any living non-vanished player who comes within reach until it retreats and is destroyed on stop. Only paintings whose canvas has empty space (no hallway, no room) behind it are eligible. Presented to players as the "Painting Lurker" enemy: kills record the `PaintingDweller` death cause, popping grants event discovery to every nearby player it shakes, and it has its own Index entry.
 - API: `PaintingDweller.new(config: { [string]: any }?)` — adds rig, canvas, decal, GUI and animation state
 - API: `PaintingDweller:IsCandidate(model: Model) -> boolean` — anchored wide canvas with dead space behind it
 - API: `PaintingDweller:OnStart() -> boolean` — builds the rig, hides decals, plays the pop tween, starts the attack poll
@@ -406,7 +406,7 @@ Extends `PropOddity`. Spawns a humanoid rig hidden behind a painting's `Canvas`,
 - API: `PaintingDweller:OnStop()` — retreat tween, destroys the rig, restores decals and clears `OddityBusy`
 - Remotes: `Oddities/PaintingDwellerPop` (fired to nearby players)
 - Tags: reads `Room`
-- Requires: `Classes\PropOddity`, `Classes\FixtureFall` (for `DescribeNotFixed`), `Services\DeathService`, `Services\LightService`, `ReplicatedStorage\Services\CommunicationService`, `ReplicatedStorage\Services\CharacterService`, `ReplicatedStorage\Services\HallwaysService`, `ReplicatedStorage\Services\VanishedService`, `ReplicatedStorage.Enemies` rig templates
+- Requires: `Classes\PropOddity`, `Classes\FixtureFall` (for `DescribeNotFixed`), `Services\DeathService`, `Services\EnemyDiscoveryService`, `Services\LightService`, `ReplicatedStorage\Services\CommunicationService`, `ReplicatedStorage\Services\CharacterService`, `ReplicatedStorage\Services\HallwaysService`, `ReplicatedStorage\Services\VanishedService`, `ReplicatedStorage.Enemies` rig templates
 
 ### Oddities\PaintingFall.luau
 Extends `FixtureFall` (via `PropOddity`). Knocks a wall painting loose and shoves it away from the hallway centre line with a lift and a random spin so it clatters onto the floor.

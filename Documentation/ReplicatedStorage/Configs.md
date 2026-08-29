@@ -7,8 +7,8 @@ Distance-based volume falloff and fade timing for ambient sound emitters.
 - API: data table — `SilentDistance`, `FullVolumeDistance`, `FadeTime`, `UpdateInterval`
 
 ### AnimationConfig.luau
-Animation asset ids plus per-enemy animation sets (walk/run/idle/attack) used by enemy rigs and tools.
-- API: data table — `Animations` (id lookup), `Sets` (per-enemy `AnimationSet`); exports type `AnimationSet`
+Animation asset ids plus per-enemy animation sets (walk/run/idle/attack/room-reaction/listen) used by enemy rigs and tools.
+- API: data table — `Animations` (id lookup), `Sets` (per-enemy `AnimationSet`); exports type `AnimationSet`. A set's optional `RoomReaction` id replaces the cheer emote at safe-room doors (Chaser knocks with `DoorKnock`); a set's optional `Listen` id is a looping override played while standing at a search point (Blind uses `BlindListen`).
 
 ### BreatheConfig.luau
 Idle breathing motion applied to character joints.
@@ -51,7 +51,7 @@ Danger-field noise generation over the map plus the Director's enemy population,
 - API: data table — noise/field keys (`Seed`, `FeatureScaleFraction`, `Octaves`, `Persistence`, `NoiseGain`, `Contrast`, `FloorHeight`, `FloorSeparation`, `SafeRadiusFraction`, `RampLengthFraction`, `PointSpacing`), `PathDangerWeight`, `ProgrammaticVents`, patrol/route keys, `Director`; exports type `FieldSettings`
 
 ### DeathConfig.luau
-Death-cause names and player-facing hints per enemy, plus the full styling and timing of the glitchy "killed by" death screen.
+Death-cause names and player-facing hints per enemy (including the `PaintingDweller` cause shown as "Painting Lurker"), plus the full styling and timing of the glitchy "killed by" death screen.
 - API: data table — `CauseMemory`, `Revive`, `Unknown`, `Causes`, `Screen`; exports type `Cause`
 
 ### DoorConfig.luau
@@ -100,7 +100,7 @@ Proximity heartbeat sound for the Blind enemy, with volume and rate ramps betwee
 - API: data table — `EnemyId`, `Template`, `Range`, `FullDistance`, `Volume`, `PursuitAttribute`, `Rate`, fade/rate speeds, `SilenceEpsilon`
 
 ### IndexConfig.luau
-The enemy Index (bestiary) UI: pagination, locked/undiscovered styling, the discovery reveal animation, card/button/page tweens, headshot camera framing and every enemy entry.
+The enemy Index (bestiary) UI: pagination, locked/undiscovered styling, the discovery reveal animation, card/button/page tweens, headshot camera framing and every enemy entry, including the "Painting Lurker" (`PaintingDweller`) entry rendered with the Ceiling Dweller rig.
 - API: data table — `EntriesPerPage`, `TemplateFolder`, `StartProgress`, `Locked`, `Discovery`, `Empty`, `HideUndiscovered`, `Pagination`, `Animation`, `Headshot`, `Entries`; exports types `StandinPart`, `Headshot`, `Entry`
 
 ### InventoryConfig.luau

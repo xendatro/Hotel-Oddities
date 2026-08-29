@@ -169,7 +169,12 @@ local function hear(npc: any, noise, distance: number)
 	end
 end
 
+local function stopListening(npc: any)
+	npc.Animator:StopOverride()
+end
+
 local function investigate(_changeState: StateMachine.ChangeState, npc: any)
+	stopListening(npc)
 	npc.Animator:Resume()
 	setInvestigateSpeed(npc)
 
@@ -209,6 +214,7 @@ local function investigate(_changeState: StateMachine.ChangeState, npc: any)
 end
 
 local function pursue(_changeState: StateMachine.ChangeState, npc: any, target: Player)
+	stopListening(npc)
 	npc:BeginChase(target)
 
 	local giveUpRange = npc.Config.PursuitGiveUpRange or npc.Config.GiveUpRange
@@ -238,6 +244,7 @@ local function pursue(_changeState: StateMachine.ChangeState, npc: any, target: 
 end
 
 local function attack(_changeState: StateMachine.ChangeState, npc: any, target: Player)
+	stopListening(npc)
 	local entered = os.clock()
 	local touching = npc:IsValidTarget(target) and npc:IsTouchingPlayer(target)
 
@@ -273,7 +280,13 @@ local function search(_changeState: StateMachine.ChangeState, npc: any, lastKnow
 	end
 	npc:StopMoving()
 
+	local animations = npc.Config.Animations
+	local listenId = animations and animations.Listen
+	if listenId then
+		npc.Animator:PlayOverride(listenId)
+	end
 	task.wait(npc.Config.SearchTime)
+	stopListening(npc)
 	npc.HeardNoise = nil
 	npc.HeardPosition = nil
 	npc.HeardSource = nil
@@ -310,7 +323,10 @@ function Blind:BuildStateMachine(): StateMachine.StateMachine
 		Pursue = pursue,
 		Attack = attack,
 		Search = search,
-		Stunned = NPC.SharedStates.Stunned,
+		Stunned = function(changeState: StateMachine.ChangeState, target: any, duration: number)
+			stopListening(target)
+			return NPC.SharedStates.Stunned(changeState, target, duration)
+		end,
 	}, {
 		Noise = { "Idle", "Wander", "Patrol", "Search" },
 		Close = { "Idle", "Wander", "Patrol", "Search", "Investigate" },

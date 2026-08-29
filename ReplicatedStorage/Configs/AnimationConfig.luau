@@ -5,6 +5,8 @@ export type AnimationSet = {
 	Walk: number?,
 	Run: number?,
 	Attacks: { number }?,
+	RoomReaction: number?,
+	Listen: number?,
 }
 
 local Animations = {
@@ -14,10 +16,12 @@ local Animations = {
 	CursedAttack = 79774778049507,
 	KnifeSwing = 88999892001033,
 	OldManWalk = 100940673497574,
+	BlindListen = 71503248108946,
 	Punch1 = 129975161300040,
 	Punch2 = 101989469398162,
 	SneakyWalk = 94066930953679,
 	Fly = 124677133774216,
+	DoorKnock = 111875087243338,
 
 	ToolHold = 507768375,
 }
@@ -27,6 +31,7 @@ local Sets: { [string]: AnimationSet } = {
 		Walk = Animations.ChaserWalk,
 		Run = Animations.ChaserRun,
 		Attacks = { Animations.KnifeSwing },
+		RoomReaction = Animations.DoorKnock,
 	},
 
 	CeilingDweller = {
@@ -40,6 +45,7 @@ local Sets: { [string]: AnimationSet } = {
 		Walk = Animations.OldManWalk,
 		Run = Animations.OldManWalk,
 		Attacks = { Animations.Punch1, Animations.Punch2 },
+		Listen = Animations.BlindListen,
 	},
 
 	Stalker = {
