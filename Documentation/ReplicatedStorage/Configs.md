@@ -31,7 +31,7 @@ Chase-driven camera FOV changes and per-enemy camera shake profiles.
 - API: data table — `FadeInSpeed`, `FadeOutSpeed`, `FovReleaseSpeed`, `CeilingDweller`, `MimicFovDelay`, `ChaseShakes` (Chaos, Chaser, CeilingDweller, Mimic)
 
 ### CaptureConfig.luau
-Settings for the camcorder, the photo keep-or-burn prompt and the Gallery page: `RequireGamepass` (off while the Camcorder pass id is still unset, which hands the tool to everyone), the gallery permission enum, video duration and the 30s engine cap, the REC/STOP HUD and stop key, screenshot timeout, gallery page/GUI names and the universe filter, keep/burn and access button text, the old-timey overlay styling and date/time formats, and every player-facing capture failure string.
+Behavior settings for the camcorder, the photo keep-or-burn prompt and the Gallery page: `RequireGamepass`, the gallery permission enum, video duration and the 30s engine cap, the REC/STOP GUI name and stop key, screenshot timeout, gallery page/GUI names and the universe filter, keep/burn and access text, capture date/time formats, and player-facing capture strings. Visual layout and style live in `StarterGui.CamcorderRecording`, `StarterGui.CaptureTemplates`, `StarterGui.GalleryGui`, `StarterGui.PhotoDevelop`, and `StarterGui.PhotoFlash`.
 
 ### ComputerAssets.luau
 Image asset ids for the hackable-computer UI.
@@ -161,7 +161,7 @@ Per-perk settings for the gamepass/perk system, keyed by perk name under a share
 - API: data table — `AttributePrefix`, `Loadout`, `Visor`, `DoubleSpeed`, `FriendRevive`
 
 ### PhotoConfig.luau
-Every value the tripod Camera photo system uses: the placed-model tag and attribute names, placement raycast limits, body height, the 180-degree model yaw and the ghost placement preview, countdown length, lens offset/FOV and the subject cone, ShadowFigure placement rules (including the forced test placement), capture flash timings including the figure render warmup, the unseen-despawn rule, the countdown billboard styling, and the film-developing photo UI with its full-screen arrival, expanded view and close button.
+Every behavior value the tripod Camera photo system uses: the placed-model tag and attribute names, placement raycast limits, body height, the 180-degree model yaw and the ghost placement preview, countdown length, lens offset/FOV and the subject cone, ShadowFigure placement rules, capture flash timings including the figure render warmup, the unseen-despawn rule, countdown pulse rules, and film animation timings. The countdown, shutter flash, and film layout live in `StarterGui.CaptureTemplates.PhotoTimer`, `StarterGui.PhotoFlash`, and `StarterGui.PhotoDevelop`.
 `Lens.Offset` is relative to the model's own pivot, which `Place.ModelYaw` has already turned around, so the tripod faces away from whoever placed it while still shooting forward.
 - API: data table — `Tag`, `ModelName`, `Attributes`, `Place`, `Countdown`, `Lens`, `Figure`, `Capture`, `Despawn`, `Timer`, `Develop`
 

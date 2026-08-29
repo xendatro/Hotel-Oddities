@@ -24,6 +24,7 @@ local prompting = false
 local recording = false
 local pending: { [string]: Media } = {}
 local cache: { Media } = {}
+local hidden: { [string]: boolean } = {}
 local cachedAt = 0
 
 CaptureGalleryService.Changed = Instance.new("BindableEvent")
@@ -283,6 +284,17 @@ function CaptureGalleryService:Discard(media: Media)
 	announce()
 end
 
+function CaptureGalleryService:Delete(media: Media)
+	pending[media.Id] = nil
+	hidden[media.Id] = true
+	for index = #cache, 1, -1 do
+		if cache[index].Id == media.Id then
+			table.remove(cache, index)
+		end
+	end
+	announce()
+end
+
 function CaptureGalleryService:Refresh(force: boolean?): boolean
 	if not force and os.clock() - cachedAt < CaptureConfig.Gallery.RefreshCooldown then
 		return true
@@ -304,8 +316,9 @@ function CaptureGalleryService:Refresh(force: boolean?): boolean
 		if not pageOk or type(items) ~= "table" then break end
 
 		for _, capture in items do
-			if isThisUniverse(capture) then
-				table.insert(found, wrap(capture, true))
+			local media = wrap(capture, true)
+			if isThisUniverse(capture) and not hidden[media.Id] then
+				table.insert(found, media)
 				if #found >= limit then break end
 			end
 		end

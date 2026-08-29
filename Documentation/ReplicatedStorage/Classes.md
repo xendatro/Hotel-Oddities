@@ -100,13 +100,13 @@ One inventory hotbar slot: an ImageButton with a ViewportFrame preview of the to
 - Requires: `Configs.InventoryConfig`, `Configs.ItemShopConfig`
 
 ### GalleryCard.luau
-One tile in the Gallery grid. Builds its own contents rather than relying on the template's, so a bare `ImageButton` template is enough: a cropped photo or first-frame tape thumbnail, a `TAPE`/`STILL` badge, the capture date, and a green edge while the capture is still awaiting a keep-or-burn decision. Tape tiles use `ImageLabel.ImageContent` rather than one live `VideoFrame` per card.
-- API: `GalleryCard.new(template: ImageButton, parent: Instance, media: any, order: number, onSelect: (any) -> ()) -> GalleryCard`
+One tile in the Gallery grid. Clones the complete Studio-authored `GalleryGui.Design.MediaCanvas.Media.Template` frame, then fills its `Card` with a cropped photo or first-frame tape thumbnail, a `TAPE`/`STILL` badge, the capture date, and a green edge while the capture awaits a keep-or-burn choice. Tape tiles use `ImageLabel.ImageContent` rather than one live `VideoFrame` per card.
+- API: `GalleryCard.new(template: Frame, parent: Instance, media: any, order: number, onSelect: (any) -> ()) -> GalleryCard`
 - API: `GalleryCard:Pose(override: TweenInfo?)` — settle to the hover/press/selected pose
 - API: `GalleryCard:SetSelected(selected: boolean)`
 - API: `GalleryCard:Deal(delay: number)` — staggered entrance
 - API: `GalleryCard:Destroy()`
-- Requires: `Configs.CaptureConfig`, `CaptureGalleryService`, `GuiBuilderService`
+- Requires: `Configs.CaptureConfig`, `CaptureGalleryService`; expects the authored gallery card template
 
 ### KitCard.luau
 One kit tile in the inventory or shop grid: clones the GUI's `Template` ImageButton into a layout holder, dresses it with its rarity stroke, rarity ribbon, kit name, status line and dim overlay through `KitVisualService`, renders the kit's showcase item into the tile's ViewportFrame, and owns the hover/press/select/deal motion. Used by both kit pages so the two grids cannot drift apart.
@@ -374,10 +374,10 @@ Client half of the throwable ball: raycasts through the mouse at Eye-tagged part
 - Requires: `Classes\ClientTool`, `TagService`, `ReplicatedStorage.Props.Other` (Ball prop)
 
 ### Tools\Camcorder.luau
-Client half of the unlimited-use camcorder. Activation asks the server to check the gamepass; on `Allowed` it unequips itself so the camera body stays out of frame, waits a beat, then starts a video capture. The tool stays in its inventory slot but is disabled until the take ends, and any outside attempt to equip it is stowed again. A top REC panel blinks its red light and offers a touch STOP button, with X or gamepad B as the stop key. Recording also ends at the configured duration or Roblox's 30-second cap. The finished tape is handed to `PhotoDevelopService` for playback and the keep-or-burn prompt.
+Client half of the unlimited-use camcorder. Activation asks the server to check the gamepass; on `Allowed` it unequips itself so the camera body stays out of frame, waits a beat, then starts a video capture. The tool stays in its inventory slot but is disabled until the take ends, and any outside attempt to equip it is stowed again. The Studio-authored `StarterGui.CamcorderRecording` panel blinks its red light and offers a touch STOP button, with X or gamepad B as the stop key. Recording also ends at the configured duration or Roblox's 30-second cap. The finished tape is handed to `PhotoDevelopService` for playback and the keep-or-burn prompt.
 - API: none beyond the `ClientTool` hooks.
 - Remotes: `Tools/Signal` — fires `Record`, listens `Allowed` and `Denied`
-- Requires: `Classes.ClientTool`, `Configs.CaptureConfig`, `CaptureGalleryService`, `GuiBuilderService`, `NotificationService`, `PhotoDevelopService`
+- Requires: `Classes.ClientTool`, `Configs.CaptureConfig`, `CaptureGalleryService`, `NotificationService`, `PhotoDevelopService`; expects `StarterGui.CamcorderRecording`
 
 ### Tools\Camera.luau
 Client half of the tripod Camera: while equipped it keeps a local ForceField-material ghost of the tripod standing wherever the shot would land, updated every render step and hidden when there is no valid spot. On activation it raycasts from the camera through the crosshair for a floor within `Place.Range`, rejects steep surfaces and spots too close to the player, and asks the server to stand the tripod there facing the way the player is looking. The photo itself is taken later by PhotoCaptureService.

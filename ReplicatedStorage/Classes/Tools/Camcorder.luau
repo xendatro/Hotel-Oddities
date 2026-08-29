@@ -1,10 +1,10 @@
 local ContextActionService = game:GetService("ContextActionService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ClientTool = require(ReplicatedStorage.Classes.ClientTool)
 local CaptureConfig = require(ReplicatedStorage.Configs.CaptureConfig)
 local CaptureGalleryService = require(ReplicatedStorage.Services.CaptureGalleryService)
-local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local NotificationService = require(ReplicatedStorage.Services.NotificationService)
 local PhotoDevelopService = require(ReplicatedStorage.Services.PhotoDevelopService)
 
@@ -15,66 +15,21 @@ local STOP_ACTION = "StopCamcorderRecording"
 local recordingGui: ScreenGui? = nil
 local recordingDot: Frame? = nil
 local recordingStop: TextButton? = nil
+local recordingDotTransparency = 0
 local stopHandler: (() -> ())? = nil
 local blinkVersion = 0
 
 local function getRecordingGui(): ScreenGui
 	if recordingGui and recordingGui.Parent then return recordingGui end
 
-	local gui = GuiBuilderService.CreateScreenGui(HUD.GuiName, HUD.DisplayOrder, true)
-	gui.Enabled = false
+	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local gui = playerGui:WaitForChild(HUD.GuiName, 20) :: ScreenGui?
+	assert(gui, `Camcorder: {HUD.GuiName} did not replicate`)
 	recordingGui = gui
-
-	local panel = Instance.new("Frame")
-	panel.Name = "Panel"
-	panel.AnchorPoint = Vector2.new(0.5, 0)
-	panel.Position = HUD.Position
-	panel.Size = HUD.Size
-	panel.BackgroundColor3 = HUD.BackdropColor
-	panel.BackgroundTransparency = 0.08
-	panel.BorderSizePixel = 0
-	panel.Parent = gui
-	GuiBuilderService.Corner(panel, UDim.new(0, 6))
-	GuiBuilderService.Stroke(panel, HUD.StrokeColor, 1)
-
-	local dot = Instance.new("Frame")
-	dot.Name = "Dot"
-	dot.AnchorPoint = Vector2.new(0.5, 0.5)
-	dot.Position = UDim2.new(0, 23, 0.5, 0)
-	dot.Size = UDim2.fromOffset(12, 12)
-	dot.BackgroundColor3 = CaptureConfig.Overlay.RecordColor
-	dot.BorderSizePixel = 0
-	dot.Parent = panel
-	GuiBuilderService.Corner(dot, UDim.new(1, 0))
-	recordingDot = dot
-
-	local label = Instance.new("TextLabel")
-	label.Name = "Label"
-	label.Position = UDim2.fromOffset(38, 0)
-	label.Size = UDim2.new(0, 65, 1, 0)
-	label.BackgroundTransparency = 1
-	label.Font = CaptureConfig.Overlay.Font
-	label.Text = CaptureConfig.Overlay.RecordText
-	label.TextColor3 = HUD.TextColor
-	label.TextScaled = true
-	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.Parent = panel
-
-	local stop = Instance.new("TextButton")
-	stop.Name = "Stop"
-	stop.AnchorPoint = Vector2.new(1, 0.5)
-	stop.Position = UDim2.new(1, -7, 0.5, 0)
-	stop.Size = UDim2.fromOffset(132, 34)
-	stop.BackgroundColor3 = HUD.StopColor
-	stop.BackgroundTransparency = 0.08
-	stop.BorderSizePixel = 0
-	stop.AutoButtonColor = true
-	stop.Font = Enum.Font.Code
-	stop.Text = HUD.StopText
-	stop.TextColor3 = HUD.TextColor
-	stop.TextScaled = true
-	stop.Parent = panel
-	GuiBuilderService.Corner(stop, UDim.new(0, 4))
+	local panel = gui:WaitForChild("Panel", 10) :: Frame
+	recordingDot = panel:WaitForChild("Dot", 10) :: Frame
+	recordingDotTransparency = recordingDot.BackgroundTransparency
+	local stop = panel:WaitForChild("Stop", 10) :: TextButton
 	recordingStop = stop
 
 	stop.Activated:Connect(function()
@@ -103,7 +58,9 @@ local function showRecording(onStop: () -> ())
 	local version = blinkVersion
 	task.spawn(function()
 		while version == blinkVersion and gui.Enabled and recordingDot and recordingDot.Parent do
-			recordingDot.BackgroundTransparency = if recordingDot.BackgroundTransparency > 0.5 then 0 else 1
+			recordingDot.BackgroundTransparency = if recordingDot.BackgroundTransparency > 0.5
+				then recordingDotTransparency
+				else 1
 			task.wait(CaptureConfig.Overlay.BlinkTime)
 		end
 	end)
@@ -113,7 +70,7 @@ local function hideRecording()
 	stopHandler = nil
 	blinkVersion += 1
 	if recordingGui then recordingGui.Enabled = false end
-	if recordingDot then recordingDot.BackgroundTransparency = 0 end
+	if recordingDot then recordingDot.BackgroundTransparency = recordingDotTransparency end
 end
 
 ContextActionService:BindAction(STOP_ACTION, function(_, state: Enum.UserInputState)

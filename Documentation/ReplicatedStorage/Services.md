@@ -49,6 +49,7 @@ Client-only front end for Roblox's Captures API, and the single place captures a
 - API: `CaptureGalleryService:StopVideo()` / `CaptureGalleryService:IsRecording() -> boolean`
 - API: `CaptureGalleryService:Save(media: Media) -> boolean` — prompt the player to keep the capture in their gallery
 - API: `CaptureGalleryService:Discard(media: Media)` — drop a pending capture
+- API: `CaptureGalleryService:Delete(media: Media)` — hide a saved capture from this session's reel; Roblox leaves the device capture intact because it exposes no delete API
 - API: `CaptureGalleryService:Refresh(force: boolean?) -> boolean` — reload the gallery, keeping only captures whose `SourceUniverseId` is this universe
 - API: `CaptureGalleryService:List() -> {Media}` — pending plus saved captures, newest first
 - API: `CaptureGalleryService:Content(media: Media) -> Content?` — a `Content` for `ImageLabel.ImageContent` or `VideoFrame.VideoContent`
@@ -60,8 +61,8 @@ Client-only front end for Roblox's Captures API, and the single place captures a
 - Requires: `Configs.CaptureConfig`
 
 ### CaptureOverlayService.luau
-Draws the camcorder furniture over a displayed capture: date and time in the bottom-right, plus a steady `REC` label and a blinking red light in the top-left for video. It is applied to the GUI that shows the capture rather than baked into the tape. Replaces any overlay already on the target and starts the video light blink at once.
-- API: `CaptureOverlayService.Apply(parent: GuiObject, media: any) -> Frame` — build the overlay inside `parent` and return it
+Clones `StarterGui.CaptureTemplates.Overlay` over a displayed capture, fills its date and time, and shows a steady `REC` label with a blinking red light for video. It is applied to the GUI that shows the capture rather than baked into the tape. The template holds every visual property so it can be changed in Studio.
+- API: `CaptureOverlayService.Apply(parent: GuiObject, media: any) -> Frame` — clone and fill the authored overlay inside `parent`, then return it
 - API: `CaptureOverlayService.Blink(overlay: Frame) -> () -> ()` — blink the record dot; returns a stop function
 - Requires: `Configs.CaptureConfig`
 
@@ -268,9 +269,9 @@ Shows a stack of revive-offer cards cloned from the `ReviveFriendUI` template, e
 - Requires: `Configs.PerkConfig` (`FriendRevive`), `GuiBuilderService`; expects a pre-built `ReviveFriendUI` ScreenGui with a `Card` template
 
 ### GalleryUIService.luau
-Drives the Gallery page: before access is granted, the empty page shows an `ALLOW DEVICE CAPTURES` button and does not open Roblox's permission prompt on its own. Granting access reads the reel at once; later page opens refresh it without another prompt. The two-wide filmstrip uses a still first frame for both photos and tapes, labels video cards `TAPE`, and selecting one shows the photo or starts a looping muted video as soon as it loads. Captures still pending a choice carry a green edge and expose Keep/Burn buttons. Missing authored GUI children degrade to a warning.
+Drives the Studio-authored `StarterGui.GalleryGui`: before access is granted, the empty page shows an `ALLOW DEVICE CAPTURES` button and does not open Roblox's permission prompt on its own. Granting access reads the reel at once; later page opens refresh it without another prompt. The two-wide filmstrip clones `Design.MediaCanvas.Media.Template`, uses a still first frame for photos and tapes, and labels video cards `TAPE`. Selecting one shows the photo or starts a looping muted video. Clicking that large preview opens the authored full-screen viewer. Saved selections show a Delete button below the preview, which removes the item from this session's reel. Captures still pending a choice carry a green edge and expose Keep/Burn buttons.
 - API: none — side-effect only.
-- Requires: `Classes.GalleryCard`, `Configs.CaptureConfig`, `CaptureGalleryService`, `CaptureOverlayService`, `GuiBuilderService`, `InterfaceService`, `NotificationService`
+- Requires: `Classes.GalleryCard`, `Configs.CaptureConfig`, `CaptureGalleryService`, `CaptureOverlayService`, `InterfaceService`, `NotificationService`; expects the complete `StarterGui.GalleryGui` hierarchy
 
 ### GhostMotionService.luau
 Shared math and attribute protocol for ghost drift: builds a travel "leg" (origin, target, duration) that the server publishes onto the model as attributes and clients read back, plus bobbing and fade timing.
@@ -624,24 +625,24 @@ Flag-gated startup timing log. The server stamps a start time on ReplicatedStora
 - Requires: `Configs.FLAGS`
 
 ### PhotoCaptureService.luau
-Client half of the tripod Camera's shutter. On the snap remote it flashes the screen white, hides every `LayerCollector` under PlayerGui plus every core GUI type and the topbar, hides the viewmodel, clones the named figure rig locally (anchored, never replicated) at the server-chosen CFrame, and pins the camera to the tripod's lens while calling `CaptureGalleryService:TakeScreenshot`. The figure is cloned and the camera is moved `Capture.WarmupFrames` before the shutter, all of it behind the opaque flash, because a model parented the same frame it is photographed renders unshaded — that warmup is what keeps a dark rig from coming out default grey. Frame waits are deadline-bounded and every restore is guarded, so a client that stops rendering mid-shot (alt-tab) still gets its camera, character and interface back. GUIs are unparented rather than merely disabled, because services like MinimapService re-assert `Enabled` every render step and would otherwise win the frame the shutter fires. Every held frame re-asserts the whole disguise — GUIs stay unparented, the local character's parts stay visible, and its root is turned to the player's real camera yaw so a first-person player is photographed facing where they were looking rather than where they last walked.
+Client half of the tripod Camera's shutter. On the snap remote it fills the Studio-authored `StarterGui.PhotoFlash.Flash`, hides every `LayerCollector` under PlayerGui plus every core GUI type and the topbar, hides the viewmodel, clones the named figure rig locally (anchored, never replicated) at the server-chosen CFrame, and pins the camera to the tripod's lens while calling `CaptureGalleryService:TakeScreenshot`. The figure is cloned and the camera is moved `Capture.WarmupFrames` before the shutter, all of it behind the opaque flash, because a model parented the same frame it is photographed renders unshaded — that warmup is what keeps a dark rig from coming out default grey. Frame waits are deadline-bounded and every restore is guarded, so a client that stops rendering mid-shot (alt-tab) still gets its camera, character and interface back. GUIs are unparented rather than merely disabled, because services like MinimapService re-assert `Enabled` every render step and would otherwise win the frame the shutter fires. Every held frame re-asserts the whole disguise — GUIs stay unparented, the local character's parts stay visible, and its root is turned to the player's real camera yaw so a first-person player is photographed facing where they were looking rather than where they last walked.
 The camera never visibly snaps back: the finished photo is handed to PhotoDevelopService full-screen while the flash is still white, and only then are the camera, viewmodel, character and interface restored behind it, so the flash covers the jump out and the photo covers the jump home. Warns when the figure rig is missing from `ReplicatedStorage.Enemies`. Captures are per-client, so every player in the shot takes their own copy of the same framing, and Roblox scopes them to their owner — a photo can never be shown to anyone else.
 - API: `PhotoCaptureService:Take(lens: CFrame, fieldOfView: number, figure: CFrame?, figureName: string?)` — run the whole flash/capture/restore sequence
 - Remotes: `Photo/Snap` (listened)
-- Requires: `Configs.PhotoConfig`, `CaptureGalleryService`, `CommunicationService`, `GuiBuilderService`, `PhotoDevelopService`
+- Requires: `Configs.PhotoConfig`, `CaptureGalleryService`, `CommunicationService`, `PhotoDevelopService`; expects `StarterGui.PhotoFlash`
 
 ### PhotoDevelopService.luau
-Shows a captured photo or tape as a sheet of film developing. A capture arriving from the shutter fills the whole screen (oversized so its frame sits off-view, masking the camera's return to the player), then flies down into the corner after its choice or hold. Tapes use a muted looping `VideoFrame` and start as soon as their data loads. The film grade, sheen, large-view growth and close animation stay the same for both media types. A new capture replaces whatever is on screen.
-- API: `PhotoDevelopService:Show(media: CaptureGalleryService.Media, fullscreen: boolean?)` — build and animate a capture. A pending full-screen capture pins the mouse free so Q cannot relock it while Keep/Burn is open, then restores the prior cursor state after either choice
+Fills the Studio-authored `StarterGui.PhotoDevelop` with a captured photo or tape and animates it as a sheet of film developing. A capture arriving from the shutter fills the whole screen, then flies down into the corner after its choice or hold. Tapes use a muted looping `VideoFrame` and start as soon as their data loads. The film grade, sheen, large-view growth and close animation stay the same for both media types. A new capture replaces whatever is on screen.
+- API: `PhotoDevelopService:Show(media: CaptureGalleryService.Media, fullscreen: boolean?)` — fill and animate the authored capture UI. A pending full-screen capture pins the mouse free so Q cannot relock it while Keep/Burn is open, then restores the prior cursor state after either choice
 - API: `PhotoDevelopService:Expand()` / `PhotoDevelopService:Collapse()` — open and close the large view of the current photo
-- API: `PhotoDevelopService:Hide()` — slide the preview away and destroy it
-- Requires: `Configs.CaptureConfig`, `Configs.PhotoConfig`, `CaptureGalleryService`, `CaptureOverlayService`, `GuiBuilderService`, `InterfaceService`, `NotificationService`
+- API: `PhotoDevelopService:Hide()` — slide the preview away and clear its media
+- Requires: `Configs.CaptureConfig`, `Configs.PhotoConfig`, `CaptureGalleryService`, `CaptureOverlayService`, `InterfaceService`, `NotificationService`; expects `StarterGui.PhotoDevelop`
 
 ### PhotoTimerService.luau
-Draws the countdown above every placed tripod camera: a billboard over the camera body that ticks down whole seconds against the model's server-time `SnapAt` attribute, pulsing each change and turning red near zero, then flashes `SNAP` and hides itself once the `Snapped` attribute is set. The tagged model can arrive before its parts replicate, so the billboard waits (up to five seconds) for the camera body to exist rather than silently skipping that camera.
+Clones the Studio-authored `StarterGui.CaptureTemplates.PhotoTimer` countdown above every placed tripod camera. It ticks down whole seconds against the model's server-time `SnapAt` attribute, pulses each change and turns red near zero, then flashes `SNAP` and hides once the `Snapped` attribute is set. The tagged model can arrive before its parts replicate, so the billboard waits up to five seconds for the camera body.
 - API: none — side-effect only.
 - Tags: listens `PhotoConfig.Tag`
-- Requires: `Configs.PhotoConfig`, `TagService`
+- Requires: `Configs.PhotoConfig`, `TagService`; expects `StarterGui.CaptureTemplates.PhotoTimer`
 
 ### PlayerLocatorService.luau
 Client-only teleport-to-player HUD: keeps a `LocatorMarker` per eligible player (all players, or friends only, depending on the toggled mode), highlights whichever marker is nearest the crosshair each frame, and fires the teleport remote on click. Renders the shared cooldown readout. If the `PlayerLocator` GUI is missing its expected children it degrades to a disabled stub exposing only `SetEnabled`/`IsEnabled`.

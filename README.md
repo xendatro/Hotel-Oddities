@@ -62,7 +62,7 @@ extend it instead of writing a second copy.
 | `ToolBase` / `ClientTool` / `ServerTool` / `PlayerOddityTool` | `ReplicatedStorage\Classes`, `ServerStorage\Classes` | Base classes for the two halves of every tool and player-oddity items |
 | `HumanoidStatsService` | `ReplicatedStorage\Services` | Named-source stat stack (health, speed, jump, stamina, sprint speed, detection radius) for any humanoid |
 | `KitVisualService` / `KitCard` | `ReplicatedStorage\Services`, `ReplicatedStorage\Classes` | Kit tile dressing, rarity styling, viewport previews and stat/item rows |
-| `CaptureGalleryService` | `ReplicatedStorage\Services` | Taking, keeping, burning and listing the player's own screenshots and camcorder tapes |
+| `CaptureGalleryService` | `ReplicatedStorage\Services` | Taking, keeping, burning, hiding and listing the player's own screenshots and camcorder tapes |
 | `KitStateService` | `ReplicatedStorage\Services` | Client's owned-kits, equipped-kit and gem balance view, and every kit remote call |
 | `GemService` | `ServerStorage\Services` | Gem balance: read, award, spend and replicate |
 | `EnemyBase` | `ServerStorage\Classes` | Base class every enemy extends |
@@ -88,8 +88,8 @@ become Services or Classes.
 - ReplicatedStorage\Services\AudioService.luau — Central sound playback helper for 2D and positional audio, bus volumes and walkie-talkie relaying.
 - ReplicatedStorage\Services\BobService.luau — Random phase plus sine-wave vertical bob offset.
 - ReplicatedStorage\Services\CameraFovService.luau — Combines named additive field-of-view offsets from multiple effects into one camera FOV, with a lock for fixed-FOV camera sessions.
-- ReplicatedStorage\Services\CaptureGalleryService.luau — Takes, keeps, burns and reloads the player's own screenshots and camcorder tapes through Roblox's Captures API.
-- ReplicatedStorage\Services\CaptureOverlayService.luau — Old-timey date, time and a blinking REC light drawn over a displayed capture.
+- ReplicatedStorage\Services\CaptureGalleryService.luau — Takes, keeps, burns, session-hides and reloads the player's own screenshots and camcorder tapes through Roblox's Captures API.
+- ReplicatedStorage\Services\CaptureOverlayService.luau — Clones the Studio-authored capture overlay, then fills its date, time and blinking REC light.
 - ReplicatedStorage\Services\CeilingVentDoorService.luau — Tweens ceiling vent doors on the client when the server commands them.
 - ReplicatedStorage\Services\ChaosLightService.luau — Turns tagged floor lights red while the server-set ChaosRed attribute is on, restoring their original colours when it clears.
 - ReplicatedStorage\Services\ChaosWarningSoundService.luau — Plays hallway ambience and an incoming sting near the server's chaos warning regions.
@@ -118,7 +118,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\FirstPersonCameraService.luau — Walking camera bob plus custom cursor setup for first person.
 - ReplicatedStorage\Services\FriendAvatarService.luau — Client-only cache that builds character models from the local player's friends' avatars.
 - ReplicatedStorage\Services\FriendReviveUIService.luau — Timed revive-offer cards for downed teammates.
-- ReplicatedStorage\Services\GalleryUIService.luau — Gallery page: explicit device-capture access, tape thumbnails, autoplay previews and keep-or-burn controls.
+- ReplicatedStorage\Services\GalleryUIService.luau — Studio-authored Gallery page: explicit device-capture access, tape thumbnails, autoplay previews, click-to-full-screen viewing and per-item reel removal.
 - ReplicatedStorage\Services\GhostMotionService.luau — Ghost drift leg math and the model-attribute protocol the server and clients share.
 - ReplicatedStorage\Services\GhostRenderService.luau — Renders ghosts as translucent friend-avatar rigs driven by replicated motion.
 - ReplicatedStorage\Services\GraphicsFogService.luau — Distance fog and a camera-parented cage on low graphics levels.
@@ -160,8 +160,9 @@ become Services or Classes.
 - ReplicatedStorage\Services\PaintingDwellerShakeService.luau — Fires a one-shot Slam camera shake when the painting dweller pops.
 - ReplicatedStorage\Services\PerfLogService.luau — Client performance watchdog for frame spikes, FPS drops and bursts of workspace instance churn.
 - ReplicatedStorage\Services\PerfLoggerService.luau — Flag-gated startup timing log broadcast from server to all clients.
-- ReplicatedStorage\Services\PhotoCaptureService.luau — Client shutter for the tripod camera: flash, GUI hide, local ShadowFigure clone, lens-locked screenshot through CaptureGalleryService and restore.
-- ReplicatedStorage\Services\PhotoDevelopService.luau — Shows and plays a finished capture with a mouse-free keep-or-burn prompt.
+- ReplicatedStorage\Services\PhotoCaptureService.luau — Client shutter for the tripod camera: authored flash, GUI hide, local ShadowFigure clone, lens-locked screenshot through CaptureGalleryService and restore.
+- ReplicatedStorage\Services\PhotoDevelopService.luau — Binds the Studio-authored film preview and plays a finished capture with a mouse-free keep-or-burn prompt.
+- ReplicatedStorage\Services\PhotoTimerService.luau — Clones the Studio-authored countdown template above each placed tripod camera.
 - ReplicatedStorage\Services\PhotoTimerService.luau — Countdown billboard over every placed tripod camera, flashing SNAP when it fires.
 - ReplicatedStorage\Services\PlayerLocatorService.luau — Client teleport-to-player HUD with per-player markers, crosshair focus and a shared cooldown readout.
 - ReplicatedStorage\Services\PlayerOddityRenderService.luau — Client renderer that turns every other player's head toward you while the stare oddity is active.
@@ -201,7 +202,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\DebugPanel.luau — Keyboard-toggled developer overlay with labels, buttons and sliders.
 - ReplicatedStorage\Classes\DoorPart.luau — Spring and audio-driven swinging door leaf with oddity and forced-shut modes.
 - ReplicatedStorage\Classes\Drawer.luau — Spring-driven sliding drawer that infers its outward axis from the handle.
-- ReplicatedStorage\Classes\GalleryCard.luau — One gallery tile: photo or tape-frame thumbnail, badge, capture date and unsaved edge.
+- ReplicatedStorage\Classes\GalleryCard.luau — Clones and fills one Studio-authored gallery tile with a photo or tape-frame thumbnail, badge, capture date and unsaved edge.
 - ReplicatedStorage\Classes\Hole.luau — Crawl-hole prompt that teleports the player to the twin hole with the same ID.
 - ReplicatedStorage\Classes\Interaction.luau — Camera-raycast interaction system with highlight and animated key prompt.
 - ReplicatedStorage\Classes\InventorySlot.luau — One hotbar slot with a viewport preview of the tool model.
@@ -231,7 +232,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\Minigames\Simon.luau — Simon-says minigame; repeat a growing four-pad sequence up to length seven.
 - ReplicatedStorage\Classes\Minigames\Snake.luau — Snake minigame on a 16x12 grid; eat fifteen pellets as the tick speeds up.
 - ReplicatedStorage\Classes\Tools\Ball.luau — Client ball tool; throws a ball prop at a targeted Eye and reports the hit to the server.
-- ReplicatedStorage\Classes\Tools\Camcorder.luau — Client camcorder; stows and disables itself while a REC/STOP HUD runs, then offers keep or burn.
+- ReplicatedStorage\Classes\Tools\Camcorder.luau — Client camcorder; stows and disables itself while the Studio-authored REC/STOP HUD runs, then offers keep or burn.
 - ReplicatedStorage\Classes\Tools\Camera.luau — Client camera tool; shows a ghost placement preview and asks the server to stand the tripod where you aim.
 - ReplicatedStorage\Classes\Tools\Pathfinder.luau — Client pathfinder tool; drops limited, shaded breadcrumb markers on the floor.
 - ReplicatedStorage\Classes\Tools\Player Locator.luau — Client tool that enables PlayerLocatorService while equipped.
@@ -254,7 +255,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\AnimationConfig.luau — Animation asset ids and per-enemy animation sets.
 - ReplicatedStorage\Configs\BreatheConfig.luau — Idle breathing joint motion settings.
 - ReplicatedStorage\Configs\CameraBobConfig.luau — Walk-cycle camera bob amplitude and cadence.
-- ReplicatedStorage\Configs\CaptureConfig.luau — Camcorder duration and HUD, gallery access, keep-or-burn styling, capture overlay styling and capture-flow strings.
+- ReplicatedStorage\Configs\CaptureConfig.luau — Camcorder timing and stop key, gallery access rules, capture date formats and capture-flow strings; visual settings live in StarterGui.
 - ReplicatedStorage\Configs\ChaosLightConfig.luau — Red hallway-light warning settings for the Chaos enemy.
 - ReplicatedStorage\Configs\ChaseMusicConfig.luau — Per-enemy chase music tracks, ranges and fades.
 - ReplicatedStorage\Configs\ChaserCameraConfig.luau — Chase camera FOV changes and per-enemy shake profiles.
@@ -288,7 +289,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\NotificationConfig.luau — Visual settings for the client notification banner.
 - ReplicatedStorage\Configs\ObservedFreezeConfig.luau — Tag, attribute and tolerances for freeze-when-observed enemies.
 - ReplicatedStorage\Configs\PerkConfig.luau — Per-perk settings for the gamepass/perk system.
-- ReplicatedStorage\Configs\PhotoConfig.luau — Placement, countdown, lens, ShadowFigure, capture, despawn and film-developing settings for the tripod camera.
+- ReplicatedStorage\Configs\PhotoConfig.luau — Placement, countdown, lens, ShadowFigure, capture, despawn and film animation timing for the tripod camera; film layout lives in StarterGui.
 - ReplicatedStorage\Configs\PlayerLocatorConfig.luau — Marker layout, focus animation and palette for the Player Locator tool.
 - ReplicatedStorage\Configs\PlayerOddityConfig.luau — Roll timings and effect weights for whole-character size, head-size, transparency and head-stare player oddities.
 - ReplicatedStorage\Configs\PropOddityConfig.luau — Per-effect tuning for falling lanterns, falling paintings and the painting dweller.
