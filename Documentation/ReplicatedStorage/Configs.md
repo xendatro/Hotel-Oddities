@@ -7,8 +7,8 @@ Distance-based volume falloff and fade timing for ambient sound emitters.
 - API: data table — `SilentDistance`, `FullVolumeDistance`, `FadeTime`, `UpdateInterval`
 
 ### AnimationConfig.luau
-Animation asset ids plus per-enemy animation sets (walk/run/idle/attack/room-reaction/listen) used by enemy rigs and tools.
-- API: data table — `Animations` (id lookup), `Sets` (per-enemy `AnimationSet`); exports type `AnimationSet`. A set's optional `RoomReaction` id replaces the cheer emote at safe-room doors (Chaser knocks with `DoorKnock`); a set's optional `Listen` id is a looping override played while standing at a search point (Blind uses `BlindListen`).
+Animation asset ids plus per-enemy animation sets (walk/run/idle/attack/room-reaction/listen/lurk) used by enemy rigs and tools.
+- API: data table — `Animations` (id lookup), `Sets` (per-enemy `AnimationSet`); exports type `AnimationSet`. A set's optional `RoomReaction` id replaces the cheer emote at safe-room doors (Chaser knocks with `DoorKnock`); a set's optional `Listen` id is a looping override played while standing at a search point (Blind uses `BlindListen`); a set's optional `Lurk` id is the standing idle GhostRenderService plays while the ghost holds a lurk spot (`GhostIdle`). The `Sisters` set makes the sisters walk with `GhostIdle`.
 
 ### BreatheConfig.luau
 Idle breathing motion applied to character joints.

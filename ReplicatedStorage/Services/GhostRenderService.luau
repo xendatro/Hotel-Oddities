@@ -13,6 +13,7 @@ local GHOST_TRANSPARENCY = 0.5
 local HIDDEN_TRANSPARENCY = 1
 local MINIMUM_DIRECTION = 1e-3
 local RENDER_BIND_NAME = "GhostRender"
+local ANIMATION_FADE_TIME = 0.2
 
 local GhostRenderService = {}
 
@@ -106,7 +107,7 @@ local function applyTransparency(parts: { BasePart }, overlays: { Instance }, tr
 	end
 end
 
-local function createVisual(model: Model): Model?
+local function createVisual(model: Model): (Model?, AnimationTrack?, AnimationTrack?)
 	if FriendUserIds == nil then
 		friendsLoaded.Event:Wait()
 	end
@@ -146,18 +147,27 @@ local function createVisual(model: Model): Model?
 	visual:PivotTo(model:GetPivot())
 	visual.Parent = model.Parent
 
+	local idleTrack: AnimationTrack?
+	local lurkTrack: AnimationTrack?
 	local humanoid = visual:FindFirstChildOfClass("Humanoid")
 	if humanoid then
 		humanoid.EvaluateStateMachine = false
 		humanoid.AutoRotate = false
 
 		local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
-		local animation = Instance.new("Animation")
-		animation.AnimationId = `rbxassetid://{AnimationConfig.Sets.Ghost.Idle}`
-		local track = animator:LoadAnimation(animation)
-		track.Priority = Enum.AnimationPriority.Core
-		track.Looped = true
-		track:Play()
+		local function loadTrack(assetId: number): AnimationTrack
+			local animation = Instance.new("Animation")
+			animation.AnimationId = `rbxassetid://{assetId}`
+			local track = animator:LoadAnimation(animation)
+			track.Priority = Enum.AnimationPriority.Core
+			track.Looped = true
+			return track
+		end
+		idleTrack = loadTrack(AnimationConfig.Sets.Ghost.Idle :: number)
+		local lurkId = AnimationConfig.Sets.Ghost.Lurk
+		if lurkId then
+			lurkTrack = loadTrack(lurkId)
+		end
 	end
 
 	local animate = visual:FindFirstChild("Animate")
@@ -179,7 +189,7 @@ local function createVisual(model: Model): Model?
 
 	local rootPart = visual:WaitForChild("HumanoidRootPart") :: BasePart
 	rootPart.Anchored = true
-	return visual
+	return visual, idleTrack, lurkTrack
 end
 
 type Neck = Motor6D | AnimationConstraint
@@ -190,6 +200,9 @@ type Render = {
 	VisualRootPart: BasePart?,
 	VisualHead: BasePart?,
 	VisualNeck: Neck?,
+	IdleTrack: AnimationTrack?,
+	LurkTrack: AnimationTrack?,
+	CurrentTrack: AnimationTrack?,
 	Leg: GhostMotion.Leg?,
 	FadeStartedAt: number?,
 	AppearStartedAt: number?,
@@ -206,6 +219,20 @@ type Render = {
 
 local Ghosts: { [Model]: Render } = {}
 
+local function updateAnimation(render: Render)
+	local leg = render.Leg
+	local desired = if leg and leg.Duration <= 0 and render.LurkTrack
+		then render.LurkTrack
+		else render.IdleTrack
+	if not desired or desired == render.CurrentTrack then return end
+
+	if render.CurrentTrack then
+		render.CurrentTrack:Stop(ANIMATION_FADE_TIME)
+	end
+	render.CurrentTrack = desired
+	desired:Play(ANIMATION_FADE_TIME)
+end
+
 local function track(model: Model): Render
 	local render: Render = {
 		RootPart = nil,
@@ -213,6 +240,9 @@ local function track(model: Model): Render
 		VisualRootPart = nil,
 		VisualHead = nil,
 		VisualNeck = nil,
+		IdleTrack = nil,
+		LurkTrack = nil,
+		CurrentTrack = nil,
 		Leg = GhostMotion.Read(model),
 		FadeStartedAt = GhostMotion.ReadFade(model),
 		AppearStartedAt = GhostMotion.ReadAppear(model),
@@ -246,6 +276,7 @@ local function track(model: Model): Render
 	render.Connection = model.AttributeChanged:Connect(function(attribute: string)
 		if attribute == GhostMotion.LegAttribute then
 			render.Leg = GhostMotion.Read(model)
+			updateAnimation(render)
 		elseif attribute == GhostMotion.FadeAttribute then
 			render.FadeStartedAt = GhostMotion.ReadFade(model)
 		elseif attribute == GhostMotion.AppearAttribute then
@@ -271,7 +302,7 @@ local function track(model: Model): Render
 	end
 
 	task.spawn(function()
-		local visual = createVisual(model)
+		local visual, idleTrack, lurkTrack = createVisual(model)
 		if Ghosts[model] ~= render then
 			visual:Destroy()
 			return
@@ -289,6 +320,9 @@ local function track(model: Model): Render
 		render.VisualRootPart = rootPart
 		render.VisualHead = head
 		render.VisualNeck = neck
+		render.IdleTrack = idleTrack
+		render.LurkTrack = lurkTrack
+		updateAnimation(render)
 		render.VisualParts, render.VisualOverlays = buildTransparencyCache(visual)
 		render.VisualTransparencyConnection = visual.DescendantAdded:Connect(function(descendant: Instance)
 			if descendant:IsA("BasePart") then

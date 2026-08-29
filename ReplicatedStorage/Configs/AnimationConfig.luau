@@ -7,6 +7,7 @@ export type AnimationSet = {
 	Attacks: { number }?,
 	RoomReaction: number?,
 	Listen: number?,
+	Lurk: number?,
 }
 
 local Animations = {
@@ -61,6 +62,11 @@ local Sets: { [string]: AnimationSet } = {
 
 	Ghost = {
 		Idle = Animations.Fly,
+		Lurk = Animations.GhostIdle,
+	},
+
+	Sisters = {
+		Walk = Animations.GhostIdle,
 	},
 }
 

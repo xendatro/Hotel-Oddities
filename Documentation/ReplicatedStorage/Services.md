@@ -286,7 +286,7 @@ Shared math and attribute protocol for ghost drift: builds a travel "leg" (origi
 - Requires: `Services.BobService`, `Configs.GhostConfig`
 
 ### GhostRenderService.luau
-Client-only rendering of `Ghost` tagged models: builds a semi-transparent stand-in rig from a random friend's (or the local player's) avatar description, plays the ghost idle animation, and hides the server model behind it. Each frame it drives the rig along the server's replicated leg motion with a bob, aims the ghost's head at the player's head, and blends transparency for the fade-out/appear attributes.
+Client-only rendering of `Ghost` tagged models: builds a semi-transparent stand-in rig from a random friend's (or the local player's) avatar description, plays the ghost fly idle while drifting and the standing `Lurk` idle while the replicated leg is a zero-duration hold, and hides the server model behind it. Each frame it drives the rig along the server's replicated leg motion with a bob, aims the ghost's head at the player's head, and blends transparency for the fade-out/appear attributes.
 - API: data table — empty; the tag listener and render-step job run on require.
 - Tags: listens `Ghost` (via `TagService:Listen`, scoped to workspace); removes `Ghost` from the cloned fallback visual
 - Requires: `Services.BobService`, `Services.GhostMotionService`, `Configs.AnimationConfig`, `Configs.FLAGS`, `TagService`

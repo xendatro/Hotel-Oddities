@@ -514,6 +514,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 	Sisters = {
 		Model = "Sister",
 		Harmless = true,
+		Animations = AnimationConfig.Sets.Sisters,
 
 		WalkSpeed = 5,
 		SpawnPlayerDistance = 150,
