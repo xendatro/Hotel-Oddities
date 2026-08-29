@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
+local CaptureConfig = require(ReplicatedStorage.Configs.CaptureConfig)
 local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
 local MarketplaceService = require(ReplicatedStorage.Services.MarketplaceService)
 local InventoryService = require(ServerStorage.Services.InventoryService)
@@ -66,7 +67,7 @@ local function applyVisor(player: Player)
 end
 
 local function applyCamcorder(player: Player)
-	if not PerkService:Owns(player, "Camcorder") then return end
+	if CaptureConfig.RequireGamepass and not PerkService:Owns(player, "Camcorder") then return end
 	if InventoryService:Get(player, CAMCORDER_TOOL) then return end
 
 	InventoryService:Add(player, CAMCORDER_TOOL, 1)

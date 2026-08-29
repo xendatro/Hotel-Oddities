@@ -22,11 +22,13 @@ function Camcorder:_record(player: Player)
 	if player ~= self:GetPlayer() then return end
 	if not self:IsAlive() then return end
 
-	local passName = self.Config.Gamepass
-	local passId = passName and MarketplaceService.Gamepasses[passName]
-	if not passId or passId == 0 or not PerkService:Owns(player, passName) then
-		self:Fire("Denied", CaptureConfig.Text.NoPass)
-		return
+	if CaptureConfig.RequireGamepass then
+		local passName = self.Config.Gamepass
+		local passId = passName and MarketplaceService.Gamepasses[passName]
+		if not passId or passId == 0 or not PerkService:Owns(player, passName) then
+			self:Fire("Denied", CaptureConfig.Text.NoPass)
+			return
+		end
 	end
 
 	self:PlaySound(self.Config.Sound, self.Tool:FindFirstChild("Handle"))

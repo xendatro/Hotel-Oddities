@@ -1,6 +1,8 @@
 return {
 	Permission = Enum.CaptureGalleryPermission.ReadAndUpload,
 
+	RequireGamepass = false,
+
 	Video = {
 		MaxDuration = 30,
 		Duration = 20,

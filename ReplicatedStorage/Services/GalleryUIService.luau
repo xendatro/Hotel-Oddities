@@ -41,7 +41,6 @@ local still = preview:WaitForChild("Still", 10) :: ImageLabel
 local tape = preview:WaitForChild("Tape", 10) :: VideoFrame
 local empty = design:FindFirstChild("Empty") :: TextLabel?
 local actions = info:FindFirstChild("Actions") :: Frame?
-local stamp = info:FindFirstChild("Stamp") :: TextLabel?
 
 template.Visible = false
 
@@ -85,20 +84,7 @@ local function paintPreview()
 
 	paintActions(media)
 
-	if not media then
-		if stamp then stamp.Text = "" end
-		return
-	end
-
-	if stamp then
-		local ok, formatted = pcall(function()
-			return media.Time:FormatLocalTime(
-				`{CaptureConfig.Overlay.DateFormat}  {CaptureConfig.Overlay.TimeFormat}`,
-				"en-us"
-			)
-		end)
-		stamp.Text = if ok then formatted else ""
-	end
+	if not media then return end
 
 	local content = CaptureGalleryService:Content(media)
 	if not content then return end

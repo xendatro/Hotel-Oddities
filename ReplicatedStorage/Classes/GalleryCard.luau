@@ -134,7 +134,7 @@ function GalleryCard.new(
 	onSelect: (any) -> ()
 ): GalleryCard
 	local holder = Instance.new("Frame")
-	holder.Name = media.Id
+	holder.Name = (media.Id :: string):gsub("[^%w]", "")
 	holder.BackgroundTransparency = 1
 	holder.Size = template.Size
 	holder.LayoutOrder = order

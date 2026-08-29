@@ -73,7 +73,7 @@ function CaptureGalleryService:HasPermission(): boolean
 end
 
 function CaptureGalleryService:RequestPermission(): boolean
-	if permission ~= nil then return permission :: boolean end
+	if permission == true then return true end
 
 	local ok, granted = pcall(function()
 		return CaptureService:PromptCaptureGalleryPermissionAsync(CaptureConfig.Permission)
@@ -143,6 +143,9 @@ function CaptureGalleryService:TakeScreenshot(): Media?
 	if capture and result == Enum.ScreenshotCaptureResult.Success then
 		local media = wrap(capture, false)
 		pending[media.Id] = media
+		task.spawn(function()
+			self:RequestPermission()
+		end)
 		return media
 	end
 
@@ -178,6 +181,9 @@ function CaptureGalleryService:StartVideo(onFinished: (Media?, string?) -> ()): 
 
 			local media = wrap(videoCapture, false)
 			pending[media.Id] = media
+			task.spawn(function()
+				self:RequestPermission()
+			end)
 			finish(media, nil)
 		end, nil)
 	end)

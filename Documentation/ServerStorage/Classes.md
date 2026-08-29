@@ -497,7 +497,7 @@ Server half of the Bandage tool: a bare `Healer` subclass, so activation consume
 - Requires: `Classes\Healer` (extends `ServerTool`)
 
 ### Tools\Camcorder.luau
-Server half of the camcorder: the gamepass gate. On `Record` it verifies the caller owns the tool, is alive, and holds the pass named by `Config.Gamepass`, refusing while that pass id is still `0` so the tool cannot be used before the pass is linked. Never consumes — the camcorder is unlimited use.
+Server half of the camcorder: the gamepass gate. On `Record` it verifies the caller owns the tool and is alive, and — only when `CaptureConfig.RequireGamepass` is set — that they hold the pass named by `Config.Gamepass`, refusing while that pass id is still `0`. With the flag off the tool is available to everyone, which is how it ships until the pass is linked. Never consumes — the camcorder is unlimited use.
 - API: none beyond the `ServerTool` hooks.
 - Remotes: `Tools/Signal` — listens `Record`, fires `Allowed` / `Denied`
 - Requires: `Classes.ServerTool`, `Configs.CaptureConfig`, `MarketplaceService`, `PerkService`
