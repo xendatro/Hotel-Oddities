@@ -128,6 +128,13 @@ return {
 		Cooldown = 1,
 	},
 
+	Camcorder = {
+		Tag = "Camcorder",
+		Sound = "PlaceTrap",
+		Cooldown = 1.5,
+		Gamepass = "Camcorder",
+	},
+
 	["Walkie Talkie"] = {
 		Tag = "Walkie Talkie",
 	},

@@ -8,13 +8,17 @@ if not RunService:IsClient() then
 	return PhotoDevelopService
 end
 
+local CaptureConfig = require(ReplicatedStorage.Configs.CaptureConfig)
 local PhotoConfig = require(ReplicatedStorage.Configs.PhotoConfig)
+local CaptureGalleryService = require(ReplicatedStorage.Services.CaptureGalleryService)
+local CaptureOverlayService = require(ReplicatedStorage.Services.CaptureOverlayService)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
+local NotificationService = require(ReplicatedStorage.Services.NotificationService)
 
 local screen: ScreenGui? = nil
 local preview: Frame? = nil
 local expanded: Frame? = nil
-local currentImage: string? = nil
+local currentMedia: CaptureGalleryService.Media? = nil
 
 local function getScreen(): ScreenGui
 	if screen and screen.Parent then return screen end
@@ -76,7 +80,7 @@ local function rectOf(frame: Frame): (UDim2, UDim2)
 	return UDim2.fromOffset(position.X + size.X / 2, position.Y + size.Y / 2), UDim2.fromOffset(size.X, size.Y)
 end
 
-local function buildPaper(parent: Instance, size: UDim2, position: UDim2, rotation: number): (Frame, ImageLabel, Frame, UIGradient)
+local function buildPaper(parent: Instance, size: UDim2, position: UDim2, rotation: number): (Frame, ImageLabel, Frame, UIGradient, Frame)
 	local settings = PhotoConfig.Develop
 
 	local paper = Instance.new("Frame")
@@ -153,7 +157,7 @@ local function buildPaper(parent: Instance, size: UDim2, position: UDim2, rotati
 	})
 	shade.Parent = vignette
 
-	return paper, image, sheen, sweep
+	return paper, image, sheen, sweep, window
 end
 
 local function sweepSheen(sheen: Frame, sweep: UIGradient)
@@ -166,6 +170,87 @@ local function sweepSheen(sheen: Frame, sweep: UIGradient)
 	TweenService:Create(sheen, TweenInfo.new(settings.SheenTime, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {
 		BackgroundTransparency = 1,
 	}):Play()
+end
+
+local function paint(image: ImageLabel, window: Frame, media: CaptureGalleryService.Media)
+	local content = CaptureGalleryService:Content(media)
+	if content then
+		image.ImageContent = content
+	end
+	CaptureOverlayService.Apply(window, media)
+end
+
+local function buildActions(parent: Frame, media: CaptureGalleryService.Media, onDone: (boolean) -> ()): Frame
+	local settings = CaptureConfig.Prompt
+
+	local actions = Instance.new("Frame")
+	actions.Name = "Actions"
+	actions.AnchorPoint = Vector2.new(0.5, 1)
+	actions.Position = UDim2.new(0.5, 0, 1, -6)
+	actions.Size = UDim2.fromScale(0.9, settings.Height.Y.Scale)
+	actions.BackgroundTransparency = 1
+	actions.ZIndex = 7
+	actions.Parent = parent
+
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.Padding = UDim.new(0, settings.Gap)
+	layout.Parent = actions
+
+	local busy = false
+
+	local function makeButton(name: string, text: string, color: Color3, order: number): TextButton
+		local button = Instance.new("TextButton")
+		button.Name = name
+		button.Size = UDim2.fromScale(0.45, 1)
+		button.LayoutOrder = order
+		button.BackgroundColor3 = color
+		button.BackgroundTransparency = settings.Transparency
+		button.AutoButtonColor = true
+		button.Text = text
+		button.TextColor3 = settings.TextColor
+		button.TextScaled = true
+		button.Font = Enum.Font.Code
+		button.ZIndex = 7
+		button.Parent = actions
+
+		GuiBuilderService.Corner(button, UDim.new(0, 4))
+
+		local padding = Instance.new("UIPadding")
+		padding.PaddingTop = UDim.new(0, 4)
+		padding.PaddingBottom = UDim.new(0, 4)
+		padding.PaddingLeft = UDim.new(0, 8)
+		padding.PaddingRight = UDim.new(0, 8)
+		padding.Parent = button
+
+		return button
+	end
+
+	local save = makeButton("Save", settings.SaveText, settings.SaveColor, 1)
+	local discard = makeButton("Discard", settings.DiscardText, settings.DiscardColor, 2)
+
+	save.Activated:Connect(function()
+		if busy then return end
+		busy = true
+		task.spawn(function()
+			local ok = CaptureGalleryService:Save(media)
+			NotificationService:Show(if ok then CaptureConfig.Text.Saved else CaptureConfig.Text.SaveFailed)
+			busy = false
+			onDone(ok)
+		end)
+	end)
+
+	discard.Activated:Connect(function()
+		if busy then return end
+		busy = true
+		CaptureGalleryService:Discard(media)
+		NotificationService:Show(CaptureConfig.Text.Discarded)
+		onDone(false)
+	end)
+
+	return actions
 end
 
 function PhotoDevelopService:Collapse()
@@ -204,7 +289,7 @@ end
 
 function PhotoDevelopService:Expand()
 	local source = preview
-	if expanded or not currentImage or not source then return end
+	if expanded or not currentMedia or not source then return end
 
 	local settings = PhotoConfig.Develop.Expanded
 
@@ -233,10 +318,10 @@ function PhotoDevelopService:Expand()
 	end)
 
 	local startPosition, startSize = rectOf(source)
-	local paper, image = buildPaper(backdrop, startSize, startPosition, source.Rotation)
+	local paper, image, _, _, window = buildPaper(backdrop, startSize, startPosition, source.Rotation)
 	paper.AnchorPoint = Vector2.new(0.5, 0.5)
 	paper.ZIndex = 4
-	image.Image = currentImage
+	paint(image, window, currentMedia :: CaptureGalleryService.Media)
 	source.Visible = false
 
 	TweenService:Create(paper, info, {
@@ -263,7 +348,7 @@ function PhotoDevelopService:Hide()
 	if not paper then return end
 
 	preview = nil
-	currentImage = nil
+	currentMedia = nil
 
 	local settings = PhotoConfig.Develop
 	local tween = TweenService:Create(paper, TweenInfo.new(settings.FadeTime, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
@@ -276,7 +361,7 @@ function PhotoDevelopService:Hide()
 	tween:Play()
 end
 
-function PhotoDevelopService:Show(contentId: string, fullscreen: boolean?)
+function PhotoDevelopService:Show(media: CaptureGalleryService.Media, fullscreen: boolean?)
 	local settings = PhotoConfig.Develop
 
 	local previous = expanded
@@ -289,18 +374,18 @@ function PhotoDevelopService:Show(contentId: string, fullscreen: boolean?)
 		preview = nil
 	end
 
-	currentImage = contentId
+	currentMedia = media
 
 	local big = settings.Fullscreen
 	local startSize = if fullscreen then big.Size else settings.Size
 	local startPosition = if fullscreen then UDim2.fromScale(0.5, 0.5) else settings.SlideFrom
 	local startRotation = if fullscreen then 0 else settings.Rotation
 
-	local paper, image, sheen, sweep = buildPaper(getScreen(), startSize, startPosition, startRotation)
+	local paper, image, sheen, sweep, window = buildPaper(getScreen(), startSize, startPosition, startRotation)
 	if fullscreen then
 		paper.AnchorPoint = Vector2.new(0.5, 0.5)
 	end
-	image.Image = contentId
+	paint(image, window, media)
 	preview = paper
 
 	local open = Instance.new("TextButton")
@@ -331,7 +416,7 @@ function PhotoDevelopService:Show(contentId: string, fullscreen: boolean?)
 		return
 	end
 
-	task.delay(big.Hold, function()
+	local function settle()
 		if preview ~= paper then return end
 
 		TweenService:Create(paper, TweenInfo.new(big.TravelTime, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut), {
@@ -347,7 +432,23 @@ function PhotoDevelopService:Show(contentId: string, fullscreen: boolean?)
 				revealCloseButton(close)
 			end
 		end)
-	end)
+	end
+
+	if media.Capture and not media.Saved then
+		local actions: Frame? = nil
+		actions = buildActions(paper, media, function(kept: boolean)
+			if actions then actions:Destroy() end
+			if preview ~= paper then return end
+			if kept then
+				settle()
+			else
+				self:Hide()
+			end
+		end)
+		return
+	end
+
+	task.delay(big.Hold, settle)
 end
 
 return PhotoDevelopService

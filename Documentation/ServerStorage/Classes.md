@@ -496,6 +496,12 @@ Server half of the Bandage tool: a bare `Healer` subclass, so activation consume
 - API: `Bandage.new(tool: Tool)`
 - Requires: `Classes\Healer` (extends `ServerTool`)
 
+### Tools\Camcorder.luau
+Server half of the camcorder: the gamepass gate. On `Record` it verifies the caller owns the tool, is alive, and holds the pass named by `Config.Gamepass`, refusing while that pass id is still `0` so the tool cannot be used before the pass is linked. Never consumes — the camcorder is unlimited use.
+- API: none beyond the `ServerTool` hooks.
+- Remotes: `Tools/Signal` — listens `Record`, fires `Allowed` / `Denied`
+- Requires: `Classes.ServerTool`, `Configs.CaptureConfig`, `MarketplaceService`, `PerkService`
+
 ### Tools\Camera.luau
 Server half of the tripod Camera: validates the client's placement CFrame, hands it to PhotoCameraService, and consumes the tool so each camera is single use.
 - API: `Camera.new(tool: Tool) -> self`

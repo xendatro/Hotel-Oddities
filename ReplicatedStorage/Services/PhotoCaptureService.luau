@@ -1,4 +1,3 @@
-local CaptureService = game:GetService("CaptureService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -12,6 +11,7 @@ if not RunService:IsClient() then
 end
 
 local PhotoConfig = require(ReplicatedStorage.Configs.PhotoConfig)
+local CaptureGalleryService = require(ReplicatedStorage.Services.CaptureGalleryService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local PhotoDevelopService = require(ReplicatedStorage.Services.PhotoDevelopService)
@@ -241,21 +241,8 @@ local function waitForFrame(timeout: number)
 	coroutine.yield()
 end
 
-local function capture(): string?
-	local content: string? = nil
-	local done = false
-
-	CaptureService:CaptureScreenshot(function(contentId: string)
-		content = contentId
-		done = true
-	end)
-
-	local deadline = os.clock() + PhotoConfig.Capture.Timeout
-	while not done and os.clock() < deadline do
-		task.wait(0.03)
-	end
-
-	return content
+local function capture(): CaptureGalleryService.Media?
+	return CaptureGalleryService:TakeScreenshot()
 end
 
 function PhotoCaptureService:Take(lens: CFrame, fieldOfView: number, figure: CFrame?, figureName: string?)
@@ -282,7 +269,7 @@ function PhotoCaptureService:Take(lens: CFrame, fieldOfView: number, figure: CFr
 		holdSelf()
 	end)
 
-	local ok, content = pcall(function(): string?
+	local ok, content = pcall(function(): CaptureGalleryService.Media?
 		for _ = 1, settings.WarmupFrames do
 			waitForFrame(settings.FrameTimeout)
 		end
