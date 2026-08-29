@@ -45,7 +45,7 @@ Client-only. Owns additive field-of-view offsets so multiple effects can push th
 ### CaptureGalleryService.luau
 Client-only front end for Roblox's Captures API, and the single place captures are taken, kept or thrown away. Wraps a capture (screenshot or video) in a `Media` record so the rest of the codebase never touches the raw `Capture` object, whose `FilePathString` and `Resolution` properties both throw on read. Captures taken this session sit in a pending list until the player keeps or burns them; kept ones go to the player's own Roblox captures gallery and come back on later sessions through `Refresh`. Nothing here is shareable — Roblox scopes an uploaded capture asset to the uploader, so a capture is only ever visible to the player who took it. Gallery permission is requested as soon as a capture is taken, and re-prompts on every later capture until the player accepts, since a denial is what silently stops captures persisting. Only a granted answer is cached. The prompt is always fired through `EnsurePermission`, never awaited inline: `PromptCaptureGalleryPermissionAsync` never returns in Studio, so blocking a capture on it would wedge the shutter permanently. Capture failures report the engine's actual reason — most usefully `NoSpaceOnDevice`, which is literal and is what a full disk looks like. `TakeScreenshotCaptureAsync` returns `NoSpaceOnDevice` in Studio, so `TakeScreenshot` silently falls back to the legacy `CaptureScreenshot` path, which produces a viewable capture that cannot be saved to the gallery.
 - API: `CaptureGalleryService:TakeScreenshot() -> (Media?, string?)` — take a still with UI excluded; on failure falls back to the legacy path and returns the reason it could not be saved
-- API: `CaptureGalleryService:StartVideo(onFinished: (Media?, string?) -> ()) -> boolean` — begin recording; Roblox hides all UI and mutes voice for the duration and stops itself at 30s
+- API: `CaptureGalleryService:StartVideo(onFinished: (Media?, string?) -> ()) -> boolean` — begin recording; accepts both a normal stop and the engine's 30s time-limit result, while Roblox mutes voices during the take
 - API: `CaptureGalleryService:StopVideo()` / `CaptureGalleryService:IsRecording() -> boolean`
 - API: `CaptureGalleryService:Save(media: Media) -> boolean` — prompt the player to keep the capture in their gallery
 - API: `CaptureGalleryService:Discard(media: Media)` — drop a pending capture
@@ -60,7 +60,7 @@ Client-only front end for Roblox's Captures API, and the single place captures a
 - Requires: `Configs.CaptureConfig`
 
 ### CaptureOverlayService.luau
-Draws the camcorder furniture over a displayed capture: date and time in the bottom-right, and a red `REC` dot in the top-left for video. Roblox strips UI from the recording itself, so this is applied to whatever GUI is showing the capture rather than baked in at capture time. Replaces any overlay already on the target.
+Draws the camcorder furniture over a displayed capture: date and time in the bottom-right, plus a steady `REC` label and a blinking red light in the top-left for video. It is applied to the GUI that shows the capture rather than baked into the tape. Replaces any overlay already on the target and starts the video light blink at once.
 - API: `CaptureOverlayService.Apply(parent: GuiObject, media: any) -> Frame` — build the overlay inside `parent` and return it
 - API: `CaptureOverlayService.Blink(overlay: Frame) -> () -> ()` — blink the record dot; returns a stop function
 - Requires: `Configs.CaptureConfig`
@@ -268,7 +268,7 @@ Shows a stack of revive-offer cards cloned from the `ReviveFriendUI` template, e
 - Requires: `Configs.PerkConfig` (`FriendRevive`), `GuiBuilderService`; expects a pre-built `ReviveFriendUI` ScreenGui with a `Card` template
 
 ### GalleryUIService.luau
-Drives the Gallery page: the ruled notepad column holds a two-wide filmstrip of every capture the player has taken or kept, and selecting one lays it out large across the scrapbook page as an `ImageLabel`, or plays it in a looping muted `VideoFrame` for a tape. Date and time come from the capture overlay drawn on the image itself rather than a separate caption. Captures still pending a decision carry a green edge in the filmstrip and expose Keep/Burn buttons under the photo. Refreshes from the Roblox gallery when the page opens, and degrades to a warning rather than erroring if `GalleryGui` is missing its expected children.
+Drives the Gallery page: before access is granted, the empty page shows an `ALLOW DEVICE CAPTURES` button and does not open Roblox's permission prompt on its own. Granting access reads the reel at once; later page opens refresh it without another prompt. The two-wide filmstrip uses a still first frame for both photos and tapes, labels video cards `TAPE`, and selecting one shows the photo or starts a looping muted video as soon as it loads. Captures still pending a choice carry a green edge and expose Keep/Burn buttons. Missing authored GUI children degrade to a warning.
 - API: none — side-effect only.
 - Requires: `Classes.GalleryCard`, `Configs.CaptureConfig`, `CaptureGalleryService`, `CaptureOverlayService`, `GuiBuilderService`, `InterfaceService`, `NotificationService`
 
@@ -405,6 +405,7 @@ Owns the main menu page group: enables/disables the Index, Shop, VIP, Gems, Item
 - API: `InterfaceService:Close()` — close whatever page is open
 - API: `InterfaceService:GetActive(): string` — the active page id (empty string when closed)
 - API: `InterfaceService:SetMouseUnlocked(unlocked: boolean, force: boolean?)` — unlock/relock the mouse; `force` pins it unlocked until cleared
+- API: `InterfaceService:IsMouseUnlocked() -> boolean` — current cursor lock state, used to restore a forced prompt to its prior state
 - API: `InterfaceService:SetCameraFreed(freed: boolean)` — the half of unlocking that fights the camera: drops `Player.CameraMode` from `LockFirstPerson` to `Classic` (zoom stays pinned, so the view stays first person) and holds `MouseBehavior` on `Default` from a late render step, restoring the saved mode when relocked. Under `LockFirstPerson` the PlayerModule re-locks the mouse every frame and `GuiButton.Modal` has no effect, so without this the cursor appears but cannot move. Used by the Q toggle, the menu pages and `ComputerService` terminal sessions.
 - Tags: listens `SideButton`, `InterfaceCloseButton`
 - Requires: `Frameworks.xenterface` and its `Config.PresetConfig`, `CameraFovService`, `GuiBuilderService`, `Lighting.InterfaceBlur`
@@ -630,11 +631,11 @@ The camera never visibly snaps back: the finished photo is handed to PhotoDevelo
 - Requires: `Configs.PhotoConfig`, `CaptureGalleryService`, `CommunicationService`, `GuiBuilderService`, `PhotoDevelopService`
 
 ### PhotoDevelopService.luau
-Shows a captured photo as a sheet of film developing. A photo arriving from the shutter fills the whole screen (oversized so its frame sits off-view, masking the camera's return to the player), holds, then flies down into the corner. The image carries its final grade from the first frame it exists, so nothing about it changes tone while the player is looking at it; the film feel comes from a developer sheen that sweeps across once as it travels. Clicking the preview grows a large copy out of the preview's own rectangle over a dimmed backdrop, and closing it shrinks back into the same rectangle rather than cutting. The preview stays until it is closed with its own corner button; clicking the photo itself opens a large centred copy over a dimmed backdrop, closed by its close button or by clicking the backdrop. A new photo replaces whatever is on screen.
-- API: `PhotoDevelopService:Show(media: CaptureGalleryService.Media, fullscreen: boolean?)` — build and animate a capture, arriving full-screen when `fullscreen` is set. A capture that has not yet been kept holds full-screen behind Keep/Burn buttons instead of shrinking on a timer; keeping it settles it into the corner, burning it slides it away
+Shows a captured photo or tape as a sheet of film developing. A capture arriving from the shutter fills the whole screen (oversized so its frame sits off-view, masking the camera's return to the player), then flies down into the corner after its choice or hold. Tapes use a muted looping `VideoFrame` and start as soon as their data loads. The film grade, sheen, large-view growth and close animation stay the same for both media types. A new capture replaces whatever is on screen.
+- API: `PhotoDevelopService:Show(media: CaptureGalleryService.Media, fullscreen: boolean?)` — build and animate a capture. A pending full-screen capture pins the mouse free so Q cannot relock it while Keep/Burn is open, then restores the prior cursor state after either choice
 - API: `PhotoDevelopService:Expand()` / `PhotoDevelopService:Collapse()` — open and close the large view of the current photo
 - API: `PhotoDevelopService:Hide()` — slide the preview away and destroy it
-- Requires: `Configs.CaptureConfig`, `Configs.PhotoConfig`, `CaptureGalleryService`, `CaptureOverlayService`, `GuiBuilderService`, `NotificationService`
+- Requires: `Configs.CaptureConfig`, `Configs.PhotoConfig`, `CaptureGalleryService`, `CaptureOverlayService`, `GuiBuilderService`, `InterfaceService`, `NotificationService`
 
 ### PhotoTimerService.luau
 Draws the countdown above every placed tripod camera: a billboard over the camera body that ticks down whole seconds against the model's server-time `SnapAt` attribute, pulsing each change and turning red near zero, then flashes `SNAP` and hides itself once the `Snapped` attribute is set. The tagged model can arrive before its parts replicate, so the billboard waits (up to five seconds) for the camera body to exist rather than silently skipping that camera.

@@ -9,6 +9,19 @@ return {
 		StopGrace = 0.35,
 		ReadyTimeout = 12,
 		HideToolFor = 0.15,
+		Hud = {
+			GuiName = "CamcorderRecording",
+			DisplayOrder = 850,
+			Position = UDim2.new(0.5, 0, 0, 24),
+			Size = UDim2.fromOffset(250, 48),
+			StopKey = Enum.KeyCode.X,
+			BackdropColor = Color3.fromRGB(20, 15, 13),
+			StrokeColor = Color3.fromRGB(92, 69, 58),
+			TextColor = Color3.fromRGB(238, 231, 214),
+			StopColor = Color3.fromRGB(140, 62, 52),
+			StopText = "STOP  [X]",
+			StoppingText = "STOPPING...",
+		},
 	},
 
 	Screenshot = {
@@ -55,6 +68,8 @@ return {
 	Text = {
 		NoCaptures = "NOTHING DEVELOPED YET",
 		NeedPermission = "ALLOW CAPTURE ACCESS TO KEEP YOUR REEL",
+		Access = "ALLOW DEVICE CAPTURES",
+		Accessing = "CHECKING ACCESS...",
 		Denied = "CAPTURES STAY LOCAL UNTIL YOU ALLOW ACCESS",
 		Saved = "Saved to your gallery",
 		Discarded = "Burned",

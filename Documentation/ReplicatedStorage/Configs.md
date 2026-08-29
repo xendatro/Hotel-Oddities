@@ -31,7 +31,7 @@ Chase-driven camera FOV changes and per-enemy camera shake profiles.
 - API: data table — `FadeInSpeed`, `FadeOutSpeed`, `FovReleaseSpeed`, `CeilingDweller`, `MimicFovDelay`, `ChaseShakes` (Chaos, Chaser, CeilingDweller, Mimic)
 
 ### CaptureConfig.luau
-Settings for the camcorder, the photo keep-or-burn prompt and the Gallery page: `RequireGamepass` (off while the Camcorder pass id is still unset, which hands the tool to everyone), the gallery permission enum, video duration and the 30s engine cap, screenshot timeout, gallery page/GUI names and the universe filter, keep/burn button styling and text, the old-timey overlay styling and date/time formats, and every player-facing string the capture flow shows, including the specific low-disk and unsupported-device failure reasons.
+Settings for the camcorder, the photo keep-or-burn prompt and the Gallery page: `RequireGamepass` (off while the Camcorder pass id is still unset, which hands the tool to everyone), the gallery permission enum, video duration and the 30s engine cap, the REC/STOP HUD and stop key, screenshot timeout, gallery page/GUI names and the universe filter, keep/burn and access button text, the old-timey overlay styling and date/time formats, and every player-facing capture failure string.
 
 ### ComputerAssets.luau
 Image asset ids for the hackable-computer UI.
@@ -107,8 +107,8 @@ The enemy Index (bestiary) UI: pagination, locked/undiscovered styling, the disc
 - API: data table — `EntriesPerPage`, `TemplateFolder`, `StartProgress`, `Locked`, `Discovery`, `Empty`, `HideUndiscovered`, `Pagination`, `Animation`, `Headshot`, `Entries`; exports types `StandinPart`, `Headshot`, `Entry`
 
 ### InventoryConfig.luau
-Hotbar/backpack sizes, keybinds, drag thresholds and slot styling for the inventory UI.
-- API: data table — `HotbarSlots`, `BackpackSlots`, `ToggleKey`, `HotbarKeys`, `DragThreshold`, `TouchDragThreshold`, `SlotSize`, `SlotPadding`, `CornerRadius`, `Colors`, `Transparency`, `PlaceholderIcon`
+Hotbar/backpack sizes, the names that may only have one copy, keybinds, drag thresholds and slot styling for the inventory UI.
+- API: data table — `HotbarSlots`, `BackpackSlots`, `SingleCopy`, `ToggleKey`, `HotbarKeys`, `DragThreshold`, `TouchDragThreshold`, `SlotSize`, `SlotPadding`, `CornerRadius`, `Colors`, `Transparency`, `PlaceholderIcon`
 
 ### KitCatalogConfig.luau
 The 24 kits themselves: four per rarity across Common, Uncommon, Rare, Epic, Legendary and Mythic. Each entry carries an `Id`, a short `Name`, its `Rarity`, a one-line `Description`, an absolute `Stats` map (`MaxHealth`, `WalkSpeed`, `JumpPower`, `Stamina`, `SprintMultiplier`, `DetectionRadius` - omitted keys stay at base), an `Items` map of `ReplicatedStorage.Tools` name to count, and an optional `Showcase` naming which item's model represents the kit in a ViewportFrame. `Guest` is the free default every player owns. Split out from `KitConfig` so the catalogue can grow without the system settings moving.

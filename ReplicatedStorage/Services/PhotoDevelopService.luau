@@ -13,12 +13,29 @@ local PhotoConfig = require(ReplicatedStorage.Configs.PhotoConfig)
 local CaptureGalleryService = require(ReplicatedStorage.Services.CaptureGalleryService)
 local CaptureOverlayService = require(ReplicatedStorage.Services.CaptureOverlayService)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
+local InterfaceService = require(ReplicatedStorage.Services.InterfaceService)
 local NotificationService = require(ReplicatedStorage.Services.NotificationService)
 
 local screen: ScreenGui? = nil
 local preview: Frame? = nil
 local expanded: Frame? = nil
 local currentMedia: CaptureGalleryService.Media? = nil
+local mouseWasUnlocked: boolean? = nil
+
+local function setDecisionOpen(open: boolean)
+	if open then
+		if mouseWasUnlocked == nil then
+			mouseWasUnlocked = InterfaceService:IsMouseUnlocked()
+		end
+		InterfaceService:SetMouseUnlocked(true, true)
+		return
+	end
+
+	if mouseWasUnlocked == nil then return end
+	local restore = mouseWasUnlocked or InterfaceService:GetActive() ~= ""
+	mouseWasUnlocked = nil
+	InterfaceService:SetMouseUnlocked(restore, false)
+end
 
 local function getScreen(): ScreenGui
 	if screen and screen.Parent then return screen end
@@ -80,7 +97,7 @@ local function rectOf(frame: Frame): (UDim2, UDim2)
 	return UDim2.fromOffset(position.X + size.X / 2, position.Y + size.Y / 2), UDim2.fromOffset(size.X, size.Y)
 end
 
-local function buildPaper(parent: Instance, size: UDim2, position: UDim2, rotation: number): (Frame, ImageLabel, Frame, UIGradient, Frame)
+local function buildPaper(parent: Instance, size: UDim2, position: UDim2, rotation: number): (Frame, ImageLabel, VideoFrame, Frame, UIGradient, Frame)
 	local settings = PhotoConfig.Develop
 
 	local paper = Instance.new("Frame")
@@ -120,6 +137,15 @@ local function buildPaper(parent: Instance, size: UDim2, position: UDim2, rotati
 	image.ImageTransparency = 0
 	image.Parent = window
 
+	local tape = Instance.new("VideoFrame")
+	tape.Name = "Tape"
+	tape.Size = UDim2.fromScale(1, 1)
+	tape.BackgroundTransparency = 1
+	tape.Looped = true
+	tape.Volume = 0
+	tape.Visible = false
+	tape.Parent = window
+
 	local sheen = Instance.new("Frame")
 	sheen.Name = "Sheen"
 	sheen.Size = UDim2.fromScale(1, 1)
@@ -157,7 +183,7 @@ local function buildPaper(parent: Instance, size: UDim2, position: UDim2, rotati
 	})
 	shade.Parent = vignette
 
-	return paper, image, sheen, sweep, window
+	return paper, image, tape, sheen, sweep, window
 end
 
 local function sweepSheen(sheen: Frame, sweep: UIGradient)
@@ -172,9 +198,22 @@ local function sweepSheen(sheen: Frame, sweep: UIGradient)
 	}):Play()
 end
 
-local function paint(image: ImageLabel, window: Frame, media: CaptureGalleryService.Media)
+local function paint(image: ImageLabel, tape: VideoFrame, window: Frame, media: CaptureGalleryService.Media)
 	local content = CaptureGalleryService:Content(media)
-	if content then
+	if content and media.Kind == "Video" then
+		image.Visible = false
+		tape.Visible = true
+		tape.VideoContent = content
+		if tape.IsLoaded then
+			pcall(function() tape:Play() end)
+		else
+			tape.Loaded:Once(function()
+				if tape.Visible and tape.Parent then
+					pcall(function() tape:Play() end)
+				end
+			end)
+		end
+	elseif content then
 		image.ImageContent = content
 	end
 	CaptureOverlayService.Apply(window, media)
@@ -318,10 +357,10 @@ function PhotoDevelopService:Expand()
 	end)
 
 	local startPosition, startSize = rectOf(source)
-	local paper, image, _, _, window = buildPaper(backdrop, startSize, startPosition, source.Rotation)
+	local paper, image, tape, _, _, window = buildPaper(backdrop, startSize, startPosition, source.Rotation)
 	paper.AnchorPoint = Vector2.new(0.5, 0.5)
 	paper.ZIndex = 4
-	paint(image, window, currentMedia :: CaptureGalleryService.Media)
+	paint(image, tape, window, currentMedia :: CaptureGalleryService.Media)
 	source.Visible = false
 
 	TweenService:Create(paper, info, {
@@ -343,6 +382,7 @@ end
 
 function PhotoDevelopService:Hide()
 	self:Collapse()
+	setDecisionOpen(false)
 
 	local paper = preview
 	if not paper then return end
@@ -375,17 +415,18 @@ function PhotoDevelopService:Show(media: CaptureGalleryService.Media, fullscreen
 	end
 
 	currentMedia = media
+	setDecisionOpen(fullscreen == true and media.Capture ~= nil and not media.Saved)
 
 	local big = settings.Fullscreen
 	local startSize = if fullscreen then big.Size else settings.Size
 	local startPosition = if fullscreen then UDim2.fromScale(0.5, 0.5) else settings.SlideFrom
 	local startRotation = if fullscreen then 0 else settings.Rotation
 
-	local paper, image, sheen, sweep, window = buildPaper(getScreen(), startSize, startPosition, startRotation)
+	local paper, image, tape, sheen, sweep, window = buildPaper(getScreen(), startSize, startPosition, startRotation)
 	if fullscreen then
 		paper.AnchorPoint = Vector2.new(0.5, 0.5)
 	end
-	paint(image, window, media)
+	paint(image, tape, window, media)
 	preview = paper
 
 	local open = Instance.new("TextButton")
@@ -438,6 +479,7 @@ function PhotoDevelopService:Show(media: CaptureGalleryService.Media, fullscreen
 		local actions: Frame? = nil
 		actions = buildActions(paper, media, function(kept: boolean)
 			if actions then actions:Destroy() end
+			setDecisionOpen(false)
 			if preview ~= paper then return end
 			if kept then
 				settle()

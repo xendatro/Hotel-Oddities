@@ -49,12 +49,10 @@ local function dress(button: ImageButton, media: any)
 	thumb.ImageColor3 = Color3.fromRGB(226, 214, 196)
 	thumb.ZIndex = 2
 
-	if media.Kind == "Screenshot" then
-		local content = CaptureGalleryService:Content(media)
-		if content then
-			thumb.ImageContent = content
-			thumb.ImageTransparency = 0
-		end
+	local content = CaptureGalleryService:Content(media)
+	if content then
+		thumb.ImageContent = content
+		thumb.ImageTransparency = 0
 	else
 		thumb.ImageTransparency = 1
 	end

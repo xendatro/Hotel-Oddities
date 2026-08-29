@@ -284,7 +284,7 @@ Creates linked entry/exit hole pairs (the Shovel's dig): the entry goes where th
 - Requires: `ToolConfigs.Shovel` (`MaxDigDistance`, `DigDepth`), `TagService:GetTaggedOfAncestor`, `CharacterService.GetAliveRoot`
 
 ### InventoryService.luau
-Authoritative backpack/hotbar model: it tracks a slot-ordered list of tool names per player, clones templates out of `ReplicatedStorage.Tools`, keeps quantities on a `quantity` attribute, mirrors the layout to the client, and persists slots/quantities/`uses` into the player's DataSave profile. It restores the saved inventory on join, reconciles it whenever the character respawns, clears everything on death, and always guarantees exactly one Walkie Talkie.
+Authoritative backpack/hotbar model: it tracks a slot-ordered list of tool names per player, clones templates out of `ReplicatedStorage.Tools`, keeps quantities on a `quantity` attribute, mirrors the layout to the client, and persists slots/quantities/`uses` into the player's DataSave profile. `InventoryConfig.SingleCopy` clamps grants of listed tools, including the Camcorder and Walkie Talkie, to one and `EnsureSingle` repairs old stacked or duplicate copies. It restores the saved inventory on join, reconciles it whenever the character respawns, clears everything on death, and always guarantees one Walkie Talkie.
 - API: `InventoryService:Get(player: Player, toolName: string) -> Tool?`
 - API: `InventoryService:GetAll(player: Player) -> { [string]: Tool }` — backpack plus equipped
 - API: `InventoryService:GetQuantity(player: Player) -> number` — summed `quantity` attributes
@@ -462,7 +462,7 @@ Geometry search that finds a corner a stalker enemy can stand behind hidden from
 - Requires: `HallwayGridService` (corner list), `EnemyObservationService` (enemy eyes/view cones), `MathService`
 
 ### PerkService.luau
-Resolves each player's gamepass ownership once on join, mirrors it to `Perk*` player attributes, and applies the perks on every spawn: double speed, the Visor tool, the Camcorder tool (granted to everyone while `CaptureConfig.RequireGamepass` is off), and restoring items kept through death.
+Resolves each player's gamepass ownership once on join, mirrors it to `Perk*` player attributes, and applies the perks on every spawn: double speed, the Visor tool, exactly one Camcorder tool (granted to everyone while `CaptureConfig.RequireGamepass` is off), and restoring items kept through death. The camcorder grant waits for inventory restore and repairs any saved count above one.
 - API: `PerkService:Owns(player: Player, passName: string) -> boolean` — cached gamepass ownership
 - API: `PerkService:WaitForPasses(player: Player) -> boolean` — yields up to 20s until ownership is resolved
 - Requires: `PerkConfig`, `MarketplaceService.Gamepasses`, `InventoryService`, `LoadoutService` (death snapshot/restore), `SpeedBoostService` (sets the DoubleSpeed multiplier)

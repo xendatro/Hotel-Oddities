@@ -214,7 +214,10 @@ function CaptureGalleryService:StartVideo(onFinished: (Media?, string?) -> ()): 
 
 	local ok, started = pcall(function()
 		return CaptureService:StartVideoCaptureAsync(function(result, videoCapture)
-			if result ~= Enum.VideoCaptureResult.Success or not videoCapture then
+			if result ~= Enum.VideoCaptureResult.Success
+				and result ~= Enum.VideoCaptureResult.TimeLimitReached
+				or not videoCapture
+			then
 				finish(nil, CaptureConfig.Text.Unsupported)
 				return
 			end

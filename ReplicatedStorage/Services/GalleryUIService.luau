@@ -41,12 +41,40 @@ local still = preview:WaitForChild("Still", 10) :: ImageLabel
 local tape = preview:WaitForChild("Tape", 10) :: VideoFrame
 local empty = design:FindFirstChild("Empty") :: TextLabel?
 local actions = info:FindFirstChild("Actions") :: Frame?
+local access: TextButton? = nil
 
 template.Visible = false
+
+if actions then
+	local source = actions:FindFirstChild("Save")
+	if source and source:IsA("TextButton") then
+		access = source:Clone()
+		access.Name = "Access"
+		access.LayoutOrder = 3
+		access.Size = UDim2.fromScale(0.72, 1)
+		access.Text = CaptureConfig.Text.Access
+		access.Visible = false
+		access.Parent = actions
+	end
+end
 
 local cards: { [string]: any } = {}
 local selectedId: string? = nil
 local refreshing = false
+
+local function playTape()
+	if not tape.Visible then return end
+	if tape.IsLoaded then
+		pcall(function() tape:Play() end)
+		return
+	end
+
+	tape.Loaded:Once(function()
+		if tape.Visible and tape.Parent then
+			pcall(function() tape:Play() end)
+		end
+	end)
+end
 
 local function clearPreview()
 	preview.Visible = false
@@ -63,12 +91,23 @@ end
 local function paintActions(media: any?)
 	if not actions then return end
 
-	actions.Visible = media ~= nil and media.Capture ~= nil and not media.Saved
+	local hasDecision = media ~= nil and media.Capture ~= nil and not media.Saved
+	local needsAccess = not CaptureGalleryService:HasPermission() and not hasDecision
+	actions.Visible = hasDecision or needsAccess
 
 	local save = actions:FindFirstChild("Save") :: TextButton?
 	local discard = actions:FindFirstChild("Discard") :: TextButton?
-	if save then save.Text = CaptureConfig.Prompt.SaveText end
-	if discard then discard.Text = CaptureConfig.Prompt.DiscardText end
+	if save then
+		save.Text = CaptureConfig.Prompt.SaveText
+		save.Visible = hasDecision
+	end
+	if discard then
+		discard.Text = CaptureConfig.Prompt.DiscardText
+		discard.Visible = hasDecision
+	end
+	if access then
+		access.Visible = needsAccess
+	end
 end
 
 local function paintPreview()
@@ -95,7 +134,8 @@ local function paintPreview()
 		tape.VideoContent = content
 		tape.Visible = true
 		tape.Looped = true
-		pcall(function() tape:Play() end)
+		tape.Volume = 0
+		playTape()
 	else
 		still.ImageContent = content
 		still.Visible = true
@@ -159,18 +199,41 @@ local function refresh()
 	rebuild()
 	deal()
 
-	if refreshing then return end
+	if refreshing or not CaptureGalleryService:HasPermission() then return end
 	refreshing = true
 
 	task.spawn(function()
-		local ok = CaptureGalleryService:Refresh(false)
+		CaptureGalleryService:Refresh(false)
 		refreshing = false
-		if not ok and not CaptureGalleryService:HasPermission() then
-			NotificationService:Show(CaptureConfig.Text.Denied)
-		end
 		if not gui.Enabled then return end
 		rebuild()
 		deal()
+	end)
+end
+
+if access then
+	InterfaceService.WireMotion(access)
+	access.Activated:Connect(function()
+		if refreshing then return end
+		refreshing = true
+		access.Interactable = false
+		access.Text = CaptureConfig.Text.Accessing
+
+		task.spawn(function()
+			local granted = CaptureGalleryService:RequestPermission()
+			if granted then
+				CaptureGalleryService:Refresh(true)
+			else
+				NotificationService:Show(CaptureConfig.Text.Denied)
+			end
+
+			refreshing = false
+			access.Interactable = true
+			access.Text = CaptureConfig.Text.Access
+			if not gui.Enabled then return end
+			rebuild()
+			deal()
+		end)
 	end)
 end
 
