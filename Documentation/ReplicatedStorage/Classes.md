@@ -168,7 +168,7 @@ Replacement for the default Animate script on NPC rigs: disables `Animate`, load
 - API: `NpcAnimator:StopEmote()`
 - API: `NpcAnimator:PlayAttack() -> boolean` — random attack track
 - API: `NpcAnimator:PreloadOverride(assetId: number)`
-- API: `NpcAnimator:PlayOverride(assetId: number)` / `NpcAnimator:StopOverride()` — looping Action-priority override
+- API: `NpcAnimator:PlayOverride(assetId: number): AnimationTrack` / `NpcAnimator:StopOverride()` — looping Action-priority override; returns the track so callers can read its length
 - API: `NpcAnimator:PlayHold(assetId: number)` / `NpcAnimator:StopHold()` — second looping Action-priority slot
 - API: `NpcAnimator:SetMovementSpeed(speed: number)` — drive gait from a value instead of the rig's velocity
 - API: `NpcAnimator:SetMovementTrack(trackName: "Walk" | "Run"?)` — force a locomotion track

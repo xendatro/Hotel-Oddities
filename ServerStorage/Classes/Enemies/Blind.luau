@@ -282,11 +282,12 @@ local function search(_changeState: StateMachine.ChangeState, npc: any, lastKnow
 
 	local animations = npc.Config.Animations
 	local listenId = animations and animations.Listen
-	if listenId then
-		npc.Animator:PlayOverride(listenId)
-	end
-	task.wait(npc.Config.SearchTime)
+	local listenTrack = if listenId then npc.Animator:PlayOverride(listenId) else nil
+	local listenTime = math.max(npc.Config.SearchTime, listenTrack and listenTrack.Length or 0)
+	print("[Blind] Search reached point, listening for", listenTime, "seconds")
+	task.wait(listenTime)
 	stopListening(npc)
+	print("[Blind] Search finished, listen override stopped")
 	npc.HeardNoise = nil
 	npc.HeardPosition = nil
 	npc.HeardSource = nil
@@ -300,6 +301,10 @@ end
 
 function Blind.new(model: Model, config)
 	local self = NPC.new(model, config, Blind)
+	local listenId = self.Config.Animations and self.Config.Animations.Listen
+	if listenId then
+		self.Animator:PreloadOverride(listenId)
+	end
 	self.HeardNoise = nil
 	self.HeardPosition = nil
 	self.HeardSource = nil

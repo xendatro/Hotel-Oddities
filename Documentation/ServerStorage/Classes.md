@@ -172,7 +172,7 @@ A deaf-to-sight, hearing-driven hunter: it registers an "ear" with `HearingServi
 - API: `Blind.new(model: Model, config) -> self` — adds the heard-noise and determination fields.
 - API: `Blind:BuildStateMachine() -> StateMachine` — Investigate/Pursue/Attack/Search plus the shared Idle/Wander/Patrol/Despawn and a Stunned wrapper that stops the listen override; evaluators `Hearing` and `Contact`.
 - Requires: `ServerStorage.Classes.NPC`, `HearingService`, `Configs.HeartbeatConfig`
-- Notes: overrides `NPC.new` and `BuildStateMachine`; writes the heartbeat `PursuitAttribute` on the model while pursuing or attacking; the Search state plays `Config.Animations.Listen` through `NpcAnimator:PlayOverride` for `SearchTime`, and Investigate/Pursue/Attack/Stunned each stop it on entry
+- Notes: overrides `NPC.new` and `BuildStateMachine`; writes the heartbeat `PursuitAttribute` on the model while pursuing or attacking; the Search state plays `Config.Animations.Listen` (preloaded at construction) through `NpcAnimator:PlayOverride` for the greater of `SearchTime` and the track's length, and Investigate/Pursue/Attack/Stunned each stop it on entry
 
 ### Enemies\CeilingDweller.luau
 A Chaser that spawns on the ceiling and physically drops onto the floor before behaving normally: `Start` tweens the model down with collisions and humanoid states disabled, cues the victim's client camera ("Drop" then "Scream"), and only then hands off to `NPC.Start`.
@@ -399,7 +399,7 @@ Extends `FixtureFall` (via `PropOddity`). Unanchors a ceiling lantern so it fall
 Extends `PropOddity`. Spawns a humanoid rig hidden behind a painting's `Canvas`, tweens it forward through a hole decal so it lunges out of the wall, flickers nearby lights and shakes nearby players' cameras, then attacks any living non-vanished player who comes within reach until it retreats and is destroyed on stop. Only paintings whose canvas has empty space (no hallway, no room) behind it are eligible. Presented to players as the "Painting Lurker" enemy: kills record the `PaintingDweller` death cause, popping grants event discovery to every nearby player it shakes, and it has its own Index entry.
 - API: `PaintingDweller.new(config: { [string]: any }?)` — adds rig, canvas, decal, GUI and animation state
 - API: `PaintingDweller:IsCandidate(model: Model) -> boolean` — anchored wide canvas with dead space behind it
-- API: `PaintingDweller:OnStart() -> boolean` — builds the rig, hides decals, plays the pop tween, starts the attack poll
+- API: `PaintingDweller:OnStart() -> boolean` — builds the rig, hides decals, plays the pop tween with the one-shot `StartAnimation` handing off to the looping `ThrashAnimation`, starts the attack poll
 - API: `PaintingDweller:GroundedFor() -> number` — seconds since the pop
 - API: `PaintingDweller:WhyNotFixed() -> string?` — reason the fixture cannot be reset yet
 - API: `PaintingDweller:IsReadyToFix() -> boolean`
