@@ -94,8 +94,10 @@ local function coastPast(npc: any): boolean
 
 	local room = npc:GetClearRun(heading, range)
 	if room < (npc.Config.OvershootMinimum or 0) then
+		print("[Blind] no coast, clear run", math.floor(room + 0.5), "studs")
 		return false
 	end
+	print("[Blind] coasting past for", math.floor(room + 0.5), "studs")
 
 	local start = npc.RootPart.Position
 	local stop = start + heading * room
@@ -122,6 +124,7 @@ local function coastPast(npc: any): boolean
 
 	npc:SetSpeed(0)
 	npc:StopMoving()
+	print("[Blind] coast ended, interrupted =", interrupted)
 	return interrupted
 end
 
@@ -132,9 +135,15 @@ local function followsTrail(npc: any, noise, distance: number, now: number): boo
 end
 
 local function hear(npc: any, noise, distance: number)
-	if not npc.Active then return end
+	if not npc.Active then
+		print("[Blind] heard noise but npc inactive")
+		return
+	end
 	local now = os.clock()
-	if not followsTrail(npc, noise, distance, now) then return end
+	if not followsTrail(npc, noise, distance, now) then
+		print("[Blind] ignored noise from", noise.Source, "- already following a closer trail")
+		return
+	end
 
 	local hadTrail = npc.HeardNoise ~= nil
 	local changedSource = hadTrail and npc.HeardSource ~= noise.Source
@@ -161,12 +170,14 @@ local function hear(npc: any, noise, distance: number)
 		npc.FlinchPending = true
 	end
 
+	local before = npc.StateMachine.State
 	if close then
 		npc.FlinchPending = false
 		npc.StateMachine:SetState("Pursue", "Close", npc, noise.Source)
 	else
 		npc.StateMachine:SetState("Investigate", "Noise", npc)
 	end
+	print("[Blind] heard noise from", noise.Source, "dist", math.floor(distance + 0.5), "close =", close, "state", before, "->", npc.StateMachine.State)
 end
 
 local function stopListening(npc: any)
@@ -200,6 +211,7 @@ local function investigate(_changeState: StateMachine.ChangeState, npc: any)
 		return heard ~= nil and npc:IsValidTarget(heard) and npc:HasPursuitSight(heard)
 	end)
 
+	print("[Blind] investigate pursue result:", result)
 	local caught = npc.HeardSource
 	if result == "Reached" and caught and npc:IsValidTarget(caught) and npc:IsTouchingPlayer(caught) then
 		registerContact(npc, caught)
@@ -345,7 +357,11 @@ function Blind:BuildStateMachine(): StateMachine.StateMachine
 				end,
 
 				Accepts = function(noise)
-					return noise.Source == nil or npc:IsValidTarget(noise.Source)
+					if noise.Source == nil or npc:IsValidTarget(noise.Source) then
+						return true
+					end
+					print("[Blind] deaf to", noise.Source.Name, "- givenUp =", npc:_hasGivenUpOn(noise.Source))
+					return false
 				end,
 
 				OnHeard = function(noise, distance)

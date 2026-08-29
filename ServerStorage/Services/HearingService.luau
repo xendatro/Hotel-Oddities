@@ -42,6 +42,7 @@ end
 local function offer(noise: NoiseService.Noise)
 	for key, ear in Ears do
 		if not ear.IsAlive() then
+			print("[Hearing] removing dead ear", key)
 			Ears[key] = nil
 			continue
 		end
