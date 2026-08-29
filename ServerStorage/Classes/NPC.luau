@@ -348,7 +348,13 @@ function NPC:ReactAtRoomDoor(
 		return false
 	end
 
-	self.Animator:PlayEmote("cheer")
+	local animations = self.Config.Animations
+	local reactionId = animations and animations.RoomReaction
+	if reactionId then
+		self.Animator:PlayOverride(reactionId)
+	else
+		self.Animator:PlayEmote("cheer")
+	end
 	local reactionWinner = if shouldCancel
 		then Race.new({
 			Finished = function()
@@ -362,11 +368,18 @@ function NPC:ReactAtRoomDoor(
 		}):Fire()
 		else "Finished"
 	if reactionWinner ~= "Finished" then
-		self.Animator:StopEmote()
+		if reactionId then
+			self.Animator:StopOverride()
+		else
+			self.Animator:StopEmote()
+		end
 		self:SetForcedDoorway(nil)
 		return false
 	end
 
+	if reactionId then
+		self.Animator:StopOverride()
+	end
 	self:SetForcedDoorway(nil)
 	return true
 end

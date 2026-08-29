@@ -37,6 +37,7 @@ local pageNames = {
 	KitsShop = { Gui = "KitsShop", Root = "Design" },
 	RollGui = { Gui = "RollGui", Root = "Main" },
 	Map = { Gui = "Map", Root = "Main" },
+	Gallery = { Gui = "GalleryGui", Root = "Design" },
 }
 
 local pageGuis: { [string]: ScreenGui } = {}

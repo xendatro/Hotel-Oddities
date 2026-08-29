@@ -32,8 +32,10 @@ local emitterConnection: RBXScriptConnection?
 local mutedEmitterGroup = `WalkieTalkieMuted_{player.UserId}`
 
 local categories: { [string]: number } = {}
+local categoryMaximums: { [string]: number } = {}
 for _, entry in Config.Categories do
 	categories[entry.Id] = 1
+	categoryMaximums[entry.Id] = entry.Maximum or 1
 end
 
 local playerVolumes: { [number]: number } = {}
@@ -299,7 +301,7 @@ end
 local function getPlayerGain(target: Player): number
 	if playerMuted[target.UserId] then return 0 end
 	local volume = playerVolumes[target.UserId]
-	return if volume then math.clamp(volume, 0, 1) else 1
+	return if volume then math.clamp(volume, 0, Config.PlayerVolumeMaximum) else 1
 end
 
 local function smooth(current: number, target: number, deltaTime: number): number
@@ -457,6 +459,10 @@ function WalkieTalkieService:SetTransmitting(value: boolean)
 	applyPose()
 end
 
+function WalkieTalkieService:ToggleTransmitting()
+	self:SetTransmitting(not transmitting)
+end
+
 function WalkieTalkieService:SetRaised(value: boolean)
 	local wanted = value == true and powered and equipped
 	if raised == wanted then return end
@@ -514,12 +520,12 @@ function WalkieTalkieService:CycleMode()
 end
 
 function WalkieTalkieService:GetCategory(id: string): number
-	return categories[id] or 1
+	return (categories[id] or 1) / (categoryMaximums[id] or 1)
 end
 
 function WalkieTalkieService:SetCategory(id: string, value: number)
 	if categories[id] == nil then return end
-	categories[id] = math.clamp(value, 0, 1)
+	categories[id] = math.clamp(value, 0, 1) * categoryMaximums[id]
 	SetAudio:FireServer(categories)
 end
 
@@ -532,11 +538,11 @@ function WalkieTalkieService:SetMuted(target: Player, value: boolean)
 end
 
 function WalkieTalkieService:GetPlayerVolume(target: Player): number
-	return playerVolumes[target.UserId] or 1
+	return (playerVolumes[target.UserId] or 1) / Config.PlayerVolumeMaximum
 end
 
 function WalkieTalkieService:SetPlayerVolume(target: Player, value: number)
-	playerVolumes[target.UserId] = math.clamp(value, 0, 1)
+	playerVolumes[target.UserId] = math.clamp(value, 0, 1) * Config.PlayerVolumeMaximum
 end
 
 function WalkieTalkieService:GetLevel(target: Player): number
@@ -576,7 +582,7 @@ SetAudio.OnClientEvent:Connect(function(saved: any, mode: any)
 	if type(saved) == "table" then
 		for id, value in saved do
 			if categories[id] ~= nil and type(value) == "number" then
-				categories[id] = math.clamp(value, 0, 1)
+				categories[id] = math.clamp(value, 0, categoryMaximums[id])
 			end
 		end
 	end
@@ -601,13 +607,7 @@ UserInputService.InputBegan:Connect(function(input: InputObject, processed: bool
 	elseif input.KeyCode == Config.Keys.Raise then
 		WalkieTalkieService:ToggleRaised()
 	elseif input.UserInputType == Enum.UserInputType.MouseButton1 and not raised then
-		WalkieTalkieService:SetTransmitting(true)
-	end
-end)
-
-UserInputService.InputEnded:Connect(function(input: InputObject)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		WalkieTalkieService:SetTransmitting(false)
+		WalkieTalkieService:ToggleTransmitting()
 	end
 end)
 

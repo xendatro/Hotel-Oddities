@@ -432,7 +432,7 @@ become Services or Classes.
 - ServerStorage\Classes\Enemies\Ghost.luau — Floating enemy that drifts on published motion legs and lurks unseen in dangerous hallways.
 - ServerStorage\Classes\Enemies\Mimic.luau — Copies a player's appearance and acts out odd encounter modes before revealing and chasing.
 - ServerStorage\Classes\Enemies\Sisters.luau — Twinned translucent, harmless figures that patrol the hallway ceilings forever via SurfaceWalker, heads tracking the nearest player.
-- ServerStorage\Classes\Enemies\Stalker.luau — Tails a player from behind unseen, flees to cover when observed, and seizes the camera to kill.
+- ServerStorage\Classes\Enemies\Stalker.luau — Tails a player from behind unseen until it closes to striking range, flees to cover when observed, and seizes the camera to kill.
 - ServerStorage\Classes\Enemies\WeepingAngel.luau — Chaser that freezes solid whenever any player is observing it.
 - ServerStorage\Classes\Enemies\Behaviors\Peek.luau — Shared state functions for hiding at a spot, leaning into view, and pulling back.
 - ServerStorage\Classes\Oddity.luau — Root oddity class: token, merged settings, timed start/stop lifecycle and subclass factory.
@@ -446,7 +446,7 @@ become Services or Classes.
 - ServerStorage\Classes\Oddities\HallwayCrush.luau — Hallway oddity that closes both walls of one junction-free stretch of corridor inward until they seal, dragging the pilasters, lanterns, paintings and doors with them and crushing players whose HRP overlap the lethal volume past the configured threshold.
 - ServerStorage\Classes\Oddities\HallwayVoid.luau — Hallway oddity that cuts a bottomless pit into the corridor floor and kills whoever falls in.
 - ServerStorage\Classes\Oddities\LanternFall.luau — Fixture-fall oddity that drops a ceiling lantern and kills its light while down.
-- ServerStorage\Classes\Oddities\PaintingDweller.luau — Prop oddity that bursts a humanoid rig out of a painting canvas and attacks nearby players.
+- ServerStorage\Classes\Oddities\PaintingDweller.luau — Prop oddity that bursts a humanoid rig out of a painting canvas and attacks nearby players; presented as the "Painting Lurker" enemy with its own death cause, Index entry and event/death discovery.
 - ServerStorage\Classes\Oddities\PaintingFall.luau — Fixture-fall oddity that shoves a wall painting off the wall with spin.
 - ServerStorage\Classes\Oddities\RatScurry.luau — Runs a rat across a hallway from one wall to the other and destroys it on the far side.
 - ServerStorage\Classes\Oddities\PlayerHeadStare.luau — Player oddity that runs the client head-stare effect when enough players are alive.

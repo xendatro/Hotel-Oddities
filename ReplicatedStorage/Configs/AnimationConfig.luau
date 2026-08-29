@@ -21,6 +21,7 @@ local Animations = {
 	Punch2 = 101989469398162,
 	SneakyWalk = 94066930953679,
 	Fly = 124677133774216,
+	GhostIdle = 124615244478417,
 	DoorKnock = 111875087243338,
 
 	ToolHold = 507768375,

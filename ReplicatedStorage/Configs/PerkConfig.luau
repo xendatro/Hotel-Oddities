@@ -9,6 +9,10 @@ return {
 		ToolName = "Visor",
 	},
 
+	Camcorder = {
+		ToolName = "Camcorder",
+	},
+
 	DoubleSpeed = {
 		Multiplier = 2,
 	},

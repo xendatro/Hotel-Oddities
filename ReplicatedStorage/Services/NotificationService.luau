@@ -113,6 +113,10 @@ local function show(message: any)
 	end)
 end
 
+function NotificationService:Show(message: string)
+	show(message)
+end
+
 ShowRemote.OnClientEvent:Connect(show)
 
 return NotificationService

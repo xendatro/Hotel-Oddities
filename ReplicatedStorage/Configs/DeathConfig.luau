@@ -70,6 +70,11 @@ return {
 			Name = "The Squeeze",
 			Hint = "The corridor was getting narrower the whole time. When the walls start to move, run for the nearest opening.",
 		},
+
+		PaintingDweller = {
+			Name = "Painting Lurker",
+			Hint = "It waits behind the big frames and lunges at whoever stands close. Give the paintings some room.",
+		},
 	} :: { [string]: Cause },
 
 	Screen = {

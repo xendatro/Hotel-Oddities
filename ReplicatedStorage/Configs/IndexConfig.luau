@@ -247,5 +247,11 @@ return {
 			Description = "It hangs in the dark and holds the room's attention. Staring back is expensive.",
 			Headshot = { Focus = "Eyeball", Pitch = 4 },
 		},
+		{
+			Id = "PaintingDweller",
+			Name = "Painting Lurker",
+			Model = "Ceiling Dweller",
+			Description = "Not every canvas is only paint. It waits behind the frame for a guest to lean in.",
+		},
 	} :: { Entry },
 }

@@ -146,7 +146,7 @@ export type EnemyConfig = {
 	FleeSpeed: number?,
 	FollowDistance: number?,
 	FollowSlack: number?,
-	StalkTime: number?,
+	StrikeDistance: number?,
 	RevealTurnTime: number?,
 	RevealHoldTime: number?,
 	FleeTime: number?,
@@ -369,7 +369,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		Model = "Ceiling Dweller",
 		Animations = AnimationConfig.Sets.Stalker,
 
-		WalkSpeed = 16,
+		WalkSpeed = 18,
 		ChaseSpeed = 24,
 		FleeSpeed = 32,
 		RepathInterval = 0.4,
@@ -402,7 +402,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		FollowDistance = 7,
 		FollowSlack = 2.5,
 
-		StalkTime = 10,
+		StrikeDistance = 10,
 		RevealTurnTime = 0.25,
 		RevealHoldTime = 0.4,
 

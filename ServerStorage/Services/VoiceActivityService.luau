@@ -47,11 +47,11 @@ end
 local function watchCharacter(player: Player, character: Model)
 	local previous = CharacterConnections[player]
 	if previous then previous:Disconnect() end
-	for _, child in character:GetChildren() do
-		tuneVoiceEmitter(player, child)
+	for _, descendant in character:GetDescendants() do
+		tuneVoiceEmitter(player, descendant)
 	end
-	CharacterConnections[player] = character.ChildAdded:Connect(function(child)
-		tuneVoiceEmitter(player, child)
+	CharacterConnections[player] = character.DescendantAdded:Connect(function(descendant)
+		tuneVoiceEmitter(player, descendant)
 	end)
 end
 
@@ -81,6 +81,8 @@ local function watchPlayer(player: Player)
 	end)
 	player.CharacterAdded:Connect(function(character)
 		MutedPlayers[player] = nil
+		local currentSource = player:FindFirstChild("AudioDeviceInput")
+		if currentSource then tuneInput(player, currentSource) end
 		watchCharacter(player, character)
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		if humanoid then

@@ -12,7 +12,7 @@ Placeholder table for developer product definitions; currently empty, so nothing
 
 ### DiscoveryConfig.luau
 Tuning for the discovery/journal progress system: how fast a player "discovers" an enemy by looking at it, standing near it, witnessing an event, or dying to it. Includes a resolver that merges a per-enemy rule with the defaults.
-- API: data table — `SweepInterval`, `ReplicateStep`, `Defaults` (`Sight`, `Death`), `Rules` (per-enemy `Sight`/`Proximity`/`Event`/`Death`; `Sight = false` disables sight gain), plus `DiscoveryConfig.Resolve(enemyId: string) -> { Sight, Proximity, Event, Death }`
+- API: data table — `SweepInterval`, `ReplicateStep`, `Defaults` (`Sight`, `Death`), `Rules` (per-enemy `Sight`/`Proximity`/`Event`/`Death`; `Sight = false` disables sight gain; `PaintingDweller` is event/death only since its rig never registers with `EnemyService`), plus `DiscoveryConfig.Resolve(enemyId: string) -> { Sight, Proximity, Event, Death }`
 - Requires: `ReplicatedStorage.Configs.CreepConfig` (Creep proximity range)
 
 ### EnemyConfigs.luau

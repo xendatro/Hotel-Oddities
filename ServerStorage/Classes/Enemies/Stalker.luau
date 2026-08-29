@@ -16,8 +16,6 @@ local PeekSpotService = require(ServerStorage.Services.PeekSpotService)
 local FaceStalker = CommunicationService.Get("Enemies", "FaceStalker") :: RemoteEvent
 
 local PERCEPTION_INTERVAL = 0.25
-local HOLD_INTERVAL = 0.1
-local FOLLOW_HYSTERESIS = 2
 local RETRY_INTERVAL = 0.25
 
 local RETREAT_STEPS = { 20, 12, 6 }
@@ -193,17 +191,11 @@ local function stalk(_changeState: StateMachine.ChangeState, npc: any, target: P
 	npc.Animator:SetMovementTrack("Walk")
 	npc:SetSpeed(config.WalkSpeed)
 
-	local strikeAt = os.clock() + config.StalkTime
-	local targetPosition = npc.RootPart.Position
 	local ending = nil :: string?
 
 	local function getGoal(): Vector3?
 		if npc:IsObserved() then
 			ending = "Seen"
-			return nil
-		end
-		if os.clock() >= strikeAt then
-			ending = "Strike"
 			return nil
 		end
 
@@ -212,31 +204,20 @@ local function stalk(_changeState: StateMachine.ChangeState, npc: any, target: P
 			ending = "Lost"
 			return nil
 		end
-		targetPosition = position :: Vector3
+
+		if flatten(npc.RootPart.Position - (position :: Vector3)).Magnitude <= config.StrikeDistance then
+			ending = "Strike"
+			return nil
+		end
 		return behind
 	end
 
 	while not ending do
-		local result = npc:Pursue(getGoal, config.FollowSlack, nil, function()
+		npc:Pursue(getGoal, config.FollowSlack, nil, function()
 			return npc:HasLineOfSightToPlayer(target)
 		end)
 		if ending then break end
-
-		if result == "Reached" then
-			npc:StopMoving()
-			while true do
-				local behind = getGoal()
-				if not behind then break end
-
-				npc:FaceTowards(targetPosition)
-				if (npc.RootPart.Position - behind).Magnitude > config.FollowSlack + FOLLOW_HYSTERESIS then
-					break
-				end
-				task.wait(HOLD_INTERVAL)
-			end
-		else
-			task.wait(config.RepathInterval)
-		end
+		task.wait(config.RepathInterval)
 	end
 
 	if ending == "Seen" then return "Flee", npc end

@@ -78,6 +78,11 @@ DiscoveryConfig.Rules = {
 		Event = 0.4,
 		Death = 0.45,
 	},
+	PaintingDweller = {
+		Sight = false,
+		Event = 0.4,
+		Death = 0.45,
+	},
 } :: { [string]: DiscoveryRule }
 
 function DiscoveryConfig.Resolve(enemyId: string): { Sight: SightRule?, Proximity: ProximityRule?, Event: number?, Death: number }

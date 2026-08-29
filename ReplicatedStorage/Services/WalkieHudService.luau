@@ -36,14 +36,8 @@ raiseButton.Activated:Connect(function()
 	WalkieTalkieService:ToggleRaised()
 end)
 
-talkButton.InputBegan:Connect(function(input: InputObject)
-	if input.UserInputType ~= Enum.UserInputType.Touch then return end
-	WalkieTalkieService:SetTransmitting(true)
-end)
-
-talkButton.InputEnded:Connect(function(input: InputObject)
-	if input.UserInputType ~= Enum.UserInputType.Touch then return end
-	WalkieTalkieService:SetTransmitting(false)
+talkButton.Activated:Connect(function()
+	WalkieTalkieService:ToggleTransmitting()
 end)
 
 local promptShown = false

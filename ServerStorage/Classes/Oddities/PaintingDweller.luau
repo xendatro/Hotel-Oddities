@@ -6,6 +6,7 @@ local TweenService = game:GetService("TweenService")
 
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local DeathService = require(ServerStorage.Services.DeathService)
+local EnemyDiscoveryService = require(ServerStorage.Services.EnemyDiscoveryService)
 local FixtureFall = require(ServerStorage.Classes.FixtureFall)
 local Hallways = require(ReplicatedStorage.Services.HallwaysService)
 local LightService = require(ServerStorage.Services.LightService)
@@ -189,6 +190,7 @@ function PaintingDweller:OnStart(): boolean
 		local playerRoot = livingRoot(player)
 		if playerRoot and (playerRoot.Position - canvas.Position).Magnitude <= shakeRadius then
 			PopRemote:FireClient(player)
+			EnemyDiscoveryService:GrantEvent(player, "PaintingDweller")
 		end
 	end
 	LightService:FlickerNearest(
