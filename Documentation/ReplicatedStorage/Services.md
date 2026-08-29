@@ -42,6 +42,29 @@ Client-only. Owns additive field-of-view offsets so multiple effects can push th
 - API: `CameraFovService:SetLocked(locked: boolean)` — hold the current raw FOV and suppress all named offsets while locked
 - API: `CameraFovService:TweenOffset(name: string, degrees: number, tweenInfo: TweenInfo)` — tweens one named offset, cancelling any prior tween of that name
 
+### CaptureGalleryService.luau
+Client-only front end for Roblox's Captures API, and the single place captures are taken, kept or thrown away. Wraps a capture (screenshot or video) in a `Media` record so the rest of the codebase never touches the raw `Capture` object, whose `FilePathString` and `Resolution` properties both throw on read. Captures taken this session sit in a pending list until the player keeps or burns them; kept ones go to the player's own Roblox captures gallery and come back on later sessions through `Refresh`. Nothing here is shareable — Roblox scopes an uploaded capture asset to the uploader, so a capture is only ever visible to the player who took it. Gallery permission is requested as soon as a capture is taken, and re-prompts on every later capture until the player accepts, since a denial is what silently stops captures persisting. Only a granted answer is cached. The prompt is always fired through `EnsurePermission`, never awaited inline: `PromptCaptureGalleryPermissionAsync` never returns in Studio, so blocking a capture on it would wedge the shutter permanently. Capture failures report the engine's actual reason — most usefully `NoSpaceOnDevice`, which is literal and is what a full disk looks like. `TakeScreenshotCaptureAsync` returns `NoSpaceOnDevice` in Studio, so `TakeScreenshot` silently falls back to the legacy `CaptureScreenshot` path, which produces a viewable capture that cannot be saved to the gallery.
+- API: `CaptureGalleryService:TakeScreenshot() -> (Media?, string?)` — take a still with UI excluded; on failure falls back to the legacy path and returns the reason it could not be saved
+- API: `CaptureGalleryService:StartVideo(onFinished: (Media?, string?) -> ()) -> boolean` — begin recording; Roblox hides all UI and mutes voice for the duration and stops itself at 30s
+- API: `CaptureGalleryService:StopVideo()` / `CaptureGalleryService:IsRecording() -> boolean`
+- API: `CaptureGalleryService:Save(media: Media) -> boolean` — prompt the player to keep the capture in their gallery
+- API: `CaptureGalleryService:Discard(media: Media)` — drop a pending capture
+- API: `CaptureGalleryService:Refresh(force: boolean?) -> boolean` — reload the gallery, keeping only captures whose `SourceUniverseId` is this universe
+- API: `CaptureGalleryService:List() -> {Media}` — pending plus saved captures, newest first
+- API: `CaptureGalleryService:Content(media: Media) -> Content?` — a `Content` for `ImageLabel.ImageContent` or `VideoFrame.VideoContent`
+- API: `CaptureGalleryService:RequestPermission() -> boolean` — prompts and yields; returns false immediately if a prompt is already in flight
+- API: `CaptureGalleryService:EnsurePermission()` — fire-and-forget prompt, safe to call from a capture sequence
+- API: `CaptureGalleryService:WaitForPermission() -> boolean` — waits out an in-flight prompt, then asks
+- API: `CaptureGalleryService:HasPermission() -> boolean`
+- API: `CaptureGalleryService.Changed` — BindableEvent fired when the pending or saved set changes
+- Requires: `Configs.CaptureConfig`
+
+### CaptureOverlayService.luau
+Draws the camcorder furniture over a displayed capture: date and time in the bottom-right, and a red `REC` dot in the top-left for video. Roblox strips UI from the recording itself, so this is applied to whatever GUI is showing the capture rather than baked in at capture time. Replaces any overlay already on the target.
+- API: `CaptureOverlayService.Apply(parent: GuiObject, media: any) -> Frame` — build the overlay inside `parent` and return it
+- API: `CaptureOverlayService.Blink(overlay: Frame) -> () -> ()` — blink the record dot; returns a stop function
+- Requires: `Configs.CaptureConfig`
+
 ### CeilingVentDoorService.luau
 Client-only, gated on `FLAGS.Enemies`. Listens for the server's ceiling-vent door commands and tweens the named door part's pivot to the target CFrame, cancelling any tween already running on that part.
 - API: no public methods — runs entirely from its remote connection.
@@ -244,6 +267,11 @@ Shows a stack of revive-offer cards cloned from the `ReviveFriendUI` template, e
 - Remotes: `Revive/Offer` (listened), `Revive/Withdraw` (listened), `Revive/Request` (fired)
 - Requires: `Configs.PerkConfig` (`FriendRevive`), `GuiBuilderService`; expects a pre-built `ReviveFriendUI` ScreenGui with a `Card` template
 
+### GalleryUIService.luau
+Drives the Gallery page: the ruled notepad column holds a two-wide filmstrip of every capture the player has taken or kept, and selecting one lays it out large across the scrapbook page as an `ImageLabel`, or plays it in a looping muted `VideoFrame` for a tape. Date and time come from the capture overlay drawn on the image itself rather than a separate caption. Captures still pending a decision carry a green edge in the filmstrip and expose Keep/Burn buttons under the photo. Refreshes from the Roblox gallery when the page opens, and degrades to a warning rather than erroring if `GalleryGui` is missing its expected children.
+- API: none — side-effect only.
+- Requires: `Classes.GalleryCard`, `Configs.CaptureConfig`, `CaptureGalleryService`, `CaptureOverlayService`, `GuiBuilderService`, `InterfaceService`, `NotificationService`
+
 ### GhostMotionService.luau
 Shared math and attribute protocol for ghost drift: builds a travel "leg" (origin, target, duration) that the server publishes onto the model as attributes and clients read back, plus bobbing and fade timing.
 - API: `GhostMotion.NewLeg(origin: CFrame, goal: Vector3, speed: number, startedAt: number) -> Leg` — leg facing the direction of travel
@@ -371,7 +399,7 @@ Client-only singleton wrapper: returns a single `Interaction` instance (an empty
 - Requires: `Classes.Interaction` (which reads `Configs.DrawerConfig` and clones its prompt from the `Cursor` ScreenGui)
 
 ### InterfaceService.luau
-Owns the main menu page group: enables/disables the Index, Shop, VIP, Gems, Items, KitInventory, KitsShop, RollGui and Map ScreenGuis through an xenterface controller, blurs and pulls back the camera FOV while a page is open, and manages mouse unlocking (including a Q toggle when no page is open). Also wires hover/press motion onto tagged side buttons and close buttons using named motion presets.
+Owns the main menu page group: enables/disables the Index, Shop, VIP, Gems, Items, KitInventory, KitsShop, RollGui, Map and Gallery ScreenGuis through an xenterface controller, blurs and pulls back the camera FOV while a page is open, and manages mouse unlocking (including a Q toggle when no page is open). Also wires hover/press motion onto tagged side buttons and close buttons using named motion presets.
 - API: `InterfaceService.WireMotion(button: GuiButton, visual: GuiObject?, motionPreset: any?)` — add hover/press scale and tilt motion to any button (defaults to the button itself and the `HotelSideButton` preset)
 - API: `InterfaceService:Open(pageId: string)` — open one of the known pages, warning on an unknown id
 - API: `InterfaceService:Close()` — close whatever page is open
@@ -560,7 +588,8 @@ Client-only arcade shell for the hackable computers: picks which minigame a give
 - Requires: `Classes.Minigames.<Id>` modules, each exporting `Id`, `Title`, `SupportsReset`, `new(root, api)`
 
 ### NotificationService.luau
-Client-only top-center notification banner. Listens for short server messages, renders them in a stacked panel with the shared GUI builder, and fades each one in and out automatically.
+Client-only top-center notification banner. Listens for short server messages, renders them in a stacked panel with the shared GUI builder, and fades each one in and out automatically. Client code that needs to say something locally calls `Show` directly rather than round-tripping the server.
+- API: `NotificationService:Show(message: string)` — render a banner on this client
 - Remotes: `Notifications/Show` (listened)
 - Requires: `Configs.NotificationConfig`, `Services.CommunicationService`, `Services.GuiBuilderService`
 
@@ -594,18 +623,18 @@ Flag-gated startup timing log. The server stamps a start time on ReplicatedStora
 - Requires: `Configs.FLAGS`
 
 ### PhotoCaptureService.luau
-Client half of the tripod Camera's shutter. On the snap remote it flashes the screen white, hides every `LayerCollector` under PlayerGui plus every core GUI type and the topbar, hides the viewmodel, clones the named figure rig locally (anchored, never replicated) at the server-chosen CFrame, and pins the camera to the tripod's lens while calling `CaptureService:CaptureScreenshot`. The figure is cloned and the camera is moved `Capture.WarmupFrames` before the shutter, all of it behind the opaque flash, because a model parented the same frame it is photographed renders unshaded — that warmup is what keeps a dark rig from coming out default grey. Frame waits are deadline-bounded and every restore is guarded, so a client that stops rendering mid-shot (alt-tab) still gets its camera, character and interface back. GUIs are unparented rather than merely disabled, because services like MinimapService re-assert `Enabled` every render step and would otherwise win the frame the shutter fires. Every held frame re-asserts the whole disguise — GUIs stay unparented, the local character's parts stay visible, and its root is turned to the player's real camera yaw so a first-person player is photographed facing where they were looking rather than where they last walked.
-The camera never visibly snaps back: the finished photo is handed to PhotoDevelopService full-screen while the flash is still white, and only then are the camera, viewmodel, character and interface restored behind it, so the flash covers the jump out and the photo covers the jump home. Warns when the figure rig is missing from `ReplicatedStorage.Enemies`. Captures are per-client `rbxtemp://` ids, so every player in the shot takes their own copy of the same framing.
+Client half of the tripod Camera's shutter. On the snap remote it flashes the screen white, hides every `LayerCollector` under PlayerGui plus every core GUI type and the topbar, hides the viewmodel, clones the named figure rig locally (anchored, never replicated) at the server-chosen CFrame, and pins the camera to the tripod's lens while calling `CaptureGalleryService:TakeScreenshot`. The figure is cloned and the camera is moved `Capture.WarmupFrames` before the shutter, all of it behind the opaque flash, because a model parented the same frame it is photographed renders unshaded — that warmup is what keeps a dark rig from coming out default grey. Frame waits are deadline-bounded and every restore is guarded, so a client that stops rendering mid-shot (alt-tab) still gets its camera, character and interface back. GUIs are unparented rather than merely disabled, because services like MinimapService re-assert `Enabled` every render step and would otherwise win the frame the shutter fires. Every held frame re-asserts the whole disguise — GUIs stay unparented, the local character's parts stay visible, and its root is turned to the player's real camera yaw so a first-person player is photographed facing where they were looking rather than where they last walked.
+The camera never visibly snaps back: the finished photo is handed to PhotoDevelopService full-screen while the flash is still white, and only then are the camera, viewmodel, character and interface restored behind it, so the flash covers the jump out and the photo covers the jump home. Warns when the figure rig is missing from `ReplicatedStorage.Enemies`. Captures are per-client, so every player in the shot takes their own copy of the same framing, and Roblox scopes them to their owner — a photo can never be shown to anyone else.
 - API: `PhotoCaptureService:Take(lens: CFrame, fieldOfView: number, figure: CFrame?, figureName: string?)` — run the whole flash/capture/restore sequence
 - Remotes: `Photo/Snap` (listened)
-- Requires: `Configs.PhotoConfig`, `CommunicationService`, `GuiBuilderService`, `PhotoDevelopService`
+- Requires: `Configs.PhotoConfig`, `CaptureGalleryService`, `CommunicationService`, `GuiBuilderService`, `PhotoDevelopService`
 
 ### PhotoDevelopService.luau
 Shows a captured photo as a sheet of film developing. A photo arriving from the shutter fills the whole screen (oversized so its frame sits off-view, masking the camera's return to the player), holds, then flies down into the corner. The image carries its final grade from the first frame it exists, so nothing about it changes tone while the player is looking at it; the film feel comes from a developer sheen that sweeps across once as it travels. Clicking the preview grows a large copy out of the preview's own rectangle over a dimmed backdrop, and closing it shrinks back into the same rectangle rather than cutting. The preview stays until it is closed with its own corner button; clicking the photo itself opens a large centred copy over a dimmed backdrop, closed by its close button or by clicking the backdrop. A new photo replaces whatever is on screen.
-- API: `PhotoDevelopService:Show(contentId: string, fullscreen: boolean?)` — build and animate a photo from a capture content id, arriving full-screen when `fullscreen` is set
+- API: `PhotoDevelopService:Show(media: CaptureGalleryService.Media, fullscreen: boolean?)` — build and animate a capture, arriving full-screen when `fullscreen` is set. A capture that has not yet been kept holds full-screen behind Keep/Burn buttons instead of shrinking on a timer; keeping it settles it into the corner, burning it slides it away
 - API: `PhotoDevelopService:Expand()` / `PhotoDevelopService:Collapse()` — open and close the large view of the current photo
 - API: `PhotoDevelopService:Hide()` — slide the preview away and destroy it
-- Requires: `Configs.PhotoConfig`, `GuiBuilderService`
+- Requires: `Configs.CaptureConfig`, `Configs.PhotoConfig`, `CaptureGalleryService`, `CaptureOverlayService`, `GuiBuilderService`, `NotificationService`
 
 ### PhotoTimerService.luau
 Draws the countdown above every placed tripod camera: a billboard over the camera body that ticks down whole seconds against the model's server-time `SnapAt` attribute, pulsing each change and turning red near zero, then flashes `SNAP` and hides itself once the `Snapped` attribute is set. The tagged model can arrive before its parts replicate, so the billboard waits (up to five seconds) for the camera body to exist rather than silently skipping that camera.
@@ -771,7 +800,7 @@ F3 developer panel for live tuning of every equipped first-person tool. It follo
 - Requires: `Configs.ViewmodelDebugConfig` (`ToggleKey`, `Step`, `AngleStep`, `PoseOrder`), `Configs.ViewmodelConfig`, `Configs.FLAGS`, `Classes.DebugPanel`, `ViewmodelService`
 
 ### VoiceActivityService.luau
-Client voice-activity detector: wires an `AudioAnalyzer` onto the local player's `AudioDeviceInput`, polls RMS level against a threshold, and tells the server when you start and stop speaking (with a heartbeat re-send and a release delay). Stops analyzing on death, mutes remote voice emitters locally until respawn, and rebuilds itself if the input device appears or disappears. This drives proximity voice and enemy hearing only — walkie-talkie transmission is push-to-talk and does not use it.
+Client voice-activity detector: wires an `AudioAnalyzer` onto the local player's `AudioDeviceInput`, polls RMS level against a threshold, and tells the server when you start and stop speaking (with a heartbeat re-send and a release delay). Stops analyzing on death, mutes remote voice emitters locally until respawn, and rebuilds itself if the input device appears or disappears. This drives proximity voice and enemy hearing only — walkie-talkie transmission is toggle-controlled and does not use it.
 - API: `VoiceActivityService:GetLevel() -> number` — the analyser's current RMS level, or 0 when there is no live unmuted input
 - Remotes: `WalkieTalkie/VoiceActivity` (fired)
 - Requires: `Configs.VoiceChatConfig` (`Activity.PollInterval`, `.Threshold`, `.Heartbeat`, `.Release`)
@@ -788,11 +817,12 @@ Client footstep engine for players and tagged enemies. Silences the default Robl
 - Requires: `AudioService.Play3DSound`, `CharacterService.ForEachPlayer`, `TagService`, `Configs.WalkSoundConfig`, `Configs.CrouchConfig` (`Stealth`)
 
 ### WalkieTalkieService.luau
-Client walkie-talkie brain: owns power, equip, raised and push-to-talk state, and all local audio routing. Power (`Keys.Power`, default G) is independent of holding the tool — a powered radio keeps receiving from the backpack, but transmitting needs it equipped. Transmission is push-to-talk on left mouse (or the touch TALK button) and drives the `Talk` viewmodel pose; `Keys.Raise` (default R) lifts the radio into the `Raised` pose for the full-screen UI. Mutes the player's own radio emitter via a private `AudioInteractionGroup`, crossfades each remote player's proximity voice against their incoming radio route by listener distance, multiplies that route by the local per-player mute/volume, and reads each route's level from an `AudioAnalyzer` for the roster meters. Your own meter follows your microphone through `VoiceActivityService:GetLevel` while you hold push-to-talk, with the same gain and attack/release ballistics as everyone else's, rather than pinning to full. Refuses to power on when voice chat is unavailable for the user.
+Client walkie-talkie brain: owns power, equip, raised and toggle-transmit state, and all local audio routing. Power (`Keys.Power`, default G) is independent of holding the tool — a powered radio keeps receiving from the backpack, but transmitting needs it equipped. Transmission toggles on left mouse (or the touch TALK button) and drives the `Talk` viewmodel pose; `Keys.Raise` (default R) lifts the radio into the `Raised` pose for the full-screen UI. Mutes the player's own radio emitter via a private `AudioInteractionGroup`, crossfades each remote player's proximity voice against their incoming radio route by listener distance, multiplies that route by the local per-player mute/volume, and reads each route's level from an `AudioAnalyzer` for the roster meters. Category and per-player sliders remain normalized from 0–100% while translating through their configured maximum gains. Your own meter follows your microphone through `VoiceActivityService:GetLevel` while transmission is toggled on, with the same gain and attack/release ballistics as everyone else's, rather than pinning to full. Refuses to power on when voice chat is unavailable for the user.
 - API: `WalkieTalkieService:SetPowered(value)` / `:TogglePower()` / `:IsPowered() -> boolean`
 - API: `WalkieTalkieService:SetEquipped(value)` / `:IsEquipped() -> boolean` — driven by the tool class
 - API: `WalkieTalkieService:SetRaised(value)` / `:ToggleRaised()` / `:IsRaised() -> boolean`
 - API: `WalkieTalkieService:SetTransmitting(value)` / `:IsTransmitting() -> boolean`
+- API: `WalkieTalkieService:ToggleTransmitting()` — toggle transmission on left mouse or the touch TALK button
 - API: `WalkieTalkieService:GetMode() -> string` / `:GetModeLabel() -> string` / `:CycleMode()`
 - API: `WalkieTalkieService:GetCategory(id) -> number` / `:SetCategory(id, value)` — the `Config.Categories` volume sliders
 - API: `WalkieTalkieService:IsMuted(player)` / `:SetMuted(player, value)` / `:GetPlayerVolume(player)` / `:SetPlayerVolume(player, value)` — local only
@@ -807,7 +837,7 @@ Client owner of the walkie-talkie's on-model screen. Binds to the `SurfaceGui` i
 - Requires: `Configs.WalkieTalkieConfig`, `InterfaceService`, `SurfaceCursorService`, `ViewmodelService`, `WalkieTalkieService`; the `Main` frame authored inside `ReplicatedStorage.Tools["Walkie Talkie"].Screen.Screen`
 
 ### WalkieHudService.luau
-Client screen-space companion to the walkie-talkie. Drives the `WalkieHud` ScreenGui authored in StarterGui: fades `Main.Prompt` (text and stroke together) in while the radio is equipped but off, and shows `Main.Touch`'s PWR / RADIO / TALK buttons on touch devices to toggle power, raise the radio and hold push-to-talk. Layout and colours live on the instances; the service only supplies the prompt strings, the fade time and the pressed-state background.
+Client screen-space companion to the walkie-talkie. Drives the `WalkieHud` ScreenGui authored in StarterGui: fades `Main.Prompt` (text and stroke together) in while the radio is equipped but off, and shows `Main.Touch`'s PWR / RADIO / TALK buttons on touch devices to toggle power, raise the radio and toggle transmission. Layout and colours live on the instances; the service only supplies the prompt strings, the fade time and the pressed-state background.
 - API: none — side-effect only.
 - Requires: `Configs.WalkieTalkieConfig` (`Prompt`, `Touch.ActiveBackground`, `Keys`), `GuiBuilderService`, `WalkieTalkieService`; the `WalkieHud` ScreenGui in StarterGui
 

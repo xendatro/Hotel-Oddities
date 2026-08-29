@@ -30,6 +30,9 @@ Per-enemy chase music tracks with range, volume and fade rates.
 Chase-driven camera FOV changes and per-enemy camera shake profiles.
 - API: data table — `FadeInSpeed`, `FadeOutSpeed`, `FovReleaseSpeed`, `CeilingDweller`, `MimicFovDelay`, `ChaseShakes` (Chaos, Chaser, CeilingDweller, Mimic)
 
+### CaptureConfig.luau
+Settings for the camcorder, the photo keep-or-burn prompt and the Gallery page: `RequireGamepass` (off while the Camcorder pass id is still unset, which hands the tool to everyone), the gallery permission enum, video duration and the 30s engine cap, screenshot timeout, gallery page/GUI names and the universe filter, keep/burn button styling and text, the old-timey overlay styling and date/time formats, and every player-facing string the capture flow shows, including the specific low-disk and unsupported-device failure reasons.
+
 ### ComputerAssets.luau
 Image asset ids for the hackable-computer UI.
 - API: data table — `ComputerIcon`, `LockIcon`, `CheckIcon`
@@ -225,8 +228,8 @@ Small overrides for footstep sound playback rate and per-enemy step volume.
 - API: data table — `PlayerStepFrequencyMultiplier`, `EnemyStepVolume`
 
 ### WalkieTalkieConfig.luau
-Radio ranges, volumes, keybinds, friend/all modes, the on-model screen UI palette and the full DSP effect chain (compressor, bandpass, EQ, distortion, limiter, static) for walkie-talkie voice transmission. `Categories` defines the four player-facing volume sliders (`Global`, `Voices`, `Monster`, `Noise`) by id, and both the client and server key their settings tables off those ids. `PowerAttribute`, `VoiceAttribute` and `TransmitAttribute` name the Player attributes the server replicates so every client can colour the roster. Layout and styling are not here — the walkie screen and the `WalkieHud` ScreenGui are authored in Studio, and `Ui.Colors` holds only the state colours the roster swaps at runtime.
-- API: data table — `PhysicalDistance`, `TaggedSoundDistance`, `TaggedSoundPickupFalloff`, `RadioAllowedTag`, `DeathActiveGrace`, `TransmissionGrace`, `VoiceVolume`, `ProximityRadioBlend`, `TaggedSoundVolume`, `RadioPhysicalVolume`, `RadioNoiseRadius`, `RelaySyncInterval`, `ToolName`, `PowerAttribute`, `VoiceAttribute`, `TransmitAttribute`, `Keys`, `Modes`, `Categories`, `Ui`, `Prompt`, `Touch`, `Effects`
+Radio ranges, volumes, keybinds, friend/all modes, the on-model screen UI palette and the full DSP effect chain (compressor, bandpass, EQ, distortion, limiter, static) for walkie-talkie voice transmission. Transmission toggles from left mouse or the touch TALK button. `Categories` defines the four player-facing volume sliders (`Global`, `Voices`, `Monster`, `Noise`) by id, and both the client and server key their settings tables off those ids; an optional `Maximum` expands a category's gain range. The former Global maximum sits at 20% of its new 5x slider, the former Voices maximum sits at 40% of its new 6.25x slider, and `PlayerVolumeMaximum` puts the existing per-player gain at 40% of its 2.5x slider. `PowerAttribute`, `VoiceAttribute` and `TransmitAttribute` name the Player attributes the server replicates so every client can colour the roster. Layout and styling are not here — the walkie screen and the `WalkieHud` ScreenGui are authored in Studio, and `Ui.Colors` holds only the state colours the roster swaps at runtime.
+- API: data table — `PhysicalDistance`, `TaggedSoundDistance`, `TaggedSoundPickupFalloff`, `RadioAllowedTag`, `DeathActiveGrace`, `TransmissionGrace`, `VoiceVolume`, `ProximityRadioBlend`, `TaggedSoundVolume`, `RadioPhysicalVolume`, `RadioNoiseRadius`, `RelaySyncInterval`, `PlayerVolumeMaximum`, `ToolName`, `PowerAttribute`, `VoiceAttribute`, `TransmitAttribute`, `Keys`, `Modes`, `Categories`, `Ui`, `Prompt`, `Touch`, `Effects`
 
 ### WatchConfig.luau
 Range, angle limits and joint weighting for the Watch class, which makes an NPC's head and torso track the local player.
