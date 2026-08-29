@@ -20,6 +20,7 @@ export type Media = {
 }
 
 local permission: boolean? = nil
+local prompting = false
 local recording = false
 local pending: { [string]: Media } = {}
 local cache: { Media } = {}
@@ -68,19 +69,56 @@ local function wrap(capture: any, saved: boolean): Media
 	}
 end
 
+local function reasonFor(result: any): string
+	if result == Enum.VideoCaptureStartedResult.NoSpaceOnDevice
+		or result == Enum.ScreenshotCaptureResult.NoSpaceOnDevice then
+		return CaptureConfig.Text.NoSpace
+	end
+	if result == Enum.VideoCaptureStartedResult.NoDeviceSupport
+		or result == Enum.ScreenshotCaptureResult.NoDeviceSupport then
+		return CaptureConfig.Text.NoDeviceSupport
+	end
+	if result == Enum.VideoCaptureStartedResult.CapturingAlready then
+		return CaptureConfig.Text.AlreadyRecording
+	end
+	return CaptureConfig.Text.Unsupported
+end
+
 function CaptureGalleryService:HasPermission(): boolean
 	return permission == true
 end
 
 function CaptureGalleryService:RequestPermission(): boolean
 	if permission == true then return true end
+	if prompting then return false end
 
+	prompting = true
 	local ok, granted = pcall(function()
 		return CaptureService:PromptCaptureGalleryPermissionAsync(CaptureConfig.Permission)
 	end)
+	prompting = false
 
 	permission = ok and granted == true
+	if permission then
+		announce()
+	end
 	return permission :: boolean
+end
+
+function CaptureGalleryService:WaitForPermission(): boolean
+	local deadline = os.clock() + CaptureConfig.Screenshot.Timeout
+	while prompting and os.clock() < deadline do
+		task.wait(0.1)
+	end
+	return self:RequestPermission()
+end
+
+function CaptureGalleryService:EnsurePermission()
+	if permission == true or prompting then return end
+
+	task.spawn(function()
+		self:RequestPermission()
+	end)
 end
 
 function CaptureGalleryService:Content(media: Media): Content?
@@ -124,7 +162,7 @@ function CaptureGalleryService:_TakeLegacyScreenshot(): Media?
 	return media
 end
 
-function CaptureGalleryService:TakeScreenshot(): Media?
+function CaptureGalleryService:TakeScreenshot(): (Media?, string?)
 	local done, result, capture = false, nil, nil
 
 	local ok = pcall(function()
@@ -143,13 +181,13 @@ function CaptureGalleryService:TakeScreenshot(): Media?
 	if capture and result == Enum.ScreenshotCaptureResult.Success then
 		local media = wrap(capture, false)
 		pending[media.Id] = media
-		task.spawn(function()
-			self:RequestPermission()
-		end)
-		return media
+		return media, nil
 	end
 
-	return self:_TakeLegacyScreenshot()
+	local fallback = self:_TakeLegacyScreenshot()
+	if not fallback then return nil, reasonFor(result) end
+
+	return fallback, CaptureConfig.Text.CaptureFailed .. " - " .. reasonFor(result)
 end
 
 function CaptureGalleryService:IsRecording(): boolean
@@ -161,6 +199,8 @@ function CaptureGalleryService:StartVideo(onFinished: (Media?, string?) -> ()): 
 		onFinished(nil, CaptureConfig.Text.AlreadyRecording)
 		return false
 	end
+
+	self:EnsurePermission()
 
 	local settled = false
 	local function finish(media: Media?, message: string?)
@@ -181,19 +221,12 @@ function CaptureGalleryService:StartVideo(onFinished: (Media?, string?) -> ()): 
 
 			local media = wrap(videoCapture, false)
 			pending[media.Id] = media
-			task.spawn(function()
-				self:RequestPermission()
-			end)
 			finish(media, nil)
 		end, nil)
 	end)
 
 	if not ok or started ~= Enum.VideoCaptureStartedResult.Success then
-		local message = CaptureConfig.Text.Unsupported
-		if started == Enum.VideoCaptureStartedResult.CapturingAlready then
-			message = CaptureConfig.Text.AlreadyRecording
-		end
-		finish(nil, message)
+		finish(nil, reasonFor(started))
 		return false
 	end
 
@@ -213,7 +246,7 @@ end
 
 function CaptureGalleryService:Save(media: Media): boolean
 	if not media.Capture then return false end
-	if not self:RequestPermission() then return false end
+	if not self:WaitForPermission() then return false end
 
 	local done, saved = false, false
 	local ok = pcall(function()
@@ -251,7 +284,7 @@ function CaptureGalleryService:Refresh(force: boolean?): boolean
 	if not force and os.clock() - cachedAt < CaptureConfig.Gallery.RefreshCooldown then
 		return true
 	end
-	if not self:RequestPermission() then return false end
+	if not self:WaitForPermission() then return false end
 
 	local ok, result, pages = pcall(function()
 		return CaptureService:ReadCapturesFromGalleryAsync({}, false)

@@ -31,7 +31,7 @@ Chase-driven camera FOV changes and per-enemy camera shake profiles.
 - API: data table — `FadeInSpeed`, `FadeOutSpeed`, `FovReleaseSpeed`, `CeilingDweller`, `MimicFovDelay`, `ChaseShakes` (Chaos, Chaser, CeilingDweller, Mimic)
 
 ### CaptureConfig.luau
-Settings for the camcorder, the photo keep-or-burn prompt and the Gallery page: `RequireGamepass` (off while the Camcorder pass id is still unset, which hands the tool to everyone), the gallery permission enum, video duration and the 30s engine cap, screenshot timeout, gallery page/GUI names and the universe filter, keep/burn button styling and text, the old-timey overlay styling and date/time formats, and every player-facing string the capture flow shows.
+Settings for the camcorder, the photo keep-or-burn prompt and the Gallery page: `RequireGamepass` (off while the Camcorder pass id is still unset, which hands the tool to everyone), the gallery permission enum, video duration and the 30s engine cap, screenshot timeout, gallery page/GUI names and the universe filter, keep/burn button styling and text, the old-timey overlay styling and date/time formats, and every player-facing string the capture flow shows, including the specific low-disk and unsupported-device failure reasons.
 
 ### ComputerAssets.luau
 Image asset ids for the hackable-computer UI.
