@@ -80,7 +80,7 @@ local function chase(
 	if result == "Reached" then
 		return "Attack", npc, target
 	end
-	if safeRoom and allowRoomReaction ~= false then
+	if safeRoom and allowRoomReaction ~= false and npc.Config.AllowRoomReaction ~= false then
 		return "RoomReaction", npc, safeRoom, target
 	end
 	return "Search", npc, lastKnown

@@ -199,7 +199,7 @@ The plain sight-based pursuer and the template most humanoid enemies build on: s
 - API: `Chaser:BuildStateMachine() -> StateMachine` — Idle/Wander/Patrol/Chase/Attack/Search/RoomReaction/Stunned/Despawn with a `Perception` evaluator.
 - API: `Chaser.Chase(changeState, npc, target: Player, allowRoomReaction: boolean?)` — the chase state, exported so subclasses (Mimic) can call it.
 - Requires: `ServerStorage.Classes.NPC`, `RoomService`
-- Notes: sets `Chaser.AttackLostState = "Search"`; overrides `BuildStateMachine`; every calm state clears the chase-target attribute
+- Notes: sets `Chaser.AttackLostState = "Search"`; overrides `BuildStateMachine`; every calm state clears the chase-target attribute; safe-room door reactions can be disabled per config with `AllowRoomReaction = false`
 
 ### Enemies\Creep.luau
 An ambient, stationary eye-cluster: it clones its eye plate into a randomly scattered pattern from a weighted variant table, kills the hallway lights around itself via `LightService`, and simply despawns (granting discovery) when a player walks within `DespawnRange`. It never moves or attacks.

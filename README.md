@@ -434,7 +434,7 @@ become Services or Classes.
 - ServerStorage\Classes\Enemies\Blind.luau — Hearing-driven hunter whose determination builds from noise and decays in silence.
 - ServerStorage\Classes\Enemies\CeilingDweller.luau — Chaser that drops from the ceiling onto its victim before hunting normally.
 - ServerStorage\Classes\Enemies\Chaos.luau — Fast hazard that sweeps a precomputed route, killing everything along the segment, and despawns crashing into the wall at the route's end.
-- ServerStorage\Classes\Enemies\Chaser.luau — Plain sight-based pursuer with visual variants; the template most humanoid enemies extend.
+- ServerStorage\Classes\Enemies\Chaser.luau — Plain sight-based pursuer with visual variants; the template most humanoid enemies extend. Safe-room door reactions are controlled by the config's `AllowRoomReaction` flag.
 - ServerStorage\Classes\Enemies\Creep.luau — Stationary eye-cluster that kills the hallway lights and despawns when approached.
 - ServerStorage\Classes\Enemies\Eye.luau — Static hazard that damages players by view angle for looking at it.
 - ServerStorage\Classes\Enemies\Ghost.luau — Floating enemy that drifts on published motion legs and lurks unseen in dangerous hallways.
