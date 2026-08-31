@@ -187,11 +187,11 @@ become Services or Classes.
 - ReplicatedStorage\Services\ViewmodelDebugService.luau — F3 developer panel for tuning every equipped tool, with dynamic titles, per-tool config output and a state button only for tools with multiple poses.
 - ReplicatedStorage\Services\VoiceActivityService.luau — Detects when the local player is speaking from an AudioAnalyzer, reports it to the server, and cuts incoming proximity voice off while the local player is dead.
 - ReplicatedStorage\Services\VoiceDebugService.luau — Debug panel of sliders for local proximity-voice and radio volumes.
-- ReplicatedStorage\Services\WalkSoundService.luau — Footstep engine timing steps from locomotion animations for players and tagged enemies.
+- ReplicatedStorage\Services\WalkSoundService.luau — Footstep engine timing custom steps from locomotion animations while keeping Roblox's default running sound muted, even after it restarts.
 - ReplicatedStorage\Services\WalkieTalkieService.luau — Walkie-talkie power, toggle transmission, raised mode, per-player mute/volume, voice levels and death-aware roster ordering alongside distance-based selection between proximity voice and radio voice.
 - ReplicatedStorage\Services\WalkieUIService.luau — Draws and drives the walkie-talkie's on-model screen: player roster, level colours, dead-player styling, per-player mute and volume, and the audio settings page.
 - ReplicatedStorage\Services\WalkieHudService.luau — Drives the WalkieHud ScreenGui: keybind prompt and the touch power, raise and toggle-talk buttons.
-- ReplicatedStorage\Services\WallstickService.luau — Client opt-in wall-sticking with optional fixed surface orientation for the local character, surface movement access for sprint, plus replication rendering of other players' wall-stuck characters.
+- ReplicatedStorage\Services\WallstickService.luau — Smooth client wall-sticking with an optional fixed surface orientation, surface movement access for sprint, plus replication rendering of other players.
 
 ### ReplicatedStorage\Classes
 

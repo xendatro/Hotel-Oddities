@@ -813,7 +813,7 @@ Client-only debug panel behind `FLAGS.VoiceDebug` with sliders for proximity-voi
 - Requires: `Classes.DebugPanel`, `Configs.VoiceDebugConfig`, `Configs.FLAGS`
 
 ### WalkSoundService.luau
-Client footstep engine for players and tagged enemies. Silences the default Roblox running sound and instead times steps from the character's looping Core-priority locomotion track (falling back to a speed-scaled interval), playing a random emitter from `Sounds.Footsteps`. Enemies get custom distance attenuation out to 45 studs and per-enemy volume; crouching players get quieter, slower, shorter-range steps.
+Client footstep engine for players and tagged enemies. Silences the default Roblox running sound, including any new `Running` sound made when Roblox's character sound script restarts, and keeps its volume at zero. It instead times steps from the character's looping Core-priority locomotion track (falling back to a speed-scaled interval), playing a random emitter from `Sounds.Footsteps`. Enemies get custom distance attenuation out to 45 studs and per-enemy volume; crouching players get quieter, slower, shorter-range steps.
 - API: none — side-effect only.
 - Tags: listens `Enemy`
 - Requires: `AudioService.Play3DSound`, `CharacterService.ForEachPlayer`, `TagService`, `Configs.WalkSoundConfig`, `Configs.CrouchConfig` (`Stealth`)
@@ -844,7 +844,7 @@ Client screen-space companion to the walkie-talkie. Drives the `WalkieHud` Scree
 - Requires: `Configs.WalkieTalkieConfig` (`Prompt`, `Touch.ActiveBackground`, `Keys`), `GuiBuilderService`, `WalkieTalkieService`; the `WalkieHud` ScreenGui in StarterGui
 
 ### WallstickService.luau
-Client front end for the vendored Wallstick controller. Always listens on the replication channel so other players' wall-stuck characters render correctly; wall-sticking for the local character is opt-in via `Enable`, which runs an auto-stick raycast loop under the character's feet each `PreSimulation` (like the upstream demo, resetting to normal gravity after a long fall), optionally limits transfers to surfaces aligned with a fixed world-space normal, and tears down on death or character removal. Guarded to be inert on the server.
+Client front end for the vendored Wallstick controller. Always listens on the replication channel so other players' wall-stuck characters render correctly; wall-sticking for the local character is opt-in via `Enable`, which runs an auto-stick raycast loop under the character's feet each `PreSimulation` (like the upstream demo, resetting to normal gravity after a long fall), only re-pivots the hidden movement rig when the hit part or normal changes, optionally limits transfers to surfaces aligned with a fixed world-space normal, and tears down on death or character removal. Guarded to be inert on the server.
 - API: `WallstickService.Enable(options: { tilt: boolean?, spin: boolean?, surfaceNormal: Vector3? }?) -> Wallstick?` — starts wall-sticking for the local character; `surfaceNormal` rejects differently oriented surfaces and keeps accepted surfaces exactly aligned to that normal; returns the active (or existing) instance
 - API: `WallstickService.Disable()` — destroys the session and restores normal character physics
 - API: `WallstickService.IsEnabled() -> boolean`, `WallstickService.Get() -> Wallstick?`

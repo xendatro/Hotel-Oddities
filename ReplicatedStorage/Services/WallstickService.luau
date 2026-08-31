@@ -138,7 +138,9 @@ function WallstickService.Enable(options: EnableOptions?): any
 			local stickPart = (result.Instance :: BasePart).AssemblyRootPart
 			local stickNormal = stickPart.CFrame:VectorToObjectSpace(surfaceNormal or result.Normal)
 
-			wallstick:setAndPivot(stickPart, stickNormal, result.Position)
+			if wallstick:getPart() ~= stickPart or wallstick:getNormal(false):Dot(stickNormal) < 0.999 then
+				wallstick:setAndPivot(stickPart, stickNormal, result.Position)
+			end
 		end
 	end))
 

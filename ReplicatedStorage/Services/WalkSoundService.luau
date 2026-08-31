@@ -176,23 +176,10 @@ local function watchModel(
 	model: Model,
 	humanoid: Humanoid,
 	rootPart: BasePart,
-	silenceDefault: boolean,
 	audioSettings: {[string]: any}?,
 	trackRootMovement: boolean
 ): CharacterState
 	stopModel(model)
-
-	if silenceDefault then
-		local defaultWalkSound = rootPart:WaitForChild("Running", 5)
-		if defaultWalkSound and defaultWalkSound:IsA("AudioPlayer") then
-			defaultWalkSound.Volume = 0
-		end
-	else
-		local defaultWalkSound = rootPart:FindFirstChild("Running")
-		if defaultWalkSound and defaultWalkSound:IsA("AudioPlayer") then
-			defaultWalkSound.Volume = 0
-		end
-	end
 
 	local state: CharacterState = {
 		Connections = {},
@@ -215,6 +202,21 @@ local function watchModel(
 			updateMovement(state, humanoid.MoveDirection.Magnitude * humanoid.WalkSpeed)
 		end),
 	}
+	local function silenceDefaultWalkSound(child: Instance)
+		if child.Name ~= "Running" or not (child:IsA("AudioPlayer") or child:IsA("Sound")) then return end
+
+		local sound = child :: AudioPlayer | Sound
+		sound.Volume = 0
+		table.insert(state.Connections, sound:GetPropertyChangedSignal("Volume"):Connect(function()
+			if sound.Volume ~= 0 then
+				sound.Volume = 0
+			end
+		end))
+	end
+	table.insert(state.Connections, rootPart.ChildAdded:Connect(silenceDefaultWalkSound))
+	for _, child in rootPart:GetChildren() do
+		silenceDefaultWalkSound(child)
+	end
 	if not trackRootMovement then
 		table.insert(state.Connections, humanoid.Running:Connect(function(speed)
 			updateMovement(state, speed)
@@ -233,7 +235,7 @@ local function watchCharacter(player: Player, character: Model)
 	if not humanoid or not rootPart then return end
 	if player.Character ~= character or character.Parent == nil then return end
 
-	watchModel(character, humanoid, rootPart, true, nil, false)
+	watchModel(character, humanoid, rootPart, nil, false)
 end
 
 local function watchPlayer(player: Player)
@@ -256,7 +258,7 @@ local function watchEnemy(instance: Instance): CharacterState?
 	local rootPart = instance:WaitForChild("HumanoidRootPart", 5) :: BasePart?
 	if not humanoid or not rootPart or not humanoid.EvaluateStateMachine then return nil end
 
-	return watchModel(instance, humanoid, rootPart, false, {
+	return watchModel(instance, humanoid, rootPart, {
 		DistanceAttenuationBounds = NumberRange.new(0, ENEMY_MAX_DISTANCE),
 		DistanceAttenuationMode = Enum.DistanceAttenuationMode.Custom,
 	}, true)
