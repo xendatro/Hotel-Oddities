@@ -16,6 +16,7 @@ export type Hallway = {
 	HalfWidth: number,
 	FloorY: number,
 	IsRoomFloor: boolean,
+	Part: BasePart,
 }
 
 export type StraightSpan = {
@@ -42,16 +43,43 @@ local function getTags(includeRoomFloors: boolean?): { string }
 end
 
 local function toHallway(part: BasePart, isRoomFloor: boolean): Hallway
-	local runsAlongX = part.Size.X >= part.Size.Z
-	local axis = horizontal(if runsAlongX then part.CFrame.RightVector else part.CFrame.LookVector).Unit
+	local frame = part.CFrame
+	local size = part.Size
+	local directions = { frame.RightVector, frame.UpVector, frame.LookVector }
+	local extents = { size.X, size.Y, size.Z }
+
+	local thickness = 1
+	for index = 2, 3 do
+		if math.abs(directions[index].Y) > math.abs(directions[thickness].Y) then
+			thickness = index
+		end
+	end
+
+	local long, short = nil, nil
+	for index = 1, 3 do
+		if index == thickness then continue end
+		if not long then
+			long = index
+		elseif extents[index] > extents[long :: number] then
+			short = long
+			long = index
+		else
+			short = index
+		end
+	end
+
+	local flat = horizontal(directions[long :: number])
+	local axis = if flat.Magnitude > AXIS_EPSILON then flat.Unit else Vector3.xAxis
+
 	return {
 		Center = part.Position,
 		Axis = axis,
 		Across = Vector3.yAxis:Cross(axis).Unit,
-		HalfLength = (if runsAlongX then part.Size.X else part.Size.Z) / 2,
-		HalfWidth = (if runsAlongX then part.Size.Z else part.Size.X) / 2,
-		FloorY = part.Position.Y + part.Size.Y / 2,
+		HalfLength = extents[long :: number] / 2,
+		HalfWidth = extents[short :: number] / 2,
+		FloorY = part.Position.Y + extents[thickness] / 2,
 		IsRoomFloor = isRoomFloor,
+		Part = part,
 	}
 end
 

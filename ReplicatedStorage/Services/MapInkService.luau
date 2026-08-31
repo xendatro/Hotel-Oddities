@@ -141,6 +141,50 @@ local function strokePiece(
 	canvas:Stroke(points, widthAt, Ink.Color, opacity)
 end
 
+local function strokeSamples(id: string, samples: { MapLayoutService.Sample }, style: Style?)
+	local canvas = Canvas
+	if not canvas or #samples < 2 then return end
+
+	local widthScale = if style then style.WidthScale else 1
+	local opacity = if style then style.Opacity else Ink.Opacity
+	local wobble = getWobble(id)
+
+	local distances = table.create(#samples)
+	local points = table.create(#samples)
+	local along = 0
+
+	for index, sample in samples do
+		if index > 1 then along += (sample.Point - samples[index - 1].Point).Magnitude end
+		distances[index] = along
+		local world = sample.Point + sample.Normal * offsetAt(wobble, along)
+		points[index] = MapLayoutService:ToCanvas(world.X, world.Y)
+	end
+
+	local length = along
+	if length < MIN_PIECE then return end
+
+	local taperLength = math.min(Ink.Overshoot * 2.5, length * 0.35)
+	local function widthAt(progress: number): number
+		local distance = length * progress
+		local variance = 1 + Ink.WidthVariance * 0.5 * math.sin(distance * wobble.WidthFrequency + wobble.WidthPhase)
+		local width = Ink.Width * PixelScale * variance * widthScale
+
+		if taperLength > 0 then
+			local fromEnd = math.min(distance, length - distance)
+			if fromEnd < taperLength then
+				width *= math.max(fromEnd / taperLength, 0) ^ 0.6
+			end
+		end
+
+		return math.max(width, 0.4 * PixelScale)
+	end
+
+	canvas:Stroke(points, function(progress)
+		return widthAt(progress) + Ink.BleedOffset * PixelScale
+	end, Ink.Color, Ink.BleedOpacity * (opacity / Ink.Opacity))
+	canvas:Stroke(points, widthAt, Ink.Color, opacity)
+end
+
 local function drawWall(entry: MapLayoutService.Entry, side: number, from: number, to: number, style: Style?)
 	local openings = entry.Openings[side]
 	local origin = entry.Center + entry.Across * (side * entry.HalfWidth)
@@ -236,8 +280,9 @@ local function fillFloor(entry: MapLayoutService.Entry, from: number, to: number
 		local along = from + (to - from) * progress
 		local centre = head + direction * (length * progress)
 
-		local upper = (entry.HalfWidth + offsetAt(plus, along) + settings.Pad) * scale
-		local lower = (-entry.HalfWidth + offsetAt(minus, along) - settings.Pad) * scale
+		local base, cap = MapLayoutService:AcrossRange(entry, along)
+		local upper = (cap + offsetAt(plus, along) + settings.Pad) * scale
+		local lower = (base + offsetAt(minus, along) - settings.Pad) * scale
 
 		local alpha = settings.Opacity
 		if fade > 0 then
@@ -299,7 +344,23 @@ local function hatchSteps(entry: MapLayoutService.Entry): { () -> () }
 	return steps
 end
 
+local function shapeSteps(entry: MapLayoutService.Entry, style: Style?): { () -> () }
+	local steps = {}
+	for index, run in MapLayoutService:OutlineRuns(entry, Ink.SegmentLength) do
+		local id = entry.Key .. ":s" .. index
+		table.insert(steps, function()
+			strokeSamples(id, run, style)
+		end)
+	end
+	return steps
+end
+
 local function roomSteps(entry: MapLayoutService.Entry): { () -> () }
+	local isRoom = MapLayoutService:IsRoomKind(entry)
+	if entry.Shape ~= "Rect" then
+		return shapeSteps(entry, if isRoom then roomStyle(entry) else nil)
+	end
+
 	local style = roomStyle(entry)
 	local steps = {}
 
@@ -505,7 +566,7 @@ function MapInkService:Reveal(key: string, packed: { number }): boolean
 	local entry = MapLayoutService:Get(key)
 	if not canvas or not entry then return false end
 
-	if MapLayoutService:IsRoomKind(entry) then
+	if MapLayoutService:IsRoomKind(entry) or entry.Shape ~= "Rect" then
 		if Drawn[key] or #packed == 0 then return false end
 		fillFloor(entry, -entry.HalfLength, entry.HalfLength)
 		for _, step in roomSteps(entry) do

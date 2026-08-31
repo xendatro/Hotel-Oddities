@@ -218,12 +218,37 @@ local function coveredSpan(hallway: HallwaysService.Hallway, position: Vector3):
 	return minimum, maximum
 end
 
+local function shapeOf(hallway: HallwaysService.Hallway): (string, number, number)
+	local part = hallway.Part
+	local frame = part.CFrame
+	if math.abs(frame.RightVector.Y) < 0.99 then return "Rect", 0, 0 end
+
+	if part:IsA("WedgePart") then
+		local axis = hallway.Axis
+		local across = Vector3.new(-axis.Z, 0, axis.X)
+		local corner = frame.UpVector * part.Size.Y + frame.LookVector * part.Size.Z
+		return "Wedge",
+			if corner:Dot(axis) >= 0 then 1 else -1,
+			if corner:Dot(across) >= 0 then 1 else -1
+	end
+
+	if part:IsA("Part") and (part :: Part).Shape == Enum.PartType.Cylinder then
+		return "Round", 0, 0
+	end
+
+	return "Rect", 0, 0
+end
+
 function MapDiscoveryService:GetLayout(): { any }
 	local layout = {}
 	for _, entry in getEntries() do
 		local hallway = entry.Hallway
 		local closedCaps = ClosedCaps[entry]
+		local shape, cutAlong, cutAcross = shapeOf(hallway)
 		table.insert(layout, {
+			Shape = shape,
+			CutAlong = cutAlong,
+			CutAcross = cutAcross,
 			Key = entry.Key,
 			Kind = entry.Kind,
 			X = hallway.Center.X,

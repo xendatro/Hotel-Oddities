@@ -127,7 +127,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\HallwayCrushDamageService.luau — Shared crush-volume helper and client-side kill decision for the closing-walls oddity, requiring configured HRP overlap with the server's lethal intervals.
 - ReplicatedStorage\Services\HallwayGraphService.luau — Navigable node graph built from tagged maze floors, with Dijkstra pathfinding and walking distance; nodes and edges touching spawn safe zones are pruned.
 - ReplicatedStorage\Services\HallwayStreamingService.luau — Client handshake confirming streamed hallway models arrived before a teleport.
-- ReplicatedStorage\Services\HallwaysService.luau — Geometry queries over tagged floor parts: containment, closest point, and longest straight span.
+- ReplicatedStorage\Services\HallwaysService.luau — Geometry queries over tagged floor parts: orientation-aware rectangles, containment, closest point, and longest straight span.
 - ReplicatedStorage\Services\HearingRenderService.luau — Flies glowing motes from a noise source to an enemy's ear.
 - ReplicatedStorage\Services\HeartbeatService.luau — Proximity heartbeat audio that swells and quickens near a pursuing enemy.
 - ReplicatedStorage\Services\HumanoidStatsService.luau — Named-source stat stack applied to any humanoid, restoring untouched stats to their spawn values.
@@ -148,8 +148,8 @@ become Services or Classes.
 - ReplicatedStorage\Services\MarketplaceService\Gamepasses.luau — Gamepass asset ids keyed by name.
 - ReplicatedStorage\Services\MarketplaceService\Products.luau — Developer-product asset ids, with per-item ids nested under Items.
 - ReplicatedStorage\Services\MapControlService.luau — Pan and zoom for the map: drag or pinch to pan, wheel or pinch to zoom, clamped and eased.
-- ReplicatedStorage\Services\MapInkService.luau — Rasterises the hand-drawn map ink: seeded wobble, tapered strokes and junction-aware wall culling onto the map canvas.
-- ReplicatedStorage\Services\MapLayoutService.luau — Client-side map geometry: world-to-canvas projection plus the wall and cap openings that keep junctions unwalled.
+- ReplicatedStorage\Services\MapInkService.luau — Rasterises the hand-drawn map ink: seeded wobble, tapered strokes, round and chamfered outlines, and junction-aware wall culling onto the map canvas.
+- ReplicatedStorage\Services\MapLayoutService.luau — Client-side map geometry: world-to-canvas projection, per-shape footprints, plus the wall and cap openings that keep junctions unwalled.
 - ReplicatedStorage\Services\MapService.luau — Client map front end: consumes the discovery remotes, drives the ink layer and tracks the local player marker.
 - ReplicatedStorage\Services\MathService.luau — Shared pure-math helpers: easing, frame-rate independent lerp alphas, horizontal vector work, angles, pulses and comma-grouped number formatting.
 - ReplicatedStorage\Services\MimicMotionService.luau — Converts recorded movement samples into discrete key presses with reaction delay and aim drift.
@@ -383,7 +383,7 @@ become Services or Classes.
 - ServerStorage\Services\LightService.luau — Central control of every tagged light model: reference-counted blackout claims and flicker effects.
 - ServerStorage\Services\LoadoutService.luau — Captures and restores a player's tools, quantities and attributes across inventory wipes.
 - ServerStorage\Services\LookService.luau — Stores clamped client camera pitch/yaw on characters and mirrors it onto mimic enemies.
-- ServerStorage\Services\MapDiscoveryService.luau — Server owner of per-player map discovery: unions walked hallway intervals, persists them to the profile and replicates them.
+- ServerStorage\Services\MapDiscoveryService.luau — Server owner of per-player map discovery: unions walked hallway intervals, tags each rectangle with its shape, persists them to the profile and replicates them.
 - ServerStorage\Services\MapCommandService.luau — Admin /map command that sends the caller straight into the maze.
 - ServerStorage\Services\MapOddityCommandService.luau — /mapoddity chat command mapping friendly words to map oddity kinds.
 - ServerStorage\Services\MapOddityService.luau — Scope wrapper for starting, warning about and clearing map-scope oddities.

@@ -338,7 +338,8 @@ Client half of the hallway streaming handshake: when the server announces a pend
 - Requires: `Configs.StreamingConfig`, `GuiBuilderService`
 
 ### HallwaysService.luau
-Geometric view of the same tagged floor parts as oriented rectangles: which hallway contains a point, the closest point on one, and the longest unobstructed straight span through a position by merging collinear hallway intervals. Cached per `includeRoomFloors` and auto-invalidated on tag changes.
+Geometric view of the same tagged floor parts as oriented rectangles: which hallway contains a point, the closest point on one, and the longest unobstructed straight span through a position by merging collinear hallway intervals. Cached per `includeRoomFloors` and auto-invalidated on tag changes. The rectangle is read from whichever of the part's three local axes points most nearly at world up - that axis supplies the thickness and therefore `FloorY`, the remaining two supply length and width - so a floor authored as a rotated cylinder or wedge (its thickness on local X rather than Y) measures the same as a plain slab instead of collapsing into a one-stud sliver floating half a diameter above the ground. `Hallway.Part` carries the source part so callers can inspect its class and shape.
+Note that `Across` here is `Vector3.yAxis:Cross(Axis)`, which is the opposite sign to `MapLayoutService`'s `(-Axis.Y, Axis.X)`; both are perpendicular to the axis, so anything symmetric about the centre line is unaffected, but a signed quantity crossing the boundary has to be converted.
 - API: `Hallways.All(includeRoomFloors: boolean?) -> { Hallway }` — cached hallway rectangles
 - API: `Hallways.Invalidate()` — clears both cache variants
 - API: `Hallways.At(position: Vector3, includeRoomFloors: boolean?) -> Hallway?` — containing hallway, with a height window
@@ -348,6 +349,7 @@ Geometric view of the same tagged floor parts as oriented rectangles: which hall
 - API: `Hallways.PointAt(hallway: Hallway, along: number) -> Vector3` — point on the axis at floor height
 - API: `Hallways.StraightSpanAt(position: Vector3, preferredDirection: Vector3?) -> StraightSpan?` — best straight run through a point
 - API: `Hallways.StraightSpans() -> { StraightSpan }` — one span per hallway, deduplicated
+- API: `Hallway.Part: BasePart` — the tagged floor part the rectangle was measured from
 - Tags: listens `MazeFloor`, `HallwayRoomFloor` (added/removed only, to invalidate the cache)
 
 ### HearingRenderService.luau
@@ -492,7 +494,7 @@ Client-only. Owns panning and zooming of the map contents inside the clipped vie
 - Requires: `Configs.MapConfig`, `Services.MathService`
 
 ### MapInkService.luau
-Client-only. Rasterises the hand-drawn map onto a `MapCanvas`. Every wall and dead-end cap is generated procedurally from the hallway rectangles: a per-wall seeded wobble (two summed sine harmonics keyed off the hallway coordinate, not the drawn piece, so progressively revealed sections line up seamlessly), a width that varies along the run and tapers at genuine ends, an overshoot past real corners, and a wider low-alpha bleed pass underneath. Rooms are drawn instead as complete boxes; a computer room gets a heavier outline and a diagonal hatch fill, and can draw itself on over time. Junction mouths and partially revealed spans are subtracted before drawing, so no wall is ever drawn across an opening. Overshoot is applied only where a wall genuinely ends, never at a junction mouth, and pieces shorter than a minimum are discarded, which keeps intersections free of stray tick marks. Drawing is append-only and idempotent because the canvas composites with max alpha.
+Client-only. Rasterises the hand-drawn map onto a `MapCanvas`. Every wall and dead-end cap is generated procedurally from the hallway rectangles: a per-wall seeded wobble (two summed sine harmonics keyed off the hallway coordinate, not the drawn piece, so progressively revealed sections line up seamlessly), a width that varies along the run and tapers at genuine ends, an overshoot past real corners, and a wider low-alpha bleed pass underneath. Rooms are drawn instead as complete boxes; a computer room gets a heavier outline and a diagonal hatch fill, and can draw itself on over time. An entry whose `Shape` is not `Rect` is drawn whole the same way a room is, but from `MapLayoutService:OutlineRuns` - each surviving stretch of the real perimeter is stroked as a wobbled polyline tapered at both ends, so a round connector inks as a circle broken at its doorways and an octagon's chamfer inks as a diagonal instead of a squared-off corner. The floor wash follows `AcrossRange`, so those shapes fill to their true cross-section. Junction mouths and partially revealed spans are subtracted before drawing, so no wall is ever drawn across an opening. Overshoot is applied only where a wall genuinely ends, never at a junction mouth, and pieces shorter than a minimum are discarded, which keeps intersections free of stray tick marks. Drawing is append-only and idempotent because the canvas composites with max alpha.
 - API: `MapInkService:Attach(paper: ImageLabel)` — builds the canvas and its `Ink` ImageLabel, resetting drawn and style state
 - API: `MapInkService:Detach()` — destroys the label and canvas
 - API: `MapInkService:IsAttached() -> boolean`
@@ -505,6 +507,7 @@ Client-only. Rasterises the hand-drawn map onto a `MapCanvas`. Every wall and de
 
 ### MapLayoutService.luau
 Client-side geometric model of the map. Loads the rectangle list the server sends, derives the world-to-canvas projection (square fit with a configurable margin), and precomputes, for each corridor, the intervals along both side walls and both end caps that are covered by another corridor. Entries carry a `Kind` of `Hallway`, `Connector`, `Room` or `ComputerRoom`; only corridors take part in opening calculations, so a room never punches a hole in the hallway wall it sits behind and is drawn as a closed box. Those openings are what turn a grid of rectangles into a maze with connected corridors.
+Entries also carry a `Shape` of `Rect`, `Round` or `Wedge`. A `Round` entry is a disc of radius `HalfLength`; a `Wedge` is a right triangle filling its rectangle with the corner at `(CutAlong, CutAcross)` removed, so a chamfered or circular connector reads as its real footprint rather than its bounding box. Both the coverage test that culls openings and the cross-section the ink layer fills respect the shape, so a hallway meeting a round room opens exactly the arc it touches. Non-rectangular entries keep empty `Openings`/`CapOpenings` - they have no straight walls - and are instead traced by `OutlineRuns`, which walks the perimeter and drops every sample whose outward probe lands inside another corridor, returning the closed stretches that remain.
 - API: `MapLayoutService:Load(layout: { any })` — rebuilds entries, projection and openings
 - API: `MapLayoutService:IsLoaded() -> boolean`
 - API: `MapLayoutService:GetEntries() -> { Entry }`
@@ -514,6 +517,8 @@ Client-side geometric model of the map. Loads the rectangle list the server send
 - API: `MapLayoutService:ToCanvas(worldX: number, worldZ: number) -> Vector2`
 - API: `MapLayoutService:WallPoint(entry: Entry, side: number, along: number) -> Vector2`
 - API: `MapLayoutService:Subtract(minimum, maximum, openings) -> { { number } }` — interval minus a packed opening list
+- API: `MapLayoutService:AcrossRange(entry: Entry, along: number) -> (number, number)` — the entry's cross-section at a point along its axis; constant for `Rect`, circular for `Round`, tapering for `Wedge`
+- API: `MapLayoutService:OutlineRuns(entry: Entry, spacing: number) -> { { Sample } }` — the unopened stretches of a non-rectangular entry's perimeter, each a run of `{ Point, Normal }` samples
 - Requires: `Configs.MapConfig`
 
 ### MapService.luau
