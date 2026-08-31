@@ -136,6 +136,8 @@ local function warp(duration: number)
 		tilt = false,
 		spin = false,
 		surfaceNormal = -Vector3.yAxis,
+		directMovement = true,
+		lockSurface = true,
 	})
 	if not wallstick then
 		stopCameraRoll()

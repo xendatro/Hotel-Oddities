@@ -37,6 +37,7 @@ export type Options = {
 	origin: CFrame,
 
 	retainWorldVelocity: boolean,
+	directMovement: boolean?,
 
 	camera: {
 		tilt: boolean,
@@ -53,6 +54,8 @@ export type Wallstick = typeof(setmetatable(
 		replicateTick: number,
 		platformStand: boolean,
 		evaluateStateMachine: boolean,
+		moveVector: Vector3,
+		directHeight: number?,
 
 		part: BasePart,
 		normal: Vector3,
@@ -79,6 +82,8 @@ function WallstickClass.new(options: Options): Wallstick
 	self.options = table.clone(options)
 	self.fallStartHeight = -1
 	self.replicateTick = -1
+	self.moveVector = Vector3.zero
+	self.directHeight = nil
 
 	self.part = workspace.Terrain
 	self.normal = Vector3.yAxis
@@ -102,6 +107,9 @@ function WallstickClass.new(options: Options): Wallstick
 
 	self.real.humanoid.PlatformStand = true
 	self.real.rootPart.Anchored = false
+	if self.options.directMovement then
+		self.fake.humanoid.EvaluateStateMachine = false
+	end
 
 	GravityCamera.setRotationTypeForced(true)
 
@@ -121,6 +129,14 @@ function WallstickClass.new(options: Options): Wallstick
 	self.trove:Add(RunService.PostSimulation:Connect(function(dt)
 		self:_stepPhysics(dt)
 	end))
+	if self.options.directMovement then
+		self.trove:Add(RunService.PreSimulation:Connect(function()
+			self:_lockDirectHeight()
+			local root = self.fake.rootPart
+			local movement = self.moveVector * self.fake.humanoid.WalkSpeed
+			root.AssemblyLinearVelocity = Vector3.new(movement.X, 0, movement.Z)
+		end))
+	end
 
 	globalRenderTicket = globalRenderTicket + 1
 
@@ -269,6 +285,16 @@ function WallstickClass._trySendReplication(self: Wallstick, force: boolean)
 	end
 end
 
+function WallstickClass._lockDirectHeight(self: Wallstick)
+	local directHeight = self.directHeight
+	if not directHeight then return end
+
+	local root = self.fake.rootPart
+	local velocity = root.AssemblyLinearVelocity
+	root.CFrame += Vector3.new(0, directHeight - root.Position.Y, 0)
+	root.AssemblyLinearVelocity = Vector3.new(velocity.X, 0, velocity.Z)
+end
+
 function WallstickClass._stepRenderBeforeCamera(self: Wallstick, dt: number)
 	if self.options.camera.tilt then
 		self.cameraUpSpring:step(dt)
@@ -286,9 +312,11 @@ function WallstickClass._stepRenderCharacter(self: Wallstick, _dt: number)
 	local rootCameraOffset = realRootCF:ToObjectSpace(workspace.CurrentCamera.CFrame)
 	local geometryCameraCF = fakeRootCF * rootCameraOffset
 
+	local moveVector = GravityCamera.getMoveVector(geometryCameraCF)
+	self.moveVector = moveVector
 	self.fake.humanoid.WalkSpeed = self.real.humanoid.WalkSpeed
 	self.fake.humanoid.Jump = self.real.humanoid.Jump
-	self.fake.humanoid:Move(GravityCamera.getMoveVector(geometryCameraCF), false)
+	self.fake.humanoid:Move(moveVector, false)
 
 	self.streamingFocus.alignPosition.Position = fakeRootCF.Position
 	self.streamingFocus.alignOrientation.CFrame = fakeRootCF
@@ -304,6 +332,7 @@ function WallstickClass._stepRenderCharacter(self: Wallstick, _dt: number)
 end
 
 function WallstickClass._stepPhysics(self: Wallstick, _dt: number)
+	self:_lockDirectHeight()
 	if self.fake.rootPart.Position.Y <= workspace.FallenPartsDestroyHeight then
 		self:Destroy()
 		return
@@ -340,7 +369,7 @@ function WallstickClass.getFallDistance(self: Wallstick)
 end
 
 function WallstickClass.getMoveDirection(self: Wallstick): Vector3
-	return self.fake.humanoid.MoveDirection
+	return if self.options.directMovement then self.moveVector else self.fake.humanoid.MoveDirection
 end
 
 function WallstickClass.set(self: Wallstick, part: BasePart, normal: Vector3, teleportCF: CFrame?)
@@ -375,6 +404,9 @@ function WallstickClass.set(self: Wallstick, part: BasePart, normal: Vector3, te
 	local localRootAngularVelocity = fakeRoot.CFrame:VectorToObjectSpace(fakeRoot.AssemblyAngularVelocity)
 
 	fakeRoot.CFrame = resultCF
+	if self.options.directMovement then
+		self.directHeight = resultCF.Position.Y
+	end
 
 	if self.options.retainWorldVelocity then
 		fakeRoot.AssemblyLinearVelocity = targetCF:VectorToWorldSpace(localRootVelocity)

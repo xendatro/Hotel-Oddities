@@ -67,7 +67,7 @@ function GravityCamera.getMoveVector(cameraCF: CFrame, inputMove: Vector3?): Vec
 	local _, _, _, r00, r01, r02, _, r11, r12, _, _, r22 = cameraCF:GetComponents()
 
 	local c, s
-	local q = math.sign(r11)
+	local q = if r11 >= 0 then 1 else -1
 
 	if r12 < 1 and r12 > -1 then
 		c = r22
@@ -78,6 +78,12 @@ function GravityCamera.getMoveVector(cameraCF: CFrame, inputMove: Vector3?): Vec
 	end
 
 	local norm = math.sqrt(c * c + s * s)
+	if norm < 1e-4 then
+		c = r00
+		s = -r01 * (if r12 >= 0 then 1 else -1)
+		norm = math.sqrt(c * c + s * s)
+	end
+	if norm < 1e-4 then return Vector3.zero end
 	local x = (c * move.X * q + s * move.Z) / norm
 	local z = (c * move.Z - s * move.X * q) / norm
 
