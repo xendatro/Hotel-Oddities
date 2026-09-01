@@ -199,7 +199,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\Breathe.luau — Procedural idle breathing motion for nearby rigs.
 - ReplicatedStorage\Classes\ClientTool.luau — Client tool base class adding limb reveal, tool animations and stock consumption.
 - ReplicatedStorage\Classes\Deadline.luau — Runs a function with a timeout and reports which won.
-- ReplicatedStorage\Classes\DebugPanel.luau — Keyboard-toggled developer overlay with labels, buttons and sliders; hides `PlayerGui.SideGui` while any debug panel is open.
+- ReplicatedStorage\Classes\DebugPanel.luau — Keyboard-toggled developer overlay with labels, buttons and editable slider values; hides `PlayerGui.SideGui` while any debug panel is open.
 - ReplicatedStorage\Classes\DoorPart.luau — Spring and audio-driven swinging door leaf with oddity and forced-shut modes.
 - ReplicatedStorage\Classes\Drawer.luau — Spring-driven sliding drawer that infers its outward axis from the handle.
 - ReplicatedStorage\Classes\GalleryCard.luau — Clones and fills one Studio-authored gallery tile with a photo or tape-frame thumbnail, badge, capture date and unsaved edge.

@@ -6,6 +6,7 @@ local PANEL_WIDTH = 300
 local ROW_HEIGHT = 34
 local TRACK_HEIGHT = 10
 local TRACK_OFFSET = 18
+local VALUE_WIDTH = 64
 
 local DebugPanel = {}
 DebugPanel.__index = DebugPanel
@@ -212,13 +213,28 @@ function DebugPanel:AddSlider(
 	row.Parent = self.Panel
 
 	local caption = Instance.new("TextLabel")
-	caption.Size = UDim2.new(1, 0, 0, 14)
+	caption.Size = UDim2.new(1, -(VALUE_WIDTH + 6), 0, 14)
 	caption.BackgroundTransparency = 1
 	caption.Font = Enum.Font.Code
 	caption.TextSize = 12
 	caption.TextColor3 = Color3.new(1, 1, 1)
 	caption.TextXAlignment = Enum.TextXAlignment.Left
+	caption.Text = label
 	caption.Parent = row
+
+	local valueBox = Instance.new("TextBox")
+	valueBox.Name = "Value"
+	valueBox.Position = UDim2.new(1, -VALUE_WIDTH, 0, 0)
+	valueBox.Size = UDim2.fromOffset(VALUE_WIDTH, 14)
+	valueBox.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
+	valueBox.BackgroundTransparency = 0.1
+	valueBox.BorderSizePixel = 0
+	valueBox.ClearTextOnFocus = true
+	valueBox.Font = Enum.Font.Code
+	valueBox.TextSize = 11
+	valueBox.TextColor3 = Color3.new(1, 1, 1)
+	valueBox.TextXAlignment = Enum.TextXAlignment.Right
+	valueBox.Parent = row
 
 	local track = Instance.new("Frame")
 	track.Position = UDim2.new(0, 0, 0, TRACK_OFFSET)
@@ -233,19 +249,42 @@ function DebugPanel:AddSlider(
 	fill.Parent = track
 
 	local format = if step >= 1 then "%d" else "%.2f"
+	local currentValue = initial
+
+	local function normalize(value: number): number
+		value = math.clamp(value, minimum, maximum)
+		if step > 0 then
+			value = math.round(value / step) * step
+			value = math.clamp(value, minimum, maximum)
+		end
+		return value
+	end
 
 	local function display(value: number)
+		currentValue = value
 		fill.Size = UDim2.fromScale(math.clamp((value - minimum) / (maximum - minimum), 0, 1), 1)
-		caption.Text = `{label}: {string.format(format, value)}`
+		valueBox.Text = string.format(format, value)
+	end
+
+	local function setValue(value: number)
+		value = normalize(value)
+		display(value)
+		apply(value)
 	end
 
 	local function setFromX(x: number)
 		local alpha = math.clamp((x - track.AbsolutePosition.X) / math.max(track.AbsoluteSize.X, 1), 0, 1)
-		local raw = minimum + (maximum - minimum) * alpha
-		local value = if step > 0 then math.round(raw / step) * step else raw
-		display(value)
-		apply(value)
+		setValue(minimum + (maximum - minimum) * alpha)
 	end
+
+	table.insert(self._connections, valueBox.FocusLost:Connect(function()
+		local value = tonumber(valueBox.Text)
+		if not value or value ~= value or value == math.huge or value == -math.huge then
+			display(currentValue)
+			return
+		end
+		setValue(value)
+	end))
 
 	table.insert(self._connections, track.InputBegan:Connect(function(input: InputObject)
 		if input.UserInputType == Enum.UserInputType.MouseButton1

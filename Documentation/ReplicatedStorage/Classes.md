@@ -40,7 +40,7 @@ Builds a keyboard-toggled developer overlay ScreenGui with labels, buttons and d
 - API: `DebugPanel:AddLabel(text: string) -> TextLabel`
 - API: `DebugPanel:AddTextBox(text: string) -> TextBox` — creates selectable, editable multiline text
 - API: `DebugPanel:AddButton(text: string, activated: () -> ()) -> TextButton`
-- API: `DebugPanel:AddSlider(label, minimum, maximum, initial, step, apply: (number) -> ()) -> (number) -> ()` — returns a setter that redraws the slider
+- API: `DebugPanel:AddSlider(label, minimum, maximum, initial, step, apply: (number) -> ()) -> (number) -> ()` — returns a setter that redraws the slider; its value box accepts typed numbers, clamped and rounded to the slider's range and step
 - API: `DebugPanel:Destroy()`
 - Requires: `Services.InterfaceService`
 
