@@ -8,6 +8,7 @@ local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local PerfLog = require(ReplicatedStorage.Services.PerfLoggerService)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local EnemySizeService = require(ServerStorage.Services.EnemySizeService)
 
 local EnemyClasses = ServerStorage.Classes.Enemies
 local EnemyModels = ReplicatedStorage:WaitForChild("Enemies")
@@ -130,6 +131,7 @@ function EnemyService:Spawn(enemyId: string, spawnCFrame: CFrame, ...: any)
 	local model = EnemyModels:FindFirstChild(config.Model):Clone() :: Model
 
 	model:PivotTo(spawnCFrame)
+	EnemySizeService.Apply(model)
 	model:SetAttribute("EnemyId", enemyId)
 	model:SetAttribute("Harmless", config.Harmless or nil)
 	model.Parent = getActiveFolder()

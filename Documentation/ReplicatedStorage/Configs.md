@@ -103,7 +103,7 @@ Proximity heartbeat sound for the Blind enemy, with volume and rate ramps betwee
 - API: data table — `EnemyId`, `Template`, `Range`, `FullDistance`, `Volume`, `PursuitAttribute`, `Rate`, fade/rate speeds, `SilenceEpsilon`
 
 ### IndexConfig.luau
-The enemy Index (bestiary) UI: pagination, locked/undiscovered styling, the discovery reveal animation, card/button/page tweens, headshot camera framing and every enemy entry, including the "Painting Lurker" (`PaintingDweller`) entry rendered with the Ceiling Dweller rig.
+The enemy Index (bestiary) UI: pagination, locked/undiscovered styling, the discovery reveal animation, card/button/page tweens, headshot camera framing and every enemy entry, including the "Painting Lurker" (`PaintingDweller`) entry rendered with the Painting Dweller rig.
 - API: data table — `EntriesPerPage`, `TemplateFolder`, `StartProgress`, `Locked`, `Discovery`, `Empty`, `HideUndiscovered`, `Pagination`, `Animation`, `Headshot`, `Entries`; exports types `StandinPart`, `Headshot`, `Entry`
 
 ### InventoryConfig.luau

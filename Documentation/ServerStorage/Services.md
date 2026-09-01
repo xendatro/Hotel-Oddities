@@ -2,6 +2,11 @@
 
 Server only, self-initializing at require time via `ServerScriptService\Init.legacy.luau`. Never add an `:Init()` method.
 
+### EnemySizeService.luau
+Applies Vector3 `Size` attributes on enemy BaseParts after cloning and disables humanoid automatic scaling when custom part sizes are present.
+- API: `EnemySizeService.Apply(model: Model)`
+- Requires: none
+
 ### BadgeService.luau
 Wrapper around Roblox's BadgeService that awards only badge ids listed in BadgeConfigs and keeps a per-player ownership cache. Ownership is prefetched asynchronously when a player joins and cleared when they leave.
 - API: `BadgeService:AwardBadge(player: Player, id: number) -> boolean` — refuses unknown ids and already-owned badges
