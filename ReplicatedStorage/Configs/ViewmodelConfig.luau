@@ -98,6 +98,13 @@ return {
 			Rotate = CFrame.Angles(math.rad(93), math.rad(9), math.rad(2)),
 		},
 		
+		["Shovel"] = {
+			Scale = 0.65,
+			Anchor = Vector3.new(1.14, -0.37, -1.43),
+			ArmAnchor = Vector3.new(0.97, -0.85, -1.83),
+			Rotate = CFrame.Angles(math.rad(-180), math.rad(8), math.rad(9)),
+		},
+		
 		SpellBook = { Rotate = CFrame.Angles(math.rad(-15), math.rad(-95), 0) },
 		Pathfinder = { Rotate = CFrame.Angles(0, math.rad(-25), 0) },
 	},
