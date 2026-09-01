@@ -39,7 +39,7 @@ return {
 			Scale = 0.65,
 			Anchor = Vector3.new(0.76, -0.61, -1.33),
 			ArmAnchor = Vector3.new(0.68, -0.61, -1.33),
-			Rotate = CFrame.Angles(math.rad(90), math.rad(-90), math.rad(0)),
+			Rotate = CFrame.Angles(math.rad(90), math.rad(0), math.rad(90)),
 		},
 		
 		
@@ -95,7 +95,7 @@ return {
 			Scale = 0.65,
 			Anchor = Vector3.new(1.01, -0.77, -1.39),
 			ArmAnchor = Vector3.new(1.10, -0.60, -1.77),
-			Rotate = CFrame.Angles(math.rad(81), math.rad(110), math.rad(112)),
+			Rotate = CFrame.Angles(math.rad(93), math.rad(9), math.rad(2)),
 		},
 		
 		SpellBook = { Rotate = CFrame.Angles(math.rad(-15), math.rad(-95), 0) },

@@ -94,7 +94,7 @@ end
 
 local function angles(cframe: CFrame?): (number, number, number)
 	if not cframe then return 0, 0, 0 end
-	local x, y, z = cframe:ToEulerAnglesYXZ()
+	local x, y, z = cframe:ToEulerAnglesXYZ()
 	return math.deg(x), math.deg(y), math.deg(z)
 end
 

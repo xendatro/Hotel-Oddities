@@ -98,7 +98,9 @@ local function buildRig(tool: Tool)
 		end
 	end
 	clone.Parent = model
-	model.WorldPivot = handle:GetPivot()
+
+	local cloneHandle = clone:FindFirstChild("Handle") :: BasePart
+	model.WorldPivot = cloneHandle:GetPivot()
 
 	local override = ViewmodelConfig.Overrides[tool.Name]
 	model:ScaleTo(override and override.Scale or ViewmodelConfig.Scale)
@@ -129,7 +131,6 @@ local function buildRig(tool: Tool)
 	if sleeve then sleeve.Parent = nil end
 	local boundsCFrame, boundsSize = model:GetBoundingBox()
 	if sleeve then sleeve.Parent = model end
-	local cloneHandle = clone:FindFirstChild("Handle") :: BasePart
 	rigHandle = cloneHandle
 	rigCenterOffset = cloneHandle:GetPivot():ToObjectSpace(boundsCFrame).Position
 	rigRadius = boundsSize.Magnitude / 2
