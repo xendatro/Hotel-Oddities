@@ -10,15 +10,53 @@ local TRACK_OFFSET = 18
 local DebugPanel = {}
 DebugPanel.__index = DebugPanel
 
+local openPanelCount = 0
+local sideGuiWasEnabled: boolean? = nil
+
 export type DebugPanel = typeof(setmetatable({} :: {
 	Gui: ScreenGui,
 	Panel: Frame,
 	Heading: TextLabel,
 	_toggleKey: Enum.KeyCode,
 	_order: number,
+	_isOpen: boolean,
 	_dragging: ((number) -> ())?,
 	_connections: { RBXScriptConnection },
 }, DebugPanel))
+
+local function getSideGui(): ScreenGui?
+	local playerGui = Players.LocalPlayer:FindFirstChild("PlayerGui")
+	local sideGui = playerGui and playerGui:FindFirstChild("SideGui")
+	return if sideGui and sideGui:IsA("ScreenGui") then sideGui else nil
+end
+
+local function setOpen(self: DebugPanel, open: boolean)
+	if self._isOpen == open then return end
+	self._isOpen = open
+
+	if open then
+		if openPanelCount == 0 then
+			local sideGui = getSideGui()
+			if sideGui then
+				sideGuiWasEnabled = sideGui.Enabled
+				sideGui.Enabled = false
+			end
+		end
+		openPanelCount += 1
+	else
+		openPanelCount = math.max(0, openPanelCount - 1)
+		if openPanelCount == 0 then
+			local sideGui = getSideGui()
+			if sideGui and sideGuiWasEnabled ~= nil then
+				sideGui.Enabled = sideGuiWasEnabled
+			end
+			sideGuiWasEnabled = nil
+		end
+	end
+
+	self.Gui.Enabled = open
+	InterfaceService:SetMouseUnlocked(openPanelCount > 0)
+end
 
 function DebugPanel.new(title: string, toggleKey: Enum.KeyCode): DebugPanel
 	local self = setmetatable({}, DebugPanel)
@@ -67,13 +105,13 @@ function DebugPanel.new(title: string, toggleKey: Enum.KeyCode): DebugPanel
 	self.Heading = heading
 	self._toggleKey = toggleKey
 	self._order = 0
+	self._isOpen = false
 	self._dragging = nil
 	self._connections = {}
 
 	table.insert(self._connections, UserInputService.InputBegan:Connect(function(input, processed)
 		if not processed and input.KeyCode == toggleKey then
-			gui.Enabled = not gui.Enabled
-			InterfaceService:SetMouseUnlocked(gui.Enabled)
+			setOpen(self, not self._isOpen)
 		end
 	end))
 
@@ -222,6 +260,7 @@ function DebugPanel:AddSlider(
 end
 
 function DebugPanel:Destroy()
+	setOpen(self, false)
 	for _, connection in self._connections do
 		connection:Disconnect()
 	end

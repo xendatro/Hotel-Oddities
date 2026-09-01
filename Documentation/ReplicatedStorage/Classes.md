@@ -34,7 +34,7 @@ Runs a function but gives up after `n` seconds, using Race against a `task.wait`
 - Requires: `Classes.Race`
 
 ### DebugPanel.luau
-Builds a keyboard-toggled developer overlay ScreenGui with labels, buttons and drag sliders. Toggling unlocks the mouse through InterfaceService.
+Builds a keyboard-toggled developer overlay ScreenGui with labels, buttons and drag sliders. Toggling unlocks the mouse through InterfaceService and hides `PlayerGui.SideGui` while any debug panel is open, restoring its prior state after the last panel closes.
 - API: `DebugPanel.new(title: string, toggleKey: Enum.KeyCode) -> DebugPanel` — creates the hidden panel in PlayerGui
 - API: `DebugPanel:SetTitle(title: string)`
 - API: `DebugPanel:AddLabel(text: string) -> TextLabel`
