@@ -6,9 +6,6 @@ export type Entry = {
 	RobuxPrice: number,
 	Product: string,
 	RequiresVoice: boolean?,
-	Yaw: number?,
-	Pitch: number?,
-	Zoom: number?,
 }
 
 local Entries: { Entry } = {
@@ -29,6 +26,38 @@ local Entries: { Entry } = {
 		Product = "Bandage",
 	},
 	{
+		Id = "Big Character",
+		Name = "Big Character",
+		Description = "Grow a size larger until the hotel decides otherwise.",
+		CoinPrice = 1,
+		RobuxPrice = 1,
+		Product = "BigCharacter",
+	},
+	{
+		Id = "Big Head",
+		Name = "Big Head",
+		Description = "Swell your head to a size no doorway respects.",
+		CoinPrice = 1,
+		RobuxPrice = 1,
+		Product = "BigHead",
+	},
+	{
+		Id = "Camcorder",
+		Name = "Camcorder",
+		Description = "Record a run and keep the tape, or burn it and forget what you saw.",
+		CoinPrice = 1,
+		RobuxPrice = 1,
+		Product = "Camcorder",
+	},
+	{
+		Id = "Camera",
+		Name = "Camera",
+		Description = "Stand a tripod camera where you need a second pair of eyes.",
+		CoinPrice = 1,
+		RobuxPrice = 1,
+		Product = "Camera",
+	},
+	{
 		Id = "Energy Drink",
 		Name = "Energy Drink",
 		Description = "A short, violent burst of speed for emergencies that are already too close.",
@@ -43,7 +72,22 @@ local Entries: { Entry } = {
 		CoinPrice = 35,
 		RobuxPrice = 7,
 		Product = "Flashlight",
-		Yaw = -25,
+	},
+	{
+		Id = "Gravity Warper",
+		Name = "Gravity Warper",
+		Description = "Fall upward for a while and watch the halls from the ceiling.",
+		CoinPrice = 1,
+		RobuxPrice = 1,
+		Product = "GravityWarper",
+	},
+	{
+		Id = "Key",
+		Name = "Key",
+		Description = "Open a door the hotel would rather keep shut.",
+		CoinPrice = 1,
+		RobuxPrice = 1,
+		Product = "Key",
 	},
 	{
 		Id = "Medkit",
@@ -52,7 +96,6 @@ local Entries: { Entry } = {
 		CoinPrice = 65,
 		RobuxPrice = 12,
 		Product = "Medkit",
-		Yaw = -70,
 	},
 	{
 		Id = "Pathfinder",
@@ -61,7 +104,22 @@ local Entries: { Entry } = {
 		CoinPrice = 90,
 		RobuxPrice = 15,
 		Product = "Pathfinder",
-		Yaw = 160,
+	},
+	{
+		Id = "Player Locator",
+		Name = "Player Locator",
+		Description = "Hold it up to see roughly where everyone else still is.",
+		CoinPrice = 1,
+		RobuxPrice = 1,
+		Product = "PlayerLocator",
+	},
+	{
+		Id = "Random Oddity",
+		Name = "Random Oddity",
+		Description = "Take whichever change the hotel feels like handing out.",
+		CoinPrice = 1,
+		RobuxPrice = 1,
+		Product = "RandomOddity",
 	},
 	{
 		Id = "Shovel",
@@ -70,8 +128,14 @@ local Entries: { Entry } = {
 		CoinPrice = 55,
 		RobuxPrice = 10,
 		Product = "Shovel",
-		Pitch = 8,
-		Zoom = 1.15,
+	},
+	{
+		Id = "Small Character",
+		Name = "Small Character",
+		Description = "Shrink a size smaller and fit where you should not.",
+		CoinPrice = 1,
+		RobuxPrice = 1,
+		Product = "SmallCharacter",
 	},
 	{
 		Id = "Soda",
@@ -88,7 +152,14 @@ local Entries: { Entry } = {
 		CoinPrice = 120,
 		RobuxPrice = 20,
 		Product = "SpellBook",
-		Yaw = -70,
+	},
+	{
+		Id = "Transparency",
+		Name = "Transparency",
+		Description = "Fade most of the way out of sight, for whatever that is worth.",
+		CoinPrice = 1,
+		RobuxPrice = 1,
+		Product = "Transparency",
 	},
 	{
 		Id = "Trap",
@@ -97,7 +168,6 @@ local Entries: { Entry } = {
 		CoinPrice = 75,
 		RobuxPrice = 12,
 		Product = "Trap",
-		Pitch = 12,
 	},
 	{
 		Id = "Visor",
@@ -106,6 +176,15 @@ local Entries: { Entry } = {
 		CoinPrice = 110,
 		RobuxPrice = 18,
 		Product = "Visor",
+	},
+	{
+		Id = "Walkie Talkie",
+		Name = "Walkie Talkie",
+		Description = "Keep a voice line open to anyone else carrying one.",
+		CoinPrice = 1,
+		RobuxPrice = 1,
+		Product = "WalkieTalkie",
+		RequiresVoice = true,
 	},
 }
 
@@ -119,14 +198,6 @@ return {
 	RobuxIcon = utf8.char(0xE002),
 	Entries = Entries,
 	EntriesById = EntriesById,
-
-	Viewport = {
-		FieldOfView = 40,
-		Padding = 1.55,
-		Yaw = 20,
-		Pitch = 5,
-		Zoom = 1,
-	},
 
 	Animation = {
 		Card = {

@@ -211,17 +211,6 @@ local KitConfig = {
 		ResultPop = 1.45,
 	},
 
-	Viewport = {
-		FieldOfView = 40,
-		Padding = 1.55,
-		Yaw = 20,
-		Pitch = 5,
-		Zoom = 1,
-		Ambient = Color3.fromRGB(196, 192, 186),
-		LightColor = Color3.fromRGB(255, 250, 240),
-		LightDirection = Vector3.new(-0.4, -0.8, -0.45),
-	},
-
 	Animation = {
 		Card = {
 			HoverScale = 1.08,

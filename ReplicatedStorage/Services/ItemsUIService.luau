@@ -8,6 +8,7 @@ local ItemShopConfig = require(ReplicatedStorage.Configs.ItemShopConfig)
 local MarketplaceService = require(ReplicatedStorage.Services.MarketplaceService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
+local ItemPreviewService = require(ReplicatedStorage.Services.ItemPreviewService)
 local TweenProxyService = require(ReplicatedStorage.Services.TweenProxyService)
 
 local ItemsUIService = {}
@@ -19,13 +20,12 @@ end
 local CARD = ItemShopConfig.Animation.Card
 local BUTTON = ItemShopConfig.Animation.Button
 local INFO = ItemShopConfig.Animation.Info
-local VIEWPORT = ItemShopConfig.Viewport
 
 local player = Players.LocalPlayer
 local playerGui = GuiBuilderService.GetPlayerGui()
 local gui = playerGui:WaitForChild("ItemsGui") :: ScreenGui
 local design = gui:WaitForChild("Design") :: Frame
-local itemsFrame = design:WaitForChild("Items") :: Frame
+local itemsFrame = design:WaitForChild("Items") :: ScrollingFrame
 local template = itemsFrame:WaitForChild("Template") :: ImageButton
 local info = design:WaitForChild("Info") :: Frame
 local infoName = info:WaitForChild("ItemName") :: TextLabel
@@ -40,7 +40,6 @@ local balance = design:WaitForChild("background_frame"):WaitForChild("Coins"):Wa
 
 local Purchase = CommunicationService.Get("Items", "Purchase") :: RemoteEvent
 local Sync = CommunicationService.Get("Items", "Sync") :: RemoteEvent
-local Tools = ReplicatedStorage.Tools
 
 type Card = {
 	Id: string,
@@ -56,50 +55,6 @@ local visibleEntries: { ItemShopConfig.Entry } = {}
 local selectedId: string? = nil
 local dealGeneration = 0
 local robuxPrices: { [string]: number } = {}
-
-local function clearViewport(viewport: ViewportFrame)
-	for _, child in viewport:GetChildren() do
-		if child:IsA("Model") or child:IsA("Camera") then child:Destroy() end
-	end
-end
-
-local function buildPreview(viewport: ViewportFrame, entry: ItemShopConfig.Entry)
-	clearViewport(viewport)
-
-	local source = Tools:FindFirstChild(entry.Id)
-	if not source or not source:IsA("Tool") then return end
-
-	local model = Instance.new("Model")
-	model.Name = entry.Id
-	local tool = source:Clone()
-	for _, descendant in tool:GetDescendants() do
-		if descendant:IsA("LuaSourceContainer") then
-			descendant:Destroy()
-		elseif descendant:IsA("BasePart") then
-			descendant.Anchored = true
-			descendant.CanCollide = false
-			descendant.CanQuery = false
-			descendant.CanTouch = false
-		end
-	end
-	tool.Parent = model
-	model.Parent = viewport
-	model:PivotTo(CFrame.identity)
-
-	local box, size = model:GetBoundingBox()
-	local radius = math.max(size.X, size.Y, size.Z) * 0.5 * VIEWPORT.Padding
-	local distance = radius / math.tan(math.rad(VIEWPORT.FieldOfView) * 0.5)
-	distance *= entry.Zoom or VIEWPORT.Zoom
-
-	local yaw = math.rad(entry.Yaw or VIEWPORT.Yaw)
-	local pitch = math.rad(entry.Pitch or VIEWPORT.Pitch)
-	local direction = CFrame.Angles(pitch, yaw, 0).LookVector
-	local camera = Instance.new("Camera")
-	camera.FieldOfView = VIEWPORT.FieldOfView
-	camera.CFrame = CFrame.lookAt(box.Position + direction * distance, box.Position)
-	camera.Parent = viewport
-	viewport.CurrentCamera = camera
-end
 
 local function poseCard(card: Card, override: TweenInfo?)
 	local scale, lift, tilt = 1, 0, 0
@@ -159,7 +114,8 @@ local function paintInfo(animate: boolean)
 	coinPrice.Text = tostring(entry.CoinPrice)
 	coinButtonLabel.Text = "BUY"
 	robuxButtonLabel.Text = robuxText(entry)
-	buildPreview(infoViewport, entry)
+	ItemPreviewService:Render(infoViewport, entry.Id)
+	ItemPreviewService:SetFocus(entry.Id)
 	if animate then playInfoTransition() end
 end
 
@@ -190,7 +146,7 @@ local function buildCards()
 		button.Position = UDim2.fromScale(0.5, 0.5)
 		button.Size = UDim2.fromScale(1, 1)
 		button.Parent = holder
-		buildPreview(button:WaitForChild("ViewportFrame") :: ViewportFrame, entry)
+		ItemPreviewService:Render(button:WaitForChild("ViewportFrame") :: ViewportFrame, entry.Id)
 
 		local card: Card = {
 			Id = entry.Id,

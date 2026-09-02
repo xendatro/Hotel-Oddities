@@ -89,7 +89,7 @@ Client look-at interaction system: raycasts from the camera each render step ove
 - Requires: `Configs.DrawerConfig` (Targeting/Input/Highlight/UI sections), `PlayerGui.Cursor` UI template
 
 ### InventorySlot.luau
-One inventory hotbar slot: an ImageButton with a ViewportFrame preview of the tool model, a quantity label and an optional slot number. The preview clones the tool from `ReplicatedStorage.Tools`, strips scripts/effects and frames a camera using ItemShopConfig per-item yaw/pitch/zoom.
+One inventory hotbar slot: an ImageButton with a ViewportFrame preview of the tool model, a quantity label and an optional slot number. The preview goes through `ItemPreviewService`, so a hotbar slot frames an item exactly as the shop card and the kit tile do.
 - API: `InventorySlot.new(index: number, showNumber: boolean) -> InventorySlot` — builds the (unparented) frame
 - API: `InventorySlot:SetTool(toolName: string, quantity: number, icon: string?)` — re-renders the preview only when the tool changed; `icon` is unused
 - API: `InventorySlot:SetEmpty()`
@@ -97,7 +97,7 @@ One inventory hotbar slot: an ImageButton with a ViewportFrame preview of the to
 - API: `InventorySlot:SetEquipped(equipped: boolean)`
 - API: `InventorySlot:SetDropTarget(active: boolean)`
 - API: `InventorySlot:Destroy()`
-- Requires: `Configs.InventoryConfig`, `Configs.ItemShopConfig`
+- Requires: `Configs.InventoryConfig`, `ItemPreviewService`
 
 ### GalleryCard.luau
 One tile in the Gallery grid. Clones the complete Studio-authored `GalleryGui.Design.MediaCanvas.Media.Template` frame, then fills its `Card` with a cropped photo or first-frame tape thumbnail, a `TAPE`/`STILL` badge, the capture date, and a green edge while the capture awaits a keep-or-burn choice. Tape tiles use `ImageLabel.ImageContent` rather than one live `VideoFrame` per card.

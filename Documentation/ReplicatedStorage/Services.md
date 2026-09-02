@@ -429,11 +429,27 @@ Replaces the Roblox backpack with a built-from-code hotbar plus a toggleable bac
 - Remotes: `Inventory/Update` (listened and fired), `Inventory/Move` (fired)
 - Requires: `Classes.InventorySlot`, `Configs.InventoryConfig`, `InterfaceService` (mouse unlocking), `CharacterService`, `GuiBuilderService`; disables the core Backpack GUI
 
+### ItemPreviewService.luau
+The one renderer behind every item ViewportFrame in the game - shop cards, the shop info panel, inventory hotbar slots and all three kit pages - so an item is framed identically wherever it appears. Renders a `ReplicatedStorage.Tools` tool into a `WorldModel` with scripts, audio and effects stripped and every part anchored, then aims a camera at the model's bounding box using the framing for that item from `ItemPreviewConfig` (yaw, pitch, zoom, padding and a screen-space offset), and applies the config's `Ambient`/`LightColor`/`LightDirection` without which tool models read as near-black silhouettes. Every rendered viewport stays in a registry keyed by the ViewportFrame, so `Refresh` can re-aim every live viewport of one item at once - that is what makes the debug panel update the whole game as you drag a slider. The registry deliberately holds strong keys and prunes unparented viewports on refresh; with weak keys Luau collected the entries while the ViewportFrames were still on screen and refreshes silently did nothing.
+- API: `ItemPreviewService:Render(viewport: ViewportFrame, itemName: string?)`
+- API: `ItemPreviewService:Clear(viewport: ViewportFrame)`
+- API: `ItemPreviewService:Refresh(itemName: string?)` — re-aims every registered viewport, or only those showing one item
+- API: `ItemPreviewService:GetFraming(itemName) -> Framing` — the item's values merged over the defaults
+- API: `ItemPreviewService:GetOverride(itemName) -> table` — the mutable `Items` entry, created empty if absent
+- API: `ItemPreviewService:SetFocus(itemName: string?)` / `:GetFocus() -> string?` — which item the debug panel should be editing
+- Requires: `Configs.ItemPreviewConfig`, `ReplicatedStorage.Tools`
+
+### ItemPreviewDebugService.luau
+F2 developer panel behind `FLAGS.ItemPreviewDebug` for framing item viewports. Sliders drive yaw, pitch, zoom, padding and screen offset for the selected item plus a global field of view, and every change refreshes every viewport showing that item, so the shop card, the info panel, the hotbar slot and the kit preview all move together while you drag. Selection has no list to scroll: clicking a card in the item shop selects it here (`ItemsUIService` sets the focus), and previous/next buttons walk the shop catalogue alphabetically when the shop is closed. A target button flips between the selected item and the shared defaults. The selectable text box emits exactly what to paste - one `Items` line carrying only the fields that differ from the defaults, quoted-key form for names with spaces, or the whole `FieldOfView`/`Default` block when editing the defaults - and says so plainly when an item needs no entry at all. Changes are local to the session.
+- API: none — side-effect only.
+- Requires: `Configs.ItemPreviewDebugConfig` (`ToggleKey`, `Step`, `AngleStep`), `Configs.ItemPreviewConfig`, `Configs.ItemShopConfig`, `Configs.FLAGS`, `Classes.DebugPanel`, `ItemPreviewService`
+
 ### ItemsUIService.luau
-Drives the `ItemsGui` item shop: builds a card per shop entry with a live ViewportFrame preview of the tool model, animates hover/press/select and a staggered deal-in when the page opens, and fills the info panel with name, description, coin price, and the live Robux price fetched from MarketplaceService. Coin purchases go through a remote; Robux purchases prompt a developer product, and voice-only entries are hidden from players without voice chat.
+Drives the `ItemsGui` item shop: builds a card per shop entry with a live `ItemPreviewService` ViewportFrame preview of the tool model into the `Items` ScrollingFrame, animates hover/press/select and a staggered deal-in when the page opens, and fills the info panel with name, description, coin price, and the live Robux price fetched from MarketplaceService. Coin purchases go through a remote; Robux purchases prompt a developer product, and voice-only entries are hidden from players without voice chat.
 - API: data table — empty; the shop is built and wired on require.
 - Remotes: `Items/Purchase` (fired), `Items/Sync` (listened and fired)
-- Requires: `Configs.ItemShopConfig`, `MarketplaceService` (project wrapper, for `Products.Items` and product info), `TweenProxyService`, `GuiBuilderService`, `ReplicatedStorage.Tools`
+Selecting a card also sets `ItemPreviewService`'s focus, which is how the item preview debug panel knows what to tune.
+- Requires: `Configs.ItemShopConfig`, `MarketplaceService` (project wrapper, for `Products.Items` and product info), `ItemPreviewService`, `TweenProxyService`, `GuiBuilderService`
 
 ### KitInventoryUIService.luau
 Drives the `KitInventory` page: builds a `KitCard` for every kit the player owns, sorted rarest first, into the `Kits` ScrollingFrame (wrapped in a `KitsCanvas` CanvasGroup so hover-scaled tiles clip at the grid edge instead of bleeding over the page), marks the equipped kit on its tile, and fills the info panel with the kit's name in its rarity colour, a ViewportFrame of its showcase item, and its BUFFS/ITEMS list. The Equip button flips to EQUIPPED and goes uninteractable for the kit already worn. The nav button follows roll eligibility: it reads ROLL and opens `RollGui` for players who may use paid random items, and SHOP into `KitsShop` for everyone else. The grid's ScrollingFrame carries a `UIPadding` inset so hover-scaled and tilted tiles have room to grow inside the clip region instead of being cut at the edge. Cards deal in with a stagger each time the page opens.
@@ -465,15 +481,15 @@ Client-side single source of truth for kits and gems: owns the `Kits/Sync` and `
 - Requires: `Configs.KitConfig`, `CommunicationService`
 
 ### KitVisualService.luau
-The look of a kit, shared by all three kit pages so they cannot drift: renders a tool model into a ViewportFrame with the framing and lighting from `KitConfig.Viewport` (an explicit `Ambient`/`LightColor`/`LightDirection`, without which tool models read as near-black silhouettes), picks a kit's showcase item (explicit `Showcase`, else its most expensive item), dresses a card with its rarity stroke, rarity ribbon, name, status line and dim overlay, and fills a details holder with a `BUFFS` section and an `ITEMS` section. The sections stack vertically at the holder's full width rather than sitting side by side - the info column is only ~180px wide, so two columns made every row width-bound and tiny. Row height is the holder divided by the line count (floored at `MINIMUM_LINES` so short kits do not get comically large rows) and rows fade in on a stagger. Rows keep `TextScaled` on and never set `TextWrapped = false` - in Roblox that assignment silently clears `TextScaled` too, which drops every row to the default 8px. Stat rows are green when the change helps and red when it hurts, which is how a lower `DetectionRadius` reads as a gain.
+The look of a kit, shared by all three kit pages so they cannot drift: hands item previews to `ItemPreviewService` so kit tiles frame a tool exactly as the shop and the hotbar do, picks a kit's showcase item (explicit `Showcase`, else its most expensive item), dresses a card with its rarity stroke, rarity ribbon, name, status line and dim overlay, and fills a details holder with a `BUFFS` section and an `ITEMS` section. The sections stack vertically at the holder's full width rather than sitting side by side - the info column is only ~180px wide, so two columns made every row width-bound and tiny. Row height is the holder divided by the line count (floored at `MINIMUM_LINES` so short kits do not get comically large rows) and rows fade in on a stagger. Rows keep `TextScaled` on and never set `TextWrapped = false` - in Roblox that assignment silently clears `TextScaled` too, which drops every row to the default 8px. Stat rows are green when the change helps and red when it hurts, which is how a lower `DetectionRadius` reads as a gain.
 - API: `KitVisualService.Showcase(kit) -> string?`
-- API: `KitVisualService.BuildPreview(viewport: ViewportFrame, itemName: string?)`
+- API: `KitVisualService.BuildPreview(viewport: ViewportFrame, itemName: string?)` — delegates to `ItemPreviewService:Render`
 - API: `KitVisualService.DressCard(button: ImageButton, kit)`
 - API: `KitVisualService.SetCardStatus(button: ImageButton, text: string, dimmed: boolean, color: Color3?)`
 - API: `KitVisualService.FillDetails(holder: Frame, kit, animate: boolean)`
 - API: `KitVisualService.SortByRarity(entries, rarestFirst: boolean) -> { Kit }`
 - API: constants - `Ink`, `Good`, `Bad`, `Font`, `BoldFont`
-- Requires: `Configs.ItemShopConfig`, `Configs.KitConfig`, `HumanoidStatsService`, `MathService`
+- Requires: `Configs.ItemShopConfig`, `Configs.KitConfig`, `HumanoidStatsService`, `ItemPreviewService`, `MathService`
 
 ### LanternSwayService.luau
 Makes named hanging lantern models physically swing while their light is in the chaos-red state. Each active lantern gets an invisible hinged proxy part with wind torque, random jolts, gravity scaling, and a swing limit computed from raycast wall clearance; the visible model is pivoted to the hinge angle each frame. Lanterns are culled by camera distance and a maximum simulated count, and are settled and torn down when the red state ends.

@@ -61,6 +61,7 @@ extend it instead of writing a second copy.
 | `Spring` | `ReplicatedStorage\Classes` | Spring integrator for smoothed motion |
 | `ToolBase` / `ClientTool` / `ServerTool` / `PlayerOddityTool` | `ReplicatedStorage\Classes`, `ServerStorage\Classes` | Base classes for the two halves of every tool and player-oddity items |
 | `HumanoidStatsService` | `ReplicatedStorage\Services` | Named-source stat stack (health, speed, jump, stamina, sprint speed, detection radius) for any humanoid |
+| `ItemPreviewService` | `ReplicatedStorage\Services` | Rendering and framing a tool model in any ViewportFrame, and refreshing every viewport of an item |
 | `KitVisualService` / `KitCard` | `ReplicatedStorage\Services`, `ReplicatedStorage\Classes` | Kit tile dressing, rarity styling, viewport previews and stat/item rows |
 | `CaptureGalleryService` | `ReplicatedStorage\Services` | Taking, keeping, burning, hiding and listing the player's own screenshots and camcorder tapes |
 | `KitStateService` | `ReplicatedStorage\Services` | Client's owned-kits, equipped-kit and gem balance view, and every kit remote call |
@@ -136,6 +137,8 @@ become Services or Classes.
 - ReplicatedStorage\Services\InteractionService.luau — Singleton crosshair interaction target registry, highlight and key prompt.
 - ReplicatedStorage\Services\InterfaceService.luau — Main menu page switching, blur, FOV pull-back and mouse unlocking.
 - ReplicatedStorage\Services\InventoryUIService.luau — Custom hotbar and backpack with equipping and drag-and-drop slots.
+- ReplicatedStorage\Services\ItemPreviewService.luau — The one item-viewport renderer: frames a tool model for every shop card, hotbar slot and kit tile, and can re-aim every live viewport of an item at once.
+- ReplicatedStorage\Services\ItemPreviewDebugService.luau — F2 panel that tunes an item's viewport framing live across every viewport showing it, and emits the ItemPreviewConfig entry to paste.
 - ReplicatedStorage\Services\ItemsUIService.luau — Item shop page with tool previews and coin or Robux purchases.
 - ReplicatedStorage\Services\KitInventoryUIService.luau — Owned-kit grid sorted rarest first, with equip control and the kit's stats and items.
 - ReplicatedStorage\Services\KitRollUIService.luau — The kit roll carousel: server-authoritative result, weighted filler, scaling/tilting tiles, rarity bloom and shake.
@@ -279,7 +282,9 @@ become Services or Classes.
 - ReplicatedStorage\Configs\HeartbeatConfig.luau — Proximity heartbeat sound settings for the Blind enemy.
 - ReplicatedStorage\Configs\IndexConfig.luau — Enemy Index UI styling, reveal animation and all bestiary entries.
 - ReplicatedStorage\Configs\InventoryConfig.luau — Hotbar/backpack sizes, single-copy items, keybinds and inventory slot styling.
-- ReplicatedStorage\Configs\ItemShopConfig.luau — Item shop catalogue, prices, viewport framing and card animation settings.
+- ReplicatedStorage\Configs\ItemPreviewConfig.luau — Shared framing and lighting for every item ViewportFrame, with per-item overrides.
+- ReplicatedStorage\Configs\ItemPreviewDebugConfig.luau — Toggle key and slider steps for the item preview debug panel.
+- ReplicatedStorage\Configs\ItemShopConfig.luau — Item shop catalogue, prices and card animation settings.
 - ReplicatedStorage\Configs\KitCatalogConfig.luau — The 24 kits: name, rarity, description, stat changes and granted items.
 - ReplicatedStorage\Configs\KitConfig.luau — Rarities, the six stat definitions, the point budget economy, roll settings and kit UI animation.
 - ReplicatedStorage\Configs\LanternSwayConfig.luau — Tuning for the swinging hallway lantern simulation.
