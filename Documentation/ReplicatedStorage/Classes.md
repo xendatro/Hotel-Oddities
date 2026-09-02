@@ -404,15 +404,15 @@ Thin wrapper that turns `PlayerLocatorService` on while the tool is equipped and
 - Requires: `Classes\ClientTool`, `PlayerLocatorService`
 
 ### Tools\Shovel.luau
-Digs an escape hole: raycasts down onto MazeFloor-tagged parts, freezes the player's walk speed, plays the Dig animation while a dummy hole prop tween-grows in place, then consumes a shovel charge and asks the server to create the real hole. Cleanup always removes the dummy, stops the animation and restores walk speed.
+Digs an escape hole: raycasts down onto tagged floor parts, rejects positions where the whole hole footprint would leave the floor, freezes the player's walk speed, plays the Dig animation while a dummy hole prop tween-grows in place, then consumes a shovel charge after the server creates the real hole. Cleanup always removes the dummy, stops the animation and restores walk speed.
 - API: `Shovel.new(tool: Tool) -> self`
 - API: `Shovel:OnEquipped()` — plays the looping Equip animation
 - API: `Shovel:OnUnequipped()` — stops it
 - API: `Shovel:OnActivated()` — the dig sequence
 - API: `Shovel:OnCleanup()` / `Shovel:OnDestroy()` — destroy dummy, stop dig track, restore walk speed
 - Remotes: `Hole/Create` (invoked); `Backpack/Delete` (fired, via `ClientTool:Consume`)
-- Tags: reads `MazeFloor` via `TagService:GetTaggedOfAncestor`
-- Requires: `Classes\ClientTool`, `TagService`, `TweenProxyService`, `ReplicatedStorage.Props.Other` (DummyHole prop)
+- Tags: reads `MazeFloor`, `HallwayRoomFloor` through `HolePlacementService`
+- Requires: `Classes\ClientTool`, `HolePlacementService`, `TweenProxyService`, `ReplicatedStorage.Props.Other` (DummyHole prop)
 
 ### Tools\SpellBook.luau
 Minimal tool that just blocks activation until the tool's "Book" animation has started and then finished, so the cast cannot be spammed; the actual spell effect lives elsewhere.

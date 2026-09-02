@@ -4,12 +4,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local HolePlacementService = require(ReplicatedStorage.Services.HolePlacementService)
 local TagService = require(ReplicatedStorage.Services.TagService)
 local ToolConfigs = require(ReplicatedStorage.Configs.ToolConfigs)
 
 local Other = ReplicatedStorage.Props.Other
 
-local MAZE_FLOOR_TAG = "MazeFloor"
 local HOLE_TAG = "Hole"
 local CREATOR_ATTRIBUTE = "CreatorUserId"
 local HOLE_LIFETIME = 30
@@ -36,40 +36,21 @@ local function removePair(pair: HolePair)
 	destroyPair(pair)
 end
 
-local function getMazeFloors(): { BasePart }
-	local floors = {}
-	for _, instance in TagService:GetTaggedOfAncestor(workspace, MAZE_FLOOR_TAG) do
-		if instance:IsA("BasePart") then
-			table.insert(floors, instance)
-		end
-	end
-	return floors
-end
-
-local function pickExit(): Vector3?
-	local floors = getMazeFloors()
-	if #floors == 0 then
-		warn(`HoleService: no parts tagged "{MAZE_FLOOR_TAG}" -- nowhere to put a hole`)
-		return nil
-	end
-
-	local floor = floors[math.random(1, #floors)]
-	local size = floor.Size
-	local offset = Vector3.new(
-		(math.random() - 0.5) * size.X,
-		size.Y / 2 + 0.5,
-		(math.random() - 0.5) * size.Z
-	)
-	return floor.CFrame:PointToWorldSpace(offset)
-end
-
 function HoleService:CreateHolePair(entryPosition: Vector3, owner: Player?): boolean
-	local exitPosition = pickExit()
-	if not exitPosition then return false end
-
 	local template = Other:FindFirstChild("Hole")
 	if not template then
 		warn("HoleService: no Hole model in ReplicatedStorage.Props.Other")
+		return false
+	end
+
+	local floors = HolePlacementService.GetFloors(workspace)
+	if not HolePlacementService.IsFootprintSupported(entryPosition, template, floors) then
+		return false
+	end
+
+	local exitPosition = HolePlacementService.FindRandomPosition(template, floors)
+	if not exitPosition then
+		warn("HoleService: no tagged floor has room for a hole")
 		return false
 	end
 
@@ -133,12 +114,8 @@ Create.OnServerInvoke = function(player: Player, entryPosition: any)
 	if not root then return false end
 	if (root.Position - entryPosition).Magnitude > ToolConfigs.Shovel.MaxDigDistance then return false end
 
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Include
-	params.FilterDescendantsInstances = getMazeFloors()
-	if #params.FilterDescendantsInstances == 0 then return false end
-
-	local ground = workspace:Raycast(root.Position, Vector3.new(0, -ToolConfigs.Shovel.DigDepth, 0), params)
+	local floors = HolePlacementService.GetFloors(workspace)
+	local ground = HolePlacementService.FindGround(root.Position, ToolConfigs.Shovel.DigDepth, floors)
 	if not ground then return false end
 
 	return HoleService:CreateHolePair(ground.Position + Vector3.new(0, 0.5, 0), player)

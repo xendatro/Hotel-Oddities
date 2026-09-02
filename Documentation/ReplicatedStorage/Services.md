@@ -352,6 +352,15 @@ Note that `Across` here is `Vector3.yAxis:Cross(Axis)`, which is the opposite si
 - API: `Hallway.Part: BasePart` — the tagged floor part the rectangle was measured from
 - Tags: listens `MazeFloor`, `HallwayRoomFloor` (added/removed only, to invalidate the cache)
 
+### HolePlacementService.luau
+Shared Shovel placement checks. Collects both floor tags, raycasts the dig surface, checks the hole's complete horizontal bounding-box footprint against tagged floor surfaces, and samples random exit positions until one fits.
+- API: `HolePlacementService.GetFloors(ancestor: Instance) -> { BasePart }` — deduplicated `MazeFloor` and `HallwayRoomFloor` parts below an ancestor
+- API: `HolePlacementService.FindGround(origin: Vector3, depth: number, floors: { BasePart }, params: RaycastParams?) -> RaycastResult?` — downward raycast restricted to those floors
+- API: `HolePlacementService.IsFootprintSupported(position: Vector3, model: Model, floors: { BasePart }, scale: number?, surfaceY: number?) -> boolean` — true when the footprint center, corners and edge midpoints land on tagged floors at the same level
+- API: `HolePlacementService.FindRandomPosition(model: Model, floors: { BasePart }, scale: number?) -> Vector3?` — random surface position whose full footprint is supported
+- Tags: reads `MazeFloor`, `HallwayRoomFloor`
+- Requires: `Services.HallwaysService`, `TagService`
+
 ### HearingRenderService.luau
 Renders the "sound travelling to an enemy's ear" visual: for each server-sent event it spawns a neon ball with a particle wake, lerps it from the noise origin to the target model's ear position over the given duration, then plays an expanding fade-out flash and cleans up. The render loop connects only while motes are alive.
 - API: data table — empty; the remote listener is connected on require.

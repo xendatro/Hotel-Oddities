@@ -128,6 +128,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\HallwayGraphService.luau — Navigable node graph built from tagged maze floors, with Dijkstra pathfinding and walking distance; nodes and edges touching spawn safe zones are pruned.
 - ReplicatedStorage\Services\HallwayStreamingService.luau — Client handshake confirming streamed hallway models arrived before a teleport.
 - ReplicatedStorage\Services\HallwaysService.luau — Geometry queries over tagged floor parts: orientation-aware rectangles, containment, closest point, and longest straight span.
+- ReplicatedStorage\Services\HolePlacementService.luau — Shared Shovel floor collection, ground raycasts, full-footprint support checks and safe random hole positions.
 - ReplicatedStorage\Services\HearingRenderService.luau — Flies glowing motes from a noise source to an enemy's ear.
 - ReplicatedStorage\Services\HeartbeatService.luau — Proximity heartbeat audio that swells and quickens near a pursuing enemy.
 - ReplicatedStorage\Services\HumanoidStatsService.luau — Named-source stat stack applied to any humanoid, restoring untouched stats to their spawn values.

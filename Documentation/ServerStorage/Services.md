@@ -281,12 +281,12 @@ Searches nearby `MazeFloor` parts for a standing position that breaks line of si
 - Requires: `MathService.Horizontal`, `EnemyObservationService:GetEyes()`
 
 ### HoleService.luau
-Creates linked entry/exit hole pairs (the Shovel's dig): the entry goes where the digger stands, the exit is a random point on a random `MazeFloor` part, and both clones share an `ID` attribute plus the creator's user id. Pairs expire after 30s, are capped at 5 alive at once, and are cleaned up when their creator leaves.
+Creates linked entry/exit hole pairs (the Shovel's dig): the entry and random exit both require the whole hole footprint to stay on tagged floor parts (`MazeFloor` or `HallwayRoomFloor`), and both clones share an `ID` attribute plus the creator's user id. Pairs expire after 30s, are capped at 5 alive at once, and are cleaned up when their creator leaves.
 - API: `HoleService:CreateHolePair(entryPosition: Vector3, owner: Player?) -> boolean` — clones `ReplicatedStorage.Props.Other.Hole` twice
 - API: `HoleService:RemoveForPlayer(player: Player)` — destroys that player's pairs and any stray tagged holes they created
-- Remotes: `Hole/Create` (invoked) — validates dig distance and raycasts the ground before digging
-- Tags: listens `MazeFloor`, `Hole`
-- Requires: `ToolConfigs.Shovel` (`MaxDigDistance`, `DigDepth`), `TagService:GetTaggedOfAncestor`, `CharacterService.GetAliveRoot`
+- Remotes: `Hole/Create` (invoked) — validates dig distance, the tagged ground and the full hole footprint before digging
+- Tags: listens `Hole`; reads `MazeFloor`, `HallwayRoomFloor` through `HolePlacementService`
+- Requires: `ToolConfigs.Shovel` (`MaxDigDistance`, `DigDepth`), `HolePlacementService`, `TagService:GetTaggedOfAncestor`, `CharacterService.GetAliveRoot`
 
 ### InventoryService.luau
 Authoritative backpack/hotbar model: it tracks a slot-ordered list of tool names per player, clones templates out of `ReplicatedStorage.Tools`, keeps quantities on a `quantity` attribute, mirrors the layout to the client, and persists slots/quantities/`uses` into the player's DataSave profile. `InventoryConfig.SingleCopy` clamps grants of listed tools, including the Camcorder and Walkie Talkie, to one and `EnsureSingle` repairs old stacked or duplicate copies. It restores the saved inventory on join, reconciles it whenever the character respawns, clears everything on death, and always guarantees one Walkie Talkie.
