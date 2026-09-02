@@ -108,7 +108,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\DoorService.luau — Swings room doors open near players and enemies, and applies the server's map opening regions.
 - ReplicatedStorage\Services\DrawerItemService.luau — Registers drawer items as interactable pickups and requests them from the server.
 - ReplicatedStorage\Services\DrawerService.luau — Animates drawers open and closed with local prediction over the server's attribute.
-- ReplicatedStorage\Services\EffectsHUDService.luau — Right-edge HUD of timed effect tiles with draining icons and countdowns.
+- ReplicatedStorage\Services\EffectsHUDService.luau — Right-edge HUD of effect tiles, with draining timers, `inf` for permanent immunity, and hole-hop immunity countdowns.
 - ReplicatedStorage\Services\ElevatorDoorService.luau — Opens and closes tagged lobby elevator doors as players approach.
 - ReplicatedStorage\Services\ElevatorLoadingUIService.luau — Fades the elevator loading overlay in and out around a hallway load.
 - ReplicatedStorage\Services\EnemyDamageService.luau — Client-side enemy touch detection that kills the local player outside safe rooms.
@@ -183,7 +183,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\TagService.luau — The tag-to-module pipeline: registers apply/unapply callbacks per CollectionService tag and stores the data they return.
 - ReplicatedStorage\Services\ToolClientService.luau — Bootstraps tool classes for the local player's tools and routes server tool events to them.
 - ReplicatedStorage\Services\TweenProxyService.luau — Tweens arbitrary values through a throwaway ValueBase and a callback, including model scaling.
-- ReplicatedStorage\Services\VanishedService.luau — Checks whether a character is tagged Ignore or IgnoreExceptEye or holds a ForceField, with an Eye-specific check that skips the exempt tag.
+- ReplicatedStorage\Services\VanishedService.luau — Checks shared and source-specific immunity tags or a ForceField, with source syncing and an Eye-specific check that skips the exempt tag.
 - ReplicatedStorage\Services\ViewmodelService.luau — First-person viewmodel that clones the equipped tool under the camera with sway, bob and named per-tool poses, and exposes its equipped tool and default fit anchor to debug panels.
 - ReplicatedStorage\Services\ViewmodelDebugService.luau — F3 developer panel for tuning every equipped tool, with dynamic titles, per-tool config output and a state button only for tools with multiple poses.
 - ReplicatedStorage\Services\VoiceActivityService.luau — Detects when the local player is speaking from an AudioAnalyzer, reports it to the server, and cuts incoming proximity voice off while the local player is dead.
@@ -204,7 +204,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\DoorPart.luau — Spring and audio-driven swinging door leaf with oddity and forced-shut modes.
 - ReplicatedStorage\Classes\Drawer.luau — Spring-driven sliding drawer that infers its outward axis from the handle.
 - ReplicatedStorage\Classes\GalleryCard.luau — Clones and fills one Studio-authored gallery tile with a photo or tape-frame thumbnail, badge, capture date and unsaved edge.
-- ReplicatedStorage\Classes\Hole.luau — Crawl-hole prompt that teleports the player to the twin hole with the same ID.
+- ReplicatedStorage\Classes\Hole.luau — Crawl-hole prompt that requests six seconds of server-checked immunity before teleporting the player to the twin hole with the same ID.
 - ReplicatedStorage\Classes\Interaction.luau — Camera-raycast interaction system with highlight and animated key prompt.
 - ReplicatedStorage\Classes\InventorySlot.luau — One hotbar slot with a viewport preview of the tool model.
 - ReplicatedStorage\Classes\KitCard.luau — One kit tile: rarity dressing, viewport preview and hover/press/select motion.
@@ -300,7 +300,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\SprintConfig.luau — Sprint speed, stamina economy, input bindings and stamina bar styling.
 - ReplicatedStorage\Configs\StatsHUDConfig.luau — Layout and thresholds for the debug stats HUD panel.
 - ReplicatedStorage\Configs\StreamingConfig.luau — Corridor streaming prediction, reconciliation and tag settings (currently disabled).
-- ReplicatedStorage\Configs\ToolConfigs.luau — Per-tool tags and behaviour values for every usable tool.
+- ReplicatedStorage\Configs\ToolConfigs.luau — Per-tool tags and behaviour values for every usable tool, including the Shovel's six-second hole immunity duration.
 - ReplicatedStorage\Configs\ViewmodelConfig.luau — First-person viewmodel placement, sway, bob, per-tool overrides and named poses.
 - ReplicatedStorage\Configs\ViewmodelDebugConfig.luau — F3 walkie-talkie viewmodel tuning panel keybind, slider steps and tunable pose list.
 - ReplicatedStorage\Configs\VoiceChatConfig.luau — Proximity voice chat volume, distance and activity detection settings.
@@ -372,9 +372,9 @@ become Services or Classes.
 - ServerStorage\Services\HallwayStreamingService.luau — Custom per-player streaming: slices the maze into hallway chunks and gates teleports on them.
 - ServerStorage\Services\HearingService.luau — Registry of "ears" that receive NoiseService noises after a distance-based travel delay.
 - ServerStorage\Services\HideSpotService.luau — Finds a standing spot on the maze floor that breaks line of sight from every enemy eye.
-- ServerStorage\Services\HoleService.luau — Creates and expires linked entry/exit hole pairs for the Shovel's dig.
+- ServerStorage\Services\HoleService.luau — Creates and expires linked entry/exit hole pairs for the Shovel's dig and validates six-second hole-hop immunity.
 - ServerStorage\Services\InventoryService.luau — Authoritative slot-ordered backpack/hotbar with single-copy rules, client sync and profile persistence.
-- ServerStorage\Services\InvincibleCommandService.luau — Admin /invincible toggle that tags a character as Vanished so nothing can touch it.
+- ServerStorage\Services\InvincibleCommandService.luau — Admin /invincible toggle that applies permanent immunity while keeping the shared Vanished tag.
 - ServerStorage\Services\ItemShopService.luau — Coin and Robux item shop with voice gating, receipt dedupe and inventory grants.
 - ServerStorage\Services\KitRollService.luau — Policy-gated gem rolls with weighted rarities and duplicate refunds.
 - ServerStorage\Services\KitService.luau — Kit ownership, the equipped kit, and applying its stats and items on every spawn.
@@ -407,7 +407,7 @@ become Services or Classes.
 - ServerStorage\Services\ReviveService.luau — Sells and grants the Revive product, restoring the player's death location, items and a ForceField.
 - ServerStorage\Services\RoomService.luau — Tags rooms, gives them enemy-only pathfinding blockers, and tracks which room each player is in.
 - ServerStorage\Services\SistersService.luau — Picks a danger-weighted hallway start point and spawns the Sisters ceiling patrol there.
-- ServerStorage\Services\SpawnZoneGuardService.luau — Tags players inside the spawn safe zone as Ignored, repels NPC enemies that touch it back to patrol, and builds the zone's translucent runtime border walls.
+- ServerStorage\Services\SpawnZoneGuardService.luau — Applies source-specific permanent immunity to players inside the spawn safe zone, repels NPC enemies that touch it back to patrol, and builds the zone's translucent runtime border walls.
 - ServerStorage\Services\SpeedBoostService.luau — Central WalkSpeed arbiter for named, expiring speed boosts and perk multipliers.
 - ServerStorage\Services\StalkerService.luau — Spawns stalker-type enemies at a peek spot found behind the player.
 - ServerStorage\Services\StunService.luau — Stuns enemy NPCs and Eyes, kills NPCs caught by traps and Eyes hit by the Ball, and validates client ball-hit reports by range.
@@ -452,8 +452,8 @@ become Services or Classes.
 - ServerStorage\Classes\Oddities\DoorsOpen.luau — Hallway oddity that swings all doors in an occupied span open and holds them.
 - ServerStorage\Classes\Oddities\HallwayBlocker.luau — Hallway oddity that drops a gate prop into an unseen corridor to wall it off.
 - ServerStorage\Classes\Oddities\HallwayChaos.luau — Hallway oddity combining chaotic light flicker with slamming doors.
-- ServerStorage\Classes\Oddities\HallwayCrush.luau — Hallway oddity that closes both walls of one junction-free stretch of corridor inward until they seal, dragging the pilasters, lanterns, paintings and doors with them and crushing players whose HRP overlap the lethal volume past the configured threshold.
-- ServerStorage\Classes\Oddities\HallwayVoid.luau — Hallway oddity that cuts a bottomless pit into the corridor floor and kills whoever falls in.
+- ServerStorage\Classes\Oddities\HallwayCrush.luau — Hallway oddity that closes both walls of one junction-free stretch of corridor inward until they seal, dragging the pilasters, lanterns, paintings and doors with them and crushing unprotected players whose HRP overlap the lethal volume past the configured threshold.
+- ServerStorage\Classes\Oddities\HallwayVoid.luau — Hallway oddity that cuts a bottomless pit into the corridor floor and kills whoever falls in unless they are protected by immunity.
 - ServerStorage\Classes\Oddities\LanternFall.luau — Fixture-fall oddity that drops a ceiling lantern and kills its light while down.
 - ServerStorage\Classes\Oddities\PaintingDweller.luau — Prop oddity that bursts a humanoid rig out of a painting canvas and attacks nearby players; presented as the "Painting Lurker" enemy with its own death cause, Index entry and event/death discovery.
 - ServerStorage\Classes\Oddities\PaintingFall.luau — Fixture-fall oddity that shoves a wall painting off the wall with spin.
@@ -476,7 +476,7 @@ become Services or Classes.
 - ServerStorage\Classes\Tools\Random Oddity.luau — Server half of the random player-oddity item; chooses among the four player effects.
 - ServerStorage\Classes\Tools\Small Character.luau — Server half of the Small Character item; applies the fixed small character oddity.
 - ServerStorage\Classes\Tools\Soda.luau — Server half of the Soda tool; a plain SpeedDrink subclass.
-- ServerStorage\Classes\Tools\SpellBook.luau — Server half of the spell book, vanishing and freezing the caster through the cast animation.
+- ServerStorage\Classes\Tools\SpellBook.luau — Server half of the spell book, applying timed source immunity and freezing the caster through the cast animation.
 - ServerStorage\Classes\Tools\Trap.luau — Server half of the bear trap, placing trap props and pruning the oldest.
 - ServerStorage\Classes\Tools\Transparency.luau — Server half of the Transparency item; applies the player transparency oddity.
 - ServerStorage\Classes\Tools\Visor.luau — Server half of the visor, wearing a face accessory and hiding competing ones.

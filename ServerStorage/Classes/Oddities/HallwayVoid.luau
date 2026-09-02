@@ -14,6 +14,7 @@ local HallwayOddity = require(ServerStorage.Classes.HallwayOddity)
 local Oddity = require(ServerStorage.Classes.Oddity)
 local HallwayRegion = require(ServerStorage.Services.HallwayRegionService)
 local RoomService = require(ServerStorage.Services.RoomService)
+local Vanished = require(ReplicatedStorage.Services.VanishedService)
 
 local FLOOR_TAG = "MazeFloor"
 local RUNNER_NAME = "CarpetRunner"
@@ -717,7 +718,7 @@ function HallwayVoid:OnStart(): boolean
 			if math.abs(localPosition.X) > killHalfWidth or math.abs(localPosition.Z) > killHalfLength then continue end
 
 			local humanoid = CharacterService.GetHumanoid(root.Parent :: Model)
-			if humanoid then
+			if humanoid and not Vanished.Is(root.Parent) then
 				DeathService:RecordCause(player, "HallwayVoid")
 				humanoid.Health = 0
 			end

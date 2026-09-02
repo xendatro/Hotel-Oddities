@@ -281,12 +281,12 @@ Searches nearby `MazeFloor` parts for a standing position that breaks line of si
 - Requires: `MathService.Horizontal`, `EnemyObservationService:GetEyes()`
 
 ### HoleService.luau
-Creates linked entry/exit hole pairs (the Shovel's dig): the entry and random exit both require the whole hole footprint to stay on tagged floor parts (`MazeFloor` or `HallwayRoomFloor`), and both clones share an `ID` attribute plus the creator's user id. Pairs expire after 30s, are capped at 5 alive at once, and are cleaned up when their creator leaves.
+Creates linked entry/exit hole pairs (the Shovel's dig): the entry and random exit both require the whole hole footprint to stay on tagged floor parts (`MazeFloor` or `HallwayRoomFloor`), and both clones share an `ID` attribute plus the creator's user id. A validated hole hop applies six seconds of immunity, with a server-time end attribute for the HUD. Pairs expire after 30s, are capped at 5 alive at once, and are cleaned up when their creator leaves.
 - API: `HoleService:CreateHolePair(entryPosition: Vector3, owner: Player?) -> boolean` — clones `ReplicatedStorage.Props.Other.Hole` twice
 - API: `HoleService:RemoveForPlayer(player: Player)` — destroys that player's pairs and any stray tagged holes they created
-- Remotes: `Hole/Create` (invoked) — validates dig distance, the tagged ground and the full hole footprint before digging
+- Remotes: `Hole/Create` (invoked) — validates dig distance, the tagged ground and the full hole footprint before digging; `Hole/Immunity` (fired) — validates a nearby live hole pair before applying the six-second hole source
 - Tags: listens `Hole`; reads `MazeFloor`, `HallwayRoomFloor` through `HolePlacementService`
-- Requires: `ToolConfigs.Shovel` (`MaxDigDistance`, `DigDepth`), `HolePlacementService`, `TagService:GetTaggedOfAncestor`, `CharacterService.GetAliveRoot`
+- Requires: `ToolConfigs.Shovel` (`MaxDigDistance`, `DigDepth`, `HoleImmunityDuration`), `HolePlacementService`, `TagService:GetTaggedOfAncestor`, `CharacterService.GetAliveRoot`
 
 ### InventoryService.luau
 Authoritative backpack/hotbar model: it tracks a slot-ordered list of tool names per player, clones templates out of `ReplicatedStorage.Tools`, keeps quantities on a `quantity` attribute, mirrors the layout to the client, and persists slots/quantities/`uses` into the player's DataSave profile. `InventoryConfig.SingleCopy` clamps grants of listed tools, including the Camcorder and Walkie Talkie, to one and `EnsureSingle` repairs old stacked or duplicate copies. It restores the saved inventory on join, reconciles it whenever the character respawns, clears everything on death, and always guarantees one Walkie Talkie.
@@ -307,10 +307,10 @@ Authoritative backpack/hotbar model: it tracks a slot-ordered list of tool names
 - Requires: `InventoryConfig` (`HotbarSlots` + `BackpackSlots` = capacity), `DataSaveService`
 
 ### InvincibleCommandService.luau
-Admin toggle that marks a player's character with the `Vanished` tag, making them unkillable and ignored by every entity. State is per player, survives respawns, and is dropped when they leave.
+Admin toggle that marks a player's character with the infinite-immunity source (and shared `Ignore` tag), making them unkillable and ignored by every entity. State is per player, survives respawns, and is dropped when they leave.
 - API: `InvincibleCommandService:Set(player: Player, enabled: boolean)`
 - API: `InvincibleCommandService:Is(player: Player) -> boolean`
-- Tags: applies `Vanished.Tag` to the character
+- Tags: applies `Vanished.InfiniteTag` and `Vanished.Tag` to the character
 - Requires: `ReplicatedStorage.Services.VanishedService`, `ChatCommandService` (registers admin-only `/invincible [on|off]` and `/mortal`)
 
 ### ItemShopService.luau
@@ -563,9 +563,9 @@ Spawns the Sisters ceiling patrol at one end of a straight hallway span, choosin
 - Requires: `EnemyConfigs.Sisters`, `Hallways` module (`StraightSpans`, `StraightSpanAt`), `DangerMapService`, `HallwayGraphService:IsFarFromPlayers`, `EnemyService:Spawn`
 
 ### SpawnZoneGuardService.luau
-Server-side behaviour of the spawn safe zone: while a player's root is inside a `SpawnSafeZone` part their character carries the `Ignore` tag (so enemies cannot see, target, or kill them), removed again when they leave — an `Ignore` the character already had from elsewhere is left alone. Any NPC enemy whose body touches a zone part gives up its target and is forced back to its `Patrol` state (or `Idle` when it has no patrol), on a per-enemy cooldown; stunned enemies are left alone. On bind it also hides the zone part and builds four barely-see-through border walls (`SpawnZoneConfig.Border`) around its footprint at runtime, parented to the zone so they follow wherever the zone part is placed.
+Server-side behaviour of the spawn safe zone: while a player's root is inside a `SpawnSafeZone` part their character carries the `SafeZoneImmunity` source and shared `Ignore` tag (so enemies cannot see, target, or kill them), removed again when they leave while other immunity sources stay intact. Any NPC enemy whose body touches a zone part gives up its target and is forced back to its `Patrol` state (or `Idle` when it has no patrol), on a per-enemy cooldown; stunned enemies are left alone. On bind it also hides the zone part and builds four barely-see-through border walls (`SpawnZoneConfig.Border`) around its footprint at runtime, parented to the zone so they follow wherever the zone part is placed.
 - API: no public methods — runs entirely from its own connections and poll loop.
-- Tags: reads `SpawnSafeZone`; applies/removes `Ignore` on player characters
+- Tags: reads `SpawnSafeZone`; applies/removes `SafeZoneImmunity` and the shared `Ignore` tag on player characters
 - Requires: `ReplicatedStorage.Services.SpawnZoneService`, `CharacterService`, `VanishedService`, `Configs.SpawnZoneConfig`, `ServerStorage.Classes.NPC`
 
 ### SpeedBoostService.luau

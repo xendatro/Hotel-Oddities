@@ -204,10 +204,10 @@ Client-only. Wraps every `Drawer` model in a `Drawer` class instance, registers 
 - Requires: `Classes.Drawer`, `Configs.DrawerConfig`, `InteractionService`
 
 ### EffectsHUDService.luau
-Client HUD that stacks timed effect tiles down the right edge of the screen, each with a dimmed icon, a bright fill that drains as the timer runs out, and a tenths-of-a-second countdown. Tiles are raised by speed-boost attributes on the player, the Vanished tag on the character (SpellBook), a freshly dug hole in workspace (Shovel), a drop in an inventory item count, and a `uses` decrease on a held Pathfinder tool.
+Client HUD that stacks effect tiles down the right edge of the screen, each with a dimmed icon and a bright fill. Timed effects drain with a tenths-of-a-second countdown; command and spawn-safe-zone immunity stays full and reads `inf`. Tiles are raised by speed-boost attributes on the player, SpellBook and hole immunity source tags, a freshly dug hole in workspace (Shovel), a drop in an inventory item count, and a `uses` decrease on a held Pathfinder tool.
 - API: data table — empty; the whole HUD is built and wired at require time.
 - Remotes: `Inventory/Update` (listened)
-- Tags: listens `Ignore` (Vanished tag, added/removed on the local character)
+- Tags: listens `Ignore`, `InfiniteImmunity`, `SafeZoneImmunity`, `SpellBookImmunity`, `HoleImmunity` on the local character
 - Requires: `Configs.EffectsHUDConfig`, `Configs.ToolConfigs`, `Services.VanishedService`, `GuiBuilderService`
 
 ### ElevatorDoorService.luau
@@ -794,12 +794,14 @@ Generic helper for tweening things TweenService cannot touch directly: it create
 - API: `TweenProxyService.CancelAll(tweens: { Tween })` — cancels and clears the list in place
 
 ### VanishedService.luau
-One-question helper for whether a character should be treated as absent: it carries the `Ignore` tag, the `IgnoreExceptEye` tag or has a ForceField anywhere inside it. The Eye enemy uses `IsForEye`, which deliberately skips the `IgnoreExceptEye` tag so it can still damage ceiling-warped players.
+One-question helper for whether a character should be treated as absent: it carries the `Ignore` tag, the `IgnoreExceptEye` tag or has a ForceField anywhere inside it. Source tags for admin, safe-zone, SpellBook and hole immunity are kept in sync with `Ignore`; the Eye enemy uses `IsForEye`, which deliberately skips the `IgnoreExceptEye` tag so it can still damage ceiling-warped players.
 - API: `Vanished.Is(character: Instance?) -> boolean` — tagged `Ignore`, tagged `IgnoreExceptEye` or contains a ForceField
 - API: `Vanished.IsForEye(character: Instance?) -> boolean` — tagged `Ignore` or contains a ForceField only
 - API: `Vanished.Tag` — the string `"Ignore"`
 - API: `Vanished.EyeExemptTag` — the string `"IgnoreExceptEye"`
-- Tags: reads `Ignore`, `IgnoreExceptEye`
+- API: `Vanished.SetSource(character: Instance, sourceTag: string, enabled: boolean)` — toggles a known immunity source and keeps `Ignore` set while any source remains
+- API: source tags `InfiniteTag`, `SafeZoneTag`, `SpellBookTag`, `HoleTag` plus their `*EndsAtAttribute` names
+- Tags: reads `Ignore`, `IgnoreExceptEye`, `InfiniteImmunity`, `SafeZoneImmunity`, `SpellBookImmunity`, `HoleImmunity`
 ### ViewmodelService.luau
 Client first-person viewmodel: clones the equipped Tool (stripped of scripts, sounds and effects) under the camera, hides the real tool (its parts *and* its SurfaceGuis, which transparency alone cannot hide), and each render step positions the clone from camera CFrame plus yaw sway and speed-scaled bob. Auto-hides when not in first person or when the character's real hand is visible; supports per-tool anchor/rotation overrides, a per-tool `Scale` override for props too large for the shared scale, and named poses that other services switch between, lerped at the override's `PoseSpeed`. A pose either shifts the base placement (`AnchorOffset`, `ArmAnchorOffset`, `RotateOffset`, so live tuning of the base carries into it), replaces it outright (`Anchor`, `ArmAnchor`, `Rotate`), or declares a `Framing` block and is solved from the rig's own geometry — squaring a named part's face to the camera and backing off until a named GUI element covers the requested fraction of the viewport, which keeps it centred and upright no matter how the base pose or `Scale` are tuned. The rig's pivot is taken from the *clone's* handle rather than the live tool's, and every jointed part in the clone is re-seated to the rest pose its `Motor6D`/`Weld` `C0`/`C1` define before the pivot and bounds are measured. Nearly every tool is a rig hanging off an invisible `Handle`, and cloning one mid-animation would otherwise anchor the visible mesh at whatever animated offset it happened to hold on the equip frame — the shovel, whose `Equip` and `Dig` animations both drive its `Meshes/shovel` joint, came out at a different angle every time it was drawn. Exposes the currently equipped Tool for client debug panels.
 - API: `ViewmodelService:SetPose(pose: string?)` — select a named entry from the current tool's `Overrides[tool].Poses`, or `nil` for the base placement

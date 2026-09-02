@@ -3,9 +3,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local AudioService = require(ReplicatedStorage.Services.AudioService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local TagService = require(ReplicatedStorage.Services.TagService)
 
 local Prompts = ReplicatedStorage.Props.Prompts
+local Immunity = CommunicationService.Get("Hole", "Immunity") :: RemoteEvent
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -74,6 +76,7 @@ function Hole:Crawl()
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if not humanoid or humanoid.Health <= 0 then return end
 
+	Immunity:FireServer(self.Hole)
 	beginCooldown()
 	local controls = getControls()
 	controls:Disable()

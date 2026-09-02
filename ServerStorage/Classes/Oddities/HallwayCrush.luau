@@ -13,6 +13,7 @@ local HallwayRegion = require(ServerStorage.Services.HallwayRegionService)
 local HallwayWall = require(ServerStorage.Services.HallwayWallService)
 local EnemyService = require(ServerStorage.Services.EnemyService)
 local Oddity = require(ServerStorage.Classes.Oddity)
+local Vanished = require(ReplicatedStorage.Services.VanishedService)
 
 local ODDITY_FOLDER_NAME = "Oddities"
 local MINIMUM_PIECE = 0.35
@@ -803,6 +804,7 @@ function HallwayCrush:Crush(player: Player, slack: number): boolean
 
 	local humanoid = CharacterService.GetHumanoid(root.Parent :: Model)
 	if not humanoid or humanoid.Health <= 0 then return false end
+	if Vanished.Is(root.Parent) then return false end
 
 	self.Killed[player] = true
 	DeathService:RecordCause(player, "HallwayCrush")

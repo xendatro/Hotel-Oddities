@@ -369,14 +369,14 @@ Extends `HallwayOddity`. Closes both walls of a straight hallway in until they m
 - API: `HallwayCrush:CanStart(context: any) -> (boolean, string?)`, `HallwayCrush:Start(context: any, duration: number?) -> boolean`
 - API: `HallwayCrush.Resolve` and `HallwayCrush.Pick` keep the capped run inside one contiguous junction-free interval and centre occupied selections around the player's position
 - API: `HallwayCrush:OnStart() -> boolean` — splits the walls, collects the fixtures, builds the reveals, computes the lethal intervals, broadcasts the region and starts the closing loop
-- API: `HallwayCrush:Crush(player: Player, slack: number) -> boolean` — validates and applies one kill; used by both the client report and the backstop
+- API: `HallwayCrush:Crush(player: Player, slack: number) -> boolean` — validates and applies one kill unless the player is vanished; used by both the client report and the backstop
 - API: `HallwayCrush:OnStop()` — retracts over `OpenTime`, then restores every edit and frees the span
 - Remotes: `Oddities/MapCrush` (fired to clients on start/stop, listens for the client's `"Crushed"` report)
 - Tags: reads `HallwayWall`, `HallwayStation`, `PictureFrame`, `Doorway`
-- Requires: `Classes\HallwayOddity`, `Classes\Oddity`, `Services\HallwayWallService`, `Services\HallwayRegionService`, `Services\DeathService`, `Services\EnemyService` (despawns enemies caught in the seal), `ReplicatedStorage\Services\HallwaysService`, `ReplicatedStorage\Services\CharacterService`, `ReplicatedStorage\Services\HallwayCrushDamageService`
+- Requires: `Classes\HallwayOddity`, `Classes\Oddity`, `Services\HallwayWallService`, `Services\HallwayRegionService`, `Services\DeathService`, `Services\EnemyService` (despawns enemies caught in the seal), `ReplicatedStorage\Services\HallwaysService`, `ReplicatedStorage\Services\CharacterService`, `ReplicatedStorage\Services\HallwayCrushDamageService`, `ReplicatedStorage\Services\VanishedService`
 
 ### Oddities\HallwayVoid.luau
-Extends `HallwayOddity`. Opens a bottomless pit in a hallway: the span is trimmed back to the far edge of each junction it meets — measured from the crossing corridor's own footprint, whether that corridor runs through the junction or merely ends at it, plus `IntersectionInset` — so an intersection and every side-corridor mouth keep their floor, then the floor slabs and carpet runners overlapping that rectangle are subtracted from — each part is resized to its first remaining piece and cloned for the rest, so cross-hallway floors at an intersection lose only the overlap and nothing is left hanging over the hole. Dark walls line the shaft, sunk beneath the thickest floor or carpet slab they sit under so nothing z-fights, stacked translucent layers fade the drop to black, a single plank crosses the gap end to end — its angle comes from two endpoints whose sideways offset is clamped inside the hallway walls, so `PlankAngle` is only honoured up to the tilt the corridor width allows and the plank never enters a wall — and anything that falls past `KillDepth` inside the opening dies with cause `HallwayVoid`. Every edited part is restored on stop.
+Extends `HallwayOddity`. Opens a bottomless pit in a hallway: the span is trimmed back to the far edge of each junction it meets — measured from the crossing corridor's own footprint, whether that corridor runs through the junction or merely ends at it, plus `IntersectionInset` — so an intersection and every side-corridor mouth keep their floor, then the floor slabs and carpet runners overlapping that rectangle are subtracted from — each part is resized to its first remaining piece and cloned for the rest, so cross-hallway floors at an intersection lose only the overlap and nothing is left hanging over the hole. Dark walls line the shaft, sunk beneath the thickest floor or carpet slab they sit under so nothing z-fights, stacked translucent layers fade the drop to black, a single plank crosses the gap end to end — its angle comes from two endpoints whose sideways offset is clamped inside the hallway walls, so `PlankAngle` is only honoured up to the tilt the corridor width allows and the plank never enters a wall — and anything that falls past `KillDepth` inside the opening dies with cause `HallwayVoid`, unless the player is vanished. Every edited part is restored on stop.
 - API: `HallwayVoid.new(config: { [string]: any }?)` — adds `self.Candidate`, `self.Edits`, `self.Structure`, `self.KillConnection`
 - API: `HallwayVoid.Resolve(class: any, position: Vector3) -> Candidate?` — manual placement candidate for a position
 - API: `HallwayVoid.Pick(class: any) -> Candidate?` — random span whose floor can be cut, unoccupied and unseen
@@ -385,7 +385,7 @@ Extends `HallwayOddity`. Opens a bottomless pit in a hallway: the span is trimme
 - API: `HallwayVoid:OnStart() -> boolean` — cuts the floor, builds the shaft, arms the kill loop
 - API: `HallwayVoid:OnStop()` — destroys the shaft, restores every cut part, frees the span
 - Tags: reads `MazeFloor`, re-applies it to cut floor pieces
-- Requires: `Classes\HallwayOddity`, `Classes\Oddity`, `Services\GazeService`, `Services\DeathService`, `Services\HallwayRegionService`, `Services\RoomService`, `ReplicatedStorage\Services\HallwaysService`, `ReplicatedStorage\Services\HallwayGraphService`, `ReplicatedStorage\Services\CharacterService`
+- Requires: `Classes\HallwayOddity`, `Classes\Oddity`, `Services\GazeService`, `Services\DeathService`, `Services\HallwayRegionService`, `Services\RoomService`, `ReplicatedStorage\Services\HallwaysService`, `ReplicatedStorage\Services\HallwayGraphService`, `ReplicatedStorage\Services\CharacterService`, `ReplicatedStorage\Services\VanishedService`
 
 ### Oddities\LanternFall.luau
 Extends `FixtureFall` (via `PropOddity`). Unanchors a ceiling lantern so it falls, killing its light while it is down and restoring the light plus the `Floor1Light` tag when the fixture is put back.
@@ -544,11 +544,11 @@ Server half of the Soda tool: a bare `SpeedDrink` subclass with its own config v
 - Requires: `Classes\SpeedDrink` (extends `ServerTool`)
 
 ### Tools\SpellBook.luau
-Server half of the spell book: on activation it tags the caster as vanished, freezes their walk speed, plays the `Book` animation with book particle effects that follow the tool and a VFX dummy welded in the caster's place, waits for the `BookEnd` marker, then consumes one book. Cleanup stops the track, destroys the effects and dummy, untags and unfreezes the caster.
+Server half of the spell book: on activation it applies the SpellBook immunity source and its server-time end attribute, freezes the caster's walk speed, plays the `Book` animation with book particle effects that follow the tool and a VFX dummy welded in the caster's place, waits for the `BookEnd` marker, then consumes one book. Cleanup stops the track, destroys the effects and dummy, clears the source and unfreezes the caster.
 - API: `SpellBook.new(tool: Tool)`
 - API: `SpellBook:OnActivated()` — the cast sequence
 - API: `SpellBook:OnCleanup()` / `SpellBook:OnDestroy()` — tear down effects and restore the caster
-- Tags: applies `Vanished.Tag`
+- Tags: applies `Vanished.SpellBookTag` and the shared `Vanished.Tag`
 - Requires: `Classes\ServerTool`, `ReplicatedStorage\Services\VanishedService`, `ReplicatedStorage.Props.Other` (`BookEffects`, `VFXDummy`)
 
 ### Tools\Trap.luau

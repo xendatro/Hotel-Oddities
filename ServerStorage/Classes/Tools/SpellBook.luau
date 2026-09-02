@@ -25,7 +25,11 @@ function SpellBook:OnActivated()
 		return
 	end
 
-	character:AddTag(Vanished.Tag)
+	character:SetAttribute(
+		Vanished.SpellBookEndsAtAttribute,
+		workspace:GetServerTimeNow() + self.Config.MaxCastTime
+	)
+	Vanished.SetSource(character, Vanished.SpellBookTag, true)
 	self.CastCharacter = character
 	self.CastSpeed = humanoid.WalkSpeed
 	humanoid.WalkSpeed = 0
@@ -109,7 +113,8 @@ function SpellBook:OnCleanup()
 
 	local character = self.CastCharacter
 	if character then
-		character:RemoveTag(Vanished.Tag)
+		Vanished.SetSource(character, Vanished.SpellBookTag, false)
+		character:SetAttribute(Vanished.SpellBookEndsAtAttribute, nil)
 
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		if humanoid and humanoid.Health > 0 and self.CastSpeed then

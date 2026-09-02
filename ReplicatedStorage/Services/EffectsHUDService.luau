@@ -43,6 +43,8 @@ local function build()
 	layout.Parent = panel
 end
 
+build()
+
 type Entry = {
 	Frame: Frame,
 	Bright: Frame?,
@@ -50,6 +52,7 @@ type Entry = {
 	EndsAt: number,
 	Duration: number,
 	Shown: number?,
+	Infinite: boolean,
 }
 
 local Entries: { [string]: Entry } = {}
@@ -138,7 +141,7 @@ local function buildTile(effectName: string): Entry
 	frame.LayoutOrder = nextOrder
 	frame.Parent = panel
 
-	return { Frame = frame, Bright = bright, Label = countdown, EndsAt = 0, Duration = 1 }
+	return { Frame = frame, Bright = bright, Label = countdown, EndsAt = 0, Duration = 1, Infinite = false }
 end
 
 local function show(effectName: string, duration: number, endsAt: number?)
@@ -147,8 +150,22 @@ local function show(effectName: string, duration: number, endsAt: number?)
 		entry = buildTile(effectName)
 		Entries[effectName] = entry
 	end
+	entry.Infinite = false
+	entry.Shown = nil
 	entry.Duration = math.max(duration, 0.05)
 	entry.EndsAt = endsAt or (now() + duration)
+end
+
+local function showInfinite(effectName: string)
+	local entry = Entries[effectName]
+	if not entry then
+		entry = buildTile(effectName)
+		Entries[effectName] = entry
+	end
+	entry.Infinite = true
+	entry.Shown = nil
+	entry.Duration = 1
+	entry.EndsAt = math.huge
 end
 
 local function dismiss(effectName: string)
@@ -161,17 +178,27 @@ end
 RunService.Heartbeat:Connect(function()
 	local time = now()
 	for effectName, entry in Entries do
-		local remaining = entry.EndsAt - time
-		if remaining <= 0 then
-			dismiss(effectName)
-		else
+		if entry.Infinite then
 			if entry.Bright then
-				entry.Bright.Size = UDim2.fromScale(1, math.clamp(remaining / entry.Duration, 0, 1))
+				entry.Bright.Size = UDim2.fromScale(1, 1)
 			end
-			local tenths = math.floor(remaining * 10)
-			if entry.Shown ~= tenths then
-				entry.Shown = tenths
-				entry.Label.Text = string.format("%.1f", remaining)
+			if entry.Shown ~= -1 then
+				entry.Shown = -1
+				entry.Label.Text = "inf"
+			end
+		else
+			local remaining = entry.EndsAt - time
+			if remaining <= 0 then
+				dismiss(effectName)
+			else
+				if entry.Bright then
+					entry.Bright.Size = UDim2.fromScale(1, math.clamp(remaining / entry.Duration, 0, 1))
+				end
+				local tenths = math.floor(remaining * 10)
+				if entry.Shown ~= tenths then
+					entry.Shown = tenths
+					entry.Label.Text = string.format("%.1f", remaining)
+				end
 			end
 		end
 	end
@@ -198,17 +225,55 @@ player:GetAttributeChangedSignal("SpeedBoostName"):Connect(refreshBoost)
 player:GetAttributeChangedSignal("SpeedBoostEndsAt"):Connect(refreshBoost)
 refreshBoost()
 
-CollectionService:GetInstanceAddedSignal(Vanished.Tag):Connect(function(instance)
-	if instance == player.Character then
-		show("SpellBook", ToolConfigs.SpellBook.MaxCastTime)
-	end
-end)
-
-CollectionService:GetInstanceRemovedSignal(Vanished.Tag):Connect(function(instance)
-	if instance == player.Character then
+local function refreshImmunity()
+	local character = player.Character
+	if not character then
 		dismiss("SpellBook")
+		return
 	end
-end)
+
+	if character:HasTag(Vanished.InfiniteTag) or character:HasTag(Vanished.SafeZoneTag) then
+		showInfinite("SpellBook")
+		return
+	end
+
+	local time = now()
+	local holeEndsAt = character:GetAttribute(Vanished.HoleEndsAtAttribute)
+	if character:HasTag(Vanished.HoleTag) and type(holeEndsAt) == "number" and holeEndsAt > time then
+		show("SpellBook", ToolConfigs.Shovel.HoleImmunityDuration, holeEndsAt)
+		return
+	end
+
+	local spellBookEndsAt = character:GetAttribute(Vanished.SpellBookEndsAtAttribute)
+	if character:HasTag(Vanished.SpellBookTag)
+		and type(spellBookEndsAt) == "number"
+		and spellBookEndsAt > time
+	then
+		show("SpellBook", ToolConfigs.SpellBook.MaxCastTime, spellBookEndsAt)
+		return
+	end
+
+	dismiss("SpellBook")
+end
+
+for _, tag in {
+	Vanished.Tag,
+	Vanished.InfiniteTag,
+	Vanished.SafeZoneTag,
+	Vanished.SpellBookTag,
+	Vanished.HoleTag,
+} do
+	CollectionService:GetInstanceAddedSignal(tag):Connect(function(instance)
+		if instance == player.Character then
+			refreshImmunity()
+		end
+	end)
+	CollectionService:GetInstanceRemovedSignal(tag):Connect(function(instance)
+		if instance == player.Character then
+			refreshImmunity()
+		end
+	end)
+end
 
 workspace.ChildAdded:Connect(function(child)
 	if child:GetAttribute("CreatorUserId") == player.UserId and child:GetAttribute("ID") ~= nil then
@@ -234,6 +299,7 @@ end)
 
 local watchedTools: { [Instance]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 local characterConnection: RBXScriptConnection? = nil
+local immunityAttributeConnections: { RBXScriptConnection } = {}
 
 local function watchPathfinder(tool: Instance)
 	if not tool:IsA("Tool") or tool.Name ~= "Pathfinder" then return end
@@ -253,17 +319,26 @@ local function watchCharacter(character: Model)
 	if characterConnection then
 		characterConnection:Disconnect()
 	end
+	for _, connection in immunityAttributeConnections do
+		connection:Disconnect()
+	end
+	table.clear(immunityAttributeConnections)
 	for _, child in character:GetChildren() do
 		watchPathfinder(child)
 	end
 	characterConnection = character.ChildAdded:Connect(watchPathfinder)
+	for _, attribute in {
+		Vanished.HoleEndsAtAttribute,
+		Vanished.SpellBookEndsAtAttribute,
+	} do
+		table.insert(immunityAttributeConnections, character:GetAttributeChangedSignal(attribute):Connect(refreshImmunity))
+	end
+	refreshImmunity()
 end
 
 if player.Character then
 	watchCharacter(player.Character)
 end
 player.CharacterAdded:Connect(watchCharacter)
-
-build()
 
 return EffectsHUDService

@@ -71,12 +71,12 @@ Spring-driven sliding drawer model. Infers its outward axis from a part whose na
 - Requires: `Classes.Spring`, `Configs.DrawerConfig`, `Configs.DrawerItemConfig`
 
 ### Hole.luau
-Client crawl-hole: attaches a `CrawlPrompt`, and on trigger walks the character to the hole, plays the crawl animation, teleports it to the twin hole sharing the same `ID` attribute, and emits the twin's VFX. Puts every active hole on a shared 5 second cooldown and disables player controls for the duration.
+Client crawl-hole: attaches a `CrawlPrompt`, and on trigger asks the server for a validated six-second immunity window, walks the character to the hole, plays the crawl animation, teleports it to the twin hole sharing the same `ID` attribute, and emits the twin's VFX. Puts every active hole on a shared 5 second cooldown and disables player controls for the duration.
 - API: `Hole.new(hole: Model) -> Hole` — clones the prompt onto the hole's PrimaryPart
 - API: `Hole:Crawl()` — yields through the whole crawl sequence
 - API: `Hole:Destroy()`
 - Tags: reads `Hole`
-- Requires: `Services.TagService` (`GetTaggedOfPredicate`), `Services.AudioService`, `PlayerModule` controls, `ReplicatedStorage.Props.Prompts.CrawlPrompt`
+- Requires: `Services.TagService` (`GetTaggedOfPredicate`), `Services.AudioService`, `Services.CommunicationService`, `PlayerModule` controls, `ReplicatedStorage.Props.Prompts.CrawlPrompt`
 
 ### Interaction.luau
 Client look-at interaction system: raycasts from the camera each render step over registered models, highlights the hit target, and draws/animates a key-prompt pill cloned from the `Cursor` gui. Handles keyboard, gamepad and touch input through ContextActionService, and supports targets that ignore occlusion. A fresh `Highlight` is created under `workspace` for each newly selected model and destroyed once its fade reaches zero — no single long-lived Highlight instance is reused across selections.
