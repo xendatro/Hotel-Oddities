@@ -761,6 +761,7 @@ function IndexUIService:PlayReveal(id: string, before: number, after: number)
 		if revealToken ~= token then return end
 
 		InterfaceService:Open(INTERFACE_PAGE)
+		InterfaceService:SetMouseUnlocked(true)
 		IndexUIService:Select(id)
 		paintInfo(false)
 
@@ -804,7 +805,7 @@ local function buildModalBlocker()
 	blocker.BackgroundTransparency = 1
 	blocker.ImageTransparency = 1
 	blocker.AutoButtonColor = false
-	blocker.Modal = true
+	blocker.Modal = false
 	blocker.Active = true
 	blocker.Selectable = false
 	blocker.AnchorPoint = Vector2.new(0.5, 0.5)

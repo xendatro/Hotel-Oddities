@@ -385,7 +385,7 @@ Generic named-source stat stack for any Humanoid, not just players. Sources are 
 - Requires: `Configs.KitConfig`
 
 ### IndexUIService.luau
-Builds and drives the bestiary/index UI: a paginated grid of cards with ViewportFrame headshots (real models, stand-in primitives, or a friend-avatar rig), hover/press/select card motion, and an info panel whose description is progressively unredacted as discovery progress rises. Also plays the word-by-word reveal animation after a death, waiting for the death screen to clear before opening the page itself.
+Builds and drives the bestiary/index UI: a paginated grid of cards with ViewportFrame headshots (real models, stand-in primitives, or a friend-avatar rig), hover/press/select card motion, and an info panel whose description is progressively unredacted as discovery progress rises. Also plays the word-by-word reveal animation after a death, waiting for the death screen to clear before opening the page itself. Death reveals use `InterfaceService:SetMouseUnlocked` so the real cursor and camera-free path are active; the full-screen blocker only sinks background input.
 - API: `IndexUIService:Refresh()` — rebuild the listed entries, repaint every card, and repaint the info panel
 - API: `IndexUIService:GetProgress(id: string): number` — discovery progress (0-1) for an entry
 - API: `IndexUIService:IsDiscovered(id: string): boolean` — whether progress is past the named threshold
