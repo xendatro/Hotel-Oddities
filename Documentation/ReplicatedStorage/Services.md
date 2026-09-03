@@ -36,10 +36,11 @@ Sine-wave vertical bobbing helper: pick a random phase once, then sample a Y off
 - API: `Bob.Offset(clock: number, phase: number, height: number, period: number) -> Vector3` — Y-axis sine offset
 
 ### CameraFovService.luau
-Client-only. Owns additive field-of-view offsets so multiple effects can push the camera FOV without fighting each other: each caller registers a named offset, the total is applied on a render step above the camera priority, and the raw FOV is restored when nothing is registered. A lock captures the current raw FOV and holds it against later camera effects until released.
+Client-only. Owns additive field-of-view offsets so multiple effects can push the camera FOV without fighting each other: each caller registers a named offset, the total is applied on a render step above the camera priority, and the raw FOV is restored when nothing is registered. A lock captures the current raw FOV and holds it against later camera effects until released. All offsets, active tweens and locks clear when the local character dies or is removed.
 - API: `CameraFovService:SetOffset(name: string, degrees: number)` — set or clear (near-zero) a named offset
 - API: `CameraFovService:GetOffset() -> number` — current summed offset
 - API: `CameraFovService:SetLocked(locked: boolean)` — hold the current raw FOV and suppress all named offsets while locked
+- API: `CameraFovService:Reset()` — clear all offsets, active tweens and locks, restoring the camera's raw FOV
 - API: `CameraFovService:TweenOffset(name: string, degrees: number, tweenInfo: TweenInfo)` — tweens one named offset, cancelling any prior tween of that name
 
 ### CaptureGalleryService.luau
@@ -102,7 +103,7 @@ Client-only, gated on `FLAGS.Enemies`. For every tagged enemy that has a chase t
 - Requires: `Configs.ChaseMusicConfig`, `MathService`, `TagService`, `AudioService`
 
 ### ChaserCameraService.luau
-Gated on `FLAGS.Enemies`. Drives camera reactions to enemies chasing the local player: a fading FOV offset while a ceiling dweller or mimic is hunting, and per-enemy dynamic rumble shakes scaled by distance from `ChaserCameraConfig.ChaseShakes`. Also reacts to the server's vent-open and scream phases with one-shot shakes and a scream sound.
+Gated on `FLAGS.Enemies`. Drives camera reactions to enemies chasing the local player: a fading FOV offset while a ceiling dweller or mimic is hunting, and per-enemy dynamic rumble shakes scaled by distance from `ChaserCameraConfig.ChaseShakes`. Clears its cached chase FOV state when the local character dies. Also reacts to the server's vent-open and scream phases with one-shot shakes and a scream sound.
 - API: `ChaserCameraService:IsActive() -> boolean` — whether any chase camera effect is currently running (returns `false` when the flag is off)
 - Remotes: `Enemies/CeilingDwellerCamera` (listened; `Open` / `Scream` phases)
 - Tags: reads `Enemy`

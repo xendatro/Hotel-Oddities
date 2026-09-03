@@ -93,6 +93,11 @@ local function render(deltaTime: number)
 	if not camera then return end
 
 	local alive = CharacterService.GetAliveHumanoid(localPlayer) ~= nil
+	if not alive then
+		ceilingFovIntensity = 0
+		fovChaseAssumedUntil = 0
+		table.clear(mimicChaseSince)
+	end
 
 	local targetCeilingChase = 0
 	table.clear(shakeTargets)
