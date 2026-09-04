@@ -605,6 +605,11 @@ Twenty-line client shim: on the painting dweller pop remote, fires a one-shot `S
 - Remotes: `Oddities/PaintingDwellerPop` (listened)
 - Requires: `ShakeService`
 
+### PerfGraphService.luau
+Client-only developer panel behind `FLAGS.PerfGraph`, toggled with F7. Two time-aligned oscilloscope graphs sharing one X axis (one column per frame, sweeping left to right and wrapping): the top plots FPS from every RenderStepped delta, coloured by the config thresholds; the bottom plots the number of Workspace descendants added plus removed during that same frame, so streaming bursts can be lined up against frame drops. Pause freezes both sweeps together; Clear resets them.
+- API: none — the panel is built at require time.
+- Requires: `Classes.DebugPanel`, `Configs.PerfGraphConfig`, `Configs.FLAGS`
+
 ### PerfLogService.luau
 Client performance watchdog behind `FLAGS.PerfLog`: prints server-sent perf messages, alerts on frame spikes and sustained FPS drops, and every second reports bursts of workspace instance churn bucketed by top-level owner (Map, Characters, Vents, …). Also logs each respawn.
 - API: none — side-effect only.

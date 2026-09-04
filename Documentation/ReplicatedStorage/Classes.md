@@ -34,13 +34,15 @@ Runs a function but gives up after `n` seconds, using Race against a `task.wait`
 - Requires: `Classes.Race`
 
 ### DebugPanel.luau
-Builds a keyboard-toggled developer overlay ScreenGui with labels, buttons and drag sliders. Toggling unlocks the mouse through InterfaceService.
-- API: `DebugPanel.new(title: string, toggleKey: Enum.KeyCode) -> DebugPanel` — creates the hidden panel in PlayerGui
+Builds a keyboard-toggled developer overlay ScreenGui with labels, buttons, drag sliders and sweeping time graphs. Toggling unlocks the mouse through InterfaceService.
+- API: `DebugPanel.new(title: string, toggleKey: Enum.KeyCode, width: number?) -> DebugPanel` — creates the hidden panel in PlayerGui; width defaults to 300
 - API: `DebugPanel:SetTitle(title: string)`
+- API: `DebugPanel:IsOpen() -> boolean`
 - API: `DebugPanel:AddLabel(text: string) -> TextLabel`
 - API: `DebugPanel:AddTextBox(text: string) -> TextBox` — creates selectable, editable multiline text
 - API: `DebugPanel:AddButton(text: string, activated: () -> ()) -> TextButton`
 - API: `DebugPanel:AddSlider(label, minimum, maximum, initial, step, apply: (number) -> ()) -> (number) -> ()` — returns a setter that redraws the slider
+- API: `DebugPanel:AddGraph(label: string, options: GraphOptions?) -> Graph` — oscilloscope bar graph with one column per pixel of content width; `Graph:Push(value)` writes the next column and advances a cursor (wrapping), auto-raising the scale and refitting it on each wrap; `Graph:Clear()`. Options: `Height`, `Minimum`, `Format`, `Color`, `ColorFor(value) -> Color3`. Graphs on the same panel share X positions, so pushing one value to each per frame keeps them time-aligned
 - API: `DebugPanel:Destroy()`
 - Requires: `Services.InterfaceService`
 

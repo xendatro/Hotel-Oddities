@@ -84,7 +84,7 @@ The Eye enemy: tracking range, the hit flash/blink/blur reaction, gaze-buildup s
 
 ### FLAGS.luau
 Global on/off switches for major systems and debug output.
-- API: data table — `Enemies`, `EnemyCommands`, `Director`, `DangerDebug`, `VoiceDebug`, `PerfLog`
+- API: data table — `Enemies`, `EnemyCommands`, `Director`, `DangerDebug`, `VoiceDebug`, `PerfLog`, `PerfGraph`
 
 ### GhostConfig.luau
 The Ghost enemy's turn, bob and fade timing.
@@ -156,6 +156,10 @@ Visual settings for the top-center notification banner used for short player-fac
 Tag name, attribute name and reconciliation tolerances for the "freeze while observed" enemy movement system. Assembled field-by-field on a named local table rather than as a literal, but returns only that table.
 - API: data table — `Tag`, `FrozenAttribute`, `MaxOffset`, `ConfirmationTimeout`, `ReleaseSpeed`, `MinReportGap`
 
+### PerfGraphConfig.luau
+Settings for the F7 performance graph panel: toggle key, panel width (one graph column per pixel of content width), graph height, FPS warning/bad thresholds and bar colours.
+- API: data table — `ToggleKey`, `PanelWidth`, `GraphHeight`, `FpsWarn`, `FpsBad`, `FpsColorGood`, `FpsColorWarn`, `FpsColorBad`, `ChurnColor`
+
 ### PerkConfig.luau
 Per-perk settings for the gamepass/perk system, keyed by perk name under a shared attribute prefix.
 - API: data table — `AttributePrefix`, `Loadout`, `Visor`, `DoubleSpeed`, `FriendRevive`
@@ -174,7 +178,7 @@ Roll timings and effect weights for the player oddity system that randomly resiz
 - API: data table — `Enabled`, `RollInterval`, `InitialDelay`, `TriggerChance`, `MinDuration`, `MaxDuration`, `MinimumPlayersForHeadStare`, `EffectWeights`, `SizeOptions`, `HeadSizeMultiplier`, `OddTransparency`, `HeadTurnRate`, `HeadReturnRate`
 
 ### PropOddityConfig.luau
-Per-effect tuning for prop-based oddities — falling lanterns, falling paintings, the painting dweller, and the scurrying rat — covering arming, approach detection, candidate selection, and either repair rules (the fixture effects) or crossing-site sampling and rat motion (`RatScurry`).
+Per-effect tuning for prop-based oddities — falling lanterns, falling paintings, the painting dweller, and the scurrying rat — covering arming, approach detection, candidate selection, and either repair rules (the fixture effects) or crossing-site sampling and rat motion (`RatScurry`). `PaintingDweller` carries `StartAnimation` (one-shot burst-out), `ThrashAnimation` (loop that follows it), `AttackAnimation`, `HoleImage` and `RootDrop`, the studs the rig hangs below the canvas centre.
 - API: data table — `Enabled`, `Effects` (`LanternFall`, `PaintingFall`, `PaintingDweller`, `RatScurry`)
 
 ### ShopkeeperConfig.luau

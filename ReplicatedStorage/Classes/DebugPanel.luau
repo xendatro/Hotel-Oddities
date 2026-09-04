@@ -6,22 +6,80 @@ local PANEL_WIDTH = 300
 local ROW_HEIGHT = 34
 local TRACK_HEIGHT = 10
 local TRACK_OFFSET = 18
+local VALUE_WIDTH = 64
+local GRAPH_HEADER_HEIGHT = 14
+local GRAPH_GAP = 2
 
 local DebugPanel = {}
 DebugPanel.__index = DebugPanel
+
+local openPanelCount = 0
+local sideGuiWasEnabled: boolean? = nil
 
 export type DebugPanel = typeof(setmetatable({} :: {
 	Gui: ScreenGui,
 	Panel: Frame,
 	Heading: TextLabel,
+	Width: number,
 	_toggleKey: Enum.KeyCode,
 	_order: number,
+	_isOpen: boolean,
 	_dragging: ((number) -> ())?,
 	_connections: { RBXScriptConnection },
 }, DebugPanel))
 
-function DebugPanel.new(title: string, toggleKey: Enum.KeyCode): DebugPanel
+export type Graph = {
+	Push: (self: Graph, value: number) -> (),
+	Clear: (self: Graph) -> (),
+	Frame: Frame,
+	Header: TextLabel,
+}
+
+export type GraphOptions = {
+	Height: number?,
+	Minimum: number?,
+	Format: string?,
+	Color: Color3?,
+	ColorFor: ((number) -> Color3)?,
+}
+
+local function getSideGui(): ScreenGui?
+	local playerGui = Players.LocalPlayer:FindFirstChild("PlayerGui")
+	local sideGui = playerGui and playerGui:FindFirstChild("SideGui")
+	return if sideGui and sideGui:IsA("ScreenGui") then sideGui else nil
+end
+
+local function setOpen(self: DebugPanel, open: boolean)
+	if self._isOpen == open then return end
+	self._isOpen = open
+
+	if open then
+		if openPanelCount == 0 then
+			local sideGui = getSideGui()
+			if sideGui then
+				sideGuiWasEnabled = sideGui.Enabled
+				sideGui.Enabled = false
+			end
+		end
+		openPanelCount += 1
+	else
+		openPanelCount = math.max(0, openPanelCount - 1)
+		if openPanelCount == 0 then
+			local sideGui = getSideGui()
+			if sideGui and sideGuiWasEnabled ~= nil then
+				sideGui.Enabled = sideGuiWasEnabled
+			end
+			sideGuiWasEnabled = nil
+		end
+	end
+
+	self.Gui.Enabled = open
+	InterfaceService:SetMouseUnlocked(openPanelCount > 0)
+end
+
+function DebugPanel.new(title: string, toggleKey: Enum.KeyCode, width: number?): DebugPanel
 	local self = setmetatable({}, DebugPanel)
+	local panelWidth = width or PANEL_WIDTH
 
 	local gui = Instance.new("ScreenGui")
 	gui.Name = `DebugPanel_{title}`
@@ -32,7 +90,7 @@ function DebugPanel.new(title: string, toggleKey: Enum.KeyCode): DebugPanel
 
 	local panel = Instance.new("Frame")
 	panel.Position = UDim2.new(0, 12, 0, 12)
-	panel.Size = UDim2.new(0, PANEL_WIDTH, 0, 0)
+	panel.Size = UDim2.new(0, panelWidth, 0, 0)
 	panel.AutomaticSize = Enum.AutomaticSize.Y
 	panel.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
 	panel.BackgroundTransparency = 0.1
@@ -65,15 +123,16 @@ function DebugPanel.new(title: string, toggleKey: Enum.KeyCode): DebugPanel
 	self.Gui = gui
 	self.Panel = panel
 	self.Heading = heading
+	self.Width = panelWidth
 	self._toggleKey = toggleKey
 	self._order = 0
+	self._isOpen = false
 	self._dragging = nil
 	self._connections = {}
 
 	table.insert(self._connections, UserInputService.InputBegan:Connect(function(input, processed)
 		if not processed and input.KeyCode == toggleKey then
-			gui.Enabled = not gui.Enabled
-			InterfaceService:SetMouseUnlocked(gui.Enabled)
+			setOpen(self, not self._isOpen)
 		end
 	end))
 
@@ -98,6 +157,10 @@ end
 
 function DebugPanel:SetTitle(title: string)
 	self.Heading.Text = title
+end
+
+function DebugPanel:IsOpen(): boolean
+	return self._isOpen
 end
 
 function DebugPanel:_nextOrder(): number
@@ -174,13 +237,28 @@ function DebugPanel:AddSlider(
 	row.Parent = self.Panel
 
 	local caption = Instance.new("TextLabel")
-	caption.Size = UDim2.new(1, 0, 0, 14)
+	caption.Size = UDim2.new(1, -(VALUE_WIDTH + 6), 0, 14)
 	caption.BackgroundTransparency = 1
 	caption.Font = Enum.Font.Code
 	caption.TextSize = 12
 	caption.TextColor3 = Color3.new(1, 1, 1)
 	caption.TextXAlignment = Enum.TextXAlignment.Left
+	caption.Text = label
 	caption.Parent = row
+
+	local valueBox = Instance.new("TextBox")
+	valueBox.Name = "Value"
+	valueBox.Position = UDim2.new(1, -VALUE_WIDTH, 0, 0)
+	valueBox.Size = UDim2.fromOffset(VALUE_WIDTH, 14)
+	valueBox.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
+	valueBox.BackgroundTransparency = 0.1
+	valueBox.BorderSizePixel = 0
+	valueBox.ClearTextOnFocus = true
+	valueBox.Font = Enum.Font.Code
+	valueBox.TextSize = 11
+	valueBox.TextColor3 = Color3.new(1, 1, 1)
+	valueBox.TextXAlignment = Enum.TextXAlignment.Right
+	valueBox.Parent = row
 
 	local track = Instance.new("Frame")
 	track.Position = UDim2.new(0, 0, 0, TRACK_OFFSET)
@@ -195,19 +273,42 @@ function DebugPanel:AddSlider(
 	fill.Parent = track
 
 	local format = if step >= 1 then "%d" else "%.2f"
+	local currentValue = initial
+
+	local function normalize(value: number): number
+		value = math.clamp(value, minimum, maximum)
+		if step > 0 then
+			value = math.round(value / step) * step
+			value = math.clamp(value, minimum, maximum)
+		end
+		return value
+	end
 
 	local function display(value: number)
+		currentValue = value
 		fill.Size = UDim2.fromScale(math.clamp((value - minimum) / (maximum - minimum), 0, 1), 1)
-		caption.Text = `{label}: {string.format(format, value)}`
+		valueBox.Text = string.format(format, value)
+	end
+
+	local function setValue(value: number)
+		value = normalize(value)
+		display(value)
+		apply(value)
 	end
 
 	local function setFromX(x: number)
 		local alpha = math.clamp((x - track.AbsolutePosition.X) / math.max(track.AbsoluteSize.X, 1), 0, 1)
-		local raw = minimum + (maximum - minimum) * alpha
-		local value = if step > 0 then math.round(raw / step) * step else raw
-		display(value)
-		apply(value)
+		setValue(minimum + (maximum - minimum) * alpha)
 	end
+
+	table.insert(self._connections, valueBox.FocusLost:Connect(function()
+		local value = tonumber(valueBox.Text)
+		if not value or value ~= value or value == math.huge or value == -math.huge then
+			display(currentValue)
+			return
+		end
+		setValue(value)
+	end))
 
 	table.insert(self._connections, track.InputBegan:Connect(function(input: InputObject)
 		if input.UserInputType == Enum.UserInputType.MouseButton1
@@ -221,7 +322,134 @@ function DebugPanel:AddSlider(
 	return display
 end
 
+function DebugPanel:AddGraph(label: string, options: GraphOptions?): Graph
+	local opts: GraphOptions = options or {}
+	local height = opts.Height or 80
+	local minimum = opts.Minimum or 0
+	local format = opts.Format or "%.0f"
+	local baseColor = opts.Color or Color3.fromRGB(120, 200, 120)
+	local colorFor = opts.ColorFor
+	local columnCount = math.max(self.Width - 20, 1)
+
+	local row = Instance.new("Frame")
+	row.Size = UDim2.new(1, 0, 0, GRAPH_HEADER_HEIGHT + GRAPH_GAP + height)
+	row.LayoutOrder = self:_nextOrder()
+	row.BackgroundTransparency = 1
+	row.Parent = self.Panel
+
+	local header = Instance.new("TextLabel")
+	header.Size = UDim2.new(1, 0, 0, GRAPH_HEADER_HEIGHT)
+	header.BackgroundTransparency = 1
+	header.Font = Enum.Font.Code
+	header.TextSize = 12
+	header.TextColor3 = Color3.new(1, 1, 1)
+	header.TextXAlignment = Enum.TextXAlignment.Left
+	header.Text = label
+	header.Parent = row
+
+	local plot = Instance.new("Frame")
+	plot.Position = UDim2.new(0, 0, 0, GRAPH_HEADER_HEIGHT + GRAPH_GAP)
+	plot.Size = UDim2.new(1, 0, 0, height)
+	plot.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
+	plot.BackgroundTransparency = 0.1
+	plot.BorderSizePixel = 0
+	plot.ClipsDescendants = true
+	plot.Parent = row
+
+	local columns: { Frame } = table.create(columnCount)
+	local values: { number } = table.create(columnCount, minimum)
+	for index = 1, columnCount do
+		local column = Instance.new("Frame")
+		column.AnchorPoint = Vector2.new(0, 1)
+		column.Position = UDim2.fromScale((index - 1) / columnCount, 1)
+		column.Size = UDim2.fromScale(1 / columnCount, 0)
+		column.BackgroundColor3 = baseColor
+		column.BorderSizePixel = 0
+		column.Parent = plot
+		columns[index] = column
+	end
+
+	local cursor = Instance.new("Frame")
+	cursor.Size = UDim2.new(0, 1, 1, 0)
+	cursor.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	cursor.BorderSizePixel = 0
+	cursor.ZIndex = 2
+	cursor.Parent = plot
+
+	local head = 0
+	local scaleMax = minimum + 1
+	local seenMin = math.huge
+	local seenMax = -math.huge
+
+	local function paint(index: number)
+		local value = values[index]
+		local alpha = math.clamp((value - minimum) / math.max(scaleMax - minimum, 1e-6), 0, 1)
+		local column = columns[index]
+		column.Size = UDim2.fromScale(1 / columnCount, alpha)
+		if colorFor then
+			column.BackgroundColor3 = colorFor(value)
+		end
+	end
+
+	local function repaintAll()
+		for index = 1, columnCount do
+			paint(index)
+		end
+	end
+
+	local function fitScale()
+		local peak = minimum
+		for index = 1, columnCount do
+			peak = math.max(peak, values[index])
+		end
+		local target = math.max(peak * 1.1, minimum + 1)
+		if target ~= scaleMax then
+			scaleMax = target
+			repaintAll()
+		end
+	end
+
+	local graph = {} :: any
+	graph.Frame = row
+	graph.Header = header
+
+	function graph.Push(_, value: number)
+		head = head % columnCount + 1
+		values[head] = value
+		seenMin = math.min(seenMin, value)
+		seenMax = math.max(seenMax, value)
+		if value > scaleMax then
+			scaleMax = value * 1.1
+			repaintAll()
+		else
+			paint(head)
+		end
+		if head == columnCount then
+			fitScale()
+		end
+		cursor.Position = UDim2.fromScale(head / columnCount, 0)
+		header.Text = string.format("%s  now " .. format .. "  min " .. format .. "  max " .. format .. "  scale " .. format,
+			label, value, seenMin, seenMax, scaleMax)
+	end
+
+	function graph.Clear(_)
+		head = 0
+		seenMin = math.huge
+		seenMax = -math.huge
+		scaleMax = minimum + 1
+		for index = 1, columnCount do
+			values[index] = minimum
+		end
+		repaintAll()
+		cursor.Position = UDim2.fromScale(0, 0)
+		header.Text = label
+	end
+
+	return graph :: Graph
+end
+
 function DebugPanel:Destroy()
+	setOpen(self, false)
 	for _, connection in self._connections do
 		connection:Disconnect()
 	end
