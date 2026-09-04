@@ -37,7 +37,7 @@ local SpawnAccumulator = 0
 local InitialSpawnAccumulator = 0
 local DespawnAccumulator = 0
 
-local GEOMETRY_CACHE_TTL = 1
+local GEOMETRY_CACHE_TTL = 60
 
 local CachedSlabs: { BasePart }? = nil
 local CachedBeams: { BasePart }? = nil

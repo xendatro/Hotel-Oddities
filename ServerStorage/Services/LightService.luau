@@ -300,27 +300,48 @@ function LightService:DisableAlongHallway(position: Vector3, distance: number): 
 	return claim
 end
 
+local SpanHallwaysCache: { [string]: { Hallways.Hallway } } = {}
+local SpanHallwaysSource: { Hallways.Hallway }? = nil
+
+local function spanKey(span: Hallways.StraightSpan): string
+	local first, second = span.Start, span.Finish
+	if first.X > second.X or (first.X == second.X and first.Z > second.Z) then
+		first, second = second, first
+	end
+	return string.format("%.1f,%.1f,%.1f|%.1f,%.1f,%.1f", first.X, first.Y, first.Z, second.X, second.Y, second.Z)
+end
+
 local function hallwaysInSpan(span: Hallways.StraightSpan): { Hallways.Hallway }
+	local source = Hallways.All(true)
+	if SpanHallwaysSource ~= source then
+		SpanHallwaysSource = source
+		table.clear(SpanHallwaysCache)
+	end
+	local key = spanKey(span)
+	local cached = SpanHallwaysCache[key]
+	if cached then return cached end
+
 	local result = {}
-	for _, hallway in Hallways.All(true) do
-		local axisAlignment = math.abs(hallway.Axis:Dot(span.Axis))
+	local acrossAxis = Vector3.yAxis:Cross(span.Axis).Unit
+	for _, hallway in source do
+		if math.abs(hallway.FloorY - span.Start.Y) > 4 then continue end
 		local offset = hallway.Center - span.Center
 		local along = offset:Dot(span.Axis)
-		local across = math.abs(offset:Dot(Vector3.yAxis:Cross(span.Axis).Unit))
-		local alongOverlap = math.abs(along) <= span.Length / 2 + hallway.HalfLength + SPAN_EPSILON
-		local parallel = axisAlignment >= 1 - 1e-4
-		local sameNonParallel = false
-		if not parallel then
+		if math.abs(along) > span.Length / 2 + hallway.HalfLength + SPAN_EPSILON then continue end
+		local across = math.abs(offset:Dot(acrossAxis))
+		local parallel = math.abs(hallway.Axis:Dot(span.Axis)) >= 1 - 1e-4
+		if parallel then
+			if across <= hallway.HalfWidth + ROOM_CONNECTION_GAP then
+				table.insert(result, hallway)
+			end
+		elseif across <= SPAN_EPSILON then
 			local candidate = Hallways.StraightSpanAt(hallway.Center, span.Axis)
-			sameNonParallel = candidate ~= nil and sameSpan(candidate, span)
-		end
-		if math.abs(hallway.FloorY - span.Start.Y) <= 4
-			and ((parallel and across <= hallway.HalfWidth + ROOM_CONNECTION_GAP and alongOverlap)
-				or (not parallel and sameNonParallel))
-		then
-			table.insert(result, hallway)
+			if candidate and sameSpan(candidate, span) then
+				table.insert(result, hallway)
+			end
 		end
 	end
+	SpanHallwaysCache[key] = result
 	return result
 end
 

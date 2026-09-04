@@ -229,9 +229,11 @@ Finds hallway "corner mouths" near a viewer — graph nodes with a side branch r
 Helpers for treating a straight hallway span as a region: comparing spans (in either direction), finding the span at a position, building a padded bounding box for it, locating a player inside one, and picking random spans that are distant, occupied, or danger-weighted.
 - API: `HallwayRegion.Same(first: Span, second: Span) -> boolean` — direction-agnostic within `SpatialPadding`
 - API: `HallwayRegion.At(position: Vector3, includeRoomFloors: boolean?) -> Span?`
-- API: `HallwayRegion.Box(span: Span) -> (CFrame, Vector3)` — padded volume using the config height windows; width comes from the span's cached `HalfWidth` (or the matching cached span, then the nearest hallway) instead of re-tracing every hallway, which took a HallwayBlocker pick from ~3 s to ~25 ms
+- API: `HallwayRegion.Box(span: Span) -> (CFrame, Vector3)` — padded volume using the config height windows; results are memoised per span object and reset whenever the straight-span cache is rebuilt, and the width comes from the span's cached `HalfWidth` (or the matching cached span, then the single nearest-hallway lookup shared with the floor height)
+- API: `HallwayRegion.Occupants() -> { Occupant }` — one `{ Span, Position }` per living player standing in a hallway, resolved with one `HallwayRegion.At` per player; every occupancy query below is built on this so span scans never re-resolve player positions
 - API: `HallwayRegion.Occupant(span: Span) -> Vector3?` — where the first living player standing in the span is
 - API: `HallwayRegion.HasPlayer(span: Span) -> boolean` — `Occupant` reduced to a yes/no
+- API: `HallwayRegion.OccupiedSpans() -> { Span }` — every cached straight span with a living player in it
 - API: `HallwayRegion.RandomDistant() -> Span?`
 - API: `HallwayRegion.RandomDistantWeighted(dangerWeight: number, accept: ((Span) -> boolean)?) -> Span?`
 - API: `HallwayRegion.RandomBiased(occupiedChance: number) -> Span?`
@@ -354,7 +356,7 @@ Central authority over every `Floor1Light` model: it captures each lamp's baseli
 - API: `LightService:GetModels() -> { Model }` — cached, invalidated by tag add/remove
 - API: `LightService:DisableNear(position: Vector3, radius: number) -> LightClaim`
 - API: `LightService:DisableAlongHallway(position: Vector3, distance: number) -> LightClaim`
-- API: `LightService:DisableHallway(position: Vector3, preferredDirection: Vector3?, connectedDistance: number?, spanDistance: number?) -> LightClaim` — includes branch hallways and rooms touching the span
+- API: `LightService:DisableHallway(position: Vector3, preferredDirection: Vector3?, connectedDistance: number?, spanDistance: number?) -> LightClaim` — includes branch hallways and rooms touching the span; the hallways belonging to a span are resolved once per span geometry and memoised until the hallway cache changes, with the expensive `StraightSpanAt` probe only run for non-parallel floors that sit on the span's own line
 - API: `LightService:DisableModel(model: Model) -> LightClaim`
 - API: `LightService:Release(claim: LightClaim)` — idempotent
 - API: `LightService:WarnRed(model: Model, duration: number)` — sets/extends the `ChaosRed` attribute

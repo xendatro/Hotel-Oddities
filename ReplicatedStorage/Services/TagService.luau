@@ -11,11 +11,54 @@ type Tags = {
 		},
 		Apply: (instance: Instance) -> any,
 		Unapply: (instance: Instance, data: any) -> any,
+		Ancestor: Instance?,
 		TagConnections: {RBXScriptConnection},
 	}
 }
 
 local Tags: Tags = {}
+
+type AncestorWatch = {
+	Added: RBXScriptConnection,
+	Removing: RBXScriptConnection,
+	Listeners: { [string]: { Apply: (Instance) -> (), Unapply: (Instance) -> () } },
+}
+
+local AncestorWatches: { [Instance]: AncestorWatch } = {}
+
+local function watchAncestor(ancestor: Instance, tag: string, apply: (Instance) -> (), unapply: (Instance) -> ())
+	local watch = AncestorWatches[ancestor]
+	if not watch then
+		local listeners: { [string]: { Apply: (Instance) -> (), Unapply: (Instance) -> () } } = {}
+		watch = {
+			Listeners = listeners,
+			Added = ancestor.DescendantAdded:Connect(function(instance: Instance)
+				for _, name in instance:GetTags() do
+					local listener = listeners[name]
+					if listener then listener.Apply(instance) end
+				end
+			end),
+			Removing = ancestor.DescendantRemoving:Connect(function(instance: Instance)
+				for _, name in instance:GetTags() do
+					local listener = listeners[name]
+					if listener then listener.Unapply(instance) end
+				end
+			end),
+		}
+		AncestorWatches[ancestor] = watch
+	end
+	watch.Listeners[tag] = { Apply = apply, Unapply = unapply }
+end
+
+local function unwatchAncestor(ancestor: Instance, tag: string)
+	local watch = AncestorWatches[ancestor]
+	if not watch then return end
+	watch.Listeners[tag] = nil
+	if next(watch.Listeners) ~= nil then return end
+	watch.Added:Disconnect()
+	watch.Removing:Disconnect()
+	AncestorWatches[ancestor] = nil
+end
 
 function TagService:Listen(tag: string, apply: (instance: Instance) -> any, unapply: (instance: Instance, data: any) -> nil, ancestor: Instance?): nil
 	if Tags[tag] then
@@ -29,6 +72,7 @@ function TagService:Listen(tag: string, apply: (instance: Instance) -> any, unap
 		InstanceConnections = {},
 		Apply = apply,
 		Unapply = unapply,
+		Ancestor = ancestor,
 		TagConnections = {}
 	}
 
@@ -70,8 +114,7 @@ function TagService:Listen(tag: string, apply: (instance: Instance) -> any, unap
 	Tags[tag].TagConnections.InstanceRemoved = CollectionService:GetInstanceRemovedSignal(tag):Connect(unapplyFunction)
 
 	if ancestor then
-		Tags[tag].TagConnections.DescendantAdded = ancestor.DescendantAdded:Connect(applyFunction)
-		Tags[tag].TagConnections.DescendantRemoving = ancestor.DescendantRemoving:Connect(unapplyFunction)
+		watchAncestor(ancestor, tag, applyFunction, unapplyFunction)
 	end
 
 	for _, instance in CollectionService:GetTagged(tag) do
@@ -91,6 +134,10 @@ function TagService:Unlisten(tag: string): nil
 	end
 	for _, connection in Tags[tag].InstanceConnections do
 		connection:Disconnect()
+	end
+	local ancestor = Tags[tag].Ancestor
+	if ancestor then
+		unwatchAncestor(ancestor, tag)
 	end
 	Tags[tag] = nil
 end

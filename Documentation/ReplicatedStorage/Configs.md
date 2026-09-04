@@ -84,7 +84,7 @@ The Eye enemy: tracking range, the hit flash/blink/blur reaction, gaze-buildup s
 
 ### FLAGS.luau
 Global on/off switches for major systems and debug output.
-- API: data table — `Enemies`, `EnemyCommands`, `Director`, `DangerDebug`, `VoiceDebug`, `PerfLog`, `PerfGraph`
+- API: data table — `Enemies`, `EnemyCommands`, `Director`, `DangerDebug`, `VoiceDebug`, `PerfLog`
 
 ### GhostConfig.luau
 The Ghost enemy's turn, bob and fade timing.
@@ -155,10 +155,6 @@ Visual settings for the top-center notification banner used for short player-fac
 ### ObservedFreezeConfig.luau
 Tag name, attribute name and reconciliation tolerances for the "freeze while observed" enemy movement system. Assembled field-by-field on a named local table rather than as a literal, but returns only that table.
 - API: data table — `Tag`, `FrozenAttribute`, `MaxOffset`, `ConfirmationTimeout`, `ReleaseSpeed`, `MinReportGap`
-
-### PerfGraphConfig.luau
-Settings for the F8 performance graph panel: toggle key, panel width (one graph column per pixel of plot width), graph height, the fixed maximum and reference-line values for the FPS and instance-churn graphs, FPS warning/bad thresholds, bar colours, and the ordered `ChurnCategories` list (`Name`, `Color`, `Classes` matched with `IsA`; the last entry with empty `Classes` is the catch-all).
-- API: data table — `ToggleKey`, `PanelWidth`, `GraphHeight`, `FpsMaximum`, `FpsReferences`, `FpsWarn`, `FpsBad`, `ChurnMaximum`, `ChurnReferences`, `ClipColor`, `FpsColorGood`, `FpsColorWarn`, `FpsColorBad`, `ChurnColor`, `ChurnCategories`
 
 ### PerkConfig.luau
 Per-perk settings for the gamepass/perk system, keyed by perk name under a shared attribute prefix.

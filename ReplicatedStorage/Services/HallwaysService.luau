@@ -113,9 +113,21 @@ function Hallways.All(includeRoomFloors: boolean?): { Hallway }
 	return hallways
 end
 
+local REBUILD_SETTLE = 0.5
+local invalidatePending = false
+
+local function scheduleInvalidate()
+	if invalidatePending then return end
+	invalidatePending = true
+	task.delay(REBUILD_SETTLE, function()
+		invalidatePending = false
+		Hallways.Invalidate()
+	end)
+end
+
 for _, tag in { HALLWAY_TAG, HALLWAY_ROOM_TAG } do
-	CollectionService:GetInstanceAddedSignal(tag):Connect(Hallways.Invalidate)
-	CollectionService:GetInstanceRemovedSignal(tag):Connect(Hallways.Invalidate)
+	CollectionService:GetInstanceAddedSignal(tag):Connect(scheduleInvalidate)
+	CollectionService:GetInstanceRemovedSignal(tag):Connect(scheduleInvalidate)
 end
 
 local function contains(hallway: Hallway, position: Vector3): boolean
