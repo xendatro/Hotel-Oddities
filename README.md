@@ -158,6 +158,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\NotificationService.luau — Client top-center notification banner for short server feedback messages.
 - ReplicatedStorage\Services\ObservedFreezeService.luau — Client weeping-angel renderer that visually pins tagged enemies while they are in view and reconciles them when you look away.
 - ReplicatedStorage\Services\PaintingDwellerShakeService.luau — Fires a one-shot Slam camera shake when the painting dweller pops.
+- ReplicatedStorage\Services\PerfGraphService.luau — F7 developer panel with time-aligned scrolling per-frame graphs of FPS and Workspace instances streamed in plus out on fixed labelled scales.
 - ReplicatedStorage\Services\PerfLogService.luau — Client performance watchdog for frame spikes, FPS drops and bursts of workspace instance churn.
 - ReplicatedStorage\Services\PerfLoggerService.luau — Flag-gated startup timing log broadcast from server to all clients.
 - ReplicatedStorage\Services\PhotoCaptureService.luau — Client shutter for the tripod camera: flash, GUI hide, local ShadowFigure clone, lens-locked screenshot through CaptureGalleryService and restore.
@@ -185,7 +186,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\ViewmodelService.luau — First-person viewmodel that clones the equipped tool under the camera with sway, bob and named per-tool poses, and exposes its equipped tool and default fit anchor to debug panels.
 - ReplicatedStorage\Services\ViewmodelDebugService.luau — F3 developer panel for tuning every equipped tool, with dynamic titles, per-tool config output and a state button only for tools with multiple poses.
 - ReplicatedStorage\Services\VoiceActivityService.luau — Detects when the local player is speaking from an AudioAnalyzer, reports it to the server, and cuts incoming proximity voice off while the local player is dead.
-- ReplicatedStorage\Services\VoiceDebugService.luau — F6 debug panel of sliders for local proximity-voice and radio volumes plus time-aligned per-frame graphs of FPS and Workspace instances streamed in plus out.
+- ReplicatedStorage\Services\VoiceDebugService.luau — Debug panel of sliders for local proximity-voice and radio volumes.
 - ReplicatedStorage\Services\WalkSoundService.luau — Footstep engine timing steps from locomotion animations for players and tagged enemies.
 - ReplicatedStorage\Services\WalkieTalkieService.luau — Walkie-talkie power, toggle transmission, raised mode, per-player mute/volume and distance-based selection between proximity voice and radio voice.
 - ReplicatedStorage\Services\WalkieUIService.luau — Draws and drives the walkie-talkie's on-model screen: player roster, per-player mute and volume, and the audio settings page.
@@ -198,7 +199,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\Breathe.luau — Procedural idle breathing motion for nearby rigs.
 - ReplicatedStorage\Classes\ClientTool.luau — Client tool base class adding limb reveal, tool animations and stock consumption.
 - ReplicatedStorage\Classes\Deadline.luau — Runs a function with a timeout and reports which won.
-- ReplicatedStorage\Classes\DebugPanel.luau — Keyboard-toggled developer overlay with labels, buttons, sliders and time-aligned sweeping graphs.
+- ReplicatedStorage\Classes\DebugPanel.luau — Keyboard-toggled developer overlay with labels, buttons, sliders and time-aligned scrolling graphs.
 - ReplicatedStorage\Classes\DoorPart.luau — Spring and audio-driven swinging door leaf with oddity and forced-shut modes.
 - ReplicatedStorage\Classes\Drawer.luau — Spring-driven sliding drawer that infers its outward axis from the handle.
 - ReplicatedStorage\Classes\GalleryCard.luau — One gallery tile: thumbnail, still/tape badge, capture date and unsaved edge.
@@ -287,7 +288,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\MimicConfig.luau — Behaviour tuning for the Mimic enemy's reactions, reveal and movement.
 - ReplicatedStorage\Configs\NotificationConfig.luau — Visual settings for the client notification banner.
 - ReplicatedStorage\Configs\ObservedFreezeConfig.luau — Tag, attribute and tolerances for freeze-when-observed enemies.
-- ReplicatedStorage\Configs\PerfGraphConfig.luau — Width, height, FPS thresholds and colours for the performance graphs on the F6 debug panel.
+- ReplicatedStorage\Configs\PerfGraphConfig.luau — F7 performance graph panel keybind, size, fixed graph maxima, reference lines, FPS thresholds and colours.
 - ReplicatedStorage\Configs\PerkConfig.luau — Per-perk settings for the gamepass/perk system.
 - ReplicatedStorage\Configs\PhotoConfig.luau — Placement, countdown, lens, ShadowFigure, capture, despawn and film-developing settings for the tripod camera.
 - ReplicatedStorage\Configs\PlayerLocatorConfig.luau — Marker layout, focus animation and palette for the Player Locator tool.

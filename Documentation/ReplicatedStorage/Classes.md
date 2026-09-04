@@ -34,7 +34,7 @@ Runs a function but gives up after `n` seconds, using Race against a `task.wait`
 - Requires: `Classes.Race`
 
 ### DebugPanel.luau
-Builds a keyboard-toggled developer overlay ScreenGui with labels, buttons, drag sliders and sweeping time graphs. Toggling unlocks the mouse through InterfaceService.
+Builds a keyboard-toggled developer overlay ScreenGui with labels, buttons, drag sliders and scrolling time graphs. Toggling unlocks the mouse through InterfaceService.
 - API: `DebugPanel.new(title: string, toggleKey: Enum.KeyCode, width: number?) -> DebugPanel` — creates the hidden panel in PlayerGui; width defaults to 300
 - API: `DebugPanel:SetTitle(title: string)`
 - API: `DebugPanel:IsOpen() -> boolean`
@@ -42,7 +42,7 @@ Builds a keyboard-toggled developer overlay ScreenGui with labels, buttons, drag
 - API: `DebugPanel:AddTextBox(text: string) -> TextBox` — creates selectable, editable multiline text
 - API: `DebugPanel:AddButton(text: string, activated: () -> ()) -> TextButton`
 - API: `DebugPanel:AddSlider(label, minimum, maximum, initial, step, apply: (number) -> ()) -> (number) -> ()` — returns a setter that redraws the slider
-- API: `DebugPanel:AddGraph(label: string, options: GraphOptions?) -> Graph` — oscilloscope bar graph with one column per pixel of content width; `Graph:Push(value)` writes the next column and advances a cursor (wrapping), auto-raising the scale and refitting it on each wrap; `Graph:Clear()`. Options: `Height`, `Minimum`, `Format`, `Color`, `ColorFor(value) -> Color3`. Graphs on the same panel share X positions, so pushing one value to each per frame keeps them time-aligned
+- API: `DebugPanel:AddGraph(label: string, options: GraphOptions?) -> Graph` — scrolling bar graph with one column per pixel of plot width and a fixed `Minimum`-`Maximum` scale; `Graph:Push(value)` writes the newest column at the right edge and slides the rest left (a doubled ring strip, so each push costs a handful of property writes); `Graph:Clear()`. Labelled horizontal `References` lines plus the min and max are drawn on a right-hand axis; non-zero values too small to see are raised to a one-pixel tick; values over `Maximum` clip and are painted `ClipColor`. Options: `Height`, `Minimum`, `Maximum`, `References`, `Format`, `Color`, `ClipColor`, `ColorFor(value) -> Color3`. Graphs on the same panel share X positions, so pushing one value to each per frame keeps them time-aligned
 - API: `DebugPanel:Destroy()`
 - Requires: `Services.InterfaceService`
 

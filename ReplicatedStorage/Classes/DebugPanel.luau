@@ -9,6 +9,7 @@ local TRACK_OFFSET = 18
 local VALUE_WIDTH = 64
 local GRAPH_HEADER_HEIGHT = 14
 local GRAPH_GAP = 2
+local GRAPH_AXIS_WIDTH = 36
 
 local DebugPanel = {}
 DebugPanel.__index = DebugPanel
@@ -38,8 +39,11 @@ export type Graph = {
 export type GraphOptions = {
 	Height: number?,
 	Minimum: number?,
+	Maximum: number?,
+	References: { number }?,
 	Format: string?,
 	Color: Color3?,
+	ClipColor: Color3?,
 	ColorFor: ((number) -> Color3)?,
 }
 
@@ -326,10 +330,15 @@ function DebugPanel:AddGraph(label: string, options: GraphOptions?): Graph
 	local opts: GraphOptions = options or {}
 	local height = opts.Height or 80
 	local minimum = opts.Minimum or 0
+	local maximum = opts.Maximum or 100
+	local references = opts.References or {}
 	local format = opts.Format or "%.0f"
 	local baseColor = opts.Color or Color3.fromRGB(120, 200, 120)
+	local clipColor = opts.ClipColor or Color3.fromRGB(255, 255, 255)
 	local colorFor = opts.ColorFor
-	local columnCount = math.max(self.Width - 20, 1)
+	local columnCount = math.max(self.Width - 20 - GRAPH_AXIS_WIDTH, 1)
+	local span = math.max(maximum - minimum, 1e-6)
+	local minimumAlpha = 1 / height
 
 	local row = Instance.new("Frame")
 	row.Size = UDim2.new(1, 0, 0, GRAPH_HEADER_HEIGHT + GRAPH_GAP + height)
@@ -349,63 +358,100 @@ function DebugPanel:AddGraph(label: string, options: GraphOptions?): Graph
 
 	local plot = Instance.new("Frame")
 	plot.Position = UDim2.new(0, 0, 0, GRAPH_HEADER_HEIGHT + GRAPH_GAP)
-	plot.Size = UDim2.new(1, 0, 0, height)
+	plot.Size = UDim2.new(1, -GRAPH_AXIS_WIDTH, 0, height)
 	plot.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
 	plot.BackgroundTransparency = 0.1
 	plot.BorderSizePixel = 0
 	plot.ClipsDescendants = true
 	plot.Parent = row
 
-	local columns: { Frame } = table.create(columnCount)
-	local values: { number } = table.create(columnCount, minimum)
-	for index = 1, columnCount do
-		local column = Instance.new("Frame")
-		column.AnchorPoint = Vector2.new(0, 1)
-		column.Position = UDim2.fromScale((index - 1) / columnCount, 1)
-		column.Size = UDim2.fromScale(1 / columnCount, 0)
-		column.BackgroundColor3 = baseColor
-		column.BorderSizePixel = 0
-		column.Parent = plot
-		columns[index] = column
+	local axis = Instance.new("Frame")
+	axis.Position = UDim2.new(1, -GRAPH_AXIS_WIDTH, 0, GRAPH_HEADER_HEIGHT + GRAPH_GAP)
+	axis.Size = UDim2.new(0, GRAPH_AXIS_WIDTH, 0, height)
+	axis.BackgroundTransparency = 1
+	axis.Parent = row
+
+	local function addAxisLabel(value: number, alpha: number)
+		local tick = Instance.new("TextLabel")
+		tick.AnchorPoint = Vector2.new(0, 0.5)
+		tick.Position = UDim2.new(0, 4, 1 - alpha, 0)
+		tick.Size = UDim2.new(1, -4, 0, 12)
+		tick.BackgroundTransparency = 1
+		tick.Font = Enum.Font.Code
+		tick.TextSize = 10
+		tick.TextColor3 = Color3.fromRGB(170, 170, 180)
+		tick.TextXAlignment = Enum.TextXAlignment.Left
+		tick.Text = string.format(format, value)
+		tick.Parent = axis
 	end
 
-	local cursor = Instance.new("Frame")
-	cursor.Size = UDim2.new(0, 1, 1, 0)
-	cursor.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	cursor.BorderSizePixel = 0
-	cursor.ZIndex = 2
-	cursor.Parent = plot
+	for _, reference in references do
+		local alpha = math.clamp((reference - minimum) / span, 0, 1)
+		local line = Instance.new("Frame")
+		line.AnchorPoint = Vector2.new(0, 0.5)
+		line.Position = UDim2.new(0, 0, 1 - alpha, 0)
+		line.Size = UDim2.new(1, 0, 0, 1)
+		line.BackgroundColor3 = Color3.fromRGB(90, 90, 100)
+		line.BackgroundTransparency = 0.25
+		line.BorderSizePixel = 0
+		line.ZIndex = 3
+		line.Parent = plot
+		addAxisLabel(reference, alpha)
+	end
+	addAxisLabel(maximum, 1)
+	addAxisLabel(minimum, 0)
+
+	local strip = Instance.new("Frame")
+	strip.Size = UDim2.fromScale(2, 1)
+	strip.BackgroundTransparency = 1
+	strip.Parent = plot
+
+	local doubled = columnCount * 2
+	local columnsA: { Frame } = table.create(columnCount)
+	local columnsB: { Frame } = table.create(columnCount)
+	local values: { number } = table.create(columnCount, minimum)
+	for copy = 0, 1 do
+		local target = if copy == 0 then columnsA else columnsB
+		for index = 1, columnCount do
+			local column = Instance.new("Frame")
+			column.AnchorPoint = Vector2.new(0, 1)
+			column.Position = UDim2.fromScale((copy * columnCount + index - 1) / doubled, 1)
+			column.Size = UDim2.fromScale(1 / doubled, 0)
+			column.BackgroundColor3 = baseColor
+			column.BorderSizePixel = 0
+			column.Parent = strip
+			target[index] = column
+		end
+	end
 
 	local head = 0
-	local scaleMax = minimum + 1
 	local seenMin = math.huge
 	local seenMax = -math.huge
 
 	local function paint(index: number)
 		local value = values[index]
-		local alpha = math.clamp((value - minimum) / math.max(scaleMax - minimum, 1e-6), 0, 1)
-		local column = columns[index]
-		column.Size = UDim2.fromScale(1 / columnCount, alpha)
-		if colorFor then
-			column.BackgroundColor3 = colorFor(value)
+		local alpha = (value - minimum) / span
+		local color = baseColor
+		if alpha > 1 then
+			alpha = 1
+			color = clipColor
+		elseif colorFor then
+			color = colorFor(value)
 		end
+		if alpha > 0 and alpha < minimumAlpha then
+			alpha = minimumAlpha
+		end
+		local size = UDim2.fromScale(1 / doubled, math.clamp(alpha, 0, 1))
+		local a, b = columnsA[index], columnsB[index]
+		a.Size = size
+		b.Size = size
+		a.BackgroundColor3 = color
+		b.BackgroundColor3 = color
 	end
 
 	local function repaintAll()
 		for index = 1, columnCount do
 			paint(index)
-		end
-	end
-
-	local function fitScale()
-		local peak = minimum
-		for index = 1, columnCount do
-			peak = math.max(peak, values[index])
-		end
-		local target = math.max(peak * 1.1, minimum + 1)
-		if target ~= scaleMax then
-			scaleMax = target
-			repaintAll()
 		end
 	end
 
@@ -418,30 +464,21 @@ function DebugPanel:AddGraph(label: string, options: GraphOptions?): Graph
 		values[head] = value
 		seenMin = math.min(seenMin, value)
 		seenMax = math.max(seenMax, value)
-		if value > scaleMax then
-			scaleMax = value * 1.1
-			repaintAll()
-		else
-			paint(head)
-		end
-		if head == columnCount then
-			fitScale()
-		end
-		cursor.Position = UDim2.fromScale(head / columnCount, 0)
-		header.Text = string.format("%s  now " .. format .. "  min " .. format .. "  max " .. format .. "  scale " .. format,
-			label, value, seenMin, seenMax, scaleMax)
+		paint(head)
+		strip.Position = UDim2.fromScale(-head / columnCount, 0)
+		header.Text = string.format("%s  now " .. format .. "  min " .. format .. "  max " .. format,
+			label, value, seenMin, seenMax)
 	end
 
 	function graph.Clear(_)
 		head = 0
 		seenMin = math.huge
 		seenMax = -math.huge
-		scaleMax = minimum + 1
 		for index = 1, columnCount do
 			values[index] = minimum
 		end
 		repaintAll()
-		cursor.Position = UDim2.fromScale(0, 0)
+		strip.Position = UDim2.fromScale(0, 0)
 		header.Text = label
 	end
 

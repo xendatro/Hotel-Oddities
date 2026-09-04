@@ -7,4 +7,5 @@ return {
 	ViewmodelDebug = true,
 	ItemPreviewDebug = true,
 	PerfLog = false,
+	PerfGraph = true,
 }

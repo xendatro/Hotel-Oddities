@@ -4,7 +4,6 @@ local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
 local Config = require(ReplicatedStorage.Configs.VoiceDebugConfig)
-local PerfGraphConfig = require(ReplicatedStorage.Configs.PerfGraphConfig)
 local DebugPanel = require(ReplicatedStorage.Classes.DebugPanel)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 
@@ -14,7 +13,7 @@ if not (FLAGS.VoiceDebug and RunService:IsClient()) then
 	return VoiceDebugService
 end
 
-local panel = DebugPanel.new("voice + walkie volumes + perf graphs", Config.ToggleKey, PerfGraphConfig.PanelWidth)
+local panel = DebugPanel.new("voice + walkie volumes", Config.ToggleKey)
 local resets: { () -> () } = {}
 local localPlayer = Players.LocalPlayer
 local localVolumes: { [string]: number } = {}
@@ -214,55 +213,5 @@ panel:AddButton("reset to config defaults", function()
 end)
 
 panel:AddLabel("changes apply to audio heard by this client and reset when the session ends.")
-
-local addedThisFrame = 0
-local removedThisFrame = 0
-local graphsPaused = false
-
-local fpsGraph = panel:AddGraph("FPS", {
-	Height = PerfGraphConfig.GraphHeight,
-	Format = "%.0f",
-	ColorFor = function(fps: number): Color3
-		if fps < PerfGraphConfig.FpsBad then
-			return PerfGraphConfig.FpsColorBad
-		elseif fps < PerfGraphConfig.FpsWarn then
-			return PerfGraphConfig.FpsColorWarn
-		end
-		return PerfGraphConfig.FpsColorGood
-	end,
-})
-
-local churnGraph = panel:AddGraph("Instances streamed in + out per frame", {
-	Height = PerfGraphConfig.GraphHeight,
-	Format = "%d",
-	Color = PerfGraphConfig.ChurnColor,
-})
-
-local pauseButton: TextButton
-pauseButton = panel:AddButton("pause graphs", function()
-	graphsPaused = not graphsPaused
-	pauseButton.Text = if graphsPaused then "resume graphs" else "pause graphs"
-end)
-
-panel:AddButton("clear graphs", function()
-	fpsGraph:Clear()
-	churnGraph:Clear()
-end)
-
-Workspace.DescendantAdded:Connect(function()
-	addedThisFrame += 1
-end)
-
-Workspace.DescendantRemoving:Connect(function()
-	removedThisFrame += 1
-end)
-
-RunService.RenderStepped:Connect(function(deltaTime: number)
-	local added, removed = addedThisFrame, removedThisFrame
-	addedThisFrame, removedThisFrame = 0, 0
-	if graphsPaused then return end
-	fpsGraph:Push(1 / math.max(deltaTime, 1e-6))
-	churnGraph:Push(added + removed)
-end)
 
 return VoiceDebugService
