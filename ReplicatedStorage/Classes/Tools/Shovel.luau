@@ -1,13 +1,12 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ClientTool = require(ReplicatedStorage.Classes.ClientTool)
-local TagService = require(ReplicatedStorage.Services.TagService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local HolePlacementService = require(ReplicatedStorage.Services.HolePlacementService)
 local TweenProxyService = require(ReplicatedStorage.Services.TweenProxyService)
 
 local Create = CommunicationService.Get("Hole", "Create")
 local Other = ReplicatedStorage.Props.Other
-local MAZE_FLOOR_TAG = "MazeFloor"
 
 local Shovel = ClientTool.extend("Shovel")
 
@@ -55,18 +54,21 @@ function Shovel:OnActivated()
 		return
 	end
 
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Include
-	params.FilterDescendantsInstances = TagService:GetTaggedOfAncestor(workspace, MAZE_FLOOR_TAG)
-	if #params.FilterDescendantsInstances == 0 then
-		warn(`Shovel: no parts tagged "{MAZE_FLOOR_TAG}" -- nothing to dig into`)
+	local floors = HolePlacementService.GetFloors(workspace)
+	if #floors == 0 then
+		warn("Shovel: no tagged floor parts -- nothing to dig into")
 		return
 	end
 
-	local ground = workspace:Raycast(character:GetPivot().Position, Vector3.new(0, -self.Config.DigDepth, 0), params)
+	local ground = HolePlacementService.FindGround(character:GetPivot().Position, self.Config.DigDepth, floors)
 	if not ground then return end
 
 	local entry = ground.Position + Vector3.new(0, 0.5, 0)
+	local footprintTemplate = (Other:FindFirstChild("Hole") or template) :: Model
+	if not HolePlacementService.IsFootprintSupported(entry, footprintTemplate, floors, 1, ground.Position.Y) then
+		return
+	end
+
 	self:PlaySound(self.Config.Sound, character.PrimaryPart)
 
 	local dummy = template:Clone()
@@ -90,12 +92,12 @@ function Shovel:OnActivated()
 
 	if not self:IsAlive() then return end
 
-	if self:GetQuantity() <= 1 and self.EquipTrack then
-		self.EquipTrack:Stop()
+	if Create:InvokeServer(entry) then
+		if self:GetQuantity() <= 1 and self.EquipTrack then
+			self.EquipTrack:Stop()
+		end
+		self:Consume(1)
 	end
-
-	self:Consume(1)
-	Create:InvokeServer(entry)
 end
 
 function Shovel:OnCleanup()

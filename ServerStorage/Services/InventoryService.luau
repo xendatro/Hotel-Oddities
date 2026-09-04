@@ -12,6 +12,7 @@ local MoveRemote = CommunicationService.Get("Inventory", "Move")
 local DeleteRemote = CommunicationService.Get("Backpack", "Delete")
 
 local CAPACITY = InventoryConfig.HotbarSlots + InventoryConfig.BackpackSlots
+local SINGLE_COPY = InventoryConfig.SingleCopy
 local SAVED_ATTRIBUTES = { "uses" }
 
 local InventoryService = {}
@@ -172,6 +173,12 @@ end
 function InventoryService:Add(player: Player, toolName: string, n: number): boolean
 	if n <= 0 then return false end
 	local tool = InventoryService:Get(player, toolName)
+	if SINGLE_COPY[toolName] then
+		if tool then
+			return InventoryService:EnsureSingle(player, toolName)
+		end
+		n = 1
+	end
 
 	if not tool then
 		local template = Tools:FindFirstChild(toolName)

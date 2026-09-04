@@ -22,6 +22,8 @@ type EnableOptions = {
 	tilt: boolean?,
 	spin: boolean?,
 	surfaceNormal: Vector3?,
+	directMovement: boolean?,
+	lockSurface: boolean?,
 }
 
 local ActiveSession: Session? = nil
@@ -89,6 +91,7 @@ function WallstickService.Enable(options: EnableOptions?): any
 		parent = wallstickModel,
 		origin = wallstickOrigin.CFrame,
 		retainWorldVelocity = true,
+		directMovement = options and options.directMovement,
 		camera = {
 			tilt = if options and options.tilt ~= nil then options.tilt else true,
 			spin = if options and options.spin ~= nil then options.spin else true,
@@ -138,7 +141,11 @@ function WallstickService.Enable(options: EnableOptions?): any
 			local stickPart = (result.Instance :: BasePart).AssemblyRootPart
 			local stickNormal = stickPart.CFrame:VectorToObjectSpace(surfaceNormal or result.Normal)
 
-			wallstick:setAndPivot(stickPart, stickNormal, result.Position)
+			local partChanged = wallstick:getPart() ~= stickPart
+			local normalChanged = wallstick:getNormal(false):Dot(stickNormal) < 0.999
+			if (not options or not options.lockSurface or not partChanged) and (partChanged or normalChanged) then
+				wallstick:setAndPivot(stickPart, stickNormal, result.Position)
+			end
 		end
 	end))
 

@@ -18,6 +18,7 @@ local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyDirectorService = require(ServerStorage.Services.EnemyDirectorService)
 local EnemyService = require(ServerStorage.Services.EnemyService)
+local EnemySizeService = require(ServerStorage.Services.EnemySizeService)
 local SurfaceWalker = require(ServerStorage.Classes.SurfaceWalker)
 
 local CEILING_VENT_TAG = "CeilingVent"
@@ -379,6 +380,7 @@ local function runWalkIn(state: VentState)
 			end
 		end
 		rig:PivotTo(CFrame.new(points[1]))
+		EnemySizeService.Apply(rig)
 		rig.Parent = WalkInFolder
 
 		local animator = NpcAnimator.new(rig, EnemyConfigs.CeilingDweller.Animations)

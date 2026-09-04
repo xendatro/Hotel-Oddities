@@ -848,7 +848,9 @@ function WalkieTalkieService:Reconcile(player: Player)
 end
 
 function WalkieTalkieService:SetPower(player: Player, on: boolean)
-	local wanted = on == true and player:GetAttribute(Config.VoiceAttribute) ~= false
+	local wanted = on == true
+		and not DeadPlayers[player]
+		and player:GetAttribute(Config.VoiceAttribute) ~= false
 	if Powered[player] == wanted then return end
 	Powered[player] = wanted or nil
 	player:SetAttribute(Config.PowerAttribute, wanted)
@@ -870,21 +872,12 @@ end
 
 local function handlePlayerDeath(player: Player)
 	if DeadPlayers[player] then return end
+	local wasPowered = Powered[player] == true
 	local wasTransmitting = Transmitting[player] == true
-	local state = States[player]
 	DeadPlayers[player] = true
-	WalkieTalkieService:SetTransmitting(player, false)
-
-	if state then
-		LastRadioPosition[player] = getWorldPosition(state.Emitter) or getPlayerPosition(player)
-		if wasTransmitting then playDeathBurst(player) end
-		teardown(state)
-		States[player] = nil
-	end
-	for _, senderState in States do
-		destroyReceiver(senderState, player)
-	end
-	queueRebuild()
+	player:SetAttribute(Config.DeathAttribute, wasPowered)
+	if wasTransmitting then playDeathBurst(player) end
+	WalkieTalkieService:SetPower(player, false)
 end
 
 local function bindCharacterDeath(player: Player, character: Model)
@@ -912,6 +905,7 @@ local function watchCharacter(player: Player)
 	if CharacterConnections[player] then CharacterConnections[player]:Disconnect() end
 	CharacterConnections[player] = player.CharacterAdded:Connect(function(character)
 		DeadPlayers[player] = nil
+		player:SetAttribute(Config.DeathAttribute, false)
 		task.defer(reconcile, player)
 		bindCharacterDeath(player, character)
 		queueRebuild()
@@ -946,6 +940,7 @@ local function watchPlayer(player: Player)
 	player:SetAttribute("WalkieTalkieMode", Modes[player])
 	player:SetAttribute(Config.PowerAttribute, false)
 	player:SetAttribute(Config.TransmitAttribute, false)
+	player:SetAttribute(Config.DeathAttribute, false)
 	getSettings(player)
 	watchCharacter(player)
 	task.spawn(function()

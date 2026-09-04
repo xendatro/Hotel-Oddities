@@ -58,6 +58,7 @@ return {
 		Tag = "Shovel",
 		Sound = "Shovel",
 		RevealLimbs = true,
+		HoleImmunityDuration = 6,
 		DigDepth = 100,
 		HoleStartScale = 0.1,
 		HoleEndScale = 0.792,

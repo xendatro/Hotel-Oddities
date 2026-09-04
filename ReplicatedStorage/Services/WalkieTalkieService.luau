@@ -41,6 +41,10 @@ end
 local playerVolumes: { [number]: number } = {}
 local playerMuted: { [number]: boolean } = {}
 local levels: { [Player]: number } = {}
+local deathOrders: { [Player]: number } = {}
+local knownDead: { [Player]: boolean } = {}
+local lastRosterOrder: { [Player]: number } = {}
+local lastRosterCount = 0
 local selfLevel = 0
 
 type VoiceRoute = {
@@ -431,6 +435,26 @@ local function applyPose()
 	ViewmodelService:SetPose(if raised then "Raised" elseif transmitting then "Talk" else nil)
 end
 
+local function setPowered(value: boolean, notifyServer: boolean)
+	local wanted = value == true
+		and player:GetAttribute(Config.DeathAttribute) ~= true
+		and player:GetAttribute(Config.VoiceAttribute) ~= false
+	if powered == wanted then return end
+	powered = wanted
+	if notifyServer then SetPower:FireServer(powered) end
+	if powered then
+		watchOwnEmitter()
+		return
+	end
+	WalkieTalkieService:SetTransmitting(false)
+	WalkieTalkieService:SetRaised(false)
+	clearRoutes()
+	if emitterConnection then
+		emitterConnection:Disconnect()
+		emitterConnection = nil
+	end
+end
+
 function WalkieTalkieService:GetTool(): Tool?
 	return findTool()
 end
@@ -476,21 +500,7 @@ function WalkieTalkieService:ToggleRaised()
 end
 
 function WalkieTalkieService:SetPowered(value: boolean)
-	local wanted = value == true and player:GetAttribute(Config.VoiceAttribute) ~= false
-	if powered == wanted then return end
-	powered = wanted
-	SetPower:FireServer(powered)
-	if powered then
-		watchOwnEmitter()
-		return
-	end
-	self:SetTransmitting(false)
-	self:SetRaised(false)
-	clearRoutes()
-	if emitterConnection then
-		emitterConnection:Disconnect()
-		emitterConnection = nil
-	end
+	setPowered(value, true)
 end
 
 function WalkieTalkieService:TogglePower()
@@ -550,6 +560,7 @@ function WalkieTalkieService:GetLevel(target: Player): number
 end
 
 function WalkieTalkieService:GetCategoryFor(target: Player): string
+	if target:GetAttribute(Config.DeathAttribute) == true then return "Dead" end
 	if target:GetAttribute(Config.VoiceAttribute) == false then return "NoVoice" end
 	if target:GetAttribute(Config.PowerAttribute) == true then return "Enabled" end
 	return "Disabled"
@@ -560,22 +571,52 @@ local ORDER = { Enabled = 1, Disabled = 2, NoVoice = 3 }
 export type RosterEntry = { Player: Player, Category: string, Level: number }
 
 function WalkieTalkieService:GetRoster(): { RosterEntry }
-	local roster: { RosterEntry } = {}
+	local entries: { RosterEntry } = {}
 	for _, target in Players:GetPlayers() do
-		table.insert(roster, {
+		local category = self:GetCategoryFor(target)
+		local dead = category == "Dead"
+		if dead and not knownDead[target] then
+			deathOrders[target] = lastRosterOrder[target] or (lastRosterCount + 1)
+		elseif not dead then
+			deathOrders[target] = nil
+		end
+		knownDead[target] = dead
+		table.insert(entries, {
 			Player = target,
-			Category = self:GetCategoryFor(target),
+			Category = category,
 			Level = if target == player then selfLevel else self:GetLevel(target),
 		})
 	end
-	table.sort(roster, function(a, b)
+	local live: { RosterEntry } = {}
+	local dead: { RosterEntry } = {}
+	for _, entry in entries do
+		if entry.Category == "Dead" then
+			table.insert(dead, entry)
+		else
+			table.insert(live, entry)
+		end
+	end
+	local function sortLive(a: RosterEntry, b: RosterEntry): boolean
 		local rankA, rankB = ORDER[a.Category], ORDER[b.Category]
 		if rankA ~= rankB then return rankA < rankB end
 		local nameA, nameB = a.Player.DisplayName:lower(), b.Player.DisplayName:lower()
 		if nameA ~= nameB then return nameA < nameB end
 		return a.Player.UserId < b.Player.UserId
+	end
+	table.sort(live, sortLive)
+	table.sort(dead, function(a, b)
+		return (deathOrders[a.Player] or math.huge) < (deathOrders[b.Player] or math.huge)
 	end)
-	return roster
+	for _, entry in dead do
+		local position = math.clamp(deathOrders[entry.Player] or (#live + 1), 1, #live + 1)
+		table.insert(live, position, entry)
+	end
+	table.clear(lastRosterOrder)
+	for index, entry in live do
+		lastRosterOrder[entry.Player] = index
+	end
+	lastRosterCount = #live
+	return live
 end
 
 SetAudio.OnClientEvent:Connect(function(saved: any, mode: any)
@@ -593,9 +634,20 @@ SetAudio.OnClientEvent:Connect(function(saved: any, mode: any)
 	end
 end)
 
+player:GetAttributeChangedSignal(Config.PowerAttribute):Connect(function()
+	setPowered(player:GetAttribute(Config.PowerAttribute) == true, false)
+end)
+
+player:GetAttributeChangedSignal(Config.DeathAttribute):Connect(function()
+	if player:GetAttribute(Config.DeathAttribute) == true then setPowered(false, false) end
+end)
+
 Players.PlayerRemoving:Connect(function(target)
 	emitterCache[target] = nil
 	levels[target] = nil
+	deathOrders[target] = nil
+	knownDead[target] = nil
+	lastRosterOrder[target] = nil
 	playerMuted[target.UserId] = nil
 	playerVolumes[target.UserId] = nil
 end)

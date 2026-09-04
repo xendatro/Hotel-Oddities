@@ -71,6 +71,39 @@ local function destroyRig()
 	lastShowViewmodel = nil
 end
 
+local function seatJoints(root: BasePart, clone: Instance)
+	local joints: { [BasePart]: { JointInstance } } = {}
+	for _, descendant in clone:GetDescendants() do
+		if descendant:IsA("JointInstance") then
+			local part0 = descendant.Part0
+			if part0 and descendant.Part1 then
+				local list = joints[part0]
+				if not list then
+					list = {}
+					joints[part0] = list
+				end
+				table.insert(list, descendant)
+			end
+		end
+	end
+
+	local queue = { root }
+	local seated = { [root] = true }
+	local index = 1
+	while index <= #queue do
+		local part = queue[index]
+		index += 1
+		for _, joint in joints[part] or {} do
+			local child = joint.Part1 :: BasePart
+			if not seated[child] then
+				seated[child] = true
+				child.CFrame = part.CFrame * joint.C0 * joint.C1:Inverse()
+				table.insert(queue, child)
+			end
+		end
+	end
+end
+
 local function buildRig(tool: Tool)
 	destroyRig()
 
@@ -98,7 +131,10 @@ local function buildRig(tool: Tool)
 		end
 	end
 	clone.Parent = model
-	model.WorldPivot = handle:GetPivot()
+
+	local cloneHandle = clone:FindFirstChild("Handle") :: BasePart
+	seatJoints(cloneHandle, clone)
+	model.WorldPivot = cloneHandle:GetPivot()
 
 	local override = ViewmodelConfig.Overrides[tool.Name]
 	model:ScaleTo(override and override.Scale or ViewmodelConfig.Scale)
@@ -129,7 +165,6 @@ local function buildRig(tool: Tool)
 	if sleeve then sleeve.Parent = nil end
 	local boundsCFrame, boundsSize = model:GetBoundingBox()
 	if sleeve then sleeve.Parent = model end
-	local cloneHandle = clone:FindFirstChild("Handle") :: BasePart
 	rigHandle = cloneHandle
 	rigCenterOffset = cloneHandle:GetPivot():ToObjectSpace(boundsCFrame).Position
 	rigRadius = boundsSize.Magnitude / 2

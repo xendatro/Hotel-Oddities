@@ -1,4 +1,5 @@
 local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 
 local CameraFovService = {}
@@ -106,6 +107,29 @@ end
 
 local ActiveTweens: { [string]: { Tween: Tween, Value: NumberValue, Connection: RBXScriptConnection } } = {}
 
+function CameraFovService:Reset()
+	for name, entry in ActiveTweens do
+		ActiveTweens[name] = nil
+		entry.Tween:Cancel()
+		entry.Connection:Disconnect()
+		entry.Value:Destroy()
+	end
+
+	table.clear(Offsets)
+	total = 0
+
+	if lockedFov then
+		lockedFov = nil
+		RunService:UnbindFromRenderStep(LOCK_BIND_NAME)
+	end
+
+	if bound then
+		setBound(false)
+	else
+		restoreCamera()
+	end
+end
+
 function CameraFovService:TweenOffset(name: string, degrees: number, tweenInfo: TweenInfo)
 	local existing = ActiveTweens[name]
 	if existing then
@@ -140,5 +164,36 @@ end
 workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
 	if bound then render() end
 end)
+
+local localPlayer = Players.LocalPlayer
+local deathConnection: RBXScriptConnection? = nil
+
+local function bindCharacter(character: Model)
+	if deathConnection then
+		deathConnection:Disconnect()
+		deathConnection = nil
+	end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid") :: Humanoid?
+	if not humanoid then
+		humanoid = character:WaitForChild("Humanoid") :: Humanoid
+	end
+	deathConnection = humanoid.Died:Connect(function()
+		CameraFovService:Reset()
+	end)
+end
+
+localPlayer.CharacterAdded:Connect(bindCharacter)
+localPlayer.CharacterRemoving:Connect(function()
+	if deathConnection then
+		deathConnection:Disconnect()
+		deathConnection = nil
+	end
+	CameraFovService:Reset()
+end)
+
+if localPlayer.Character then
+	task.spawn(bindCharacter, localPlayer.Character)
+end
 
 return CameraFovService

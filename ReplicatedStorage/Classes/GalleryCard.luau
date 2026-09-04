@@ -3,7 +3,6 @@ local TweenService = game:GetService("TweenService")
 
 local CaptureConfig = require(ReplicatedStorage.Configs.CaptureConfig)
 local CaptureGalleryService = require(ReplicatedStorage.Services.CaptureGalleryService)
-local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 
 local GalleryCard = {}
 GalleryCard.__index = GalleryCard
@@ -27,76 +26,32 @@ export type GalleryCard = typeof(setmetatable({} :: {
 	Connections: { [string]: RBXScriptConnection },
 }, GalleryCard))
 
-local function findOrMake(parent: Instance, name: string, className: string): any
-	local existing = parent:FindFirstChild(name)
-	if existing then return existing end
-
-	local made = Instance.new(className)
-	made.Name = name
-	made.Parent = parent
-	return made
-end
-
 local function dress(button: ImageButton, media: any)
-	button.Image = ""
-	button.BackgroundColor3 = Color3.fromRGB(22, 17, 14)
-	button.BackgroundTransparency = 0
+	local thumb = button:FindFirstChild("Thumb") :: ImageLabel
 
-	local thumb = findOrMake(button, "Thumb", "ImageLabel") :: ImageLabel
-	thumb.Size = UDim2.fromScale(1, 1)
-	thumb.BackgroundTransparency = 1
-	thumb.ScaleType = Enum.ScaleType.Crop
-	thumb.ImageColor3 = Color3.fromRGB(226, 214, 196)
-	thumb.ZIndex = 2
-
-	if media.Kind == "Screenshot" then
-		local content = CaptureGalleryService:Content(media)
-		if content then
-			thumb.ImageContent = content
-			thumb.ImageTransparency = 0
-		end
+	local content = CaptureGalleryService:Content(media)
+	if content then
+		thumb.ImageContent = content
+		thumb.ImageTransparency = 0
 	else
 		thumb.ImageTransparency = 1
 	end
 
-	local badge = findOrMake(button, "Badge", "TextLabel") :: TextLabel
-	badge.AnchorPoint = Vector2.new(0, 0)
-	badge.Position = UDim2.fromScale(0.06, 0.06)
-	badge.Size = UDim2.fromScale(0.5, 0.14)
-	badge.BackgroundTransparency = 1
-	badge.Font = CaptureConfig.Overlay.Font
-	badge.TextColor3 = if media.Kind == "Video"
-		then CaptureConfig.Overlay.RecordColor
-		else CaptureConfig.Overlay.Color
-	badge.TextScaled = true
-	badge.TextXAlignment = Enum.TextXAlignment.Left
+	local badge = button:FindFirstChild("Badge") :: TextLabel
+	local colorAttribute = if media.Kind == "Video" then "TapeColor" else "StillColor"
+	local color = badge:GetAttribute(colorAttribute)
+	if typeof(color) == "Color3" then badge.TextColor3 = color end
 	badge.Text = if media.Kind == "Video" then "\u{25B6} TAPE" else "\u{25A0} STILL"
-	badge.ZIndex = 4
 
-	local stamp = findOrMake(button, "Stamp", "TextLabel") :: TextLabel
-	stamp.AnchorPoint = Vector2.new(1, 1)
-	stamp.Position = UDim2.fromScale(0.94, 0.94)
-	stamp.Size = UDim2.fromScale(0.8, 0.13)
-	stamp.BackgroundTransparency = 1
-	stamp.Font = CaptureConfig.Overlay.Font
-	stamp.TextColor3 = CaptureConfig.Overlay.Color
-	stamp.TextScaled = true
-	stamp.TextXAlignment = Enum.TextXAlignment.Right
-	stamp.ZIndex = 4
+	local stamp = button:FindFirstChild("Stamp") :: TextLabel
 
 	local ok, formatted = pcall(function()
 		return media.Time:FormatLocalTime(CaptureConfig.Overlay.DateFormat, "en-us")
 	end)
 	stamp.Text = if ok then formatted else ""
 
-	local unsaved = findOrMake(button, "Unsaved", "Frame") :: Frame
-	unsaved.AnchorPoint = Vector2.new(0.5, 0)
-	unsaved.Position = UDim2.fromScale(0.5, 0)
-	unsaved.Size = UDim2.new(1, 0, 0, 3)
-	unsaved.BorderSizePixel = 0
-	unsaved.BackgroundColor3 = CaptureConfig.Prompt.SaveColor
+	local unsaved = button:FindFirstChild("Unsaved") :: Frame
 	unsaved.Visible = not media.Saved
-	unsaved.ZIndex = 5
 end
 
 local function setUpConnections(self: GalleryCard, onSelect: (any) -> ())
@@ -127,30 +82,19 @@ local function setUpConnections(self: GalleryCard, onSelect: (any) -> ())
 end
 
 function GalleryCard.new(
-	template: ImageButton,
+	template: Frame,
 	parent: Instance,
 	media: any,
 	order: number,
 	onSelect: (any) -> ()
 ): GalleryCard
-	local holder = Instance.new("Frame")
+	local holder = template:Clone()
 	holder.Name = (media.Id :: string):gsub("[^%w]", "")
-	holder.BackgroundTransparency = 1
-	holder.Size = template.Size
 	holder.LayoutOrder = order
+	holder.Visible = true
 	holder.Parent = parent
 
-	local button = template:Clone()
-	button.Name = "Card"
-	button.Visible = true
-	button.AutoButtonColor = false
-	button.AnchorPoint = Vector2.new(0.5, 0.5)
-	button.Position = UDim2.fromScale(0.5, 0.5)
-	button.Size = UDim2.fromScale(1, 1)
-	button.ClipsDescendants = true
-	button.Parent = holder
-
-	GuiBuilderService.Corner(button, UDim.new(0, 4))
+	local button = holder:FindFirstChild("Card") :: ImageButton
 
 	local self = setmetatable({
 		Media = media,

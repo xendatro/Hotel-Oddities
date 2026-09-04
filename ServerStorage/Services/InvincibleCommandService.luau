@@ -15,11 +15,7 @@ local Enabled: { [Player]: boolean } = {}
 local function apply(player: Player)
 	local character = player.Character
 	if not character then return end
-	if Enabled[player] then
-		character:AddTag(Vanished.Tag)
-	else
-		character:RemoveTag(Vanished.Tag)
-	end
+	Vanished.SetSource(character, Vanished.InfiniteTag, Enabled[player] == true)
 end
 
 function InvincibleCommandService:Set(player: Player, enabled: boolean)

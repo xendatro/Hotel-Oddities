@@ -13,6 +13,7 @@ local LightService = require(ServerStorage.Services.LightService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local PropOddity = require(ServerStorage.Classes.PropOddity)
 local Vanished = require(ReplicatedStorage.Services.VanishedService)
+local EnemySizeService = require(ServerStorage.Services.EnemySizeService)
 
 local PopRemote = CommunicationService.Ensure("Oddities", "PaintingDwellerPop")
 
@@ -24,6 +25,7 @@ function PaintingDweller.new(config: { [string]: any }?)
 	self.Canvas = nil :: BasePart?
 	self.Decals = {} :: { [Decal]: number }
 	self.HoleGui = nil :: SurfaceGui?
+	self.StartTrack = nil :: AnimationTrack?
 	self.ThrashTrack = nil :: AnimationTrack?
 	self.AttackTrack = nil :: AnimationTrack?
 	self.PoppedAt = 0
@@ -90,7 +92,7 @@ function PaintingDweller:OnStart(): boolean
 	local canvas = model:FindFirstChild("Canvas")
 	if not canvas or not canvas:IsA("BasePart") or not canvas.Anchored then return false end
 
-	local rigName = if type(self.Config.RigModel) == "string" then self.Config.RigModel else "Ceiling Dweller"
+	local rigName = if type(self.Config.RigModel) == "string" then self.Config.RigModel else "Painting Dweller"
 	local enemies = ReplicatedStorage:FindFirstChild("Enemies")
 	local template = enemies and enemies:FindFirstChild(rigName)
 	if not template then return false end
@@ -124,6 +126,7 @@ function PaintingDweller:OnStart(): boolean
 	humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
 	humanoid.AutoRotate = false
 	humanoid.PlatformStand = true
+	EnemySizeService.Apply(rig)
 	humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 	humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
 
@@ -148,10 +151,21 @@ function PaintingDweller:OnStart(): boolean
 		animation.AnimationId = `rbxassetid://{id}`
 		return (animator :: Animator):LoadAnimation(animation)
 	end
+	self.StartTrack = load("StartAnimation")
 	self.ThrashTrack = load("ThrashAnimation")
 	self.AttackTrack = load("AttackAnimation")
 	if self.ThrashTrack then
 		self.ThrashTrack.Looped = true
+	end
+	if self.StartTrack then
+		self.StartTrack.Looped = false
+		self.StartTrack.Stopped:Once(function()
+			if self.Active and self.ThrashTrack then
+				self.ThrashTrack:Play()
+			end
+		end)
+		self.StartTrack:Play()
+	elseif self.ThrashTrack then
 		self.ThrashTrack:Play()
 	end
 
@@ -274,6 +288,7 @@ function PaintingDweller:OnStop()
 	self.Rig = nil
 
 	if rig and rig.Parent then
+		if self.StartTrack then self.StartTrack:Stop(0.2) end
 		if self.ThrashTrack then self.ThrashTrack:Stop(0.2) end
 		local root = rig:FindFirstChild("HumanoidRootPart") :: BasePart?
 		local canvas = self.Canvas
@@ -300,6 +315,7 @@ function PaintingDweller:OnStop()
 	end
 	table.clear(self.Decals)
 	self.Canvas = nil
+	self.StartTrack = nil
 	self.ThrashTrack = nil
 	self.AttackTrack = nil
 

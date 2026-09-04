@@ -21,13 +21,52 @@ return {
 	},
 
 	Overrides = {
+		["Ball"] = {
+			Scale = 0.65,
+			Anchor = Vector3.new(0.81, -0.60, -1.28),
+			ArmAnchor = Vector3.new(0.89, -0.58, -1.62),
+			Rotate = CFrame.Angles(math.rad(-0), math.rad(0), math.rad(0)),
+		},
+		
+		["Bandage"] = {
+			Scale = 0.65,
+			Anchor = Vector3.new(0.87, -0.69, -1.26),
+			ArmAnchor = Vector3.new(0.89, -0.57, -1.26),
+			Rotate = CFrame.Angles(math.rad(-8), math.rad(10), math.rad(-1)),
+		},
+		
+		["Camcorder"] = {
+			Scale = 0.65,
+			Anchor = Vector3.new(0.76, -0.61, -1.33),
+			ArmAnchor = Vector3.new(0.68, -0.61, -1.33),
+			Rotate = CFrame.Angles(math.rad(90), math.rad(0), math.rad(90)),
+		},
+		
+		
 		Camera = {
 			AnchorAt = "Handle",
 			Scale = 0.4,
 			Anchor = Vector3.new(1, -0.95, -3),
 			Rotate = CFrame.Angles(0, math.rad(-20), math.rad(55)),
 		},
-		Medkit = { AnchorAt = "Handle", Anchor = Vector3.new(0.8, -0.3, -1.7) },
+		
+		
+		["Energy Drink"] = {
+			Scale = 0.65,
+			Anchor = Vector3.new(0.90, -0.62, -1.17),
+			ArmAnchor = Vector3.new(0.94, -0.62, -1.35),
+			Rotate = CFrame.Angles(math.rad(9), math.rad(0), math.rad(0)),
+		},
+		
+		["Medkit"] = {
+			AnchorAt = "Handle",
+			Scale = 0.65,
+			Anchor = Vector3.new(1.40, -0.78, -1.70),
+			ArmAnchor = Vector3.new(1.31, -0.49, -2.07),
+			Rotate = CFrame.Angles(math.rad(9), math.rad(0), math.rad(0)),
+		},
+		
+		
 		["Walkie Talkie"] = {
 			AnchorAt = "Handle",
 			Scale = 0.84,
@@ -51,7 +90,21 @@ return {
 				},
 			},
 		},
-		Soda = { Rotate = CFrame.Angles(math.rad(-90), 0, 0) },
+		
+		["Soda"] = {
+			Scale = 0.65,
+			Anchor = Vector3.new(1.01, -0.77, -1.39),
+			ArmAnchor = Vector3.new(1.10, -0.60, -1.77),
+			Rotate = CFrame.Angles(math.rad(93), math.rad(9), math.rad(2)),
+		},
+		
+		["Shovel"] = {
+			Scale = 0.65,
+			Anchor = Vector3.new(1.14, -0.37, -1.43),
+			ArmAnchor = Vector3.new(0.97, -0.85, -1.83),
+			Rotate = CFrame.Angles(math.rad(-180), math.rad(8), math.rad(9)),
+		},
+		
 		SpellBook = { Rotate = CFrame.Angles(math.rad(-15), math.rad(-95), 0) },
 		Pathfinder = { Rotate = CFrame.Angles(0, math.rad(-25), 0) },
 	},

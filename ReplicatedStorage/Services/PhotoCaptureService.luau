@@ -14,7 +14,6 @@ local PhotoConfig = require(ReplicatedStorage.Configs.PhotoConfig)
 local CaptureGalleryService = require(ReplicatedStorage.Services.CaptureGalleryService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local NotificationService = require(ReplicatedStorage.Services.NotificationService)
-local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local PhotoDevelopService = require(ReplicatedStorage.Services.PhotoDevelopService)
 
 local Snap = CommunicationService.Get("Photo", "Snap")
@@ -34,14 +33,10 @@ local flash: Frame? = nil
 local function getFlash(): Frame
 	if flash and flash.Parent then return flash end
 
-	local gui = GuiBuilderService.CreateScreenGui("PhotoFlash", 1000, true)
-	local frame = Instance.new("Frame")
-	frame.Size = UDim2.fromScale(1, 1)
-	frame.BackgroundColor3 = Color3.new(1, 1, 1)
-	frame.BackgroundTransparency = 1
-	frame.BorderSizePixel = 0
-	frame.Parent = gui
-
+	local playerGui = player:WaitForChild("PlayerGui")
+	local gui = playerGui:WaitForChild("PhotoFlash", 20) :: ScreenGui?
+	assert(gui, "PhotoCaptureService: PhotoFlash did not replicate")
+	local frame = gui:WaitForChild("Flash", 10) :: Frame
 	flash = frame
 	return frame
 end

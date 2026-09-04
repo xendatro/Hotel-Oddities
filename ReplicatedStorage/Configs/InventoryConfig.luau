@@ -1,6 +1,10 @@
 return {
 	HotbarSlots = 9,
 	BackpackSlots = 27,
+	SingleCopy = {
+		Camcorder = true,
+		["Walkie Talkie"] = true,
+	},
 
 	ToggleKey = Enum.KeyCode.Backquote,
 	HotbarKeys = {

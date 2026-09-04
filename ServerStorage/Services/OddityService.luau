@@ -75,6 +75,7 @@ function OddityService:Start(class: any, context: any, duration: number?, overri
 	if EDIT_MODE then return nil, "oddities are disabled in Studio edit mode" end
 	if class.Settings.Enabled == false then return nil, "that oddity is disabled" end
 
+	print(class)
 	local settings = class.Settings
 	if type(overrides) == "table" then
 		settings = table.clone(class.Settings)
@@ -137,7 +138,7 @@ if not EDIT_MODE then
 
 	for _, classes in registry do
 		for _, class in classes do
-			if not OddityService:IsAmbient(class) then continue end
+			if not OddityService:IsAmbient(class) then continue end -- Ignore ambient classes
 			if class.Settings.Enabled == false then continue end
 			if type(class.Pick) ~= "function" then continue end
 

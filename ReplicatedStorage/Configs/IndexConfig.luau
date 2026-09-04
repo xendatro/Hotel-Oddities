@@ -250,7 +250,7 @@ return {
 		{
 			Id = "PaintingDweller",
 			Name = "Painting Lurker",
-			Model = "Ceiling Dweller",
+			Model = "Painting Dweller",
 			Description = "Not every canvas is only paint. It waits behind the frame for a guest to lean in.",
 		},
 	} :: { Entry },

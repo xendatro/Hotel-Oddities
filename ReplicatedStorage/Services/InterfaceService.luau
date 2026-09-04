@@ -302,6 +302,10 @@ function InterfaceService:SetMouseUnlocked(unlocked: boolean, force: boolean?)
 	end
 end
 
+function InterfaceService:IsMouseUnlocked(): boolean
+	return mouseUnlocked
+end
+
 UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
 	if processed or input.KeyCode ~= Enum.KeyCode.Q then return end
 	if interfaceOpen or mouseUnlockForced then return end

@@ -104,13 +104,11 @@ local function updatePlayer(player: Player)
 		and SpawnZoneService:Contains(root.Position)
 
 	if inside then
-		if not Shielded[character] and not character:HasTag(Vanished.Tag) then
-			Shielded[character] = true
-			character:AddTag(Vanished.Tag)
-		end
+		Shielded[character] = true
+		Vanished.SetSource(character, Vanished.SafeZoneTag, true)
 	elseif Shielded[character] then
 		Shielded[character] = nil
-		character:RemoveTag(Vanished.Tag)
+		Vanished.SetSource(character, Vanished.SafeZoneTag, false)
 	end
 end
 

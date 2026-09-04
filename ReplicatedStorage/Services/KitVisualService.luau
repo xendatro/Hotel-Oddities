@@ -4,10 +4,10 @@ local TweenService = game:GetService("TweenService")
 local ItemShopConfig = require(ReplicatedStorage.Configs.ItemShopConfig)
 local KitConfig = require(ReplicatedStorage.Configs.KitConfig)
 local HumanoidStatsService = require(ReplicatedStorage.Services.HumanoidStatsService)
+local ItemPreviewService = require(ReplicatedStorage.Services.ItemPreviewService)
 local MathService = require(ReplicatedStorage.Services.MathService)
 
 local ROW = KitConfig.Animation.Row
-local VIEWPORT = KitConfig.Viewport
 local MINIMUM_LINES = 6
 
 local FONT = Font.new("rbxasset://fonts/families/Merriweather.json", Enum.FontWeight.Regular)
@@ -18,8 +18,6 @@ local BAD = Color3.fromRGB(164, 62, 62)
 local MUTED = Color3.fromRGB(132, 128, 122)
 
 local KitVisualService = {}
-
-local Tools = ReplicatedStorage:WaitForChild("Tools")
 
 function KitVisualService.Showcase(kit: KitConfig.Kit): string?
 	if kit.Showcase then return kit.Showcase end
@@ -35,57 +33,8 @@ function KitVisualService.Showcase(kit: KitConfig.Kit): string?
 	return best
 end
 
-local function clearViewport(viewport: ViewportFrame)
-	for _, child in viewport:GetChildren() do
-		if child:IsA("Model") or child:IsA("Camera") then child:Destroy() end
-	end
-end
-
 function KitVisualService.BuildPreview(viewport: ViewportFrame, itemName: string?)
-	clearViewport(viewport)
-	if not itemName then return end
-
-	local source = Tools:FindFirstChild(itemName)
-	if not source or not source:IsA("Tool") then return end
-
-	local model = Instance.new("Model")
-	model.Name = itemName
-
-	local tool = source:Clone()
-	for _, descendant in tool:GetDescendants() do
-		if descendant:IsA("LuaSourceContainer") then
-			descendant:Destroy()
-		elseif descendant:IsA("BasePart") then
-			descendant.Anchored = true
-			descendant.CanCollide = false
-			descendant.CanQuery = false
-			descendant.CanTouch = false
-		end
-	end
-	tool.Parent = model
-	model.Parent = viewport
-	model:PivotTo(CFrame.identity)
-
-	local box, size = model:GetBoundingBox()
-	local radius = math.max(size.X, size.Y, size.Z) * 0.5 * VIEWPORT.Padding
-	if radius <= 0 then return end
-
-	local entry = ItemShopConfig.EntriesById[itemName]
-	local distance = radius / math.tan(math.rad(VIEWPORT.FieldOfView) * 0.5)
-	distance *= (entry and entry.Zoom) or VIEWPORT.Zoom
-
-	local yaw = math.rad((entry and entry.Yaw) or VIEWPORT.Yaw)
-	local pitch = math.rad((entry and entry.Pitch) or VIEWPORT.Pitch)
-	local direction = CFrame.Angles(pitch, yaw, 0).LookVector
-
-	local camera = Instance.new("Camera")
-	camera.FieldOfView = VIEWPORT.FieldOfView
-	camera.CFrame = CFrame.lookAt(box.Position + direction * distance, box.Position)
-	camera.Parent = viewport
-	viewport.CurrentCamera = camera
-	viewport.Ambient = VIEWPORT.Ambient
-	viewport.LightColor = VIEWPORT.LightColor
-	viewport.LightDirection = VIEWPORT.LightDirection
+	ItemPreviewService:Render(viewport, itemName)
 end
 
 local function ensure(parent: Instance, name: string, className: string): any

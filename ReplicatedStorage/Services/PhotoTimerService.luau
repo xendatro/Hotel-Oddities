@@ -1,3 +1,4 @@
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -10,6 +11,14 @@ end
 
 local PhotoConfig = require(ReplicatedStorage.Configs.PhotoConfig)
 local TagService = require(ReplicatedStorage.Services.TagService)
+local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+local templates = playerGui:WaitForChild("CaptureTemplates", 20)
+local timerTemplate = templates and templates:WaitForChild("PhotoTimer", 10) :: BillboardGui?
+
+if not timerTemplate then
+	warn("PhotoTimerService: CaptureTemplates.PhotoTimer did not replicate")
+	return PhotoTimerService
+end
 
 local function anchorPart(model: Model): BasePart?
 	local body = model:FindFirstChild("Camera")
@@ -18,32 +27,10 @@ local function anchorPart(model: Model): BasePart?
 end
 
 local function buildBillboard(part: BasePart): (BillboardGui, TextLabel)
-	local settings = PhotoConfig.Timer
-
-	local billboard = Instance.new("BillboardGui")
-	billboard.Name = "PhotoTimer"
-	billboard.Size = settings.Size
-	billboard.StudsOffset = settings.Offset
-	billboard.AlwaysOnTop = false
-	billboard.LightInfluence = 0
-	billboard.MaxDistance = PhotoConfig.Lens.MaxDistance
+	local billboard = timerTemplate:Clone()
+	billboard.Enabled = true
 	billboard.Parent = part
-
-	local label = Instance.new("TextLabel")
-	label.AnchorPoint = Vector2.new(0.5, 0.5)
-	label.Position = UDim2.fromScale(0.5, 0.5)
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 1
-	label.Font = settings.Font
-	label.TextColor3 = settings.Color
-	label.TextScaled = true
-	label.Text = ""
-	label.Parent = billboard
-
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = settings.StrokeColor
-	stroke.Thickness = 2
-	stroke.Parent = label
+	local label = billboard:FindFirstChild("Label") :: TextLabel
 
 	return billboard, label
 end
@@ -72,6 +59,10 @@ local function attach(model: Instance)
 		if not part or data.Cancelled or not model.Parent then return end
 
 		local billboard, label = buildBillboard(part)
+		local normalColor = label:GetAttribute("NormalColor")
+		if typeof(normalColor) ~= "Color3" then normalColor = label.TextColor3 end
+		local warnColor = label:GetAttribute("WarnColor")
+		if typeof(warnColor) ~= "Color3" then warnColor = label.TextColor3 end
 		local shown = -1
 		data.Billboard = billboard
 
@@ -81,7 +72,7 @@ local function attach(model: Instance)
 			if model:GetAttribute(PhotoConfig.Attributes.Snapped) then
 				if label.Text ~= settings.SnapText then
 					label.Text = settings.SnapText
-					label.TextColor3 = settings.WarnColor
+					label.TextColor3 = warnColor
 					pulse(label)
 					task.delay(settings.SnapHold, function()
 						if billboard.Parent then
@@ -100,7 +91,7 @@ local function attach(model: Instance)
 
 			shown = remaining
 			label.Text = tostring(remaining)
-			label.TextColor3 = if remaining <= settings.WarnAt then settings.WarnColor else settings.Color
+			label.TextColor3 = if remaining <= settings.WarnAt then warnColor else normalColor
 			pulse(label)
 		end)
 	end)

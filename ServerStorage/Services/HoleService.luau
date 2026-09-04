@@ -4,16 +4,19 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local HolePlacementService = require(ReplicatedStorage.Services.HolePlacementService)
 local TagService = require(ReplicatedStorage.Services.TagService)
 local ToolConfigs = require(ReplicatedStorage.Configs.ToolConfigs)
+local Vanished = require(ReplicatedStorage.Services.VanishedService)
 
 local Other = ReplicatedStorage.Props.Other
 
-local MAZE_FLOOR_TAG = "MazeFloor"
 local HOLE_TAG = "Hole"
 local CREATOR_ATTRIBUTE = "CreatorUserId"
 local HOLE_LIFETIME = 30
 local MAX_HOLE_PAIRS = 5
+local HOP_DISTANCE = 12
+local HOP_COOLDOWN = 5
 
 local HoleService = {}
 
@@ -23,6 +26,8 @@ type HolePair = {
 }
 
 local Pairs: { HolePair } = {}
+local ImmunityRecords: { [Player]: { Character: Model, EndsAt: number } } = {}
+local LastHopAt: { [Player]: number } = {}
 
 local function destroyPair(pair: HolePair)
 	for _, hole in pair.Models do
@@ -36,40 +41,21 @@ local function removePair(pair: HolePair)
 	destroyPair(pair)
 end
 
-local function getMazeFloors(): { BasePart }
-	local floors = {}
-	for _, instance in TagService:GetTaggedOfAncestor(workspace, MAZE_FLOOR_TAG) do
-		if instance:IsA("BasePart") then
-			table.insert(floors, instance)
-		end
-	end
-	return floors
-end
-
-local function pickExit(): Vector3?
-	local floors = getMazeFloors()
-	if #floors == 0 then
-		warn(`HoleService: no parts tagged "{MAZE_FLOOR_TAG}" -- nowhere to put a hole`)
-		return nil
-	end
-
-	local floor = floors[math.random(1, #floors)]
-	local size = floor.Size
-	local offset = Vector3.new(
-		(math.random() - 0.5) * size.X,
-		size.Y / 2 + 0.5,
-		(math.random() - 0.5) * size.Z
-	)
-	return floor.CFrame:PointToWorldSpace(offset)
-end
-
 function HoleService:CreateHolePair(entryPosition: Vector3, owner: Player?): boolean
-	local exitPosition = pickExit()
-	if not exitPosition then return false end
-
 	local template = Other:FindFirstChild("Hole")
 	if not template then
 		warn("HoleService: no Hole model in ReplicatedStorage.Props.Other")
+		return false
+	end
+
+	local floors = HolePlacementService.GetFloors(workspace)
+	if not HolePlacementService.IsFootprintSupported(entryPosition, template, floors) then
+		return false
+	end
+
+	local exitPosition = HolePlacementService.FindRandomPosition(template, floors)
+	if not exitPosition then
+		warn("HoleService: no tagged floor has room for a hole")
 		return false
 	end
 
@@ -125,6 +111,73 @@ function HoleService:RemoveForPlayer(player: Player)
 end
 
 local Create = CommunicationService.Get("Hole", "Create") :: RemoteFunction
+local Immunity = CommunicationService.Ensure("Hole", "Immunity") :: RemoteEvent
+
+local function isActivePairHole(hole: Model): boolean
+	for _, pair in Pairs do
+		for _, member in pair.Models do
+			if member == hole then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+local function clearImmunity(player: Player, character: Model)
+	local record = ImmunityRecords[player]
+	if not record or record.Character ~= character then return end
+
+	ImmunityRecords[player] = nil
+	Vanished.SetSource(character, Vanished.HoleTag, false)
+	character:SetAttribute(Vanished.HoleEndsAtAttribute, nil)
+end
+
+Immunity.OnServerEvent:Connect(function(player: Player, hole: any)
+	if not hole or not hole:IsA("Model") or not hole:IsDescendantOf(workspace) or not hole:HasTag(HOLE_TAG) then
+		return
+	end
+	if not isActivePairHole(hole) then return end
+
+	local root = CharacterService.GetAliveRoot(player)
+	if not root or (root.Position - hole:GetPivot().Position).Magnitude > HOP_DISTANCE then return end
+
+	local now = workspace:GetServerTimeNow()
+	if (LastHopAt[player] or -math.huge) + HOP_COOLDOWN > now then return end
+	LastHopAt[player] = now
+
+	local character = root.Parent :: Model
+	local previous = ImmunityRecords[player]
+	if previous and previous.Character ~= character then
+		clearImmunity(player, previous.Character)
+	end
+
+	local endsAt = now + ToolConfigs.Shovel.HoleImmunityDuration
+	local record = { Character = character, EndsAt = endsAt }
+	ImmunityRecords[player] = record
+	character:SetAttribute(Vanished.HoleEndsAtAttribute, endsAt)
+	Vanished.SetSource(character, Vanished.HoleTag, true)
+
+	task.delay(ToolConfigs.Shovel.HoleImmunityDuration, function()
+		if ImmunityRecords[player] ~= record then return end
+		clearImmunity(player, character)
+	end)
+end)
+
+local function watchPlayer(player: Player)
+	player.CharacterRemoving:Connect(function(character: Model)
+		clearImmunity(player, character)
+	end)
+end
+
+for _, player in Players:GetPlayers() do
+	watchPlayer(player)
+end
+Players.PlayerAdded:Connect(watchPlayer)
+Players.PlayerRemoving:Connect(function(player: Player)
+	ImmunityRecords[player] = nil
+	LastHopAt[player] = nil
+end)
 
 Create.OnServerInvoke = function(player: Player, entryPosition: any)
 	if typeof(entryPosition) ~= "Vector3" then return false end
@@ -133,12 +186,8 @@ Create.OnServerInvoke = function(player: Player, entryPosition: any)
 	if not root then return false end
 	if (root.Position - entryPosition).Magnitude > ToolConfigs.Shovel.MaxDigDistance then return false end
 
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Include
-	params.FilterDescendantsInstances = getMazeFloors()
-	if #params.FilterDescendantsInstances == 0 then return false end
-
-	local ground = workspace:Raycast(root.Position, Vector3.new(0, -ToolConfigs.Shovel.DigDepth, 0), params)
+	local floors = HolePlacementService.GetFloors(workspace)
+	local ground = HolePlacementService.FindGround(root.Position, ToolConfigs.Shovel.DigDepth, floors)
 	if not ground then return false end
 
 	return HoleService:CreateHolePair(ground.Position + Vector3.new(0, 0.5, 0), player)

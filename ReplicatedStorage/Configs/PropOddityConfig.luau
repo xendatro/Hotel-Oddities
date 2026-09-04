@@ -102,7 +102,7 @@ return {
 			MinCanvasWidth = 6,
 			HideDepth = 8,
 			PopDepth = 7,
-			RootDrop = 0.5,
+			RootDrop = 1.5,
 			PopTime = 0.3,
 			RetreatTime = 0.4,
 
@@ -114,9 +114,10 @@ return {
 			FlickerLights = 2,
 			FlickerDuration = 1,
 
-			ThrashAnimation = 92266255835557,
+			StartAnimation = 85430848422903,
+			ThrashAnimation = 133679205168629,
 			AttackAnimation = 126599509413874,
-			HoleImage = 75483437903741,
+			HoleImage = 110897645187028,
 
 			DebugHighlight = true,
 			DebugLog = true,

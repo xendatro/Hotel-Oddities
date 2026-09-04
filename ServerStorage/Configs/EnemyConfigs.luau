@@ -31,6 +31,7 @@ export type EnemyConfig = {
 	GiveUpRange: number?,
 	FieldOfView: number?,
 	RespectsSafeRooms: boolean?,
+	AllowRoomReaction: boolean?,
 
 	Damage: number?,
 	AttackRange: number?,
@@ -543,6 +544,7 @@ ceilingDwellerConfig.AgentParams.AgentRadius = 3.25
 ceilingDwellerConfig.FieldOfView = 360
 ceilingDwellerConfig.ObservationRange = 300
 ceilingDwellerConfig.ObservationHold = 0.08
+ceilingDwellerConfig.AllowRoomReaction = false
 
 EnemyConfigs.CeilingDweller = ceilingDwellerConfig
 
