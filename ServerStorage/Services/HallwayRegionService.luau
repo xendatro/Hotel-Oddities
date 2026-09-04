@@ -27,15 +27,14 @@ function HallwayRegion.At(position: Vector3, includeRoomFloors: boolean?): Span?
 end
 
 local function width(span: Span): number
-	local widest = 0
-	for _, hallway in Hallways.All() do
-		local candidate = Hallways.StraightSpanAt(hallway.Center, span.Axis)
-		if candidate and HallwayRegion.Same(candidate, span) then
-			widest = math.max(widest, hallway.HalfWidth)
+	if span.HalfWidth then return span.HalfWidth end
+
+	for _, candidate in Hallways.StraightSpans() do
+		if candidate.HalfWidth and HallwayRegion.Same(candidate, span) then
+			return candidate.HalfWidth
 		end
 	end
 
-	if widest > 0 then return widest end
 	local nearest = Hallways.Nearest(span.Center)
 	return if nearest then nearest.HalfWidth else 0
 end

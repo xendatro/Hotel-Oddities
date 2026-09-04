@@ -229,7 +229,7 @@ Finds hallway "corner mouths" near a viewer — graph nodes with a side branch r
 Helpers for treating a straight hallway span as a region: comparing spans (in either direction), finding the span at a position, building a padded bounding box for it, locating a player inside one, and picking random spans that are distant, occupied, or danger-weighted.
 - API: `HallwayRegion.Same(first: Span, second: Span) -> boolean` — direction-agnostic within `SpatialPadding`
 - API: `HallwayRegion.At(position: Vector3, includeRoomFloors: boolean?) -> Span?`
-- API: `HallwayRegion.Box(span: Span) -> (CFrame, Vector3)` — padded volume using the config height windows
+- API: `HallwayRegion.Box(span: Span) -> (CFrame, Vector3)` — padded volume using the config height windows; width comes from the span's cached `HalfWidth` (or the matching cached span, then the nearest hallway) instead of re-tracing every hallway, which took a HallwayBlocker pick from ~3 s to ~25 ms
 - API: `HallwayRegion.Occupant(span: Span) -> Vector3?` — where the first living player standing in the span is
 - API: `HallwayRegion.HasPlayer(span: Span) -> boolean` — `Occupant` reduced to a yes/no
 - API: `HallwayRegion.RandomDistant() -> Span?`

@@ -339,14 +339,14 @@ Client half of the hallway streaming handshake: when the server announces a pend
 ### HallwaysService.luau
 Geometric view of the same tagged floor parts as oriented rectangles: which hallway contains a point, the closest point on one, and the longest unobstructed straight span through a position by merging collinear hallway intervals. Cached per `includeRoomFloors` and auto-invalidated on tag changes.
 - API: `Hallways.All(includeRoomFloors: boolean?) -> { Hallway }` — cached hallway rectangles
-- API: `Hallways.Invalidate()` — clears both cache variants
+- API: `Hallways.Invalidate()` — clears both hallway cache variants and the straight-span cache
 - API: `Hallways.At(position: Vector3, includeRoomFloors: boolean?) -> Hallway?` — containing hallway, with a height window
 - API: `Hallways.ClosestPoint(hallway: Hallway, position: Vector3) -> Vector3` — clamped point on the floor surface
 - API: `Hallways.Nearest(position: Vector3) -> Hallway?` — nearest by closest-point distance
 - API: `Hallways.Along(hallway: Hallway, position: Vector3) -> number` — signed distance along the axis
 - API: `Hallways.PointAt(hallway: Hallway, along: number) -> Vector3` — point on the axis at floor height
 - API: `Hallways.StraightSpanAt(position: Vector3, preferredDirection: Vector3?) -> StraightSpan?` — best straight run through a point
-- API: `Hallways.StraightSpans() -> { StraightSpan }` — one span per hallway, deduplicated
+- API: `Hallways.StraightSpans() -> { StraightSpan }` — every distinct straight run in the maze, cached until `Invalidate`; each span carries `HalfWidth`, the widest floor part that produced it, so callers never re-derive corridor width
 - Tags: listens `MazeFloor`, `HallwayRoomFloor` (added/removed only, to invalidate the cache)
 
 ### HearingRenderService.luau
