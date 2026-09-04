@@ -289,7 +289,7 @@ Creates linked entry/exit hole pairs (the Shovel's dig): the entry and random ex
 - Requires: `ToolConfigs.Shovel` (`MaxDigDistance`, `DigDepth`, `HoleImmunityDuration`), `HolePlacementService`, `TagService:GetTaggedOfAncestor`, `CharacterService.GetAliveRoot`
 
 ### InventoryService.luau
-Authoritative backpack/hotbar model: it tracks a slot-ordered list of tool names per player, clones templates out of `ReplicatedStorage.Tools`, keeps quantities on a `quantity` attribute, mirrors the layout to the client, and persists slots/quantities/`uses` into the player's DataSave profile. `InventoryConfig.SingleCopy` clamps grants of listed tools, including the Camcorder and Walkie Talkie, to one and `EnsureSingle` repairs old stacked or duplicate copies. It restores the saved inventory on join, reconciles it whenever the character respawns, clears everything on death, and always guarantees one Walkie Talkie.
+Authoritative backpack/hotbar model: it tracks a slot-ordered list of tool names per player, clones templates out of `ReplicatedStorage.Tools`, keeps quantities on a `quantity` attribute, merges duplicate tool instances into one stack, mirrors the layout to the client, and persists slots/quantities/`uses` into the player's DataSave profile. It restores the saved inventory on join, reconciles it whenever the character respawns, clears everything on death, and always guarantees one Walkie Talkie.
 - API: `InventoryService:Get(player: Player, toolName: string) -> Tool?`
 - API: `InventoryService:GetAll(player: Player) -> { [string]: Tool }` — backpack plus equipped
 - API: `InventoryService:GetQuantity(player: Player) -> number` — summed `quantity` attributes
@@ -298,7 +298,7 @@ Authoritative backpack/hotbar model: it tracks a slot-ordered list of tool names
 - API: `InventoryService:Wait(player: Player, timeout: number?) -> boolean` — blocks until the saved inventory is restored
 - API: `InventoryService:Sync(player: Player)` — pushes the slot payload to the client
 - API: `InventoryService:Add(player: Player, toolName: string, n: number) -> boolean` — false when full or the template is missing
-- API: `InventoryService:EnsureSingle(player: Player, toolName: string) -> boolean` — collapses duplicates to one copy at quantity 1
+- API: `InventoryService:EnsureSingle(player: Player, toolName: string) -> boolean` — keeps a required single-copy item, currently the Walkie Talkie, at quantity 1
 - API: `InventoryService:Remove(player: Player, toolName: string, n: number)` — destroys the tool at zero
 - API: `InventoryService:RemoveAll(player: Player, toolName: string) -> number` — returns the amount removed
 - API: `InventoryService:Clear(player: Player)`
@@ -467,7 +467,7 @@ Geometry search that finds a corner a stalker enemy can stand behind hidden from
 - Requires: `HallwayGridService` (corner list), `EnemyObservationService` (enemy eyes/view cones), `MathService`
 
 ### PerkService.luau
-Resolves each player's gamepass ownership once on join, mirrors it to `Perk*` player attributes, and applies the perks on every spawn: double speed, the Visor tool, exactly one Camcorder tool (granted to everyone while `CaptureConfig.RequireGamepass` is off), and restoring items kept through death. The camcorder grant waits for inventory restore and repairs any saved count above one.
+Resolves each player's gamepass ownership once on join, mirrors it to `Perk*` player attributes, and applies the perks on every spawn: double speed, the Visor tool, a Camcorder stack (granted to everyone while `CaptureConfig.RequireGamepass` is off), and restoring items kept through death. Existing camcorders keep their saved quantity.
 - API: `PerkService:Owns(player: Player, passName: string) -> boolean` — cached gamepass ownership
 - API: `PerkService:WaitForPasses(player: Player) -> boolean` — yields up to 20s until ownership is resolved
 - Requires: `PerkConfig`, `MarketplaceService.Gamepasses`, `InventoryService`, `LoadoutService` (death snapshot/restore), `SpeedBoostService` (sets the DoubleSpeed multiplier)

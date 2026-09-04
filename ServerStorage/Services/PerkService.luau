@@ -68,7 +68,8 @@ end
 
 local function applyCamcorder(player: Player)
 	if CaptureConfig.RequireGamepass and not PerkService:Owns(player, "Camcorder") then return end
-	InventoryService:EnsureSingle(player, CAMCORDER_TOOL)
+	if InventoryService:Get(player, CAMCORDER_TOOL) then return end
+	InventoryService:Add(player, CAMCORDER_TOOL, 1)
 end
 
 local function applyKeptItems(player: Player)

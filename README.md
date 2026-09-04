@@ -281,7 +281,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\HearingConfig.luau — Sound-travel visualisation settings for the Blind enemy's hearing.
 - ReplicatedStorage\Configs\HeartbeatConfig.luau — Proximity heartbeat sound settings for the Blind enemy.
 - ReplicatedStorage\Configs\IndexConfig.luau — Enemy Index UI styling, reveal animation and all bestiary entries.
-- ReplicatedStorage\Configs\InventoryConfig.luau — Hotbar/backpack sizes, single-copy items, keybinds and inventory slot styling.
+- ReplicatedStorage\Configs\InventoryConfig.luau — Hotbar/backpack sizes, keybinds and inventory slot styling; item quantities stack by name.
 - ReplicatedStorage\Configs\ItemPreviewConfig.luau — Shared framing and lighting for every item ViewportFrame, with per-item overrides.
 - ReplicatedStorage\Configs\ItemPreviewDebugConfig.luau — Toggle key and slider steps for the item preview debug panel.
 - ReplicatedStorage\Configs\ItemShopConfig.luau — Item shop catalogue, prices and card animation settings.
@@ -378,7 +378,7 @@ become Services or Classes.
 - ServerStorage\Services\HearingService.luau — Registry of "ears" that receive NoiseService noises after a distance-based travel delay.
 - ServerStorage\Services\HideSpotService.luau — Finds a standing spot on the maze floor that breaks line of sight from every enemy eye.
 - ServerStorage\Services\HoleService.luau — Creates and expires linked entry/exit hole pairs for the Shovel's dig and validates six-second hole-hop immunity.
-- ServerStorage\Services\InventoryService.luau — Authoritative slot-ordered backpack/hotbar with single-copy rules, client sync and profile persistence.
+- ServerStorage\Services\InventoryService.luau — Authoritative slot-ordered backpack/hotbar with per-item quantity stacking, duplicate cleanup, client sync and profile persistence.
 - ServerStorage\Services\InvincibleCommandService.luau — Admin /invincible toggle that applies permanent immunity while keeping the shared Vanished tag.
 - ServerStorage\Services\ItemShopService.luau — Coin and Robux item shop with voice gating, receipt dedupe and inventory grants.
 - ServerStorage\Services\KitRollService.luau — Policy-gated gem rolls with weighted rarities and duplicate refunds.
@@ -398,7 +398,7 @@ become Services or Classes.
 - ServerStorage\Services\PaintingDwellerService.luau — FixturePool wrapper that arms and triggers the painting dweller oddity, plus its /dweller command.
 - ServerStorage\Services\PaintingFallService.luau — FixturePool wrapper that arms and drops falling paintings, plus its /painting command.
 - ServerStorage\Services\PeekSpotService.luau — Geometry search for corners an enemy can hide behind and lean out of into the player's view.
-- ServerStorage\Services\PerkService.luau — Resolves gamepass ownership and applies the double speed, visor, single camcorder and keep-items perks on spawn.
+- ServerStorage\Services\PerkService.luau — Resolves gamepass ownership and applies the double speed, visor, stacked camcorder and keep-items perks on spawn.
 - ServerStorage\Services\PhotoCameraService.luau — Runs placed tripod cameras: countdown, subject detection, ShadowFigure placement, snap broadcast and unseen despawn.
 - ServerStorage\Services\PhotoCommandService.luau — /photo chat command for placing a test camera, snapping it early and forcing the ShadowFigure into frame.
 - ServerStorage\Services\PlayerCharacterStreamingService.luau — Marks every player character as persistent so it is never streamed out.
