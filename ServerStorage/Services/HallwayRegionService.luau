@@ -26,58 +26,93 @@ function HallwayRegion.At(position: Vector3, includeRoomFloors: boolean?): Span?
 	return Hallways.StraightSpanAt(position)
 end
 
-local function width(span: Span): number
-	local widest = 0
-	for _, hallway in Hallways.All() do
-		local candidate = Hallways.StraightSpanAt(hallway.Center, span.Axis)
-		if candidate and HallwayRegion.Same(candidate, span) then
-			widest = math.max(widest, hallway.HalfWidth)
+export type Occupant = {
+	Span: Span,
+	Position: Vector3,
+}
+
+local BoxCache: { [Span]: { CFrame: CFrame, Size: Vector3 } } = setmetatable({}, { __mode = "k" }) :: any
+local BoxCacheSource: { Span }? = nil
+
+local function widthOf(span: Span, spans: { Span }, nearest: Hallways.Hallway?): number
+	if span.HalfWidth then return span.HalfWidth end
+
+	for _, candidate in spans do
+		if candidate.HalfWidth and HallwayRegion.Same(candidate, span) then
+			return candidate.HalfWidth
 		end
 	end
 
-	if widest > 0 then return widest end
-	local nearest = Hallways.Nearest(span.Center)
 	return if nearest then nearest.HalfWidth else 0
 end
 
-local function floorY(span: Span): number
-	local hallway = Hallways.Nearest(span.Center)
-	return if hallway then hallway.FloorY else span.Center.Y
-end
-
 function HallwayRegion.Box(span: Span): (CFrame, Vector3)
+	local spans = Hallways.StraightSpans()
+	if BoxCacheSource ~= spans then
+		BoxCacheSource = spans
+		table.clear(BoxCache)
+	end
+	local cached = BoxCache[span]
+	if cached then return cached.CFrame, cached.Size end
+
+	local nearest = Hallways.Nearest(span.Center)
 	local heightWindow = math.max(Config.HallwayHeightWindow, 0)
 	local belowWindow = math.max(Config.HallwayBelowWindow, 0)
-	local floor = floorY(span)
+	local floor = if nearest then nearest.FloorY else span.Center.Y
 	local center = Vector3.new(
 		span.Center.X,
 		floor + (heightWindow - belowWindow) / 2,
 		span.Center.Z
 	)
 	local padding = math.max(Config.SpatialPadding, 0)
-	local halfWidth = width(span)
+	local halfWidth = widthOf(span, spans, nearest)
 	local cframe = CFrame.lookAt(center, center + span.Axis, Vector3.yAxis)
 	local size = Vector3.new(
 		halfWidth * 2 + padding * 2,
 		heightWindow + belowWindow,
 		span.Length + padding * 2
 	)
+	BoxCache[span] = { CFrame = cframe, Size = size }
 	return cframe, size
 end
 
-function HallwayRegion.Occupant(span: Span): Vector3?
+function HallwayRegion.Occupants(): { Occupant }
+	local occupants = {}
 	for _, player in Players:GetPlayers() do
 		local root = livingRoot(player)
 		if root then
-			local playerSpan = HallwayRegion.At(root.Position)
-			if playerSpan and HallwayRegion.Same(playerSpan, span) then return root.Position end
+			local span = HallwayRegion.At(root.Position)
+			if span then
+				table.insert(occupants, { Span = span, Position = root.Position })
+			end
 		end
+	end
+	return occupants
+end
+
+local function occupantOf(span: Span, occupants: { Occupant }): Vector3?
+	for _, occupant in occupants do
+		if HallwayRegion.Same(occupant.Span, span) then return occupant.Position end
 	end
 	return nil
 end
 
+function HallwayRegion.Occupant(span: Span): Vector3?
+	return occupantOf(span, HallwayRegion.Occupants())
+end
+
 function HallwayRegion.HasPlayer(span: Span): boolean
 	return HallwayRegion.Occupant(span) ~= nil
+end
+
+function HallwayRegion.OccupiedSpans(): { Span }
+	local occupants = HallwayRegion.Occupants()
+	local spans = {}
+	if #occupants == 0 then return spans end
+	for _, span in Hallways.StraightSpans() do
+		if occupantOf(span, occupants) then table.insert(spans, span) end
+	end
+	return spans
 end
 
 function HallwayRegion.RandomDistant(): Span?
@@ -151,10 +186,7 @@ function HallwayRegion.RandomBiased(occupiedChance: number): Span?
 	if #spans == 0 then return nil end
 
 	if math.random() <= occupiedChance then
-		local occupied = {}
-		for _, span in spans do
-			if HallwayRegion.HasPlayer(span) then table.insert(occupied, span) end
-		end
+		local occupied = HallwayRegion.OccupiedSpans()
 		if #occupied > 0 then return occupied[math.random(1, #occupied)] end
 	end
 
@@ -162,10 +194,7 @@ function HallwayRegion.RandomBiased(occupiedChance: number): Span?
 end
 
 function HallwayRegion.RandomOccupied(): Span?
-	local spans = {}
-	for _, span in Hallways.StraightSpans() do
-		if HallwayRegion.HasPlayer(span) then table.insert(spans, span) end
-	end
+	local spans = HallwayRegion.OccupiedSpans()
 	if #spans == 0 then return nil end
 	return spans[math.random(1, #spans)]
 end

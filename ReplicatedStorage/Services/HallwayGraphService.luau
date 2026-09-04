@@ -297,15 +297,40 @@ function HallwayGraph:CountExits(node: RouteNode): number
 	return count
 end
 
-local function popNearest(frontier: { RouteNode }, distances: { [RouteNode]: number }): RouteNode
-	local currentIndex, current = 1, frontier[1]
-	for index = 2, #frontier do
-		if distances[frontier[index]] < distances[current] then
-			currentIndex, current = index, frontier[index]
-		end
+type HeapEntry = { Node: RouteNode, Distance: number }
+
+local function heapPush(heap: { HeapEntry }, node: RouteNode, distance: number)
+	local entry: HeapEntry = { Node = node, Distance = distance }
+	table.insert(heap, entry)
+	local index = #heap
+	while index > 1 do
+		local parent = index // 2
+		if heap[parent].Distance <= distance then break end
+		heap[index] = heap[parent]
+		index = parent
 	end
-	table.remove(frontier, currentIndex)
-	return current
+	heap[index] = entry
+end
+
+local function heapPop(heap: { HeapEntry }): (RouteNode, number)
+	local top = heap[1]
+	local last = table.remove(heap) :: HeapEntry
+	local size = #heap
+	if size > 0 then
+		local index = 1
+		while true do
+			local child = index * 2
+			if child > size then break end
+			if child < size and heap[child + 1].Distance < heap[child].Distance then
+				child += 1
+			end
+			if last.Distance <= heap[child].Distance then break end
+			heap[index] = heap[child]
+			index = child
+		end
+		heap[index] = last
+	end
+	return top.Node, top.Distance
 end
 
 function HallwayGraph:FindPath(
@@ -318,10 +343,11 @@ function HallwayGraph:FindPath(
 	local distances: { [RouteNode]: number } = { [from] = 0 }
 	local previous: { [RouteNode]: RouteNode } = {}
 	local settled: { [RouteNode]: boolean } = {}
-	local frontier: { RouteNode } = { from }
+	local frontier: { HeapEntry } = {}
+	heapPush(frontier, from, 0)
 
 	while #frontier > 0 do
-		local current = popNearest(frontier, distances)
+		local current = heapPop(frontier)
 		if settled[current] then continue end
 		settled[current] = true
 
@@ -345,7 +371,7 @@ function HallwayGraph:FindPath(
 			if distance < (distances[neighbor] or math.huge) then
 				distances[neighbor] = distance
 				previous[neighbor] = current
-				table.insert(frontier, neighbor)
+				heapPush(frontier, neighbor, distance)
 			end
 		end
 	end
@@ -413,17 +439,18 @@ end
 
 local function getShortestNodeDistance(startCandidates: { [RouteNode]: number }, targetCandidates: { [RouteNode]: number }): number
 	local distances = {}
-	local frontier = {}
+	local frontier: { HeapEntry } = {}
 	for node, distance in startCandidates do
 		distances[node] = distance
-		table.insert(frontier, node)
+		heapPush(frontier, node, distance)
 	end
 
 	local best = math.huge
 	while #frontier > 0 do
-		local current = popNearest(frontier, distances)
+		local current, pushedDistance = heapPop(frontier)
 
 		local currentDistance = distances[current]
+		if pushedDistance > currentDistance then continue end
 		local targetDistance = targetCandidates[current]
 		if targetDistance then
 			best = math.min(best, currentDistance + targetDistance)
@@ -434,7 +461,7 @@ local function getShortestNodeDistance(startCandidates: { [RouteNode]: number },
 			local distance = currentDistance + horizontal(current.Position - neighbor.Position).Magnitude
 			if distance < (distances[neighbor] or math.huge) then
 				distances[neighbor] = distance
-				table.insert(frontier, neighbor)
+				heapPush(frontier, neighbor, distance)
 			end
 		end
 	end
@@ -472,14 +499,21 @@ function HallwayGraph:IsFarFromPlayers(position: Vector3, distance: number): boo
 	return true
 end
 
-for _, tag in { HALLWAY_TAG, HALLWAY_ROOM_TAG, SpawnZoneConfig.Tag } do
-	CollectionService:GetInstanceAddedSignal(tag):Connect(function()
-		HallwayGraph:Invalidate()
-	end)
+local REBUILD_SETTLE = 0.5
+local rebuildPending = false
 
-	CollectionService:GetInstanceRemovedSignal(tag):Connect(function()
+local function scheduleInvalidate()
+	if rebuildPending then return end
+	rebuildPending = true
+	task.delay(REBUILD_SETTLE, function()
+		rebuildPending = false
 		HallwayGraph:Invalidate()
 	end)
+end
+
+for _, tag in { HALLWAY_TAG, HALLWAY_ROOM_TAG, SpawnZoneConfig.Tag } do
+	CollectionService:GetInstanceAddedSignal(tag):Connect(scheduleInvalidate)
+	CollectionService:GetInstanceRemovedSignal(tag):Connect(scheduleInvalidate)
 end
 
 return HallwayGraph

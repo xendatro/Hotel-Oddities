@@ -19,6 +19,15 @@ local LobbyRaycastParams = RaycastParams.new()
 LobbyRaycastParams.FilterType = Enum.RaycastFilterType.Include
 LobbyRaycastParams.IgnoreWater = true
 
+local filterDirty = true
+
+local function markFilterDirty()
+	filterDirty = true
+end
+
+CollectionService:GetInstanceAddedSignal(LOBBY_FLOOR_TAG):Connect(markFilterDirty)
+CollectionService:GetInstanceRemovedSignal(LOBBY_FLOOR_TAG):Connect(markFilterDirty)
+
 function LobbyService:IsPlayerOnLobbyFloor(player: Player?): boolean
 	local target = player or Players.LocalPlayer
 	local root = CharacterService.GetAliveRoot(target)
@@ -27,7 +36,10 @@ function LobbyService:IsPlayerOnLobbyFloor(player: Player?): boolean
 		return false
 	end
 
-	LobbyRaycastParams.FilterDescendantsInstances = CollectionService:GetTagged(LOBBY_FLOOR_TAG)
+	if filterDirty then
+		filterDirty = false
+		LobbyRaycastParams.FilterDescendantsInstances = CollectionService:GetTagged(LOBBY_FLOOR_TAG)
+	end
 	local result = workspace:Raycast(
 		root.Position + RAYCAST_ORIGIN_OFFSET,
 		Vector3.new(0, -RAYCAST_DISTANCE, 0),

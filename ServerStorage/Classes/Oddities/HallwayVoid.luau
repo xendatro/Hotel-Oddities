@@ -395,11 +395,11 @@ local function isRoomAttached(room: Model, span: HallwayRegion.Span): boolean
 end
 
 local function isOccupied(span: HallwayRegion.Span): boolean
+	local boxCFrame, boxSize = HallwayRegion.Box(span)
 	for _, player in Players:GetPlayers() do
 		local root = CharacterService.GetAliveRoot(player)
 		if not root then continue end
 
-		local boxCFrame, boxSize = HallwayRegion.Box(span)
 		local localPosition = boxCFrame:PointToObjectSpace(root.Position)
 		if math.abs(localPosition.X) <= boxSize.X / 2 + EPSILON
 			and math.abs(localPosition.Z) <= span.Length / 2 + EPSILON

@@ -322,10 +322,10 @@ Shared crush-volume helper plus the client-side kill decision for the `HallwayCr
 Builds a navigable node graph from the tagged maze floor parts by intersecting hallway rectangles (perpendicular crossings and end-to-end parallel joins; the join's end-gap tolerance is twice the narrower floor's half-width, so a wide connector floor cannot bridge to a hallway dead-ending outside its walls), then offers nearest-node lookup, Dijkstra pathfinding, and walking-distance queries. Nodes inside a `SpawnSafeZone` part and edges crossing one are pruned from the graph, so nothing that routes over it ever passes through the spawn safe zone. The graph is cached and invalidated automatically whenever a tagged floor or spawn zone is added or removed.
 - API: `HallwayGraph:Build() -> { RouteNode }` — forces a fresh build, bypassing the cache
 - API: `HallwayGraph:Get() -> { RouteNode }` — cached node list
-- API: `HallwayGraph:Invalidate()` — drops the cache
+- API: `HallwayGraph:Invalidate()` — drops the cache immediately; the tag add/remove signals instead coalesce into one deferred invalidate 0.5 s after the last event, so a streaming burst rebuilds once
 - API: `HallwayGraph:FindNearestNode(position: Vector3) -> RouteNode?` — linear scan
 - API: `HallwayGraph:CountExits(node: RouteNode) -> number` — neighbor count
-- API: `HallwayGraph:FindPath(from: RouteNode, to: RouteNode, edgeCost: ((RouteNode, RouteNode) -> number)?) -> { RouteNode }?` — Dijkstra with optional custom cost
+- API: `HallwayGraph:FindPath(from: RouteNode, to: RouteNode, edgeCost: ((RouteNode, RouteNode) -> number)?) -> { RouteNode }?` — Dijkstra over a binary-heap frontier (stale entries skipped) with optional custom cost
 - API: `HallwayGraph:GetWalkingDistance(firstPosition: Vector3, secondPosition: Vector3) -> number` — off-graph positions snapped to the nearest hallway span
 - API: `HallwayGraph:IsFarFromPlayers(position: Vector3, distance: number) -> boolean` — true if no alive player root is within `distance`
 - Tags: listens `MazeFloor`, `HallwayRoomFloor`, `SpawnSafeZone` (added/removed only, to invalidate the cache); `HallwayRoomFloor` nodes are marked not usable as destinations
@@ -342,15 +342,14 @@ Client half of the hallway streaming handshake: when the server announces a pend
 Geometric view of the same tagged floor parts as oriented rectangles: which hallway contains a point, the closest point on one, and the longest unobstructed straight span through a position by merging collinear hallway intervals. Cached per `includeRoomFloors` and auto-invalidated on tag changes. The rectangle is read from whichever of the part's three local axes points most nearly at world up - that axis supplies the thickness and therefore `FloorY`, the remaining two supply length and width - so a floor authored as a rotated cylinder or wedge (its thickness on local X rather than Y) measures the same as a plain slab instead of collapsing into a one-stud sliver floating half a diameter above the ground. `Hallway.Part` carries the source part so callers can inspect its class and shape.
 Note that `Across` here is `Vector3.yAxis:Cross(Axis)`, which is the opposite sign to `MapLayoutService`'s `(-Axis.Y, Axis.X)`; both are perpendicular to the axis, so anything symmetric about the centre line is unaffected, but a signed quantity crossing the boundary has to be converted.
 - API: `Hallways.All(includeRoomFloors: boolean?) -> { Hallway }` — cached hallway rectangles
-- API: `Hallways.Invalidate()` — clears both cache variants
+- API: `Hallways.Invalidate()` — clears both hallway cache variants and the straight-span cache immediately; the tag add/remove signals coalesce into one deferred invalidate 0.5 s after the last event
 - API: `Hallways.At(position: Vector3, includeRoomFloors: boolean?) -> Hallway?` — containing hallway, with a height window
 - API: `Hallways.ClosestPoint(hallway: Hallway, position: Vector3) -> Vector3` — clamped point on the floor surface
 - API: `Hallways.Nearest(position: Vector3) -> Hallway?` — nearest by closest-point distance
 - API: `Hallways.Along(hallway: Hallway, position: Vector3) -> number` — signed distance along the axis
 - API: `Hallways.PointAt(hallway: Hallway, along: number) -> Vector3` — point on the axis at floor height
 - API: `Hallways.StraightSpanAt(position: Vector3, preferredDirection: Vector3?) -> StraightSpan?` — best straight run through a point
-- API: `Hallways.StraightSpans() -> { StraightSpan }` — one span per hallway, deduplicated
-- API: `Hallway.Part: BasePart` — the tagged floor part the rectangle was measured from
+- API: `Hallways.StraightSpans() -> { StraightSpan }` — every distinct straight run in the maze, cached until `Invalidate`; each span carries `HalfWidth`, the widest floor part that produced it, so callers never re-derive corridor width
 - Tags: listens `MazeFloor`, `HallwayRoomFloor` (added/removed only, to invalidate the cache)
 
 ### HolePlacementService.luau
@@ -499,7 +498,7 @@ Makes named hanging lantern models physically swing while their light is in the 
 - Requires: `Configs.LanternSwayConfig`, `ChaosLightService`
 
 ### LobbyService.luau
-Answers whether a player is standing on the lobby floor, by requiring the humanoid to be grounded and then raycasting down from the root part against only the `LobbyFloor` tagged parts.
+Answers whether a player is standing on the lobby floor, by requiring the humanoid to be grounded and then raycasting down from the root part against only the `LobbyFloor` tagged parts; the raycast filter is rebuilt only when a `LobbyFloor` tag is added or removed, not on every call.
 - API: `LobbyService:IsPlayerOnLobbyFloor(player: Player?): boolean` — defaults to the local player
 - Tags: reads `LobbyFloor`
 - Requires: `CharacterService`
@@ -788,7 +787,7 @@ Client debug HUD in the bottom-left: FPS, ping, sampled danger-field value at yo
 
 ### TagService.luau
 The tag-to-module pipeline described in the architecture notes: one registered listener per tag receives an `apply` on every tagged instance (existing and future) and an `unapply` when the tag is removed, the instance is destroyed, or it leaves the optional ancestor. Whatever `apply` returns is stored and handed back to `unapply`, which is how tagged instances get bound to class instances.
-- API: `TagService:Listen(tag: string, apply: (Instance) -> any, unapply: (Instance, data: any) -> nil, ancestor: Instance?)` — warns and no-ops if the tag is already listened; `ancestor` also hooks `DescendantAdded`/`DescendantRemoving`
+- API: `TagService:Listen(tag: string, apply: (Instance) -> any, unapply: (Instance, data: any) -> nil, ancestor: Instance?)` — warns and no-ops if the tag is already listened; `ancestor` also catches tagged instances that are reparented into it, through one shared `DescendantAdded`/`DescendantRemoving` pair per ancestor that reads each instance's `GetTags()` once and dispatches to every listener on that ancestor (instead of one `IsDescendantOf` + `HasTag` pair per listener per instance)
 - API: `TagService:Unlisten(tag: string)` — unapplies everything and disconnects
 - API: `TagService:GetAllApplied(tag: string) -> { [Instance]: any }` — cloned snapshot of the stored data
 - API: `TagService:GetApplied(tag: string, instance: Instance) -> any`

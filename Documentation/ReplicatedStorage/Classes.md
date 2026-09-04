@@ -34,13 +34,16 @@ Runs a function but gives up after `n` seconds, using Race against a `task.wait`
 - Requires: `Classes.Race`
 
 ### DebugPanel.luau
-Builds a keyboard-toggled developer overlay ScreenGui with labels, buttons and drag sliders. Toggling unlocks the mouse through InterfaceService and hides `PlayerGui.SideGui` while any debug panel is open, restoring its prior state after the last panel closes.
-- API: `DebugPanel.new(title: string, toggleKey: Enum.KeyCode) -> DebugPanel` — creates the hidden panel in PlayerGui
+Builds a keyboard-toggled developer overlay ScreenGui with labels, buttons, drag sliders and scrolling time graphs. Toggling unlocks the mouse through InterfaceService.
+- API: `DebugPanel.new(title: string, toggleKey: Enum.KeyCode, width: number?) -> DebugPanel` — creates the hidden panel in PlayerGui; width defaults to 300
 - API: `DebugPanel:SetTitle(title: string)`
+- API: `DebugPanel:IsOpen() -> boolean`
 - API: `DebugPanel:AddLabel(text: string) -> TextLabel`
 - API: `DebugPanel:AddTextBox(text: string) -> TextBox` — creates selectable, editable multiline text
 - API: `DebugPanel:AddButton(text: string, activated: () -> ()) -> TextButton`
-- API: `DebugPanel:AddSlider(label, minimum, maximum, initial, step, apply: (number) -> ()) -> (number) -> ()` — returns a setter that redraws the slider; its value box accepts typed numbers, clamped and rounded to the slider's range and step
+- API: `DebugPanel:AddSlider(label, minimum, maximum, initial, step, apply: (number) -> ()) -> (number) -> ()` — returns a setter that redraws the slider
+- API: `DebugPanel:AddGraph(label: string, options: GraphOptions?) -> Graph` — scrolling bar graph with one column per pixel of plot width and a fixed `Minimum`-`Maximum` scale; `Graph:Push(value)` writes the newest column at the right edge and slides the rest left (a doubled ring strip, so each push costs a handful of property writes); `Graph:Clear()`. Labelled horizontal `References` lines plus the min and max are drawn on a right-hand axis; non-zero values too small to see are raised to a one-pixel tick; values over `Maximum` clip and are painted `ClipColor`. Options: `Height`, `Minimum`, `Maximum`, `References`, `Format`, `Color`, `ClipColor`, `ColorFor(value) -> Color3`. Graphs on the same panel share X positions, so pushing one value to each per frame keeps them time-aligned
+- API: `DebugPanel:AddStackedGraph(label: string, options: StackedGraphOptions) -> StackedGraph` — same scrolling plot and axis as `AddGraph`, but each column is a stack of coloured segments, one per `Series` entry (`{ Name, Color }`), with a rich-text colour key under the header; `StackedGraph:Push(counts)` takes an array of per-series counts for the newest frame, `StackedGraph:Clear()`. Segments are created lazily per column and hidden when unused, so empty frames cost nothing; a total over `Maximum` is clipped with a two-pixel `ClipColor` cap. Options: `Height`, `Maximum`, `References`, `Format`, `ClipColor`, `Series`
 - API: `DebugPanel:Destroy()`
 - Requires: `Services.InterfaceService`
 

@@ -213,6 +213,16 @@ local function distanceToRoute(position: Vector3, route: { Vector3 }): (number, 
 	return nearestDistance, nearestTravel
 end
 
+local SPAN_HOLD_ACROSS = 2
+local SPAN_HOLD_HEIGHT = 4
+
+local function spanHolds(span: Hallways.StraightSpan, point: Vector3): boolean
+	local offset = point - span.Center
+	if math.abs(offset.Y) > SPAN_HOLD_HEIGHT then return false end
+	if math.abs(offset:Dot(span.Axis)) > span.Length / 2 then return false end
+	return math.abs(offset:Dot(Vector3.yAxis:Cross(span.Axis).Unit)) <= SPAN_HOLD_ACROSS
+end
+
 local function collectWarnings(route: { Vector3 }, spawnAt: number): { PendingWarning }
 	local pending: { PendingWarning } = {}
 
@@ -236,12 +246,17 @@ local function collectWarnings(route: { Vector3 }, spawnAt: number): { PendingWa
 
 	local seenSpans: { [string]: boolean } = {}
 	local travelled = 0
+	local previousSpan: Hallways.StraightSpan? = nil
 	for index, point in route do
 		if index > 1 then
 			travelled += (point - route[index - 1]).Magnitude
 		end
 
-		local span = Hallways.StraightSpanAt(point)
+		local span = previousSpan
+		if not span or not spanHolds(span, point) then
+			span = Hallways.StraightSpanAt(point)
+		end
+		previousSpan = span
 		if not span then continue end
 
 		local key = string.format(

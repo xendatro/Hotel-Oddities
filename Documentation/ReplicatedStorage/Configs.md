@@ -183,7 +183,7 @@ Roll timings and effect weights for the player oddity system that randomly resiz
 - API: data table — `Enabled`, `RollInterval`, `InitialDelay`, `TriggerChance`, `MinDuration`, `MaxDuration`, `MinimumPlayersForHeadStare`, `EffectWeights`, `SizeOptions`, `HeadSizeMultiplier`, `OddTransparency`, `HeadTurnRate`, `HeadReturnRate`
 
 ### PropOddityConfig.luau
-Per-effect tuning for prop-based oddities — falling lanterns, falling paintings, the painting dweller, and the scurrying rat — covering arming, approach detection, candidate selection, and either repair rules (the fixture effects) or crossing-site sampling and rat motion (`RatScurry`).
+Per-effect tuning for prop-based oddities — falling lanterns, falling paintings, the painting dweller, and the scurrying rat — covering arming, approach detection, candidate selection, and either repair rules (the fixture effects) or crossing-site sampling and rat motion (`RatScurry`). `PaintingDweller` carries `StartAnimation` (one-shot burst-out), `ThrashAnimation` (loop that follows it), `AttackAnimation`, `HoleImage` and `RootDrop`, the studs the rig hangs below the canvas centre.
 - API: data table — `Enabled`, `Effects` (`LanternFall`, `PaintingFall`, `PaintingDweller`, `RatScurry`)
 
 ### ShopkeeperConfig.luau

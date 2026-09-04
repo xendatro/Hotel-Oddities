@@ -322,12 +322,29 @@ function HallwayCrush.Pick(class: any): Candidate?
 
 	local attempts = math.max(math.floor(setting(class, "PickAttempts", 64)), 1)
 	local occupiedChance = setting(class, "OccupiedChance", 0.4)
+	local occupied: { HallwayRegion.Occupant }? = nil
 	for _ = 1, attempts do
 		local span: HallwayRegion.Span? = nil
 		local target: Vector3? = nil
 		if math.random() <= occupiedChance then
-			span = HallwayRegion.RandomOccupied()
-			if span then target = HallwayRegion.Occupant(span :: HallwayRegion.Span) end
+			if not occupied then
+				occupied = {}
+				for _, occupant in HallwayRegion.Occupants() do
+					local duplicate = false
+					for _, existing in occupied do
+						if HallwayRegion.Same(existing.Span, occupant.Span) then
+							duplicate = true
+							break
+						end
+					end
+					if not duplicate then table.insert(occupied, occupant) end
+				end
+			end
+			if #occupied > 0 then
+				local occupant = occupied[math.random(1, #occupied)]
+				span = occupant.Span
+				target = occupant.Position
+			end
 		end
 
 		local candidate = candidateFromSpan(class, span or spans[math.random(1, #spans)], target)

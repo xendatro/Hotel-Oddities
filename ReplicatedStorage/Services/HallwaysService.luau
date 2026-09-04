@@ -25,6 +25,7 @@ export type StraightSpan = {
 	Center: Vector3,
 	Axis: Vector3,
 	Length: number,
+	HalfWidth: number?,
 }
 
 type Interval = {
@@ -88,9 +89,11 @@ function Hallways.FromPart(part: BasePart, isRoomFloor: boolean?): Hallway
 end
 
 local Cached: { [boolean]: { Hallway } } = {}
+local CachedSpans: { StraightSpan }? = nil
 
 function Hallways.Invalidate()
 	table.clear(Cached)
+	CachedSpans = nil
 end
 
 function Hallways.All(includeRoomFloors: boolean?): { Hallway }
@@ -110,9 +113,21 @@ function Hallways.All(includeRoomFloors: boolean?): { Hallway }
 	return hallways
 end
 
+local REBUILD_SETTLE = 0.5
+local invalidatePending = false
+
+local function scheduleInvalidate()
+	if invalidatePending then return end
+	invalidatePending = true
+	task.delay(REBUILD_SETTLE, function()
+		invalidatePending = false
+		Hallways.Invalidate()
+	end)
+end
+
 for _, tag in { HALLWAY_TAG, HALLWAY_ROOM_TAG } do
-	CollectionService:GetInstanceAddedSignal(tag):Connect(Hallways.Invalidate)
-	CollectionService:GetInstanceRemovedSignal(tag):Connect(Hallways.Invalidate)
+	CollectionService:GetInstanceAddedSignal(tag):Connect(scheduleInvalidate)
+	CollectionService:GetInstanceRemovedSignal(tag):Connect(scheduleInvalidate)
 end
 
 local function contains(hallway: Hallway, position: Vector3): boolean
@@ -295,21 +310,29 @@ local function sameSpan(first: StraightSpan, second: StraightSpan): boolean
 end
 
 function Hallways.StraightSpans(): { StraightSpan }
+	if CachedSpans then return CachedSpans end
+
 	local allHallways = Hallways.All(true)
 	local spans = {}
 	for _, source in Hallways.All() do
 		local span = straightSpan(source, source.Center, source.Axis, allHallways)
 		if not span then continue end
 
-		local duplicate = false
+		local match: StraightSpan? = nil
 		for _, existing in spans do
 			if sameSpan(span, existing) then
-				duplicate = true
+				match = existing
 				break
 			end
 		end
-		if not duplicate then table.insert(spans, span) end
+		if match then
+			match.HalfWidth = math.max(match.HalfWidth or 0, source.HalfWidth)
+		else
+			span.HalfWidth = source.HalfWidth
+			table.insert(spans, span)
+		end
 	end
+	CachedSpans = spans
 	return spans
 end
 
