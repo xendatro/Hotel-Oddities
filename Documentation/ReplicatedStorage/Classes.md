@@ -74,12 +74,12 @@ Spring-driven sliding drawer model. Infers its outward axis from a part whose na
 - Requires: `Classes.Spring`, `Configs.DrawerConfig`, `Configs.DrawerItemConfig`
 
 ### Hole.luau
-Client crawl-hole: attaches a `CrawlPrompt`, and on trigger walks the character to the hole, plays the crawl animation, teleports it to the twin hole sharing the same `ID` attribute, and emits the twin's VFX. Puts every active hole on a shared 5 second cooldown and disables player controls for the duration.
+Client crawl-hole: attaches a `CrawlPrompt`, and on trigger asks the server for a validated six-second immunity window, walks the character to the hole, plays the crawl animation, teleports it to the twin hole sharing the same `ID` attribute, and emits the twin's VFX. Puts every active hole on a shared 5 second cooldown and disables player controls for the duration.
 - API: `Hole.new(hole: Model) -> Hole` — clones the prompt onto the hole's PrimaryPart
 - API: `Hole:Crawl()` — yields through the whole crawl sequence
 - API: `Hole:Destroy()`
 - Tags: reads `Hole`
-- Requires: `Services.TagService` (`GetTaggedOfPredicate`), `Services.AudioService`, `PlayerModule` controls, `ReplicatedStorage.Props.Prompts.CrawlPrompt`
+- Requires: `Services.TagService` (`GetTaggedOfPredicate`), `Services.AudioService`, `Services.CommunicationService`, `PlayerModule` controls, `ReplicatedStorage.Props.Prompts.CrawlPrompt`
 
 ### Interaction.luau
 Client look-at interaction system: raycasts from the camera each render step over registered models, highlights the hit target, and draws/animates a key-prompt pill cloned from the `Cursor` gui. Handles keyboard, gamepad and touch input through ContextActionService, and supports targets that ignore occlusion. A fresh `Highlight` is created under `workspace` for each newly selected model and destroyed once its fade reaches zero — no single long-lived Highlight instance is reused across selections.
@@ -92,7 +92,7 @@ Client look-at interaction system: raycasts from the camera each render step ove
 - Requires: `Configs.DrawerConfig` (Targeting/Input/Highlight/UI sections), `PlayerGui.Cursor` UI template
 
 ### InventorySlot.luau
-One inventory hotbar slot: an ImageButton with a ViewportFrame preview of the tool model, a quantity label and an optional slot number. The preview clones the tool from `ReplicatedStorage.Tools`, strips scripts/effects and frames a camera using ItemShopConfig per-item yaw/pitch/zoom.
+One inventory hotbar slot: an ImageButton with a ViewportFrame preview of the tool model, a quantity label and an optional slot number. The preview goes through `ItemPreviewService`, so a hotbar slot frames an item exactly as the shop card and the kit tile do.
 - API: `InventorySlot.new(index: number, showNumber: boolean) -> InventorySlot` — builds the (unparented) frame
 - API: `InventorySlot:SetTool(toolName: string, quantity: number, icon: string?)` — re-renders the preview only when the tool changed; `icon` is unused
 - API: `InventorySlot:SetEmpty()`
@@ -100,16 +100,16 @@ One inventory hotbar slot: an ImageButton with a ViewportFrame preview of the to
 - API: `InventorySlot:SetEquipped(equipped: boolean)`
 - API: `InventorySlot:SetDropTarget(active: boolean)`
 - API: `InventorySlot:Destroy()`
-- Requires: `Configs.InventoryConfig`, `Configs.ItemShopConfig`
+- Requires: `Configs.InventoryConfig`, `ItemPreviewService`
 
 ### GalleryCard.luau
-One tile in the Gallery grid. Builds its own contents rather than relying on the template's, so a bare `ImageButton` template is enough: a cropped thumbnail for stills, a `TAPE`/`STILL` badge, the capture date, and a green edge while the capture is still awaiting a keep-or-burn decision. Video captures show the badge and date only — a `VideoFrame` per tile would be far too expensive for a grid.
-- API: `GalleryCard.new(template: ImageButton, parent: Instance, media: any, order: number, onSelect: (any) -> ()) -> GalleryCard`
+One tile in the Gallery grid. Clones the complete Studio-authored `GalleryGui.Design.MediaCanvas.Media.Template` frame, then fills its `Card` with a cropped photo or first-frame tape thumbnail, a `TAPE`/`STILL` badge, the capture date, and a green edge while the capture awaits a keep-or-burn choice. Tape tiles use `ImageLabel.ImageContent` rather than one live `VideoFrame` per card.
+- API: `GalleryCard.new(template: Frame, parent: Instance, media: any, order: number, onSelect: (any) -> ()) -> GalleryCard`
 - API: `GalleryCard:Pose(override: TweenInfo?)` — settle to the hover/press/selected pose
 - API: `GalleryCard:SetSelected(selected: boolean)`
 - API: `GalleryCard:Deal(delay: number)` — staggered entrance
 - API: `GalleryCard:Destroy()`
-- Requires: `Configs.CaptureConfig`, `CaptureGalleryService`, `GuiBuilderService`
+- Requires: `Configs.CaptureConfig`, `CaptureGalleryService`; expects the authored gallery card template
 
 ### KitCard.luau
 One kit tile in the inventory or shop grid: clones the GUI's `Template` ImageButton into a layout holder, dresses it with its rarity stroke, rarity ribbon, kit name, status line and dim overlay through `KitVisualService`, renders the kit's showcase item into the tile's ViewportFrame, and owns the hover/press/select/deal motion. Used by both kit pages so the two grids cannot drift apart.
@@ -270,8 +270,8 @@ RigMotion subclass that turns an NPC's neck and waist to look at the local playe
 - Requires: `Classes.RigMotion`, `Configs.WatchConfig`, `Services.MathService`
 
 ### Wallstick\ (init.luau, CharacterHelper.luau, GravityCamera.luau, GravityCameraModifier.luau, Replication.luau, RotationSpring.luau, CharacterAnimate\, CharacterSounds\, Signal.luau, Trove.luau, RaycastHelper.luau)
-Vendored EgoMoose Rbx-Wallstick (June 2026 upstream): sticks the local player's character to any surface -- walls, ceilings, moving parts -- by simulating a hidden "fake" character in a de-rotated geometry world under `workspace.Wallstick` and CFraming the real character to match every physics step. Uses modern `AlignPosition`/`AlignOrientation` constraints; the upstream's one deprecated call (`FindPartsInRegion3WithIgnoreList`) was replaced with `GetPartBoundsInBox`, `Replication.luau` was adapted to `CommunicationService` remotes instead of TypedRemote, and `Trove`/`RaycastHelper`/`Signal` (stravant goodsignal) are vendored as children. Nothing in StarterPlayer is replaced or installed — everything applies at runtime, client-side, only when wallstick is first enabled: `GravityCamera` monkey-patches the live stock `PlayerModule` with `GravityCameraModifier` (adds gravity up-vector, spin-part, rotation-type and screen-relative look-input control to the camera; falls back to a tilt-less camera if patching fails; the patch forces `UserGameSettings.RotationType` to `MovementRelative` only while a Wallstick instance exists — the constructor calls `GravityCamera.setRotationTypeForced(true)` and teardown restores the real rotation type, so first-person/shift-lock character facing on the ground is untouched when not wallsticking), and `CharacterHelper.setMyPerformer` temporarily disables the character's stock `Animate` and the player's stock `RbxCharacterSounds` LocalScripts, driving the real character's animations and sounds from the fake humanoid via the vendored `CharacterAnimate`/`CharacterSounds` packages, then restores the stock scripts when wallstick is disabled. The fake humanoid mirrors the real humanoid's `WalkSpeed` so movement modifiers such as sprint continue to apply while stuck. Destroying the controller removes its real-character alignment constraints and restores the original `PlatformStand` and `EvaluateStateMachine` values before returning the humanoid to `GettingUp`. Client-only; other players' stuck characters render through the replication channel: senders stream `part + offset` frames every 0.2s, receiving clients anchor and CFrame the sender's root to follow them, and destroying the controller sends `Replication.sendClear()` so the server drops the sender's frame and every receiving client unanchors the root and hands it back to normal replication (without this, other clients would keep the character pinned at its last stuck position — even across respawns). Drive it through `Services.WallstickService` rather than constructing directly.
-- API: `Wallstick.new(options: { parent: Instance, origin: CFrame, retainWorldVelocity: boolean, camera: { tilt: boolean, spin: boolean } }) -> Wallstick`
+Vendored EgoMoose Rbx-Wallstick (June 2026 upstream): sticks the local player's character to any surface -- walls, ceilings, moving parts -- by simulating a hidden "fake" character in a de-rotated geometry world under `workspace.Wallstick` and CFraming the real character to match every physics step. Uses modern `AlignPosition`/`AlignOrientation` constraints; the upstream's one deprecated call (`FindPartsInRegion3WithIgnoreList`) was replaced with `GetPartBoundsInBox`, `Replication.luau` was adapted to `CommunicationService` remotes instead of TypedRemote, and `Trove`/`RaycastHelper`/`Signal` (stravant goodsignal) are vendored as children. Nothing in StarterPlayer is replaced or installed — everything applies at runtime, client-side, only when wallstick is first enabled: `GravityCamera` monkey-patches the live stock `PlayerModule` with `GravityCameraModifier` (adds gravity up-vector, spin-part, rotation-type and screen-relative look-input control to the camera; guards its camera-plane projection at steep view angles; falls back to a tilt-less camera if patching fails; the patch forces `UserGameSettings.RotationType` to `MovementRelative` only while a Wallstick instance exists — the constructor calls `GravityCamera.setRotationTypeForced(true)` and teardown restores the real rotation type, so first-person/shift-lock character facing on the ground is untouched when not wallsticking), and `CharacterHelper.setMyPerformer` temporarily disables the character's stock `Animate` and the player's stock `RbxCharacterSounds` LocalScripts, driving the real character's animations and sounds from the fake humanoid via the vendored `CharacterAnimate`/`CharacterSounds` packages, then restores the stock scripts when wallstick is disabled. The fake humanoid mirrors the real humanoid's `WalkSpeed` so movement modifiers such as sprint continue to apply while stuck. Its optional `directMovement` mode turns off the hidden Humanoid's competing state solver, pins the rig to its current surface plane before and after physics, and drives planar velocity from held input each step, preventing the Gravity Warper from falling off, bobbing with gravity or catching on cloned ceiling seams while collision still blocks walls. Destroying the controller removes its real-character alignment constraints and restores the original `PlatformStand` and `EvaluateStateMachine` values before returning the humanoid to `GettingUp`. Client-only; other players' stuck characters render through the replication channel: senders stream `part + offset` frames every 0.2s, receiving clients anchor and CFrame the sender's root to follow them, and destroying the controller sends `Replication.sendClear()` so the server drops the sender's frame and every receiving client unanchors the root and hands it back to normal replication (without this, other clients would keep the character pinned at its last stuck position — even across respawns). Drive it through `Services.WallstickService` rather than constructing directly.
+- API: `Wallstick.new(options: { parent: Instance, origin: CFrame, retainWorldVelocity: boolean, directMovement: boolean?, camera: { tilt: boolean, spin: boolean } }) -> Wallstick`
 - API: `Wallstick:set(part: BasePart, normal: Vector3, teleportCF: CFrame?)` / `:setAndPivot(part, normal, position)` / `:setAndTeleport(part, normal, position)` -- stick to a surface
 - API: `Wallstick:getPart() -> BasePart`, `:getNormal(worldSpace: boolean) -> Vector3`, `:getFallDistance() -> number`, `:getMoveDirection() -> Vector3`, `:Destroy()`
 - Remotes: `Wallstick/Replicator`, `Wallstick/Sync` (via `Replication.luau`)
@@ -377,10 +377,10 @@ Client half of the throwable ball: raycasts through the mouse at Eye-tagged part
 - Requires: `Classes\ClientTool`, `TagService`, `ReplicatedStorage.Props.Other` (Ball prop)
 
 ### Tools\Camcorder.luau
-Client half of the unlimited-use camcorder. Activation asks the server to check the gamepass; on `Allowed` it unequips itself so the camera body stays out of frame, waits a beat, then starts a video capture. Roblox hides all UI and mutes voice for the duration of the recording and stops it at 30 seconds regardless. Recording ends on the configured duration, on a second activation, or by re-equipping the tool; the finished capture is handed to `PhotoDevelopService` for the keep-or-burn prompt.
+Client half of the unlimited-use camcorder. Activation asks the server to check the gamepass; on `Allowed` it unequips itself so the camera body stays out of frame, waits a beat, then starts a video capture. The tool stays in its inventory slot but is disabled until the take ends, and any outside attempt to equip it is stowed again. The Studio-authored `StarterGui.CamcorderRecording` panel blinks its red light and offers a touch STOP button, with X or gamepad B as the stop key. Recording also ends at the configured duration or Roblox's 30-second cap. The finished tape is handed to `PhotoDevelopService` for playback and the keep-or-burn prompt.
 - API: none beyond the `ClientTool` hooks.
 - Remotes: `Tools/Signal` — fires `Record`, listens `Allowed` and `Denied`
-- Requires: `Classes.ClientTool`, `Configs.CaptureConfig`, `CaptureGalleryService`, `NotificationService`, `PhotoDevelopService`
+- Requires: `Classes.ClientTool`, `Configs.CaptureConfig`, `CaptureGalleryService`, `NotificationService`, `PhotoDevelopService`; expects `StarterGui.CamcorderRecording`
 
 ### Tools\Camera.luau
 Client half of the tripod Camera: while equipped it keeps a local ForceField-material ghost of the tripod standing wherever the shot would land, updated every render step and hidden when there is no valid spot. On activation it raycasts from the camera through the crosshair for a floor within `Place.Range`, rejects steep surfaces and spots too close to the player, and asks the server to stand the tripod there facing the way the player is looking. The photo itself is taken later by PhotoCaptureService.
@@ -407,15 +407,15 @@ Thin wrapper that turns `PlayerLocatorService` on while the tool is equipped and
 - Requires: `Classes\ClientTool`, `PlayerLocatorService`
 
 ### Tools\Shovel.luau
-Digs an escape hole: raycasts down onto MazeFloor-tagged parts, freezes the player's walk speed, plays the Dig animation while a dummy hole prop tween-grows in place, then consumes a shovel charge and asks the server to create the real hole. Cleanup always removes the dummy, stops the animation and restores walk speed.
+Digs an escape hole: raycasts down onto tagged floor parts, rejects positions where the whole hole footprint would leave the floor, freezes the player's walk speed, plays the Dig animation while a dummy hole prop tween-grows in place, then consumes a shovel charge after the server creates the real hole. Cleanup always removes the dummy, stops the animation and restores walk speed.
 - API: `Shovel.new(tool: Tool) -> self`
 - API: `Shovel:OnEquipped()` — plays the looping Equip animation
 - API: `Shovel:OnUnequipped()` — stops it
 - API: `Shovel:OnActivated()` — the dig sequence
 - API: `Shovel:OnCleanup()` / `Shovel:OnDestroy()` — destroy dummy, stop dig track, restore walk speed
 - Remotes: `Hole/Create` (invoked); `Backpack/Delete` (fired, via `ClientTool:Consume`)
-- Tags: reads `MazeFloor` via `TagService:GetTaggedOfAncestor`
-- Requires: `Classes\ClientTool`, `TagService`, `TweenProxyService`, `ReplicatedStorage.Props.Other` (DummyHole prop)
+- Tags: reads `MazeFloor`, `HallwayRoomFloor` through `HolePlacementService`
+- Requires: `Classes\ClientTool`, `HolePlacementService`, `TweenProxyService`, `ReplicatedStorage.Props.Other` (DummyHole prop)
 
 ### Tools\SpellBook.luau
 Minimal tool that just blocks activation until the tool's "Book" animation has started and then finished, so the cast cannot be spammed; the actual spell effect lives elsewhere.
