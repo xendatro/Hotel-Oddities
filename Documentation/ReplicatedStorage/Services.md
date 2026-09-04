@@ -605,11 +605,6 @@ Twenty-line client shim: on the painting dweller pop remote, fires a one-shot `S
 - Remotes: `Oddities/PaintingDwellerPop` (listened)
 - Requires: `ShakeService`
 
-### PerfGraphService.luau
-Client-only developer panel behind `FLAGS.PerfGraph`, toggled with F7. Two time-aligned oscilloscope graphs sharing one X axis (one column per frame, sweeping left to right and wrapping): the top plots FPS from every RenderStepped delta, coloured by the config thresholds; the bottom plots the number of Workspace descendants added plus removed during that same frame, so streaming bursts can be lined up against frame drops. Pause freezes both sweeps together; Clear resets them.
-- API: none — the panel is built at require time.
-- Requires: `Classes.DebugPanel`, `Configs.PerfGraphConfig`, `Configs.FLAGS`
-
 ### PerfLogService.luau
 Client performance watchdog behind `FLAGS.PerfLog`: prints server-sent perf messages, alerts on frame spikes and sustained FPS drops, and every second reports bursts of workspace instance churn bucketed by top-level owner (Map, Characters, Vents, …). Also logs each respawn.
 - API: none — side-effect only.
@@ -811,9 +806,9 @@ Client voice-activity detector: wires an `AudioAnalyzer` onto the local player's
 - Requires: `Configs.VoiceChatConfig` (`Activity.PollInterval`, `.Threshold`, `.Heartbeat`, `.Release`)
 
 ### VoiceDebugService.luau
-Client-only debug panel behind `FLAGS.VoiceDebug` with sliders for proximity-voice and radio volumes. To make proximity voice adjustable it rewires every remote player's direct voice wire through an inserted `AudioFader`; radio sliders write straight into the named faders it finds in Players and Workspace, matching the local listener's own per-sender `RadioVoice_<id>` and `RadioMonster_<id>` faders. All changes are local and session-only.
+Client-only debug panel behind `FLAGS.VoiceDebug` with sliders for proximity-voice and radio volumes. To make proximity voice adjustable it rewires every remote player's direct voice wire through an inserted `AudioFader`; radio sliders write straight into the named faders it finds in Players and Workspace, matching the local listener's own per-sender `RadioVoice_<id>` and `RadioMonster_<id>` faders. All changes are local and session-only. Below the sliders sit two time-aligned oscilloscope graphs sharing one X axis (one column per frame, sweeping left to right and wrapping): the top plots FPS from every RenderStepped delta, coloured by the `PerfGraphConfig` thresholds; the bottom plots the number of Workspace descendants added plus removed during that same frame, so streaming bursts can be lined up against frame drops. "pause graphs" freezes both sweeps together and "clear graphs" resets them; the panel is widened to `PerfGraphConfig.PanelWidth` to give the graphs one column per pixel.
 - API: none — side-effect only.
-- Requires: `Classes.DebugPanel`, `Configs.VoiceDebugConfig`, `Configs.FLAGS`
+- Requires: `Classes.DebugPanel`, `Configs.VoiceDebugConfig`, `Configs.PerfGraphConfig`, `Configs.FLAGS`
 
 ### WalkSoundService.luau
 Client footstep engine for players and tagged enemies. Silences the default Roblox running sound and instead times steps from the character's looping Core-priority locomotion track (falling back to a speed-scaled interval), playing a random emitter from `Sounds.Footsteps`. Enemies get custom distance attenuation out to 45 studs and per-enemy volume; crouching players get quieter, slower, shorter-range steps.

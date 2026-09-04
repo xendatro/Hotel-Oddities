@@ -1,7 +1,6 @@
 return {
-	ToggleKey = Enum.KeyCode.F7,
 	PanelWidth = 620,
-	GraphHeight = 90,
+	GraphHeight = 56,
 	FpsWarn = 45,
 	FpsBad = 25,
 	FpsColorGood = Color3.fromRGB(120, 200, 120),
