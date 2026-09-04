@@ -157,8 +157,8 @@ Tag name, attribute name and reconciliation tolerances for the "freeze while obs
 - API: data table — `Tag`, `FrozenAttribute`, `MaxOffset`, `ConfirmationTimeout`, `ReleaseSpeed`, `MinReportGap`
 
 ### PerfGraphConfig.luau
-Settings for the F7 performance graph panel: toggle key, panel width (one graph column per pixel of plot width), graph height, the fixed maximum and reference-line values for the FPS and instance-churn graphs, FPS warning/bad thresholds and bar colours.
-- API: data table — `ToggleKey`, `PanelWidth`, `GraphHeight`, `FpsMaximum`, `FpsReferences`, `FpsWarn`, `FpsBad`, `ChurnMaximum`, `ChurnReferences`, `ClipColor`, `FpsColorGood`, `FpsColorWarn`, `FpsColorBad`, `ChurnColor`
+Settings for the F8 performance graph panel: toggle key, panel width (one graph column per pixel of plot width), graph height, the fixed maximum and reference-line values for the FPS and instance-churn graphs, FPS warning/bad thresholds, bar colours, and the ordered `ChurnCategories` list (`Name`, `Color`, `Classes` matched with `IsA`; the last entry with empty `Classes` is the catch-all).
+- API: data table — `ToggleKey`, `PanelWidth`, `GraphHeight`, `FpsMaximum`, `FpsReferences`, `FpsWarn`, `FpsBad`, `ChurnMaximum`, `ChurnReferences`, `ClipColor`, `FpsColorGood`, `FpsColorWarn`, `FpsColorBad`, `ChurnColor`, `ChurnCategories`
 
 ### PerkConfig.luau
 Per-perk settings for the gamepass/perk system, keyed by perk name under a shared attribute prefix.

@@ -11,9 +11,27 @@ if not (FLAGS.PerfGraph and RunService:IsClient()) then
 	return PerfGraphService
 end
 
-local addedThisFrame = 0
-local removedThisFrame = 0
+local categories = PerfGraphConfig.ChurnCategories
+local categoryCount = #categories
+local otherIndex = categoryCount
+local counts: { number } = table.create(categoryCount, 0)
 local paused = false
+
+local function categoryOf(instance: Instance): number
+	for index, category in categories do
+		for _, className in category.Classes do
+			if instance:IsA(className) then
+				return index
+			end
+		end
+	end
+	return otherIndex
+end
+
+local function record(instance: Instance)
+	local index = categoryOf(instance)
+	counts[index] += 1
+end
 
 local panel = DebugPanel.new("perf graphs", PerfGraphConfig.ToggleKey, PerfGraphConfig.PanelWidth)
 
@@ -33,13 +51,18 @@ local fpsGraph = panel:AddGraph("FPS", {
 	end,
 })
 
-local churnGraph = panel:AddGraph("instances streamed in + out per frame", {
+local series = table.create(categoryCount)
+for index, category in categories do
+	series[index] = { Name = category.Name, Color = category.Color }
+end
+
+local churnGraph = panel:AddStackedGraph("instances streamed in + out per frame", {
 	Height = PerfGraphConfig.GraphHeight,
 	Maximum = PerfGraphConfig.ChurnMaximum,
 	References = PerfGraphConfig.ChurnReferences,
 	Format = "%d",
-	Color = PerfGraphConfig.ChurnColor,
 	ClipColor = PerfGraphConfig.ClipColor,
+	Series = series,
 })
 
 local pauseButton: TextButton
@@ -53,22 +76,19 @@ panel:AddButton("clear", function()
 	churnGraph:Clear()
 end)
 
-panel:AddLabel("newest frame is at the right edge. bars above the top of a graph clip and turn pink.")
+panel:AddLabel("newest frame is at the right edge. bars above the top of a graph clip and are capped in white.")
 
-workspace.DescendantAdded:Connect(function()
-	addedThisFrame += 1
-end)
-
-workspace.DescendantRemoving:Connect(function()
-	removedThisFrame += 1
-end)
+workspace.DescendantAdded:Connect(record)
+workspace.DescendantRemoving:Connect(record)
 
 RunService.RenderStepped:Connect(function(deltaTime: number)
-	local added, removed = addedThisFrame, removedThisFrame
-	addedThisFrame, removedThisFrame = 0, 0
-	if paused then return end
-	fpsGraph:Push(1 / math.max(deltaTime, 1e-6))
-	churnGraph:Push(added + removed)
+	if not paused then
+		fpsGraph:Push(1 / math.max(deltaTime, 1e-6))
+		churnGraph:Push(counts)
+	end
+	for index = 1, categoryCount do
+		counts[index] = 0
+	end
 end)
 
 return PerfGraphService

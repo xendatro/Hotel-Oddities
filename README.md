@@ -158,7 +158,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\NotificationService.luau — Client top-center notification banner for short server feedback messages.
 - ReplicatedStorage\Services\ObservedFreezeService.luau — Client weeping-angel renderer that visually pins tagged enemies while they are in view and reconciles them when you look away.
 - ReplicatedStorage\Services\PaintingDwellerShakeService.luau — Fires a one-shot Slam camera shake when the painting dweller pops.
-- ReplicatedStorage\Services\PerfGraphService.luau — F7 developer panel with time-aligned scrolling per-frame graphs of FPS and Workspace instances streamed in plus out on fixed labelled scales.
+- ReplicatedStorage\Services\PerfGraphService.luau — F8 developer panel with time-aligned scrolling per-frame graphs of FPS and Workspace instances streamed in plus out, the latter stacked by instance category with a colour key, on fixed labelled scales.
 - ReplicatedStorage\Services\PerfLogService.luau — Client performance watchdog for frame spikes, FPS drops and bursts of workspace instance churn.
 - ReplicatedStorage\Services\PerfLoggerService.luau — Flag-gated startup timing log broadcast from server to all clients.
 - ReplicatedStorage\Services\PhotoCaptureService.luau — Client shutter for the tripod camera: flash, GUI hide, local ShadowFigure clone, lens-locked screenshot through CaptureGalleryService and restore.
@@ -199,7 +199,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\Breathe.luau — Procedural idle breathing motion for nearby rigs.
 - ReplicatedStorage\Classes\ClientTool.luau — Client tool base class adding limb reveal, tool animations and stock consumption.
 - ReplicatedStorage\Classes\Deadline.luau — Runs a function with a timeout and reports which won.
-- ReplicatedStorage\Classes\DebugPanel.luau — Keyboard-toggled developer overlay with labels, buttons, sliders and time-aligned scrolling graphs.
+- ReplicatedStorage\Classes\DebugPanel.luau — Keyboard-toggled developer overlay with labels, buttons, sliders and time-aligned scrolling graphs, plain or stacked by series.
 - ReplicatedStorage\Classes\DoorPart.luau — Spring and audio-driven swinging door leaf with oddity and forced-shut modes.
 - ReplicatedStorage\Classes\Drawer.luau — Spring-driven sliding drawer that infers its outward axis from the handle.
 - ReplicatedStorage\Classes\GalleryCard.luau — One gallery tile: thumbnail, still/tape badge, capture date and unsaved edge.
@@ -288,7 +288,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\MimicConfig.luau — Behaviour tuning for the Mimic enemy's reactions, reveal and movement.
 - ReplicatedStorage\Configs\NotificationConfig.luau — Visual settings for the client notification banner.
 - ReplicatedStorage\Configs\ObservedFreezeConfig.luau — Tag, attribute and tolerances for freeze-when-observed enemies.
-- ReplicatedStorage\Configs\PerfGraphConfig.luau — F7 performance graph panel keybind, size, fixed graph maxima, reference lines, FPS thresholds and colours.
+- ReplicatedStorage\Configs\PerfGraphConfig.luau — F8 performance graph panel keybind, size, fixed graph maxima, reference lines, FPS thresholds, colours and the instance-churn category list.
 - ReplicatedStorage\Configs\PerkConfig.luau — Per-perk settings for the gamepass/perk system.
 - ReplicatedStorage\Configs\PhotoConfig.luau — Placement, countdown, lens, ShadowFigure, capture, despawn and film-developing settings for the tripod camera.
 - ReplicatedStorage\Configs\PlayerLocatorConfig.luau — Marker layout, focus animation and palette for the Player Locator tool.
