@@ -6,6 +6,7 @@ local Oddity = require(ServerStorage.Classes.Oddity)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 
 local MapDoors = CommunicationService.Ensure("Oddities", "MapDoors")
+CommunicationService.Ensure("Oddities", "RequestMapDoors")
 
 local HallwayOddity = Oddity.extend("HallwayOddity")
 
@@ -20,12 +21,13 @@ function HallwayOddity.new(config: { [string]: any }?, class: any?)
 	self.Span = nil :: HallwayRegion.Span?
 	self.BoxCFrame = CFrame.identity
 	self.BoxSize = Vector3.zero
+	self.MapDoorsStart = nil :: { n: number, [number]: any }?
 
 	return self
 end
 
-function HallwayOddity.Resolve(class: any, position: Vector3): HallwayRegion.Span?
-	return HallwayRegion.At(position, class.IncludeRoomFloors)
+function HallwayOddity.Resolve(class: any, position: Vector3, direction: Vector3?): HallwayRegion.Span?
+	return HallwayRegion.At(position, class.IncludeRoomFloors, direction)
 end
 
 function HallwayOddity.Pick(class: any): HallwayRegion.Span?
@@ -54,7 +56,18 @@ function HallwayOddity:Start(span: HallwayRegion.Span, duration: number?): boole
 end
 
 function HallwayOddity:FireMapDoors(action: string, ...: any)
+	if action == "Start" then
+		self.MapDoorsStart = table.pack(...)
+	else
+		self.MapDoorsStart = nil
+	end
 	MapDoors:FireAllClients(action, self.Token, ...)
+end
+
+function HallwayOddity:ResyncTo(player: Player)
+	local payload = self.MapDoorsStart
+	if not payload then return end
+	MapDoors:FireClient(player, "Start", self.Token, table.unpack(payload, 1, payload.n))
 end
 
 return HallwayOddity

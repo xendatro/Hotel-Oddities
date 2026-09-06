@@ -74,16 +74,28 @@ Client-only, gated on `FLAGS.Enemies`. Listens for the server's ceiling-vent doo
 - Requires: `Configs.FLAGS`, `TweenProxyService`
 
 ### ChaosLightService.luau
-Client-only. Watches `Floor1Light` models for the server-set `ChaosRed` attribute; while it is true every `Light` under the model is recoloured to the config red, and the captured baseline colours are restored the moment the server clears it. Purely event-driven — no per-frame loop — and streaming-safe because the tag listener rebinds models as they stream in with the attribute already replicated.
+Client-only. Watches `Floor1Light` models for the server-set `ChaosRed` attribute; while it is true every `Light` under the model is recoloured to the config red, and the captured baseline colours are restored when the attribute clears. Streaming-safe because the tag listener rebinds models as they stream in with the attribute already replicated; baselines are pruned of destroyed lights as they are written and dropped entirely on unbind.
+
+Red is also cleared locally the instant Chaos actually reaches the lamp, rather than waiting out the server's duration: a throttled loop (only while some lamp is red) reads every model tagged `Chaos`, marks a lamp *engaged* once Chaos comes within `PassEngageRange` of it, and clears it as soon as the lamp falls behind Chaos's look vector. Engaging first is what stops a lamp round the next corner clearing early. The server's timer remains the backstop, and a fresh `ChaosRed` resets both flags.
 - API: `ChaosLightService:IsRed(model: Model) -> boolean` — whether that light model is currently forced red
-- Tags: listens `Floor1Light`
+- API: `ChaosLightService:OnRedChanged(listener: (Model, boolean) -> ()) -> () -> ()` — fires on every red flip, including the local clear when Chaos passes; returns a disconnect. Use this rather than the raw `ChaosRed` attribute, which says nothing about the pass state and races this service's own handler.
+- Tags: listens `Floor1Light`, reads `ChaosLightConfig.ChaosTag` (`Chaos`)
 - Requires: `Configs.ChaosLightConfig`, `TagService`
 
 ### ChaosWarningSoundService.luau
-Client-only. Tracks the "ChaosWarning" regions the server announces over `MapDoors`, and if the player is in a hallway (or a room whose doorway touches that region) plays looping `ChaosHallwayAmbience` emitters from an invisible anchor at the nearest point in the hallway, plus a one-shot `ChaosIncoming` sting when first coming within 24 studs.
+Client-only. Tracks the `ChaosWarning` regions the server announces over `MapDoors` and plays looping `ChaosHallwayAmbience` emitters from an invisible anchor, plus a one-shot `ChaosIncoming` sting.
+
+A region is only audible when the player is **inside** it, standing in another hallway whose closest approach to the region's box is within `AdjacentHallwayRange`, or in a room whose doorway threshold sits within `RoomDoorRange` of the box. In the last two cases the anchor is still placed on the warned hallway's own centre line — at the listener's height, or at the doorway's projection for the room case — so direction and distance read as coming out of that hallway rather than from the region's midpoint.
+
+Timing is per-listener, not per-region: the payload carries server-time arrivals for the span's two ends, and the service lerps them to the listener's position along the span, staying silent unless Chaos reaches *them* within that region's `WarningTime` and cutting out the moment it passes. That is what keeps the sound in step with the lights going red instead of firing when a far end of a long hallway was warned. When several regions qualify the one Chaos reaches soonest wins. The `ChaosIncoming` sting fires once per region, on the first tick that region becomes audible to this listener — the same moment their own lights turn red — and plays **2D**, so it cannot be lost to positioning or to the anchor being torn down under it.
+
+Playback is driven explicitly rather than left to Roblox's rolloff, because an emitter parented to a point recomputed from the listener every tick sat almost on top of them, and at near-zero distance the pan swung wildly with camera rotation. Each ambience emitter's distance attenuation is flattened to a constant that this service writes itself (`SetDistanceAttenuation`), so gain comes from its own curve over the true listener-to-hallway distance and is completely decoupled from where the anchor sits. That frees the anchor to be placed purely for *direction*: on the warned hallway's centre line, slid up-corridor toward the end Chaos is approaching from by whatever it takes to sit exactly `MinSourceDistance` away (it may extend past the span end, which is fine). The result is a source that always reads as "up that corridor, where it is coming from" at a stable distance. The room case keeps the anchor at the doorway instead, since that point is fixed in the world and does not chase the listener. The anchor lerps between targets and snaps only on jumps over `AnchorSnapDistance`; gains ramp with separate fade-in/out speeds and the emitter write is throttled independently of the ramp, so the ramp always lands exactly on its target and silence actually reaches zero and tears down. Over the last `PassFadeLead` seconds before Chaos reaches the listener the target gain is ducked toward zero and the ramp switches to `PassFadeSpeed`, so the ambience is silent at the instant Chaos goes past rather than trailing behind it on the ordinary fade-out.
+
+Room lookup is a tag-built index (`Room_<id>` bounding boxes paired with their `Doorway_<id>` threshold, rebuilt when either tag set changes) with the player's current room cached across ticks, so the per-tick cost is one hallway/room resolve rather than the old room scan per active region. The whole update short-circuits when no warning is live.
 - API: no public methods — runs entirely from its own connections.
-- Remotes: `Oddities/MapDoors` (listened; only `marker == "ChaosWarning"` payloads)
-- Requires: `Services.HallwaysService`, `AudioService`, `CharacterService`; hard-coded lookup of `workspace.Maze15.Rooms` / `.Doors`
+- Remotes: `Oddities/MapDoors` (listened; only `marker == "ChaosWarning"` payloads), `Oddities/RequestMapDoors` (fired once on init to resync in-flight warnings)
+- Tags: reads `Room`, `Doorway`, `RoomDoor`
+- Requires: `Configs.ChaosWarningConfig`, `Services.HallwaysService`, `AudioService`, `CharacterService`, `CommunicationService`
 
 ### CharacterService.luau
 Shared client/server helper for the common "is this player's character usable right now" checks, plus two small player-lifecycle utilities. Every function is defined with a dot, so call them with a dot.
@@ -182,7 +194,7 @@ Client-only. For every player, silences Roblox's built-in `Died` sound on the ro
 ### DoorService.luau
 Client-only. Owns every swinging door part inside a `Doorway`+`RoomDoor` model: on a polling interval it opens each door toward whichever of the local player or nearest tagged enemy is in range, and holds it forced shut when the player is inside a room with an enemy close by. Also applies the server's "map opening" boxes, which push every door inside a region open — or into a rattling chaos mode.
 - API: no public methods — runs entirely from its own connections.
-- Remotes: `Oddities/MapDoors` (listened; `Start` / `Stop` with a region box, speed and mode)
+- Remotes: `Oddities/MapDoors` (listened; `Start` / `Stop` with a region box, speed and mode), `Oddities/RequestMapDoors` (fired once on init so a late client picks up openings that are already running)
 - Tags: listens `DoorPart`; reads `Enemy`, `Doorway`, `RoomDoor`
 - Requires: `Classes.DoorPart`, `Configs.DoorConfig`, `CharacterService`, `TagService`
 
@@ -493,9 +505,10 @@ The look of a kit, shared by all three kit pages so they cannot drift: hands ite
 
 ### LanternSwayService.luau
 Makes named hanging lantern models physically swing while their light is in the chaos-red state. Each active lantern gets an invisible hinged proxy part with wind torque, random jolts, gravity scaling, and a swing limit computed from raycast wall clearance; the visible model is pivoted to the hinge angle each frame. Lanterns are culled by camera distance and a maximum simulated count, and are settled and torn down when the red state ends.
+Binding is driven by `ChaosLightService:OnRedChanged` rather than the `ChaosRed` attribute directly. Both services used to race on the same attribute signal — whichever connected first won, and if this one ran first it asked `IsRed` before the light service had updated and never bound. Going through the signal also means lanterns settle at the same instant the light clears, which is when Chaos actually passes rather than when the server's timer runs out.
 - API: data table — empty; the tag listeners and heartbeat loop run on require.
-- Tags: listens `Floor1Light` (filtered to the model names in the config, and gated by the `ChaosRed` attribute)
-- Requires: `Configs.LanternSwayConfig`, `ChaosLightService`
+- Tags: listens `Floor1Light` (filtered to the model names in the config)
+- Requires: `Configs.LanternSwayConfig`, `ChaosLightService:OnRedChanged` / `:IsRed`
 
 ### LobbyService.luau
 Answers whether a player is standing on the lobby floor, by requiring the humanoid to be grounded and then raycasting down from the root part against only the `LobbyFloor` tagged parts; the raycast filter is rebuilt only when a `LobbyFloor` tag is added or removed, not on every call.

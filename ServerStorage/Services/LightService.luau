@@ -527,6 +527,16 @@ function LightService:WarnRed(model: Model, duration: number)
 	end)
 end
 
+function LightService:ClearRed(model: Model)
+	local lamp = Lamps[model]
+	if not lamp or not lamp.Red then return end
+
+	lamp.Red = nil
+	model:SetAttribute(RED_ATTRIBUTE, nil)
+	apply(model)
+	releaseIfIdle(model)
+end
+
 local function beginFlicker(model: Model, duration: number, playSound: boolean?): Flicker?
 	local lamp = acquire(model)
 	local existing = lamp.Flicker

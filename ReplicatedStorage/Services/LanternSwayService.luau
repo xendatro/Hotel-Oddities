@@ -12,7 +12,6 @@ local ChaosLightService = require(ReplicatedStorage.Services.ChaosLightService)
 local Config = require(ReplicatedStorage.Configs.LanternSwayConfig)
 
 local LIGHT_TAG = "Floor1Light"
-local RED_ATTRIBUTE = "ChaosRed"
 local SwayNames: { [string]: true } = {}
 for _, name in Config.SwayModelNames do
 	SwayNames[name] = true
@@ -41,7 +40,7 @@ type SwayState = {
 
 local States: { [Model]: SwayState } = {}
 local StateList: { SwayState } = {}
-local Watched: { [Model]: RBXScriptConnection } = {}
+local Watched: { [Model]: true } = {}
 local rng = Random.new()
 local heartbeatConnection: RBXScriptConnection? = nil
 local sinceRecull = math.huge
@@ -371,19 +370,25 @@ end
 local function watch(instance: Instance)
 	if not instance:IsA("Model") or not SwayNames[instance.Name] then return end
 	if Watched[instance] then return end
-	Watched[instance] = instance:GetAttributeChangedSignal(RED_ATTRIBUTE):Connect(function()
-		evaluate(instance)
-	end)
+	Watched[instance] = true
 	evaluate(instance)
 end
 
 local function unwatch(instance: Instance)
-	local connection = Watched[instance :: Model]
-	if not connection then return end
-	connection:Disconnect()
+	if not Watched[instance :: Model] then return end
 	Watched[instance :: Model] = nil
 	releaseLantern(instance :: Model)
 end
+
+ChaosLightService:OnRedChanged(function(model: Model, red: boolean)
+	if not Watched[model] then return end
+	if red then
+		bindLantern(model)
+		startLoop()
+	else
+		releaseLantern(model)
+	end
+end)
 
 CollectionService:GetInstanceAddedSignal(LIGHT_TAG):Connect(watch)
 CollectionService:GetInstanceRemovedSignal(LIGHT_TAG):Connect(unwatch)

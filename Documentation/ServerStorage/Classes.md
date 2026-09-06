@@ -117,12 +117,13 @@ The fixture-free twin of `FixturePool`: instead of arming tagged models it sampl
 ### HallwayOddity.luau
 Base class for map-scope oddities that occupy a hallway span rather than a single prop. It resolves and picks hallway spans, caches the span's bounding box, and offers a helper for broadcasting door actions to all clients.
 - API: `HallwayOddity.new(config: { [string]: any }?, class: any?) -> self`
-- API: `HallwayOddity.Resolve(class, position: Vector3) -> HallwayRegion.Span?` — span at a position.
+- API: `HallwayOddity.Resolve(class, position: Vector3, direction: Vector3?) -> HallwayRegion.Span?` — span at a position; `direction` decides which hallway wins at a junction.
 - API: `HallwayOddity.Pick(class) -> HallwayRegion.Span?` — occupied / biased / distant span depending on `RequiresPlayer` and `Settings.OccupiedChance`.
 - API: `HallwayOddity:CanStart(span: HallwayRegion.Span?) -> (boolean, string?)`
 - API: `HallwayOddity:Start(span: HallwayRegion.Span, duration: number?) -> boolean` — caches `BoxCFrame`/`BoxSize`, then `Oddity.Start`.
-- API: `HallwayOddity:FireMapDoors(action: string, ...)` — fires `Oddities/MapDoors` to all clients with this oddity's token.
-- Remotes: `Oddities/MapDoors` (fired)
+- API: `HallwayOddity:FireMapDoors(action: string, ...)` — fires `Oddities/MapDoors` to all clients with this oddity's token; a `Start` payload is stashed for resync and cleared on `Stop`.
+- API: `HallwayOddity:ResyncTo(player: Player)` — refires the stashed `Start` payload to one player, so a client that joined or loaded late still sees in-flight doors and warnings.
+- Remotes: `Oddities/MapDoors` (fired), `Oddities/RequestMapDoors` (ensured to exist)
 - Requires: `ServerStorage.Classes.Oddity`, `ServerStorage.Services.HallwayRegionService`, `ReplicatedStorage.Services.CommunicationService`
 - Notes: class fields `Scope = "Map"`, `ConfigName = "MapOddityConfig"`, `RequiresPlayer`, `IncludeRoomFloors`
 
@@ -186,9 +187,9 @@ A Chaser that spawns on the ceiling and physically drops onto the floor before b
 ### Enemies\Chaos.luau
 Not an NPC at all — a fast-moving hazard that sweeps a precomputed route of points, killing any player whose distance to the travelled segment is within `KillRange` and granting a discovery event on near misses. It pivots the model along the route each Heartbeat rather than pathfinding.
 - API: `Chaos.new(model: Model, config, route: { Vector3 }, warningToken) -> self` — root part is `model.Chaos`; two-state Run/Despawn machine.
-- API: `Chaos:TravelRoute()` — lerps along each route leg, sweeping for kills; the final leg ends at the wall crash point, where it despawns.
+- API: `Chaos:TravelRoute()` — drops zero-length legs, then drives the whole route off one start stamp (`elapsed * WalkSpeed` against the cumulative leg lengths) rather than re-basing the clock per leg, so arrival never drifts from the times the warnings were scheduled against; sweeps for kills between consecutive frame positions. The final leg ends at the wall crash point, where it despawns.
 - API: `Chaos:OnStart()` — anchors the root.
-- API: `Chaos:OnDespawn() -> number?` — cancels the warning token, disables particles, lingers for their lifetime.
+- API: `Chaos:OnDespawn() -> number?` — cancels **and retracts** the warning token (clearing any red lights and `ChaosWarning` oddities still running), disables particles, lingers for their lifetime.
 - Tags: applies `Enemy`, `Chaos`
 - Requires: `ServerStorage.Classes.EnemyBase`, `DeathService`, `EnemyDiscoveryService`, `RoomService`, `MathService.DistanceToSegment`
 - Notes: extends EnemyBase; overrides `OnStart` / `OnDespawn`
@@ -332,7 +333,7 @@ Shared server-side base for inventory items that trigger a player oddity on thei
 ### Oddities\ChaosWarning.luau
 Extends `HallwayOddity`. Fires the client `MapDoors` remote so every door in the hallway box (room floors included) slams open and shut in chaos mode as a telegraph, with no light effects.
 - API: `ChaosWarning.new(config: { [string]: any }?)`
-- API: `ChaosWarning:OnStart() -> boolean` — sends `Start` with opening/closing speeds and door intervals, tagged `"ChaosWarning"`
+- API: `ChaosWarning:OnStart() -> boolean` — sends `Start` with opening/closing speeds and door intervals, tagged `"ChaosWarning"`, followed by `ArrivalAtStart`, `ArrivalAtFinish` (server-time stamps for when Chaos reaches each end of the span) and `WarningTime`, which `ChaosWarningSoundService` interpolates to time the sound to the listener's own position
 - API: `ChaosWarning:OnStop()` — sends `Stop`
 - Remotes: `Oddities/MapDoors` (fired)
 - Requires: `Classes\HallwayOddity`

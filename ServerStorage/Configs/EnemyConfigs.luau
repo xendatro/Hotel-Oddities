@@ -134,6 +134,7 @@ export type EnemyConfig = {
 	LightRouteRange: number?,
 	WarnRedCullRange: number?,
 	WarnHallwayCullRange: number?,
+	CrashOverrun: number?,
 
 	SideSpacing: number?,
 	EndInset: number?,
@@ -500,14 +501,15 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 		WalkSpeed = 70,
 		SpawnPlayerDistance = 100,
-		SpawnDelay = 7,
+		SpawnDelay = 15,
 		KillRange = 12,
-		WarningTime = 7,
+		WarningTime = 15,
 		LightPassDelay = 1.5,
 		LightRouteRange = 13,
 		WarnRedCullRange = 200,
 		WarnHallwayCullRange = 150,
 		RouteHeight = 3,
+		CrashOverrun = 4,
 
 		MaxAlive = 1,
 	},

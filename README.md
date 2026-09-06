@@ -92,8 +92,8 @@ become Services or Classes.
 - ReplicatedStorage\Services\CaptureGalleryService.luau — Takes, keeps, burns, session-hides and reloads the player's own screenshots and camcorder tapes through Roblox's Captures API.
 - ReplicatedStorage\Services\CaptureOverlayService.luau — Clones the Studio-authored capture overlay, then fills its date, time and blinking REC light.
 - ReplicatedStorage\Services\CeilingVentDoorService.luau — Tweens ceiling vent doors on the client when the server commands them.
-- ReplicatedStorage\Services\ChaosLightService.luau — Turns tagged floor lights red while the server-set ChaosRed attribute is on, restoring their original colours when it clears.
-- ReplicatedStorage\Services\ChaosWarningSoundService.luau — Plays hallway ambience and an incoming sting near the server's chaos warning regions.
+- ReplicatedStorage\Services\ChaosLightService.luau — Turns tagged floor lights red while the server-set ChaosRed attribute is on, and clears each one the instant Chaos passes it rather than on the server's timer.
+- ReplicatedStorage\Services\ChaosWarningSoundService.luau — Plays hallway ambience and a 2D incoming sting for the warned hallway you are in, next to, or whose door you can see, with its own gain curve and an anchor held up-corridor at a fixed distance so camera rotation cannot swing it.
 - ReplicatedStorage\Services\CharacterService.luau — Shared nil-safe helpers for humanoids, alive root parts and player lifecycle cleanup.
 - ReplicatedStorage\Services\ChaseMusicService.luau — Cross-fades layered chase music by proximity to enemies that are hunting.
 - ReplicatedStorage\Services\ChaserCameraService.luau — Drives chase FOV pushes and per-enemy camera rumble, plus vent-open and scream reactions, clearing chase FOV state on death.
@@ -145,7 +145,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\KitShopUIService.luau — Straight-purchase kit catalogue for players who cannot roll, sorted most common first.
 - ReplicatedStorage\Services\KitStateService.luau — Client-side owned kits, equipped kit, gem balance and roll eligibility shared by all three kit pages.
 - ReplicatedStorage\Services\KitVisualService.luau — Kit previews, rarity card dressing and the stacked BUFFS/ITEMS list shared by every kit page.
-- ReplicatedStorage\Services\LanternSwayService.luau — Physics-hinged swinging for hanging lanterns during the chaos-red state.
+- ReplicatedStorage\Services\LanternSwayService.luau — Physics-hinged swinging for hanging lanterns during the chaos-red state, bound through ChaosLightService's red-changed signal.
 - ReplicatedStorage\Services\LobbyService.luau — Checks whether a player is standing on the tagged lobby floor.
 - ReplicatedStorage\Services\LookService.luau — Reports local camera pitch/yaw and bends other characters' neck and waist to match.
 - ReplicatedStorage\Services\MarketplaceService\init.luau — Wrapper over Roblox MarketplaceService adding a shared gamepass-ownership cache, cross-boundary purchase prompts and per-product receipt handlers.
@@ -261,7 +261,8 @@ become Services or Classes.
 - ReplicatedStorage\Configs\BreatheConfig.luau — Idle breathing joint motion settings.
 - ReplicatedStorage\Configs\CameraBobConfig.luau — Walk-cycle camera bob amplitude and cadence.
 - ReplicatedStorage\Configs\CaptureConfig.luau — Camcorder timing and stop key, gallery access rules, capture date formats and capture-flow strings; visual settings live in StarterGui.
-- ReplicatedStorage\Configs\ChaosLightConfig.luau — Red hallway-light warning settings for the Chaos enemy.
+- ReplicatedStorage\Configs\ChaosLightConfig.luau — Red hallway-light warning settings for the Chaos enemy, plus how the client detects Chaos passing a lamp.
+- ReplicatedStorage\Configs\ChaosWarningConfig.luau — Client gating, placement and sound routing for the Chaos warning ambience.
 - ReplicatedStorage\Configs\ChaseMusicConfig.luau — Per-enemy chase music tracks, ranges and fades.
 - ReplicatedStorage\Configs\ChaserCameraConfig.luau — Chase camera FOV changes and per-enemy shake profiles.
 - ReplicatedStorage\Configs\ComputerAssets.luau — Image asset ids for the hackable-computer UI.
@@ -346,7 +347,7 @@ become Services or Classes.
 - ServerStorage\Services\CameraCommandService.luau — Initializes each player's maximum camera zoom to 0.5 and registers /camera (alias /cam) to toggle it between 0.5 and 128.
 - ServerStorage\Services\BadgeService.luau — Awards and caches Roblox badges limited to the ids listed in BadgeConfigs.
 - ServerStorage\Services\CeilingVentService.luau — Springs ceiling vents on approaching players and drops a CeilingDweller through them, after a telegraphed ceiling walk-in where the dweller crawls into the vent.
-- ServerStorage\Services\ChaosService.luau — Budgeted longest-path search through unvisited hallway nodes from the best of three far-from-players starts, schedules 7-second-lead light and oddity warnings, then spawns Chaos to run it into a wall.
+- ServerStorage\Services\ChaosService.luau — Budgeted longest-path search through unvisited hallway nodes from the best of three far-from-players starts, schedules 15-second-lead light and oddity warnings along the route's own travel direction, then spawns Chaos to run it into a wall; retracts every warning it fired if the spawn is abandoned or Chaos despawns.
 - ServerStorage\Services\ChaseFlickerService.luau — Flickers the lights around a player being chased by a CeilingDweller or Mimic.
 - ServerStorage\Services\ChatCommandService.luau — Shared registry and dispatcher for `/` chat commands with an admin gate.
 - ServerStorage\Services\ComputerCommandService.luau — Admin `/hack` command for listing, teleporting to, and force-setting computers.

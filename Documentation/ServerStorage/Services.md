@@ -23,11 +23,19 @@ Watches players approaching parts tagged `CeilingVent` and, when one walks under
 - Requires: `Services.VanishedService`, `CrouchConfig`, `DangerConfig.ProgrammaticVents`, `DangerMapService`, `EnemyService`, `EnemyDirectorService`, `TagService`, `HallwayGraphService`, `NpcAnimator`, `EnemyConfigs.CeilingDweller`, `Classes.SurfaceWalker`
 
 ### ChaosService.luau
-Picks three random graph nodes far from every player, plans a route from each with a budgeted depth-first search (15000 expansions, Warnsdorff ordering — fewest unvisited exits first with jittered ties) that keeps the longest simple path found, and takes the longest of the three (~60% of graph edges on average, >50% in practice); the route never revisits a node, and a crash waypoint raycast into the wall along the final running direction is appended, where Chaos despawns. A single polling scheduler fires each light's red warning (`LightService:WarnRed`) and each straight span's `ChaosWarning` oddity `WarningTime` (7s) before Chaos's timed arrival, holding any warning whose players are outside its cull range until they come near or it expires. The spawn is re-checked for player clearance when the delay elapses.
-- API: `ChaosService:Spawn(onSpawned: ((any) -> ())?) -> boolean` — longest of three budgeted-search routes from random far-from-players nodes
-- API: `ChaosService:SpawnThrough(player: Player, onSpawned: ((any) -> ())?) -> boolean` — Dijkstra approach to the caller's nearest node, then budgeted-search continuation
-- API: `ChaosService:CancelPending() -> number` — cancels every scheduled spawn/warning, returns how many
-- Requires: `Services.HallwaysService`, `EnemyConfigs.Chaos`, `HallwayGraphService`, `LightService:WarnRed`, `MapOddityService:Warn`, `EnemyService`
+Picks three random graph nodes far from every player, plans a route from each with a budgeted depth-first search (15000 expansions and a single 10ms wall-clock deadline shared by all three plans, Warnsdorff ordering — fewest unvisited exits first with jittered ties) that keeps the longest simple path found, and takes the one with the most nodes; the route never revisits a node, and a crash waypoint is appended where Chaos despawns. Search cost is kept down by a per-graph neighbour-array cache, per-depth scratch buffers and an insertion sort instead of a comparator sort, and depth is capped at 512.
+
+The crash waypoint raycasts along the final running direction in the `Enemies` collision group (so players, other enemies and furniture never stop it) with every `Doorway` model excluded; on a miss it stops at the end of the straight run plus `CrashOverrun` rather than flying the full probe distance through geometry.
+
+A single polling scheduler fires each light's red warning (`LightService:WarnRed`) and each straight span's `ChaosWarning` oddity `WarningTime` (15s) before Chaos's timed arrival, holding any warning whose players are outside its cull range until they come near or it expires; living root positions are resolved once per poll rather than once per waiting warning. Spans are resolved with the route's own travel direction so a junction node telegraphs the hallway Chaos actually runs down, and the resolved span (plus the server-time arrival at each of its ends) is handed straight to `MapOddityService:Warn`.
+
+Every warning a token fires is recorded on that token, so `token.Retract()` clears the red lights and stops the `ChaosWarning` oddities. It runs whenever a spawn is abandoned (a player wandered inside `SpawnPlayerDistance` of the planned origin during the delay), on `CancelPending`, and on Chaos's own despawn — so a cancelled run never leaves a telegraph playing with nothing behind it. `beginRoute` also reports abandonment through `onCancelled` so `EnemyDirectorService` retries on the next tick instead of waiting out `ChaosInterval`.
+- API: `ChaosService:Spawn(onSpawned: ((any) -> ())?, onCancelled: (() -> ())?) -> boolean` — longest of three budgeted-search routes from random far-from-players nodes
+- API: `ChaosService:SpawnThrough(player: Player, onSpawned: ((any) -> ())?, onCancelled: (() -> ())?) -> boolean` — Dijkstra approach to the caller's nearest node, then budgeted-search continuation
+- API: `ChaosService:CancelPending() -> number` — cancels and retracts every scheduled spawn/warning, returns how many
+- API: exported type `WarningToken` — `{ Cancelled, Lights, Oddities, Retract }`; `Retract()` clears everything that token has fired
+- Tags: reads `Doorway` (crash raycast exclusions)
+- Requires: `Services.HallwaysService`, `EnemyConfigs.Chaos`, `HallwayGraphService`, `LightService:WarnRed` / `:ClearRed`, `MapOddityService:Warn` / `:Clear`, `EnemyService`
 
 ### ChaseFlickerService.luau
 Background loop that flickers the lights in the hallway containing a chased player whenever a CeilingDweller or Mimic is in a Chase or Attack state. No public API; disabled when `FLAGS.Enemies` is off.
@@ -131,7 +139,7 @@ Builds a periodic snapshot of every active enemy's id, state and position and br
 - Requires: `StatsHUDConfig.Enemies.Interval`, `EnemyService:GetActive`, `EnemyDirectorService:GetStalkerTarget`
 
 ### EnemyDirectorService.luau
-The population manager: on a heartbeat tick it tops up resident enemy counts, schedules Chaos runs, rotates the Stalker across players, spawns Ghosts, and despawns expired enemies that are unengaged and out of sight. Placement scores candidate danger points or hallway-graph nodes by danger, player proximity and enemy spacing, and rejects anything visible from a player's eye. Defines no-op stubs for its whole API first and returns early unless `FLAGS.Enemies` and `FLAGS.Director`.
+The population manager: on a heartbeat tick it tops up resident enemy counts, schedules Chaos runs (retrying on the next tick rather than after a whole `ChaosInterval` when `ChaosService` reports the spawn was abandoned), rotates the Stalker across players, spawns Ghosts, and despawns expired enemies that are unengaged and out of sight. Placement scores candidate danger points or hallway-graph nodes by danger, player proximity and enemy spacing, and rejects anything visible from a player's eye. Defines no-op stubs for its whole API first and returns early unless `FLAGS.Enemies` and `FLAGS.Director`.
 - API: `EnemyDirectorService:CanAfford(enemyId: string) -> boolean` — alive count below `MaxAlive`
 - API: `EnemyDirectorService:Adopt(enemy: any, enemyId: string, selfManaged: boolean?)` — take an externally spawned enemy into the population
 - API: `EnemyDirectorService:GetStalkerTarget() -> Player?`
@@ -233,7 +241,7 @@ Finds hallway "corner mouths" near a viewer — graph nodes with a side branch r
 ### HallwayRegionService.luau
 Helpers for treating a straight hallway span as a region: comparing spans (in either direction), finding the span at a position, building a padded bounding box for it, locating a player inside one, and picking random spans that are distant, occupied, or danger-weighted.
 - API: `HallwayRegion.Same(first: Span, second: Span) -> boolean` — direction-agnostic within `SpatialPadding`
-- API: `HallwayRegion.At(position: Vector3, includeRoomFloors: boolean?) -> Span?`
+- API: `HallwayRegion.At(position: Vector3, includeRoomFloors: boolean?, direction: Vector3?) -> Span?` — `direction` picks which hallway wins at a junction and orients the span's axis along it
 - API: `HallwayRegion.Box(span: Span) -> (CFrame, Vector3)` — padded volume using the config height windows
 - API: `HallwayRegion.Occupant(span: Span) -> Vector3?` — where the first living player standing in the span is
 - API: `HallwayRegion.HasPlayer(span: Span) -> boolean` — `Occupant` reduced to a yes/no
@@ -363,6 +371,7 @@ Central authority over every `Floor1Light` model: it captures each lamp's baseli
 - API: `LightService:DisableModel(model: Model) -> LightClaim`
 - API: `LightService:Release(claim: LightClaim)` — idempotent
 - API: `LightService:WarnRed(model: Model, duration: number)` — sets/extends the `ChaosRed` attribute
+- API: `LightService:ClearRed(model: Model)` — drops the `ChaosRed` attribute immediately, ahead of its timer
 - API: `LightService:FlickerChaosAlongHallway(position: Vector3, duration: number, intervalMin: number, intervalMax: number) -> FlickerClaim`
 - API: `LightService:FlickerHallwayContaining(position: Vector3, duration: number, intervalMin: number?, intervalMax: number?)`
 - API: `LightService:FlickerNearest(position: Vector3, count: number, duration: number, intervalMin: number?, intervalMax: number?)`
@@ -410,10 +419,12 @@ Chat command `/mapoddity` (alias `/mapodd`) that maps a friendly word to a map-o
 ### MapOddityService.luau
 Scope wrapper around `OddityService` for the `"Map"` scope: it resolves the hallway span containing a position through the chosen oddity class, starts it, and can warn, clear or list what is running. Defaults to the `Transparency` effect.
 - API: `MapOddityService:Trigger(position: Vector3, kind: string?) -> (boolean, string?, string?)` — returns ok, the kind chosen, and a failure reason
-- API: `MapOddityService:Warn(position: Vector3, duration: number) -> boolean` — starts the `ChaosWarning` oddity
+- API: `MapOddityService:Warn(span, duration: number, arrivalAtStart: number, arrivalAtFinish: number, warningTime: number) -> number?` — starts the `ChaosWarning` oddity on an already-resolved span and returns its token; the arrivals are `workspace:GetServerTimeNow()` stamps for the span's `Start` and `Finish` ends, which the client lerps to work out when Chaos reaches the listener
 - API: `MapOddityService:Clear(token: number?) -> boolean` — one token, or every map oddity
 - API: `MapOddityService:GetActive() -> { [number]: any }`
-- Requires: `OddityService`, `ServerStorage.Classes.Oddities` map classes (`Transparency`, `DoorsOpen`, `HallwayChaos`, `HallwayBlocker`, `HallwayVoid`, `HallwayCrush`, `ChaosWarning`)
+- API: `MapOddityService:Resync(player: Player)` — replays every running map oddity's `Start` payload to one player
+- Remotes: `Oddities/RequestMapDoors` (listened; 1s per-player cooldown, answered with `Resync` so a joining or late client picks up in-flight door and warning state)
+- Requires: `OddityService`, `CommunicationService`, `ServerStorage.Classes.Oddities` map classes (`Transparency`, `DoorsOpen`, `HallwayChaos`, `HallwayBlocker`, `HallwayVoid`, `HallwayCrush`, `ChaosWarning`)
 
 ### NoiseService.luau
 The game's sound-propagation source of truth: it emits `Noise` records (position, radius, source player) with a rate limit per source, keeps a one-second ring of recent noises for polling, and notifies observers immediately. A Heartbeat loop auto-emits footstep noise for every moving grounded player, with the radius chosen by crouch/walk/sprint state.
@@ -428,7 +439,7 @@ Registry and lifecycle manager for every oddity class in `ServerStorage.Classes.
 - API: `OddityService:Get(scope: string, kind: string) -> any?`
 - API: `OddityService:Classes(scope: string) -> { [string]: any }`
 - API: `OddityService:Kinds(scope: string) -> { string }` — sorted
-- API: `OddityService:IsEnabled(scope: string) -> boolean`
+- API: `OddityService:IsEnabled(scope: string) -> boolean` — reads the scope config module's own top-level `Enabled`, so one class's `Effects` override cannot switch the whole scope off
 - API: `OddityService:IsAmbient(class: any) -> boolean`
 - API: `OddityService:Start(class: any, context: any, duration: number?, overrides: {[string]: any}?) -> (any?, string?)` — returns the oddity or a failure reason; optional overrides are merged into that instance's class settings
 - API: `OddityService:Stop(token: number) -> boolean`

@@ -16,6 +16,7 @@ local DoorPart = require(ReplicatedStorage.Classes.DoorPart)
 local TagService = require(ReplicatedStorage.Services.TagService)
 
 local MapDoors = CommunicationService.Get("Oddities", "MapDoors")
+local RequestMapDoors = CommunicationService.Get("Oddities", "RequestMapDoors") :: RemoteEvent
 
 local Active: { [any]: true } = {}
 local DoorwayCache: { [BasePart]: Model | false } = {}
@@ -230,5 +231,7 @@ end, function(part, door)
 	Active[door] = nil
 	door:Destroy()
 end, workspace)
+
+RequestMapDoors:FireServer()
 
 return DoorService

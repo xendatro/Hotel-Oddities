@@ -1,3 +1,4 @@
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -11,125 +12,214 @@ end
 local AudioService = require(ReplicatedStorage.Services.AudioService)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local Config = require(ReplicatedStorage.Configs.ChaosWarningConfig)
 local Hallways = require(ReplicatedStorage.Services.HallwaysService)
 
-local AMBIENCE_BUS = "SFX"
-local AMBIENCE_SILENT_DISTANCE = 60
-local ROOM_DOOR_REGION_DISTANCE = 2
-local CHECK_INTERVAL = 0.1
-local WARNING_TRIGGER_DISTANCE = 24
 local WARNING_MARKER = "ChaosWarning"
+local ROOM_TAG = "Room"
+local DOORWAY_TAG = "Doorway"
+local ROOM_DOOR_TAG = "RoomDoor"
+local THRESHOLD_NAME = "Threshold"
 
 type WarningRegion = {
 	CFrame: CFrame,
 	Size: Vector3,
+	ArrivalAtStart: number,
+	ArrivalAtFinish: number,
+	WarningTime: number,
 }
 
-type AmbienceSound = {
+type RoomEntry = {
+	Model: Model,
+	CFrame: CFrame,
+	HalfSize: Vector3,
+	Threshold: Vector3?,
+}
+
+type Voice = {
 	Player: AudioPlayer,
+	Emitter: AudioEmitter,
+	Gain: number,
+	Applied: number,
 }
 
 local LocalPlayer = Players.LocalPlayer
 local MapDoors = CommunicationService.Get("Oddities", "MapDoors") :: RemoteEvent
+local RequestMapDoors = CommunicationService.Get("Oddities", "RequestMapDoors") :: RemoteEvent
 local Sounds = ReplicatedStorage:WaitForChild("Sounds")
-local AmbienceFolder = Sounds:WaitForChild("ChaosHallwayAmbience")
-local Rooms: Instance? = nil
-local Doors: Instance? = nil
-task.spawn(function()
-	local maze = workspace:WaitForChild("Maze15")
-	Rooms = maze:WaitForChild("Rooms")
-	Doors = maze:WaitForChild("Doors")
-end)
-local ActiveWarnings: { [number]: WarningRegion } = {}
-local AmbienceSounds: { AmbienceSound } = {}
-local AmbienceAnchor: Part? = nil
-local WasNearWarning = false
-local TimeSinceCheck = CHECK_INTERVAL
+local AmbienceFolder = Sounds:WaitForChild(Config.AmbienceFolder)
 
-local function closestPoint(region: WarningRegion, position: Vector3): Vector3
-	local offset = region.CFrame:PointToObjectSpace(position)
-	local half = region.Size / 2
-	local closest = Vector3.new(
-		math.clamp(offset.X, -half.X, half.X),
-		math.clamp(offset.Y, -half.Y, half.Y),
-		math.clamp(offset.Z, -half.Z, half.Z)
-	)
-	return region.CFrame:PointToWorldSpace(closest)
+local ActiveWarnings: { [number]: WarningRegion } = {}
+local Voices: { Voice } = {}
+local Anchor: Part? = nil
+local AnchorPlaced = false
+local StungTokens: { [number]: true } = {}
+
+local TargetPoint: Vector3? = nil
+local TargetGain = 0
+local PassFading = false
+local SilentFor = 0
+local TimeSinceCheck = math.huge
+
+local Rooms: { RoomEntry } = {}
+local RoomsDirty = true
+local CurrentRoom: RoomEntry? = nil
+
+local function buildRooms()
+	local thresholds: { [string]: Vector3 } = {}
+	for _, instance in CollectionService:GetTagged(DOORWAY_TAG) do
+		if not instance:IsA("Model") or not instance:HasTag(ROOM_DOOR_TAG) then continue end
+
+		local suffix = instance.Name:match("^Doorway_(.+)$")
+		if not suffix then continue end
+
+		local threshold = instance:FindFirstChild(THRESHOLD_NAME, true)
+		thresholds[suffix] = if threshold and threshold:IsA("BasePart")
+			then threshold.Position
+			else instance:GetPivot().Position
+	end
+
+	table.clear(Rooms)
+	for _, instance in CollectionService:GetTagged(ROOM_TAG) do
+		if not instance:IsA("Model") or not instance:IsDescendantOf(workspace) then continue end
+
+		local room = instance :: Model
+		local cframe, size = room:GetBoundingBox()
+		local suffix = room.Name:match("^Room_(.+)$")
+		table.insert(Rooms, {
+			Model = room,
+			CFrame = cframe,
+			HalfSize = size / 2,
+			Threshold = if suffix then thresholds[suffix] else nil,
+		})
+	end
+
+	CurrentRoom = nil
+	RoomsDirty = false
 end
 
-local function inRoom(room: Model, position: Vector3): boolean
-	local floor = room:FindFirstChild("Floor")
-	if not floor or not floor:IsA("BasePart") then return false end
-
-	local offset = floor.CFrame:PointToObjectSpace(position)
-	local half = floor.Size / 2
-	local height = position.Y - (floor.Position.Y + floor.Size.Y / 2)
-	return height >= -4
-		and height <= 24
-		and math.abs(offset.X) <= half.X
+local function insideRoom(entry: RoomEntry, position: Vector3): boolean
+	local offset = entry.CFrame:PointToObjectSpace(position)
+	local half = entry.HalfSize
+	return math.abs(offset.X) <= half.X
+		and math.abs(offset.Y) <= half.Y
 		and math.abs(offset.Z) <= half.Z
 end
 
-local function isInAdjacentRoom(region: WarningRegion, position: Vector3): boolean
-	local rooms, doors = Rooms, Doors
-	if not rooms or not doors then return false end
+local function roomAt(position: Vector3): RoomEntry?
+	if RoomsDirty then buildRooms() end
 
-	for _, room in rooms:GetChildren() do
-		if not room:IsA("Model") or not inRoom(room, position) then continue end
+	local cached = CurrentRoom
+	if cached and cached.Model.Parent and insideRoom(cached, position) then return cached end
 
-		local id = room.Name:match("^Room_(.+)$")
-		local doorway = id and doors:FindFirstChild("Doorway_" .. id)
-		local threshold = doorway and doorway:FindFirstChild("Threshold")
-		if threshold and threshold:IsA("BasePart") then
-			local distance = (closestPoint(region, threshold.Position) - threshold.Position).Magnitude
-			if distance <= ROOM_DOOR_REGION_DISTANCE then return true end
+	for _, entry in Rooms do
+		if insideRoom(entry, position) then
+			CurrentRoom = entry
+			return entry
 		end
 	end
-	return false
+
+	CurrentRoom = nil
+	return nil
 end
 
-local function isAllowedPosition(region: WarningRegion, position: Vector3): boolean
-	if Hallways.At(position, true) then return true end
-	return isInAdjacentRoom(region, position)
+local function boxPoint(region: WarningRegion, offset: Vector3): Vector3
+	local half = region.Size / 2
+	return region.CFrame:PointToWorldSpace(Vector3.new(
+		math.clamp(offset.X, -half.X, half.X),
+		math.clamp(offset.Y, -half.Y, half.Y),
+		math.clamp(offset.Z, -half.Z, half.Z)
+	))
 end
 
-local function sourcePosition(region: WarningRegion): Vector3
-	local hallway = Hallways.Nearest(region.CFrame.Position)
-	if not hallway then return region.CFrame.Position end
-
-	local along = math.clamp(
-		Hallways.Along(hallway, region.CFrame.Position),
-		-hallway.HalfLength,
-		hallway.HalfLength
-	)
-	return Hallways.PointAt(hallway, along) + Vector3.yAxis * 2
+local function centreAt(region: WarningRegion, height: number, along: number): Vector3
+	local half = region.Size / 2
+	return region.CFrame:PointToWorldSpace(Vector3.new(0, math.clamp(height, -half.Y, half.Y), along))
 end
 
-local function nearestWarning(position: Vector3): (Vector3?, number)
-	local nearestPoint: Vector3? = nil
-	local nearestDistance = math.huge
+local function arrivalAt(region: WarningRegion, along: number): number
+	local half = region.Size.Z / 2
+	if half <= 0 then return region.ArrivalAtStart end
 
-	for _, region in ActiveWarnings do
-		if not isAllowedPosition(region, position) then continue end
+	local alpha = math.clamp((half - along) / (half * 2), 0, 1)
+	return region.ArrivalAtStart + (region.ArrivalAtFinish - region.ArrivalAtStart) * alpha
+end
 
-		local point = sourcePosition(region)
-		local distance = (point - position).Magnitude
-		if distance > AMBIENCE_SILENT_DISTANCE then continue end
-		if distance < nearestDistance then
-			nearestPoint = point
-			nearestDistance = distance
+local function approachSign(region: WarningRegion): number
+	return if region.ArrivalAtFinish >= region.ArrivalAtStart then 1 else -1
+end
+
+local function insideRegion(region: WarningRegion, offset: Vector3): boolean
+	local half = region.Size / 2
+	return math.abs(offset.X) <= half.X
+		and math.abs(offset.Y) <= half.Y
+		and math.abs(offset.Z) <= half.Z
+end
+
+local function listenTo(
+	region: WarningRegion,
+	position: Vector3,
+	inHallway: boolean,
+	room: RoomEntry?
+): (Vector3?, number, number)
+	local offset = region.CFrame:PointToObjectSpace(position)
+	local half = region.Size / 2
+	local along = math.clamp(offset.Z, -half.Z, half.Z)
+
+	if insideRegion(region, offset) or (inHallway
+		and (boxPoint(region, offset) - position).Magnitude <= Config.AdjacentHallwayRange)
+	then
+		local nearest = centreAt(region, offset.Y, along)
+		local gap = (nearest - position).Magnitude
+		local slide = math.sqrt(math.max(Config.MinSourceDistance ^ 2 - gap * gap, 0))
+		local source = centreAt(region, offset.Y, along + approachSign(region) * slide)
+		return source, gap, arrivalAt(region, along)
+	end
+
+	local threshold = room and room.Threshold
+	if threshold then
+		local doorOffset = region.CFrame:PointToObjectSpace(threshold)
+		if (boxPoint(region, doorOffset) - threshold).Magnitude <= Config.RoomDoorRange then
+			local doorAlong = math.clamp(doorOffset.Z, -half.Z, half.Z)
+			local source = centreAt(region, doorOffset.Y, doorAlong)
+			return source, (source - position).Magnitude, arrivalAt(region, doorAlong)
 		end
 	end
-	return nearestPoint, nearestDistance
+
+	return nil, 0, 0
+end
+
+local function gainFor(distance: number): number
+	if distance <= Config.FullVolumeDistance then return 1 end
+	if distance >= Config.SilentDistance then return 0 end
+
+	local alpha = (distance - Config.FullVolumeDistance)
+		/ (Config.SilentDistance - Config.FullVolumeDistance)
+	return 1 - alpha * alpha
+end
+
+local function writeGain(voice: Voice)
+	voice.Applied = voice.Gain
+	voice.Emitter:SetDistanceAttenuation({
+		[0] = voice.Gain,
+		[Config.AttenuationRange] = voice.Gain,
+	})
+end
+
+local function rampGain(voice: Voice, target: number, delta: number)
+	local stepped = voice.Gain + (target - voice.Gain) * delta
+	voice.Gain = if math.abs(target - stepped) <= Config.GainSnap then target else stepped
+
+	if voice.Gain == target or math.abs(voice.Gain - voice.Applied) >= Config.GainEpsilon then
+		writeGain(voice)
+	end
 end
 
 local function ensureAnchor(position: Vector3): Part
-	if AmbienceAnchor then
-		AmbienceAnchor.CFrame = CFrame.new(position)
-		return AmbienceAnchor
-	end
+	local anchor = Anchor
+	if anchor then return anchor end
 
-	local anchor = Instance.new("Part")
+	anchor = Instance.new("Part")
 	anchor.Name = "ChaosWarningSoundAnchor"
 	anchor.Anchored = true
 	anchor.CanCollide = false
@@ -139,58 +229,136 @@ local function ensureAnchor(position: Vector3): Part
 	anchor.Size = Vector3.one
 	anchor.CFrame = CFrame.new(position)
 	anchor.Parent = workspace
-	AmbienceAnchor = anchor
-	return anchor
-end
-
-local function ensureAmbience(anchor: BasePart)
-	if #AmbienceSounds > 0 then return end
+	Anchor = anchor
+	AnchorPlaced = true
 
 	for _, source in AmbienceFolder:GetChildren() do
 		if not source:IsA("AudioEmitter") then continue end
 
-		local player = AudioService:Play3DSound(source, anchor, true, AMBIENCE_BUS)
-		table.insert(AmbienceSounds, {
+		local player = AudioService:Play3DSound(source, anchor, true, Config.AmbienceBus)
+		local voice: Voice = {
 			Player = player,
-		})
+			Emitter = player.Parent :: AudioEmitter,
+			Gain = 0,
+			Applied = 0,
+		}
+		writeGain(voice)
+		table.insert(Voices, voice)
 	end
+	return anchor
 end
 
-local function stopSounds()
-	for _, sound in AmbienceSounds do
-		if sound.Player.Parent then
-			AudioService:StopSound(sound.Player)
+local function teardown()
+	for _, voice in Voices do
+		if voice.Player.Parent then
+			AudioService:StopSound(voice.Player)
 		end
 	end
-	table.clear(AmbienceSounds)
+	table.clear(Voices)
 
-	if AmbienceAnchor then
-		AmbienceAnchor:Destroy()
-		AmbienceAnchor = nil
+	if Anchor then
+		Anchor:Destroy()
+		Anchor = nil
 	end
+	AnchorPlaced = false
+	TargetPoint = nil
+	TargetGain = 0
+	PassFading = false
+	SilentFor = 0
 end
 
-local function update()
+local function resolve()
+	if not next(ActiveWarnings) then
+		TargetPoint, TargetGain = nil, 0
+		return
+	end
+
 	local root = CharacterService.GetAliveRoot(LocalPlayer)
-	local sourcePosition: Vector3? = nil
-	local distance = math.huge
-	if root then
-		sourcePosition, distance = nearestWarning(root.Position)
+	if not root then
+		TargetPoint, TargetGain = nil, 0
+		return
 	end
 
-	local audible = sourcePosition ~= nil
-	local near = sourcePosition ~= nil and distance <= WARNING_TRIGGER_DISTANCE
+	local position = root.Position
+	local inHallway = Hallways.At(position, true) ~= nil
+	local room = if inHallway then nil else roomAt(position)
+	local now = workspace:GetServerTimeNow()
 
-	if audible and sourcePosition then
-		local anchor = ensureAnchor(sourcePosition)
-		if near and not WasNearWarning then
-			AudioService:Play3DSound("ChaosIncoming", anchor, false, AMBIENCE_BUS)
-		end
-		ensureAmbience(anchor)
+	local bestPoint: Vector3? = nil
+	local bestToken: number? = nil
+	local bestGain = 0
+	local bestLead = math.huge
+	for token, region in ActiveWarnings do
+		local point, distance, arrival = listenTo(region, position, inHallway, room)
+		if not point then continue end
+
+		local lead = arrival - now
+		if lead <= 0 or lead > region.WarningTime then continue end
+
+		local gain = gainFor(distance)
+		if gain <= 0 or lead >= bestLead then continue end
+		bestPoint, bestToken, bestGain, bestLead = point, token, gain, lead
 	end
-	WasNearWarning = near
 
-	if not audible then stopSounds() end
+	TargetPoint = bestPoint
+	if bestPoint then
+		local duck = math.clamp(bestLead / Config.PassFadeLead, 0, 1)
+		TargetGain = bestGain * duck
+		PassFading = duck < 1
+	else
+		TargetGain = 0
+	end
+
+	if bestToken and not StungTokens[bestToken] then
+		StungTokens[bestToken] = true
+		AudioService:Play2DSound(Config.IncomingSound, false, Config.AmbienceBus)
+	end
+end
+
+local function step(deltaTime: number)
+	TimeSinceCheck += deltaTime
+	if TimeSinceCheck >= Config.CheckInterval then
+		TimeSinceCheck = 0
+		resolve()
+	end
+
+	local target = TargetPoint
+	if target then
+		local anchor = ensureAnchor(target)
+		local current = anchor.Position
+		anchor.CFrame = if AnchorPlaced and (current - target).Magnitude <= Config.AnchorSnapDistance
+			then CFrame.new(current:Lerp(target, math.min(deltaTime * Config.AnchorLerpSpeed, 1)))
+			else CFrame.new(target)
+		AnchorPlaced = true
+	end
+
+	if #Voices == 0 then return end
+
+	local speed
+	if PassFading then
+		speed = Config.PassFadeSpeed
+	elseif TargetGain > 0 then
+		speed = Config.FadeInSpeed
+	else
+		speed = Config.FadeOutSpeed
+	end
+
+	local delta = math.min(deltaTime * speed, 1)
+	local loudest = 0
+	for _, voice in Voices do
+		rampGain(voice, TargetGain, delta)
+		loudest = math.max(loudest, voice.Gain)
+	end
+
+	if loudest > 0 or TargetGain > 0 then
+		SilentFor = 0
+		return
+	end
+
+	SilentFor += deltaTime
+	if SilentFor >= Config.ReleaseDelay then
+		teardown()
+	end
 end
 
 MapDoors.OnClientEvent:Connect(function(
@@ -203,7 +371,10 @@ MapDoors.OnClientEvent:Connect(function(
 	_closeSpeed: any,
 	_intervalMin: any,
 	_intervalMax: any,
-	marker: any
+	marker: any,
+	arrivalAtStart: any,
+	arrivalAtFinish: any,
+	warningTime: any
 )
 	if type(token) ~= "number" then return end
 
@@ -211,24 +382,36 @@ MapDoors.OnClientEvent:Connect(function(
 		if marker ~= WARNING_MARKER
 			or typeof(boxCFrame) ~= "CFrame"
 			or typeof(boxSize) ~= "Vector3"
+			or type(arrivalAtStart) ~= "number"
+			or type(arrivalAtFinish) ~= "number"
+			or type(warningTime) ~= "number"
 		then
 			return
 		end
 		ActiveWarnings[token] = {
 			CFrame = boxCFrame,
 			Size = boxSize,
+			ArrivalAtStart = arrivalAtStart,
+			ArrivalAtFinish = arrivalAtFinish,
+			WarningTime = warningTime,
 		}
 	elseif action == "Stop" then
 		ActiveWarnings[token] = nil
+		StungTokens[token] = nil
 	end
 end)
 
-RunService.Heartbeat:Connect(function(deltaTime: number)
-	TimeSinceCheck += deltaTime
-	if TimeSinceCheck < CHECK_INTERVAL then return end
+for _, tag in { ROOM_TAG, DOORWAY_TAG } do
+	CollectionService:GetInstanceAddedSignal(tag):Connect(function()
+		RoomsDirty = true
+	end)
+	CollectionService:GetInstanceRemovedSignal(tag):Connect(function()
+		RoomsDirty = true
+	end)
+end
 
-	TimeSinceCheck = 0
-	update()
-end)
+RunService.Heartbeat:Connect(step)
+
+RequestMapDoors:FireServer()
 
 return ChaosWarningSoundService

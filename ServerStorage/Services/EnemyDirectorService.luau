@@ -383,6 +383,9 @@ local function tickChaos(now: number, living: { Player })
 	local scheduled = ChaosService:Spawn(function(chaos: any)
 		ChaosPendingUntil = 0
 		register(chaos, "Chaos", config)
+	end, function()
+		ChaosPendingUntil = 0
+		NextChaosSpawn = os.clock() + Config.TickInterval
 	end)
 
 	if not scheduled then
