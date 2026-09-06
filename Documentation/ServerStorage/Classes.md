@@ -333,7 +333,7 @@ Shared server-side base for inventory items that trigger a player oddity on thei
 ### Oddities\ChaosWarning.luau
 Extends `HallwayOddity`. Fires the client `MapDoors` remote so every door in the hallway box (room floors included) slams open and shut in chaos mode as a telegraph, with no light effects.
 - API: `ChaosWarning.new(config: { [string]: any }?)`
-- API: `ChaosWarning:OnStart() -> boolean` — sends `Start` with opening/closing speeds and door intervals, tagged `"ChaosWarning"`, followed by `ArrivalAtStart`, `ArrivalAtFinish` (server-time stamps for when Chaos reaches each end of the span) and `WarningTime`, which `ChaosWarningSoundService` interpolates to time the sound to the listener's own position
+- API: `ChaosWarning:OnStart() -> boolean` — sends `Start` with opening/closing speeds and door intervals, tagged `"ChaosWarning"`, followed by `ArrivalAtStart`, `ArrivalAtFinish` (server-time stamps for when Chaos reaches each end of the span), `WarningTime`, which `ChaosWarningSoundService` interpolates to time the sound to the listener's own position, and `WarningRun`, shared by every span of one Chaos route so the client stings once per run
 - API: `ChaosWarning:OnStop()` — sends `Stop`
 - Remotes: `Oddities/MapDoors` (fired)
 - Requires: `Classes\HallwayOddity`

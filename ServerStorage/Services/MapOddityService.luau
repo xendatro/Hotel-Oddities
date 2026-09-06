@@ -40,7 +40,8 @@ function MapOddityService:Warn(
 	duration: number,
 	arrivalAtStart: number,
 	arrivalAtFinish: number,
-	warningTime: number
+	warningTime: number,
+	run: number
 ): number?
 	if not span or duration <= 0 then return nil end
 	if not OddityService:IsEnabled(SCOPE) then return nil end
@@ -52,6 +53,7 @@ function MapOddityService:Warn(
 		ArrivalAtStart = arrivalAtStart,
 		ArrivalAtFinish = arrivalAtFinish,
 		WarningTime = warningTime,
+		WarningRun = run,
 	})
 	return if oddity then oddity.Token else nil
 end

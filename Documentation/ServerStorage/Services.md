@@ -33,7 +33,7 @@ Every warning a token fires is recorded on that token, so `token.Retract()` clea
 - API: `ChaosService:Spawn(onSpawned: ((any) -> ())?, onCancelled: (() -> ())?) -> boolean` — longest of three budgeted-search routes from random far-from-players nodes
 - API: `ChaosService:SpawnThrough(player: Player, onSpawned: ((any) -> ())?, onCancelled: (() -> ())?) -> boolean` — Dijkstra approach to the caller's nearest node, then budgeted-search continuation
 - API: `ChaosService:CancelPending() -> number` — cancels and retracts every scheduled spawn/warning, returns how many
-- API: exported type `WarningToken` — `{ Cancelled, Lights, Oddities, Retract }`; `Retract()` clears everything that token has fired
+- API: exported type `WarningToken` — `{ Cancelled, Run, Lights, Oddities, Retract }`; `Retract()` clears everything that token has fired, and `Run` is the per-run id every one of that route's warnings carries so the client can cue once per run rather than once per span
 - Tags: reads `Doorway` (crash raycast exclusions)
 - Requires: `Services.HallwaysService`, `EnemyConfigs.Chaos`, `HallwayGraphService`, `LightService:WarnRed` / `:ClearRed`, `MapOddityService:Warn` / `:Clear`, `EnemyService`
 
@@ -419,7 +419,7 @@ Chat command `/mapoddity` (alias `/mapodd`) that maps a friendly word to a map-o
 ### MapOddityService.luau
 Scope wrapper around `OddityService` for the `"Map"` scope: it resolves the hallway span containing a position through the chosen oddity class, starts it, and can warn, clear or list what is running. Defaults to the `Transparency` effect.
 - API: `MapOddityService:Trigger(position: Vector3, kind: string?) -> (boolean, string?, string?)` — returns ok, the kind chosen, and a failure reason
-- API: `MapOddityService:Warn(span, duration: number, arrivalAtStart: number, arrivalAtFinish: number, warningTime: number) -> number?` — starts the `ChaosWarning` oddity on an already-resolved span and returns its token; the arrivals are `workspace:GetServerTimeNow()` stamps for the span's `Start` and `Finish` ends, which the client lerps to work out when Chaos reaches the listener
+- API: `MapOddityService:Warn(span, duration: number, arrivalAtStart: number, arrivalAtFinish: number, warningTime: number, run: number) -> number?` — starts the `ChaosWarning` oddity on an already-resolved span and returns its token; the arrivals are `workspace:GetServerTimeNow()` stamps for the span's `Start` and `Finish` ends, which the client lerps to work out when Chaos reaches the listener
 - API: `MapOddityService:Clear(token: number?) -> boolean` — one token, or every map oddity
 - API: `MapOddityService:GetActive() -> { [number]: any }`
 - API: `MapOddityService:Resync(player: Player)` — replays every running map oddity's `Start` payload to one player

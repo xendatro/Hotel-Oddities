@@ -24,7 +24,8 @@ function ChaosWarning:OnStart()
 		"ChaosWarning",
 		self:Setting("ArrivalAtStart", 0),
 		self:Setting("ArrivalAtFinish", 0),
-		self:Setting("WarningTime", 15)
+		self:Setting("WarningTime", 15),
+		self:Setting("WarningRun", 0)
 	)
 	return true
 end

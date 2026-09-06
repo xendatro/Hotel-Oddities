@@ -27,6 +27,7 @@ type WarningRegion = {
 	ArrivalAtStart: number,
 	ArrivalAtFinish: number,
 	WarningTime: number,
+	Run: number,
 }
 
 type RoomEntry = {
@@ -53,7 +54,7 @@ local ActiveWarnings: { [number]: WarningRegion } = {}
 local Voices: { Voice } = {}
 local Anchor: Part? = nil
 local AnchorPlaced = false
-local StungTokens: { [number]: true } = {}
+local StungRuns: { [number]: true } = {}
 
 local TargetPoint: Vector3? = nil
 local TargetGain = 0
@@ -285,10 +286,10 @@ local function resolve()
 	local now = workspace:GetServerTimeNow()
 
 	local bestPoint: Vector3? = nil
-	local bestToken: number? = nil
+	local bestRun: number? = nil
 	local bestGain = 0
 	local bestLead = math.huge
-	for token, region in ActiveWarnings do
+	for _, region in ActiveWarnings do
 		local point, distance, arrival = listenTo(region, position, inHallway, room)
 		if not point then continue end
 
@@ -297,7 +298,7 @@ local function resolve()
 
 		local gain = gainFor(distance)
 		if gain <= 0 or lead >= bestLead then continue end
-		bestPoint, bestToken, bestGain, bestLead = point, token, gain, lead
+		bestPoint, bestRun, bestGain, bestLead = point, region.Run, gain, lead
 	end
 
 	TargetPoint = bestPoint
@@ -309,8 +310,8 @@ local function resolve()
 		TargetGain = 0
 	end
 
-	if bestToken and not StungTokens[bestToken] then
-		StungTokens[bestToken] = true
+	if bestRun and not StungRuns[bestRun] then
+		StungRuns[bestRun] = true
 		AudioService:Play2DSound(Config.IncomingSound, false, Config.AmbienceBus)
 	end
 end
@@ -374,7 +375,8 @@ MapDoors.OnClientEvent:Connect(function(
 	marker: any,
 	arrivalAtStart: any,
 	arrivalAtFinish: any,
-	warningTime: any
+	warningTime: any,
+	run: any
 )
 	if type(token) ~= "number" then return end
 
@@ -385,6 +387,7 @@ MapDoors.OnClientEvent:Connect(function(
 			or type(arrivalAtStart) ~= "number"
 			or type(arrivalAtFinish) ~= "number"
 			or type(warningTime) ~= "number"
+			or type(run) ~= "number"
 		then
 			return
 		end
@@ -394,10 +397,17 @@ MapDoors.OnClientEvent:Connect(function(
 			ArrivalAtStart = arrivalAtStart,
 			ArrivalAtFinish = arrivalAtFinish,
 			WarningTime = warningTime,
+			Run = run,
 		}
 	elseif action == "Stop" then
+		local stopped = ActiveWarnings[token]
 		ActiveWarnings[token] = nil
-		StungTokens[token] = nil
+		if not stopped then return end
+
+		for _, region in ActiveWarnings do
+			if region.Run == stopped.Run then return end
+		end
+		StungRuns[stopped.Run] = nil
 	end
 end)
 

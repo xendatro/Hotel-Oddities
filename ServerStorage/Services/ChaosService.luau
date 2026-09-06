@@ -30,6 +30,7 @@ type RouteNode = HallwayGraphService.RouteNode
 
 export type WarningToken = {
 	Cancelled: boolean,
+	Run: number,
 	Lights: { Model },
 	Oddities: { number },
 	Retract: () -> (),
@@ -45,6 +46,7 @@ type PendingWarning = {
 local ChaosService = {}
 local Config = EnemyConfigs.Chaos
 local PendingTokens: { WarningToken } = {}
+local NextRun = 0
 
 local horizontal = MathService.Horizontal
 
@@ -317,7 +319,12 @@ local function routeDirection(route: { Vector3 }, index: number): Vector3?
 	return nil
 end
 
-local function collectWarnings(route: { Vector3 }, spawnAt: number, spawnTime: number): { PendingWarning }
+local function collectWarnings(
+	route: { Vector3 },
+	spawnAt: number,
+	spawnTime: number,
+	run: number
+): { PendingWarning }
 	local pending: { PendingWarning } = {}
 	local warningTime = Config.WarningTime
 	local speed = Config.WalkSpeed
@@ -383,7 +390,8 @@ local function collectWarnings(route: { Vector3 }, spawnAt: number, spawnTime: n
 					remaining,
 					arrivalAtStart,
 					arrivalAtFinish,
-					warningTime
+					warningTime,
+					run
 				)
 				if oddity then
 					table.insert(token.Oddities, oddity)
@@ -396,7 +404,7 @@ local function collectWarnings(route: { Vector3 }, spawnAt: number, spawnTime: n
 end
 
 local function scheduleWarnings(route: { Vector3 }, token: WarningToken, spawnAt: number, spawnTime: number)
-	local pending = collectWarnings(route, spawnAt, spawnTime)
+	local pending = collectWarnings(route, spawnAt, spawnTime, token.Run)
 	if #pending == 0 then return end
 
 	table.sort(pending, function(first: PendingWarning, second: PendingWarning)
@@ -442,8 +450,10 @@ end
 
 local function newToken(): WarningToken
 	local token: WarningToken
+	NextRun += 1
 	token = {
 		Cancelled = false,
+		Run = NextRun,
 		Lights = {},
 		Oddities = {},
 		Retract = function()
