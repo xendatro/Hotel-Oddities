@@ -1,7 +1,7 @@
-local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local ChaosTracker = require(ReplicatedStorage.Services.ChaosTrackerService)
 local Config = require(ReplicatedStorage.Configs.ChaosLightConfig)
 local TagService = require(ReplicatedStorage.Services.TagService)
 
@@ -28,11 +28,6 @@ type State = {
 
 type Binding = {
 	State: State,
-}
-
-type Mover = {
-	Position: Vector3,
-	Look: Vector3,
 }
 
 local States: { [Model]: State } = {}
@@ -94,34 +89,18 @@ local function evaluate(state: State)
 	announce(state.Model, red)
 end
 
-local function movers(): { Mover }
-	local found = {}
-	for _, instance in CollectionService:GetTagged(Config.ChaosTag) do
-		if not instance:IsA("Model") or not instance:IsDescendantOf(workspace) then continue end
-
-		local pivot = instance:GetPivot()
-		table.insert(found, {
-			Position = pivot.Position,
-			Look = pivot.LookVector,
-		})
-	end
-	return found
-end
-
 local function stepPasses()
 	if not next(Warned) then return end
 
-	local chasing = movers()
+	local chasing = ChaosTracker:GetMovers()
 	if #chasing == 0 then return end
 
 	for _, state in Warned do
 		for _, mover in chasing do
-			local offset = state.Position - mover.Position
-			local flat = Vector3.new(offset.X, 0, offset.Z)
-			if flat.Magnitude <= Config.PassEngageRange then
+			if ChaosTracker.RangeTo(mover, state.Position) <= Config.PassEngageRange then
 				state.Engaged = true
 			end
-			if state.Engaged and flat:Dot(mover.Look) <= 0 then
+			if state.Engaged and ChaosTracker.AlongTo(mover, state.Position) <= 0 then
 				state.Passed = true
 				evaluate(state)
 				break

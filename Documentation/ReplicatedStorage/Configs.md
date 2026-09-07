@@ -20,11 +20,11 @@ Walk-cycle camera bob amplitude, cadence and speed scaling.
 
 ### ChaosLightConfig.luau
 Red hallway-light warning that precedes the Chaos enemy, and how the client decides Chaos has passed a lamp.
-- API: data table — `RedColor`, `ChaosTag`, `PassCheckInterval`, `PassEngageRange`
+- API: data table — `RedColor`, `PassCheckInterval`, `PassEngageRange`
 
 ### ChaosWarningConfig.luau
 Client gating and placement for the Chaos warning ambience: how often to re-evaluate, which bus/folder/sting to play, and how far outside a warned hallway a listener in an adjacent hallway or an adjacent room still counts.
-- API: data table — `CheckInterval`, `AmbienceBus`, `AmbienceFolder`, `IncomingSound`, `AdjacentHallwayRange`, `RoomDoorRange`, `MinSourceDistance`, `AttenuationRange`, `FullVolumeDistance`, `SilentDistance`, `FadeInSpeed`, `FadeOutSpeed`, `PassFadeSpeed`, `PassFadeLead`, `AnchorLerpSpeed`, `AnchorSnapDistance`, `ReleaseDelay`, `GainEpsilon`, `GainSnap`
+- API: data table — `CheckInterval`, `AmbienceBus`, `AmbienceFolder`, `IncomingSound`, `AdjacentHallwayRange`, `RoomDoorRange`, `MinSourceDistance`, `AttenuationRange`, `FullVolumeDistance`, `SilentDistance`, `FadeInSpeed`, `FadeOutSpeed`, `PassFadeSpeed`, `PassFadeDistance`, `AnchorLerpSpeed`, `AnchorSnapDistance`, `ReleaseDelay`, `GainEpsilon`, `GainSnap`
 
 ### ChaseMusicConfig.luau
 Per-enemy chase music tracks with range, volume and fade rates.

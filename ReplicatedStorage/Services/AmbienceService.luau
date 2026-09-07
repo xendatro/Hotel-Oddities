@@ -11,6 +11,11 @@ local HallwayGraph = require(ReplicatedStorage.Services.HallwayGraphService)
 local LobbyService = require(ReplicatedStorage.Services.LobbyService)
 
 local AmbienceService = {}
+local Suppressors: { [string]: true } = {}
+
+function AmbienceService:Suppress(key: string, suppressed: boolean)
+	Suppressors[key] = if suppressed then true else nil
+end
 
 if not RunService:IsClient() then
 	return AmbienceService
@@ -152,7 +157,7 @@ RunService.Heartbeat:Connect(function(deltaTime)
 
 	local elapsed = accumulator
 	accumulator = 0
-	updateVolume(elapsed, deathVisible or lobbyVisible)
+	updateVolume(elapsed, deathVisible or lobbyVisible or next(Suppressors) ~= nil)
 end)
 
 updatePlayback(DeathScreenService:IsVisible(), LobbyService:IsPlayerOnLobbyFloor())

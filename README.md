@@ -85,15 +85,16 @@ become Services or Classes.
 ### ReplicatedStorage\Services
 
 - ReplicatedStorage\Services\AimService.luau — Look-at rotation and frame-rate-independent rotational easing.
-- ReplicatedStorage\Services\AmbienceService.luau — Plays the looping ambience playlist, ducking it by distance to the nearest enemy and swapping to death ambience.
+- ReplicatedStorage\Services\AmbienceService.luau — Plays the looping ambience playlist, ducking it by distance to the nearest enemy, muting it while a Suppress key is held, and swapping to death ambience.
 - ReplicatedStorage\Services\AudioService.luau — Central sound playback helper for 2D and positional audio, bus volumes and walkie-talkie relaying.
 - ReplicatedStorage\Services\BobService.luau — Random phase plus sine-wave vertical bob offset.
 - ReplicatedStorage\Services\CameraFovService.luau — Combines named additive field-of-view offsets from multiple effects into one camera FOV, with a lock for fixed-FOV camera sessions and a death reset for active effects.
 - ReplicatedStorage\Services\CaptureGalleryService.luau — Takes, keeps, burns, session-hides and reloads the player's own screenshots and camcorder tapes through Roblox's Captures API.
 - ReplicatedStorage\Services\CaptureOverlayService.luau — Clones the Studio-authored capture overlay, then fills its date, time and blinking REC light.
 - ReplicatedStorage\Services\CeilingVentDoorService.luau — Tweens ceiling vent doors on the client when the server commands them.
+- ReplicatedStorage\Services\ChaosTrackerService.luau — Shared view of the live Chaos enemies: heading, and how far along it a point sits, so the lights and the warning sound agree on when one has passed.
 - ReplicatedStorage\Services\ChaosLightService.luau — Turns tagged floor lights red while the server-set ChaosRed attribute is on, and clears each one the instant Chaos passes it rather than on the server's timer.
-- ReplicatedStorage\Services\ChaosWarningSoundService.luau — Plays hallway ambience and a 2D incoming sting for the warned hallway you are in, next to, or whose door you can see, with its own gain curve and an anchor held up-corridor at a fixed distance so camera rotation cannot swing it.
+- ReplicatedStorage\Services\ChaosWarningSoundService.luau — Plays hallway ambience and a 2D incoming sting for the warned hallway you are in, next to, or whose door you can see, with its own gain curve, an anchor held up-corridor at a fixed distance so camera rotation cannot swing it, a cut timed off the real Chaos model, and the normal ambience muted while it plays.
 - ReplicatedStorage\Services\CharacterService.luau — Shared nil-safe helpers for humanoids, alive root parts and player lifecycle cleanup.
 - ReplicatedStorage\Services\ChaseMusicService.luau — Cross-fades layered chase music by proximity to enemies that are hunting.
 - ReplicatedStorage\Services\ChaserCameraService.luau — Drives chase FOV pushes and per-enemy camera rumble, plus vent-open and scream reactions, clearing chase FOV state on death.

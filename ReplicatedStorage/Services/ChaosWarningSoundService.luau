@@ -9,13 +9,16 @@ if not RunService:IsClient() then
 	return ChaosWarningSoundService
 end
 
+local AmbienceService = require(ReplicatedStorage.Services.AmbienceService)
 local AudioService = require(ReplicatedStorage.Services.AudioService)
+local ChaosTracker = require(ReplicatedStorage.Services.ChaosTrackerService)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local Config = require(ReplicatedStorage.Configs.ChaosWarningConfig)
 local Hallways = require(ReplicatedStorage.Services.HallwaysService)
 
 local WARNING_MARKER = "ChaosWarning"
+local SUPPRESSOR_KEY = "ChaosWarning"
 local ROOM_TAG = "Room"
 local DOORWAY_TAG = "Doorway"
 local ROOM_DOOR_TAG = "RoomDoor"
@@ -59,6 +62,7 @@ local StungRuns: { [number]: true } = {}
 local TargetPoint: Vector3? = nil
 local TargetGain = 0
 local PassFading = false
+local HardCut = false
 local SilentFor = 0
 local TimeSinceCheck = math.huge
 
@@ -162,7 +166,7 @@ local function listenTo(
 	position: Vector3,
 	inHallway: boolean,
 	room: RoomEntry?
-): (Vector3?, number, number)
+): (Vector3?, number, number, Vector3?)
 	local offset = region.CFrame:PointToObjectSpace(position)
 	local half = region.Size / 2
 	local along = math.clamp(offset.Z, -half.Z, half.Z)
@@ -174,7 +178,7 @@ local function listenTo(
 		local gap = (nearest - position).Magnitude
 		local slide = math.sqrt(math.max(Config.MinSourceDistance ^ 2 - gap * gap, 0))
 		local source = centreAt(region, offset.Y, along + approachSign(region) * slide)
-		return source, gap, arrivalAt(region, along)
+		return source, gap, arrivalAt(region, along), nearest
 	end
 
 	local threshold = room and room.Threshold
@@ -183,11 +187,37 @@ local function listenTo(
 		if (boxPoint(region, doorOffset) - threshold).Magnitude <= Config.RoomDoorRange then
 			local doorAlong = math.clamp(doorOffset.Z, -half.Z, half.Z)
 			local source = centreAt(region, doorOffset.Y, doorAlong)
-			return source, (source - position).Magnitude, arrivalAt(region, doorAlong)
+			return source, (source - position).Magnitude, arrivalAt(region, doorAlong), source
 		end
 	end
 
-	return nil, 0, 0
+	return nil, 0, 0, nil
+end
+
+local function measuredAlong(region: WarningRegion, reference: Vector3): number?
+	local margin = Config.MinSourceDistance
+	local half = region.Size / 2
+	local approaching: number? = nil
+	local passed: number? = nil
+
+	for _, mover in ChaosTracker:GetMovers() do
+		local offset = region.CFrame:PointToObjectSpace(mover.Position)
+		if math.abs(offset.X) > half.X + margin
+			or math.abs(offset.Y) > half.Y + margin
+			or math.abs(offset.Z) > half.Z + margin
+		then
+			continue
+		end
+
+		local along = ChaosTracker.AlongTo(mover, reference)
+		if along > 0 then
+			if not approaching or along < approaching then approaching = along end
+		elseif not passed or along > passed then
+			passed = along
+		end
+	end
+
+	return approaching or passed
 end
 
 local function gainFor(distance: number): number
@@ -266,17 +296,23 @@ local function teardown()
 	TargetGain = 0
 	PassFading = false
 	SilentFor = 0
+	AmbienceService:Suppress(SUPPRESSOR_KEY, false)
+end
+
+local function silence()
+	TargetPoint, TargetGain = nil, 0
+	AmbienceService:Suppress(SUPPRESSOR_KEY, false)
 end
 
 local function resolve()
 	if not next(ActiveWarnings) then
-		TargetPoint, TargetGain = nil, 0
+		silence()
 		return
 	end
 
 	local root = CharacterService.GetAliveRoot(LocalPlayer)
 	if not root then
-		TargetPoint, TargetGain = nil, 0
+		silence()
 		return
 	end
 
@@ -288,27 +324,47 @@ local function resolve()
 	local bestPoint: Vector3? = nil
 	local bestRun: number? = nil
 	local bestGain = 0
-	local bestLead = math.huge
+	local bestDuck = 1
+	local bestTier = math.huge
+	local bestRank = math.huge
 	for _, region in ActiveWarnings do
-		local point, distance, arrival = listenTo(region, position, inHallway, room)
-		if not point then continue end
-
-		local lead = arrival - now
-		if lead <= 0 or lead > region.WarningTime then continue end
+		local point, distance, arrival, reference = listenTo(region, position, inHallway, room)
+		if not point or not reference then continue end
 
 		local gain = gainFor(distance)
-		if gain <= 0 or lead >= bestLead then continue end
-		bestPoint, bestRun, bestGain, bestLead = point, region.Run, gain, lead
+		if gain <= 0 then continue end
+
+		local duck = 1
+		local tier, rank
+
+		local along = measuredAlong(region, reference)
+		if along then
+			if along <= 0 then
+				HardCut = true
+				continue
+			end
+			duck = math.clamp(along / Config.PassFadeDistance, 0, 1)
+			tier, rank = 0, along
+		else
+			local lead = arrival - now
+			if lead <= 0 or lead > region.WarningTime then continue end
+			tier, rank = 1, lead
+		end
+
+		if tier > bestTier or (tier == bestTier and rank >= bestRank) then continue end
+		bestPoint, bestRun, bestGain, bestDuck = point, region.Run, gain, duck
+		bestTier, bestRank = tier, rank
 	end
 
 	TargetPoint = bestPoint
 	if bestPoint then
-		local duck = math.clamp(bestLead / Config.PassFadeLead, 0, 1)
-		TargetGain = bestGain * duck
-		PassFading = duck < 1
+		TargetGain = bestGain * bestDuck
+		PassFading = bestDuck < 1
 	else
 		TargetGain = 0
 	end
+
+	AmbienceService:Suppress(SUPPRESSOR_KEY, bestPoint ~= nil)
 
 	if bestRun and not StungRuns[bestRun] then
 		StungRuns[bestRun] = true
@@ -334,6 +390,14 @@ local function step(deltaTime: number)
 	end
 
 	if #Voices == 0 then return end
+
+	if HardCut then
+		HardCut = false
+		for _, voice in Voices do
+			voice.Gain = 0
+			writeGain(voice)
+		end
+	end
 
 	local speed
 	if PassFading then
