@@ -58,6 +58,9 @@ local Voices: { Voice } = {}
 local Anchor: Part? = nil
 local AnchorPlaced = false
 local StungRuns: { [number]: true } = {}
+local EngagedRuns: { [number]: true } = {}
+local PassedRuns: { [number]: true } = {}
+local CurrentRun: number? = nil
 
 local TargetPoint: Vector3? = nil
 local TargetGain = 0
@@ -194,11 +197,11 @@ local function listenTo(
 	return nil, 0, 0, nil
 end
 
-local function measuredAlong(region: WarningRegion, reference: Vector3): number?
+local function trackAlong(region: WarningRegion, reference: Vector3): number?
 	local margin = Config.MinSourceDistance
 	local half = region.Size / 2
+	local run = region.Run
 	local approaching: number? = nil
-	local passed: number? = nil
 
 	for _, mover in ChaosTracker:GetMovers() do
 		local offset = region.CFrame:PointToObjectSpace(mover.Position)
@@ -209,15 +212,21 @@ local function measuredAlong(region: WarningRegion, reference: Vector3): number?
 			continue
 		end
 
+		if ChaosTracker.RangeTo(mover, reference) <= Config.PassEngageRange then
+			EngagedRuns[run] = true
+		end
+
 		local along = ChaosTracker.AlongTo(mover, reference)
-		if along > 0 then
-			if not approaching or along < approaching then approaching = along end
-		elseif not passed or along > passed then
-			passed = along
+		if along <= 0 then
+			if EngagedRuns[run] then
+				PassedRuns[run] = true
+			end
+		elseif not approaching or along < approaching then
+			approaching = along
 		end
 	end
 
-	return approaching or passed
+	return approaching
 end
 
 local function gainFor(distance: number): number
@@ -241,6 +250,7 @@ local function rampGain(voice: Voice, target: number, delta: number)
 	local stepped = voice.Gain + (target - voice.Gain) * delta
 	voice.Gain = if math.abs(target - stepped) <= Config.GainSnap then target else stepped
 
+	if voice.Applied == voice.Gain then return end
 	if voice.Gain == target or math.abs(voice.Gain - voice.Applied) >= Config.GainEpsilon then
 		writeGain(voice)
 	end
@@ -267,11 +277,15 @@ local function ensureAnchor(position: Vector3): Part
 		if not source:IsA("AudioEmitter") then continue end
 
 		local player = AudioService:Play3DSound(source, anchor, true, Config.AmbienceBus)
+		local emitter = player.Parent :: AudioEmitter
+		emitter.DistanceAttenuationBounds = NumberRange.new(0, Config.AttenuationRange)
+		emitter.DistanceAttenuationMode = Enum.DistanceAttenuationMode.Custom
+
 		local voice: Voice = {
 			Player = player,
-			Emitter = player.Parent :: AudioEmitter,
+			Emitter = emitter,
 			Gain = 0,
-			Applied = 0,
+			Applied = -1,
 		}
 		writeGain(voice)
 		table.insert(Voices, voice)
@@ -301,6 +315,7 @@ end
 
 local function silence()
 	TargetPoint, TargetGain = nil, 0
+	CurrentRun = nil
 	AmbienceService:Suppress(SUPPRESSOR_KEY, false)
 end
 
@@ -328,6 +343,8 @@ local function resolve()
 	local bestTier = math.huge
 	local bestRank = math.huge
 	for _, region in ActiveWarnings do
+		if PassedRuns[region.Run] then continue end
+
 		local point, distance, arrival, reference = listenTo(region, position, inHallway, room)
 		if not point or not reference then continue end
 
@@ -337,12 +354,15 @@ local function resolve()
 		local duck = 1
 		local tier, rank
 
-		local along = measuredAlong(region, reference)
-		if along then
-			if along <= 0 then
+		local along = trackAlong(region, reference)
+		if PassedRuns[region.Run] then
+			if CurrentRun == region.Run then
 				HardCut = true
-				continue
 			end
+			continue
+		end
+
+		if along then
 			duck = math.clamp(along / Config.PassFadeDistance, 0, 1)
 			tier, rank = 0, along
 		else
@@ -357,6 +377,7 @@ local function resolve()
 	end
 
 	TargetPoint = bestPoint
+	CurrentRun = bestRun
 	if bestPoint then
 		TargetGain = bestGain * bestDuck
 		PassFading = bestDuck < 1
@@ -389,7 +410,10 @@ local function step(deltaTime: number)
 		AnchorPlaced = true
 	end
 
-	if #Voices == 0 then return end
+	if #Voices == 0 then
+		HardCut = false
+		return
+	end
 
 	if HardCut then
 		HardCut = false
@@ -472,6 +496,8 @@ MapDoors.OnClientEvent:Connect(function(
 			if region.Run == stopped.Run then return end
 		end
 		StungRuns[stopped.Run] = nil
+		EngagedRuns[stopped.Run] = nil
+		PassedRuns[stopped.Run] = nil
 	end
 end)
 

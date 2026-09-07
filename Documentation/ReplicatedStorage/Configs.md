@@ -24,7 +24,7 @@ Red hallway-light warning that precedes the Chaos enemy, and how the client deci
 
 ### ChaosWarningConfig.luau
 Client gating and placement for the Chaos warning ambience: how often to re-evaluate, which bus/folder/sting to play, and how far outside a warned hallway a listener in an adjacent hallway or an adjacent room still counts.
-- API: data table — `CheckInterval`, `AmbienceBus`, `AmbienceFolder`, `IncomingSound`, `AdjacentHallwayRange`, `RoomDoorRange`, `MinSourceDistance`, `AttenuationRange`, `FullVolumeDistance`, `SilentDistance`, `FadeInSpeed`, `FadeOutSpeed`, `PassFadeSpeed`, `PassFadeDistance`, `AnchorLerpSpeed`, `AnchorSnapDistance`, `ReleaseDelay`, `GainEpsilon`, `GainSnap`
+- API: data table — `CheckInterval`, `AmbienceBus`, `AmbienceFolder`, `IncomingSound`, `AdjacentHallwayRange`, `RoomDoorRange`, `MinSourceDistance`, `AttenuationRange`, `FullVolumeDistance`, `SilentDistance`, `FadeInSpeed`, `FadeOutSpeed`, `PassFadeSpeed`, `PassFadeDistance`, `PassEngageRange`, `AnchorLerpSpeed`, `AnchorSnapDistance`, `ReleaseDelay`, `GainEpsilon`, `GainSnap`
 
 ### ChaseMusicConfig.luau
 Per-enemy chase music tracks with range, volume and fade rates.

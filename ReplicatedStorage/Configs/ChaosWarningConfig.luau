@@ -18,6 +18,7 @@ return {
 	FadeOutSpeed = 1.75,
 	PassFadeSpeed = 16,
 	PassFadeDistance = 26,
+	PassEngageRange = 60,
 	AnchorLerpSpeed = 6,
 	AnchorSnapDistance = 40,
 	ReleaseDelay = 1.5,
