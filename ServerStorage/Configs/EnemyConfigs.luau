@@ -134,6 +134,7 @@ export type EnemyConfig = {
 	LightRouteRange: number?,
 	WarnRedCullRange: number?,
 	WarnHallwayCullRange: number?,
+	WarnSpanPadding: number?,
 	CrashOverrun: number?,
 
 	SideSpacing: number?,
@@ -508,6 +509,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		LightRouteRange = 13,
 		WarnRedCullRange = 200,
 		WarnHallwayCullRange = 150,
+		WarnSpanPadding = 12,
 		RouteHeight = 3,
 		CrashOverrun = 4,
 

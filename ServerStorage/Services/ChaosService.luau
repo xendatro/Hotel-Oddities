@@ -36,6 +36,15 @@ export type WarningToken = {
 	Retract: () -> (),
 }
 
+type SpanCoverage = {
+	Key: string,
+	Span: Hallways.StraightSpan,
+	MinAlong: number,
+	MaxAlong: number,
+	MinTravel: number,
+	MaxTravel: number,
+}
+
 type PendingWarning = {
 	WarnAt: number,
 	ExpiresAt: number,
@@ -307,6 +316,37 @@ local function spanHolds(span: Hallways.StraightSpan, point: Vector3, direction:
 	return math.abs(offset:Dot(Vector3.yAxis:Cross(span.Axis).Unit)) <= SPAN_HOLD_ACROSS
 end
 
+local function spanKey(span: Hallways.StraightSpan): string
+	return string.format(
+		"%d:%d:%d:%d",
+		math.round(span.Center.X),
+		math.round(span.Center.Z),
+		math.round(math.abs(span.Axis.X) * 10),
+		math.round(math.abs(span.Axis.Z) * 10)
+	)
+end
+
+local function trimSpan(
+	span: Hallways.StraightSpan,
+	minAlong: number,
+	maxAlong: number
+): Hallways.StraightSpan
+	local half = span.Length / 2
+	local padding = Config.WarnSpanPadding or 0
+	local low = math.clamp(math.min(minAlong, maxAlong) - padding, -half, half)
+	local high = math.clamp(math.max(minAlong, maxAlong) + padding, -half, half)
+	local start = span.Center + span.Axis * low
+	local finish = span.Center + span.Axis * high
+	return {
+		Start = start,
+		Finish = finish,
+		Center = start:Lerp(finish, 0.5),
+		Axis = span.Axis,
+		Length = high - low,
+		HalfWidth = span.HalfWidth,
+	}
+end
+
 local function routeDirection(route: { Vector3 }, index: number): Vector3?
 	if index < #route then
 		local forward = horizontal(route[index + 1] - route[index])
@@ -348,9 +388,16 @@ local function collectWarnings(
 		})
 	end
 
-	local seenSpans: { [string]: boolean } = {}
+	local coverages: { SpanCoverage } = {}
+	local current: SpanCoverage? = nil
 	local previousSpan: Hallways.StraightSpan? = nil
+	local travelled = 0
+
 	for index, point in route do
+		if index > 1 then
+			travelled += (point - route[index - 1]).Magnitude
+		end
+
 		local direction = routeDirection(route, index)
 
 		local span = previousSpan
@@ -358,29 +405,44 @@ local function collectWarnings(
 			span = Hallways.StraightSpanAt(point, direction)
 		end
 		previousSpan = span
-		if not span then continue end
+		if not span then
+			current = nil
+			continue
+		end
 
-		local key = string.format(
-			"%d:%d:%d:%d",
-			math.round(span.Center.X),
-			math.round(span.Center.Z),
-			math.round(math.abs(span.Axis.X) * 10),
-			math.round(math.abs(span.Axis.Z) * 10)
-		)
-		if seenSpans[key] then continue end
-		seenSpans[key] = true
+		local key = spanKey(span)
+		local along = horizontal(point - span.Center):Dot(span.Axis)
+		if current and current.Key == key then
+			if along < current.MinAlong then
+				current.MinAlong, current.MinTravel = along, travelled
+			end
+			if along > current.MaxAlong then
+				current.MaxAlong, current.MaxTravel = along, travelled
+			end
+		else
+			current = {
+				Key = key,
+				Span = span,
+				MinAlong = along,
+				MaxAlong = along,
+				MinTravel = travelled,
+				MaxTravel = travelled,
+			}
+			table.insert(coverages, current :: SpanCoverage)
+		end
+	end
 
-		local _, startTravel = distanceToRoute(span.Start, route)
-		local _, finishTravel = distanceToRoute(span.Finish, route)
-		local arrivalAtStart = spawnTime + startTravel / speed
-		local arrivalAtFinish = spawnTime + finishTravel / speed
-		local firstAt = spawnAt + math.min(startTravel, finishTravel) / speed
-		local lastAt = spawnAt + math.max(startTravel, finishTravel) / speed
-		local resolved = span
+	local tail = Config.LightPassDelay or 0
+	for _, coverage in coverages do
+		local resolved = trimSpan(coverage.Span, coverage.MinAlong, coverage.MaxAlong)
+		local arrivalAtStart = spawnTime + coverage.MinTravel / speed
+		local arrivalAtFinish = spawnTime + coverage.MaxTravel / speed
+		local firstAt = spawnAt + math.min(coverage.MinTravel, coverage.MaxTravel) / speed
+		local lastAt = spawnAt + math.max(coverage.MinTravel, coverage.MaxTravel) / speed
 
 		table.insert(pending, {
 			WarnAt = firstAt - warningTime,
-			ExpiresAt = lastAt,
+			ExpiresAt = lastAt + tail,
 			IsNearPlayer = function(positions: { Vector3 })
 				return nearAnySpan(positions, resolved, Config.WarnHallwayCullRange or math.huge)
 			end,
