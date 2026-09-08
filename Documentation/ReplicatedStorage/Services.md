@@ -128,7 +128,7 @@ Client-only, gated on `FLAGS.Enemies`. For every tagged enemy that has a chase t
 - Requires: `Configs.ChaseMusicConfig`, `MathService`, `TagService`, `AudioService`
 
 ### ChaserCameraService.luau
-Gated on `FLAGS.Enemies`. Drives camera reactions to enemies chasing the local player: a fading FOV offset while a ceiling dweller or mimic is hunting, and per-enemy dynamic rumble shakes scaled by distance from `ChaserCameraConfig.ChaseShakes`. Clears its cached chase FOV state when the local character dies. Also reacts to the server's vent-open and scream phases with one-shot shakes and a scream sound.
+Gated on `FLAGS.Enemies`. Drives camera reactions to enemies chasing the local player: a fading FOV offset while a ceiling dweller or mimic is hunting, and per-enemy dynamic rumble shakes scaled by distance from `ChaserCameraConfig.ChaseShakes`. Its active state only reports a live FOV or rumble effect, so distant `AllPlayers` enemies do not suppress walking camera bob. Clears its cached chase FOV state when the local character dies. Also reacts to the server's vent-open and scream phases with one-shot shakes and a scream sound.
 - API: `ChaserCameraService:IsActive() -> boolean` — whether any chase camera effect is currently running (returns `false` when the flag is off)
 - Remotes: `Enemies/CeilingDwellerCamera` (listened; `Open` / `Scream` phases)
 - Tags: reads `Enemy`
@@ -276,7 +276,7 @@ Renders every `Eye` tagged model client-side each frame: bobs it on its own phas
 - Requires: `Services.AimService`, `Services.BobService`, `Services.SightlineService`, `Services.VanishedService`, `Configs.EyeConfig`, `Configs.FLAGS`, `EyeHitEffectService`, `TagService`
 
 ### FirstPersonCameraService.luau
-Hides the default mouse icon, enables the custom `Cursor` GUI, and adds walking camera bob — a stronger sine sway plus walk-cycle roll whose speed and amplitude scale with horizontal walk speed, fading in and out as the player starts and stops. Strafing adds a slight movement-direction camera tilt. Bob is suppressed entirely while the chaser camera is active.
+Hides the default mouse icon, enables the custom `Cursor` GUI, and adds walking camera bob — a stronger sine sway plus walk-cycle roll whose speed and amplitude scale with horizontal walk speed, fading in and out as the player starts and stops. Strafing adds a reduced, smoothed movement-direction camera tilt. Bob is suppressed entirely while an actual chaser camera effect is active.
 - API: data table — empty; the render-step job is bound on require.
 - Requires: `Configs.CameraBobConfig`, `ChaserCameraService`, `MathService`
 

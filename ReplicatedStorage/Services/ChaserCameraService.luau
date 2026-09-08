@@ -70,11 +70,7 @@ local function isCameraEffectModel(instance: Instance): boolean
 end
 
 function ChaserCameraService:IsActive(): boolean
-	if ceilingFovIntensity > 0.02 or next(Shakes) ~= nil then return true end
-	for instance in EnemyModels do
-		if isCameraEffectModel(instance) then return true end
-	end
-	return false
+	return ceilingFovIntensity > 0.02 or next(Shakes) ~= nil
 end
 
 local mimicChaseSince: { [Model]: number } = {}

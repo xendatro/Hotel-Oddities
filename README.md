@@ -266,7 +266,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\AmbienceConfig.luau — Distance falloff and fade timing for ambient sound emitters.
 - ReplicatedStorage\Configs\AnimationConfig.luau — Animation asset ids and per-enemy animation sets.
 - ReplicatedStorage\Configs\BreatheConfig.luau — Idle breathing joint motion settings.
-- ReplicatedStorage\Configs\CameraBobConfig.luau — Walk-cycle camera bob amplitude, cadence and strafing tilt.
+- ReplicatedStorage\Configs\CameraBobConfig.luau — Walk-cycle camera bob amplitude, cadence and smoothed strafing tilt.
 - ReplicatedStorage\Configs\CaptureConfig.luau — Camcorder timing and stop key, gallery access rules, capture date formats and capture-flow strings; visual settings live in StarterGui.
 - ReplicatedStorage\Configs\ChaosLightConfig.luau — Red hallway-light warning settings for the Chaos enemy, plus how the client detects Chaos passing a lamp.
 - ReplicatedStorage\Configs\ChaosWarningConfig.luau — Client gating, placement and sound routing for the Chaos warning ambience.

@@ -25,6 +25,7 @@ local characterState = nil :: CharacterState?
 local phase = 0
 local weight = 0
 local amplitude = 1
+local strafe = 0
 
 local function bindCharacter(character: Model)
 	local state = {
@@ -37,6 +38,7 @@ local function bindCharacter(character: Model)
 	phase = 0
 	weight = 0
 	amplitude = 1
+	strafe = 0
 end
 
 local function render(deltaTime: number)
@@ -54,9 +56,14 @@ local function render(deltaTime: number)
 	local chaserActive = ChaserCameraService:IsActive()
 	if chaserActive then
 		weight = 0
+		strafe = 0
 	else
 		local targetWeight = if moving then 1 else 0
 		weight += (targetWeight - weight) * MathService.ExpAlpha(CameraBobConfig.FadeSpeed, deltaTime)
+		local targetStrafe = if moving
+			then math.clamp(state.Root.CFrame:VectorToObjectSpace(humanoid.MoveDirection).X, -1, 1)
+			else 0
+		strafe += (targetStrafe - strafe) * MathService.ExpAlpha(CameraBobConfig.StrafeTiltSpeed, deltaTime)
 	end
 
 	if moving then
@@ -75,7 +82,6 @@ local function render(deltaTime: number)
 
 	local scale = weight * amplitude
 	local side = math.sin(phase / 2)
-	local strafe = math.clamp(state.Root.CFrame:VectorToObjectSpace(humanoid.MoveDirection).X, -1, 1)
 	local offset = Vector3.new(
 		side * CameraBobConfig.HorizontalDistance,
 		-math.cos(phase) * CameraBobConfig.VerticalDistance,

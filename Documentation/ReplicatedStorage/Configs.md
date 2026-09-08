@@ -15,8 +15,8 @@ Idle breathing motion applied to character joints.
 - API: data table — `Period`, `InhaleFraction`, `Waist`, `Neck`, `Shoulder`, `Root`, `Smoothing`, `MaxDistance`
 
 ### CameraBobConfig.luau
-Walk-cycle camera bob amplitude, cadence, speed scaling and strafing tilt.
-- API: data table — `VerticalDistance`, `HorizontalDistance`, `RollAngle`, `StrafeTiltAngle`, `StepsPerSecond`, `ReferenceWalkSpeed`, `FadeSpeed`, `AmplitudeSpeedInfluence`, `MinAmplitudeScale`, `MaxAmplitudeScale`
+Walk-cycle camera bob amplitude, cadence, speed scaling and smoothed strafing tilt.
+- API: data table — `VerticalDistance`, `HorizontalDistance`, `RollAngle`, `StrafeTiltAngle`, `StrafeTiltSpeed`, `StepsPerSecond`, `ReferenceWalkSpeed`, `FadeSpeed`, `AmplitudeSpeedInfluence`, `MinAmplitudeScale`, `MaxAmplitudeScale`
 
 ### ChaosLightConfig.luau
 Red hallway-light warning that precedes the Chaos enemy, and how the client decides Chaos has passed a lamp.
