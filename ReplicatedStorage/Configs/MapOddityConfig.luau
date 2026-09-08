@@ -92,12 +92,13 @@ return {
 			KillDepth = 1.25,
 		},
 		HallwayCrush = {
-			SpawnIntervalMin = 2400,
-			SpawnIntervalMax = 3600,
+			SpawnIntervalMin = 240,
+			SpawnIntervalMax = 360,
 			MinDuration = 26,
 			MaxDuration = 40,
 
 			OccupiedChance = 0.55,
+			OccupiedChanceReferencePlayers = 10,
 			PickAttempts = 64,
 			-- Longest run that closes at once.
 			MaxLength = 130,
