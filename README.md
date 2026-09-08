@@ -162,6 +162,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\MathService.luau — Shared pure-math helpers: easing, frame-rate independent lerp alphas, horizontal vector work, angles, pulses and comma-grouped number formatting.
 - ReplicatedStorage\Services\MimicMotionService.luau — Converts recorded movement samples into discrete key presses with reaction delay and aim drift.
 - ReplicatedStorage\Services\MimicService.luau — Client driver for the Mimic enemy: mirrors your recorded movement, spins to face you, twitches and head-locks enemy necks, plays the reveal sting.
+- ReplicatedStorage\Services\MirrorRoomService.luau — Client tag listener that binds a MirrorRoom class to every `MirrorRoom` tagged connector.
 - ReplicatedStorage\Services\MinigameService.luau — Client arcade shell for hackable computers: picks the terminal's game, builds the CRT SurfaceGui and hosts one game module at a time.
 - ReplicatedStorage\Services\MinimapService.luau — Map gamepass minimap that stays hidden until ownership is available and only shows in the maze while no main page is open.
 - ReplicatedStorage\Services\NotificationService.luau — Client top-center notification banner for short server feedback messages.
@@ -222,6 +223,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\LocatorMarker.luau — Per-player billboard marker with headshot bubble, name plate and highlight.
 - ReplicatedStorage\Classes\MapMarker.luau — One inked map symbol with a spring pop, ping ring and flash for the moment it is discovered.
 - ReplicatedStorage\Classes\MapCanvas.luau — Soft-brush pixel canvas over an EditableImage with max-alpha stamping and dirty-rect flushing.
+- ReplicatedStorage\Classes\MirrorRoom.luau — Renders upside-down reflections of every player and enemy standing in a mirrored connector room.
 - ReplicatedStorage\Classes\MotionTrail.luau — Rolling buffer of a humanoid's recent motion samples.
 - ReplicatedStorage\Classes\NpcAnimator.luau — Replaces the default Animate script for NPC locomotion, emotes and overrides.
 - ReplicatedStorage\Classes\PathfinderMarker.luau — Numbered waypoint marker model for the pathfinder tool.
@@ -302,6 +304,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\LookConfig.luau — Replicated aim/look angle limits and neck-waist blend weights.
 - ReplicatedStorage\Configs\MapConfig.luau — Map discovery radius, canvas resolution, hand-drawn ink style, danger layer and marker tuning.
 - ReplicatedStorage\Configs\MapOddityConfig.luau — Fixed spawn intervals and per-effect tuning for hallway/map oddities, including world-space light-out chunks and player-count targeting for HallwayCrush.
+- ReplicatedStorage\Configs\MirrorRoomConfig.luau — Bounds padding, retry delay and the instance classes stripped from a mirror-room reflection.
 - ReplicatedStorage\Configs\MimicConfig.luau — Behaviour tuning for the Mimic enemy's reactions, reveal and movement.
 - ReplicatedStorage\Configs\NotificationConfig.luau — Visual settings for the client notification banner.
 - ReplicatedStorage\Configs\ObservedFreezeConfig.luau — Tag, attribute and tolerances for freeze-when-observed enemies.

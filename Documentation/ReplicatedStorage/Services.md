@@ -545,7 +545,7 @@ Answers whether a player is standing on the lobby floor, by requiring the humano
 
 ### LookService.luau
 Two halves of head/torso look-at: it reports the local camera's pitch and yaw relative to the character's facing to the server on an interval (only when they move past a threshold), and it bends the Neck and Waist joints of every other player's character and every `Enemy` model toward their replicated `LookPitch`/`LookYaw` attributes. The applied transform is undone in PreAnimation so animations still play cleanly, and joints are cached weakly per model.
-- API: data table — empty; the report and joint-bend loops run on require.
+- API: `LookService.Local(root: BasePart?) -> (pitch: number, yaw: number)` — the local camera's clamped pitch and yaw relative to that root, the same values the report loop sends
 - Remotes: `Look/Update` (fired)
 - Tags: reads `Enemy`
 - Requires: `Configs.LookConfig`, `MathService`
@@ -651,6 +651,12 @@ Client-side driver for the Mimic enemy: mirrors the local player's recorded move
 - Remotes: `Enemies/Mirror` (listened), `Enemies/MimicReveal` (listened)
 - Tags: listens `Enemy` (raw CollectionService signals, to find necks to twitch/head-lock)
 - Requires: `Classes.MotionTrail`, `Classes.NpcAnimator`, `Services.MimicMotionService`, `Configs.MimicConfig`, `Configs.AnimationConfig`, `AudioService` (reverb wiring)
+
+### MirrorRoomService.luau
+Client-only. Listens the `MirrorRoom` tag inside workspace and binds a `Classes.MirrorRoom` to every tagged model.
+- API: no public methods — the tag listener runs on require.
+- Tags: listens `MirrorRoom`
+- Requires: `Configs.MirrorRoomConfig`, `Classes.MirrorRoom`, `TagService`
 
 ### MinigameService.luau
 Client-only arcade shell for the hackable computers: picks which minigame a given terminal runs (deterministic by position within its maze), builds the CRT-styled SurfaceGui with title bar, scanlines, win/deny overlays, and hosts one game module at a time. Owns its own pooled `AudioPlayer` sound-cue graph under SoundService.

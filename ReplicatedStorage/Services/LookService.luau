@@ -23,15 +23,9 @@ local Update = CommunicationService.Get("Look", "Update") :: RemoteEvent
 local lastSentPitch, lastSentYaw = 0, 0
 local nextSendAt = 0
 
-local function report()
-	local now = os.clock()
-	if now < nextSendAt then return end
-	nextSendAt = now + LookConfig.SendInterval
-
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart")
+function LookService.Local(root: BasePart?): (number, number)
 	local camera = workspace.CurrentCamera
-	if not root or not root:IsA("BasePart") or not camera then return end
+	if not root or not camera then return 0, 0 end
 
 	local look = camera.CFrame.LookVector
 	local pitch = math.asin(math.clamp(look.Y, -1, 1))
@@ -44,8 +38,20 @@ local function report()
 		yaw = math.atan2(flatBody:Cross(flatLook).Y, flatBody:Dot(flatLook))
 	end
 
-	pitch = math.clamp(pitch, -LookConfig.MaxPitch, LookConfig.MaxPitch)
-	yaw = math.clamp(yaw, -LookConfig.MaxYaw, LookConfig.MaxYaw)
+	return math.clamp(pitch, -LookConfig.MaxPitch, LookConfig.MaxPitch),
+		math.clamp(yaw, -LookConfig.MaxYaw, LookConfig.MaxYaw)
+end
+
+local function report()
+	local now = os.clock()
+	if now < nextSendAt then return end
+	nextSendAt = now + LookConfig.SendInterval
+
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root or not root:IsA("BasePart") or not workspace.CurrentCamera then return end
+
+	local pitch, yaw = LookService.Local(root)
 
 	if math.abs(pitch - lastSentPitch) < LookConfig.SendThreshold
 		and math.abs(yaw - lastSentYaw) < LookConfig.SendThreshold

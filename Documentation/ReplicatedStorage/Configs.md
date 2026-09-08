@@ -169,6 +169,10 @@ Spawn intervals, durations and per-effect tuning for the hallway/map oddity syst
 Behaviour tuning for the Mimic enemy — reaction delays, idle emotes, its reveal sequence, floating, turning and approach distances.
 - API: data table — reaction keys (`ReactionDelayMin/Max`, `KeyDeadzone`, `ReactionJitterMin/Max`), emote/spin keys, reveal keys (`HeadSnapDuration`, `RevealHoldTime`, `RevealSound*`, `RevealReverb*`, `RevealSub*`), float keys (`FloatHipRise`, `FloatRiseTime`, `FloatSettleTime`, `FloatBob*`), turning keys (`TurnRate`, `InteractionTurnRate`, `AimDrift*`, `FacingTorque`, `FacingResponsiveness`), and positioning keys (`WallProbeDistance`, `ApproachStopDistance`, `WithdrawGap`, `ShadowGap`, `Behind*`, `ImmediateBehindTurnChance`)
 
+### MirrorRoomConfig.luau
+Tuning for the mirrored connector room's reflections.
+- API: data table — `Tag`, `Padding`, `FloorTolerance`, `RetryDelay`, `CastShadow`, `BendLocalLook`, `ReflectEnemies`, `StripClasses`
+
 ### NotificationConfig.luau
 Visual settings for the top-center notification banner used for short player-facing feedback.
 - API: data table — `DisplayOrder`, `Width`, `Height`, `TopMargin`, `Gap`, `Duration`, `FadeTime`, `BackgroundColor`, `BackgroundTransparency`, `StrokeColor`, `AccentColor`, `TextColor`, `TextStrokeColor`, `TextSize`
