@@ -1,5 +1,7 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
+local FlashlightConfig = require(ReplicatedStorage.Configs.FlashlightConfig)
 local ServerTool = require(ServerStorage.Classes.ServerTool)
 
 local Flashlight = ServerTool.extend("Flashlight")
@@ -12,11 +14,12 @@ end
 
 function Flashlight:SetEnabled(enabled: boolean)
 	self.Enabled = enabled
+	self.Tool:SetAttribute(FlashlightConfig.Attribute, enabled)
 
 	local handle = self.Tool:FindFirstChild("Handle")
 	local light = handle and handle:FindFirstChildWhichIsA("SpotLight")
 	if light then
-		light.Enabled = enabled
+		light.Enabled = false
 	end
 end
 

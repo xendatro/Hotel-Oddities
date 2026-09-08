@@ -280,6 +280,18 @@ Hides the default mouse icon, enables the custom `Cursor` GUI, and adds walking 
 - API: data table — empty; the render-step job is bound on require.
 - Requires: `Configs.CameraBobConfig`, `ChaserCameraService`, `MathService`
 
+### FlashlightDebugService.luau
+F7 panel for tuning the flashlight beam live. One cone is edited at a time through a cycling selector with Angle, Range and Brightness sliders, alongside master brightness, a warmth slider that drives the shared colour, and the three camera-offset axes. Emits the `FlashlightConfig` block to paste. Gated behind `FLAGS.FlashlightDebug`.
+- API: data table — empty; the panel is built on require
+- Requires: `Classes.DebugPanel`, `Configs.FlashlightDebugConfig`, `Configs.FlashlightConfig`, `Configs.FLAGS`, `FlashlightService`
+
+### FlashlightService.luau
+Client renderer for every flashlight beam. Replaces the single authored handle spotlight with a stack of `SpotLight` cones that share one origin, so their overlap gives a smooth centre-to-edge falloff instead of one hard-edged disc. The local player's cones ride an invisible part pinned to the camera each render step, putting the beam centre on the crosshair and following pitch as well as yaw; every other player's cones are parented to their own handle and keep the authored face. Cones exist only while a flashlight is held with the `LightOn` attribute set, and the authored spotlight is force-disabled on sight.
+- API: `FlashlightService:Refresh()` — re-applies `FlashlightConfig` to every live cone, rebuilding rigs if the cone count changed
+- API: `FlashlightService:IsLocalLit() -> boolean` — whether the local player's beam is currently built
+- Tags: listens to `Flashlight` through CollectionService directly, since `TagService` allows one listener per tag and `ToolClientService` already holds it
+- Requires: `Configs.FlashlightConfig`, `Configs.ToolConfigs`
+
 ### FriendAvatarService.luau
 Client-only cache that loads the local player's friend list and builds R15 character models from their HumanoidDescriptions, keyed by an arbitrary string so the same key always yields the same friend. Clones a pre-assembled prototype per user id and strips accessories that failed to weld.
 - API: `FriendAvatar.GetUserIds() -> { number }` — yields until the friend list has loaded

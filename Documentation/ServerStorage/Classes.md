@@ -515,12 +515,12 @@ Server half of the Energy Drink tool: a bare `SpeedDrink` subclass, so activatio
 - Requires: `Classes\SpeedDrink` (extends `ServerTool`)
 
 ### Tools\Flashlight.luau
-Server half of the flashlight: activation toggles the `SpotLight` in the handle and plays the handle's click emitter; the light is forced off when unequipped or destroyed.
+Server half of the flashlight: activation toggles the replicated `LightOn` attribute that every client's `FlashlightService` renders from, and plays the handle's click emitter. The authored handle `SpotLight` is held disabled — it is only a template for the cone faces — and the attribute is cleared when the tool is unequipped or destroyed.
 - API: `Flashlight.new(tool: Tool)` — starts disabled
-- API: `Flashlight:SetEnabled(enabled: boolean)` — sets `self.Enabled` and the handle spotlight
+- API: `Flashlight:SetEnabled(enabled: boolean)` — sets `self.Enabled` and the `LightOn` attribute, and keeps the authored spotlight off
 - API: `Flashlight:OnActivated()` — toggle plus click sound
 - API: `Flashlight:OnUnequipped()` / `Flashlight:OnDestroy()` — force off
-- Requires: `Classes\ServerTool`
+- Requires: `Classes\ServerTool`, `Configs.FlashlightConfig`
 
 ### Tools\Gravity Warper.luau
 Server half of the Gravity Warper: on activation it verifies a ceiling exists above the holder, consumes one, tags the character with `Vanished.EyeExemptTag` ("IgnoreExceptEye") so every enemy except the Eye treats them as absent, and fires `GravityWarp/Warp` to the holder's client so `GravityWarpService` runs the ceiling tween. Player, character and root are captured before `Consume`, because consuming the last charge destroys the Tool synchronously. The tag and the `GravityWarping` attribute clear when the client reports done over `GravityWarp/Finished` (fired on every client exit path, so the gate spans the real warp including the descent and re-activation cannot slip in while the client is still finishing), on death, or on a fallback timer of `AscendTime + Duration + DescendTime + 5` if the report never arrives; a stale delayed clear cannot evict a newer warp's pending entry.

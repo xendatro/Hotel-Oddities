@@ -88,7 +88,15 @@ The Eye enemy: tracking range, the hit flash/blink/blur reaction, gaze-buildup s
 
 ### FLAGS.luau
 Global on/off switches for major systems and debug output.
-- API: data table — `Enemies`, `EnemyCommands`, `Director`, `DangerDebug`, `VoiceDebug`, `ViewmodelDebug`, `ItemPreviewDebug`, `PerfLog`
+- API: data table — `Enemies`, `EnemyCommands`, `Director`, `DangerDebug`, `VoiceDebug`, `ViewmodelDebug`, `ItemPreviewDebug`, `FlashlightDebug`, `PerfLog`
+
+### FlashlightConfig.luau
+The flashlight beam: the stacked spotlight cones, their shared colour, and where the local player's beam origin sits relative to the camera.
+- API: data table — `Attribute`, `Color`, `Master`, `CameraOffset`, `Cones` (each `Name`, `Angle`, `Range`, `Brightness`, `Shadows`)
+
+### FlashlightDebugConfig.luau
+Toggle key and slider steps for the flashlight beam panel.
+- API: data table — `ToggleKey`, `Step`, `AngleStep`, `WarmColor`
 
 ### GhostConfig.luau
 The Ghost enemy's turn, bob and fade timing.

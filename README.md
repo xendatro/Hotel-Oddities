@@ -119,6 +119,8 @@ become Services or Classes.
 - ReplicatedStorage\Services\EyeHitEffectService.luau — Blink, blur, flash and gaze-vignette screen effects for the Eye enemy.
 - ReplicatedStorage\Services\EyeRenderService.luau — Bobs and aims tagged Eye models at the camera and computes gaze strength.
 - ReplicatedStorage\Services\FirstPersonCameraService.luau — Walking camera bob plus custom cursor setup for first person.
+- ReplicatedStorage\Services\FlashlightDebugService.luau — F7 panel for tuning the flashlight beam cones, warmth and camera offset live.
+- ReplicatedStorage\Services\FlashlightService.luau — Renders every flashlight beam as stacked spotlight cones, camera-mounted for the local player so the beam centre sits on the crosshair.
 - ReplicatedStorage\Services\FriendAvatarService.luau — Client-only cache that builds character models from the local player's friends' avatars.
 - ReplicatedStorage\Services\FriendReviveUIService.luau — Timed revive-offer cards for downed teammates.
 - ReplicatedStorage\Services\GalleryUIService.luau — Studio-authored Gallery page: explicit device-capture access, tape thumbnails, autoplay previews, click-to-full-screen viewing and per-item reel removal.
@@ -283,6 +285,8 @@ become Services or Classes.
 - ReplicatedStorage\Configs\ElevatorConfig.luau — Elevator door motion, proximity and teleport fade settings.
 - ReplicatedStorage\Configs\EyeConfig.luau — Eye enemy tracking, hit reaction and gaze screen-effect settings.
 - ReplicatedStorage\Configs\FLAGS.luau — Global on/off switches for major systems and debug output.
+- ReplicatedStorage\Configs\FlashlightConfig.luau — Stacked spotlight cones, shared beam colour and the local beam's camera offset.
+- ReplicatedStorage\Configs\FlashlightDebugConfig.luau — Toggle key and slider steps for the flashlight beam panel.
 - ReplicatedStorage\Configs\GhostConfig.luau — Ghost enemy turn, bob and fade timing.
 - ReplicatedStorage\Configs\GraphicsFogConfig.luau — Fog quality levels, fog cage and automatic FPS-driven adjustment.
 - ReplicatedStorage\Configs\HearingConfig.luau — Sound-travel visualisation settings for the Blind enemy's hearing.
@@ -485,7 +489,7 @@ become Services or Classes.
 - ServerStorage\Classes\Tools\Camcorder.luau — Server half of the camcorder; gates recording on the Camcorder gamepass and never consumes.
 - ServerStorage\Classes\Tools\Camera.luau — Server half of the tripod camera; validates placement, spawns it and consumes the single use.
 - ServerStorage\Classes\Tools\Energy Drink.luau — Server half of the Energy Drink tool; a plain SpeedDrink subclass.
-- ServerStorage\Classes\Tools\Flashlight.luau — Server half of the flashlight, toggling the handle spotlight on activation.
+- ServerStorage\Classes\Tools\Flashlight.luau — Server half of the flashlight, toggling the replicated LightOn attribute the clients render from.
 - ServerStorage\Classes\Tools\Gravity Warper.luau — Server half of the gravity warper; consumes one, tags the character IgnoreExceptEye for the warp duration and cues the client tween.
 - ServerStorage\Classes\Tools\Medkit.luau — Server half of the Medkit tool; a plain Healer subclass.
 - ServerStorage\Classes\Tools\Pathfinder.luau — Server half of the Pathfinder, spending a use per placed marker unless the perk is owned.
