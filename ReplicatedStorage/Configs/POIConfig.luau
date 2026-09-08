@@ -39,7 +39,10 @@ return {
 		ExitDrift = 10,
 		RuleWidth = 190,
 		RuleTime = 0.7,
-		ShadowTransparency = 0.35,
+		EyebrowTransparency = 0.35,
+		TitleTransparency = 0,
+		CounterTransparency = 0.45,
+		RuleTransparency = 0.25,
 		CountUpTime = 0.5,
 		-- A queued popup waits this long after the previous one leaves.
 		QueueGap = 0.2,

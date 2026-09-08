@@ -40,8 +40,11 @@ local DiscoveredRemote = CommunicationService.Get(Remotes.Folder, Remotes.Discov
 local SyncRemote = CommunicationService.Get(Remotes.Folder, Remotes.Sync) :: RemoteEvent
 
 local basePosition = frame.Position
-local baseRuleY = rule.Position.Y.Offset
-local labels = { eyebrow, title, counter }
+local labels: { { Label: TextLabel, Transparency: number, Order: number } } = {
+	{ Label = eyebrow, Transparency = Popup.EyebrowTransparency, Order = 0 },
+	{ Label = title, Transparency = Popup.TitleTransparency, Order = 1 },
+	{ Label = counter, Transparency = Popup.CounterTransparency, Order = 3 },
+}
 
 local tweens: { Tween } = {}
 local queue: { { Name: string, Count: number, Total: number } } = {}
@@ -61,16 +64,6 @@ local function play(instance: Instance, info: TweenInfo, goal: { [string]: any }
 	return tween
 end
 
-local function fadeLabel(label: TextLabel, transparency: number, info: TweenInfo, delay: number?)
-	play(label, info, { TextTransparency = transparency }, delay)
-
-	local shadow = label:FindFirstChildOfClass("UIStroke")
-	if shadow then
-		local target = if transparency >= 1 then 1 else Popup.ShadowTransparency
-		play(shadow, info, { Transparency = target }, delay)
-	end
-end
-
 local function counterText(count: number, total: number): string
 	if total > 0 then
 		return string.format(Popup.CounterText, count, total)
@@ -85,10 +78,8 @@ local function reset()
 	rule.Size = UDim2.fromOffset(0, rule.Size.Y.Offset)
 	rule.BackgroundTransparency = 1
 
-	for _, label in labels do
-		label.TextTransparency = 1
-		local shadow = label:FindFirstChildOfClass("UIStroke")
-		if shadow then shadow.Transparency = 1 end
+	for _, entry in labels do
+		entry.Label.TextTransparency = 1
 	end
 end
 
@@ -104,14 +95,17 @@ local function animateIn(entry: { Name: string, Count: number, Total: number })
 
 	play(frame, rise, { Position = basePosition })
 
-	fadeLabel(eyebrow, 0, fade)
-	fadeLabel(title, 0, fade, stagger)
-	fadeLabel(counter, 0, fade, stagger * 3)
+	for _, label in labels do
+		play(label.Label, fade, { TextTransparency = label.Transparency }, stagger * label.Order)
+	end
 
 	play(
 		rule,
 		TweenInfo.new(Popup.RuleTime, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-		{ Size = UDim2.fromOffset(Popup.RuleWidth, rule.Size.Y.Offset), BackgroundTransparency = 0.15 },
+		{
+			Size = UDim2.fromOffset(Popup.RuleWidth, rule.Size.Y.Offset),
+			BackgroundTransparency = Popup.RuleTransparency,
+		},
 		stagger * 2
 	)
 
@@ -140,7 +134,7 @@ local function animateOut()
 	play(frame, info, { Position = basePosition - UDim2.fromOffset(0, Popup.ExitDrift) })
 	play(rule, info, { BackgroundTransparency = 1 })
 	for _, label in labels do
-		fadeLabel(label, 1, info)
+		play(label.Label, info, { TextTransparency = 1 })
 	end
 end
 

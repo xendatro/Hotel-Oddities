@@ -171,7 +171,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\PhotoTimerService.luau — Clones the Studio-authored countdown template above each placed tripod camera.
 - ReplicatedStorage\Services\PhotoTimerService.luau — Countdown billboard over every placed tripod camera, flashing SNAP when it fires.
 - ReplicatedStorage\Services\POIAudioService.luau — Plays the POIDiscovered sting on entering a point of interest, skipping it while one is already playing.
-- ReplicatedStorage\Services\POIUIService.luau — Client point-of-interest popup: staggered fade-and-rise of the name, hairline rule and discovered counter.
+- ReplicatedStorage\Services\POIUIService.luau — Client point-of-interest popup: staggered white fade-and-rise of the name, hairline rule and discovered counter.
 - ReplicatedStorage\Services\PlayerLocatorService.luau — Client teleport-to-player HUD with per-player markers, crosshair focus and a shared cooldown readout.
 - ReplicatedStorage\Services\PlayerOddityRenderService.luau — Client renderer that turns every other player's head toward you while the stare oddity is active.
 - ReplicatedStorage\Services\RecordPlayerAudioService.luau — Muffles and fades tagged in-world record players while the elevator is loading or the death screen is up.
