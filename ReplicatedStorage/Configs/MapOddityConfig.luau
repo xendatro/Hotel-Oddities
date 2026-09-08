@@ -98,7 +98,7 @@ return {
 			MaxDuration = 40,
 
 			OccupiedChance = 0.55,
-			OccupiedChanceReferencePlayers = 10,
+			OccupiedChanceReferencePlayers = 10, --scales down the chance as more players join
 			PickAttempts = 64,
 			-- Longest run that closes at once.
 			MaxLength = 130,
