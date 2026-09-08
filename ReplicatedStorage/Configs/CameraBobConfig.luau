@@ -1,7 +1,8 @@
 return {
-	VerticalDistance = 0.045,
-	HorizontalDistance = 0.025,
-	RollAngle = 0.12,
+	VerticalDistance = 0.075,
+	HorizontalDistance = 0.045,
+	RollAngle = 0.2,
+	StrafeTiltAngle = 1,
 	StepsPerSecond = 1.8,
 	ReferenceWalkSpeed = 16,
 	FadeSpeed = 10,

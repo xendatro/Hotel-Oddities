@@ -276,7 +276,7 @@ Renders every `Eye` tagged model client-side each frame: bobs it on its own phas
 - Requires: `Services.AimService`, `Services.BobService`, `Services.SightlineService`, `Services.VanishedService`, `Configs.EyeConfig`, `Configs.FLAGS`, `EyeHitEffectService`, `TagService`
 
 ### FirstPersonCameraService.luau
-Hides the default mouse icon, enables the custom `Cursor` GUI, and adds walking camera bob — a sine sway plus roll whose speed and amplitude scale with horizontal walk speed, fading in and out as the player starts and stops. Bob is suppressed entirely while the chaser camera is active.
+Hides the default mouse icon, enables the custom `Cursor` GUI, and adds walking camera bob — a stronger sine sway plus walk-cycle roll whose speed and amplitude scale with horizontal walk speed, fading in and out as the player starts and stops. Strafing adds a slight movement-direction camera tilt. Bob is suppressed entirely while the chaser camera is active.
 - API: data table — empty; the render-step job is bound on require.
 - Requires: `Configs.CameraBobConfig`, `ChaserCameraService`, `MathService`
 

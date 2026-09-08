@@ -75,12 +75,15 @@ local function render(deltaTime: number)
 
 	local scale = weight * amplitude
 	local side = math.sin(phase / 2)
+	local strafe = math.clamp(state.Root.CFrame:VectorToObjectSpace(humanoid.MoveDirection).X, -1, 1)
 	local offset = Vector3.new(
 		side * CameraBobConfig.HorizontalDistance,
 		-math.cos(phase) * CameraBobConfig.VerticalDistance,
 		0
 	) * scale
-	local roll = math.rad(-side * CameraBobConfig.RollAngle * scale)
+	local roll = math.rad(
+		(-side * CameraBobConfig.RollAngle - strafe * CameraBobConfig.StrafeTiltAngle) * scale
+	)
 	camera.CFrame *= CFrame.new(offset) * CFrame.Angles(0, 0, roll)
 end
 
