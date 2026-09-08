@@ -23,8 +23,8 @@ Red hallway-light warning that precedes the Chaos enemy, and how the client deci
 - API: data table — `RedColor`, `PassCheckInterval`, `PassEngageRange`
 
 ### ChaosWarningConfig.luau
-Client gating and placement for the Chaos warning ambience: how often to re-evaluate, which bus/folder/sting to play, and how far outside a warned hallway a listener in an adjacent hallway or an adjacent room still counts.
-- API: data table — `CheckInterval`, `AmbienceBus`, `AmbienceFolder`, `IncomingSound`, `AdjacentHallwayRange`, `RoomDoorRange`, `MinSourceDistance`, `AttenuationRange`, `FullVolumeDistance`, `SilentDistance`, `FadeInSpeed`, `FadeOutSpeed`, `PassFadeSpeed`, `PassFadeDistance`, `PassEngageRange`, `AnchorLerpSpeed`, `AnchorSnapDistance`, `ReleaseDelay`, `GainEpsilon`, `GainSnap`
+Client gating and placement for the Chaos warning ambience: how often to re-evaluate, which bus/folder/sting to play, and how far outside a warned hallway a listener in an adjacent hallway or an adjacent room still counts. `StingDistance` is deliberately much tighter than `SilentDistance`: the bed is allowed to bleed in faintly from a long way off, but the full-volume 2D `IncomingSound` is not. `SuppressGain` is the bed level at which the ordinary ambience playlist is worth ducking.
+- API: data table — `CheckInterval`, `AmbienceBus`, `AmbienceFolder`, `IncomingSound`, `AdjacentHallwayRange`, `RoomDoorRange`, `MinSourceDistance`, `AttenuationRange`, `FullVolumeDistance`, `SilentDistance`, `StingDistance`, `SuppressGain`, `FadeInSpeed`, `FadeOutSpeed`, `PassFadeSpeed`, `PassFadeDistance`, `PassEngageRange`, `AnchorLerpSpeed`, `AnchorSnapDistance`, `ReleaseDelay`, `GainEpsilon`, `GainSnap`
 
 ### ChaseMusicConfig.luau
 Per-enemy chase music tracks with range, volume and fade rates.

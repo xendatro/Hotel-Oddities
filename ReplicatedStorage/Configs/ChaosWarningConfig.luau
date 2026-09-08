@@ -13,6 +13,8 @@ return {
 
 	FullVolumeDistance = 12,
 	SilentDistance = 70,
+	StingDistance = 45,
+	SuppressGain = 0.08,
 
 	FadeInSpeed = 3,
 	FadeOutSpeed = 1.75,

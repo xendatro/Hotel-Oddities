@@ -23,6 +23,8 @@ local ROOM_TAG = "Room"
 local DOORWAY_TAG = "Doorway"
 local ROOM_DOOR_TAG = "RoomDoor"
 local THRESHOLD_NAME = "Threshold"
+local PASS_TIER = 0
+local APPROACH_TIER = 1
 
 type WarningRegion = {
 	CFrame: CFrame,
@@ -342,6 +344,8 @@ local function resolve()
 	local bestDuck = 1
 	local bestTier = math.huge
 	local bestRank = math.huge
+	local stingRun: number? = nil
+	local stingDistance = math.huge
 	for _, region in ActiveWarnings do
 		if PassedRuns[region.Run] then continue end
 
@@ -364,11 +368,15 @@ local function resolve()
 
 		if along then
 			duck = math.clamp(along / Config.PassFadeDistance, 0, 1)
-			tier, rank = 0, along
+			tier, rank = PASS_TIER, along
 		else
 			local lead = arrival - now
 			if lead <= 0 or lead > region.WarningTime then continue end
-			tier, rank = 1, lead
+			tier, rank = APPROACH_TIER, lead
+		end
+
+		if tier == APPROACH_TIER and distance < stingDistance then
+			stingRun, stingDistance = region.Run, distance
 		end
 
 		if tier > bestTier or (tier == bestTier and rank >= bestRank) then continue end
@@ -385,10 +393,10 @@ local function resolve()
 		TargetGain = 0
 	end
 
-	AmbienceService:Suppress(SUPPRESSOR_KEY, bestPoint ~= nil)
+	AmbienceService:Suppress(SUPPRESSOR_KEY, TargetGain >= Config.SuppressGain)
 
-	if bestRun and not StungRuns[bestRun] then
-		StungRuns[bestRun] = true
+	if stingRun and stingDistance <= Config.StingDistance and not StungRuns[stingRun] then
+		StungRuns[stingRun] = true
 		AudioService:Play2DSound(Config.IncomingSound, false, Config.AmbienceBus)
 	end
 end
