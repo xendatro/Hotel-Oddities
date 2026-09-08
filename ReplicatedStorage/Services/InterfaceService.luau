@@ -7,6 +7,7 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local CameraFovService = require(ReplicatedStorage.Services.CameraFovService)
+local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local PresetConfig = require(ReplicatedStorage.Frameworks.xenterface.Config.PresetConfig)
 
@@ -20,6 +21,7 @@ local PAGE_GROUP = "Main"
 local PAGE_PRESET = PresetConfig.HotelPage
 local EFFECT_PRESET = PresetConfig.HotelEffects
 local CLOSE_TIME = PAGE_PRESET.CloseTime
+local MAP_ATTRIBUTE = PerkConfig.AttributePrefix .. "Map"
 
 local player = Players.LocalPlayer
 local playerGui = GuiBuilderService.GetPlayerGui()
@@ -30,7 +32,6 @@ local blur = Lighting:WaitForChild("InterfaceBlur") :: BlurEffect
 local pageNames = {
 	Index = { Gui = "IndexGui", Root = "Design" },
 	Shop = { Gui = "ShopUI", Root = "Design" },
-	Vip = { Gui = "VipPerksUI", Root = "Design" },
 	Gems = { Gui = "GemsUI", Root = "Design" },
 	Items = { Gui = "ItemsGui", Root = "Design" },
 	KitInventory = { Gui = "KitInventory", Root = "Design" },
@@ -213,6 +214,11 @@ end
 controller.Fired:Connect(function(data)
 	local activeId = data.ActiveId
 	local inactiveId = data.InactiveId
+	if activeId == "Map" and player:GetAttribute(MAP_ATTRIBUTE) ~= true then
+		controller:Fire("")
+		return
+	end
+
 	local activeGui = pageGuis[activeId]
 	local inactiveGui = pageGuis[inactiveId]
 
@@ -313,6 +319,9 @@ UserInputService.InputBegan:Connect(function(input: InputObject, processed: bool
 end)
 
 function InterfaceService:Open(pageId: string)
+	if pageId == "Map" and player:GetAttribute(MAP_ATTRIBUTE) ~= true then
+		return
+	end
 	if not pageGuis[pageId] then
 		warn(("[InterfaceService] No page named %q to open."):format(pageId))
 		return
@@ -327,5 +336,12 @@ end
 function InterfaceService:GetActive(): string
 	return controller.Active
 end
+
+player:GetAttributeChangedSignal(MAP_ATTRIBUTE):Connect(function()
+	if player:GetAttribute(MAP_ATTRIBUTE) == true then return end
+	if controller.Active == "Map" then
+		controller:Fire("")
+	end
+end)
 
 return InterfaceService

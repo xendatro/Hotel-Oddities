@@ -436,7 +436,7 @@ Client-only singleton wrapper: returns a single `Interaction` instance (an empty
 - Requires: `Classes.Interaction` (which reads `Configs.DrawerConfig` and clones its prompt from the `Cursor` ScreenGui)
 
 ### InterfaceService.luau
-Owns the main menu page group: enables/disables the Index, Shop, VIP, Gems, Items, KitInventory, KitsShop, RollGui, Map and Gallery ScreenGuis through an xenterface controller, blurs and pulls back the camera FOV while a page is open, and manages mouse unlocking (including a Q toggle when no page is open). Also wires hover/press motion onto tagged side buttons and close buttons using named motion presets.
+Owns the main menu page group: enables/disables the Index, Shop, Gems, Items, KitInventory, KitsShop, RollGui, Map and Gallery ScreenGuis through an xenterface controller, blurs and pulls back the camera FOV while a page is open, and manages mouse unlocking (including a Q toggle when no page is open). Also wires hover/press motion onto tagged side buttons and close buttons using named motion presets. The Map page is rejected unless the player owns the Map gamepass.
 - API: `InterfaceService.WireMotion(button: GuiButton, visual: GuiObject?, motionPreset: any?)` — add hover/press scale and tilt motion to any button (defaults to the button itself and the `HotelSideButton` preset)
 - API: `InterfaceService:Open(pageId: string)` — open one of the known pages, warning on an unknown id
 - API: `InterfaceService:Close()` — close whatever page is open
@@ -573,16 +573,21 @@ Entries also carry a `Shape` of `Rect`, `Round` or `Wedge`. A `Round` entry is a
 - Requires: `Configs.MapConfig`
 
 ### MapService.luau
-Client-only front end for the map. Waits for the `Map` ScreenGui's paper `ImageLabel`, loads each sync into `MapLayoutService`, attaches `MapInkService` to the paper, replays stored discovery, and applies incremental reveals with a deferred flush so a burst of reveals costs one write. Also owns the local player marker, repositioned every render step.
+Client-only front end for the Map gamepass. Waits for the `Map` ScreenGui's paper `ImageLabel`, loads each sync into `MapLayoutService`, attaches `MapInkService` to the paper, replays stored discovery, and applies incremental reveals with a deferred flush so a burst of reveals costs one write. Non-owners ignore map data, cannot open the Map page, and have no M-key toggle binding. Also owns the local player marker, repositioned every render step.
 - API: `MapService:GetPaper() -> ImageLabel?`
 - API: `MapService:ToPaperScale(worldX: number, worldZ: number) -> UDim2` — world position as a scale offset inside the paper
 - Builds a clipped `Viewport` holding a pannable `Content` frame; the ink, markers, local player dot and other players' headshot markers all live inside it so they pan and zoom together
 - A computer room discovered while the map is shut is queued, then draws itself on with its marker popping shortly after, the next time the `Map` page is opened; one discovered while the map is already open plays immediately
 - Remotes: `Map/Sync` (listened), `Map/Reveal` (listened), `Map/Landmark` (listened)
-- Requires: `Configs.MapConfig`, `Classes.MapMarker`, `CharacterService`, `CommunicationService`, `MapControlService`, `MapInkService`, `MapLayoutService`
+- Requires: `Configs.MapConfig`, `Configs.PerkConfig`, `Classes.MapMarker`, `CharacterService`, `CommunicationService`, `MapControlService`, `MapInkService`, `MapLayoutService`
+
+### MinimapService.luau
+Client-only minimap front end for the Map gamepass. Builds the minimap viewport from the shared map layout, shows it only while the player is in the maze and no main page is open, and hides it immediately when Map ownership is absent. Rebuilds after the ownership attribute changes to true.
+- API: `MinimapService:IsShowing() -> boolean`
+- Requires: `Configs.MapConfig`, `Configs.PerkConfig`, `MapMarkerLayer`, `CharacterService`, `MapInkService`, `MapLayoutService`, `MapService`
 
 ### MarketplaceService\init.luau
-Wrapper around Roblox's own MarketplaceService that adds a shared server/client gamepass-ownership cache, cross-boundary purchase prompts, and a registry of per-product receipt handlers. Server also grants the VIP pass to holders of a legacy VIP subscription. `extend` merges the real MarketplaceService in, so every native member is still reachable through this module.
+Wrapper around Roblox's own MarketplaceService that adds a shared server/client gamepass-ownership cache, cross-boundary purchase prompts, and a registry of per-product receipt handlers. `extend` merges the real MarketplaceService in, so every native member is still reachable through this module.
 - API: `MarketplaceService:PromptProductPurchase(player: Player, productId: number)` — server relays to the owning client, client prompts
 - API: `MarketplaceService:PromptGamePassPurchase(player: Player, gamePassId: number)` — same server/client split
 - API: `MarketplaceService:UserOwnsGamePass(player: Player | number, gamePassId: number) -> boolean` — cached; client round-trips to the server and yields up to 10s
@@ -595,7 +600,7 @@ Wrapper around Roblox's own MarketplaceService that adds a shared server/client 
 
 ### MarketplaceService\Gamepasses.luau
 Gamepass asset ids keyed by name.
-- API: data table — `Pathfinder`, `KeepItems`, `Visor`, `DoubleSpeed` (all currently `0`, i.e. unpublished)
+- API: data table — `Pathfinder`, `KeepItems`, `Visor`, `DoubleSpeed`, `PlayerLocator`, `Map`, `DoubleCoins`, `DoubleGems` (all currently `0`, i.e. unpublished)
 
 ### MarketplaceService\Products.luau
 Developer-product asset ids, with per-item product ids nested under `Items`.
@@ -714,12 +719,12 @@ Client point-of-interest popup. Drives the Studio-authored `POIGui`, which is wh
 - Requires: `POIConfig`, `GuiBuilderService`, `TweenProxyService`, `StarterGui.POIGui`
 
 ### PlayerLocatorService.luau
-Client-only teleport-to-player HUD: keeps a `LocatorMarker` per eligible player (all players, or friends only, depending on the toggled mode), highlights whichever marker is nearest the crosshair each frame, and fires the teleport remote on click. Renders the shared cooldown readout. If the `PlayerLocator` GUI is missing its expected children it degrades to a disabled stub exposing only `SetEnabled`/`IsEnabled`.
+Client-only teleport-to-player HUD for the Player Locator gamepass: keeps a `LocatorMarker` per eligible player (all players, or friends only, depending on the toggled mode), highlights whichever marker is nearest the crosshair each frame, and fires the teleport remote on click. The HUD remains disabled until the ownership attribute is true, including when an old saved tool is equipped. Renders the shared cooldown readout. If the `PlayerLocator` GUI is missing its expected children it degrades to a disabled stub exposing only `SetEnabled`/`IsEnabled`.
 - API: `PlayerLocatorService:SetEnabled(value: boolean)` — shows/hides the GUI, rebuilds markers, binds/unbinds the render step
 - API: `PlayerLocatorService:IsEnabled() -> boolean`
 - API: `PlayerLocatorService:GetMode() -> string` — current mode id from `PlayerLocatorConfig.Modes`
 - Remotes: `PlayerLocator/Teleport` (fired to request; listened for the returned cooldown)
-- Requires: `Classes.LocatorMarker`, `Configs.PlayerLocatorConfig`, `GuiBuilderService`; reads the `Cursor` GUI to find the aim point
+- Requires: `Classes.LocatorMarker`, `Configs.PerkConfig`, `Configs.PlayerLocatorConfig`, `GuiBuilderService`; reads the `Cursor` GUI to find the aim point
 
 ### PlayerOddityRenderService.luau
 Client renderer for the "everyone stares at you" oddity: while the server-sent stare is active, every other player's neck Motor6D is eased toward looking at your head (clamped to ±80° yaw, ±35° pitch), then eased back and released once settled.

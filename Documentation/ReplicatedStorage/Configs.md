@@ -174,7 +174,7 @@ Point-of-interest tag, remote names, the trigger-box padding and sweep interval 
 
 ### PerkConfig.luau
 Per-perk settings for the gamepass/perk system, keyed by perk name under a shared attribute prefix.
-- API: data table — `AttributePrefix`, `Loadout`, `Visor`, `DoubleSpeed`, `FriendRevive`
+- API: data table — `AttributePrefix`, `Loadout`, `Visor`, `PlayerLocator`, `Camcorder`, `DoubleSpeed`, `FriendRevive`
 
 ### PhotoConfig.luau
 Every behavior value the tripod Camera photo system uses: the placed-model tag and attribute names, placement raycast limits, body height, the 180-degree model yaw and the ghost placement preview, countdown length, lens offset/FOV and the subject cone, ShadowFigure placement rules, capture flash timings including the figure render warmup, the unseen-despawn rule, countdown pulse rules, and film animation timings. The countdown, shutter flash, and film layout live in `StarterGui.CaptureTemplates.PhotoTimer`, `StarterGui.PhotoFlash`, and `StarterGui.PhotoDevelop`.

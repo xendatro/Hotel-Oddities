@@ -12,6 +12,7 @@ local SpeedBoostService = require(ServerStorage.Services.SpeedBoostService)
 local PASSES = MarketplaceService.Gamepasses
 local ATTRIBUTE_PREFIX = PerkConfig.AttributePrefix
 local VISOR_TOOL = PerkConfig.Visor.ToolName
+local PLAYER_LOCATOR_TOOL = PerkConfig.PlayerLocator.ToolName
 local CAMCORDER_TOOL = PerkConfig.Camcorder.ToolName
 local SPEED_MULTIPLIER = PerkConfig.DoubleSpeed.Multiplier
 
@@ -66,6 +67,12 @@ local function applyVisor(player: Player)
 	InventoryService:Add(player, VISOR_TOOL, 1)
 end
 
+local function applyPlayerLocator(player: Player)
+	if not PerkService:Owns(player, "PlayerLocator") then return end
+
+	InventoryService:EnsureSingle(player, PLAYER_LOCATOR_TOOL)
+end
+
 local function applyCamcorder(player: Player)
 	if CaptureConfig.RequireGamepass and not PerkService:Owns(player, "Camcorder") then return end
 	if InventoryService:Get(player, CAMCORDER_TOOL) then return end
@@ -95,6 +102,7 @@ local function onCharacterAdded(player: Player, character: Model)
 	applySpeed(player, humanoid)
 	applyKeptItems(player)
 	applyVisor(player)
+	applyPlayerLocator(player)
 	applyCamcorder(player)
 	InventoryService:EnsureSingle(player, "Walkie Talkie")
 end
@@ -121,8 +129,11 @@ Players.PlayerRemoving:Connect(function(player: Player)
 end)
 
 MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player: Player, _, wasPurchased: boolean)
-	if not wasPurchased or Owned[player] == nil then return end
-	task.spawn(resolvePasses, player)
+	if not wasPurchased then return end
+	task.spawn(function()
+		resolvePasses(player)
+		applyPlayerLocator(player)
+	end)
 end)
 
 return PerkService

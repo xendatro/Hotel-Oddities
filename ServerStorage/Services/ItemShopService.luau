@@ -6,6 +6,7 @@ local VoiceChatService = game:GetService("VoiceChatService")
 local ItemShopConfig = require(ReplicatedStorage.Configs.ItemShopConfig)
 local MarketplaceService = require(ReplicatedStorage.Services.MarketplaceService)
 local DataSaveService = require(ServerStorage.Services.DataSaveService)
+local CoinService = require(ServerStorage.Services.CoinService)
 local InventoryService = require(ServerStorage.Services.InventoryService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 
@@ -14,18 +15,12 @@ local Sync = CommunicationService.Get("Items", "Sync") :: RemoteEvent
 
 local ItemShopService = {}
 
-local function getCoins(profile): number
-	local coins = tonumber(profile.Data.Coins) or ItemShopConfig.StartingCoins
-	return math.max(0, math.floor(coins))
-end
-
 function ItemShopService:Sync(player: Player, result: string?, itemId: string?)
 	local profile = DataSaveService:Get(player)
 	if not profile then return end
 
-	local coins = getCoins(profile)
-	profile.Data.Coins = coins
-	player:SetAttribute("Coins", coins)
+	CoinService:Sync(player)
+	local coins = CoinService:Get(player)
 	Sync:FireClient(player, coins, result, itemId)
 end
 
@@ -57,18 +52,22 @@ Purchase.OnServerEvent:Connect(function(player: Player, itemId: any)
 	local profile = DataSaveService:Get(player)
 	if not profile then return end
 
-	local coins = getCoins(profile)
-	if coins < entry.CoinPrice then
+	if CoinService:Get(player) < entry.CoinPrice then
+		ItemShopService:Sync(player, "InsufficientCoins", itemId)
+		return
+	end
+
+	if not CoinService:Spend(player, entry.CoinPrice) then
 		ItemShopService:Sync(player, "InsufficientCoins", itemId)
 		return
 	end
 
 	if not grant(player, itemId) then
+		CoinService:Refund(player, entry.CoinPrice)
 		ItemShopService:Sync(player, "InventoryFull", itemId)
 		return
 	end
 
-	profile.Data.Coins = coins - entry.CoinPrice
 	ItemShopService:Sync(player, "Purchased", itemId)
 end)
 

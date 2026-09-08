@@ -46,6 +46,5 @@ return {
 		Medkit = "Rare",
 		Lantern = "Rare",
 		Radar = "VeryRare",
-		["Player Locator"] = "VeryRare",
 	},
 }

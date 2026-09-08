@@ -205,10 +205,20 @@ Caches each player's gamepass ownership at join time by querying every id in `Ga
 - API: `GamepassService:UserOwnsGamepass(player: Player, id: number) -> boolean` — cache lookup only, never yields
 - Requires: `ServerStorage.Configs.GamepassConfigs`, `CharacterService.ForEachPlayer` / `.CleanupOnLeave`
 
+### CoinService.luau
+Owns the coin balance in the player's DataSave profile: reads and normalises it, mirrors it to a `Coins` player attribute, and centralises every spend, refund and positive earning. `Award` doubles positive earnings when the player owns `DoubleCoins`; `Spend` and `Refund` are exact amounts.
+- API: `CoinService:Get(player: Player) -> number`
+- API: `CoinService:Sync(player: Player)`
+- API: `CoinService:Award(player: Player, amount: number, multiplied: boolean?) -> boolean` — doubles by default; pass `false` for a direct Robux grant
+- API: `CoinService:Spend(player: Player, amount: number) -> boolean` — false and no deduction when the balance is short
+- API: `CoinService:Refund(player: Player, amount: number) -> boolean` — exact non-multiplied correction
+- Requires: `ItemShopConfig`, `PerkConfig`, `DataSaveService`
+
 ### GemService.luau
-Owns the gem balance in the player's DataSave profile: reads and normalises it, mirrors it to a `Gems` player attribute, and pushes it to the client over `Gems/Sync` with an optional result code. Spending is checked and atomic, so a failed grant can be refunded by the caller. Gems are the currency for both kit purchases and rolls.
+Owns the gem balance in the player's DataSave profile: reads and normalises it, mirrors it to a `Gems` player attribute, and pushes it to the client over `Gems/Sync` with an optional result code. `Award` doubles positive earnings when the player owns `DoubleGems`; spending is exact and checked atomically, so a failed grant can be refunded by the caller. Gems are the currency for both kit purchases and rolls.
 - API: `GemService:Get(player: Player) -> number`
-- API: `GemService:Award(player: Player, amount: number) -> boolean`
+- API: `GemService:Award(player: Player, amount: number, multiplied: boolean?) -> boolean` — doubles by default; pass `false` for a direct Robux grant
+- API: `GemService:Refund(player: Player, amount: number) -> boolean` — exact non-multiplied correction
 - API: `GemService:Spend(player: Player, amount: number) -> boolean` - false and no deduction when the balance is short
 - API: `GemService:Sync(player: Player, result: string?)`
 - Remotes: `Gems/Sync` (listened and fired)
@@ -322,10 +332,10 @@ Admin toggle that marks a player's character with the infinite-immunity source (
 - Requires: `ReplicatedStorage.Services.VanishedService`, `ChatCommandService` (registers admin-only `/invincible [on|off]` and `/mortal`)
 
 ### ItemShopService.luau
-Coin-and-Robux item shop: it validates a purchase against `ItemShopConfig`, checks voice-chat eligibility for voice-gated items, spends coins from the DataSave profile and grants the tool through `InventoryService`. Robux products get a receipt handler with per-`PurchaseId` deduplication, and coin balances are mirrored to a `Coins` player attribute and to the client.
+Coin-and-Robux item shop: it validates a purchase against `ItemShopConfig`, checks voice-chat eligibility for voice-gated items, spends coins through `CoinService` and grants the tool through `InventoryService`. Robux products get a receipt handler with per-`PurchaseId` deduplication, and coin balances are mirrored to a `Coins` player attribute and to the client.
 - API: `ItemShopService:Sync(player: Player, result: string?, itemId: string?)` — pushes coins plus a result code (`Purchased`, `InsufficientCoins`, `InventoryFull`, `VoiceUnavailable`)
 - Remotes: `Items/Purchase` (listened), `Items/Sync` (fired and listened)
-- Requires: `ItemShopConfig`, `MarketplaceService.Products.Items` / `:CreateReceipt`, `DataSaveService`, `InventoryService`
+- Requires: `ItemShopConfig`, `MarketplaceService.Products.Items` / `:CreateReceipt`, `DataSaveService`, `CoinService`, `InventoryService`
 
 ### KitRollService.luau
 The paid-random-items path. Eligibility comes from `PolicyService.ArePaidRandomItemsRestricted`, resolved once on join and published as a `CanRoll` player attribute; a restricted account is refused server-side, not merely hidden in the UI. A roll spends `KitConfig.Roll.GemCost`, picks a rarity by its configured weight and then a kit uniformly inside that rarity, and grants it. Rolling a kit already owned refunds `DuplicateRefundFraction` of that rarity's gem price. Every early exit refunds the cost, and a per-player flag blocks concurrent rolls.
@@ -396,7 +406,7 @@ Receives each client's camera pitch/yaw, rate-limits and clamps it, and stores i
 - Requires: `LookConfig` (`SendInterval`, `MaxPitch`, `MaxYaw`, `MimicUpdateInterval`), `CharacterService.CleanupOnLeave`
 
 ### MapDiscoveryService.luau
-Server owner of per-player map discovery. On a fixed tick it projects each living player's position onto every hallway rectangle, computes the exact span of that hallway covered by the discovery radius (accounting for lateral distance, so a player in a crossing corridor reveals only what they could see of it), and unions that span into the intervals already stored for that hallway. Only the part of a span that is not already known is considered, and that remainder is sampled with line-of-sight raycasts so nothing is discovered through a wall; standing still therefore costs no raycasts at all. Growth below the configured threshold is discarded, so neither the profile nor the network sees churn. Discovery lives in the player's profile under `DiscoveredMap` and therefore persists across runs. Rooms and connectors are revealed whole rather than by interval, because a box seen from inside is seen entirely; only hallways accumulate partial spans. The full rectangle list is sent once on join so the client can render correctly even where streaming has removed the geometry. Each rectangle also carries a `Shape`: a horizontal `WedgePart` floor becomes `Wedge` plus the `CutAlong`/`CutAcross` signs naming the corner its triangle omits, a horizontal cylinder becomes `Round`, everything else stays `Rect`. The cut signs are expressed against `MapLayoutService`'s across convention, not `HallwaysService`'s, because the two are opposite.
+Server owner of per-player map discovery. On a fixed tick it projects each living player's position onto every hallway rectangle, computes the exact span of that hallway covered by the discovery radius (accounting for lateral distance, so a player in a crossing corridor reveals only what they could see of it), and unions that span into the intervals already stored for that hallway. Only the part of a span that is not already known is considered, and that remainder is sampled with line-of-sight raycasts so nothing is discovered through a wall; standing still therefore costs no raycasts at all. Growth below the configured threshold is discarded, so neither the profile nor the network sees churn. Discovery lives in the player's profile under `DiscoveredMap` and therefore persists across runs. Rooms and connectors are revealed whole rather than by interval, because a box seen from inside is seen entirely; only hallways accumulate partial spans. Non-owners continue to have discovery recorded, but receive no map layout, reveal or landmark remotes. The full rectangle list is sent on join and when Map ownership is gained. Each rectangle also carries a `Shape`: a horizontal `WedgePart` floor becomes `Wedge` plus the `CutAlong`/`CutAcross` signs naming the corner its triangle omits, a horizontal cylinder becomes `Round`, everything else stays `Rect`. The cut signs are expressed against `MapLayoutService`'s across convention, not `HallwaysService`'s, because the two are opposite.
 - API: `MapDiscoveryService:GetLayout() -> { any }` — the hallway rectangle list, keyed by quantised world position, each entry tagged with its `Shape`
 - API: `MapDiscoveryService:GetDiscovered(player: Player) -> { [string]: Interval }?`
 - API: `MapDiscoveryService:Sync(player: Player)` — sends layout plus stored discovery
@@ -404,7 +414,7 @@ Server owner of per-player map discovery. On a fixed tick it projects each livin
 - API: `MapDiscoveryService:UpdateLandmarks(player: Player, position: Vector3)` — records tagged landmarks inside their radius, firing only the first time each is seen
 - Remotes: `Map/Sync` (fired), `Map/Reveal` (fired), `Map/Landmark` (fired)
 - Tags: reads `MazeFloor`, `HallwayRoomFloor` through `HallwaysService`, plus `RoomFloor` and `ComputerRoomFloor`; reads each `MapConfig.Landmarks` tag (`HackComputer`, `Spawn`, `Exit`)
-- Requires: `ReplicatedStorage.Configs.MapConfig`, `CharacterService`, `CommunicationService`, `HallwaysService`, `DataSaveService`
+- Requires: `ReplicatedStorage.Configs.MapConfig`, `PerkConfig`, `CharacterService`, `CommunicationService`, `HallwaysService`, `DataSaveService`, `PerkService`
 
 ### MapCommandService.luau
 Admin `/map` command that teleports the caller straight into the maze via `ElevatorService:SendToMap`, warning on failure and logging how long the trip took.
@@ -478,7 +488,7 @@ Geometry search that finds a corner a stalker enemy can stand behind hidden from
 - Requires: `HallwayGridService` (corner list), `EnemyObservationService` (enemy eyes/view cones), `MathService`
 
 ### PerkService.luau
-Resolves each player's gamepass ownership once on join, mirrors it to `Perk*` player attributes, and applies the perks on every spawn: double speed, the Visor tool, a Camcorder stack (granted to everyone while `CaptureConfig.RequireGamepass` is off), and restoring items kept through death. Existing camcorders keep their saved quantity.
+Resolves each player's gamepass ownership once on join, mirrors it to `Perk*` player attributes, and applies the perks on every spawn: double speed, the Visor tool, the permanent Player Locator tool, a Camcorder stack (granted to everyone while `CaptureConfig.RequireGamepass` is off), and restoring items kept through death. Existing camcorders keep their saved quantity. A successful Player Locator purchase grants the tool immediately.
 - API: `PerkService:Owns(player: Player, passName: string) -> boolean` — cached gamepass ownership
 - API: `PerkService:WaitForPasses(player: Player) -> boolean` — yields up to 20s until ownership is resolved
 - Requires: `PerkConfig`, `MarketplaceService.Gamepasses`, `InventoryService`, `LoadoutService` (death snapshot/restore), `SpeedBoostService` (sets the DoubleSpeed multiplier)
@@ -518,11 +528,11 @@ Sets every player character's `ModelStreamingMode` to `Persistent` so characters
 - API: data table — empty; all behaviour is in the connections
 
 ### PlayerLocatorService.luau
-Backs the Player Locator tool: teleports the holder behind a chosen player, on a cooldown, after asking `HallwayStreamingService` to stream in the destination. Replies to the client with the remaining cooldown on every request.
+Backs the Player Locator gamepass tool: teleports the holder behind a chosen player, on a cooldown, after asking `HallwayStreamingService` to stream in the destination. The server rejects teleport requests unless the caller owns the pass and has the tool equipped. Replies to the client with the remaining cooldown on every request.
 - API: `PlayerLocatorService:Teleport(player: Player, target: Player) -> boolean` — attempt the teleport
 - API: `PlayerLocatorService:GetCooldown(player: Player) -> number` — seconds left
 - Remotes: `PlayerLocator/Teleport` (listened; fired back to the requesting client)
-- Requires: `PlayerLocatorConfig`, `HallwayStreamingService:PrepareTeleport`, `InventoryService` (equip check)
+- Requires: `PlayerLocatorConfig`, `HallwayStreamingService:PrepareTeleport`, `InventoryService` (equip check), `PerkService`
 
 ### PlayerOddityCommandService.luau
 Registers the `/oddity` chat command, parsing an optional effect name (size / headsize / transparency / stare) and an optional player name — with exact, display-name and prefix matching — then asking `PlayerOddityService` to trigger it. `headsize` also accepts `bighead`. Reports results and failures via `warn`.

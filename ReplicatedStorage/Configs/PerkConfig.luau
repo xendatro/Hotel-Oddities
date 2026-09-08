@@ -9,6 +9,10 @@ return {
 		ToolName = "Visor",
 	},
 
+	PlayerLocator = {
+		ToolName = "Player Locator",
+	},
+
 	Camcorder = {
 		ToolName = "Camcorder",
 	},

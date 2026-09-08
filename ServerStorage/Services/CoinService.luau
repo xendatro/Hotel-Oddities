@@ -2,42 +2,39 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
-local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local ItemShopConfig = require(ReplicatedStorage.Configs.ItemShopConfig)
 local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
 local DataSaveService = require(ServerStorage.Services.DataSaveService)
 
-local Sync = CommunicationService.Get("Gems", "Sync") :: RemoteEvent
+local CoinService = {}
 
-local ATTRIBUTE = "Gems"
-local DOUBLE_ATTRIBUTE = PerkConfig.AttributePrefix .. "DoubleGems"
+local ATTRIBUTE = "Coins"
+local DOUBLE_ATTRIBUTE = PerkConfig.AttributePrefix .. "DoubleCoins"
 
-local GemService = {}
+local function read(profile): number
+	local coins = tonumber(profile.Data.Coins) or ItemShopConfig.StartingCoins
+	return math.max(0, math.floor(coins))
+end
 
 local function multiplier(player: Player): number
 	return if player:GetAttribute(DOUBLE_ATTRIBUTE) == true then 2 else 1
 end
 
-local function read(profile): number
-	local gems = tonumber(profile.Data.Gems) or 0
-	return math.max(0, math.floor(gems))
-end
-
-function GemService:Get(player: Player): number
+function CoinService:Get(player: Player): number
 	local profile = DataSaveService:Get(player)
 	return if profile then read(profile) else 0
 end
 
-function GemService:Sync(player: Player, result: string?)
+function CoinService:Sync(player: Player)
 	local profile = DataSaveService:Get(player)
 	if not profile then return end
 
-	local gems = read(profile)
-	profile.Data.Gems = gems
-	player:SetAttribute(ATTRIBUTE, gems)
-	Sync:FireClient(player, gems, result)
+	local coins = read(profile)
+	profile.Data.Coins = coins
+	player:SetAttribute(ATTRIBUTE, coins)
 end
 
-function GemService:Award(player: Player, amount: number, multiplied: boolean?): boolean
+function CoinService:Award(player: Player, amount: number, multiplied: boolean?): boolean
 	local profile = DataSaveService:Get(player)
 	if not profile then return false end
 
@@ -45,44 +42,41 @@ function GemService:Award(player: Player, amount: number, multiplied: boolean?):
 	if amount <= 0 then return false end
 
 	local factor = if multiplied == false then 1 else multiplier(player)
-	profile.Data.Gems = read(profile) + amount * factor
-	GemService:Sync(player)
+	profile.Data.Coins = read(profile) + amount * factor
+	CoinService:Sync(player)
 	return true
 end
 
-function GemService:Refund(player: Player, amount: number): boolean
+function CoinService:Refund(player: Player, amount: number): boolean
 	local profile = DataSaveService:Get(player)
 	if not profile then return false end
 
 	amount = math.floor(tonumber(amount) or 0)
 	if amount <= 0 then return false end
 
-	profile.Data.Gems = read(profile) + amount
-	GemService:Sync(player)
+	profile.Data.Coins = read(profile) + amount
+	CoinService:Sync(player)
 	return true
 end
 
-function GemService:Spend(player: Player, amount: number): boolean
+function CoinService:Spend(player: Player, amount: number): boolean
 	local profile = DataSaveService:Get(player)
 	if not profile then return false end
 
 	amount = math.floor(tonumber(amount) or 0)
 	if amount < 0 then return false end
 
-	local gems = read(profile)
-	if gems < amount then return false end
+	local coins = read(profile)
+	if coins < amount then return false end
 
-	profile.Data.Gems = gems - amount
+	profile.Data.Coins = coins - amount
+	CoinService:Sync(player)
 	return true
 end
 
-Sync.OnServerEvent:Connect(function(player: Player)
-	GemService:Sync(player)
-end)
-
 local function publish(player: Player)
 	DataSaveService:Wait(player)
-	if player.Parent == Players then GemService:Sync(player) end
+	if player.Parent == Players then CoinService:Sync(player) end
 end
 
 for _, player in Players:GetPlayers() do
@@ -92,4 +86,4 @@ Players.PlayerAdded:Connect(function(player)
 	task.spawn(publish, player)
 end)
 
-return GemService
+return CoinService
