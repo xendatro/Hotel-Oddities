@@ -39,12 +39,16 @@ end
 local DiscoveredRemote = CommunicationService.Get(Remotes.Folder, Remotes.Discovered) :: RemoteEvent
 local SyncRemote = CommunicationService.Get(Remotes.Folder, Remotes.Sync) :: RemoteEvent
 
+type Line = { Object: GuiObject, Transparency: number, Order: number, Base: UDim2 }
+
 local basePosition = frame.Position
-local labels: { { Label: TextLabel, Transparency: number, Order: number } } = {
-	{ Label = eyebrow, Transparency = Popup.EyebrowTransparency, Order = 0 },
-	{ Label = title, Transparency = Popup.TitleTransparency, Order = 1 },
-	{ Label = counter, Transparency = Popup.CounterTransparency, Order = 3 },
+local lines: { Line } = {
+	{ Object = eyebrow, Transparency = Popup.EyebrowTransparency, Order = 0, Base = eyebrow.Position },
+	{ Object = title, Transparency = Popup.TitleTransparency, Order = 1, Base = title.Position },
+	{ Object = rule, Transparency = Popup.RuleTransparency, Order = 2, Base = rule.Position },
+	{ Object = counter, Transparency = Popup.CounterTransparency, Order = 3, Base = counter.Position },
 }
+local ruleHeight = rule.Size.Y.Offset
 
 local tweens: { Tween } = {}
 local queue: { { Name: string, Count: number, Total: number } } = {}
@@ -64,6 +68,21 @@ local function play(instance: Instance, info: TweenInfo, goal: { [string]: any }
 	return tween
 end
 
+local function queueProxy(proxy: Tween, delay: number)
+	table.insert(tweens, proxy)
+	task.delay(delay, function()
+		if table.find(tweens, proxy) then proxy:Play() end
+	end)
+end
+
+local function fade(object: GuiObject, transparency: number, info: TweenInfo, delay: number?)
+	if object:IsA("TextLabel") then
+		play(object, info, { TextTransparency = transparency }, delay)
+	else
+		play(object, info, { BackgroundTransparency = transparency }, delay)
+	end
+end
+
 local function counterText(count: number, total: number): string
 	if total > 0 then
 		return string.format(Popup.CounterText, count, total)
@@ -74,55 +93,71 @@ end
 local function reset()
 	TweenProxyService.CancelAll(tweens)
 
-	frame.Position = basePosition + UDim2.fromOffset(0, Popup.SlideOffset)
-	rule.Size = UDim2.fromOffset(0, rule.Size.Y.Offset)
-	rule.BackgroundTransparency = 1
+	frame.Position = basePosition
+	rule.Size = UDim2.fromOffset(0, ruleHeight)
+	title.MaxVisibleGraphemes = 0
 
-	for _, entry in labels do
-		entry.Label.TextTransparency = 1
+	for _, line in lines do
+		line.Object.Position = line.Base + UDim2.fromOffset(0, Popup.Rise)
+		if line.Object:IsA("TextLabel") then
+			line.Object.TextTransparency = 1
+		else
+			line.Object.BackgroundTransparency = 1
+		end
 	end
 end
 
 local function animateIn(entry: { Name: string, Count: number, Total: number })
 	local stagger = Popup.Stagger
-	local rise = TweenInfo.new(Popup.InTime * 1.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-	local fade = TweenInfo.new(Popup.InTime, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+	local rise = TweenInfo.new(Popup.InTime * 1.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+	local appear = TweenInfo.new(Popup.InTime, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 
 	eyebrow.Text = Popup.EyebrowText
 	title.Text = entry.Name
+	title.MaxVisibleGraphemes = 0
 	counter.Text = counterText(shownCount, entry.Total)
 	gui.Enabled = true
 
-	play(frame, rise, { Position = basePosition })
-
-	for _, label in labels do
-		play(label.Label, fade, { TextTransparency = label.Transparency }, stagger * label.Order)
+	for _, line in lines do
+		local delay = stagger * line.Order
+		play(line.Object, rise, { Position = line.Base }, delay)
+		fade(line.Object, line.Transparency, appear, delay)
 	end
 
 	play(
 		rule,
 		TweenInfo.new(Popup.RuleTime, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-		{
-			Size = UDim2.fromOffset(Popup.RuleWidth, rule.Size.Y.Offset),
-			BackgroundTransparency = Popup.RuleTransparency,
-		},
+		{ Size = UDim2.fromOffset(Popup.RuleWidth, ruleHeight) },
 		stagger * 2
 	)
 
-	if entry.Count > shownCount then
-		local countUp = TweenProxyService.Proxy(
+	local graphemes = utf8.len(entry.Name) or #entry.Name
+	queueProxy(
+		TweenProxyService.Proxy(
 			"NumberValue",
-			shownCount,
-			entry.Count,
-			TweenInfo.new(Popup.CountUpTime, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+			0,
+			graphemes,
+			TweenInfo.new(Popup.TypeTime, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
 			function(value: number)
-				counter.Text = counterText(math.floor(value + 0.5), entry.Total)
+				title.MaxVisibleGraphemes = math.floor(value)
 			end
+		),
+		stagger
+	)
+
+	if entry.Count > shownCount then
+		queueProxy(
+			TweenProxyService.Proxy(
+				"NumberValue",
+				shownCount,
+				entry.Count,
+				TweenInfo.new(Popup.CountUpTime, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+				function(value: number)
+					counter.Text = counterText(math.floor(value + 0.5), entry.Total)
+				end
+			),
+			stagger * 3
 		)
-		table.insert(tweens, countUp)
-		task.delay(stagger * 3, function()
-			if table.find(tweens, countUp) then countUp:Play() end
-		end)
 	end
 
 	shownCount = entry.Count
@@ -132,9 +167,9 @@ local function animateOut()
 	local info = TweenInfo.new(Popup.OutTime, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 
 	play(frame, info, { Position = basePosition - UDim2.fromOffset(0, Popup.ExitDrift) })
-	play(rule, info, { BackgroundTransparency = 1 })
-	for _, label in labels do
-		play(label.Label, info, { TextTransparency = 1 })
+	play(rule, info, { Size = UDim2.fromOffset(0, ruleHeight) })
+	for _, line in lines do
+		fade(line.Object, 1, info)
 	end
 end
 

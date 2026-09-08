@@ -25,15 +25,32 @@ local Entered: { [Player]: { [string]: number } } = {}
 
 local accumulator = 0
 
-local function pivotOf(instance: Instance): Vector3?
-	if instance:IsA("BasePart") then return instance.Position end
-	if instance:IsA("Model") then return instance:GetPivot().Position end
-	return nil
+local function boundsOf(instance: Instance): (CFrame?, Vector3?)
+	if instance:IsA("BasePart") then return instance.CFrame, instance.Size end
+	if instance:IsA("Model") then return instance:GetBoundingBox() end
+	return nil, nil
 end
 
-local function radiusOf(instance: Instance): number
+local function sidePaddingOf(instance: Instance): number
 	local override = instance:GetAttribute("Radius")
-	return if type(override) == "number" and override > 0 then override else Detection.Radius
+	local extra = if type(override) == "number" and override > 0 then override else 0
+	return Detection.Padding + extra
+end
+
+local function contains(instance: Instance, position: Vector3): boolean
+	local cframe, size = boundsOf(instance)
+	if not (cframe and size) then return false end
+
+	local point = cframe:PointToObjectSpace(position)
+	local half = size / 2
+	local side = sidePaddingOf(instance)
+
+	if math.abs(point.X) > half.X + side then return false end
+	if math.abs(point.Z) > half.Z + side then return false end
+	if point.Y > half.Y + Detection.HeightWindow then return false end
+	if point.Y < -half.Y - Detection.BelowWindow then return false end
+
+	return true
 end
 
 function POIDiscoveryService:GetTotal(): number
@@ -103,15 +120,7 @@ local function sweepPlayer(player: Player)
 	for instance, name in Parts do
 		if inRange[name] then continue end
 		if not instance:IsDescendantOf(workspace) then continue end
-
-		local pivot = pivotOf(instance)
-		if not pivot then continue end
-
-		local height = position.Y - pivot.Y
-		if height > Detection.HeightWindow or height < -Detection.BelowWindow then continue end
-
-		local offset = position - pivot
-		if Vector3.new(offset.X, 0, offset.Z).Magnitude > radiusOf(instance) then continue end
+		if not contains(instance, position) then continue end
 
 		inRange[name] = true
 	end

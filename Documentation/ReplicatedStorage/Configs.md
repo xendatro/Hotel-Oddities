@@ -170,7 +170,7 @@ Tag name, attribute name and reconciliation tolerances for the "freeze while obs
 - API: data table — `Tag`, `FrozenAttribute`, `MaxOffset`, `ConfirmationTimeout`, `ReleaseSpeed`, `MinReportGap`
 
 ### POIConfig.luau
-Point-of-interest tag, remote names, the proximity detection window used by the server sweep, the entry sting's template/bus/cooldown, and every timing and string the discovery popup animates with.
+Point-of-interest tag, remote names, the trigger-box padding and sweep interval used by the server, the entry sting's template/bus/cooldown, and every timing and string the discovery popup animates with.
 
 ### PerkConfig.luau
 Per-perk settings for the gamepass/perk system, keyed by perk name under a shared attribute prefix.

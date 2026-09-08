@@ -9,10 +9,11 @@ return {
 	},
 
 	Detection = {
-		-- Overridden per part by a "Radius" attribute.
-		Radius = 22,
-		Interval = 0.35,
-		-- Studs the player may be above or below the part before it stops counting.
+		-- The trigger is the tagged part's own volume grown by these studs.
+		-- A "Radius" attribute grows a single part further sideways.
+		Padding = 4,
+		Interval = 0.1,
+		-- Studs the player may stand above or below the part's box.
 		HeightWindow = 30,
 		BelowWindow = 12,
 	},
@@ -37,6 +38,9 @@ return {
 		Stagger = 0.07,
 		SlideOffset = 14,
 		ExitDrift = 10,
+		-- Pixels each line rises through as it fades in.
+		Rise = 10,
+		TypeTime = 0.4,
 		RuleWidth = 190,
 		RuleTime = 0.7,
 		EyebrowTransparency = 0.35,

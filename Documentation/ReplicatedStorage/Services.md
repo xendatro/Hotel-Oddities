@@ -708,7 +708,7 @@ Plays the `POIDiscovered` sting whenever the server reports the local player ent
 - Requires: `POIConfig`, `AudioService`, `ReplicatedStorage.Sounds.POIDiscovered`
 
 ### POIUIService.luau
-Client point-of-interest popup. Drives the Studio-authored `POIGui`, which is white text on nothing: on a discovery it fades and rises the eyebrow, the point's name, a hairline rule that sweeps out from centre and the discovered counter, each staggered to its own resting transparency, holds, then fades out on an upward drift. The counter animates up from the previous total. Overlapping discoveries are queued and played one at a time.
+Client point-of-interest popup. Drives the Studio-authored `POIGui`, which is white text on nothing: on a discovery each of the four lines fades in and rises on its own stagger, the name typing itself out a grapheme at a time, the hairline rule growing from zero width, and the counter ticking up from the previous total; it holds, then fades out with the rule collapsing again. The counter animates up from the previous total. Overlapping discoveries are queued and played one at a time.
 - API: `POIUIService:Show(name: string, count: number?, total: number?)` — queues a popup
 - Remotes: `POI/Discovered` (listened), `POI/Sync` (listened and fired as a resync request)
 - Requires: `POIConfig`, `GuiBuilderService`, `TweenProxyService`, `StarterGui.POIGui`
