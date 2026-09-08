@@ -700,6 +700,19 @@ Clones the Studio-authored `StarterGui.CaptureTemplates.PhotoTimer` countdown ab
 - Tags: listens `PhotoConfig.Tag`
 - Requires: `Configs.PhotoConfig`, `TagService`; expects `StarterGui.CaptureTemplates.PhotoTimer`
 
+### POIAudioService.luau
+Plays the `POIDiscovered` sting whenever the server reports the local player entering a point of interest, discovered or not. Skips the play if the previous one is still going, and does nothing while the template has no asset set.
+- API: `POIAudioService:Play()` — plays unless already playing
+- API: `POIAudioService:IsPlaying() -> boolean`
+- Remotes: `POI/Enter` (listened)
+- Requires: `POIConfig`, `AudioService`, `ReplicatedStorage.Sounds.POIDiscovered`
+
+### POIUIService.luau
+Client point-of-interest popup. Drives the Studio-authored `POIGui`: on a discovery it fades and rises the eyebrow, the point's name, a hairline rule that sweeps out from centre and the discovered counter, each staggered, holds, then fades out on an upward drift. The counter animates up from the previous total. Overlapping discoveries are queued and played one at a time.
+- API: `POIUIService:Show(name: string, count: number?, total: number?)` — queues a popup
+- Remotes: `POI/Discovered` (listened), `POI/Sync` (listened and fired as a resync request)
+- Requires: `POIConfig`, `GuiBuilderService`, `TweenProxyService`, `StarterGui.POIGui`
+
 ### PlayerLocatorService.luau
 Client-only teleport-to-player HUD: keeps a `LocatorMarker` per eligible player (all players, or friends only, depending on the toggled mode), highlights whichever marker is nearest the crosshair each frame, and fires the teleport remote on click. Renders the shared cooldown readout. If the `PlayerLocator` GUI is missing its expected children it degrades to a disabled stub exposing only `SetEnabled`/`IsEnabled`.
 - API: `PlayerLocatorService:SetEnabled(value: boolean)` — shows/hides the GUI, rebuilds markers, binds/unbinds the render step

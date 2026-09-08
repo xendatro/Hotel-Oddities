@@ -170,6 +170,8 @@ become Services or Classes.
 - ReplicatedStorage\Services\PhotoDevelopService.luau — Binds the Studio-authored film preview and plays a finished capture with a mouse-free keep-or-burn prompt.
 - ReplicatedStorage\Services\PhotoTimerService.luau — Clones the Studio-authored countdown template above each placed tripod camera.
 - ReplicatedStorage\Services\PhotoTimerService.luau — Countdown billboard over every placed tripod camera, flashing SNAP when it fires.
+- ReplicatedStorage\Services\POIAudioService.luau — Plays the POIDiscovered sting on entering a point of interest, skipping it while one is already playing.
+- ReplicatedStorage\Services\POIUIService.luau — Client point-of-interest popup: staggered fade-and-rise of the name, hairline rule and discovered counter.
 - ReplicatedStorage\Services\PlayerLocatorService.luau — Client teleport-to-player HUD with per-player markers, crosshair focus and a shared cooldown readout.
 - ReplicatedStorage\Services\PlayerOddityRenderService.luau — Client renderer that turns every other player's head toward you while the stare oddity is active.
 - ReplicatedStorage\Services\RecordPlayerAudioService.luau — Muffles and fades tagged in-world record players while the elevator is loading or the death screen is up.
@@ -297,6 +299,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\MimicConfig.luau — Behaviour tuning for the Mimic enemy's reactions, reveal and movement.
 - ReplicatedStorage\Configs\NotificationConfig.luau — Visual settings for the client notification banner.
 - ReplicatedStorage\Configs\ObservedFreezeConfig.luau — Tag, attribute and tolerances for freeze-when-observed enemies.
+- ReplicatedStorage\Configs\POIConfig.luau — Point-of-interest tag, remotes, proximity detection window, entry sting settings and popup animation timings.
 - ReplicatedStorage\Configs\PerfGraphConfig.luau — F8 performance graph panel keybind, size, fixed graph maxima, reference lines, FPS thresholds, colours and the instance-churn category list.
 - ReplicatedStorage\Configs\PerkConfig.luau — Per-perk settings for the gamepass/perk system.
 - ReplicatedStorage\Configs\PhotoConfig.luau — Placement, countdown, lens, ShadowFigure, capture, despawn and film animation timing for the tripod camera; film layout lives in StarterGui.
@@ -405,6 +408,7 @@ become Services or Classes.
 - ServerStorage\Services\PerkService.luau — Resolves gamepass ownership and applies the double speed, visor, stacked camcorder and keep-items perks on spawn.
 - ServerStorage\Services\PhotoCameraService.luau — Runs placed tripod cameras: countdown, subject detection, ShadowFigure placement, snap broadcast and unseen despawn.
 - ServerStorage\Services\PhotoCommandService.luau — /photo chat command for placing a test camera, snapping it early and forcing the ShadowFigure into frame.
+- ServerStorage\Services\POIDiscoveryService.luau — Awards, persists and replicates each player's discovered points of interest from proximity to tagged parts.
 - ServerStorage\Services\PlayerCharacterStreamingService.luau — Marks every player character as persistent so it is never streamed out.
 - ServerStorage\Services\PlayerLocatorService.luau — Cooldown-gated teleport behind another player for the Player Locator tool.
 - ServerStorage\Services\PlayerOddityCommandService.luau — Registers the /oddity chat command for triggering player oddities by effect and target.

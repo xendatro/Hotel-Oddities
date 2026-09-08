@@ -90,7 +90,7 @@ Bakes and serves the map-wide "danger" field: measures the extent of all `MazeFl
 - Requires: `Services.DangerFieldService`, `SpawnZoneService`, `DangerConfig`
 
 ### DataSaveService.luau
-ProfileService front-end: loads, reconciles and releases one `PlayerData` profile per player, and lets other code either grab a loaded profile or yield until it arrives. The template holds currency, sword ownership, inventory, processed receipts, discovered enemies and discovered map intervals. Studio sessions load `Studio_Player_<UserId>` keys instead of `Player_<UserId>` (via `RunService:IsStudio()`), so a Studio playtest and a live game client hold separate profiles and never contest the session lock — Studio keeps its own separately saved data.
+ProfileService front-end: loads, reconciles and releases one `PlayerData` profile per player, and lets other code either grab a loaded profile or yield until it arrives. The template holds currency, sword ownership, inventory, processed receipts, discovered enemies, discovered map intervals and discovered points of interest. Studio sessions load `Studio_Player_<UserId>` keys instead of `Player_<UserId>` (via `RunService:IsStudio()`), so a Studio playtest and a live game client hold separate profiles and never contest the session lock — Studio keeps its own separately saved data.
 - API: `DataSaveService:Get(player: Player) -> Profile?` — nil until the profile finishes loading
 - API: `DataSaveService:Wait(player: Player) -> Profile?` — yields the calling thread until loaded
 - Requires: `ServerStorage.Services.ProfileService` (third-party), `ItemShopConfig`
@@ -500,6 +500,18 @@ Owns every placed tripod camera. Builds the world model out of the Camera tool's
 Registers the `/photo` chat command for testing the tripod camera: bare `/photo` (or `/photo place`) stands a camera on the floor in front of the caller without spending a tool, `/photo now` snaps every camera that has not fired yet, and `/photo figure [on|off|<rig name>]` toggles `PhotoCameraService.ForceFigure` so the figure is guaranteed to be dead centre in frame, optionally swapping `PhotoCameraService.FigureName` to any rig under `ReplicatedStorage.Enemies` (matched case-insensitively) for testing before the real ShadowFigure exists.
 - API: none — registers its command on require.
 - Requires: `ChatCommandService`, `PhotoCameraService`, `CharacterService`, `Configs.PhotoConfig`
+
+### POIDiscoveryService.luau
+Awards a point of interest the first time a living player comes within its radius, using the tagged part's own name as the key. Discoveries persist to `profile.Data.DiscoveredPOIs`, replicate on load, and each new one is fired to the client with the player's running count and the world total. Entering any point of interest also fires the client sting cue, discovered or not, at most once per `Sound.Cooldown` per point.
+- API: `POIDiscoveryService:Has(player: Player, name: string) -> boolean`
+- API: `POIDiscoveryService:GetAll(player: Player) -> { [string]: boolean }` — cloned copy
+- API: `POIDiscoveryService:GetCount(player: Player) -> number`
+- API: `POIDiscoveryService:GetTotal() -> number` — distinct tagged names in the world
+- API: `POIDiscoveryService:Grant(player: Player, name: string) -> boolean` — persists and fires the popup
+- API: `POIDiscoveryService:Clear(player: Player)` — wipes and resyncs
+- Remotes: `POI/Discovered` (fired), `POI/Enter` (fired), `POI/Sync` (fired, listened as a resync request)
+- Tags: listens `POIConfig.Tag` (`POI`); reads the optional `Radius` attribute
+- Requires: `POIConfig`, `CharacterService`, `TagService`, `DataSaveService` (`profile.Data.DiscoveredPOIs`)
 
 ### PlayerCharacterStreamingService.luau
 Sets every player character's `ModelStreamingMode` to `Persistent` so characters are never streamed out on other clients.

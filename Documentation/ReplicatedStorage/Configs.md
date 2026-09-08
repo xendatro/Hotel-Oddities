@@ -169,6 +169,9 @@ Visual settings for the top-center notification banner used for short player-fac
 Tag name, attribute name and reconciliation tolerances for the "freeze while observed" enemy movement system. Assembled field-by-field on a named local table rather than as a literal, but returns only that table.
 - API: data table — `Tag`, `FrozenAttribute`, `MaxOffset`, `ConfirmationTimeout`, `ReleaseSpeed`, `MinReportGap`
 
+### POIConfig.luau
+Point-of-interest tag, remote names, the proximity detection window used by the server sweep, the entry sting's template/bus/cooldown, and every timing and string the discovery popup animates with.
+
 ### PerkConfig.luau
 Per-perk settings for the gamepass/perk system, keyed by perk name under a shared attribute prefix.
 - API: data table — `AttributePrefix`, `Loadout`, `Visor`, `DoubleSpeed`, `FriendRevive`
