@@ -482,7 +482,7 @@ become Services or Classes.
 - ServerStorage\Classes\Oddities\PlayerHeadStare.luau — Player oddity that runs the client head-stare effect when enough players are alive.
 - ServerStorage\Classes\Oddities\PlayerHeadSize.luau — Player oddity that enlarges a player's head and attached accessories by the configured multiplier for every client.
 - ServerStorage\Classes\Oddities\PlayerSize.luau — Player oddity that rescales the victim's character to a random configured size.
-- ServerStorage\Classes\Oddities\PlayerTransparency.luau — Player oddity that makes the victim's character parts near-invisible.
+- ServerStorage\Classes\Oddities\PlayerTransparency.luau — Player oddity that makes the victim's character parts near-invisible while preserving equipped Tool transparency.
 - ServerStorage\Classes\Oddities\Transparency.luau — Hallway oddity that fades out every world part inside a hallway box.
 - ServerStorage\Classes\Tools\Bandage.luau — Server half of the Bandage tool; a plain Healer subclass.
 - ServerStorage\Classes\Tools\Big Character.luau — Server half of the Big Character item; applies the fixed large character oddity.

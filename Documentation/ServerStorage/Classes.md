@@ -451,7 +451,7 @@ Extends `PlayerOddity`. Sets the victim humanoid's `HeadScale` to `HeadSizeMulti
 - Requires: `Classes\PlayerOddity`
 
 ### Oddities\PlayerTransparency.luau
-Extends `PlayerOddity`. Makes every fully opaque part of the victim's character slightly see-through (including parts added while it runs) and restores them on stop.
+Extends `PlayerOddity`. Makes every fully opaque character part slightly see-through (including parts added while it runs), skips parts inside equipped Tools so their authored transparency is preserved for first-person viewmodels, and restores affected parts on stop.
 - API: `PlayerTransparency.new(config: { [string]: any }?)` — adds the original-transparency map and `DescendantAdded` hook
 - API: `PlayerTransparency:OnStart() -> boolean` — applies `OddTransparency` (0.1) and watches for new parts
 - API: `PlayerTransparency:OnStop()` — disconnects and restores
