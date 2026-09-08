@@ -301,7 +301,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\LanternSwayConfig.luau — Tuning for the swinging hallway lantern simulation.
 - ReplicatedStorage\Configs\LookConfig.luau — Replicated aim/look angle limits and neck-waist blend weights.
 - ReplicatedStorage\Configs\MapConfig.luau — Map discovery radius, canvas resolution, hand-drawn ink style, danger layer and marker tuning.
-- ReplicatedStorage\Configs\MapOddityConfig.luau — Roll timings and per-effect tuning for hallway/map oddities, including world-space light-out chunks and the Void crossing plank width.
+- ReplicatedStorage\Configs\MapOddityConfig.luau — Spawn intervals and per-effect tuning for hallway/map oddities, including world-space light-out chunks and the Void crossing plank width.
 - ReplicatedStorage\Configs\MimicConfig.luau — Behaviour tuning for the Mimic enemy's reactions, reveal and movement.
 - ReplicatedStorage\Configs\NotificationConfig.luau — Visual settings for the client notification banner.
 - ReplicatedStorage\Configs\ObservedFreezeConfig.luau — Tag, attribute and tolerances for freeze-when-observed enemies.
@@ -408,7 +408,7 @@ become Services or Classes.
 - ServerStorage\Services\MapOddityCommandService.luau — /mapoddity chat command mapping friendly words, including blackout, to map oddity kinds.
 - ServerStorage\Services\MapOddityService.luau — Scope wrapper for resolving, starting, warning about and clearing map-scope oddities.
 - ServerStorage\Services\NoiseService.luau — Emits and tracks noise events, including automatic footstep noise scaled by crouch/sprint.
-- ServerStorage\Services\OddityService.luau — Registry, config merging, ambient spawn loops and lifecycle for every oddity class.
+- ServerStorage\Services\OddityService.luau — Registry, config merging, direct min/max interval scheduling and lifecycle for every ambient oddity class.
 - ServerStorage\Services\PaintingDwellerService.luau — FixturePool wrapper that arms and triggers the painting dweller oddity, plus its /dweller command.
 - ServerStorage\Services\PaintingFallService.luau — FixturePool wrapper that arms and drops falling paintings, plus its /painting command.
 - ServerStorage\Services\PeekSpotService.luau — Geometry search for corners an enemy can hide behind and lean out of into the player's view.

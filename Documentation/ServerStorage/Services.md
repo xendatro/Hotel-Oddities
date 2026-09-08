@@ -446,7 +446,7 @@ The game's sound-propagation source of truth: it emits `Noise` records (position
 - Requires: `CrouchConfig.Stealth`, `CharacterService.GetAliveHumanoid`
 
 ### OddityService.luau
-Registry and lifecycle manager for every oddity class in `ServerStorage.Classes.Oddities`: at require time it registers each class under its `Scope`/`Kind`, merges its config (plus per-`Kind` `Effects` overrides) into `class.Settings`, and starts an ambient spawn loop for any class exposing a `Pick` function. Running oddities are tracked by token so they can be stopped individually or by scope; everything is inert in Studio edit mode.
+Registry and lifecycle manager for every oddity class in `ServerStorage.Classes.Oddities`: at require time it registers each class under its `Scope`/`Kind`, merges its config (plus per-`Kind` `Effects` overrides) into `class.Settings`, and starts an ambient spawn loop for any class exposing a `Pick` function. Each ambient loop waits `math.random(class.Settings.SpawnIntervalMin, class.Settings.SpawnIntervalMax)` before asking the class for its next context; there is no probability roll or legacy roll/initial-delay path. Running oddities are tracked by token so they can be stopped individually or by scope; everything is inert in Studio edit mode.
 - API: `OddityService:Register(class: any)` — also computes `class.Settings`
 - API: `OddityService:Get(scope: string, kind: string) -> any?`
 - API: `OddityService:Classes(scope: string) -> { [string]: any }`
