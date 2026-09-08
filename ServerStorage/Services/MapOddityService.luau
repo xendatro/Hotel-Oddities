@@ -26,11 +26,11 @@ function MapOddityService:Trigger(position: Vector3, kind: string?): (boolean, s
 	local chosen = kind or "Transparency"
 	local class = OddityService:Get(SCOPE, chosen)
 	if not class then
-		return false, nil, "unknown effect; use transparency, doors, chaos, blocker, void, or crush"
+		return false, nil, "unknown effect; use transparency, blackout, doors, chaos, blocker, void, or crush"
 	end
 
-	local span = class.Resolve(class, position)
-	local oddity, reason = OddityService:Start(class, span)
+	local context = class.Resolve(class, position)
+	local oddity, reason = OddityService:Start(class, context)
 	if not oddity then return false, nil, reason end
 	return true, chosen, nil
 end

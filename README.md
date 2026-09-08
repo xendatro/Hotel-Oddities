@@ -301,7 +301,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\LanternSwayConfig.luau — Tuning for the swinging hallway lantern simulation.
 - ReplicatedStorage\Configs\LookConfig.luau — Replicated aim/look angle limits and neck-waist blend weights.
 - ReplicatedStorage\Configs\MapConfig.luau — Map discovery radius, canvas resolution, hand-drawn ink style, danger layer and marker tuning.
-- ReplicatedStorage\Configs\MapOddityConfig.luau — Roll timings and per-effect tuning for hallway/map oddities, including the Void crossing plank width.
+- ReplicatedStorage\Configs\MapOddityConfig.luau — Roll timings and per-effect tuning for hallway/map oddities, including world-space light-out chunks and the Void crossing plank width.
 - ReplicatedStorage\Configs\MimicConfig.luau — Behaviour tuning for the Mimic enemy's reactions, reveal and movement.
 - ReplicatedStorage\Configs\NotificationConfig.luau — Visual settings for the client notification banner.
 - ReplicatedStorage\Configs\ObservedFreezeConfig.luau — Tag, attribute and tolerances for freeze-when-observed enemies.
@@ -400,13 +400,13 @@ become Services or Classes.
 - ServerStorage\Services\KitShopService.luau — Buying a named kit outright for its rarity's gem price.
 - ServerStorage\Services\LanternFallService.luau — Fixture pool that arms lanterns and drops one when a player approaches.
 - ServerStorage\Services\LanternSwingCommandService.luau — /lantern swing command that flags the nearest swayable lantern red for a duration.
-- ServerStorage\Services\LightService.luau — Central control of every tagged light model: reference-counted blackout claims and flicker effects.
+- ServerStorage\Services\LightService.luau — Central control of every tagged light model: reference-counted radius, box and hallway blackout claims plus flicker effects.
 - ServerStorage\Services\LoadoutService.luau — Captures and restores a player's tools, quantities and attributes across inventory wipes.
 - ServerStorage\Services\LookService.luau — Stores clamped client camera pitch/yaw on characters and mirrors it onto mimic enemies.
 - ServerStorage\Services\MapDiscoveryService.luau — Server owner of per-player map discovery: persists discovery for everyone, but only replicates the layout and reveals to Map gamepass owners.
 - ServerStorage\Services\MapCommandService.luau — Admin /map command that sends the caller straight into the maze.
-- ServerStorage\Services\MapOddityCommandService.luau — /mapoddity chat command mapping friendly words to map oddity kinds.
-- ServerStorage\Services\MapOddityService.luau — Scope wrapper for starting, warning about and clearing map-scope oddities.
+- ServerStorage\Services\MapOddityCommandService.luau — /mapoddity chat command mapping friendly words, including blackout, to map oddity kinds.
+- ServerStorage\Services\MapOddityService.luau — Scope wrapper for resolving, starting, warning about and clearing map-scope oddities.
 - ServerStorage\Services\NoiseService.luau — Emits and tracks noise events, including automatic footstep noise scaled by crouch/sprint.
 - ServerStorage\Services\OddityService.luau — Registry, config merging, ambient spawn loops and lifecycle for every oddity class.
 - ServerStorage\Services\PaintingDwellerService.luau — FixturePool wrapper that arms and triggers the painting dweller oddity, plus its /dweller command.
@@ -475,6 +475,7 @@ become Services or Classes.
 - ServerStorage\Classes\Oddities\HallwayCrush.luau — Hallway oddity that closes both walls of one junction-free stretch of corridor inward until they seal, dragging the pilasters, lanterns, paintings and doors with them and crushing unprotected players whose HRP overlap the lethal volume past the configured threshold.
 - ServerStorage\Classes\Oddities\HallwayVoid.luau — Hallway oddity that cuts a bottomless pit into the corridor floor and kills whoever falls in unless they are protected by immunity.
 - ServerStorage\Classes\Oddities\LanternFall.luau — Fixture-fall oddity that drops a ceiling lantern and kills its light while down.
+- ServerStorage\Classes\Oddities\MapLightsOut.luau — Map oddity that turns off every tagged light inside a large world-space chunk.
 - ServerStorage\Classes\Oddities\PaintingDweller.luau — Prop oddity that bursts a humanoid rig out of a painting canvas and attacks nearby players; presented as the "Painting Lurker" enemy with its own death cause, Index entry and event/death discovery.
 - ServerStorage\Classes\Oddities\PaintingFall.luau — Fixture-fall oddity that shoves a wall painting off the wall with spin.
 - ServerStorage\Classes\Oddities\RatScurry.luau — Runs a rat across a hallway from one wall to the other and destroys it on the far side.

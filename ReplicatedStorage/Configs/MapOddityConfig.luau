@@ -13,6 +13,18 @@ return {
 			SpawnIntervalMin = 180,
 			SpawnIntervalMax = 420,
 		},
+		MapLightsOut = {
+			SpawnIntervalMin = 240,
+			SpawnIntervalMax = 480,
+			MinDuration = 60,
+			MaxDuration = 120,
+			MinimumPlayerDistance = 48,
+			ChunkSize = 160,
+			ChunkHeight = 56,
+			ChunkBelow = 4,
+			MinimumLights = 2,
+			PickAttempts = 96,
+		},
 		DoorsOpen = {
 			OpeningSpeed = 0.75,
 		},

@@ -262,6 +262,32 @@ local function containsHallway(hallway: Hallways.Hallway, position: Vector3): bo
 		and math.abs(offset:Dot(hallway.Across)) <= hallway.HalfWidth
 end
 
+local function overlapsBox(model: Model, cframe: CFrame, size: Vector3): boolean
+	local boundsCFrame, boundsSize = model:GetBoundingBox()
+	local localPosition = cframe:PointToObjectSpace(boundsCFrame.Position)
+	local right = cframe.RightVector
+	local up = cframe.UpVector
+	local look = cframe.LookVector
+	local boundsRight = boundsCFrame.RightVector
+	local boundsUp = boundsCFrame.UpVector
+	local boundsLook = boundsCFrame.LookVector
+	local extent = Vector3.new(
+		math.abs(right:Dot(boundsRight)) * boundsSize.X / 2
+			+ math.abs(right:Dot(boundsUp)) * boundsSize.Y / 2
+			+ math.abs(right:Dot(boundsLook)) * boundsSize.Z / 2,
+		math.abs(up:Dot(boundsRight)) * boundsSize.X / 2
+			+ math.abs(up:Dot(boundsUp)) * boundsSize.Y / 2
+			+ math.abs(up:Dot(boundsLook)) * boundsSize.Z / 2,
+		math.abs(look:Dot(boundsRight)) * boundsSize.X / 2
+			+ math.abs(look:Dot(boundsUp)) * boundsSize.Y / 2
+			+ math.abs(look:Dot(boundsLook)) * boundsSize.Z / 2
+	)
+	local halfSize = size / 2
+	return math.abs(localPosition.X) <= halfSize.X + extent.X
+		and math.abs(localPosition.Y) <= halfSize.Y + extent.Y
+		and math.abs(localPosition.Z) <= halfSize.Z + extent.Z
+end
+
 function LightService:DisableNear(position: Vector3, radius: number): LightClaim
 	local claim: LightClaim = {
 		Models = {},
@@ -275,6 +301,28 @@ function LightService:DisableNear(position: Vector3, radius: number): LightClaim
 		end
 	end
 
+	return claim
+end
+
+function LightService:GetModelsInBox(cframe: CFrame, size: Vector3): { Model }
+	local models = {}
+	for _, model in LightService:GetModels() do
+		if overlapsBox(model, cframe, size) then
+			table.insert(models, model)
+		end
+	end
+	return models
+end
+
+function LightService:DisableInBox(cframe: CFrame, size: Vector3): LightClaim
+	local claim: LightClaim = {
+		Models = {},
+		Released = false,
+	}
+	for _, model in LightService:GetModelsInBox(cframe, size) do
+		disable(model)
+		table.insert(claim.Models, model)
+	end
 	return claim
 end
 

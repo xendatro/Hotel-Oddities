@@ -373,8 +373,10 @@ Handles the `/lantern swing [seconds]` chat command by finding the nearest swaya
 - Requires: `LanternSwayConfig.SwayModelNames`, `LightService:GetModels` / `:WarnRed`, `ChatCommandService`
 
 ### LightService.luau
-Central authority over every `Floor1Light` model: it captures each lamp's baseline Lights/Neon/ParticleEmitters, then offers reference-counted "disable" claims (by radius, along a hallway, along a straight span with branch and connected-room spill, or a single model) and a family of flicker effects. It also runs a permanent ambient flicker loop that randomly blinks one or two lamps, and can set a `ChaosRed` attribute on a lamp for a duration.
+Central authority over every `Floor1Light` model: it captures each lamp's baseline Lights/Neon/ParticleEmitters, then offers reference-counted "disable" claims (by radius, inside a world-space box, along a hallway, along a straight span with branch and connected-room spill, or a single model) and a family of flicker effects. It also runs a permanent ambient flicker loop that randomly blinks one or two lamps, and can set a `ChaosRed` attribute on a lamp for a duration.
 - API: `LightService:GetModels() -> { Model }` — cached, invalidated by tag add/remove
+- API: `LightService:GetModelsInBox(cframe: CFrame, size: Vector3) -> { Model }` — light models whose bounds overlap the box
+- API: `LightService:DisableInBox(cframe: CFrame, size: Vector3) -> LightClaim`
 - API: `LightService:DisableNear(position: Vector3, radius: number) -> LightClaim`
 - API: `LightService:DisableAlongHallway(position: Vector3, distance: number) -> LightClaim`
 - API: `LightService:DisableHallway(position: Vector3, preferredDirection: Vector3?, connectedDistance: number?, spanDistance: number?) -> LightClaim` — includes branch hallways and rooms touching the span
@@ -422,19 +424,19 @@ Admin `/map` command that teleports the caller straight into the maze via `Eleva
 - Requires: `ElevatorService:SendToMap`, `ChatCommandService`
 
 ### MapOddityCommandService.luau
-Chat command `/mapoddity` (alias `/mapodd`) that maps a friendly word to a map-oddity kind (`transparency`, `doors`, `chaos`, `blocker`, `void`, `crush`, plus aliases) and triggers it on the hallway containing the caller; `clear`/`stop`/`off` stops all active map oddities.
+Chat command `/mapoddity` (alias `/mapodd`) that maps a friendly word to a map-oddity kind (`transparency`, `blackout`, `doors`, `chaos`, `blocker`, `void`, `crush`, plus aliases) and triggers it near the caller; `clear`/`stop`/`off` stops all active map oddities.
 - API: (no public methods; the module table is empty and exists only for its chat-command registration)
 - Requires: `MapOddityService`, `ChatCommandService`
 
 ### MapOddityService.luau
-Scope wrapper around `OddityService` for the `"Map"` scope: it resolves the hallway span containing a position through the chosen oddity class, starts it, and can warn, clear or list what is running. Defaults to the `Transparency` effect.
+Scope wrapper around `OddityService` for the `"Map"` scope: it resolves a position through the chosen oddity class, starts it, and can warn, clear or list what is running. Defaults to the `Transparency` effect.
 - API: `MapOddityService:Trigger(position: Vector3, kind: string?) -> (boolean, string?, string?)` — returns ok, the kind chosen, and a failure reason
 - API: `MapOddityService:Warn(span, duration: number, arrivalAtStart: number, arrivalAtFinish: number, warningTime: number, run: number) -> number?` — starts the `ChaosWarning` oddity on an already-resolved span and returns its token; the arrivals are `workspace:GetServerTimeNow()` stamps for the span's `Start` and `Finish` ends, which the client lerps to work out when Chaos reaches the listener
 - API: `MapOddityService:Clear(token: number?) -> boolean` — one token, or every map oddity
 - API: `MapOddityService:GetActive() -> { [number]: any }`
 - API: `MapOddityService:Resync(player: Player)` — replays every running map oddity's `Start` payload to one player
 - Remotes: `Oddities/RequestMapDoors` (listened; 1s per-player cooldown, answered with `Resync` so a joining or late client picks up in-flight door and warning state)
-- Requires: `OddityService`, `CommunicationService`, `ServerStorage.Classes.Oddities` map classes (`Transparency`, `DoorsOpen`, `HallwayChaos`, `HallwayBlocker`, `HallwayVoid`, `HallwayCrush`, `ChaosWarning`)
+- Requires: `OddityService`, `CommunicationService`, `ServerStorage.Classes.Oddities` map classes (`Transparency`, `MapLightsOut`, `DoorsOpen`, `HallwayChaos`, `HallwayBlocker`, `HallwayVoid`, `HallwayCrush`, `ChaosWarning`)
 
 ### NoiseService.luau
 The game's sound-propagation source of truth: it emits `Noise` records (position, radius, source player) with a rate limit per source, keeps a one-second ring of recent noises for polling, and notifies observers immediately. A Heartbeat loop auto-emits footstep noise for every moving grounded player, with the radius chosen by crouch/walk/sprint state.
