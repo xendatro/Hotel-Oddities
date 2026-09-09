@@ -7,9 +7,11 @@ return {
 
 	RedHearingRange = 40,
 	RedFadeBand = 16,
+	RedReleaseRate = 22,
+	StingLifetime = 12,
 
 	FadeInSpeed = 3,
-	FadeOutSpeed = 1.75,
+	FadeOutSpeed = 1.2,
 	AnchorLerpSpeed = 6,
 	AnchorSnapDistance = 40,
 	ReleaseDelay = 1.5,

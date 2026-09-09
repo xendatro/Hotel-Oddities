@@ -45,6 +45,7 @@ local Anchor: Part? = nil
 local AnchorPlaced = false
 local StungRuns: { [number]: true } = {}
 local RedLights: { [Model]: true } = {}
+local SmoothedRed = math.huge
 
 local TargetPoint: Vector3? = nil
 local TargetGain = 0
@@ -55,9 +56,9 @@ ChaosLights:OnRedChanged(function(model: Model, red: boolean)
 	RedLights[model] = if red then true else nil
 end)
 
-local function nearestRed(position: Vector3, range: number): (Vector3?, number)
+local function nearestRed(position: Vector3): (Vector3?, number)
 	local closest: Vector3? = nil
-	local best = range
+	local best = math.huge
 	for model in RedLights do
 		if not model.Parent then
 			RedLights[model] = nil
@@ -71,6 +72,19 @@ local function nearestRed(position: Vector3, range: number): (Vector3?, number)
 		end
 	end
 	return closest, best
+end
+
+-- Lamps do not recede smoothly: the ones behind you all clear at once as Chaos
+-- passes them, so the raw nearest-red distance leaps from a few studs to
+-- hundreds between ticks and the gate slams. Follow a closer lamp instantly,
+-- but let a receding one pull away at a bounded rate.
+local function settleRed(distance: number, deltaTime: number): number
+	if distance <= SmoothedRed then
+		SmoothedRed = distance
+	else
+		SmoothedRed = math.min(distance, SmoothedRed + Config.RedReleaseRate * deltaTime)
+	end
+	return SmoothedRed
 end
 
 -- The gate would otherwise be a step: full volume right up to RedHearingRange
@@ -111,6 +125,27 @@ local function rampGain(voice: Voice, target: number, delta: number)
 	writeGain(voice)
 end
 
+local function playSting(position: Vector3)
+	local part = Instance.new("Part")
+	part.Name = "ChaosIncomingSource"
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanTouch = false
+	part.CanQuery = false
+	part.Transparency = 1
+	part.Size = Vector3.one
+	part.CFrame = CFrame.new(position)
+	part.Parent = workspace
+
+	local player = AudioService:Play3DSound(Config.IncomingSound, part, false, Config.AmbienceBus)
+	player.Ended:Once(function()
+		part:Destroy()
+	end)
+	task.delay(Config.StingLifetime, function()
+		if part.Parent then part:Destroy() end
+	end)
+end
+
 local function ensureAnchor(position: Vector3): Part
 	local anchor = Anchor
 	if anchor then return anchor end
@@ -148,6 +183,7 @@ local function teardown()
 		Anchor = nil
 	end
 	AnchorPlaced = false
+	SmoothedRed = math.huge
 	TargetPoint = nil
 	TargetGain = 0
 	SilentFor = 0
@@ -173,34 +209,44 @@ local function resolve()
 	end
 
 	local position = root.Position
-	local red, redDistance = nearestRed(position, Config.RedHearingRange)
-	if not red then
+	local red, rawRed = nearestRed(position)
+	local redDistance = settleRed(rawRed, Config.CheckInterval)
+	if redDistance > Config.RedHearingRange then
 		silence()
 		return
 	end
 
-	local bestPoint: Vector3? = nil
+	local nearestPoint: Vector3? = nil
+	local nearestDistance = math.huge
 	local bestRun: number? = nil
-	local bestDistance = math.huge
 	local bestInside = false
 	for _, region in ActiveWarnings do
 		local point, distance, inside = listenTo(region, position)
-		if distance >= bestDistance then continue end
+		if distance >= nearestDistance then continue end
 
-		bestPoint, bestRun, bestDistance, bestInside = point, region.Run, distance, inside
+		nearestPoint, nearestDistance, bestRun, bestInside = point, distance, region.Run, inside
 	end
 
-	if not bestPoint or bestDistance > Config.RedHearingRange then
-		bestPoint = red
+	-- Take whichever source is actually closest. Preferring the region's centre
+	-- line until it passes a threshold and only then falling back to the lamp
+	-- makes the distance jump, and a jump in distance is a jump in volume: the
+	-- sound cuts, then returns a step later when the fallback takes over.
+	local source = red
+	if nearestPoint and (not red or nearestDistance <= redDistance) then
+		source = nearestPoint
+	end
+	if not source then
+		silence()
+		return
 	end
 
-	TargetPoint = bestPoint
+	TargetPoint = source
 	TargetGain = edgeGain(redDistance)
 	AmbienceService:Suppress(SUPPRESSOR_KEY, bestInside)
 
 	if bestRun and not StungRuns[bestRun] then
 		StungRuns[bestRun] = true
-		AudioService:Play3DSound(Config.IncomingSound, ensureAnchor(bestPoint), false, Config.AmbienceBus)
+		playSting(source)
 	end
 end
 
