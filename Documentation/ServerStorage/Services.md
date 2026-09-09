@@ -100,7 +100,7 @@ ProfileService front-end: loads, reconciles and releases one `PlayerData` profil
 - Requires: `ServerStorage.Services.ProfileService` (third-party), `ItemShopConfig`
 
 ### DeathService.luau
-Records why each player died — from client kill reports, explicit strikes, or the killer model's `EnemyId` — and on death fires the death screen with that cause and a revive token. Validates client kill claims against room safety, the `Enemy` tag, `Harmless`, and the Mimic's attack window.
+Records why each player died — from client kill reports, explicit strikes, or the killer model's `EnemyId` — and on death fires the death screen with that cause and a revive token. Validates client kill claims against room safety, the `Enemy` tag, `Harmless`, and the Mimic's attack window, then records the cause before applying client-reported contact kills.
 - API: `DeathService:RecordCause(player: Player, causeId: string?)` — stamps or refreshes the cause
 - API: `DeathService:Strike(player: Player, enemy: Model, causeId: string?)` — records the cause and tells the client which enemy struck
 - API: `DeathService:ClearCause(player: Player, causeId: string)` — clears only if it is still the current cause

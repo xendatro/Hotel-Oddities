@@ -251,7 +251,7 @@ Drives the pre-built `ElevatorLoadingGui` fade-in/fade-out loading screen used w
 - Requires: `Configs.ElevatorConfig`, `TweenProxyService`, `GuiBuilderService`; reaches remotes by direct `ReplicatedStorage.Communication` indexing with `WaitForChild`
 
 ### EnemyDamageService.luau
-Client-authoritative death check: watches every `Enemy` tagged model's parts for touches against the local character and, if the player is not inside a tagged safe `Room`, not vanished, and the enemy is neither harmless nor an inactive Mimic, plays a random attack animation, tells the server, and zeroes the humanoid's health. Also kills on a server-sent `Strike` and replays the attack animation when another player is killed.
+Watches every `Enemy` tagged model's parts for touches against the local character and, if the player is not inside a tagged safe `Room`, not vanished, and the enemy is neither harmless nor an inactive Mimic, plays a random attack animation and reports the enemy to the server. The server records the cause before applying the kill, avoiding a client/server death-order race. Also kills on a server-sent `Strike` and replays the attack animation when another player is killed.
 - API: data table — empty; the touch watchers are installed on require.
 - Remotes: `Death/Kill` (fired and listened), `Death/Strike` (listened)
 - Tags: listens `Enemy`; reads `Room`
