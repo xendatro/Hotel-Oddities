@@ -139,7 +139,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\HumanoidStatsService.luau — Named-source stat stack applied to any humanoid, restoring untouched stats to their spawn values.
 - ReplicatedStorage\Services\IndexUIService.luau — Paginated bestiary UI with viewport headshots, progressive text reveals and shared cursor unlocking for death reveals.
 - ReplicatedStorage\Services\InteractionService.luau — Singleton crosshair interaction target registry, highlight and key prompt.
-- ReplicatedStorage\Services\InterfaceService.luau — Main menu page switching, blur, FOV pull-back and mouse unlocking.
+- ReplicatedStorage\Services\InterfaceService.luau — Main menu page switching, blur, FOV pull-back and mouse unlocking, including Q toggling through the mouse blocker.
 - ReplicatedStorage\Services\InventoryUIService.luau — Custom hotbar and backpack with equipping and drag-and-drop slots.
 - ReplicatedStorage\Services\ItemPreviewService.luau — The one item-viewport renderer: frames a tool model for every shop card, hotbar slot and kit tile, and can re-aim every live viewport of an item at once.
 - ReplicatedStorage\Services\ItemPreviewDebugService.luau — F2 panel that tunes an item's viewport framing live across every viewport showing it, and emits the ItemPreviewConfig entry to paste.
@@ -153,7 +153,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\LobbyService.luau — Checks whether a player is standing on the tagged lobby floor.
 - ReplicatedStorage\Services\LookService.luau — Reports local camera pitch/yaw and bends other characters' neck and waist to match.
 - ReplicatedStorage\Services\MarketplaceService\init.luau — Wrapper over Roblox MarketplaceService adding a shared gamepass-ownership cache, cross-boundary purchase prompts and per-product receipt handlers.
-- ReplicatedStorage\Services\MarketplaceService\Gamepasses.luau — Gamepass asset ids keyed by name; Pathfinder, KeepItems, Visor, DoubleSpeed, PlayerLocator, Map, DoubleCoins and DoubleGems are currently 0.
+- ReplicatedStorage\Services\MarketplaceService\Gamepasses.luau — Gamepass asset ids keyed by name; Pathfinder, KeepItems, Visor, DoubleSpeed, PlayerLocator, Map, Camcorder, DoubleCoins and DoubleGems are currently 0.
 - ReplicatedStorage\Services\MarketplaceService\Products.luau — Developer-product asset ids, with per-item ids nested under Items.
 - ReplicatedStorage\Services\MapControlService.luau — Pan and zoom for the map: drag or pinch to pan, wheel or pinch to zoom, clamped and eased.
 - ReplicatedStorage\Services\MapInkService.luau — Rasterises the hand-drawn map ink: seeded wobble, tapered strokes, round and chamfered outlines, and junction-aware wall culling onto the map canvas.
@@ -172,7 +172,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\PerfLogService.luau — Client performance watchdog for frame spikes, FPS drops and bursts of workspace instance churn.
 - ReplicatedStorage\Services\PerfLoggerService.luau — Flag-gated startup timing log broadcast from server to all clients.
 - ReplicatedStorage\Services\PhotoCaptureService.luau — Client shutter for the tripod camera: authored flash, GUI hide, local ShadowFigure clone, lens-locked screenshot through CaptureGalleryService and restore.
-- ReplicatedStorage\Services\PhotoDevelopService.luau — Binds the Studio-authored film preview and plays a finished capture with a mouse-free keep-or-burn prompt.
+- ReplicatedStorage\Services\PhotoDevelopService.luau — Binds the Studio-authored film preview, plays a finished capture with a mouse-free keep-or-burn prompt, and restores the prior cursor lock state afterward.
 - ReplicatedStorage\Services\PhotoTimerService.luau — Clones the Studio-authored countdown template above each placed tripod camera.
 - ReplicatedStorage\Services\PhotoTimerService.luau — Countdown billboard over every placed tripod camera, flashing SNAP when it fires.
 - ReplicatedStorage\Services\POIAudioService.luau — Plays the POIDiscovered sting on entering a point of interest, skipping it while one is already playing.
@@ -196,7 +196,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\ToolClientService.luau — Bootstraps tool classes for the local player's tools and routes server tool events to them.
 - ReplicatedStorage\Services\TweenProxyService.luau — Tweens arbitrary values through a throwaway ValueBase and a callback, including model scaling.
 - ReplicatedStorage\Services\VanishedService.luau — Checks shared and source-specific immunity tags or a ForceField, with source syncing and an Eye-specific check that skips the exempt tag.
-- ReplicatedStorage\Services\ViewmodelService.luau — First-person viewmodel that clones the equipped tool under the camera with sway, bob and named per-tool poses, and exposes its equipped tool and default fit anchor to debug panels.
+- ReplicatedStorage\Services\ViewmodelService.luau — First-person viewmodel that clones the equipped tool under the camera with sway, bob and named per-tool poses, can suppress the live viewmodel for captures, and exposes its equipped tool and default fit anchor to debug panels.
 - ReplicatedStorage\Services\ViewmodelDebugService.luau — F3 developer panel for tuning every equipped tool, with dynamic titles, per-tool config output and a state button only for tools with multiple poses.
 - ReplicatedStorage\Services\VoiceActivityService.luau — Detects when the local player is speaking from an AudioAnalyzer, reports it to the server, and cuts incoming proximity voice off while the local player is dead.
 - ReplicatedStorage\Services\VoiceDebugService.luau — Debug panel of sliders for local proximity-voice and radio volumes.
@@ -246,7 +246,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\Minigames\Simon.luau — Simon-says minigame; repeat a growing four-pad sequence up to length seven.
 - ReplicatedStorage\Classes\Minigames\Snake.luau — Snake minigame on a 16x12 grid; eat fifteen pellets as the tick speeds up.
 - ReplicatedStorage\Classes\Tools\Ball.luau — Client ball tool; throws a ball prop at a targeted Eye and reports the hit to the server.
-- ReplicatedStorage\Classes\Tools\Camcorder.luau — Client camcorder; stows and disables itself while the Studio-authored REC/STOP HUD runs, then offers keep or burn.
+- ReplicatedStorage\Classes\Tools\Camcorder.luau — Client camcorder; stows and suppresses its viewmodel while the Studio-authored REC/STOP HUD runs, reports recording completion, then offers keep or burn.
 - ReplicatedStorage\Classes\Tools\Camera.luau — Client camera tool; shows a ghost placement preview and asks the server to stand the tripod where you aim.
 - ReplicatedStorage\Classes\Tools\Pathfinder.luau — Client pathfinder tool; drops limited, shaded breadcrumb markers on the floor.
 - ReplicatedStorage\Classes\Tools\Player Locator.luau — Client tool that enables PlayerLocatorService while equipped.
@@ -490,7 +490,7 @@ become Services or Classes.
 - ServerStorage\Classes\Tools\Bandage.luau — Server half of the Bandage tool; a plain Healer subclass.
 - ServerStorage\Classes\Tools\Big Character.luau — Server half of the Big Character item; applies the fixed large character oddity.
 - ServerStorage\Classes\Tools\Big Head.luau — Server half of the Big Head item; applies the head-size oddity.
-- ServerStorage\Classes\Tools\Camcorder.luau — Server half of the camcorder; gates recording on the Camcorder gamepass and never consumes.
+- ServerStorage\Classes\Tools\Camcorder.luau — Server half of the camcorder; gates recording on the Camcorder gamepass and removes temporary camcorders after recording.
 - ServerStorage\Classes\Tools\Camera.luau — Server half of the tripod camera; validates placement, spawns it and consumes the single use.
 - ServerStorage\Classes\Tools\Energy Drink.luau — Server half of the Energy Drink tool; a plain SpeedDrink subclass.
 - ServerStorage\Classes\Tools\Flashlight.luau — Server half of the flashlight, toggling the replicated LightOn attribute the clients render from.

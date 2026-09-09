@@ -98,7 +98,8 @@ local function setDecisionOpen(open: boolean)
 	end
 
 	if mouseWasUnlocked == nil then return end
-	local restore = mouseWasUnlocked or InterfaceService:GetActive() ~= ""
+	local activePage = InterfaceService:GetActive()
+	local restore = mouseWasUnlocked == true or (activePage ~= nil and activePage ~= "")
 	mouseWasUnlocked = nil
 	InterfaceService:SetMouseUnlocked(restore, false)
 end

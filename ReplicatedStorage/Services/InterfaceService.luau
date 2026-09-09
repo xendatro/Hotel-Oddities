@@ -312,8 +312,8 @@ function InterfaceService:IsMouseUnlocked(): boolean
 	return mouseUnlocked
 end
 
-UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
-	if processed or input.KeyCode ~= Enum.KeyCode.Q then return end
+UserInputService.InputBegan:Connect(function(input: InputObject)
+	if input.KeyCode ~= Enum.KeyCode.Q then return end
 	if interfaceOpen or mouseUnlockForced then return end
 	InterfaceService:SetMouseUnlocked(not mouseUnlocked)
 end)
@@ -333,7 +333,7 @@ function InterfaceService:Close()
 	controller:Fire("")
 end
 
-function InterfaceService:GetActive(): string
+function InterfaceService:GetActive(): string?
 	return controller.Active
 end
 

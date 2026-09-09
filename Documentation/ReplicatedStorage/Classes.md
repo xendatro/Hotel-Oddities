@@ -384,10 +384,10 @@ Client half of the throwable ball: raycasts through the mouse at Eye-tagged part
 - Requires: `Classes\ClientTool`, `TagService`, `ReplicatedStorage.Props.Other` (Ball prop)
 
 ### Tools\Camcorder.luau
-Client half of the unlimited-use camcorder. Activation asks the server to check the gamepass; on `Allowed` it unequips itself so the camera body stays out of frame, waits a beat, then starts a video capture. The tool stays in its inventory slot but is disabled until the take ends, and any outside attempt to equip it is stowed again. The Studio-authored `StarterGui.CamcorderRecording` panel blinks its red light and offers a touch STOP button, with X or gamepad B as the stop key. Recording also ends at the configured duration or Roblox's 30-second cap. The finished tape is handed to `PhotoDevelopService` for playback and the keep-or-burn prompt.
+Client half of the camcorder. Activation asks the server to check the gamepass; on `Allowed` it disables and stows itself, suppresses the first-person viewmodel before starting video capture, and keeps re-equip or unequip attempts stowed while the take runs. The Studio-authored `StarterGui.CamcorderRecording` panel blinks its red light and offers a touch STOP button, with X or gamepad B as the stop key. Recording also ends at the configured duration or Roblox's 30-second cap. Completion reports back to the server so temporary camcorders can be removed, then hands the finished tape to `PhotoDevelopService` for playback and the keep-or-burn prompt.
 - API: none beyond the `ClientTool` hooks.
-- Remotes: `Tools/Signal` — fires `Record`, listens `Allowed` and `Denied`
-- Requires: `Classes.ClientTool`, `Configs.CaptureConfig`, `CaptureGalleryService`, `NotificationService`, `PhotoDevelopService`; expects `StarterGui.CamcorderRecording`
+- Remotes: `Tools/Signal` — fires `Record`, `Finished` or `Cancelled`, listens `Allowed` and `Denied`
+- Requires: `Classes.ClientTool`, `Configs.CaptureConfig`, `CaptureGalleryService`, `NotificationService`, `PhotoDevelopService`, `ViewmodelService`; expects `StarterGui.CamcorderRecording`
 
 ### Tools\Camera.luau
 Client half of the tripod Camera: while equipped it keeps a local ForceField-material ghost of the tripod standing wherever the shot would land, updated every render step and hidden when there is no valid spot. On activation it raycasts from the camera through the crosshair for a floor within `Place.Range`, rejects steep surfaces and spots too close to the player, and asks the server to stand the tripod there facing the way the player is looking. The photo itself is taken later by PhotoCaptureService.
