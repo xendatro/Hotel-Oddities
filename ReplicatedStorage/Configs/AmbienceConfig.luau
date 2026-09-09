@@ -4,11 +4,11 @@ return {
 	FadeTime = 2,
 	UpdateInterval = 0.1,
 	POI = {
-		Volume = 0.32,
-		FadeTime = 1.8,
-		Pitch = 0.88,
-		DistortionLevel = 0.28,
-		TremoloDepth = 0.22,
-		TremoloFrequency = 0.55,
+		Volume = 0.82,
+		FadeTime = 0.35,
+		Pitch = 0.78,
+		DistortionLevel = 0.45,
+		TremoloDepth = 0.32,
+		TremoloFrequency = 0.8,
 	},
 }

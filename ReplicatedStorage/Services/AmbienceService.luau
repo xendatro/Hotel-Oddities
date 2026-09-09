@@ -52,7 +52,14 @@ local sourceIndex = 0
 local volumeMultiplier = 1
 local accumulator = math.huge
 local poiActive = false
-local poiEffect: { Root: Folder, Fader: AudioFader }?
+local poiEffect: {
+	Root: Folder,
+	Fader: AudioFader,
+	DryFader: AudioFader,
+	Shifter: AudioPitchShifter,
+	Distortion: AudioDistortion,
+	Tremolo: AudioTremolo,
+}?
 
 local function getNextSource(): AudioPlayer?
 	if #sources == 0 then return nil end
@@ -65,10 +72,22 @@ local function getNextSource(): AudioPlayer?
 	return sources[sourceIndex]
 end
 
-local function createPOIEffect(player: AudioPlayer)
+local function createPOIEffect(): {
+	Root: Folder,
+	Fader: AudioFader,
+	DryFader: AudioFader,
+	Shifter: AudioPitchShifter,
+	Distortion: AudioDistortion,
+	Tremolo: AudioTremolo,
+}
 	local root = Instance.new("Folder")
 	root.Name = "AmbiencePOIEffect"
 	root.Parent = workspace.Sounds
+
+	local dryFader = Instance.new("AudioFader")
+	dryFader.Name = "POIDryFader"
+	dryFader.Volume = 1
+	dryFader.Parent = root
 
 	local shifter = Instance.new("AudioPitchShifter")
 	shifter.Name = "POIPitch"
@@ -91,21 +110,23 @@ local function createPOIEffect(player: AudioPlayer)
 	fader.Volume = 0
 	fader.Parent = root
 
-	AudioService:Wire(player, shifter)
-	AudioService:Wire(shifter, distortion)
-	AudioService:Wire(distortion, tremolo)
-	AudioService:Wire(tremolo, fader)
-	AudioService:Wire(fader, AmbienceMixer)
+	return { Root = root, Fader = fader, DryFader = dryFader, Shifter = shifter, Distortion = distortion, Tremolo = tremolo }
+end
 
-	local effect = { Root = root, Fader = fader }
+local function connectPOIEffect(effect, player: AudioPlayer)
+	AudioService:Wire(player, effect.Shifter)
+	AudioService:Wire(effect.Shifter, effect.Distortion)
+	AudioService:Wire(effect.Distortion, effect.Tremolo)
+	AudioService:Wire(effect.Tremolo, effect.Fader)
+	AudioService:Wire(effect.Fader, AmbienceMixer)
+
 	poiEffect = effect
 	player.Destroying:Once(function()
 		if poiEffect == effect then
 			poiEffect = nil
 		end
-		if root.Parent then root:Destroy() end
+		if effect.Root.Parent then effect.Root:Destroy() end
 	end)
-	return effect
 end
 
 local function playNext()
@@ -114,9 +135,11 @@ local function playNext()
 	local source = getNextSource()
 	if not source then return end
 
-	local player = AudioService:Play2D(source, false, AMBIENCE_BUS, nil, Duck)
+	local effect = createPOIEffect()
+	local player = AudioService:Play2D(source, false, AMBIENCE_BUS, nil, effect.DryFader)
 	playing = player
-	createPOIEffect(player)
+	AudioService:Wire(effect.DryFader, Duck)
+	connectPOIEffect(effect, player)
 
 	player.Ended:Connect(function()
 		if playing == player then
@@ -200,10 +223,13 @@ end
 
 local function updatePOIFader(deltaTime: number)
 	if poiEffect then
-		local poiTarget = if poiActive then AmbienceConfig.POI.Volume else 0
+		local poiVolume = math.max(AmbienceConfig.POI.Volume, 0)
+		local poiTarget = if poiActive then poiVolume else 0
 		local poiFadeTime = math.max(AmbienceConfig.POI.FadeTime, 0.01)
 		local poiAlpha = math.clamp(deltaTime / poiFadeTime, 0, 1)
 		poiEffect.Fader.Volume += (poiTarget - poiEffect.Fader.Volume) * poiAlpha
+		local alteredWeight = if poiVolume > 0 then math.clamp(poiEffect.Fader.Volume / poiVolume, 0, 1) else 0
+		poiEffect.DryFader.Volume = 1 - alteredWeight
 	end
 end
 

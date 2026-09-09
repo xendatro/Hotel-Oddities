@@ -3,7 +3,7 @@
 Pure data tables. Each is named `TopicConfig` and returns only the table.
 
 ### AmbienceConfig.luau
-Distance-based volume falloff and fade timing for ambient sound emitters, plus the quieter pitch-shifted tremolo layer used while inside a POI.
+Distance-based volume falloff and fade timing for ambient sound emitters, plus the POI cross-fade and unsettling pitch, distortion and tremolo tuning used while inside a POI.
 - API: data table — `SilentDistance`, `FullVolumeDistance`, `FadeTime`, `UpdateInterval`, `POI` (`Volume`, `FadeTime`, `Pitch`, `DistortionLevel`, `TremoloDepth`, `TremoloFrequency`)
 
 ### AnimationConfig.luau
