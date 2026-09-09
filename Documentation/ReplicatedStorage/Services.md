@@ -8,8 +8,9 @@ Tiny math helper for pointing something at a target and easing a rotation toward
 - API: `Aim.Ease(rotation: CFrame, goal: CFrame, rate: number, deltaTime: number) -> CFrame` — exponential lerp toward goal
 
 ### AmbienceService.luau
-Client-only. Cycles the AudioPlayers under `ReplicatedStorage.Sounds.Ambience` one after another through a dedicated `AmbienceDuck` fader, fading that fader down as the walking distance to the nearest tagged enemy shrinks. Swaps to a looping `DeathAmbience` track while the death screen is up, and goes silent entirely on the lobby floor.
+Client-only. Cycles the AudioPlayers under `ReplicatedStorage.Sounds.Ambience` one after another through a dedicated `AmbienceDuck` fader, fading that fader down as the walking distance to the nearest tagged enemy shrinks. While the server reports occupancy in any POI, each current ambience track also fans out through an `AudioPitchShifter`, `AudioTremolo` and `AudioFader` branch that fades in and out over the configured interval. Swaps to a looping `DeathAmbience` track while the death screen is up, and goes silent entirely on the lobby floor.
 - API: `AmbienceService:Suppress(key: string, suppressed: boolean)` — hold the playlist muted while any key is set; `ChaosWarningSoundService` uses it so the ordinary ambience gets out of the way of a Chaos warning. Defined above the client guard, so the call is safe from shared code.
+- API: `AmbienceService:SetPOIActive(active: boolean)` — sets whether the altered ambience branch should fade up or down
 - API: otherwise no public methods — runs entirely from its own Heartbeat connection.
 - Tags: reads `Enemy`
 - Requires: `Configs.AmbienceConfig`, `Services.HallwayGraphService`, `DeathScreenService`, `LobbyService`, `AudioService`
@@ -724,11 +725,11 @@ Clones the Studio-authored `StarterGui.CaptureTemplates.PhotoTimer` countdown ab
 - Requires: `Configs.PhotoConfig`, `TagService`; expects `StarterGui.CaptureTemplates.PhotoTimer`
 
 ### POIAudioService.luau
-Plays the `POIDiscovered` sting whenever the server reports the local player entering a point of interest, discovered or not. Skips the play if the previous one is still going, and does nothing while the template has no asset set.
+Plays the `POIDiscovered` sting whenever the server reports the local player entering a point of interest, discovered or not, and passes the server's any-POI occupancy state to `AmbienceService`. Skips the play if the previous one is still going, and does nothing while the template has no asset set.
 - API: `POIAudioService:Play()` — plays unless already playing
 - API: `POIAudioService:IsPlaying() -> boolean`
-- Remotes: `POI/Enter` (listened)
-- Requires: `POIConfig`, `AudioService`, `ReplicatedStorage.Sounds.POIDiscovered`
+- Remotes: `POI/Enter` (listened), `POI/Occupancy` (fired to request and listened for state)
+- Requires: `POIConfig`, `AmbienceService`, `AudioService`, `ReplicatedStorage.Sounds.POIDiscovered`
 
 ### POIUIService.luau
 Client point-of-interest popup. Drives the Studio-authored `POIGui`, which is white text on nothing: on a discovery each of the four lines fades in and rises on its own stagger, the name typing itself out a grapheme at a time, the hairline rule growing from zero width, and the counter ticking up from the previous total; it holds, then fades out with the rule collapsing again. The counter animates up from the previous total. Overlapping discoveries are queued and played one at a time.

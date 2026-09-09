@@ -518,14 +518,14 @@ Registers the `/photo` chat command for testing the tripod camera: bare `/photo`
 - Requires: `ChatCommandService`, `PhotoCameraService`, `CharacterService`, `Configs.PhotoConfig`
 
 ### POIDiscoveryService.luau
-Awards a point of interest the first time a living player stands inside the tagged part's own volume, grown by `Detection.Padding` sideways and by the height windows vertically, using the part's name as the key. Discoveries persist to `profile.Data.DiscoveredPOIs`, replicate on load, and each new one is fired to the client with the player's running count and the world total. Entering any point of interest also fires the client sting cue, discovered or not, at most once per `Sound.Cooldown` per point.
+Awards a point of interest the first time a living player stands inside the tagged part's own volume, grown by `Detection.Padding` sideways and by the height windows vertically, using the part's name as the key. Discoveries persist to `profile.Data.DiscoveredPOIs`, replicate on load, and each new one is fired to the client with the player's running count and the world total. Entering any point of interest also fires the client sting cue, discovered or not, at most once per `Sound.Cooldown` per point, while transitions between zero and one or more occupied POIs fire the occupancy state used by the client ambience layer.
 - API: `POIDiscoveryService:Has(player: Player, name: string) -> boolean`
 - API: `POIDiscoveryService:GetAll(player: Player) -> { [string]: boolean }` — cloned copy
 - API: `POIDiscoveryService:GetCount(player: Player) -> number`
 - API: `POIDiscoveryService:GetTotal() -> number` — distinct tagged names in the world
 - API: `POIDiscoveryService:Grant(player: Player, name: string) -> boolean` — persists and fires the popup
 - API: `POIDiscoveryService:Clear(player: Player)` — wipes and resyncs
-- Remotes: `POI/Discovered` (fired), `POI/Enter` (fired), `POI/Sync` (fired, listened as a resync request)
+- Remotes: `POI/Discovered`, `POI/Enter`, `POI/Occupancy` (fired), `POI/Sync` (fired, listened as a resync request; also resends occupancy)
 - Tags: listens `POIConfig.Tag` (`POI`); reads the optional `Radius` attribute, which widens that one part's trigger box
 - Requires: `POIConfig`, `CharacterService`, `TagService`, `DataSaveService` (`profile.Data.DiscoveredPOIs`)
 

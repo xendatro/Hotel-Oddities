@@ -3,8 +3,8 @@
 Pure data tables. Each is named `TopicConfig` and returns only the table.
 
 ### AmbienceConfig.luau
-Distance-based volume falloff and fade timing for ambient sound emitters.
-- API: data table — `SilentDistance`, `FullVolumeDistance`, `FadeTime`, `UpdateInterval`
+Distance-based volume falloff and fade timing for ambient sound emitters, plus the quieter pitch-shifted tremolo layer used while inside a POI.
+- API: data table — `SilentDistance`, `FullVolumeDistance`, `FadeTime`, `UpdateInterval`, `POI` (`Volume`, `FadeTime`, `Pitch`, `TremoloDepth`, `TremoloFrequency`)
 
 ### AnimationConfig.luau
 Animation asset ids plus per-enemy animation sets (walk/run/idle/attack/room-reaction/listen/lurk) used by enemy rigs and tools.
@@ -182,7 +182,7 @@ Tag name, attribute name and reconciliation tolerances for the "freeze while obs
 - API: data table — `Tag`, `FrozenAttribute`, `MaxOffset`, `ConfirmationTimeout`, `ReleaseSpeed`, `MinReportGap`
 
 ### POIConfig.luau
-Point-of-interest tag, remote names, the trigger-box padding and sweep interval used by the server, the entry sting's template/bus/cooldown, and every timing and string the discovery popup animates with.
+Point-of-interest tag, discovery, entry and occupancy remote names, the trigger-box padding and sweep interval used by the server, the entry sting's template/bus/cooldown, and every timing and string the discovery popup animates with.
 
 ### PerkConfig.luau
 Per-perk settings for the gamepass/perk system, keyed by perk name under a shared attribute prefix.

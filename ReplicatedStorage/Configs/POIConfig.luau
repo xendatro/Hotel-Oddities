@@ -5,6 +5,7 @@ return {
 		Folder = "POI",
 		Discovered = "Discovered",
 		Enter = "Enter",
+		Occupancy = "Occupancy",
 		Sync = "Sync",
 	},
 

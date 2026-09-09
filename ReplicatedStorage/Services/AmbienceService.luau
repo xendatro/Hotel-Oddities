@@ -45,6 +45,8 @@ local deathBaseVolume = 1
 local sourceIndex = 0
 local volumeMultiplier = 1
 local accumulator = math.huge
+local poiActive = false
+local poiEffect: { Root: Folder, Fader: AudioFader }?
 
 local function getNextSource(): AudioPlayer?
 	if #sources == 0 then return nil end
@@ -57,6 +59,43 @@ local function getNextSource(): AudioPlayer?
 	return sources[sourceIndex]
 end
 
+local function createPOIEffect(player: AudioPlayer)
+	local root = Instance.new("Folder")
+	root.Name = "AmbiencePOIEffect"
+	root.Parent = workspace.Sounds
+
+	local shifter = Instance.new("AudioPitchShifter")
+	shifter.Name = "POIPitch"
+	shifter.Pitch = AmbienceConfig.POI.Pitch
+	shifter.Parent = root
+
+	local tremolo = Instance.new("AudioTremolo")
+	tremolo.Name = "POITremolo"
+	tremolo.Depth = AmbienceConfig.POI.TremoloDepth
+	tremolo.Frequency = AmbienceConfig.POI.TremoloFrequency
+	tremolo.Parent = root
+
+	local fader = Instance.new("AudioFader")
+	fader.Name = "POIFader"
+	fader.Volume = 0
+	fader.Parent = root
+
+	AudioService:Wire(player, shifter)
+	AudioService:Wire(shifter, tremolo)
+	AudioService:Wire(tremolo, fader)
+	AudioService:Wire(fader, AudioService:GetOutput())
+
+	local effect = { Root = root, Fader = fader }
+	poiEffect = effect
+	player.Destroying:Once(function()
+		if poiEffect == effect then
+			poiEffect = nil
+		end
+		if root.Parent then root:Destroy() end
+	end)
+	return effect
+end
+
 local function playNext()
 	if playing or DeathScreenService:IsVisible() or LobbyService:IsPlayerOnLobbyFloor() then return end
 
@@ -65,6 +104,7 @@ local function playNext()
 
 	local player = AudioService:Play2D(source, false, AMBIENCE_BUS, nil, Duck)
 	playing = player
+	createPOIEffect(player)
 
 	player.Ended:Connect(function()
 		if playing == player then
@@ -146,11 +186,25 @@ local function updateVolume(deltaTime: number, ambienceBlocked: boolean)
 	Duck.Volume = volumeMultiplier
 end
 
+local function updatePOIFader(deltaTime: number)
+	if poiEffect then
+		local poiTarget = if poiActive then AmbienceConfig.POI.Volume else 0
+		local poiFadeTime = math.max(AmbienceConfig.POI.FadeTime, 0.01)
+		local poiAlpha = math.clamp(deltaTime / poiFadeTime, 0, 1)
+		poiEffect.Fader.Volume += (poiTarget - poiEffect.Fader.Volume) * poiAlpha
+	end
+end
+
+function AmbienceService:SetPOIActive(active: boolean)
+	poiActive = active
+end
+
 RunService.Heartbeat:Connect(function(deltaTime)
 	local deathVisible = DeathScreenService:IsVisible()
 	local lobbyVisible = LobbyService:IsPlayerOnLobbyFloor()
 	updatePlayback(deathVisible, lobbyVisible)
 	updateDeathAmbience()
+	updatePOIFader(deltaTime)
 
 	accumulator += deltaTime
 	if accumulator < AmbienceConfig.UpdateInterval then return end

@@ -17,11 +17,13 @@ local POIDiscoveryService = {}
 
 local DiscoveredRemote = CommunicationService.Ensure(Remotes.Folder, Remotes.Discovered)
 local EnterRemote = CommunicationService.Ensure(Remotes.Folder, Remotes.Enter)
+local OccupancyRemote = CommunicationService.Ensure(Remotes.Folder, Remotes.Occupancy)
 local SyncRemote = CommunicationService.Ensure(Remotes.Folder, Remotes.Sync)
 
 local Parts: { [Instance]: string } = {}
 local Discovered: { [Player]: { [string]: boolean } } = {}
 local Entered: { [Player]: { [string]: number } } = {}
+local Occupied: { [Player]: { [string]: boolean } } = {}
 
 local accumulator = 0
 
@@ -109,10 +111,17 @@ end
 local function sweepPlayer(player: Player)
 	local set = Discovered[player]
 	local entered = Entered[player]
-	if not (set and entered) then return end
+	local occupied = Occupied[player]
+	if not (set and entered and occupied) then return end
 
 	local root = CharacterService.GetAliveRoot(player)
-	if not root then return end
+	if not root then
+		if next(occupied) ~= nil then
+			Occupied[player] = {}
+			OccupancyRemote:FireClient(player, false)
+		end
+		return
+	end
 
 	local position = root.Position
 	local inRange: { [string]: boolean } = {}
@@ -124,6 +133,13 @@ local function sweepPlayer(player: Player)
 
 		inRange[name] = true
 	end
+
+	local wasOccupied = next(occupied) ~= nil
+	local isOccupied = next(inRange) ~= nil
+	if wasOccupied ~= isOccupied then
+		OccupancyRemote:FireClient(player, isOccupied)
+	end
+	Occupied[player] = inRange
 
 	local now = os.clock()
 	for name in inRange do
@@ -137,7 +153,14 @@ local function sweepPlayer(player: Player)
 end
 
 local function sweep()
-	if next(Parts) == nil then return end
+	if next(Parts) == nil then
+		for player, occupied in Occupied do
+			if next(occupied) == nil then continue end
+			Occupied[player] = {}
+			OccupancyRemote:FireClient(player, false)
+		end
+		return
+	end
 
 	for _, player in Players:GetPlayers() do
 		sweepPlayer(player)
@@ -147,6 +170,7 @@ end
 local function watchPlayer(player: Player)
 	Discovered[player] = {}
 	Entered[player] = {}
+	Occupied[player] = {}
 
 	task.spawn(function()
 		local profile = DataSaveService:Wait(player)
@@ -186,6 +210,11 @@ SyncRemote.OnServerEvent:Connect(function(player: Player)
 	local set = Discovered[player]
 	if not set then return end
 	SyncRemote:FireClient(player, table.clone(set), POIDiscoveryService:GetCount(player), POIDiscoveryService:GetTotal())
+	OccupancyRemote:FireClient(player, next(Occupied[player] or {}) ~= nil)
+end)
+
+OccupancyRemote.OnServerEvent:Connect(function(player: Player)
+	OccupancyRemote:FireClient(player, next(Occupied[player] or {}) ~= nil)
 end)
 
 for _, player in Players:GetPlayers() do
@@ -197,6 +226,7 @@ Players.PlayerRemoving:Connect(function(player: Player)
 	persist(player)
 	Discovered[player] = nil
 	Entered[player] = nil
+	Occupied[player] = nil
 end)
 
 return POIDiscoveryService
