@@ -172,6 +172,10 @@ function Camcorder:_roll()
 	showRecording(function()
 		self:_stopRecording()
 	end)
+	if not self.OwnsRecording or not CaptureGalleryService:IsRecording() then
+		hideRecording()
+		return
+	end
 
 	local duration = math.min(settings.Duration, settings.MaxDuration)
 	self.StopAt = os.clock() + duration
@@ -192,9 +196,11 @@ function Camcorder:OnEquipped()
 end
 
 function Camcorder:OnUnequipped()
-	if self.OwnsRecording then
-		self:_stopRecording()
+	self.StopAt = nil
+	if self.OwnsRecording and not CaptureGalleryService:IsRecording() then
+		self.StopWhenStarted = true
 	end
+	CaptureGalleryService:StopVideo()
 end
 
 function Camcorder:OnActivated()

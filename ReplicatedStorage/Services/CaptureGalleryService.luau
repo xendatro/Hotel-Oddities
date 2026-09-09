@@ -21,6 +21,7 @@ export type Media = {
 
 local permission: boolean? = nil
 local prompting = false
+local permissionResolved = Instance.new("BindableEvent")
 local recording = false
 local pending: { [string]: Media } = {}
 local cache: { Media } = {}
@@ -91,7 +92,10 @@ end
 
 function CaptureGalleryService:RequestPermission(): boolean
 	if permission == true then return true end
-	if prompting then return false end
+	if prompting then
+		permissionResolved.Event:Wait()
+		return permission == true
+	end
 
 	prompting = true
 	local ok, granted = pcall(function()
@@ -100,26 +104,12 @@ function CaptureGalleryService:RequestPermission(): boolean
 	prompting = false
 
 	permission = ok and granted == true
-	if permission then
-		announce()
-	end
+	permissionResolved:Fire()
 	return permission :: boolean
 end
 
 function CaptureGalleryService:WaitForPermission(): boolean
-	local deadline = os.clock() + CaptureConfig.Screenshot.Timeout
-	while prompting and os.clock() < deadline do
-		task.wait(0.1)
-	end
 	return self:RequestPermission()
-end
-
-function CaptureGalleryService:EnsurePermission()
-	if permission == true or prompting then return end
-
-	task.spawn(function()
-		self:RequestPermission()
-	end)
 end
 
 function CaptureGalleryService:Content(media: Media): Content?
@@ -201,8 +191,6 @@ function CaptureGalleryService:StartVideo(onFinished: (Media?, string?) -> ()): 
 		return false
 	end
 
-	self:EnsurePermission()
-
 	local settled = false
 	local function finish(media: Media?, message: string?)
 		if settled then return end
@@ -242,7 +230,6 @@ function CaptureGalleryService:StartVideo(onFinished: (Media?, string?) -> ()): 
 end
 
 function CaptureGalleryService:StopVideo()
-	if not recording then return end
 	pcall(function()
 		CaptureService:StopVideoCapture()
 	end)
@@ -273,7 +260,13 @@ function CaptureGalleryService:Save(media: Media): boolean
 	if saved then
 		media.Saved = true
 		pending[media.Id] = nil
-		cachedAt = 0
+		for index = #cache, 1, -1 do
+			if cache[index].Id == media.Id then
+				table.remove(cache, index)
+			end
+		end
+		table.insert(cache, 1, media)
+		cachedAt = os.clock()
 		announce()
 	end
 	return saved

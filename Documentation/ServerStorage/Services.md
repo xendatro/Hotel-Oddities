@@ -494,7 +494,7 @@ Geometry search that finds a corner a stalker enemy can stand behind hidden from
 - Requires: `HallwayGridService` (corner list), `EnemyObservationService` (enemy eyes/view cones), `MathService`
 
 ### PerkService.luau
-Resolves each player's gamepass ownership once on join, mirrors it to `Perk*` player attributes, and applies the perks on every spawn: double speed, the Visor tool, the permanent Player Locator tool, a Camcorder stack (granted to everyone while `CaptureConfig.RequireGamepass` is off), and restoring items kept through death. Existing camcorders keep their saved quantity. A successful Player Locator purchase grants the tool immediately.
+Resolves each player's gamepass ownership once on join, mirrors it to `Perk*` player attributes, and applies the perks on every spawn: double speed, the Visor tool, the permanent Player Locator tool, a permanent Camcorder only for its pass owner, and restoring items kept through death. Existing camcorders keep their saved quantity. Successful Player Locator and Camcorder purchases grant their tools immediately.
 - API: `PerkService:Owns(player: Player, passName: string) -> boolean` — cached gamepass ownership
 - API: `PerkService:WaitForPasses(player: Player) -> boolean` — yields up to 20s until ownership is resolved
 - Requires: `PerkConfig`, `MarketplaceService.Gamepasses`, `InventoryService`, `LoadoutService` (death snapshot/restore), `SpeedBoostService` (sets the DoubleSpeed multiplier)

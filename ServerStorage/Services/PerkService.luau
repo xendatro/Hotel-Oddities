@@ -2,7 +2,6 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
-local CaptureConfig = require(ReplicatedStorage.Configs.CaptureConfig)
 local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
 local MarketplaceService = require(ReplicatedStorage.Services.MarketplaceService)
 local InventoryService = require(ServerStorage.Services.InventoryService)
@@ -74,7 +73,7 @@ local function applyPlayerLocator(player: Player)
 end
 
 local function applyCamcorder(player: Player)
-	if CaptureConfig.RequireGamepass and not PerkService:Owns(player, "Camcorder") then return end
+	if not PerkService:Owns(player, "Camcorder") then return end
 	if InventoryService:Get(player, CAMCORDER_TOOL) then return end
 	InventoryService:Add(player, CAMCORDER_TOOL, 1)
 end
@@ -133,6 +132,7 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player: Playe
 	task.spawn(function()
 		resolvePasses(player)
 		applyPlayerLocator(player)
+		applyCamcorder(player)
 	end)
 end)
 
