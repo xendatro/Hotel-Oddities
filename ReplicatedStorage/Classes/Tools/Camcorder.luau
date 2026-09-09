@@ -110,6 +110,17 @@ function Camcorder:_stow()
 	end
 end
 
+function Camcorder:_stopRecording()
+	if not self.OwnsRecording then return end
+	if not CaptureGalleryService:IsRecording() then
+		self.StopWhenStarted = true
+		return
+	end
+	self.StopWhenStarted = false
+	self.StopAt = nil
+	CaptureGalleryService:StopVideo()
+end
+
 function Camcorder:_roll()
 	if CaptureGalleryService:IsRecording() then
 		self:_stow()
@@ -119,20 +130,14 @@ function Camcorder:_roll()
 	local settings = CaptureConfig.Video
 
 	self.OwnsRecording = true
-	self.Tool.Enabled = false
-	self:_stow()
+	self.StopWhenStarted = false
 	ViewmodelService:SetCaptureHidden(true)
 	task.wait(settings.HideToolFor)
-
-	local function stop()
-		if not self.OwnsRecording then return end
-		self.StopAt = nil
-		CaptureGalleryService:StopVideo()
-	end
 
 	local started: boolean? = nil
 	started = CaptureGalleryService:StartVideo(function(media, message)
 		self.StopAt = nil
+		self.StopWhenStarted = false
 		self.OwnsRecording = false
 		if self.Tool.Parent then self.Tool.Enabled = true end
 		hideRecording()
@@ -150,23 +155,30 @@ function Camcorder:_roll()
 	end)
 
 	if not started then
+		self.StopWhenStarted = false
 		self.OwnsRecording = false
 		self.Tool.Enabled = true
 		ViewmodelService:SetCaptureHidden(false)
 		hideRecording()
 		return
 	end
+	if not self.OwnsRecording then return end
+	if self.StopWhenStarted then
+		self:_stopRecording()
+		return
+	end
 
 	NotificationService:Show(CaptureConfig.Text.Recording)
-	self.Tool.Enabled = false
-	showRecording(stop)
+	showRecording(function()
+		self:_stopRecording()
+	end)
 
 	local duration = math.min(settings.Duration, settings.MaxDuration)
 	self.StopAt = os.clock() + duration
 
 	task.delay(duration, function()
 		if not self.StopAt or os.clock() < self.StopAt - 0.05 then return end
-		stop()
+		self:_stopRecording()
 	end)
 end
 
@@ -180,12 +192,9 @@ function Camcorder:OnEquipped()
 end
 
 function Camcorder:OnUnequipped()
-	if not CaptureGalleryService:IsRecording() then return end
-	task.defer(function()
-		if CaptureGalleryService:IsRecording() then
-			self:_stow()
-		end
-	end)
+	if self.OwnsRecording then
+		self:_stopRecording()
+	end
 end
 
 function Camcorder:OnActivated()
@@ -199,6 +208,7 @@ end
 
 function Camcorder:OnDestroy()
 	self.StopAt = nil
+	self.StopWhenStarted = false
 	if self.OwnsRecording and CaptureGalleryService:IsRecording() then
 		CaptureGalleryService:StopVideo()
 	end

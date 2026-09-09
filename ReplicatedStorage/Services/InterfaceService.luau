@@ -256,10 +256,10 @@ mouseUnlockBlocker.Parent = mouseUnlockGui
 local mouseUnlocked = false
 local mouseUnlockForced = false
 local lockedMouseBehavior = UserInputService.MouseBehavior
-local lockedMouseIconEnabled = UserInputService.MouseIconEnabled
 local lockedCameraMode = player.CameraMode
 
 local MOUSE_FREE_BIND = "InterfaceMouseFree"
+local MOUSE_LOCKED_BIND = "InterfaceMouseLocked"
 local cameraFreed = false
 
 function InterfaceService:SetCameraFreed(freed: boolean)
@@ -267,6 +267,7 @@ function InterfaceService:SetCameraFreed(freed: boolean)
 	cameraFreed = freed
 
 	if freed then
+		RunService:UnbindFromRenderStep(MOUSE_LOCKED_BIND)
 		lockedCameraMode = player.CameraMode
 		if lockedCameraMode == Enum.CameraMode.LockFirstPerson then
 			player.CameraMode = Enum.CameraMode.Classic
@@ -281,6 +282,11 @@ function InterfaceService:SetCameraFreed(freed: boolean)
 
 	RunService:UnbindFromRenderStep(MOUSE_FREE_BIND)
 	player.CameraMode = lockedCameraMode
+	RunService:BindToRenderStep(MOUSE_LOCKED_BIND, Enum.RenderPriority.Last.Value + 1, function()
+		if UserInputService.MouseIconEnabled then
+			UserInputService.MouseIconEnabled = false
+		end
+	end)
 end
 
 function InterfaceService:SetMouseUnlocked(unlocked: boolean, force: boolean?)
@@ -293,7 +299,6 @@ function InterfaceService:SetMouseUnlocked(unlocked: boolean, force: boolean?)
 
 	if unlocked then
 		lockedMouseBehavior = UserInputService.MouseBehavior
-		lockedMouseIconEnabled = UserInputService.MouseIconEnabled
 		self:SetCameraFreed(true)
 		mouseUnlockGui.Enabled = true
 		mouseUnlockBlocker.Modal = true
@@ -304,7 +309,7 @@ function InterfaceService:SetMouseUnlocked(unlocked: boolean, force: boolean?)
 		mouseUnlockGui.Enabled = false
 		self:SetCameraFreed(false)
 		UserInputService.MouseBehavior = lockedMouseBehavior
-		UserInputService.MouseIconEnabled = lockedMouseIconEnabled
+		UserInputService.MouseIconEnabled = false
 	end
 end
 
