@@ -78,7 +78,20 @@ than overwritten.
 
 Not one. No narration, no section headers, no docstrings, no TODOs.
 
-6. NEVER ADD FILES TO ANY MODULES FOLDER
+6. PLAYTESTING
+
+Read PLAYTESTING.md at the root before running a playtest, every time. It
+documents the helper modules in ReplicatedStorage\Playtest and
+ServerStorage\Playtest and the traps this place has already hit. Keep it
+current: document any helper you add there, and record anything a playtest
+teaches you that the next person would otherwise rediscover.
+
+The two Playtest folders are exempt from the architecture rules above and from
+rules 2, 3 and 5. They are not Services or Classes, they are not listed in
+README.md or Documentation, and they may carry comments. Everything else in the
+repo still follows the rules.
+
+7. NEVER ADD FILES TO ANY MODULES FOLDER
 
 The Modules folders are legacy placement. New shared helpers become Services or
 Classes.
