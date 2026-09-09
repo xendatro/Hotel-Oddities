@@ -23,8 +23,8 @@ Red hallway-light warning that precedes the Chaos enemy, and how the client deci
 - API: data table — `RedColor`, `PassCheckInterval`, `PassEngageRange`
 
 ### ChaosWarningConfig.luau
-Client gating and placement for the Chaos warning ambience: how often to re-evaluate, which bus/folder/sting to play, and how far outside a warned hallway a listener in an adjacent hallway or an adjacent room still counts. There are deliberately **no volume-over-distance values here** — how loud the bed is at a given range belongs to the emitters' own `DistanceAttenuationBounds` in `ReplicatedStorage.Sounds`, not to this config. `TrackMargin` is how far outside a warned region's box a live Chaos still counts as being in it for pass detection.
-- API: data table — `CheckInterval`, `AmbienceBus`, `AmbienceFolder`, `IncomingSound`, `AdjacentHallwayRange`, `RoomDoorRange`, `TrackMargin`, `FadeInSpeed`, `FadeOutSpeed`, `PassFadeSpeed`, `PassFadeDistance`, `PassEngageRange`, `AnchorLerpSpeed`, `AnchorSnapDistance`, `ReleaseDelay`, `GainSnap`
+Client gating and placement for the Chaos warning ambience: how often to re-evaluate, which bus/folder/sting to play, and how near a red lamp has to be for the cue to be audible. There are deliberately **no volume-over-distance values here** — how loud the bed is at a given range belongs to the emitters' own `DistanceAttenuationBounds` in `ReplicatedStorage.Sounds`, not to this config. `RedHearingRange` doubles as the distance beyond which the anchor stops using a region's centre line and falls back to the red lamp itself.
+- API: data table — `CheckInterval`, `AmbienceBus`, `AmbienceFolder`, `IncomingSound`, `RedHearingRange`, `FadeInSpeed`, `FadeOutSpeed`, `AnchorLerpSpeed`, `AnchorSnapDistance`, `ReleaseDelay`, `GainSnap`
 
 ### ChaseMusicConfig.luau
 Per-enemy chase music tracks with range, volume and fade rates.
