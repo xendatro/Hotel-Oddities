@@ -11,9 +11,9 @@ return {
 	MinSourceDistance = 24,
 	AttenuationRange = 1024,
 
-	FullVolumeDistance = 12,
-	SilentDistance = 70,
-	StingDistance = 45,
+	FullVolumeDistance = 70,
+	SilentDistance = 380,
+	StingDistance = 260,
 	SuppressGain = 0.08,
 
 	FadeInSpeed = 3,

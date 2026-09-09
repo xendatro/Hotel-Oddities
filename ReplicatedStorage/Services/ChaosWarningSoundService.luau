@@ -23,8 +23,10 @@ local ROOM_TAG = "Room"
 local DOORWAY_TAG = "Doorway"
 local ROOM_DOOR_TAG = "RoomDoor"
 local THRESHOLD_NAME = "Threshold"
+local WALL_FOLDER = "Walls"
 local PASS_TIER = 0
 local APPROACH_TIER = 1
+local ARRIVAL_EPSILON = 1e-3
 
 type WarningRegion = {
 	CFrame: CFrame,
@@ -166,24 +168,112 @@ local function insideRegion(region: WarningRegion, offset: Vector3): boolean
 		and math.abs(offset.Z) <= half.Z
 end
 
+local OcclusionParams = RaycastParams.new()
+OcclusionParams.FilterType = Enum.RaycastFilterType.Include
+OcclusionParams.RespectCanCollide = true
+OcclusionParams.IgnoreWater = true
+
+local WallFilter: { Instance }? = nil
+
+local function wallFilter(): { Instance }
+	local cached = WallFilter
+	if cached then
+		for _, folder in cached do
+			if not folder:IsDescendantOf(workspace) then
+				cached = nil
+				break
+			end
+		end
+	end
+	if cached then return cached end
+
+	local filter = {}
+	for _, child in workspace:GetChildren() do
+		local walls = child:FindFirstChild(WALL_FOLDER)
+		if walls then
+			table.insert(filter, walls)
+		end
+	end
+	WallFilter = filter
+	return filter
+end
+
+local function occluded(from: Vector3, to: Vector3): boolean
+	local direction = to - from
+	if direction.Magnitude < ARRIVAL_EPSILON then return false end
+
+	OcclusionParams.FilterDescendantsInstances = wallFilter()
+	return workspace:Raycast(from, direction, OcclusionParams) ~= nil
+end
+
+local function entryAlong(region: WarningRegion): number
+	return approachSign(region) * region.Size.Z / 2
+end
+
+local function predictedAlong(region: WarningRegion, now: number): number
+	local travel = region.ArrivalAtFinish - region.ArrivalAtStart
+	if math.abs(travel) < ARRIVAL_EPSILON then return entryAlong(region) end
+
+	local alpha = math.clamp((now - region.ArrivalAtStart) / travel, 0, 1)
+	return region.Size.Z / 2 - alpha * region.Size.Z
+end
+
+local function entryLag(region: WarningRegion, now: number): number?
+	local remaining = math.min(region.ArrivalAtStart, region.ArrivalAtFinish) - now
+	if remaining <= 0 then return 0 end
+
+	local travel = math.abs(region.ArrivalAtFinish - region.ArrivalAtStart)
+	if travel < ARRIVAL_EPSILON then return nil end
+	return remaining * region.Size.Z / travel
+end
+
+local function chaosAt(region: WarningRegion, now: number): (number, number?)
+	local half = region.Size / 2
+	local margin = Config.MinSourceDistance
+
+	for _, mover in ChaosTracker:GetMovers() do
+		local offset = region.CFrame:PointToObjectSpace(mover.Position)
+		if math.abs(offset.X) > half.X + margin
+			or math.abs(offset.Y) > half.Y + margin
+			or math.abs(offset.Z) > half.Z + margin
+		then
+			continue
+		end
+		return math.clamp(offset.Z, -half.Z, half.Z), 0
+	end
+
+	return predictedAlong(region, now), entryLag(region, now)
+end
+
 local function listenTo(
 	region: WarningRegion,
 	position: Vector3,
 	inHallway: boolean,
-	room: RoomEntry?
+	room: RoomEntry?,
+	now: number
 ): (Vector3?, number, number, Vector3?)
 	local offset = region.CFrame:PointToObjectSpace(position)
 	local half = region.Size / 2
 	local along = math.clamp(offset.Z, -half.Z, half.Z)
+	local approach, lag = chaosAt(region, now)
+	if not lag then return nil, 0, 0, nil end
 
-	if insideRegion(region, offset) or (inHallway
-		and (boxPoint(region, offset) - position).Magnitude <= Config.AdjacentHallwayRange)
-	then
+	local audible = insideRegion(region, offset)
+	if not audible and inHallway then
+		local edge = boxPoint(region, offset)
+		audible = (edge - position).Magnitude <= Config.AdjacentHallwayRange
+			and not occluded(position, edge)
+	end
+
+	if audible then
 		local nearest = centreAt(region, offset.Y, along)
 		local gap = (nearest - position).Magnitude
 		local slide = math.sqrt(math.max(Config.MinSourceDistance ^ 2 - gap * gap, 0))
-		local source = centreAt(region, offset.Y, along + approachSign(region) * slide)
-		return source, gap, arrivalAt(region, along), nearest
+		local sign = approachSign(region)
+		local limit = along + sign * slide
+		local placed = if sign > 0 then math.max(approach, limit) else math.min(approach, limit)
+		local distance = (centreAt(region, offset.Y, approach) - position).Magnitude + lag
+		return centreAt(region, offset.Y, placed), distance, arrivalAt(region, along), nearest
 	end
 
 	local threshold = room and room.Threshold
@@ -191,8 +281,10 @@ local function listenTo(
 		local doorOffset = region.CFrame:PointToObjectSpace(threshold)
 		if (boxPoint(region, doorOffset) - threshold).Magnitude <= Config.RoomDoorRange then
 			local doorAlong = math.clamp(doorOffset.Z, -half.Z, half.Z)
-			local source = centreAt(region, doorOffset.Y, doorAlong)
-			return source, (source - position).Magnitude, arrivalAt(region, doorAlong), source
+			local portal = centreAt(region, doorOffset.Y, doorAlong)
+			local source = centreAt(region, doorOffset.Y, approach)
+			local distance = (portal - position).Magnitude + (source - portal).Magnitude + lag
+			return portal, distance, arrivalAt(region, doorAlong), portal
 		end
 	end
 
@@ -237,7 +329,7 @@ local function gainFor(distance: number): number
 
 	local alpha = (distance - Config.FullVolumeDistance)
 		/ (Config.SilentDistance - Config.FullVolumeDistance)
-	return 1 - alpha * alpha
+	return (1 - alpha) ^ 2
 end
 
 local function writeGain(voice: Voice)
@@ -349,7 +441,7 @@ local function resolve()
 	for _, region in ActiveWarnings do
 		if PassedRuns[region.Run] then continue end
 
-		local point, distance, arrival, reference = listenTo(region, position, inHallway, room)
+		local point, distance, arrival, reference = listenTo(region, position, inHallway, room, now)
 		if not point or not reference then continue end
 
 		local gain = gainFor(distance)
