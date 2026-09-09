@@ -7,14 +7,7 @@ return {
 
 	AdjacentHallwayRange = 28,
 	RoomDoorRange = 3,
-
-	MinSourceDistance = 24,
-	AttenuationRange = 1024,
-
-	FullVolumeDistance = 70,
-	SilentDistance = 380,
-	StingDistance = 260,
-	SuppressGain = 0.08,
+	TrackMargin = 24,
 
 	FadeInSpeed = 3,
 	FadeOutSpeed = 1.75,
@@ -24,6 +17,5 @@ return {
 	AnchorLerpSpeed = 6,
 	AnchorSnapDistance = 40,
 	ReleaseDelay = 1.5,
-	GainEpsilon = 0.004,
 	GainSnap = 0.02,
 }

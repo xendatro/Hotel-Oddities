@@ -45,10 +45,8 @@ type RoomEntry = {
 }
 
 type Voice = {
-	Player: AudioPlayer,
-	Emitter: AudioEmitter,
+	Fader: AudioFader,
 	Gain: number,
-	Applied: number,
 }
 
 local LocalPlayer = Players.LocalPlayer
@@ -157,10 +155,6 @@ local function arrivalAt(region: WarningRegion, along: number): number
 	return region.ArrivalAtStart + (region.ArrivalAtFinish - region.ArrivalAtStart) * alpha
 end
 
-local function approachSign(region: WarningRegion): number
-	return if region.ArrivalAtFinish >= region.ArrivalAtStart then 1 else -1
-end
-
 local function insideRegion(region: WarningRegion, offset: Vector3): boolean
 	local half = region.Size / 2
 	return math.abs(offset.X) <= half.X
@@ -206,59 +200,18 @@ local function occluded(from: Vector3, to: Vector3): boolean
 	return workspace:Raycast(from, direction, OcclusionParams) ~= nil
 end
 
-local function entryAlong(region: WarningRegion): number
-	return approachSign(region) * region.Size.Z / 2
-end
-
-local function predictedAlong(region: WarningRegion, now: number): number
-	local travel = region.ArrivalAtFinish - region.ArrivalAtStart
-	if math.abs(travel) < ARRIVAL_EPSILON then return entryAlong(region) end
-
-	local alpha = math.clamp((now - region.ArrivalAtStart) / travel, 0, 1)
-	return region.Size.Z / 2 - alpha * region.Size.Z
-end
-
-local function entryLag(region: WarningRegion, now: number): number?
-	local remaining = math.min(region.ArrivalAtStart, region.ArrivalAtFinish) - now
-	if remaining <= 0 then return 0 end
-
-	local travel = math.abs(region.ArrivalAtFinish - region.ArrivalAtStart)
-	if travel < ARRIVAL_EPSILON then return nil end
-	return remaining * region.Size.Z / travel
-end
-
-local function chaosAt(region: WarningRegion, now: number): (number, number?)
-	local half = region.Size / 2
-	local margin = Config.MinSourceDistance
-
-	for _, mover in ChaosTracker:GetMovers() do
-		local offset = region.CFrame:PointToObjectSpace(mover.Position)
-		if math.abs(offset.X) > half.X + margin
-			or math.abs(offset.Y) > half.Y + margin
-			or math.abs(offset.Z) > half.Z + margin
-		then
-			continue
-		end
-		return math.clamp(offset.Z, -half.Z, half.Z), 0
-	end
-
-	return predictedAlong(region, now), entryLag(region, now)
-end
-
 local function listenTo(
 	region: WarningRegion,
 	position: Vector3,
 	inHallway: boolean,
-	room: RoomEntry?,
-	now: number
-): (Vector3?, number, number, Vector3?)
+	room: RoomEntry?
+): (Vector3?, number, Vector3?, boolean)
 	local offset = region.CFrame:PointToObjectSpace(position)
 	local half = region.Size / 2
 	local along = math.clamp(offset.Z, -half.Z, half.Z)
-	local approach, lag = chaosAt(region, now)
-	if not lag then return nil, 0, 0, nil end
 
-	local audible = insideRegion(region, offset)
+	local inside = insideRegion(region, offset)
+	local audible = inside
 	if not audible and inHallway then
 		local edge = boxPoint(region, offset)
 		audible = (edge - position).Magnitude <= Config.AdjacentHallwayRange
@@ -267,13 +220,7 @@ local function listenTo(
 
 	if audible then
 		local nearest = centreAt(region, offset.Y, along)
-		local gap = (nearest - position).Magnitude
-		local slide = math.sqrt(math.max(Config.MinSourceDistance ^ 2 - gap * gap, 0))
-		local sign = approachSign(region)
-		local limit = along + sign * slide
-		local placed = if sign > 0 then math.max(approach, limit) else math.min(approach, limit)
-		local distance = (centreAt(region, offset.Y, approach) - position).Magnitude + lag
-		return centreAt(region, offset.Y, placed), distance, arrivalAt(region, along), nearest
+		return nearest, arrivalAt(region, along), nearest, inside
 	end
 
 	local threshold = room and room.Threshold
@@ -282,17 +229,15 @@ local function listenTo(
 		if (boxPoint(region, doorOffset) - threshold).Magnitude <= Config.RoomDoorRange then
 			local doorAlong = math.clamp(doorOffset.Z, -half.Z, half.Z)
 			local portal = centreAt(region, doorOffset.Y, doorAlong)
-			local source = centreAt(region, doorOffset.Y, approach)
-			local distance = (portal - position).Magnitude + (source - portal).Magnitude + lag
-			return portal, distance, arrivalAt(region, doorAlong), portal
+			return portal, arrivalAt(region, doorAlong), portal, false
 		end
 	end
 
-	return nil, 0, 0, nil
+	return nil, 0, nil, false
 end
 
 local function trackAlong(region: WarningRegion, reference: Vector3): number?
-	local margin = Config.MinSourceDistance
+	local margin = Config.TrackMargin
 	local half = region.Size / 2
 	local run = region.Run
 	local approaching: number? = nil
@@ -323,31 +268,17 @@ local function trackAlong(region: WarningRegion, reference: Vector3): number?
 	return approaching
 end
 
-local function gainFor(distance: number): number
-	if distance <= Config.FullVolumeDistance then return 1 end
-	if distance >= Config.SilentDistance then return 0 end
-
-	local alpha = (distance - Config.FullVolumeDistance)
-		/ (Config.SilentDistance - Config.FullVolumeDistance)
-	return (1 - alpha) ^ 2
-end
-
 local function writeGain(voice: Voice)
-	voice.Applied = voice.Gain
-	voice.Emitter:SetDistanceAttenuation({
-		[0] = voice.Gain,
-		[Config.AttenuationRange] = voice.Gain,
-	})
+	voice.Fader.Volume = voice.Gain
 end
 
 local function rampGain(voice: Voice, target: number, delta: number)
 	local stepped = voice.Gain + (target - voice.Gain) * delta
-	voice.Gain = if math.abs(target - stepped) <= Config.GainSnap then target else stepped
+	local gain = if math.abs(target - stepped) <= Config.GainSnap then target else stepped
+	if gain == voice.Gain then return end
 
-	if voice.Applied == voice.Gain then return end
-	if voice.Gain == target or math.abs(voice.Gain - voice.Applied) >= Config.GainEpsilon then
-		writeGain(voice)
-	end
+	voice.Gain = gain
+	writeGain(voice)
 end
 
 local function ensureAnchor(position: Vector3): Part
@@ -372,27 +303,22 @@ local function ensureAnchor(position: Vector3): Part
 
 		local player = AudioService:Play3DSound(source, anchor, true, Config.AmbienceBus)
 		local emitter = player.Parent :: AudioEmitter
-		emitter.DistanceAttenuationBounds = NumberRange.new(0, Config.AttenuationRange)
-		emitter.DistanceAttenuationMode = Enum.DistanceAttenuationMode.Custom
+		local fader = Instance.new("AudioFader")
+		fader.Volume = 0
+		fader.Parent = emitter
 
-		local voice: Voice = {
-			Player = player,
-			Emitter = emitter,
-			Gain = 0,
-			Applied = -1,
-		}
-		writeGain(voice)
-		table.insert(Voices, voice)
+		local wire = emitter:FindFirstChildOfClass("Wire")
+		if wire then
+			wire.TargetInstance = fader
+		end
+		AudioService:Wire(fader, emitter)
+
+		table.insert(Voices, { Fader = fader, Gain = 0 })
 	end
 	return anchor
 end
 
 local function teardown()
-	for _, voice in Voices do
-		if voice.Player.Parent then
-			AudioService:StopSound(voice.Player)
-		end
-	end
 	table.clear(Voices)
 
 	if Anchor then
@@ -432,20 +358,18 @@ local function resolve()
 
 	local bestPoint: Vector3? = nil
 	local bestRun: number? = nil
-	local bestGain = 0
 	local bestDuck = 1
 	local bestTier = math.huge
 	local bestRank = math.huge
+	local bestInside = false
 	local stingRun: number? = nil
-	local stingDistance = math.huge
+	local stingPoint: Vector3? = nil
+	local stingLead = math.huge
 	for _, region in ActiveWarnings do
 		if PassedRuns[region.Run] then continue end
 
-		local point, distance, arrival, reference = listenTo(region, position, inHallway, room, now)
+		local point, arrival, reference, inside = listenTo(region, position, inHallway, room)
 		if not point or not reference then continue end
-
-		local gain = gainFor(distance)
-		if gain <= 0 then continue end
 
 		local duck = 1
 		local tier, rank
@@ -467,29 +391,29 @@ local function resolve()
 			tier, rank = APPROACH_TIER, lead
 		end
 
-		if tier == APPROACH_TIER and distance < stingDistance then
-			stingRun, stingDistance = region.Run, distance
+		if tier == APPROACH_TIER and rank < stingLead then
+			stingRun, stingPoint, stingLead = region.Run, point, rank
 		end
 
 		if tier > bestTier or (tier == bestTier and rank >= bestRank) then continue end
-		bestPoint, bestRun, bestGain, bestDuck = point, region.Run, gain, duck
+		bestPoint, bestRun, bestDuck, bestInside = point, region.Run, duck, inside
 		bestTier, bestRank = tier, rank
 	end
 
 	TargetPoint = bestPoint
 	CurrentRun = bestRun
 	if bestPoint then
-		TargetGain = bestGain * bestDuck
+		TargetGain = bestDuck
 		PassFading = bestDuck < 1
 	else
 		TargetGain = 0
 	end
 
-	AmbienceService:Suppress(SUPPRESSOR_KEY, TargetGain >= Config.SuppressGain)
+	AmbienceService:Suppress(SUPPRESSOR_KEY, bestInside)
 
-	if stingRun and stingDistance <= Config.StingDistance and not StungRuns[stingRun] then
+	if stingRun and stingPoint and not StungRuns[stingRun] then
 		StungRuns[stingRun] = true
-		AudioService:Play2DSound(Config.IncomingSound, false, Config.AmbienceBus)
+		AudioService:Play3DSound(Config.IncomingSound, ensureAnchor(stingPoint), false, Config.AmbienceBus)
 	end
 end
 
