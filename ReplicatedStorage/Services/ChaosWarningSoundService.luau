@@ -55,7 +55,7 @@ ChaosLights:OnRedChanged(function(model: Model, red: boolean)
 	RedLights[model] = if red then true else nil
 end)
 
-local function nearestRed(position: Vector3, range: number): Vector3?
+local function nearestRed(position: Vector3, range: number): (Vector3?, number)
 	local closest: Vector3? = nil
 	local best = range
 	for model in RedLights do
@@ -70,7 +70,15 @@ local function nearestRed(position: Vector3, range: number): Vector3?
 			closest, best = point, distance
 		end
 	end
-	return closest
+	return closest, best
+end
+
+-- The gate would otherwise be a step: full volume right up to RedHearingRange
+-- and then a fade from full. Ramping over the last RedFadeBand studs means the
+-- bed is already near silent by the time the gate closes.
+local function edgeGain(distance: number): number
+	local band = math.max(Config.RedFadeBand, 1e-3)
+	return math.clamp((Config.RedHearingRange - distance) / band, 0, 1)
 end
 
 local function centreAt(region: WarningRegion, height: number, along: number): Vector3
@@ -165,7 +173,7 @@ local function resolve()
 	end
 
 	local position = root.Position
-	local red = nearestRed(position, Config.RedHearingRange)
+	local red, redDistance = nearestRed(position, Config.RedHearingRange)
 	if not red then
 		silence()
 		return
@@ -187,7 +195,7 @@ local function resolve()
 	end
 
 	TargetPoint = bestPoint
-	TargetGain = 1
+	TargetGain = edgeGain(redDistance)
 	AmbienceService:Suppress(SUPPRESSOR_KEY, bestInside)
 
 	if bestRun and not StungRuns[bestRun] then

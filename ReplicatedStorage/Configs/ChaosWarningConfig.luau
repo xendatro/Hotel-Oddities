@@ -6,6 +6,7 @@ return {
 	IncomingSound = "ChaosIncoming",
 
 	RedHearingRange = 40,
+	RedFadeBand = 16,
 
 	FadeInSpeed = 3,
 	FadeOutSpeed = 1.75,
