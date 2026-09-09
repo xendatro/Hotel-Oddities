@@ -37,7 +37,7 @@ The full humanoid-enemy base: pathfinding with prefetch, direct-pursuit/lane-cle
 - API: `NPC:GetMovementWaypoints(path: Path) -> { PathWaypoint }` — override point for waypoint filtering.
 - API: `NPC:GetWaypointDistance(position: Vector3) -> number` — distance from root to a waypoint corrected for hip height.
 - API: `NPC:GetClearRun(direction: Vector3, distance: number) -> number` — blockcast-measured free run in a direction.
-- API: `NPC:HasMovementClearance(destination: Vector3) -> boolean` — agent-sized blockcast, ignoring players.
+- API: `NPC:HasMovementClearance(destination: Vector3) -> boolean` — agent-sized blockcast, ignoring players. Every lane probe (this, `GetClearRun`, `MoveTowards`, `MoveThrough`) casts on the root part's own collision group, so it sees the enemy-only `RoomBlocker` parts that stop the NPC's body; on the default group those blockers are invisible to the cast and the NPC walks into them.
 - API: `NPC:MoveTowards(destination: Vector3) -> boolean` — move as far as the lane allows; false when too obstructed.
 - API: `NPC:MoveThrough(destination: Vector3, beyond: Vector3?)` — move to an overshot point so the NPC does not brake at waypoints.
 - API: `NPC:AdvanceWaypoint(waypoints: { PathWaypoint }, index: number) -> number` — skips waypoints already effectively reached.

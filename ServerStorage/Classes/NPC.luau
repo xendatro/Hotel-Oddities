@@ -130,6 +130,7 @@ function NPC.new(model: Model, config: EnemyConfigs.EnemyConfig, class: any?)
 	self._laneParams = RaycastParams.new()
 	self._laneParams.FilterType = Enum.RaycastFilterType.Exclude
 	self._laneParams.RespectCanCollide = true
+	self._laneParams.CollisionGroup = self.RootPart.CollisionGroup
 	self._laneFilter = {} :: { Instance }
 
 	self._sightParams = RaycastParams.new()
