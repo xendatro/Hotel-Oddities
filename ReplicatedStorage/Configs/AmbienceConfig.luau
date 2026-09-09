@@ -7,6 +7,7 @@ return {
 		Volume = 0.32,
 		FadeTime = 1.8,
 		Pitch = 0.88,
+		DistortionLevel = 0.28,
 		TremoloDepth = 0.22,
 		TremoloFrequency = 0.55,
 	},

@@ -4,7 +4,7 @@ Pure data tables. Each is named `TopicConfig` and returns only the table.
 
 ### AmbienceConfig.luau
 Distance-based volume falloff and fade timing for ambient sound emitters, plus the quieter pitch-shifted tremolo layer used while inside a POI.
-- API: data table — `SilentDistance`, `FullVolumeDistance`, `FadeTime`, `UpdateInterval`, `POI` (`Volume`, `FadeTime`, `Pitch`, `TremoloDepth`, `TremoloFrequency`)
+- API: data table — `SilentDistance`, `FullVolumeDistance`, `FadeTime`, `UpdateInterval`, `POI` (`Volume`, `FadeTime`, `Pitch`, `DistortionLevel`, `TremoloDepth`, `TremoloFrequency`)
 
 ### AnimationConfig.luau
 Animation asset ids plus per-enemy animation sets (walk/run/idle/attack/room-reaction/listen/lurk) used by enemy rigs and tools.

@@ -30,7 +30,13 @@ local DEATH_FADE_TIME = 1
 local Duck = Instance.new("AudioFader")
 Duck.Name = "AmbienceDuck"
 Duck.Parent = workspace:WaitForChild("Sounds")
-AudioService:Wire(Duck, AudioService:GetOutput())
+
+local AmbienceMixer = Instance.new("AudioChannelMixer")
+AmbienceMixer.Name = "AmbienceMixer"
+AmbienceMixer.Layout = Enum.AudioChannelLayout.Stereo
+AmbienceMixer.Parent = workspace.Sounds
+AudioService:Wire(Duck, AmbienceMixer)
+AudioService:Wire(AmbienceMixer, AudioService:GetOutput())
 
 local sources = {}
 for _, child in AMBIENCE_FOLDER:GetChildren() do
@@ -69,6 +75,11 @@ local function createPOIEffect(player: AudioPlayer)
 	shifter.Pitch = AmbienceConfig.POI.Pitch
 	shifter.Parent = root
 
+	local distortion = Instance.new("AudioDistortion")
+	distortion.Name = "POIDistortion"
+	distortion.Level = AmbienceConfig.POI.DistortionLevel
+	distortion.Parent = root
+
 	local tremolo = Instance.new("AudioTremolo")
 	tremolo.Name = "POITremolo"
 	tremolo.Depth = AmbienceConfig.POI.TremoloDepth
@@ -81,9 +92,10 @@ local function createPOIEffect(player: AudioPlayer)
 	fader.Parent = root
 
 	AudioService:Wire(player, shifter)
-	AudioService:Wire(shifter, tremolo)
+	AudioService:Wire(shifter, distortion)
+	AudioService:Wire(distortion, tremolo)
 	AudioService:Wire(tremolo, fader)
-	AudioService:Wire(fader, AudioService:GetOutput())
+	AudioService:Wire(fader, AmbienceMixer)
 
 	local effect = { Root = root, Fader = fader }
 	poiEffect = effect
