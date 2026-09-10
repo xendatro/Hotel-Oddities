@@ -8,10 +8,22 @@ outside the architecture rules in `CLAUDE.md` — they are not Services or
 Classes, they take no particular shape, and they are not listed in `README.md`
 or `Documentation\`. They only have to be useful and callable from a playtest.
 
-**Keep this file current.** When you add a module, document it here. When a
-playtest teaches you something that would have saved you an hour, write it into
-Gotchas. When something here turns out to be wrong, fix it. Do not record
-one-off details of a particular bug — only what the next agent will need.
+**Keep this file current.** When you add a module, document it here. When
+something here turns out to be wrong, fix it.
+
+**Gotchas are for playtest technique, not bug findings.** Add one only when all
+of these hold:
+
+- it is about *running* a playtest — driving Studio, measuring, the MCP, the
+  test harness, or a trap that makes a correct result look wrong (or the reverse);
+- it will bite a future playtest that has nothing to do with the bug you were
+  chasing;
+- it cost you real time to figure out, and you could not have found it by
+  reading the code.
+
+What a playtest revealed about the game itself — a bug's cause, how a system
+behaves, an engine quirk behind one fix — belongs in the fix, its commit and the
+docs, not here. If you are unsure, leave it out.
 
 **Tag every Gotcha with how it was established**, and keep the observation and
 the explanation in separate sentences so the explanation cannot borrow the

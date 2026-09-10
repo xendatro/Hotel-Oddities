@@ -49,7 +49,7 @@ extend it instead of writing a second copy.
 
 | Helper | Where | What it covers |
 | --- | --- | --- |
-| `CharacterService` | `ReplicatedStorage\Services` | Character, humanoid and root-part lookup and alive checks |
+| `CharacterService` | `ReplicatedStorage\Services` | Character, humanoid and root-part lookup, alive checks, and streamed-in pivots for client enemy proximity |
 | `MathService` | `ReplicatedStorage\Services` | Shared numeric/vector math helpers |
 | `CommunicationService` | `ReplicatedStorage\Services` | Getting, finding and creating remotes under `ReplicatedStorage.Communication` |
 | `TweenProxyService` | `ReplicatedStorage\Services` | Tweening values that are not directly tweenable |
@@ -96,7 +96,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\ChaosTrackerService.luau — Shared view of the live Chaos enemies: heading, and how far along it a point sits, so the lights and the warning sound agree on when one has passed.
 - ReplicatedStorage\Services\ChaosLightService.luau — Turns tagged floor lights red while the server-set ChaosRed attribute is on, and clears each one the instant Chaos passes it rather than on the server's timer.
 - ReplicatedStorage\Services\ChaosWarningSoundService.luau — Plays hallway ambience and an incoming sting whenever a red Chaos lamp is within RedHearingRange of you, from a source on the warned hallway's centre line that follows you along it, with volume left entirely to the emitters' authored rolloff.
-- ReplicatedStorage\Services\CharacterService.luau — Shared nil-safe helpers for humanoids, alive root parts and player lifecycle cleanup.
+- ReplicatedStorage\Services\CharacterService.luau — Shared nil-safe helpers for humanoids, alive root parts, streamed-in model pivots and player lifecycle cleanup.
 - ReplicatedStorage\Services\ChaseMusicService.luau — Cross-fades layered chase music by proximity to enemies that are hunting.
 - ReplicatedStorage\Services\ChaserCameraService.luau — Drives chase FOV pushes and per-enemy camera rumble, plus vent-open and scream reactions, clearing chase FOV state on death.
 - ReplicatedStorage\Services\CommunicationService.luau — Shared accessor for the ReplicatedStorage.Communication remote folders.

@@ -182,8 +182,10 @@ local function getNearestEnemyDistance(position: Vector3): number
 	local nearest = math.huge
 	for _, enemy in CollectionService:GetTagged(ENEMY_TAG) do
 		if enemy:IsA("Model") and enemy:IsDescendantOf(workspace) then
-			local distance = HallwayGraph:GetWalkingDistance(position, enemy:GetPivot().Position)
-			nearest = math.min(nearest, distance)
+			local pivot = CharacterService.GetStreamedPivot(enemy)
+			if pivot then
+				nearest = math.min(nearest, HallwayGraph:GetWalkingDistance(position, pivot.Position))
+			end
 		end
 	end
 	return nearest

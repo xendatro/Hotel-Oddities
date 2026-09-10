@@ -1,4 +1,7 @@
 local CollectionService = game:GetService("CollectionService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 
 local ChaosTrackerService = {}
 
@@ -24,7 +27,8 @@ function ChaosTrackerService:GetMovers(): { Mover }
 	for _, instance in CollectionService:GetTagged(CHAOS_TAG) do
 		if not instance:IsA("Model") or not instance:IsDescendantOf(workspace) then continue end
 
-		local pivot = instance:GetPivot()
+		local pivot = CharacterService.GetStreamedPivot(instance :: Model)
+		if not pivot then continue end
 		local look = horizontal(pivot.LookVector)
 		if look.Magnitude < 1e-3 then continue end
 

@@ -118,8 +118,9 @@ local function render(deltaTime: number)
 
 			local enemyId = model:GetAttribute(ENEMY_ID_ATTRIBUTE)
 			local entry = if enemyId then ChaserCameraConfig.ChaseShakes[enemyId] else nil
-			if entry and (chasingLocalPlayer or entry.AllPlayers == true) then
-				local distance = (model:GetPivot().Position - camera.CFrame.Position).Magnitude
+			local pivot = CharacterService.GetStreamedPivot(model)
+			if entry and pivot and (chasingLocalPlayer or entry.AllPlayers == true) then
+				local distance = (pivot.Position - camera.CFrame.Position).Magnitude
 				local proximity = getProximityIntensity(distance, entry.Range, entry.FullIntensityDistance)
 				local target = entry.Intensity * proximity ^ (entry.FalloffExponent or 1)
 				shakeTargets[enemyId] = math.max(shakeTargets[enemyId] or 0, target)

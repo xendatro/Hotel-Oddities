@@ -8,12 +8,12 @@ Tiny math helper for pointing something at a target and easing a rotation toward
 - API: `Aim.Ease(rotation: CFrame, goal: CFrame, rate: number, deltaTime: number) -> CFrame` — exponential lerp toward goal
 
 ### AmbienceService.luau
-Client-only. Cycles the AudioPlayers under `ReplicatedStorage.Sounds.Ambience` one after another through an `AmbienceDuck` fader and `AmbienceMixer`, fading that fader down as the walking distance to the nearest tagged enemy shrinks. While the server reports occupancy in any POI, each current ambience track cross-fades from its dry `POIDryFader` path into a full-volume `AudioPitchShifter`, `AudioDistortion`, `AudioTremolo` and `AudioFader` branch, so the altered sound is immediately audible and stays active until occupancy ends; its temporary graph is destroyed when the track ends. Swaps to a looping `DeathAmbience` track while the death screen is up, and goes silent entirely on the lobby floor.
+Client-only. Cycles the AudioPlayers under `ReplicatedStorage.Sounds.Ambience` one after another through an `AmbienceDuck` fader and `AmbienceMixer`, fading that fader down as the walking distance to the nearest streamed-in tagged enemy shrinks. While the server reports occupancy in any POI, each current ambience track cross-fades from its dry `POIDryFader` path into a full-volume `AudioPitchShifter`, `AudioDistortion`, `AudioTremolo` and `AudioFader` branch, so the altered sound is immediately audible and stays active until occupancy ends; its temporary graph is destroyed when the track ends. Swaps to a looping `DeathAmbience` track while the death screen is up, and goes silent entirely on the lobby floor.
 - API: `AmbienceService:Suppress(key: string, suppressed: boolean)` — hold the playlist muted while any key is set; `ChaosWarningSoundService` uses it so the ordinary ambience gets out of the way of a Chaos warning. Defined above the client guard, so the call is safe from shared code.
 - API: `AmbienceService:SetPOIActive(active: boolean)` — sets whether the altered ambience branch should fade up or down
 - API: otherwise no public methods — runs entirely from its own Heartbeat connection.
 - Tags: reads `Enemy`
-- Requires: `Configs.AmbienceConfig`, `Services.HallwayGraphService`, `DeathScreenService`, `LobbyService`, `AudioService`
+- Requires: `Configs.AmbienceConfig`, `Services.HallwayGraphService`, `DeathScreenService`, `LobbyService`, `AudioService`, `CharacterService`
 
 ### AudioService.luau
 Central sound playback helper covering both the new `AudioPlayer`/`AudioEmitter` API and legacy `Sound` instances. Clones templates out of `ReplicatedStorage.Sounds`, wires them to named `AudioFader` buses under `workspace.Sounds`, keeps their volume tied to the bus, and destroys them when they end. Client playback of a `RadioAllowed` template is also relayed to the server so walkie-talkies can rebroadcast it.
@@ -104,12 +104,13 @@ Note when testing this in a headless Studio playtest: the `AudioListener` lives 
 - Requires: `Configs.ChaosWarningConfig`, `ChaosLightService`, `AudioService`, `AmbienceService:Suppress`, `CharacterService`, `CommunicationService`
 
 ### ChaosTrackerService.luau
-Shared read-only view of the live Chaos enemies for the client effects that have to agree on when one goes past a point. `GetMovers` returns each tagged Chaos model's pivot position and flattened, normalised heading; `AlongTo` projects a point onto that heading (positive ahead, negative once passed) and `RangeTo` gives the horizontal distance. `ChaosLightService` uses it to decide a lamp has been passed and `ChaosWarningSoundService` to cut the ambience, so both fire on the same geometry rather than each rolling their own.
+Shared read-only view of the live Chaos enemies for the client effects that have to agree on when one goes past a point. `GetMovers` returns each streamed-in tagged Chaos model's pivot position and flattened, normalised heading; `AlongTo` projects a point onto that heading (positive ahead, negative once passed) and `RangeTo` gives the horizontal distance. `ChaosLightService` uses it to decide a lamp has been passed and `ChaosWarningSoundService` to cut the ambience, so both fire on the same geometry rather than each rolling their own.
 - API: `ChaosTrackerService.Tag` — the `Chaos` tag it reads
 - API: `ChaosTrackerService:GetMovers() -> { Mover }` — `{ Model, Position, Look }` per live Chaos. The returned table is reused between calls, so read it before calling again.
 - API: `ChaosTrackerService.AlongTo(mover: Mover, point: Vector3) -> number` — studs along the mover's heading; `<= 0` means it has passed that point
 - API: `ChaosTrackerService.RangeTo(mover: Mover, point: Vector3) -> number` — horizontal distance
 - Tags: reads `Chaos`
+- Requires: `CharacterService`
 
 ### CharacterService.luau
 Shared client/server helper for the common "is this player's character usable right now" checks, plus two small player-lifecycle utilities. Every function is defined with a dot, so call them with a dot.
@@ -119,21 +120,22 @@ Shared client/server helper for the common "is this player's character usable ri
 - API: `CharacterService.GetAliveRoot(player: Player) -> BasePart?` — same for `player.Character`
 - API: `CharacterService.GetAliveHumanoid(player: Player) -> Humanoid?` — the humanoid, or nil if missing/dead
 - API: `CharacterService.GetPosition(player: Player) -> Vector3?` — position of the alive root
+- API: `CharacterService.GetStreamedPivot(model: Model) -> CFrame?` — the model's pivot, or nil when its `PrimaryPart` is missing. On the client a streamed-out model keeps a frozen pivot (its spawn point if it never streamed in), so every client proximity check against enemies goes through this
 - API: `CharacterService.ForEachPlayer(callback: (player: Player) -> ()) -> RBXScriptConnection` — runs for every present player (spawned) and every future join; returns the `PlayerAdded` connection
 - API: `CharacterService.CleanupOnLeave(map: { [Player]: any }) -> RBXScriptConnection` — clears the player's entry from a table on `PlayerRemoving`
 
 ### ChaseMusicService.luau
-Client-only, gated on `FLAGS.Enemies`. For every tagged enemy that has a chase target, looks up its layered music entry in `ChaseMusicConfig`, and cross-fades the corresponding looping 2D tracks by proximity to the camera. Warns once per template name that is missing from `ReplicatedStorage.Sounds` and then stays silent.
+Client-only, gated on `FLAGS.Enemies`. For every streamed-in tagged enemy that has a chase target, looks up its layered music entry in `ChaseMusicConfig`, and cross-fades the corresponding looping 2D tracks by proximity to the camera. Warns once per template name that is missing from `ReplicatedStorage.Sounds` and then stays silent.
 - API: no public methods — runs entirely from its Heartbeat connection.
 - Tags: reads `Enemy`
-- Requires: `Configs.ChaseMusicConfig`, `MathService`, `TagService`, `AudioService`
+- Requires: `Configs.ChaseMusicConfig`, `CharacterService`, `MathService`, `TagService`, `AudioService`
 
 ### ChaserCameraService.luau
-Gated on `FLAGS.Enemies`. Drives camera reactions to enemies chasing the local player: a fading FOV offset while a ceiling dweller or mimic is hunting, and per-enemy dynamic rumble shakes scaled by distance from `ChaserCameraConfig.ChaseShakes`. Its active state only reports a live FOV or rumble effect, so distant `AllPlayers` enemies do not suppress walking camera bob. Clears its cached chase FOV state when the local character dies. Also reacts to the server's vent-open and scream phases with one-shot shakes and a scream sound.
+Gated on `FLAGS.Enemies`. Drives camera reactions to enemies chasing the local player: a fading FOV offset while a ceiling dweller or mimic is hunting, and per-enemy dynamic rumble shakes scaled by distance to streamed-in enemies from `ChaserCameraConfig.ChaseShakes`. Its active state only reports a live FOV or rumble effect, so distant `AllPlayers` enemies do not suppress walking camera bob. Clears its cached chase FOV state when the local character dies. Also reacts to the server's vent-open and scream phases with one-shot shakes and a scream sound.
 - API: `ChaserCameraService:IsActive() -> boolean` — whether any chase camera effect is currently running (returns `false` when the flag is off)
 - Remotes: `Enemies/CeilingDwellerCamera` (listened; `Open` / `Scream` phases)
 - Tags: reads `Enemy`
-- Requires: `Configs.ChaserCameraConfig`, `ShakeService`, `CameraFovService`, `MathService`, `AudioService`
+- Requires: `Configs.ChaserCameraConfig`, `CharacterService`, `ShakeService`, `CameraFovService`, `MathService`, `AudioService`
 
 ### CommunicationService.luau
 Shared accessor for `ReplicatedStorage.Communication`. On the server it creates the folder if it is missing; on the client it waits for it. All three functions are defined with a dot and return the remote as `any`, so cast at the call site.
@@ -206,7 +208,7 @@ Client-only. For every player, silences Roblox's built-in `Died` sound on the ro
 - Requires: `AudioService`, `CharacterService`; plays `ReplicatedStorage.Sounds.PlayerDied`
 
 ### DoorService.luau
-Client-only. Owns every swinging door part inside a `Doorway`+`RoomDoor` model: on a polling interval it opens each door toward whichever of the local player or nearest tagged enemy is in range, and holds it forced shut when the player is inside a room with an enemy close by. Also applies the server's "map opening" boxes, which push every door inside a region open — or into a rattling chaos mode.
+Client-only. Owns every swinging door part inside a `Doorway`+`RoomDoor` model: on a polling interval it opens each door toward whichever of the local player or nearest streamed-in tagged enemy is in range, and holds it forced shut when the player is inside a room with an enemy close by. Also applies the server's "map opening" boxes, which push every door inside a region open — or into a rattling chaos mode.
 - API: no public methods — runs entirely from its own connections.
 - Remotes: `Oddities/MapDoors` (listened; `Start` / `Stop` with a region box, speed and mode), `Oddities/RequestMapDoors` (fired once on init so a late client picks up openings that are already running)
 - Tags: listens `DoorPart`; reads `Enemy`, `Doorway`, `RoomDoor`
@@ -406,7 +408,7 @@ Renders the "sound travelling to an enemy's ear" visual: for each server-sent ev
 - Requires: `Configs.HearingConfig`
 
 ### HeartbeatService.luau
-Plays a looping heartbeat that swells as the configured enemy gets closer and speeds up while it is pursuing, pitch-corrected through an AudioPitchShifter so the faster playback does not raise the pitch. The track is created on demand and stopped again once the volume fades to silence.
+Plays a looping heartbeat that swells as the nearest streamed-in copy of the configured enemy gets closer and speeds up while it is pursuing, pitch-corrected through an AudioPitchShifter so the faster playback does not raise the pitch. The track is created on demand and stopped again once the volume fades to silence.
 - API: `HeartbeatService:GetNearness(): number` — the current smoothed heartbeat volume (0 when silent)
 - Tags: reads `Enemy` (filtered by the `EnemyId` attribute)
 - Requires: `Configs.HeartbeatConfig`, `Configs.FLAGS`, `AudioService` (`FindTemplate`, `Play2D`, `Wire`, `GetBus`), `TagService`, `CharacterService`, `MathService`

@@ -39,7 +39,10 @@ local function enemyPositions(): ({ Vector3 }, { [string]: boolean })
 	local forcedDoorways = {}
 	for _, model in CollectionService:GetTagged(DoorConfig.EnemyTag) do
 		if model:IsA("Model") then
-			table.insert(positions, model:GetPivot().Position)
+			local pivot = CharacterService.GetStreamedPivot(model)
+			if pivot then
+				table.insert(positions, pivot.Position)
+			end
 			local doorwayName = model:GetAttribute("ForcedDoorway")
 			if typeof(doorwayName) == "string" then
 				forcedDoorways[doorwayName] = true
