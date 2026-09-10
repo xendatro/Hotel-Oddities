@@ -30,7 +30,7 @@ The full humanoid-enemy base: pathfinding with prefetch, direct-pursuit/lane-cle
 - API: `NPC:SetNetworkOwner(player: Player?)` — pins every descendant part's owner; refreshed on a loop.
 - API: `NPC:FaceTowards(position: Vector3)` — instant flat snap of root CFrame.
 - API: `NPC:TurnTowardsSmooth(position: Vector3, duration: number?)` — lerped turn over Heartbeat.
-- API: `NPC:ReactAtRoomDoor(room: Model, movementSpeed: number?, shouldCancel: (() -> boolean)?) -> boolean` — walk to a safe-room door, turn, then play the animation set's `RoomReaction` override (the Chaser's door knock) or fall back to the cheer emote.
+- API: `NPC:ReactAtRoomDoor(room: Model, movementSpeed: number?, shouldCancel: (() -> boolean)?) -> boolean` — path to the safe-room door's approach point, step the last couple of studs straight to the contact point so the reaction plays against the door rather than out in the corridor, turn, then play the animation set's `RoomReaction` override (the Chaser's door knock) or fall back to the cheer emote.
 - API: `NPC:PrefetchPath(destination: Vector3, origin: Vector3?)` — starts an async path compute other calls can claim.
 - API: `NPC:ComputePath(destination: Vector3, tolerance: number?) -> Path?` — consumes a matching prefetch or computes synchronously.
 - API: `NPC:TakePrefetchedPath(destination: Vector3, tolerance: number?) -> Path?` — non-blocking claim of a finished prefetch.

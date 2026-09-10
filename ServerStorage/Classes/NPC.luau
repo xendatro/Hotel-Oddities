@@ -327,7 +327,7 @@ function NPC:ReactAtRoomDoor(
 	end
 
 	local agentParams = self.Config.AgentParams or {}
-	local approach, doorPosition = RoomService:GetDoorApproach(room, agentParams.AgentRadius or 2.5)
+	local approach, doorPosition, contact = RoomService:GetDoorApproach(room, agentParams.AgentRadius or 2.5)
 	if not approach or not doorPosition then
 		self:SetForcedDoorway(nil)
 		return false
@@ -336,9 +336,19 @@ function NPC:ReactAtRoomDoor(
 	self.Animator:Resume()
 	self:SetSpeed(movementSpeed or self.Config.WalkSpeed)
 	local arrived = self:WalkTo(approach, shouldCancel)
+	if not arrived then
+		self:StopMoving()
+		self:SetSpeed(0)
+		self:SetForcedDoorway(nil)
+		return false
+	end
+
+	if contact then
+		self:_moveToWithTimeout(Vector3.new(contact.X, self.RootPart.Position.Y, contact.Z))
+	end
 	self:StopMoving()
 	self:SetSpeed(0)
-	if not arrived then
+	if shouldCancel and shouldCancel() then
 		self:SetForcedDoorway(nil)
 		return false
 	end

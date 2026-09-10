@@ -18,6 +18,7 @@ local FURNITURE_COLLISION_GROUP = "Furniture"
 local WALL_INSET = 1
 local MAX_INSET_FRACTION = 0.25
 local SAFE_PAD = 0.5
+local DOOR_CONTACT_DISTANCE = 2.25
 
 local RoomService = {}
 
@@ -182,9 +183,9 @@ function RoomService:GetDoorway(room: Model): Model?
 	return nearest
 end
 
-function RoomService:GetDoorApproach(room: Model, agentRadius: number): (Vector3?, Vector3?)
+function RoomService:GetDoorApproach(room: Model, agentRadius: number): (Vector3?, Vector3?, Vector3?)
 	local doorway = self:GetDoorway(room)
-	if not doorway then return nil, nil end
+	if not doorway then return nil, nil, nil end
 
 	local threshold = doorway:FindFirstChild("Threshold", true)
 	local thresholdPart: BasePart? = if threshold and threshold:IsA("BasePart") then threshold else nil
@@ -194,11 +195,15 @@ function RoomService:GetDoorApproach(room: Model, agentRadius: number): (Vector3
 	if outward.Magnitude < 1e-3 then
 		outward = Vector3.new(doorway:GetPivot().Position.X - roomCFrame.Position.X, 0, doorway:GetPivot().Position.Z - roomCFrame.Position.Z)
 	end
-	if outward.Magnitude < 1e-3 then return nil, nil end
+	if outward.Magnitude < 1e-3 then return nil, nil, nil end
 
+	local normal = outward.Unit
 	local distance = math.max(agentRadius + 2, 4.5)
-	local approach = doorPosition + outward.Unit * distance
-	return Vector3.new(approach.X, doorPosition.Y, approach.Z), doorPosition
+	local approach = doorPosition + normal * distance
+	local contact = doorPosition + normal * DOOR_CONTACT_DISTANCE
+	return Vector3.new(approach.X, doorPosition.Y, approach.Z),
+		doorPosition,
+		Vector3.new(contact.X, doorPosition.Y, contact.Z)
 end
 
 RunService.Heartbeat:Connect(function(deltaTime: number)
