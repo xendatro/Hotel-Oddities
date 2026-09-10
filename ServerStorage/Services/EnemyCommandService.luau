@@ -8,6 +8,7 @@ local ChatCommandService = require(ServerStorage.Services.ChatCommandService)
 local CeilingVentService = require(ServerStorage.Services.CeilingVentService)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyService = require(ServerStorage.Services.EnemyService)
+local MirrorStalkerService = require(ServerStorage.Services.MirrorStalkerService)
 local SistersService = require(ServerStorage.Services.SistersService)
 local StalkerService = require(ServerStorage.Services.StalkerService)
 
@@ -57,6 +58,13 @@ local function spawnOne(player: Player, enemyId: string): boolean
 	if enemyId == "Sisters" then
 		if SistersService:SpawnInHallway(player) then return true end
 		warn(`[enemies] {player.Name} must be standing in a usable MazeFloor hallway to spawn the Sisters`)
+		return false
+	end
+
+	if enemyId == "MirrorStalker" then
+		local ok, reason = MirrorStalkerService:Trigger(player)
+		if ok then return true end
+		warn(`[enemies] no mirror stalker for {player.Name}: {reason}`)
 		return false
 	end
 
@@ -110,6 +118,15 @@ function Commands.peek(player: Player)
 		return
 	end
 	warn(`[enemies] no valid peek corner found near {player.Name}; nothing spawned`)
+end
+
+function Commands.mirror(player: Player)
+	local ok, reason = MirrorStalkerService:Trigger(player)
+	if ok then
+		warn(`[enemies] a mirror stalker is now following {player.Name} on the ceiling only`)
+		return
+	end
+	warn(`[enemies] no mirror stalker for {player.Name}: {reason}`)
 end
 
 function Commands.despawn()

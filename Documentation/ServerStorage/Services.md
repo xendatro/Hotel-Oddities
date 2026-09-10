@@ -133,8 +133,8 @@ Teleports players from the lobby elevator into the maze: on hitbox touch it show
 - Requires: `ElevatorConfig`, `HallwayStreamingService:PrepareTeleport`
 
 ### EnemyCommandService.luau
-Registers the developer enemy chat commands — `/spawn <id|all>`, `/peek`, `/despawn`, `/vent`, `/enemies` — routing Chaos, Sisters and CeilingDweller to their own placement services and everything else in front of (or behind) the caller. Results are reported via `warn`. Inert unless both `FLAGS.Enemies` and `FLAGS.EnemyCommands`.
-- Requires: `ChatCommandService` (registers all five commands, not admin-only), `EnemyConfigs`, `EnemyService`, `ChaosService:SpawnThrough` / `:CancelPending`, `SistersService:SpawnInHallway`, `StalkerService:SpawnPeeking`, `CeilingVentService:SpawnFromNearest` / `:GetVents`
+Registers the developer enemy chat commands — `/spawn <id|all>`, `/peek`, `/mirror`, `/despawn`, `/vent`, `/enemies` — routing Chaos, Sisters, CeilingDweller and MirrorStalker to their own placement services and everything else in front of (or behind) the caller. Results are reported via `warn`. Inert unless both `FLAGS.Enemies` and `FLAGS.EnemyCommands`.
+- Requires: `ChatCommandService` (registers all six commands, not admin-only), `EnemyConfigs`, `EnemyService`, `ChaosService:SpawnThrough` / `:CancelPending`, `SistersService:SpawnInHallway`, `StalkerService:SpawnPeeking`, `MirrorStalkerService:Trigger`, `CeilingVentService:SpawnFromNearest` / `:GetVents`
 
 ### EnemyDebugService.luau
 Builds a periodic snapshot of every active enemy's id, state and position and broadcasts it to all players for the stats HUD, along with the director's current Stalker target name.
@@ -441,6 +441,13 @@ Scope wrapper around `OddityService` for the `"Map"` scope: it resolves a positi
 - API: `MapOddityService:Resync(player: Player)` — replays every running map oddity's `Start` payload to one player
 - Remotes: `Oddities/RequestMapDoors` (listened; 1s per-player cooldown, answered with `Resync` so a joining or late client picks up in-flight door and warning state)
 - Requires: `OddityService`, `CommunicationService`, `ServerStorage.Classes.Oddities` map classes (`Transparency`, `MapLightsOut`, `DoorsOpen`, `HallwayChaos`, `HallwayBlocker`, `HallwayVoid`, `HallwayCrush`, `ChaosWarning`)
+
+### MirrorStalkerService.luau
+Owns the mirror-room encounter: it polls the players standing inside every `MirrorRoom` tagged model and, when someone enters alone, is not already the Stalker's target and the cooldown has elapsed, rolls `Chance` and spawns one `MirrorStalker` behind them after a short random delay. Only one is ever alive at a time; a failed roll takes the shorter `RollCooldown` and a finished encounter takes the full `Cooldown`.
+- API: `MirrorStalkerService:Trigger(player: Player) -> (boolean, string?)` — spawn one for that player right now, skipping the roll and the cooldown but not the room and solitude checks; the string is the refusal reason
+- API: `MirrorStalkerService:GetActive() -> any?` — the live encounter, if there is one
+- API: `MirrorStalkerService:Clear() -> boolean` — despawn it
+- Requires: `EnemyConfigs.MirrorStalker` (`Chance`, `Cooldown`, `RollCooldown`, `PollInterval`, `SpawnDelayMin/Max`), `ReplicatedStorage.Services.MirrorRoomService`, `EnemyService:Spawn`, `EnemyDirectorService:GetStalkerTarget`, `CharacterService`; inert unless `FLAGS.Enemies`
 
 ### NoiseService.luau
 The game's sound-propagation source of truth: it emits `Noise` records (position, radius, source player) with a rate limit per source, keeps a one-second ring of recent noises for polling, and notifies observers immediately. A Heartbeat loop auto-emits footstep noise for every moving grounded player, with the radius chosen by crouch/walk/sprint state.

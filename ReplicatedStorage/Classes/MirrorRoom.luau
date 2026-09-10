@@ -15,7 +15,7 @@ local player = Players.LocalPlayer
 
 local ID_ATTRIBUTE = "MirrorPartId"
 
-type Bounds = {
+export type Bounds = {
 	Frame: CFrame,
 	HalfX: number,
 	HalfZ: number,
@@ -30,13 +30,14 @@ type Reflection = {
 	Upper: { [BasePart]: boolean },
 	Neck: Instance?,
 	Waist: Instance?,
+	Opaque: boolean,
 	Pitch: number,
 	Yaw: number,
 	Dirty: boolean,
 	Connections: { [string]: RBXScriptConnection },
 }
 
-local function getBounds(model: Model): Bounds?
+function MirrorRoom.GetBounds(model: Model): Bounds?
 	local floor = model:FindFirstChild("Floor")
 	local ceiling = model:FindFirstChild("Ceiling")
 	if not floor or not floor:IsA("BasePart") then return nil end
@@ -54,12 +55,16 @@ local function getBounds(model: Model): Bounds?
 	}
 end
 
-local function isInside(bounds: Bounds, position: Vector3): boolean
+function MirrorRoom.IsInside(bounds: Bounds, position: Vector3): boolean
 	if position.Y < bounds.FloorY - MirrorRoomConfig.FloorTolerance then return false end
 	if position.Y > bounds.MirrorY then return false end
 
 	local offset = bounds.Frame:PointToObjectSpace(position)
 	return math.abs(offset.X) <= bounds.HalfX and math.abs(offset.Z) <= bounds.HalfZ
+end
+
+function MirrorRoom.MirrorPoint(bounds: Bounds, position: Vector3): Vector3
+	return Vector3.new(position.X, bounds.MirrorY * 2 - position.Y, position.Z)
 end
 
 local function reflect(root: BasePart, mirrorY: number): CFrame
@@ -87,7 +92,12 @@ local function neuter(humanoid: Humanoid)
 	humanoid.AutoRotate = false
 end
 
-local function strip(clone: Model)
+local function restored(descendant: Instance): number
+	local saved = descendant:GetAttribute(MirrorRoomConfig.TransparencyAttribute)
+	return if type(saved) == "number" then saved else 0
+end
+
+local function strip(clone: Model, opaque: boolean)
 	for _, tag in CollectionService:GetTags(clone) do
 		CollectionService:RemoveTag(clone, tag)
 	end
@@ -117,6 +127,11 @@ local function strip(clone: Model)
 			descendant.Massless = true
 			descendant.CastShadow = MirrorRoomConfig.CastShadow
 			descendant.LocalTransparencyModifier = 0
+			if opaque then
+				descendant.Transparency = restored(descendant)
+			end
+		elseif opaque and (descendant:IsA("Decal") or descendant:IsA("Texture")) then
+			descendant.Transparency = restored(descendant)
 		end
 	end
 end
@@ -288,7 +303,8 @@ function MirrorRoom:_build(model: Model): Reflection?
 		return nil
 	end
 
-	strip(clone)
+	local opaque = model:HasTag(MirrorRoomConfig.OpaqueTag)
+	strip(clone, opaque)
 	clone.Name = model.Name
 	clone.Parent = self.Folder
 
@@ -299,6 +315,7 @@ function MirrorRoom:_build(model: Model): Reflection?
 		Upper = subtreeAbove(model, "UpperTorso", { "LowerTorso", "HumanoidRootPart" }),
 		Neck = getJoint(model, "Head", "Neck"),
 		Waist = getJoint(model, "UpperTorso", "Waist"),
+		Opaque = opaque,
 		Pitch = 0,
 		Yaw = 0,
 		Dirty = false,
@@ -377,6 +394,9 @@ function MirrorRoom:_render(model: Model, root: BasePart, bounds: Bounds, alpha:
 		end
 
 		target.CFrame = transform * cframe
+		if reflection.Opaque then
+			continue
+		end
 		if target.Transparency ~= source.Transparency then
 			target.Transparency = source.Transparency
 		end
@@ -405,11 +425,11 @@ function MirrorRoom:_subjects(): { Model }
 end
 
 function MirrorRoom:_update(deltaTime: number)
-	local bounds = getBounds(self.Instance)
+	local bounds = MirrorRoom.GetBounds(self.Instance)
 	local character = player.Character
 	local localRoot = if character then getRoot(character) else nil
 
-	if not bounds or not localRoot or not isInside(bounds, localRoot.Position) then
+	if not bounds or not localRoot or not MirrorRoom.IsInside(bounds, localRoot.Position) then
 		self:_clear()
 		return
 	end
@@ -419,7 +439,7 @@ function MirrorRoom:_update(deltaTime: number)
 
 	for _, model in self:_subjects() do
 		local root = getRoot(model)
-		if root and isInside(bounds, root.Position) then
+		if root and MirrorRoom.IsInside(bounds, root.Position) then
 			seen[model] = true
 			self:_render(model, root, bounds, alpha)
 		end

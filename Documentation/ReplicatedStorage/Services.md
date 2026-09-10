@@ -652,10 +652,14 @@ Client-side driver for the Mimic enemy: mirrors the local player's recorded move
 - Requires: `Classes.MotionTrail`, `Classes.NpcAnimator`, `Services.MimicMotionService`, `Configs.MimicConfig`, `Configs.AnimationConfig`, `AudioService` (reverb wiring)
 
 ### MirrorRoomService.luau
-Client-only. Listens the `MirrorRoom` tag inside workspace and binds a `Classes.MirrorRoom` to every tagged model.
-- API: no public methods — the tag listener runs on require.
-- Tags: listens `MirrorRoom`
-- Requires: `Configs.MirrorRoomConfig`, `Classes.MirrorRoom`, `TagService`
+The mirror room's shared geometry, plus the client binding. Both halves run everywhere: room lookup and the bounds/mirror-plane maths re-exported from `Classes.MirrorRoom` so the server can ask the same questions the renderer does (used by `ServerStorage.Services.MirrorStalkerService` and `Classes.Enemies.MirrorStalker`). On the client only, it then listens the `MirrorRoom` tag inside workspace and binds a `Classes.MirrorRoom` to every tagged model.
+- API: `MirrorRoomService.GetRooms() -> { Model }` — every tagged room in workspace
+- API: `MirrorRoomService.GetRoomAt(position: Vector3) -> (Model?, Bounds?)` — the room containing a point
+- API: `MirrorRoomService.GetBounds(model: Model) -> Bounds?` — re-export of `MirrorRoom.GetBounds`
+- API: `MirrorRoomService.IsInside(bounds: Bounds, position: Vector3) -> boolean` — re-export of `MirrorRoom.IsInside`
+- API: `MirrorRoomService.MirrorPoint(bounds: Bounds, position: Vector3) -> Vector3` — re-export of `MirrorRoom.MirrorPoint`
+- Tags: listens `MirrorRoom` (client only)
+- Requires: `Configs.MirrorRoomConfig`, `Classes.MirrorRoom`, `TagService` (client only)
 
 ### MinigameService.luau
 Client-only arcade shell for the hackable computers: picks which minigame a given terminal runs (deterministic by position within its maze), builds the CRT-styled SurfaceGui with title bar, scanlines, win/deny overlays, and hosts one game module at a time. Owns its own pooled `AudioPlayer` sound-cue graph under SoundService.

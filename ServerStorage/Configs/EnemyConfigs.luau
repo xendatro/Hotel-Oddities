@@ -443,6 +443,41 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		CommandSpawnBehind = true,
 	},
 
+	MirrorStalker = {
+		Model = "Ceiling Dweller",
+		Animations = AnimationConfig.Sets.Stalker,
+		Harmless = true,
+
+		Chance = 0.15,
+		Cooldown = 300,
+		RollCooldown = 120,
+		PollInterval = 0.4,
+		SpawnDelayMin = 1,
+		SpawnDelayMax = 3,
+		Lifetime = 150,
+
+		WalkSpeed = 15,
+		LeaveSpeed = 26,
+		MinGaitSpeed = 4,
+		TurnRate = 7,
+		SpawnDistance = 13,
+		FollowDistance = 9,
+		FollowSlack = 1.5,
+		EdgeInset = 3,
+
+		CheckCone = 80,
+		CheckDistance = 140,
+		CheckHold = 0.15,
+
+		ReflectionCone = 100,
+		ReflectionDistance = 200,
+		UnseenHold = 0.4,
+		SeenPatience = 8,
+		LeaveTimeout = 10,
+
+		CompanyDistance = 60,
+	},
+
 	Ghost = {
 		Model = "Ghost",
 		Animations = AnimationConfig.Sets.Ghost,
