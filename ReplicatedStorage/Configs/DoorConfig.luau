@@ -4,7 +4,7 @@ return {
 
 	OpenAngle = 100,
 
-	KnockDistance = 1.5,
+	KnockDistance = 1,
 	ApproachPadding = 2,
 	MinApproachDistance = 4.5,
 
