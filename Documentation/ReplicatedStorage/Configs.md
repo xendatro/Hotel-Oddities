@@ -63,7 +63,7 @@ Death-cause names and player-facing hints per enemy (including the `PaintingDwel
 
 ### DoorConfig.luau
 Swinging door physics, proximity open/close distances and enemy forced-open behaviour.
-- API: data table — `DoorwayTags`, `AnchorName` (the purely-translating part a door leaf follows when the doorway is moved; `Threshold`, not `DoorHeader`, which `HallwayCrush` rescales), `OpenAngle`, `OpenDistance`, `CloseDistance`, `MaxHeightDifference`, `SwingSpeed`, `EnemyTag`, `EnemyForceDistance`, `EnemyReleaseDistance`, `PollInterval`, spring keys (`Stiffness`, `DampingRatio`, `MaxStep`), settle keys
+- API: data table — `DoorwayTags`, `AnchorName` (the purely-translating part a door leaf follows when the doorway is moved; `Threshold`, not `DoorHeader`, which `HallwayCrush` rescales), `OpenAngle`, NPC door-reaction spacing (`KnockDistance` — how far off the door an NPC stands to knock, `ApproachPadding` and `MinApproachDistance` — the wider stand-off its pathfinding walk targets first, which has to clear the flanking lantern columns), `OpenDistance`, `CloseDistance`, `MaxHeightDifference`, `SwingSpeed`, `EnemyTag`, `EnemyForceDistance`, `EnemyReleaseDistance`, `PollInterval`, spring keys (`Stiffness`, `DampingRatio`, `MaxStep`), settle keys
 
 ### DrawerConfig.luau
 Openable drawers: tag/attribute names, spring motion, auto-close, interaction targeting, highlight, sounds and the prompt UI.

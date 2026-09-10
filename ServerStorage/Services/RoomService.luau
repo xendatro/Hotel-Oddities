@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local TagService = require(ReplicatedStorage.Services.TagService)
+local DoorConfig = require(ReplicatedStorage.Configs.DoorConfig)
 
 local ROOM_TAG = "Room"
 local ROOM_LABEL = "Room"
@@ -18,7 +19,6 @@ local FURNITURE_COLLISION_GROUP = "Furniture"
 local WALL_INSET = 1
 local MAX_INSET_FRACTION = 0.25
 local SAFE_PAD = 0.5
-local DOOR_CONTACT_DISTANCE = 2.25
 
 local RoomService = {}
 
@@ -187,7 +187,7 @@ function RoomService:GetDoorApproach(room: Model, agentRadius: number): (Vector3
 	local doorway = self:GetDoorway(room)
 	if not doorway then return nil, nil, nil end
 
-	local threshold = doorway:FindFirstChild("Threshold", true)
+	local threshold = doorway:FindFirstChild(DoorConfig.AnchorName, true)
 	local thresholdPart: BasePart? = if threshold and threshold:IsA("BasePart") then threshold else nil
 	local doorPosition = if thresholdPart then thresholdPart.Position else doorway:GetPivot().Position
 	local roomCFrame = room:GetBoundingBox()
@@ -198,9 +198,9 @@ function RoomService:GetDoorApproach(room: Model, agentRadius: number): (Vector3
 	if outward.Magnitude < 1e-3 then return nil, nil, nil end
 
 	local normal = outward.Unit
-	local distance = math.max(agentRadius + 2, 4.5)
+	local distance = math.max(agentRadius + DoorConfig.ApproachPadding, DoorConfig.MinApproachDistance)
 	local approach = doorPosition + normal * distance
-	local contact = doorPosition + normal * DOOR_CONTACT_DISTANCE
+	local contact = doorPosition + normal * math.min(DoorConfig.KnockDistance, distance)
 	return Vector3.new(approach.X, doorPosition.Y, approach.Z),
 		doorPosition,
 		Vector3.new(contact.X, doorPosition.Y, contact.Z)

@@ -598,7 +598,7 @@ Auto-tags `Room_*` models under a `Rooms` folder, gives each an invisible pathfi
 - API: `RoomService:IsInRoom(player: Player) -> boolean` — occupancy check
 - API: `RoomService:IsNearOccupiedRoom(position: Vector3, distance: number) -> boolean` — horizontal distance to any occupied room's bounds
 - API: `RoomService:GetDoorway(room: Model) -> Model?` — matching `Doorway_*` model, else the nearest one on the same floor
-- API: `RoomService:GetDoorApproach(room: Model, agentRadius: number) -> (Vector3?, Vector3?, Vector3?)` — pathfinding standing point outside the door, the door point, and a contact point 2.25 studs off the door; the standing point clears the door by `agentRadius + 2` so the walk up to it does not graze the lantern columns that flank every room door and protrude about half a stud into the corridor, and the contact point is the arm's-length spot a caller steps to directly once that walk finishes
+- API: `RoomService:GetDoorApproach(room: Model, agentRadius: number) -> (Vector3?, Vector3?, Vector3?)` — pathfinding standing point outside the door, the door point, and a contact point `DoorConfig.KnockDistance` studs off the door; the standing point clears the door by `agentRadius + DoorConfig.ApproachPadding` (at least `DoorConfig.MinApproachDistance`) so the walk up to it does not graze the lantern columns that flank every room door and protrude about half a stud into the corridor, and the contact point is the arm's-length spot a caller steps to directly once that walk finishes
 - Tags: listens `Room`; applies `Room` to matching models; reads `Doorway` + `RoomDoor`
 - Requires: registers the `RoomBlocker`, `Enemies`, `Players` and `Furniture` collision groups at load
 
