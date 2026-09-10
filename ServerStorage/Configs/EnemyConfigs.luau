@@ -164,7 +164,7 @@ export type EnemyConfig = {
 	CommandSpawnBehind: boolean?,
 }
 
-local ROOM_COST = { Room = math.huge }
+local ROOM_COST = { Room = 100000 }
 
 local EnemyConfigs: { [string]: EnemyConfig } = {
 	Chaser = {

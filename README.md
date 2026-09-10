@@ -130,7 +130,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\GravityWarpService.luau — Client executor for the Gravity Warper; tweens the player onto a ceiling-locked plane with steady direct movement and screen-relative look, then restores them.
 - ReplicatedStorage\Services\GuiBuilderService.luau — Shared helper for PlayerGui access, ScreenGuis, corners and strokes.
 - ReplicatedStorage\Services\HallwayCrushDamageService.luau — Shared crush-volume helper and client-side kill decision for the closing-walls oddity, requiring configured HRP overlap with the server's lethal intervals.
-- ReplicatedStorage\Services\HallwayGraphService.luau — Navigable node graph built from tagged maze floors, with Dijkstra pathfinding and walking distance; nodes and edges touching spawn safe zones are pruned.
+- ReplicatedStorage\Services\HallwayGraphService.luau — Navigable node graph built from tagged maze floors, with Dijkstra pathfinding and walking distance; nodes with no ground under them are dropped and their neighbours stitched together, and nodes and edges touching spawn safe zones are pruned.
 - ReplicatedStorage\Services\HallwayStreamingService.luau — Client handshake confirming streamed hallway models arrived before a teleport.
 - ReplicatedStorage\Services\HallwaysService.luau — Geometry queries over tagged floor parts: orientation-aware rectangles, containment, closest point, and longest straight span.
 - ReplicatedStorage\Services\HolePlacementService.luau — Shared Shovel floor collection, ground raycasts, full-footprint support checks and safe random hole positions.
@@ -353,7 +353,7 @@ become Services or Classes.
 
 ### ServerScriptService
 
-- ServerScriptService\Init.legacy.luau — Server bootstrap; requires every ServerStorage Service and runs the server Tagger.
+- ServerScriptService\Init.legacy.luau — Server bootstrap; starts POIDiscoveryService before requiring the remaining ServerStorage Services and runs the server Tagger.
 
 ### ServerStorage\Services
 

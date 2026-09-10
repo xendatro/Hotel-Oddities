@@ -196,7 +196,7 @@ function RoomService:GetDoorApproach(room: Model, agentRadius: number): (Vector3
 	end
 	if outward.Magnitude < 1e-3 then return nil, nil end
 
-	local distance = math.max(agentRadius + 0.75, 3.25)
+	local distance = math.max(agentRadius + 2, 4.5)
 	local approach = doorPosition + outward.Unit * distance
 	return Vector3.new(approach.X, doorPosition.Y, approach.Z), doorPosition
 end

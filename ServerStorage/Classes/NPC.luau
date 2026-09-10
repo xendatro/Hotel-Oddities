@@ -606,6 +606,12 @@ function NPC:_walkPath(path: Path, shouldAbandon: (() -> boolean)?): string
 		if blockedAt and blockedAt >= index then return finish("Blocked") end
 
 		local waypoint = waypoints[index]
+		if index < #waypoints
+			and waypoint.Action ~= Enum.PathWaypointAction.Jump
+			and not self:HasMovementClearance(waypoint.Position)
+		then
+			continue
+		end
 		if waypoint.Action == Enum.PathWaypointAction.Jump then
 			self.Humanoid.Jump = true
 		end
@@ -666,6 +672,7 @@ function NPC:WalkPatrolEdge(destination: Vector3, lateralOffset: number?): boole
 		local target = if step == steps
 			then destination
 			else origin + direction * (distance * step / steps) + side
+		if not self:HasMovementClearance(target) then return false end
 		if not self:_moveToWithTimeout(target) then return false end
 	end
 	return true
@@ -1150,7 +1157,7 @@ local function chooseDestination(current: any, memory: any, minimumDistance: num
 
 	local candidates, cumulative, total = {}, {}, 0
 	for _, node in HallwayGraphService:Get() do
-		if node == current or not node.CanBeDestination then continue end
+		if node == current or not node.CanBeDestination or not node.WellConnected then continue end
 		if (node.Position - origin).Magnitude < minimumDistance then continue end
 
 		local blockedUntil = memory.Blocked[node]
@@ -1194,7 +1201,7 @@ local function emergencyEscape(npc: any): any
 	npc:SetSpeed(npc.Config.WalkSpeed)
 	for _ = 1, PATROL_EMERGENCY_TRIES do
 		task.wait()
-		local node = HallwayGraphService:FindNearestNode(npc.RootPart.Position)
+		local node = HallwayGraphService:FindNearestNode(npc.RootPart.Position, true)
 		if node then
 			local path = npc:_computePath(
 				npc:_pathOrigin(),
@@ -1218,7 +1225,7 @@ local function emergencyEscape(npc: any): any
 end
 
 local function regainGraph(npc: any): any
-	local node = HallwayGraphService:FindNearestNode(npc.RootPart.Position)
+	local node = HallwayGraphService:FindNearestNode(npc.RootPart.Position, true)
 	if not node then return nil end
 	if npc:GetWaypointDistance(node.Position) <= npc:_getReachDistance() then
 		return node

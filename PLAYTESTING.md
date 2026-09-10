@@ -156,3 +156,26 @@ require just what it needs.
 
 Add it to Modules above with its signatures, and note anything surprising about
 it in Gotchas.
+
+**`Measured`** — **a `math.huge` entry in `AgentParams.Costs` inverts the cost.**
+With `Costs = { Room = math.huge }` a path from the corridor into a safe room
+returned `Success`; the same path with `Room = 1e6`, `Room = 1000` or no `Costs`
+at all returned `NoPath`. Use a large finite number. The mechanism inside
+`PathfindingService` is unconfirmed, but the four-way comparison reproduces.
+
+**`Measured`** — **the navmesh puts waypoints closer to a `RoomBlocker` than the
+agent can stand.** Walking to the `Room_727` door approach from the north, the
+path's waypoints 2 and 3 sit 1.90 studs from the blocker surface while
+`AgentRadius` is 2.50, so the body cannot occupy them. This is independent of
+`Costs` — all four cost settings above produced the same 1.90. `NPC:_walkPath`
+therefore skips waypoints that fail `HasMovementClearance`; before that it
+walked at them and ate a full eight-second `MoveToFinished` timeout each time.
+
+**`Measured`** — **an enemy standing on a stranded patch of the hallway graph
+used to be stuck there permanently.** `Patrol` picks its home with
+`FindNearestNode`, which is a nearest-position scan and happily returns a node
+in a pocket that connects to nothing. Spawning a Chaser on the pocket at
+(508, -23, 134) and running `Patrol` now walks it off within a second and 387
+studs across the map in 40 s. Nodes carry `WellConnected` and `Patrol` passes
+`wellConnectedOnly`; if patrol ever freezes again, print that flag for the
+enemy's nearest node first.

@@ -41,8 +41,8 @@ The full humanoid-enemy base: pathfinding with prefetch, direct-pursuit/lane-cle
 - API: `NPC:MoveTowards(destination: Vector3) -> boolean` — move as far as the lane allows; false when too obstructed.
 - API: `NPC:MoveThrough(destination: Vector3, beyond: Vector3?)` — move to an overshot point so the NPC does not brake at waypoints.
 - API: `NPC:AdvanceWaypoint(waypoints: { PathWaypoint }, index: number) -> number` — skips waypoints already effectively reached.
-- API: `NPC:WalkPatrolEdge(destination: Vector3, lateralOffset: number?) -> boolean` — stepped `MoveTo` walk with per-step timeout.
-- API: `NPC:WalkTo(destination: Vector3, shouldAbandon: (() -> boolean)?) -> boolean` — compute and walk one path.
+- API: `NPC:WalkPatrolEdge(destination: Vector3, lateralOffset: number?) -> boolean` — stepped `MoveTo` walk with per-step timeout; each step is clearance-checked first and the walk gives up the moment geometry is in the way, so `Patrol` falls straight through to the pathfinding `WalkTo` instead of shoving into a wall for the length of the timeout.
+- API: `NPC:WalkTo(destination: Vector3, shouldAbandon: (() -> boolean)?) -> boolean` — compute and walk one path. Waypoints the agent body cannot occupy are skipped rather than walked at; without that a single waypoint the navmesh places against a room blocker costs the whole walk an eight-second `MoveToFinished` timeout and then fails.
 - API: `NPC:Pursue(getGoal: () -> Vector3?, arriveDistance: number?, hasArrived: (() -> boolean)?, canMoveDirectly: (() -> boolean)?) -> string` — the main chase loop; returns `"Reached"` or `"Lost"`.
 - API: `NPC:HasLineOfSight(part: BasePart) -> boolean` — single raycast ignoring both models.
 - API: `NPC:HasLineOfSightToPlayer(player: Player) -> boolean` — alive + not vanished + clear ray.
@@ -60,7 +60,7 @@ The full humanoid-enemy base: pathfinding with prefetch, direct-pursuit/lane-cle
 - API: `NPC:Attack(player: Player)` — routes the kill through `DeathService:Strike` with `self.EnemyId`.
 - API: `NPC:BeginChase(target: Player)` — sets target, resumes animation, applies `ChaseSpeed`.
 - API: `NPC:MakePerceptionEvaluator(interval: number, findTarget: (npc) -> Player?) -> () -> ()` — builds an evaluator loop that pushes into `Chase`.
-- API: `NPC.SharedStates` — reusable state functions: `Attack`, `Idle`, `Wander`, `Patrol`, `Stunned`, `RoomReaction`, `Despawn`.
+- API: `NPC.SharedStates` — reusable state functions: `Attack`, `Idle`, `Wander`, `Patrol`, `Stunned`, `RoomReaction`, `Despawn`. `Patrol` only ever adopts and targets `WellConnected` graph nodes, so an enemy that ends up standing on a stranded pocket of floor walks back to the main network instead of pacing it forever.
 - Subclass: `Class = NPC.extend(name)`, `Class.new` calls `NPC.new(model, config, Class)`, and `Class:BuildStateMachine()` returns the state table/triggers/evaluators. Overriding `Start`/`Despawn` must call `NPC.Start(self)` / `NPC.Despawn(self)`. Config supplies WalkSpeed, ChaseSpeed, DetectionRange, FieldOfView, GiveUpRange, AgentParams, IdleTime*, IdleNextState, AttackCooldown, and optional ObservationRange/ObservationHold, RespectsSafeRooms, Repath*/Commit*/DirectPursuit* tuning. Optional hooks a subclass may define: `AttackLostState`, `StopMirroring`, `_laneProbeDrop`.
 - Tags: applies `Enemy`; applies `Observable` when `Config.ObservationRange` is set
 - Requires: `Classes.StateMachine`, `Classes.NpcAnimator`, `Classes.Race`, `Services.VanishedService`, `Configs.DangerConfig`, `DangerMapService`, `HallwayGraphService`, `RoomService`, `EnemyObservationService`, `DeathService`
