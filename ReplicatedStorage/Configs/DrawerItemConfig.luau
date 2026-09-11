@@ -21,8 +21,21 @@ return {
 
 	Spawn = {
 		TargetPercentage = 0.06,
+		CurrencyTargetPercentage = 0.2,
 		RefillDelay = 90,
 		SurfacePadding = 0.05,
+	},
+
+	Hallway = {
+		InitialAlive = 8,
+		MaxAlive = 8,
+		RefillDelay = 45,
+		MinimumSpacing = 24,
+		MinimumPlayerDistance = 20,
+		PlacementAttempts = 24,
+		SupportSurfaceNames = {
+			CarpetRunner = true,
+		},
 	},
 
 	Targeting = DrawerConfig.Targeting,
@@ -46,5 +59,18 @@ return {
 		Medkit = "Rare",
 		Lantern = "Rare",
 		Radar = "VeryRare",
+	},
+
+	Currencies = {
+		Coin = {
+			Currency = "Coins",
+			Amount = 10,
+			Weight = 50,
+		},
+		Gem = {
+			Currency = "Gems",
+			Amount = 10,
+			Weight = 50,
+		},
 	},
 }
