@@ -143,7 +143,7 @@ function Camcorder:_roll()
 		hideRecording()
 		ViewmodelService:SetCaptureHidden(false)
 		task.defer(function()
-			self:Fire(if started then "Finished" else "Cancelled")
+			self:Fire(if media then "Finished" else "Cancelled")
 		end)
 
 		if not media then
@@ -151,7 +151,9 @@ function Camcorder:_roll()
 			return
 		end
 
-		PhotoDevelopService:Show(media, true)
+		PhotoDevelopService:Show(media, true, function(kept)
+			self:Fire(if kept then "Kept" else "Burned")
+		end)
 	end)
 
 	if not started then

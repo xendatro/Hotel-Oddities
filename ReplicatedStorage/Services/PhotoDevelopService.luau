@@ -79,6 +79,7 @@ local expandedCloseTransparency = expandedPaper.Close.BackgroundTransparency
 local expandedCloseTextTransparency = expandedPaper.Close.TextTransparency
 
 local currentMedia: CaptureGalleryService.Media? = nil
+local decisionHandler: ((boolean) -> ())? = nil
 local mouseWasUnlocked: boolean? = nil
 local busy = false
 
@@ -102,6 +103,12 @@ local function setDecisionOpen(open: boolean)
 	local restore = mouseWasUnlocked == true or (activePage ~= nil and activePage ~= "")
 	mouseWasUnlocked = nil
 	InterfaceService:SetMouseUnlocked(restore, false)
+end
+
+local function resolveDecision(kept: boolean)
+	local handler = decisionHandler
+	decisionHandler = nil
+	if handler then handler(kept) end
 end
 
 local function rectOf(frame: Frame): (UDim2, UDim2)
@@ -243,6 +250,7 @@ function PhotoDevelopService:Expand()
 end
 
 function PhotoDevelopService:Hide()
+	resolveDecision(false)
 	setDecisionOpen(false)
 	actions.Visible = false
 	busy = false
@@ -270,13 +278,15 @@ function PhotoDevelopService:Hide()
 	tween:Play()
 end
 
-function PhotoDevelopService:Show(media: CaptureGalleryService.Media, fullscreen: boolean?)
+function PhotoDevelopService:Show(media: CaptureGalleryService.Media, fullscreen: boolean?, onDecision: ((boolean) -> ())?)
+	resolveDecision(false)
 	if backdrop.Visible then
 		backdrop.Visible = false
 		clearPaper(expandedPaper)
 	end
 
 	currentMedia = media
+	decisionHandler = onDecision
 	busy = false
 	actions.Visible = false
 	paint(previewPaper, media)
@@ -337,6 +347,7 @@ save.Activated:Connect(function()
 	task.spawn(function()
 		local ok = CaptureGalleryService:Save(media)
 		NotificationService:Show(if ok then CaptureConfig.Text.Saved else CaptureConfig.Text.SaveFailed)
+		resolveDecision(ok)
 		busy = false
 		actions.Visible = false
 		setDecisionOpen(false)
@@ -351,6 +362,7 @@ discard.Activated:Connect(function()
 	busy = true
 	CaptureGalleryService:Discard(media)
 	NotificationService:Show(CaptureConfig.Text.Discarded)
+	resolveDecision(false)
 	actions.Visible = false
 	setDecisionOpen(false)
 	PhotoDevelopService:Hide()

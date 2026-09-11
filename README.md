@@ -173,7 +173,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\PerfLogService.luau — Client performance watchdog for frame spikes, FPS drops and bursts of workspace instance churn.
 - ReplicatedStorage\Services\PerfLoggerService.luau — Flag-gated startup timing log broadcast from server to all clients.
 - ReplicatedStorage\Services\PhotoCaptureService.luau — Client shutter for the tripod camera: authored flash, GUI hide, local ShadowFigure clone, lens-locked screenshot through CaptureGalleryService and restore, with gallery permission deferred until Save.
-- ReplicatedStorage\Services\PhotoDevelopService.luau — Binds the Studio-authored film preview, plays a finished capture with a mouse-free keep-or-burn prompt, and restores the prior cursor lock state afterward.
+- ReplicatedStorage\Services\PhotoDevelopService.luau — Binds the Studio-authored film preview, plays a finished capture with a mouse-free keep-or-burn prompt, reports the final choice to callers, and restores the prior cursor lock state afterward.
 - ReplicatedStorage\Services\PhotoTimerService.luau — Clones the Studio-authored countdown template above each placed tripod camera.
 - ReplicatedStorage\Services\PhotoTimerService.luau — Countdown billboard over every placed tripod camera, flashing SNAP when it fires.
 - ReplicatedStorage\Services\POIAudioService.luau — Plays the POIDiscovered sting on entering a point of interest and forwards POI occupancy to the ambience distortion layer.
@@ -248,7 +248,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\Minigames\Simon.luau — Simon-says minigame; repeat a growing four-pad sequence up to length seven.
 - ReplicatedStorage\Classes\Minigames\Snake.luau — Snake minigame on a 16x12 grid; eat fifteen pellets as the tick speeds up.
 - ReplicatedStorage\Classes\Tools\Ball.luau — Client ball tool; throws a ball prop at a targeted Eye and reports the hit to the server.
-- ReplicatedStorage\Classes\Tools\Camcorder.luau — Client camcorder; suppresses its viewmodel while the Studio-authored REC/STOP HUD runs, calls the engine stop directly on unequip, reports recording completion, then offers keep or burn.
+- ReplicatedStorage\Classes\Tools\Camcorder.luau — Client camcorder; suppresses its viewmodel while the Studio-authored REC/STOP HUD runs, calls the engine stop directly on unequip, reports recording completion, then offers keep or burn before reporting the final decision.
 - ReplicatedStorage\Classes\Tools\Camera.luau — Client camera tool; shows a ghost placement preview and asks the server to stand the tripod where you aim.
 - ReplicatedStorage\Classes\Tools\Pathfinder.luau — Client pathfinder tool; drops limited, shaded breadcrumb markers on the floor.
 - ReplicatedStorage\Classes\Tools\Player Locator.luau — Client tool that enables PlayerLocatorService while equipped.
@@ -497,7 +497,7 @@ become Services or Classes.
 - ServerStorage\Classes\Tools\Bandage.luau — Server half of the Bandage tool; a plain Healer subclass.
 - ServerStorage\Classes\Tools\Big Character.luau — Server half of the Big Character item; applies the fixed large character oddity.
 - ServerStorage\Classes\Tools\Big Head.luau — Server half of the Big Head item; applies the head-size oddity.
-- ServerStorage\Classes\Tools\Camcorder.luau — Server half of the camcorder; gates recording on the Camcorder gamepass and removes temporary camcorders after recording.
+- ServerStorage\Classes\Tools\Camcorder.luau — Server half of the camcorder; gates recording on the Camcorder gamepass and removes temporary camcorders only after a video is kept.
 - ServerStorage\Classes\Tools\Camera.luau — Server half of the tripod camera; validates placement, spawns it and consumes the single use.
 - ServerStorage\Classes\Tools\Energy Drink.luau — Server half of the Energy Drink tool; a plain SpeedDrink subclass.
 - ServerStorage\Classes\Tools\Flashlight.luau — Server half of the flashlight, toggling the replicated LightOn attribute the clients render from.
