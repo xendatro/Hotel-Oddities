@@ -215,7 +215,7 @@ Client-only. Owns every swinging door part inside a `Doorway`+`RoomDoor` model: 
 - Requires: `Classes.DoorPart`, `Configs.DoorConfig`, `CharacterService`, `TagService`
 
 ### DrawerItemService.luau
-Client-only. Registers every `DrawerItem` model as an interactable pick-up and fires the server when one is activated, with a short cooldown. Newly appearing items also re-sync their parent drawer so the item sits at the drawer's current position.
+Client-only. Registers every `DrawerItem` model, including hallway currency displays, as an interactable pick-up and fires the server when one is activated, with a short cooldown. Newly appearing drawer items also re-sync their parent drawer so the item sits at the drawer's current position.
 - API: `DrawerItemService:GetFocused() -> Model?` — the item currently under the interaction cursor
 - API: `DrawerItemService:Pickup(model: Model?) -> boolean` — request pickup of the given (or focused) item
 - Remotes: `DrawerItem/Pickup` (fired)
@@ -313,6 +313,12 @@ Shows a stack of revive-offer cards cloned from the `ReviveFriendUI` template, e
 Drives the Studio-authored `StarterGui.GalleryGui`: before access is granted, the empty page shows an `ALLOW DEVICE CAPTURES` button and does not open Roblox's permission prompt on its own. Granting access reads the reel at once; later page opens refresh it without another prompt. The two-wide filmstrip clones `Design.MediaCanvas.Media.Template`, uses a still first frame for photos and tapes, and labels video cards `TAPE`. Selecting one shows the photo or starts a looping muted video. Clicking that large preview opens the authored full-screen viewer. Saved selections show a Delete button below the preview, which removes the item from this session's reel. Captures still pending a choice carry a green edge and expose Keep/Burn buttons.
 - API: none — side-effect only.
 - Requires: `Classes.GalleryCard`, `Configs.CaptureConfig`, `CaptureGalleryService`, `CaptureOverlayService`, `InterfaceService`, `NotificationService`; expects the complete `StarterGui.GalleryGui` hierarchy
+
+### GemsUIService.luau
+Client wiring for the Studio-authored `GemsUI` page. Each entry in `StoreConfig.GemPacks` names a `PackN` frame and a gem amount; the pack's `Amount` label is filled from it, and its `Purchase` button prompts the developer product that `MarketplaceService.Products.Gems` maps to that amount. Robux prices come from product info. An unpublished product (id `0`) shows `StoreConfig.Text.Unavailable` and flashes the balance red when clicked. The `Gems/Balance` label follows `KitStateService` and flashes green when the server's result is `StoreConfig.GemPurchaseResult`. Button motion is authored in Studio through xenterface's `Hover` tag and `Press` Configuration.
+- API: data table — empty; the page is wired on require.
+- Remotes: through `KitStateService` (`Gems/Sync`)
+- Requires: `Configs.StoreConfig`, `KitStateService`, `MarketplaceService` (project wrapper, `Products.Gems` and product info), `MathService`, `GuiBuilderService`; expects `GemsUI.Design` with `Gems.Balance` and `Pack1`–`Pack5`, each holding `Main.Amount` and `Main.Purchase.Price`
 
 ### GhostMotionService.luau
 Shared math and attribute protocol for ghost drift: builds a travel "leg" (origin, target, duration) that the server publishes onto the model as attributes and clients read back, plus bobbing and fade timing.
@@ -618,8 +624,8 @@ Gamepass asset ids keyed by name.
 - API: data table — `Pathfinder`, `KeepItems`, `Visor`, `DoubleSpeed`, `PlayerLocator`, `Map`, `Camcorder`, `DoubleCoins`, `DoubleGems` (all currently `0`, i.e. unpublished)
 
 ### MarketplaceService\Products.luau
-Developer-product asset ids, with per-item product ids nested under `Items`.
-- API: data table — `Revive`, `ReviveFriend`, and `Items` (Ball, Bandage, EnergyDrink, Flashlight, Medkit, Pathfinder, Shovel, Soda, SpellBook, Trap, Visor); only `Revive` has a real id
+Developer-product asset ids, with per-item product ids nested under `Items` and gem-pack product ids under `Gems`, keyed by the number of gems each pack grants.
+- API: data table — `Revive`, `ReviveFriend`, `Items` (Ball, Bandage, EnergyDrink, Flashlight, Medkit, Pathfinder, Shovel, Soda, SpellBook, Trap, Visor), `Gems` (`[5]`, `[15]`, `[40]`, `[100]`, `[220]`, placeholder `0` ids) and an empty `Coins`; only `Revive` has a real id
 
 ### MathService.luau
 Small pure-math helper library shared across the codebase: easing, framerate-independent lerp alphas, horizontal-plane vector work, angles, pulses, and number formatting. No state, no connections.
@@ -781,6 +787,11 @@ Client camera-shake front end over the vendored `CameraShaker`. Offers five name
 - API: `ShakeService:CreateDynamicRumble(startValue: number, params: RumbleParams?) -> Rumble` — handle with `:AdjustValue(n)`, `:Stop(fadeOutTime?)`, `:Start()`
 - API: `ShakeService.SustainedShakes` — id → live shake instance
 - Requires: `Classes.CameraShaker` (vendored third-party), `Services.PerfLoggerService`
+
+### ShopUIService.luau
+Client wiring for the Studio-authored `ShopUI` gamepass page. Every frame under `Design.ProductGrid` is a card named after its `MarketplaceService.Gamepasses` key. The card's `Purchase` button prompts that gamepass, and its `Price` label shows the Robux price from gamepass info. Once the matching `Perk_<Name>` attribute from `PerkService` is true, the currency icon is hidden and the label is widened to `StoreConfig.OwnedPrice` with `StoreConfig.Text.Owned`. A pass whose id is `0` shows `StoreConfig.Text.Unavailable` and never prompts. Button motion is authored in Studio through xenterface's `Hover` tag and `Press` Configuration.
+- API: data table — empty; the page is wired on require.
+- Requires: `Configs.PerkConfig` (`AttributePrefix`), `Configs.StoreConfig`, `MarketplaceService` (project wrapper, `Gamepasses` and product info), `MathService`, `GuiBuilderService`; expects `ShopUI.Design.ProductGrid` cards holding `Purchase.Price` and `Purchase.CurrencyIcon`
 
 ### ShopkeeperService.luau
 Client service for shopkeeper NPCs: registers each tagged model with the interaction system, keeps its `PageAttribute` in sync, plays a looping smile animation once FaceControls/Animator exist, and opens the matching interface page on activation.

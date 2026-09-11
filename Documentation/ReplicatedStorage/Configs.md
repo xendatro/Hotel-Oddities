@@ -70,8 +70,8 @@ Openable drawers: tag/attribute names, spring motion, auto-close, interaction ta
 - API: data table — `Tag`, `Attribute`, open/auto-close keys, `OutwardAxis`, handle-detection keys, spring/settle keys, `Targeting`, `Input`, `Highlight`, `Sound`, `UI`
 
 ### DrawerItemConfig.luau
-Items spawned inside drawers: spawn rates, rarity weights and the item-to-rarity table. At load time it clones `DrawerConfig.Input` and `DrawerConfig.UI` and overrides a few fields, and reuses `DrawerConfig.Targeting`/`Highlight` by reference.
-- API: data table — `Tag`, `Attribute`, `Remotes`, `Spawn`, `Targeting`, `Input`, `Highlight`, `UI`, `Rarities`, `Items`
+Items spawned inside drawers and the hallway currency pickups: drawer spawn rates, currency target and refill settings, hallway placement limits, rarity weights, currency weights and reward amounts, plus the item-to-rarity table. At load time it clones `DrawerConfig.Input` and `DrawerConfig.UI` and overrides a few fields, and reuses `DrawerConfig.Targeting`/`Highlight` by reference.
+- API: data table — `Tag`, `Attribute`, `Remotes`, `Spawn`, `Hallway`, `Targeting`, `Input`, `Highlight`, `UI`, `Rarities`, `Items`, `Currencies`
 - Requires: `Configs/DrawerConfig`
 
 ### EffectsHUDConfig.luau
@@ -224,6 +224,10 @@ Speed multiplier, stamina economy, camera FOV blend, input bindings and stamina-
 ### StatsHUDConfig.luau
 Layout, colour thresholds and sampling intervals for the debug stats HUD panel (FPS, ping, danger level, enemy state rows).
 - API: data table — `EdgeMargin`, `RowHeight`, `CaptionWidth`, `PanelWidth`, `TextSize`, `BackgroundTransparency`, `Colors`, `Enemies`, `Fps`, `Ping`, `Danger`, `TagWaitTimeout`, `TagPollInterval`, `TagSettlePolls`
+
+### StoreConfig.luau
+Shared settings for the two Robux store pages, the gamepass `ShopUI` and the gem-pack `GemsUI`, plus the result code the server attaches to a granted gem purchase.
+- API: data table — `Text` (`Owned`, `Unavailable`, `GemsSuffix`), `OwnedPrice` (`Position`, `Size` of the price label once a pass is owned), `GemPurchaseResult`, `GemPacks` (ordered `{ Frame, Amount }` entries; `Amount` keys into `MarketplaceService.Products.Gems`), `Flash` (`Time`, `Success`, `Failure`)
 
 ### StreamingConfig.luau
 Corridor-streaming settings — prediction, replication lead times, reconciliation intervals, teleport timeouts and the tags/attributes used to mark streamed models. Currently disabled via `Enabled = false`.

@@ -12,6 +12,7 @@ local ItemShopConfig = require(ReplicatedStorage.Configs.ItemShopConfig)
 local PROFILE_STORE_NAME = "PlayerData"
 local PROFILE_TEMPLATE = {
 	Gems = 0,
+	ProcessedGemReceipts = {},
 	Coins = ItemShopConfig.StartingCoins,
 	OwnedSwords = {},
 	CurrentSword = "Default",

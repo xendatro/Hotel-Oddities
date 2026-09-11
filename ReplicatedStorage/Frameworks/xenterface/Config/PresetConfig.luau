@@ -55,6 +55,16 @@ PresetConfig.HotelPage = {
 	CloseTime = 0.38,
 }
 
+PresetConfig.StoreButtonHover = {
+	Active = "scale-1.08 rot--3 t-0.16 quint out",
+	Inactive = "i t-0.22 back out",
+}
+
+PresetConfig.StoreButtonPress = {
+	Active = "scale-0.9 rot-1.5 t-0.08 quad out",
+	Inactive = "i t-0.22 back out",
+}
+
 PresetConfig.HotelSideButton = {
 	HoverScale = 1.08,
 	PressScale = 0.9,

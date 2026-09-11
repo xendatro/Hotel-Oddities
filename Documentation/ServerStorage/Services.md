@@ -113,10 +113,10 @@ Registers one MarketplaceService receipt handler per entry in `DevProductConfigs
 - Requires: `ReplicatedStorage.Services.MarketplaceService:CreateReceipt`, `ServerStorage.Configs.DevProductConfigs`
 
 ### DrawerItemService.luau
-Populates drawers with pickable item displays: clones a Tool from `ReplicatedStorage.Tools` into a script-free, anchored display model, measures the drawer's bounds and handle direction to seat it on the front surface, and keeps roughly `TargetPercentage` of drawers stocked on a refill timer. Handles client pickup requests with reach, debounce and inventory checks, avoiding repeating the last drawer or item.
+Populates drawers with pickable tool and currency displays: clones Tools from `ReplicatedStorage.Tools` or currency parts from `ReplicatedStorage.Props.Other` into script-free, anchored display models, seats drawer contents on the front surface, keeps roughly `TargetPercentage` of drawers stocked with tools and `CurrencyTargetPercentage` stocked with currencies, and keeps a small configured number of currency displays on clear hallway floor points. Handles client pickup requests with reach, debounce, inventory checks and server-authoritative coin/gem awards, avoiding repeating the last drawer or item.
 - Remotes: `DrawerItemConfig.Remotes.Folder/Pickup` (listened)
 - Tags: listens `DrawerConfig.Tag`; applies `DrawerItemConfig.Tag`
-- Requires: `DrawerConfig`, `DrawerItemConfig`, `InventoryService:Wait` / `:Add`, `ReplicatedStorage.Tools`
+- Requires: `DrawerConfig`, `DrawerItemConfig`, `InventoryService:Wait` / `:Add`, `CoinService:Award`, `GemService:Award`, `ReplicatedStorage.Tools`, `ReplicatedStorage.Props.Other`, `HallwaysService`, `DangerMapService`
 
 ### DrawerService.luau
 Owns the open/closed state of drawer models as attributes, plays the open/close sound, and auto-closes drawers left open longer than `AutoCloseDelay`. Client toggle requests are rate-limited and distance-checked.
@@ -227,6 +227,12 @@ Owns the gem balance in the player's DataSave profile: reads and normalises it, 
 - API: `GemService:Sync(player: Player, result: string?)`
 - Remotes: `Gems/Sync` (listened and fired)
 - Requires: `DataSaveService`, `CommunicationService`
+
+### GemShopService.luau
+Receipt handlers for the gem packs sold on the `GemsUI` page. Every `MarketplaceService.Products.Gems` entry with a real product id grants its key's gem amount through `GemService:Award` without the DoubleGems multiplier. Receipts are deduplicated per `PurchaseId` in the profile's `ProcessedGemReceipts`. The service then syncs the balance with `StoreConfig.GemPurchaseResult` so the client can flash it. Placeholder `0` ids register nothing.
+- API: data table — empty; receipts are registered on require.
+- Remotes: `Gems/Sync` (fired through `GemService`)
+- Requires: `Configs.StoreConfig`, `MarketplaceService` (`Products.Gems`, `:CreateReceipt`), `DataSaveService`, `GemService`
 
 ### GazeService.luau
 Server-side line-of-sight library: builds a short-lived cache of living, non-vanished player viewers (eye position and look vector from `EnemyObservationService`) and answers whether a point, part or model falls inside a viewer's cone with a clear raycast. Also provides a small Tracker object that accumulates seen/unseen durations across updates.

@@ -109,7 +109,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\DeathScreenService.luau — Builds and drives the glitch death screen and reports back when it finishes.
 - ReplicatedStorage\Services\DeathSoundService.luau — Replaces Roblox's default death sound with the custom one at the character's position.
 - ReplicatedStorage\Services\DoorService.luau — Swings room doors open near players and enemies, and applies the server's map opening regions.
-- ReplicatedStorage\Services\DrawerItemService.luau — Registers drawer items as interactable pickups and requests them from the server.
+- ReplicatedStorage\Services\DrawerItemService.luau — Registers drawer and hallway currency displays as interactable pickups and requests them from the server.
 - ReplicatedStorage\Services\DrawerService.luau — Animates drawers open and closed with local prediction over the server's attribute.
 - ReplicatedStorage\Services\EffectsHUDService.luau — Right-edge HUD of effect tiles, with draining timers, `inf` for permanent immunity, and hole-hop immunity countdowns.
 - ReplicatedStorage\Services\ElevatorDoorService.luau — Opens and closes tagged lobby elevator doors as players approach.
@@ -124,6 +124,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\FriendAvatarService.luau — Client-only cache that builds character models from the local player's friends' avatars.
 - ReplicatedStorage\Services\FriendReviveUIService.luau — Timed revive-offer cards for downed teammates.
 - ReplicatedStorage\Services\GalleryUIService.luau — Studio-authored Gallery page: explicit device-capture access, tape thumbnails, autoplay previews, click-to-full-screen viewing and per-item reel removal.
+- ReplicatedStorage\Services\GemsUIService.luau — Gem-pack page: pack amounts, Robux product prompts and prices, and a gem balance that flashes on purchase.
 - ReplicatedStorage\Services\GhostMotionService.luau — Ghost drift leg math and the model-attribute protocol the server and clients share.
 - ReplicatedStorage\Services\GhostRenderService.luau — Renders ghosts as translucent friend-avatar rigs driven by replicated motion.
 - ReplicatedStorage\Services\GraphicsFogService.luau — Distance fog and a camera-parented cage on low graphics levels.
@@ -154,7 +155,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\LookService.luau — Reports local camera pitch/yaw and bends other characters' neck and waist to match.
 - ReplicatedStorage\Services\MarketplaceService\init.luau — Wrapper over Roblox MarketplaceService adding a shared gamepass-ownership cache, cross-boundary purchase prompts and per-product receipt handlers.
 - ReplicatedStorage\Services\MarketplaceService\Gamepasses.luau — Gamepass asset ids keyed by name; Pathfinder, KeepItems, Visor, DoubleSpeed, PlayerLocator, Map, Camcorder, DoubleCoins and DoubleGems are currently 0.
-- ReplicatedStorage\Services\MarketplaceService\Products.luau — Developer-product asset ids, with per-item ids nested under Items.
+- ReplicatedStorage\Services\MarketplaceService\Products.luau — Developer-product asset ids, with per-item ids nested under Items and gem-pack ids under Gems keyed by gem amount (placeholder 0s).
 - ReplicatedStorage\Services\MapControlService.luau — Pan and zoom for the map: drag or pinch to pan, wheel or pinch to zoom, clamped and eased.
 - ReplicatedStorage\Services\MapInkService.luau — Rasterises the hand-drawn map ink: seeded wobble, tapered strokes, round and chamfered outlines, and junction-aware wall culling onto the map canvas.
 - ReplicatedStorage\Services\MapLayoutService.luau — Client-side map geometry: world-to-canvas projection, per-shape footprints, plus the wall and cap openings that keep junctions unwalled.
@@ -182,6 +183,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\RecordPlayerAudioService.luau — Muffles and fades tagged in-world record players while the elevator is loading or the death screen is up.
 - ReplicatedStorage\Services\RedactionService.luau — Progressive seeded word-by-word text reveal with block-glyph redaction.
 - ReplicatedStorage\Services\ShakeService.luau — Client camera-shake front end with named presets, keyed sustained shakes and adjustable rumble handles.
+- ReplicatedStorage\Services\ShopUIService.luau — Gamepass shop page: per-card purchase prompts, live Robux prices and owned state from perk attributes.
 - ReplicatedStorage\Services\ShopkeeperService.luau — Client service binding shopkeeper NPCs to interactions, smile animations and their interface page.
 - ReplicatedStorage\Services\SightlineService.luau — Camera frustum and raycast visibility tests with a self-maintaining per-model part cache.
 - ReplicatedStorage\Services\SpawnZoneService.luau — Shared registry of tagged spawn-safe-zone parts with vertically padded point and segment queries against their boxes.
@@ -282,7 +284,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\DeathConfig.luau — Death causes, player hints and the killed-by death screen styling.
 - ReplicatedStorage\Configs\DoorConfig.luau — Swinging door physics and proximity open/close behaviour.
 - ReplicatedStorage\Configs\DrawerConfig.luau — Openable drawer motion, interaction, sound and prompt UI settings.
-- ReplicatedStorage\Configs\DrawerItemConfig.luau — Drawer loot spawn rates, rarity weights and item table; clones DrawerConfig's Input/UI at load.
+- ReplicatedStorage\Configs\DrawerItemConfig.luau — Drawer tool/currency loot rates, hallway currency placement limits, rarity and currency weights, reward amounts and item tables; clones DrawerConfig's Input/UI at load.
 - ReplicatedStorage\Configs\EffectsHUDConfig.luau — Layout, colours and icons for the HUD effect tiles.
 - ReplicatedStorage\Configs\ElevatorConfig.luau — Elevator door motion, proximity and teleport fade settings.
 - ReplicatedStorage\Configs\EyeConfig.luau — Eye enemy tracking, hit reaction and gaze screen-effect settings.
@@ -320,6 +322,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\SprintBoostConfig.luau — Visual definitions for speed-boost auras on the sprint bar.
 - ReplicatedStorage\Configs\SprintConfig.luau — Sprint speed, stamina economy, input bindings and stamina bar styling.
 - ReplicatedStorage\Configs\StatsHUDConfig.luau — Layout and thresholds for the debug stats HUD panel.
+- ReplicatedStorage\Configs\StoreConfig.luau — Shop and Gems page text, owned-price layout, gem pack frames and amounts, balance flash and the gem purchase result code.
 - ReplicatedStorage\Configs\StreamingConfig.luau — Corridor streaming prediction, reconciliation and tag settings (currently disabled).
 - ReplicatedStorage\Configs\ToolConfigs.luau — Per-tool tags and behaviour values for every usable tool, including the Shovel's six-second hole immunity duration.
 - ReplicatedStorage\Configs\ViewmodelConfig.luau — First-person viewmodel placement, sway, bob, per-tool overrides and named poses.
@@ -338,12 +341,13 @@ become Services or Classes.
 ### ReplicatedStorage\Frameworks
 
 - ReplicatedStorage\Frameworks\xenterface\init.luau — Root facade of the xenterface UI framework; boots its Tagger and exposes Controller/Get/Wait.
-- ReplicatedStorage\Frameworks\xenterface\Modules\Tagger.luau — Registers the framework's Tab, Page and Hover tag listeners against PlayerGui.
+- ReplicatedStorage\Frameworks\xenterface\Modules\Tagger.luau — Registers the framework's Tab, Page, Hover and Press tag listeners against PlayerGui.
 - ReplicatedStorage\Frameworks\xenterface\Services\ControllerService.luau — Registry that hands out one shared Controller per page group.
 - ReplicatedStorage\Frameworks\xenterface\Services\ElementService.luau — Looks up GuiObjects by their ElementId attribute, with a yielding Wait.
 - ReplicatedStorage\Frameworks\xenterface\Classes\Controller.luau — Tracks the active page of a group and drives the tab/page transition animations.
 - ReplicatedStorage\Frameworks\xenterface\Classes\Hover.luau — Toggle subclass that plays its sequences on MouseEnter and MouseLeave.
 - ReplicatedStorage\Frameworks\xenterface\Classes\Page.luau — Toggle subclass representing a page shown or hidden by a Controller.
+- ReplicatedStorage\Frameworks\xenterface\Classes\Press.luau — Toggle subclass that plays its sequences on mouse press and release, handing back to Hover while still hovered.
 - ReplicatedStorage\Frameworks\xenterface\Classes\Sequence.luau — Parses the framework's compact animation strings and plays them as tweens.
 - ReplicatedStorage\Frameworks\xenterface\Classes\Signal.luau — BindableEvent wrapped into a single signal object.
 - ReplicatedStorage\Frameworks\xenterface\Classes\Tab.luau — Clickable tab that fires its page group's controller with its PageId.
@@ -371,7 +375,7 @@ become Services or Classes.
 - ServerStorage\Services\DataSaveService.luau — Loads, reconciles and releases per-player ProfileService profiles, keyed separately for Studio sessions so playtests never contest the live game's session lock.
 - ServerStorage\Services\DeathService.luau — Records the cause of each player's death, applies reported contact kills, and drives the death screen and revive offers.
 - ServerStorage\Services\DevProductService.luau — Wires every developer product in DevProductConfigs to a receipt handler.
-- ServerStorage\Services\DrawerItemService.luau — Stocks drawers with pickable item displays and handles pickup requests.
+- ServerStorage\Services\DrawerItemService.luau — Stocks drawers and hallways with pickable tool/currency displays and handles inventory pickups and currency rewards.
 - ServerStorage\Services\DrawerService.luau — Owns drawer open/closed state, sounds, and auto-closing.
 - ServerStorage\Services\ElevatorService.luau — Teleports players from the lobby elevator into the maze with fade, loading and streaming.
 - ServerStorage\Services\EnemyCommandService.luau — Developer chat commands for spawning, listing and despawning enemies, including `/mirror` for the mirror-room encounter.
@@ -386,6 +390,7 @@ become Services or Classes.
 - ServerStorage\Services\GamepassService.luau — Caches each player's gamepass ownership at join and keeps it current after purchases.
 - ServerStorage\Services\CoinService.luau — Coin balance service with centralised earning, spending, refunds and DoubleCoins handling.
 - ServerStorage\Services\GemService.luau — Gem balance service with centralised earning, spending, refunds and DoubleGems handling, mirrored to an attribute and replicated to the client.
+- ServerStorage\Services\GemShopService.luau — Deduplicated Robux receipts that grant each gem pack's amount.
 - ServerStorage\Services\GazeService.luau — Server line-of-sight library for cone and raycast visibility checks, with a seen/unseen tracker.
 - ServerStorage\Services\GhostAreaService.luau — Picks area-weighted hover points over hallways for the Ghost, avoiding nearby players.
 - ServerStorage\Services\HallwayGridService.luau — Finds hallway corner mouths near a viewer for placing things just out of sight.
