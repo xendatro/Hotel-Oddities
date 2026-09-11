@@ -17,6 +17,7 @@ local InventoryService = require(ServerStorage.Services.InventoryService)
 local Tools = ReplicatedStorage.Tools
 local Other = ReplicatedStorage.Props.Other
 local Pickup = CommunicationService.Get(ItemConfig.Remotes.Folder, ItemConfig.Remotes.Pickup) :: RemoteEvent
+local PickupResult = CommunicationService.Ensure(ItemConfig.Remotes.Folder, ItemConfig.Remotes.Result) :: RemoteEvent
 
 local DrawerItemService = {}
 
@@ -73,6 +74,8 @@ local function makeDisplay(template: Instance): Model?
 	disableLights(display)
 
 	display:PivotTo(CFrame.new())
+	local rotation = ItemConfig.DisplayRotations[template.Name]
+	if rotation then display:PivotTo(rotation) end
 
 	local hasPart = false
 	for _, descendant in display:GetDescendants() do
@@ -179,8 +182,10 @@ end
 local function placeOnDrawer(drawer: Model, display: Model)
 	local drawerCFrame, drawerSize = drawerBounds(drawer)
 	local axis = outwardAxis(drawer)
+	local itemName = display:GetAttribute(ItemConfig.Attribute)
+	local rotation = if type(itemName) == "string" then ItemConfig.DisplayRotations[itemName] else nil
 	display.Parent = drawer
-	display:PivotTo(drawerCFrame)
+	display:PivotTo(drawerCFrame * (rotation or CFrame.new()))
 
 	local itemCFrame, itemSize = display:GetBoundingBox()
 	local itemOffset = drawerCFrame:PointToObjectSpace(itemCFrame.Position)
@@ -192,7 +197,7 @@ local function placeOnDrawer(drawer: Model, display: Model)
 		then -drawerSize.Y / 2 + itemHalfHeight + padding
 		else drawerSize.Y / 2 - itemHalfHeight - padding
 	local depth = drawerDepth / 2 - itemDepth - padding
-	local target = drawerCFrame * CFrame.new(axis * depth + Vector3.yAxis * floor - itemOffset)
+	local target = drawerCFrame * CFrame.new(axis * depth + Vector3.yAxis * floor - itemOffset) * (rotation or CFrame.new())
 
 	display:PivotTo(target)
 	CollectionService:AddTag(display, ItemConfig.Tag)
@@ -370,13 +375,13 @@ local function chooseCurrencyName(): string?
 	return pool[#pool].Name
 end
 
-local function floorTarget(position: Vector3, itemCFrame: CFrame, itemSize: Vector3): CFrame
+local function floorTarget(position: Vector3, itemCFrame: CFrame, itemSize: Vector3, rotation: CFrame?): CFrame
 	local itemHalfHeight = extentAlong(itemCFrame, itemSize, Vector3.yAxis)
 	return CFrame.new(
 		position.X - itemCFrame.Position.X,
 		position.Y + itemHalfHeight - itemCFrame.Position.Y,
 		position.Z - itemCFrame.Position.Z
-	)
+	) * (rotation or CFrame.new())
 end
 
 local function hallwaySurface(position: Vector3): Vector3?
@@ -454,6 +459,7 @@ local function trySpawnHallway(): boolean
 	if not display then return false end
 
 	local itemCFrame, itemSize = display:GetBoundingBox()
+	local rotation = ItemConfig.DisplayRotations[currencyName]
 	local point = DangerMapService:PickPoint(0, function(candidate)
 		local surface = hallwaySurface(candidate.Position)
 		if not Hallways.At(candidate.Position)
@@ -464,7 +470,7 @@ local function trySpawnHallway(): boolean
 			return false
 		end
 
-		return not overlapsWorldGeometry(floorTarget(surface, itemCFrame, itemSize), itemSize)
+		return not overlapsWorldGeometry(floorTarget(surface, itemCFrame, itemSize, rotation), itemSize)
 	end, ItemConfig.Hallway.PlacementAttempts)
 	if not point then
 		display:Destroy()
@@ -476,7 +482,7 @@ local function trySpawnHallway(): boolean
 		display:Destroy()
 		return false
 	end
-	display:PivotTo(floorTarget(surface, itemCFrame, itemSize))
+	display:PivotTo(floorTarget(surface, itemCFrame, itemSize, rotation))
 	display.Parent = HallwayFolder
 	CollectionService:AddTag(display, ItemConfig.Tag)
 	HallwayItems[display] = true
@@ -562,9 +568,13 @@ Pickup.OnServerEvent:Connect(function(player: Player, item: any)
 	local collected = false
 	if currency then
 		if currency.Currency == "Coins" then
+			local before = CoinService:Get(player)
 			collected = CoinService:Award(player, currency.Amount)
+			if collected then PickupResult:FireClient(player, currency.Currency, CoinService:Get(player) - before) end
 		elseif currency.Currency == "Gems" then
+			local before = GemService:Get(player)
 			collected = GemService:Award(player, currency.Amount)
+			if collected then PickupResult:FireClient(player, currency.Currency, GemService:Get(player) - before) end
 		end
 	else
 		if not InventoryService:Wait(player, 10) then return end

@@ -113,8 +113,8 @@ Registers one MarketplaceService receipt handler per entry in `DevProductConfigs
 - Requires: `ReplicatedStorage.Services.MarketplaceService:CreateReceipt`, `ServerStorage.Configs.DevProductConfigs`
 
 ### DrawerItemService.luau
-Populates drawers with pickable tool and currency displays: clones Tools from `ReplicatedStorage.Tools` or currency parts from `ReplicatedStorage.Props.Other` into script-free, anchored display models, seats drawer contents on the front surface, keeps roughly `TargetPercentage` of drawers stocked with tools and `CurrencyTargetPercentage` stocked with currencies, and keeps a small configured number of currency displays on clear hallway floor points. Handles client pickup requests with reach, debounce, inventory checks and server-authoritative coin/gem awards, avoiding repeating the last drawer or item.
-- Remotes: `DrawerItemConfig.Remotes.Folder/Pickup` (listened)
+Populates drawers with pickable tool and currency displays: clones Tools from `ReplicatedStorage.Tools` or currency parts from `ReplicatedStorage.Props.Other` into script-free, anchored display models, applies configured display rotations, seats drawer contents on the front surface, keeps roughly `TargetPercentage` of drawers stocked with tools and `CurrencyTargetPercentage` stocked with currencies, and keeps a small configured number of currency displays on clear hallway floor points. Handles client pickup requests with reach, debounce, inventory checks and server-authoritative coin/gem awards, reporting the actual awarded amount to the collecting client so perks are reflected in the feedback.
+- Remotes: `DrawerItemConfig.Remotes.Folder/Pickup` (listened), `DrawerItemConfig.Remotes.Folder/PickupResult` (fired)
 - Tags: listens `DrawerConfig.Tag`; applies `DrawerItemConfig.Tag`
 - Requires: `DrawerConfig`, `DrawerItemConfig`, `InventoryService:Wait` / `:Add`, `CoinService:Award`, `GemService:Award`, `ReplicatedStorage.Tools`, `ReplicatedStorage.Props.Other`, `HallwaysService`, `DangerMapService`
 

@@ -17,6 +17,22 @@ return {
 	Remotes = {
 		Folder = "DrawerItem",
 		Pickup = "Pickup",
+		Result = "PickupResult",
+	},
+
+	Feedback = {
+		Labels = {
+			Coins = "Coins",
+			Gems = "Gems",
+		},
+		Sounds = {
+			Coins = "CoinPickup",
+			Gems = "GemPickup",
+		},
+	},
+
+	DisplayRotations = {
+		Coin = CFrame.Angles(math.rad(90), 0, 0),
 	},
 
 	Spawn = {

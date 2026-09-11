@@ -215,12 +215,12 @@ Client-only. Owns every swinging door part inside a `Doorway`+`RoomDoor` model: 
 - Requires: `Classes.DoorPart`, `Configs.DoorConfig`, `CharacterService`, `TagService`
 
 ### DrawerItemService.luau
-Client-only. Registers every `DrawerItem` model, including hallway currency displays, as an interactable pick-up and fires the server when one is activated, with a short cooldown. Newly appearing drawer items also re-sync their parent drawer so the item sits at the drawer's current position.
+Client-only. Registers every `DrawerItem` model, including hallway currency displays, as an interactable pick-up and fires the server when one is activated, with a short cooldown. Successful currency pickups show a `+N Coins` or `+N Gems` notification and play the configured 2D pickup sound when its sound template exists. Newly appearing drawer items also re-sync their parent drawer so the item sits at the drawer's current position.
 - API: `DrawerItemService:GetFocused() -> Model?` — the item currently under the interaction cursor
 - API: `DrawerItemService:Pickup(model: Model?) -> boolean` — request pickup of the given (or focused) item
-- Remotes: `DrawerItem/Pickup` (fired)
+- Remotes: `DrawerItem/Pickup` (fired), `DrawerItem/PickupResult` (listened)
 - Tags: listens `DrawerItem`
-- Requires: `Configs.DrawerItemConfig`, `DrawerService`, `InteractionService`
+- Requires: `Configs.DrawerItemConfig`, `AudioService`, `DrawerService`, `InteractionService`, `MathService`, `NotificationService`
 
 ### DrawerService.luau
 Client-only. Wraps every `Drawer` model in a `Drawer` class instance, registers it as an interactable with an open/close prompt, and animates it toward the server's open attribute each frame. Toggling predicts the new state locally for up to a second so the drawer moves immediately, then falls back to the replicated attribute.

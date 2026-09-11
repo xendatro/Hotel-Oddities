@@ -70,8 +70,8 @@ Openable drawers: tag/attribute names, spring motion, auto-close, interaction ta
 - API: data table — `Tag`, `Attribute`, open/auto-close keys, `OutwardAxis`, handle-detection keys, spring/settle keys, `Targeting`, `Input`, `Highlight`, `Sound`, `UI`
 
 ### DrawerItemConfig.luau
-Items spawned inside drawers and the hallway currency pickups: drawer spawn rates, currency target and refill settings, hallway placement limits and supported surface names, rarity weights, currency weights and reward amounts, plus the item-to-rarity table. At load time it clones `DrawerConfig.Input` and `DrawerConfig.UI` and overrides a few fields, and reuses `DrawerConfig.Targeting`/`Highlight` by reference.
-- API: data table — `Tag`, `Attribute`, `Remotes`, `Spawn`, `Hallway`, `Targeting`, `Input`, `Highlight`, `UI`, `Rarities`, `Items`, `Currencies`
+Items spawned inside drawers and the hallway currency pickups: drawer spawn rates, currency target and refill settings, hallway placement limits and supported surface names, rarity weights, currency weights and reward amounts, pickup feedback labels and sound names, display rotations, plus the item-to-rarity table. At load time it clones `DrawerConfig.Input` and `DrawerConfig.UI` and overrides a few fields, and reuses `DrawerConfig.Targeting`/`Highlight` by reference.
+- API: data table — `Tag`, `Attribute`, `Remotes`, `Feedback`, `DisplayRotations`, `Spawn`, `Hallway`, `Targeting`, `Input`, `Highlight`, `UI`, `Rarities`, `Items`, `Currencies`
 - Requires: `Configs/DrawerConfig`
 
 ### EffectsHUDConfig.luau

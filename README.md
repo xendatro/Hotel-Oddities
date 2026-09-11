@@ -109,7 +109,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\DeathScreenService.luau — Builds and drives the glitch death screen and reports back when it finishes.
 - ReplicatedStorage\Services\DeathSoundService.luau — Replaces Roblox's default death sound with the custom one at the character's position.
 - ReplicatedStorage\Services\DoorService.luau — Swings room doors open near players and enemies, and applies the server's map opening regions.
-- ReplicatedStorage\Services\DrawerItemService.luau — Registers drawer and hallway currency displays as interactable pickups and requests them from the server.
+- ReplicatedStorage\Services\DrawerItemService.luau — Registers drawer and hallway currency displays as interactable pickups, requests them from the server, and shows currency pickup feedback with sound.
 - ReplicatedStorage\Services\DrawerService.luau — Animates drawers open and closed with local prediction over the server's attribute.
 - ReplicatedStorage\Services\EffectsHUDService.luau — Right-edge HUD of effect tiles, with draining timers, `inf` for permanent immunity, and hole-hop immunity countdowns.
 - ReplicatedStorage\Services\ElevatorDoorService.luau — Opens and closes tagged lobby elevator doors as players approach.
@@ -284,7 +284,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\DeathConfig.luau — Death causes, player hints and the killed-by death screen styling.
 - ReplicatedStorage\Configs\DoorConfig.luau — Swinging door physics and proximity open/close behaviour.
 - ReplicatedStorage\Configs\DrawerConfig.luau — Openable drawer motion, interaction, sound and prompt UI settings.
-- ReplicatedStorage\Configs\DrawerItemConfig.luau — Drawer tool/currency loot rates, hallway currency placement limits, rarity and currency weights, reward amounts and item tables; clones DrawerConfig's Input/UI at load.
+- ReplicatedStorage\Configs\DrawerItemConfig.luau — Drawer tool/currency loot rates, hallway currency placement limits, rarity and currency weights, reward amounts, pickup feedback sounds, display rotations and item tables; clones DrawerConfig's Input/UI at load.
 - ReplicatedStorage\Configs\EffectsHUDConfig.luau — Layout, colours and icons for the HUD effect tiles.
 - ReplicatedStorage\Configs\ElevatorConfig.luau — Elevator door motion, proximity and teleport fade settings.
 - ReplicatedStorage\Configs\EyeConfig.luau — Eye enemy tracking, hit reaction and gaze screen-effect settings.
@@ -375,7 +375,7 @@ become Services or Classes.
 - ServerStorage\Services\DataSaveService.luau — Loads, reconciles and releases per-player ProfileService profiles, keyed separately for Studio sessions so playtests never contest the live game's session lock.
 - ServerStorage\Services\DeathService.luau — Records the cause of each player's death, applies reported contact kills, and drives the death screen and revive offers.
 - ServerStorage\Services\DevProductService.luau — Wires every developer product in DevProductConfigs to a receipt handler.
-- ServerStorage\Services\DrawerItemService.luau — Stocks drawers and hallways with pickable tool/currency displays and handles inventory pickups and currency rewards.
+- ServerStorage\Services\DrawerItemService.luau — Stocks drawers and hallways with pickable tool/currency displays, applies currency display rotations, and handles inventory pickups and currency rewards.
 - ServerStorage\Services\DrawerService.luau — Owns drawer open/closed state, sounds, and auto-closing.
 - ServerStorage\Services\ElevatorService.luau — Teleports players from the lobby elevator into the maze with fade, loading and streaming.
 - ServerStorage\Services\EnemyCommandService.luau — Developer chat commands for spawning, listing and despawning enemies, including `/mirror` for the mirror-room encounter.
