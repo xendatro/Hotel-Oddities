@@ -15,7 +15,6 @@ local ENEMY_TAG = "Enemy"
 local MINIMUM = 1e-3
 local SNAP_DOT = -0.999
 local SAMPLE_PARTS = { "HumanoidRootPart", "Head", "UpperTorso", "LowerTorso" }
-local CORNERS = { Vector2.new(1, 1), Vector2.new(1, -1), Vector2.new(-1, 1), Vector2.new(-1, -1) }
 
 local MirrorStalker = {}
 MirrorStalker.__index = MirrorStalker
@@ -40,7 +39,6 @@ function MirrorStalker.new(model: Model, config, player: Player?)
 	self.Model = model
 	self.Config = config
 	self.Target = player
-	self.Phase = "Follow"
 	self.Connections = {}
 	self.Samples = {}
 	self.Humanoid = model:FindFirstChildOfClass("Humanoid")
@@ -49,11 +47,7 @@ function MirrorStalker.new(model: Model, config, player: Player?)
 	self.Room = nil
 	self.Contact = model:GetPivot().Position
 	self.Look = nil :: Vector3?
-	self.CheckedFor = 0
-	self.SeenFor = 0
-	self.UnseenFor = 0
-	self.LeaveAt = 0
-	self.ExpiresAt = 0
+	self.CaughtFor = 0
 	self.Despawned = false
 	self.OnDespawn = nil
 
@@ -84,24 +78,6 @@ function MirrorStalker:_followPoint(bounds: MirrorRoomService.Bounds, targetRoot
 	return self:_clamp(bounds, behind)
 end
 
-function MirrorStalker:_exitPoint(bounds: MirrorRoomService.Bounds, targetRoot: BasePart): Vector3
-	local inset = MirrorRoomConfig.Padding + self.Config.EdgeInset
-	local halfX = math.max(bounds.HalfX - inset, 0)
-	local halfZ = math.max(bounds.HalfZ - inset, 0)
-
-	local best, bestDistance = self.Contact, -1
-	for _, corner in CORNERS do
-		local point = bounds.Frame:PointToWorldSpace(Vector3.new(corner.X * halfX, 0, corner.Y * halfZ))
-		local candidate = Vector3.new(point.X, bounds.FloorY, point.Z)
-		local distance = (candidate - targetRoot.Position).Magnitude
-		if distance > bestDistance then
-			best, bestDistance = candidate, distance
-		end
-	end
-
-	return best
-end
-
 function MirrorStalker:_seenBy(viewer, bounds: MirrorRoomService.Bounds, mirrored: boolean, options): boolean
 	for _, part in self.Samples do
 		local point = if mirrored then MirrorRoomService.MirrorPoint(bounds, part.Position) else part.Position
@@ -110,62 +86,37 @@ function MirrorStalker:_seenBy(viewer, bounds: MirrorRoomService.Bounds, mirrore
 	return false
 end
 
-function MirrorStalker:_checkedBehind(bounds: MirrorRoomService.Bounds): boolean
+function MirrorStalker:_caught(bounds: MirrorRoomService.Bounds): boolean
 	local viewer = GazeService.ViewerFor(self.Target)
 	if not viewer then return false end
 
-	return self:_seenBy(viewer, bounds, false, {
+	local lookingBehind = self:_seenBy(viewer, bounds, false, {
 		Cone = self.Config.CheckCone,
 		MaxDistance = self.Config.CheckDistance,
 		Ignore = { self.Model },
 	})
-end
+	if not lookingBehind then return false end
 
-function MirrorStalker:_reflectionSeen(bounds: MirrorRoomService.Bounds): boolean
-	local options = {
+	return not self:_seenBy(viewer, bounds, true, {
 		Cone = self.Config.ReflectionCone,
 		MaxDistance = self.Config.ReflectionDistance,
 		Ignore = { self.Model },
-	}
-
-	for _, viewer in GazeService.Viewers() do
-		if self:_seenBy(viewer, bounds, true, options) then return true end
-	end
-
-	return false
-end
-
-function MirrorStalker:_hasCompany(bounds: MirrorRoomService.Bounds, targetRoot: BasePart): boolean
-	for _, other in Players:GetPlayers() do
-		if other == self.Target then continue end
-
-		local root = CharacterService.GetAliveRoot(other)
-		if not root then continue end
-		if MirrorRoomService.IsInside(bounds, root.Position) then return true end
-		if (root.Position - targetRoot.Position).Magnitude <= self.Config.CompanyDistance then return true end
-	end
-
-	return false
+	})
 end
 
 function MirrorStalker:_move(bounds: MirrorRoomService.Bounds, targetRoot: BasePart, deltaTime: number)
-	local leaving = self.Phase == "Leave"
-	local goal = if leaving
-		then self:_exitPoint(bounds, targetRoot)
-		else self:_followPoint(bounds, targetRoot, self.Config.FollowDistance)
+	local goal = self:_followPoint(bounds, targetRoot, self.Config.FollowDistance)
 
 	local offset = goal - self.Contact
 	local distance = offset.Magnitude
-	local slack = if leaving then 0 else self.Config.FollowSlack
-	local speed = if leaving then self.Config.LeaveSpeed else self.Config.WalkSpeed
 
 	local step = 0
-	if distance > slack then
-		step = math.min(speed * deltaTime, distance)
+	if distance > self.Config.FollowSlack then
+		step = math.min(self.Config.WalkSpeed * deltaTime, distance)
 		self.Contact += offset.Unit * step
 	end
 
-	local desired = if leaving then flatten(offset) else flatten(targetRoot.Position - self.Contact)
+	local desired = flatten(targetRoot.Position - self.Contact)
 	local look = self.Look or desired
 	if look:Dot(desired) <= SNAP_DOT then
 		look = desired
@@ -195,41 +146,15 @@ function MirrorStalker:_update(deltaTime: number)
 		return
 	end
 
-	local now = os.clock()
-	if self.Phase ~= "Leave" and (now >= self.ExpiresAt or self:_hasCompany(bounds, targetRoot)) then
-		self.Phase = "Leave"
-		self.LeaveAt = now
-	end
-
 	self:_move(bounds, targetRoot, deltaTime)
 
-	if self.Phase == "Follow" then
-		if self:_checkedBehind(bounds) then
-			self.CheckedFor += deltaTime
-			if self.CheckedFor >= self.Config.CheckHold then
-				self.Phase = "Checked"
-			end
-		else
-			self.CheckedFor = 0
-		end
+	if not self:_caught(bounds) then
+		self.CaughtFor = 0
 		return
 	end
 
-	if self:_reflectionSeen(bounds) then
-		self.UnseenFor = 0
-		self.SeenFor += deltaTime
-		if self.Phase == "Checked" and self.SeenFor >= self.Config.SeenPatience then
-			self.Phase = "Leave"
-			self.LeaveAt = now
-		elseif self.Phase == "Leave" and now - self.LeaveAt >= self.Config.LeaveTimeout then
-			self:Despawn()
-		end
-		return
-	end
-
-	self.SeenFor = 0
-	self.UnseenFor += deltaTime
-	if self.UnseenFor >= self.Config.UnseenHold then
+	self.CaughtFor += deltaTime
+	if self.CaughtFor >= self.Config.CheckHold then
 		self:Despawn()
 	end
 end
@@ -243,7 +168,7 @@ function MirrorStalker:Start()
 		room, bounds = MirrorRoomService.GetRoomAt(targetRoot.Position)
 	end
 
-	if not (room and bounds and targetRoot and self.Humanoid) then
+	if not (target and room and bounds and targetRoot and self.Humanoid) then
 		warn(`[mirrorstalker] {if target then target.Name else "nobody"} is not standing in a mirror room`)
 		self:Despawn()
 		return
@@ -282,10 +207,10 @@ function MirrorStalker:Start()
 	self.Look = flatten(targetRoot.Position - self.Contact)
 	self.Walker:PlaceAt(self.Contact, self.Look)
 
+	self.Model:SetAttribute(MirrorRoomConfig.ViewerAttribute, target.UserId)
 	self.Model:AddTag(MirrorRoomConfig.OpaqueTag)
 	self.Model:AddTag(ENEMY_TAG)
 
-	self.ExpiresAt = os.clock() + self.Config.Lifetime
 	setUpConnections(self)
 end
 

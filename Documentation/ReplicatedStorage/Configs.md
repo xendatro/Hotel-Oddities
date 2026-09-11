@@ -171,7 +171,7 @@ Behaviour tuning for the Mimic enemy — reaction delays, idle emotes, its revea
 
 ### MirrorRoomConfig.luau
 Tuning for the mirrored connector room's reflections.
-- API: data table — `Tag`, `OpaqueTag` (subjects whose real body is invisible but whose reflection must still render solid, e.g. `MirrorStalker`), `TransparencyAttribute` (per-instance record of what a blanked part's transparency was, so the reflection restores it instead of forcing everything to zero and revealing the HumanoidRootPart), `Padding`, `FloorTolerance`, `RetryDelay`, `CastShadow`, `BendLocalLook`, `ReflectEnemies`, `StripClasses`
+- API: data table — `Tag`, `OpaqueTag` (subjects whose real body is invisible but whose reflection must still render solid, e.g. `MirrorStalker`), `TransparencyAttribute` (per-instance record of what a blanked part's transparency was, so the reflection restores it instead of forcing everything to zero and revealing the HumanoidRootPart), `ViewerAttribute` (a `UserId` on an enemy model limiting its reflection to that one player), `Padding`, `FloorTolerance`, `RetryDelay`, `CastShadow`, `BendLocalLook`, `ReflectEnemies`, `StripClasses`
 
 ### NotificationConfig.luau
 Visual settings for the top-center notification banner used for short player-facing feedback.

@@ -64,11 +64,8 @@ function MirrorStalkerService:Trigger(player: Player): (boolean, string?)
 	local root = CharacterService.GetAliveRoot(player)
 	if not root then return false, "no living character" end
 
-	local room, bounds = MirrorRoomService.GetRoomAt(root.Position)
-	if not (room and bounds) then return false, "not standing in the mirror room" end
-
-	local alone = occupants(bounds)
-	if #alone > 1 then return false, "another player is in the mirror room" end
+	local room = MirrorRoomService.GetRoomAt(root.Position)
+	if not room then return false, "not standing in the mirror room" end
 
 	local enemy = EnemyService:Spawn(ENEMY_ID, root.CFrame, player)
 	if not enemy then return false, "spawn refused" end
@@ -107,14 +104,11 @@ local function poll(deltaTime: number)
 		local bounds = MirrorRoomService.GetBounds(room)
 		if not bounds then continue end
 
-		local players = occupants(bounds)
-		for _, player in players do
+		for _, player in occupants(bounds) do
 			seen[player] = true
 			if not Inside[player] then
 				Inside[player] = true
-				if #players == 1 then
-					consider(player)
-				end
+				consider(player)
 			end
 		end
 	end

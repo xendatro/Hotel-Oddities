@@ -2,6 +2,7 @@ return {
 	Tag = "MirrorRoom",
 	OpaqueTag = "MirrorOpaque",
 	TransparencyAttribute = "MirrorTransparency",
+	ViewerAttribute = "MirrorViewer",
 
 	-- studs of slack around the floor plan, so the reflection is already up before the doorway
 	Padding = 8,

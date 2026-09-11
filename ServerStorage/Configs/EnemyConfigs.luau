@@ -454,10 +454,8 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		PollInterval = 0.4,
 		SpawnDelayMin = 1,
 		SpawnDelayMax = 3,
-		Lifetime = 150,
 
 		WalkSpeed = 15,
-		LeaveSpeed = 26,
 		MinGaitSpeed = 4,
 		TurnRate = 7,
 		SpawnDistance = 13,
@@ -471,11 +469,6 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 		ReflectionCone = 100,
 		ReflectionDistance = 200,
-		UnseenHold = 0.4,
-		SeenPatience = 8,
-		LeaveTimeout = 10,
-
-		CompanyDistance = 60,
 	},
 
 	Ghost = {

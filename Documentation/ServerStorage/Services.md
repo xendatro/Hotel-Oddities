@@ -449,8 +449,8 @@ Scope wrapper around `OddityService` for the `"Map"` scope: it resolves a positi
 - Requires: `OddityService`, `CommunicationService`, `ServerStorage.Classes.Oddities` map classes (`Transparency`, `MapLightsOut`, `DoorsOpen`, `HallwayChaos`, `HallwayBlocker`, `HallwayVoid`, `HallwayCrush`, `ChaosWarning`)
 
 ### MirrorStalkerService.luau
-Owns the mirror-room encounter: it polls the players standing inside every `MirrorRoom` tagged model and, when someone enters alone, is not already the Stalker's target and the cooldown has elapsed, rolls `Chance` and spawns one `MirrorStalker` behind them after a short random delay. Only one is ever alive at a time; a failed roll takes the shorter `RollCooldown` and a finished encounter takes the full `Cooldown`.
-- API: `MirrorStalkerService:Trigger(player: Player) -> (boolean, string?)` — spawn one for that player right now, skipping the roll and the cooldown but not the room and solitude checks; the string is the refusal reason
+Owns the mirror-room encounter: it polls the players standing inside every `MirrorRoom` tagged model and, when someone enters who is not already the Stalker's target and the cooldown has elapsed, rolls `Chance` and spawns one `MirrorStalker` behind them after a short random delay. Other players in the room do not block it, since the reflection is only rendered for its target. Only one is ever alive at a time; a failed roll takes the shorter `RollCooldown` and a finished encounter takes the full `Cooldown`.
+- API: `MirrorStalkerService:Trigger(player: Player) -> (boolean, string?)` — spawn one for that player right now, skipping the roll and the cooldown but not the room check; the string is the refusal reason
 - API: `MirrorStalkerService:GetActive() -> any?` — the live encounter, if there is one
 - API: `MirrorStalkerService:Clear() -> boolean` — despawn it
 - Requires: `EnemyConfigs.MirrorStalker` (`Chance`, `Cooldown`, `RollCooldown`, `PollInterval`, `SpawnDelayMin/Max`), `ReplicatedStorage.Services.MirrorRoomService`, `EnemyService:Spawn`, `EnemyDirectorService:GetStalkerTarget`, `CharacterService`; inert unless `FLAGS.Enemies`

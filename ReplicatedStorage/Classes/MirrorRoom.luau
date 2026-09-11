@@ -415,7 +415,10 @@ function MirrorRoom:_subjects(): { Model }
 
 	if MirrorRoomConfig.ReflectEnemies then
 		for _, enemy in CollectionService:GetTagged("Enemy") do
-			if enemy:IsA("Model") and enemy:IsDescendantOf(workspace) then
+			if not enemy:IsA("Model") or not enemy:IsDescendantOf(workspace) then continue end
+
+			local viewer = enemy:GetAttribute(MirrorRoomConfig.ViewerAttribute)
+			if viewer == nil or viewer == player.UserId then
 				table.insert(models, enemy)
 			end
 		end
