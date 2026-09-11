@@ -290,6 +290,7 @@ local function search(_changeState: StateMachine.ChangeState, npc: any, lastKnow
 		npc:SetSpeed(npc.Config.WalkSpeed)
 		npc:WalkTo(lastKnown)
 	end
+	npc:SetSpeed(0)
 	npc:StopMoving()
 
 	local animations = npc.Config.Animations

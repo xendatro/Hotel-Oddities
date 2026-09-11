@@ -169,11 +169,11 @@ Kinematic surface locomotion for any humanoid rig -- the NPC-side counterpart to
 ## Enemies
 
 ### Enemies\Blind.luau
-A deaf-to-sight, hearing-driven hunter: it registers an "ear" with `HearingService` and builds *Determination* from noises, which decays in silence and controls its speed tier (Investigate / Alert / Chase). Distinct behaviours are the flinch-and-turn "notice", coasting past a noise position after overshooting, playing the looping `Listen` animation override while standing at its search point, and only killing when highly certain.
+A deaf-to-sight, hearing-driven hunter: it registers an "ear" with `HearingService` and builds *Determination* from noises, which decays in silence and controls its speed tier (Investigate / Alert / Chase). Distinct behaviours are the flinch-and-turn "notice", coasting past a noise position after overshooting, stopping before playing the looping `Listen` animation override at its search point, and only killing when highly certain.
 - API: `Blind.new(model: Model, config) -> self` — adds the heard-noise and determination fields.
 - API: `Blind:BuildStateMachine() -> StateMachine` — Investigate/Pursue/Attack/Search plus the shared Idle/Wander/Patrol/Despawn and a Stunned wrapper that stops the listen override; evaluators `Hearing` and `Contact`.
 - Requires: `ServerStorage.Classes.NPC`, `HearingService`, `Configs.HeartbeatConfig`
-- Notes: overrides `NPC.new` and `BuildStateMachine`; writes the heartbeat `PursuitAttribute` on the model while pursuing or attacking; the Search state plays `Config.Animations.Listen` (preloaded at construction) through `NpcAnimator:PlayOverride` for the greater of `SearchTime` and the track's length, and Investigate/Pursue/Attack/Stunned each stop it on entry
+- Notes: overrides `NPC.new` and `BuildStateMachine`; writes the heartbeat `PursuitAttribute` on the model while pursuing or attacking; the Search state stops the Humanoid before playing `Config.Animations.Listen` (preloaded at construction) through `NpcAnimator:PlayOverride` for the greater of `SearchTime` and the track's length, and Investigate/Pursue/Attack/Stunned each stop it on entry
 
 ### Enemies\CeilingDweller.luau
 A Chaser that spawns on the ceiling and physically drops onto the floor before behaving normally: `Start` tweens the model down with collisions and humanoid states disabled, cues the victim's client camera ("Drop" then "Scream"), and only then hands off to `NPC.Start`.

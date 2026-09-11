@@ -461,7 +461,7 @@ become Services or Classes.
 - ServerStorage\Classes\SpeedDrink.luau — Server tool that plays a drink sequence and grants a temporary speed boost.
 - ServerStorage\Classes\SurfaceWalker.luau — Kinematic wall/ceiling locomotion for any humanoid rig or NPC; walks a rig along surface contact points with animation.
 - ServerStorage\Classes\TrapObject.luau — Placeable trap that snaps shut and kills the first non-Ghost NPC to touch it.
-- ServerStorage\Classes\Enemies\Blind.luau — Hearing-driven hunter whose determination builds from noise and decays in silence.
+- ServerStorage\Classes\Enemies\Blind.luau — Hearing-driven hunter whose determination builds from noise and decays in silence, stopping to play its inspection animation at each search point.
 - ServerStorage\Classes\Enemies\CeilingDweller.luau — Chaser that drops from the ceiling onto its victim before hunting normally.
 - ServerStorage\Classes\Enemies\Chaos.luau — Fast hazard that sweeps a precomputed route, killing everything along the segment, and despawns crashing into the wall at the route's end.
 - ServerStorage\Classes\Enemies\Chaser.luau — Plain sight-based pursuer with visual variants; the template most humanoid enemies extend. Safe-room door reactions are controlled by the config's `AllowRoomReaction` flag.
