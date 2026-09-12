@@ -267,7 +267,7 @@ Reports to the server, roughly 20 times a second, which `Observable` models the 
 - Requires: `Services.SightlineService`, `Configs.ObservedFreezeConfig`, `Configs.FLAGS` (whole module is inert when `FLAGS.Enemies` is off)
 
 ### EyeHitEffectService.luau
-Full-screen feedback for the Eye enemy: on a hit remote it plays an eyelid blink, a blur pulse, a colour flash, an FOV punch, and a damage sound. Also exposes the continuous "being stared at" effect — vignette edges, a breathing pulse, and camera roll/sway — driven each frame by EyeRenderService.
+Full-screen feedback for the Eye enemy: on a hit remote it plays an eyelid blink, a blur pulse, a colour flash, an FOV punch, and a damage sound. Also exposes the continuous "being stared at" effect — vignette edges, a breathing pulse, and camera roll/sway (sway also shifts `Camera.Focus` so it never turns the first-person character) — driven each frame by EyeRenderService.
 - API: `EyeHitEffectService:UpdateGaze(strength: number, deltaTime: number)` — advance the gaze vignette and camera sway toward `strength` (0-1)
 - Remotes: `Enemies/EyeHit` (listened)
 - Requires: `Configs.EyeConfig`, `Configs.FLAGS`, `CameraFovService`, `AudioService`, `GuiBuilderService`, `MathService`
@@ -279,7 +279,7 @@ Renders every `Eye` tagged model client-side each frame: bobs it on its own phas
 - Requires: `Services.AimService`, `Services.BobService`, `Services.SightlineService`, `Services.VanishedService`, `Configs.EyeConfig`, `Configs.FLAGS`, `EyeHitEffectService`, `TagService`
 
 ### FirstPersonCameraService.luau
-Hides the default mouse icon, enables the custom `Cursor` GUI, and adds walking camera bob — a stronger sine sway plus walk-cycle roll whose speed and amplitude scale with horizontal walk speed, fading in and out as the player starts and stops. Strafing adds a reduced, smoothed movement-direction camera tilt. Bob is suppressed entirely while an actual chaser camera effect is active.
+Hides the default mouse icon, enables the custom `Cursor` GUI, and adds walking camera bob — a stronger sine sway plus walk-cycle roll whose speed and amplitude scale with horizontal walk speed, fading in and out as the player starts and stops. Strafing adds a reduced, smoothed movement-direction camera tilt. Bob is suppressed entirely while an actual chaser camera effect is active. The bob's translation is also applied to `Camera.Focus`, because first-person CameraRelative facing follows the camera-to-Focus vector, which is only a fraction of a stud horizontally when looking up; moving the camera alone swung the character up to ±26°.
 - API: data table — empty; the render-step job is bound on require.
 - Requires: `Configs.CameraBobConfig`, `ChaserCameraService`, `MathService`
 
@@ -781,7 +781,7 @@ Progressively reveals a string word by word in a stable pseudo-random order deri
 - API: `Redaction.NewlyVisible(text: string, seed: string, before: number, after: number) -> { number }` — indices gained between two progress values
 
 ### ShakeService.luau
-Client camera-shake front end over the vendored `CameraShaker`. Offers five named presets, keyed sustained shakes, and a `Rumble` handle whose magnitude can be driven continuously (e.g. by proximity).
+Client camera-shake front end over the vendored `CameraShaker`. Offers five named presets, keyed sustained shakes, and a `Rumble` handle whose magnitude can be driven continuously (e.g. by proximity). Shake translation is carried onto `Camera.Focus` as well so it never turns the first-person character.
 - API: `ShakeService:Create(shakeData: { ID: string, ShakeType: "Once" | "Sustained", Preset: string })` — presets are `Scare`, `Small`, `Jumpscare`, `Slam`, `Jolt`
 - API: `ShakeService:Delete(ID: string)` — fades out and forgets a sustained shake
 - API: `ShakeService:CreateDynamicRumble(startValue: number, params: RumbleParams?) -> Rumble` — handle with `:AdjustValue(n)`, `:Stop(fadeOutTime?)`, `:Start()`

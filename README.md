@@ -118,7 +118,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\EnemyObservationService.luau — Reports which observable models the local camera can see to the server.
 - ReplicatedStorage\Services\EyeHitEffectService.luau — Blink, blur, flash and gaze-vignette screen effects for the Eye enemy.
 - ReplicatedStorage\Services\EyeRenderService.luau — Bobs and aims tagged Eye models at the camera and computes gaze strength.
-- ReplicatedStorage\Services\FirstPersonCameraService.luau — Walking camera bob, strafing tilt and custom cursor setup for first person.
+- ReplicatedStorage\Services\FirstPersonCameraService.luau — Walking camera bob, strafing tilt and custom cursor setup for first person, shifting Camera.Focus with the bob so it never turns the character.
 - ReplicatedStorage\Services\FlashlightDebugService.luau — F7 panel for tuning the flashlight beam cones, warmth and camera offset live.
 - ReplicatedStorage\Services\FlashlightService.luau — Renders every flashlight beam as stacked spotlight cones, camera-mounted for the local player so the beam centre sits on the crosshair.
 - ReplicatedStorage\Services\FriendAvatarService.luau — Client-only cache that builds character models from the local player's friends' avatars.

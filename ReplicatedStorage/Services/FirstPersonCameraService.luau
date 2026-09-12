@@ -90,6 +90,7 @@ local function render(deltaTime: number)
 	local roll = math.rad(
 		(-side * CameraBobConfig.RollAngle - strafe * CameraBobConfig.StrafeTiltAngle) * scale
 	)
+	camera.Focus += camera.CFrame:VectorToWorldSpace(offset)
 	camera.CFrame *= CFrame.new(offset) * CFrame.Angles(0, 0, roll)
 end
 
