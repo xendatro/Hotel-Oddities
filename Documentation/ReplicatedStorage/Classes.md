@@ -82,7 +82,7 @@ Client crawl-hole: attaches a `CrawlPrompt`, and on trigger asks the server for 
 - Requires: `Services.TagService` (`GetTaggedOfPredicate`), `Services.AudioService`, `Services.CommunicationService`, `PlayerModule` controls, `ReplicatedStorage.Props.Prompts.CrawlPrompt`
 
 ### Interaction.luau
-Client look-at interaction system: raycasts from the camera each render step over registered models, highlights the hit target, and draws/animates a key-prompt pill cloned from the `Cursor` gui. Handles keyboard, gamepad and touch input through ContextActionService, and supports targets that ignore occlusion. A fresh `Highlight` is created under `workspace` for each newly selected model and destroyed once its fade reaches zero — no single long-lived Highlight instance is reused across selections.
+Client look-at interaction system: raycasts from the camera each render step over registered models, highlights the hit target, and draws/animates a key-prompt pill cloned from the `Cursor` gui. Handles keyboard, gamepad and touch input through ContextActionService, and supports targets that ignore occlusion. A fresh `Highlight` is parented directly inside each newly selected model, with no `Adornee`, fades in, and is destroyed once its fade-out reaches zero. It is never placed in `workspace` itself or given an `Adornee`, because either costs a synchronous engine pass proportional to the workspace instance count (about 5ms at 33k instances).
 - API: `Interaction.new() -> Interaction` — binds the render step and builds the prompt UI
 - API: `Interaction:Register(model: Model, options: TargetOptions)` — `Prompt` (string or function), `TextWidth`, `CanSelect`, `Reach`, `IgnoreOcclusion`, `OnActivated`
 - API: `Interaction:Unregister(model: Model)`
