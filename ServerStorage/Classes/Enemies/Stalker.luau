@@ -31,7 +31,7 @@ local ROUTE_DETOUR_FLOOR = 15
 local MAX_RETREAT_ATTEMPTS = 5
 local RETREAT_PROGRESS = 4
 local REPATH_WAIT = 0.1
-local KILL_DISTANCE = 4
+local REVEAL_CLEARANCE = Vector3.new(2, 4, 2)
 local KILL_STRIKE_DELAY = 0.45
 local KILL_LINGER = 0.6
 
@@ -164,6 +164,47 @@ function Stalker:_sprintTo(destination: Vector3, shouldStop: () -> boolean): str
 	return "Abandoned"
 end
 
+function Stalker:_findRevealStand(target: Player, position: Vector3): Vector3?
+	local character = target.Character :: Model
+	local root = character.HumanoidRootPart :: BasePart
+	local filter = { self.Model, character }
+
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = filter
+	params.RespectCanCollide = true
+	params.CollisionGroup = self.RootPart.CollisionGroup
+
+	local overlap = OverlapParams.new()
+	overlap.FilterType = Enum.RaycastFilterType.Exclude
+	overlap.FilterDescendantsInstances = filter
+	overlap.RespectCanCollide = true
+	overlap.CollisionGroup = self.RootPart.CollisionGroup
+
+	local height = self.RootPart.Position.Y
+	local from = Vector3.new(position.X, height, position.Z)
+	for _, direction in { flatten(self.RootPart.Position - position), -flatten(root.CFrame.LookVector) } do
+		if direction.Magnitude < 1e-3 then continue end
+		local stand = from + direction.Unit * self.Config.KillDistance
+		if workspace:Raycast(from, stand - from, params) then continue end
+		if #workspace:GetPartBoundsInBox(CFrame.new(stand), REVEAL_CLEARANCE, overlap) > 0 then continue end
+		return stand
+	end
+	return nil
+end
+
+function Stalker:_standBehind(target: Player)
+	local position = self:GetTargetPosition(target)
+	if not position then return end
+
+	local stand = self:_findRevealStand(target, position)
+	if stand then
+		self.RootPart.CFrame = CFrame.lookAt(stand, Vector3.new(position.X, stand.Y, position.Z))
+	else
+		self:FaceTowards(position)
+	end
+end
+
 function Stalker:_retreatFrom(eye: Vector3): boolean
 	local origin = self.RootPart.Position
 	local away = flatten(origin - eye)
@@ -191,6 +232,19 @@ local function stalk(_changeState: StateMachine.ChangeState, npc: any, target: P
 	npc:SetSpeed(config.WalkSpeed)
 
 	local ending = nil :: string?
+	local pace, pacedAt = nil :: number?, os.clock()
+
+	local function matchPace(behind: Vector3)
+		local root = (target.Character :: Model).HumanoidRootPart :: BasePart
+		local speed = flatten(root.AssemblyLinearVelocity).Magnitude
+		local now = os.clock()
+		local smoothed = if pace then pace + (speed - pace) * MathService.ExpAlpha(config.StalkPaceResponse, now - pacedAt) else speed
+		pace, pacedAt = smoothed, now
+
+		local lag = flatten(behind - npc.RootPart.Position).Magnitude - config.FollowSlack
+		local catchUp = math.clamp(lag / config.StalkCatchUpDistance, 0, 1)
+		npc:SetSpeed(math.max(smoothed, config.StalkMinSpeed) + config.StalkCatchUpSpeed * catchUp)
+	end
 
 	local function getGoal(): Vector3?
 		if npc:IsObserved() then
@@ -208,6 +262,7 @@ local function stalk(_changeState: StateMachine.ChangeState, npc: any, target: P
 			ending = "Strike"
 			return nil
 		end
+		matchPace(behind)
 		return behind
 	end
 
@@ -237,25 +292,18 @@ local function reveal(_changeState: StateMachine.ChangeState, npc: any, target: 
 		return "Despawn", npc
 	end
 
-	local away = flatten(npc.RootPart.Position - position)
-	local direction = if away.Magnitude > 1e-3 then away.Unit else -flatten(npc.RootPart.CFrame.LookVector).Unit
-	local stand = Vector3.new(
-		position.X + direction.X * KILL_DISTANCE,
-		npc.RootPart.Position.Y,
-		position.Z + direction.Z * KILL_DISTANCE
-	)
-	if npc:HasMovementClearance(stand) then
-		npc.RootPart.CFrame = CFrame.lookAt(stand, Vector3.new(position.X, stand.Y, position.Z))
-	else
-		npc:FaceTowards(position)
-	end
+	npc:_standBehind(target)
 
 	npc.Model:SetAttribute("SuppressKillAnimation", true)
 	FaceStalker:FireClient(target, npc.Model, config.RevealTurnTime, true)
 
 	EnemyDiscoveryService:GrantEvent(target, npc.EnemyId)
 
-	task.wait(config.RevealTurnTime + config.RevealHoldTime)
+	local strikeAt = os.clock() + config.RevealTurnTime + config.RevealHoldTime
+	repeat
+		task.wait()
+		npc:_standBehind(target)
+	until os.clock() >= strikeAt
 
 	if npc:GetTargetPosition(target) then
 		npc.Animator:PlayAttack()

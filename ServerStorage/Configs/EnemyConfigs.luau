@@ -159,6 +159,11 @@ export type EnemyConfig = {
 	StrikeDistance: number?,
 	RevealTurnTime: number?,
 	RevealHoldTime: number?,
+	KillDistance: number?,
+	StalkMinSpeed: number?,
+	StalkCatchUpSpeed: number?,
+	StalkCatchUpDistance: number?,
+	StalkPaceResponse: number?,
 	FleeTime: number?,
 	FleeCoverRange: number?,
 	FleeCoverMinDistance: number?,
@@ -417,6 +422,12 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		StrikeDistance = 10,
 		RevealTurnTime = 0.25,
 		RevealHoldTime = 0.4,
+		KillDistance = 2.5,
+
+		StalkMinSpeed = 12,
+		StalkCatchUpSpeed = 12,
+		StalkCatchUpDistance = 20,
+		StalkPaceResponse = 4,
 
 		FleeTime = 15,
 
