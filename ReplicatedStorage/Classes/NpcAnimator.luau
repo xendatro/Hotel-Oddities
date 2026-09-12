@@ -196,14 +196,14 @@ function NpcAnimator:PreloadOverride(assetId: number)
 	self:_overrideTrack(assetId)
 end
 
-function NpcAnimator:PlayOverride(assetId: number): AnimationTrack
+function NpcAnimator:PlayOverride(assetId: number, fadeTime: number?): AnimationTrack
 	if self.Override and self.OverrideAssetId == assetId then return self.Override end
 
 	self:StopOverride()
 	local track = self:_overrideTrack(assetId)
 	self.Override = track
 	self.OverrideAssetId = assetId
-	track:Play(TRANSITION_TIME)
+	track:Play(fadeTime or TRANSITION_TIME)
 	return track
 end
 

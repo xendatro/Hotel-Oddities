@@ -173,7 +173,7 @@ A deaf-to-sight, hearing-driven hunter: it registers an "ear" with `HearingServi
 - API: `Blind.new(model: Model, config) -> self` — adds the heard-noise and determination fields.
 - API: `Blind:BuildStateMachine() -> StateMachine` — Investigate/Pursue/Attack/Search plus the shared Idle/Wander/Patrol/Despawn and a Stunned wrapper that stops the listen override; evaluators `Hearing` and `Contact`.
 - Requires: `ServerStorage.Classes.NPC`, `HearingService`, `Configs.HeartbeatConfig`
-- Notes: overrides `NPC.new` and `BuildStateMachine`; writes the heartbeat `PursuitAttribute` on the model while pursuing or attacking; the Search state plays `Config.Animations.Listen` (preloaded at construction) through `NpcAnimator:PlayOverride` for the greater of `SearchTime` and the track's length, and Investigate/Pursue/Attack/Stunned each stop it on entry
+- Notes: overrides `NPC.new` and `BuildStateMachine`; writes the heartbeat `PursuitAttribute` on the model while pursuing or attacking; the Search state plays `Config.Animations.Listen` (preloaded at construction) through `NpcAnimator:PlayOverride` with `ListenFadeTime` (0.35 seconds) for the greater of `SearchTime` and the track's length, and Investigate/Pursue/Attack/Stunned each stop it on entry
 
 ### Enemies\CeilingDweller.luau
 A Chaser that spawns on the ceiling and physically drops onto the floor before behaving normally: `Start` tweens the model down with collisions and humanoid states disabled, cues the victim's client camera ("Drop" then "Scream"), and only then hands off to `NPC.Start`.

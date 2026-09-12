@@ -295,7 +295,7 @@ local function search(_changeState: StateMachine.ChangeState, npc: any, lastKnow
 
 	local animations = npc.Config.Animations
 	local listenId = animations and animations.Listen
-	local listenTrack = if listenId then npc.Animator:PlayOverride(listenId) else nil
+	local listenTrack = if listenId then npc.Animator:PlayOverride(listenId, npc.Config.ListenFadeTime) else nil
 	local listenTime = math.max(npc.Config.SearchTime, listenTrack and listenTrack.Length or 0)
 	print("[Blind] Search reached point, listening for", listenTime, "seconds")
 	task.wait(listenTime)
