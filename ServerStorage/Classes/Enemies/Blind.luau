@@ -77,6 +77,12 @@ local function notice(npc: any)
 	end
 end
 
+local function startListening(npc: any): AnimationTrack?
+	local animations = npc.Config.Animations
+	local listenId = animations and animations.Listen
+	return if listenId then npc.Animator:PlayOverride(listenId, npc.Config.ListenFadeTime) else nil
+end
+
 local function coastPast(npc: any): boolean
 	local range = npc.Config.OvershootRange or 0
 	local base = npc.Humanoid.WalkSpeed
@@ -112,6 +118,10 @@ local function coastPast(npc: any): boolean
 		local travelled = Vector3.new(offset.X, 0, offset.Z):Dot(heading)
 		local progress = math.clamp((os.clock() - startedAt) / duration, 0, 1)
 		if travelled >= room then break end
+
+		if deadline - os.clock() <= (npc.Config.ListenFadeTime or 0.6) then
+			startListening(npc)
+		end
 
 		npc:SetSpeed(base * (1 - progress))
 		npc.Humanoid:MoveTo(stop)
@@ -181,8 +191,8 @@ local function hear(npc: any, noise, distance: number)
 	print("[Blind] heard noise from", noise.Source, "dist", math.floor(distance + 0.5), "close =", close, "state", before, "->", npc.StateMachine.State)
 end
 
-local function stopListening(npc: any)
-	npc.Animator:StopOverride()
+local function stopListening(npc: any, fadeTime: number?)
+	npc.Animator:StopOverride(fadeTime)
 end
 
 local function investigate(_changeState: StateMachine.ChangeState, npc: any)
@@ -219,9 +229,6 @@ local function investigate(_changeState: StateMachine.ChangeState, npc: any)
 		return "Attack", npc, caught
 	end
 
-	if coastPast(npc) then
-		return "Investigate", npc
-	end
 
 	return "Search", npc, npc.RootPart.Position
 end
@@ -249,9 +256,6 @@ local function pursue(_changeState: StateMachine.ChangeState, npc: any, target: 
 
 	if result == "Reached" then
 		return "Attack", npc, target
-	end
-	if coastPast(npc) then
-		return "Investigate", npc
 	end
 	return "Search", npc, lastKnown
 end
@@ -291,16 +295,17 @@ local function search(_changeState: StateMachine.ChangeState, npc: any, lastKnow
 		npc:SetSpeed(npc.Config.WalkSpeed)
 		npc:WalkTo(lastKnown)
 	end
+	if coastPast(npc) then
+		return "Investigate", npc
+	end
 	npc:SetSpeed(0)
 	npc:StopMoving()
 
-	local animations = npc.Config.Animations
-	local listenId = animations and animations.Listen
-	local listenTrack = if listenId then npc.Animator:PlayOverride(listenId, npc.Config.ListenFadeTime) else nil
+	local listenTrack = startListening(npc)
 	local listenTime = math.max(npc.Config.SearchTime, listenTrack and listenTrack.Length or 0)
 	print("[Blind] Search reached point, listening for", listenTime, "seconds")
 	task.wait(listenTime)
-	stopListening(npc)
+	stopListening(npc, npc.Config.ListenFadeOutTime)
 	print("[Blind] Search finished, listen override stopped")
 	npc.HeardNoise = nil
 	npc.HeardPosition = nil
