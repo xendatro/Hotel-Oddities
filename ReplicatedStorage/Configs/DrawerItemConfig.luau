@@ -1,3 +1,5 @@
+local ComputerChipConfig = require(script.Parent.ComputerChipConfig)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DrawerConfig = require(ReplicatedStorage.Configs.DrawerConfig)
@@ -10,7 +12,7 @@ UI.Prompt = "PickupPrompt"
 UI.TextWidth = 64
 UI.PickupText = "Pick Up"
 
-return {
+local DrawerItemConfig = {
 	Tag = "DrawerItem",
 	Attribute = "ToolName",
 
@@ -49,3 +51,10 @@ return {
 		["Player Locator"] = "VeryRare",
 	},
 }
+
+DrawerItemConfig.Rarities.ComputerChip = ComputerChipConfig.LootWeight
+for _, entry in ComputerChipConfig.Colors do
+	DrawerItemConfig.Items[entry.ToolName] = "ComputerChip"
+end
+
+return DrawerItemConfig

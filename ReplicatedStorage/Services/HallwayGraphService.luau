@@ -195,16 +195,20 @@ local function pruneSpawnZones(graph: Graph)
 	end
 end
 
-local function build(): Graph
+local function build(corridorRoot: Instance?): Graph
 	local nodes = {}
 	local hallways: { Hallway } = {}
 	local added: { [BasePart]: boolean } = {}
 
-	for _, tag in TRAVERSABLE_TAGS do
+	for _, tag in (if corridorRoot then { HALLWAY_TAG } else TRAVERSABLE_TAGS) do
 		for _, instance in CollectionService:GetTagged(tag) do
 			if not instance:IsA("BasePart") or not instance:IsDescendantOf(workspace) then continue end
 
 			local part = instance :: BasePart
+			if corridorRoot then
+				local connectors = corridorRoot:FindFirstChild("Connectors")
+				if not part:IsDescendantOf(corridorRoot) or (connectors and part:IsDescendantOf(connectors)) then continue end
+			end
 			if added[part] then continue end
 			added[part] = true
 
@@ -259,8 +263,23 @@ local function build(): Graph
 		Nodes = nodes,
 		Hallways = hallways,
 	}
-	pruneSpawnZones(graph)
+	if corridorRoot then
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Include
+		params.FilterDescendantsInstances = { corridorRoot }
+		params.RespectCanCollide = true
+		for _, node in nodes do
+			local ground = workspace:Raycast(node.Position + Vector3.yAxis * 4, -Vector3.yAxis * 24, params)
+			node.Position = if ground then ground.Position else node.Position
+		end
+	else
+		pruneSpawnZones(graph)
+	end
 	return graph
+end
+
+function HallwayGraph:BuildCorridors(root: Instance)
+	return build(root)
 end
 
 function HallwayGraph:Build(): { RouteNode }

@@ -884,3 +884,15 @@ Client front end for the vendored Wallstick controller. Always listens on the re
 - API: `WallstickService.SetCameraInputRoll(roll: number)` — rotates PlayerModule's two-axis look input into the currently displayed camera roll without changing PlayerModule's cached world-up frame
 - Remotes: `Wallstick/Replicator`, `Wallstick/Sync` (via `Classes.Wallstick.Replication`)
 - Requires: `Classes.Wallstick` (+ its `RaycastHelper` and `Replication` children); expects `workspace.Wallstick` from the server `WallstickService`
+
+### ComputerChipTrailService.luau
+Client-only renderer for the activating player's computer-chip navigation route. Receives world-space route points only through FireClient, samples stationary neon ground dots along the polyline, trims the passed portion locally, and pools at most ComputerChipConfig.MaxDots parts within DotRenderDistance. Parts are anchored, noncolliding, nonqueryable and created only on this client. No trail parts are created on the server.
+- Remotes: ComputerChip/Route (listened), ComputerChip/Sync (fired once for startup recovery).
+- Lifetime: server timestamps drive opacity = 1 - t^FadePower and the existing right-side effects HUD; reroutes keep the original expiry. Expiry, character removal or a server clear hides the trail and dismisses its HUD tile. A successful new chip replaces the previous active chip trail.
+- Requires: ComputerChipConfig, CommunicationService, CharacterService, EffectsHUDService.
+
+### EffectsHUDService — timed effect integration
+ShowTimed(effectName, duration, endsAt, color?) reuses the existing draining icon and tenths-of-a-second countdown for an externally timed effect; Dismiss(effectName) removes it. Computer chips use their tool name as the effect key and the same server expiry as their trail. The icon drain stays linear; the ground trail uses the separately configured cubic opacity curve.
+
+### HallwayGraphService — player corridor graph
+BuildCorridors(root) returns a fresh { Nodes, Hallways } graph using the same hallway intersection and connection algorithm as patrol. It selects MazeFloor parts under root outside its Connectors folder and excludes the room-floor shortcuts. This separate graph preserves player access to spawn-safe hallways and does not change the enemy graph's pruning or danger-weighted patrol behavior. ComputerChipRouteService adds explicit room portals and endpoint connections, then calls the existing FindPath with physical distance costs.

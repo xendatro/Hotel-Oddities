@@ -341,4 +341,18 @@ if player.Character then
 end
 player.CharacterAdded:Connect(watchCharacter)
 
+function EffectsHUDService:ShowTimed(effectName: string, duration: number, endsAt: number, color: Color3?)
+	show(effectName, duration, endsAt)
+	local entry = Entries[effectName]
+	if color and entry then
+		local icon = entry.Bright and entry.Bright:FindFirstChild("Icon")
+		if icon and icon:IsA("ImageLabel") then icon.ImageColor3 = color end
+		entry.Label.TextColor3 = color
+	end
+end
+
+function EffectsHUDService:Dismiss(effectName: string)
+	dismiss(effectName)
+end
+
 return EffectsHUDService

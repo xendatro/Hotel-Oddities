@@ -1,3 +1,5 @@
+local ComputerChipConfig = require(script.Parent.ComputerChipConfig)
+
 export type ToolConfig = {
 	Tag: string,
 	Sound: string?,
@@ -5,7 +7,7 @@ export type ToolConfig = {
 	[string]: any,
 }
 
-return {
+local ToolConfigs = {
 	Flashlight = {
 		Tag = "Flashlight",
 		Cooldown = 0.15,
@@ -181,3 +183,15 @@ return {
 		},
 	},
 }
+
+for _, entry in ComputerChipConfig.Colors do
+	ToolConfigs[entry.ToolName] = {
+		Tag = entry.ToolName,
+		Class = "ComputerChip",
+		ColorKey = entry.Key,
+		Duration = ComputerChipConfig.Duration,
+		Cooldown = 1,
+	}
+end
+
+return ToolConfigs

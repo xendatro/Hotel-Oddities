@@ -244,3 +244,11 @@ Radio ranges, volumes, keybinds, friend/all modes, the on-model screen UI palett
 ### WatchConfig.luau
 Range, angle limits and joint weighting for the Watch class, which makes an NPC's head and torso track the local player.
 - API: data table — `TrackRange`, `MaxPitchUp`, `MaxPitchDown`, `MaxYaw`, `Smoothing`, `Neck`, `Waist`
+
+### ComputerChipConfig.luau
+Shared configuration for the five navigation chips: color-to-room mapping, 60-second duration, cubic fade exponent, shared loot weight (12 per color), server route checks (0.5 seconds), reroute throttle (3 seconds / 8 studs), connector cache lifetimes, a two-job ComputeAsync concurrency cap, player clearance, and local neon-dot spacing, visibility range and pooling limits. Change Duration here to update tool configuration, the effect HUD countdown and trail lifetime together.
+- Colors: Blue -> Room_357, Red -> Room_419, Green -> Room_466, Yellow -> Room_599, Purple -> Room_998, all under Maze15.Rooms.
+- Attributes: ComputerChipColor on the real computers and chip templates.
+- Remotes: ComputerChip/Route (server-to-owner route, duration, expiry and revision), ComputerChip/Sync (owner requests an active route snapshot).
+- DrawerItemConfig adds all five names to its Items table with the same ComputerChip rarity weight; existing stocking targets and refill timers are unchanged. The no-immediate-repeat rule still applies.
+- ToolConfigs adds the five tagged tools with Class = ComputerChip and their ColorKey; EffectsHUDConfig gives each the computer icon, tinted by the active trail's color.

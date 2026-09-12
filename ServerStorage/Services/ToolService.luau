@@ -28,7 +28,7 @@ function ToolService:GetAllOf(toolName: string): { any }
 end
 
 for toolName, config in ToolConfigs do
-	local module = ToolClasses:FindFirstChild(toolName)
+	local module = ToolClasses:FindFirstChild(config.Class or toolName)
 	if module then
 		local class = require(module)
 

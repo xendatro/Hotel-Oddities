@@ -504,3 +504,14 @@ become Services or Classes.
 ### StarterPlayer
 
 - StarterPlayer\StarterPlayerScripts\Init.local.luau — Client bootstrap; requires every ReplicatedStorage Service and runs the client Tagger.
+
+## Colored computer chip navigation
+
+- ReplicatedStorage\Configs\ComputerChipConfig.luau — Five computer colors, matching drawer loot tools, duration, fade, route cache limits and neon-dot settings.
+- ServerStorage\Classes\Tools\ComputerChip.luau — Shared server tool activation through the existing ToolBase lifecycle.
+- ServerStorage\Services\ComputerChipService.luau — Validated single-use inventory consumption, owner-only route messages, timed effects and rerouting.
+- ServerStorage\Services\ComputerChipRouteService.luau — Distance-only patrol-graph routing with connector entrance/direct/pathfinding/forced-direct fallbacks and hallway-only room endpoints.
+- ReplicatedStorage\Services\ComputerChipTrailService.luau — Local pooled neon dots, continuous expiry fade and the existing right-side effects HUD countdown.
+- HallwayGraphService.BuildCorridors supplies an isolated player corridor graph; EffectsHUDService.ShowTimed/Dismiss supply reusable timed HUD effects. ToolService accepts an optional configured Class so all colors share one implementation.
+- DrawerItemConfig gives each chip weight 12 through a shared ComputerChip rarity. ToolConfigs and EffectsHUDConfig derive the five names and duration/icon settings from ComputerChipConfig.
+- Studio assets: five colored clones of ReplicatedStorage.Tools.Computer Chip, five computer nameplates, and Communication.ComputerChip.Route/Sync; see Documentation\ReplicatedStorage\Tools.md.

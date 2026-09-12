@@ -569,3 +569,8 @@ Server half of the walkie talkie: asks `WalkieTalkieService` to reconcile the ow
 - API: `WalkieTalkie.new(tool: Tool)`
 - API: `WalkieTalkie:OnEquipped()` / `WalkieTalkie:OnUnequipped()` / `WalkieTalkie:OnDestroy()`
 - Requires: `Classes\ServerTool`, `Services\WalkieTalkieService`
+
+### Tools\ComputerChip.luau
+Shared server ToolBase/ServerTool subclass for all five colored computer chip tools. OnActivated delegates to ComputerChipService with the owner, exact Tool instance and configured ColorKey. Existing equip/liveness/busy/cooldown handling stays in ToolBase; no duplicate client activation is used. The service consumes exactly one inventory quantity only after the initial route succeeds and ownership/equipped state are rechecked.
+- Requires: Classes.ServerTool, Services.ComputerChipService.
+- Registration: ToolService resolves ToolConfigs[name].Class when present, otherwise the existing toolName-based class lookup.

@@ -1,4 +1,6 @@
-return {
+local ComputerChipConfig = require(script.Parent.ComputerChipConfig)
+
+local EffectsHUDConfig = {
 	TileSize = 56,
 	TilePadding = 6,
 	CornerRadius = 8,
@@ -39,3 +41,9 @@ return {
 		Pathfinder = "rbxassetid://104851926131232",
 	},
 }
+
+for _, entry in ComputerChipConfig.Colors do
+	EffectsHUDConfig.Icons[entry.ToolName] = ComputerChipConfig.Icon
+end
+
+return EffectsHUDConfig
