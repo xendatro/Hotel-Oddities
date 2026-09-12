@@ -35,6 +35,7 @@ local poseOverrideName: string? = nil
 local poseAnchor: Vector3? = nil
 local poseArmAnchor: Vector3? = nil
 local poseRotate: CFrame? = nil
+local captureHidden = false
 
 local function isFirstPerson(character: Model): boolean
 	if player.CameraMode == Enum.CameraMode.LockFirstPerson then return true end
@@ -158,7 +159,9 @@ local function buildRig(tool: Tool)
 		table.insert(rigParts, arm)
 	end
 
-	model.Parent = workspace.CurrentCamera
+	if not captureHidden then
+		model.Parent = workspace.CurrentCamera
+	end
 	rig = model
 
 	local sleeve = model:FindFirstChild("Sleeve")
@@ -240,6 +243,14 @@ local function step(deltaTime: number)
 			end
 			buildRig(tool)
 		end
+	end
+
+	if captureHidden then
+		if tool then setRealToolHidden(true) end
+		if rig then rig.Parent = nil end
+		lastShowViewmodel = nil
+		lastCameraCFrame = nil
+		return
 	end
 
 	if not character or not tool or not rig then
@@ -372,6 +383,16 @@ end
 function ViewmodelService:SetPoseOverride(active: boolean, pose: string?)
 	poseOverrideActive = active
 	poseOverrideName = pose
+end
+
+function ViewmodelService:SetCaptureHidden(hidden: boolean)
+	captureHidden = hidden
+	if not hidden then return end
+
+	if currentTool then setRealToolHidden(true) end
+	if rig then rig.Parent = nil end
+	lastShowViewmodel = nil
+	lastCameraCFrame = nil
 end
 
 function ViewmodelService:GetRig(): Model?

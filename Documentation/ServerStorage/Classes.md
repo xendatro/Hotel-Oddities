@@ -30,20 +30,20 @@ The full humanoid-enemy base: pathfinding with prefetch, direct-pursuit/lane-cle
 - API: `NPC:SetNetworkOwner(player: Player?)` — pins every descendant part's owner; refreshed on a loop.
 - API: `NPC:FaceTowards(position: Vector3)` — instant flat snap of root CFrame.
 - API: `NPC:TurnTowardsSmooth(position: Vector3, duration: number?)` — lerped turn over Heartbeat.
-- API: `NPC:ReactAtRoomDoor(room: Model, movementSpeed: number?, shouldCancel: (() -> boolean)?) -> boolean` — walk to a safe-room door, turn, then play the animation set's `RoomReaction` override (the Chaser's door knock) or fall back to the cheer emote.
+- API: `NPC:ReactAtRoomDoor(room: Model, movementSpeed: number?, shouldCancel: (() -> boolean)?) -> boolean` — path to the safe-room door's approach point, step the last couple of studs straight to the contact point so the reaction plays against the door rather than out in the corridor, turn, then play the animation set's `RoomReaction` override (the Chaser's door knock) or fall back to the cheer emote.
 - API: `NPC:PrefetchPath(destination: Vector3, origin: Vector3?)` — starts an async path compute other calls can claim.
 - API: `NPC:ComputePath(destination: Vector3, tolerance: number?) -> Path?` — consumes a matching prefetch or computes synchronously.
-- API: `NPC:TakePrefetchedPath(destination: Vector3, tolerance: number?) -> Path?` — non-blocking claim of a finished prefetch.
+- API: `NPC:TakePrefetchedPath(destination: Vector3, tolerance: number?) -> (Path?, number)` — non-blocking claim of a finished prefetch, plus the waypoint index to start from. When the NPC has moved more than 12 studs since the request, the path is joined at its furthest waypoint within 12 studs that has lane clearance instead of being discarded, so a path computed while moving is not thrown away.
 - API: `NPC:GetMovementWaypoints(path: Path) -> { PathWaypoint }` — override point for waypoint filtering.
 - API: `NPC:GetWaypointDistance(position: Vector3) -> number` — distance from root to a waypoint corrected for hip height.
 - API: `NPC:GetClearRun(direction: Vector3, distance: number) -> number` — blockcast-measured free run in a direction.
-- API: `NPC:HasMovementClearance(destination: Vector3) -> boolean` — agent-sized blockcast, ignoring players.
+- API: `NPC:HasMovementClearance(destination: Vector3) -> boolean` — agent-sized blockcast, ignoring players. Every lane probe (this, `GetClearRun`, `MoveTowards`, `MoveThrough`) casts on the root part's own collision group, so it sees the enemy-only `RoomBlocker` parts that stop the NPC's body; on the default group those blockers are invisible to the cast and the NPC walks into them.
 - API: `NPC:MoveTowards(destination: Vector3) -> boolean` — move as far as the lane allows; false when too obstructed.
 - API: `NPC:MoveThrough(destination: Vector3, beyond: Vector3?)` — move to an overshot point so the NPC does not brake at waypoints.
 - API: `NPC:AdvanceWaypoint(waypoints: { PathWaypoint }, index: number) -> number` — skips waypoints already effectively reached.
-- API: `NPC:WalkPatrolEdge(destination: Vector3, lateralOffset: number?) -> boolean` — stepped `MoveTo` walk with per-step timeout.
-- API: `NPC:WalkTo(destination: Vector3, shouldAbandon: (() -> boolean)?) -> boolean` — compute and walk one path.
-- API: `NPC:Pursue(getGoal: () -> Vector3?, arriveDistance: number?, hasArrived: (() -> boolean)?, canMoveDirectly: (() -> boolean)?) -> string` — the main chase loop; returns `"Reached"` or `"Lost"`.
+- API: `NPC:WalkPatrolEdge(destination: Vector3, lateralOffset: number?) -> boolean` — stepped `MoveTo` walk with per-step timeout; each step is clearance-checked first and the walk gives up the moment geometry is in the way, so `Patrol` falls straight through to the pathfinding `WalkTo` instead of shoving into a wall for the length of the timeout.
+- API: `NPC:WalkTo(destination: Vector3, shouldAbandon: (() -> boolean)?) -> boolean` — compute and walk one path. Waypoints the agent body cannot occupy are skipped rather than walked at; without that a single waypoint the navmesh places against a room blocker costs the whole walk an eight-second `MoveToFinished` timeout and then fails.
+- API: `NPC:Pursue(getGoal: () -> Vector3?, arriveDistance: number?, hasArrived: (() -> boolean)?, canMoveDirectly: (() -> boolean)?) -> string` — the main chase loop; returns `"Reached"` or `"Lost"`. While it has no computed route and the lane to the goal is blocked, it walks the hallway graph toward the goal (well-connected nodes, refreshed every 0.75s, skipping up to three nodes ahead that have lane clearance) rather than pushing straight into the wall until a path arrives.
 - API: `NPC:HasLineOfSight(part: BasePart) -> boolean` — single raycast ignoring both models.
 - API: `NPC:HasLineOfSightToPlayer(player: Player) -> boolean` — alive + not vanished + clear ray.
 - API: `NPC:HasPursuitSight(player: Player) -> boolean` — lenient multi-origin, multi-limb sight test used during chases.
@@ -60,7 +60,7 @@ The full humanoid-enemy base: pathfinding with prefetch, direct-pursuit/lane-cle
 - API: `NPC:Attack(player: Player)` — routes the kill through `DeathService:Strike` with `self.EnemyId`.
 - API: `NPC:BeginChase(target: Player)` — sets target, resumes animation, applies `ChaseSpeed`.
 - API: `NPC:MakePerceptionEvaluator(interval: number, findTarget: (npc) -> Player?) -> () -> ()` — builds an evaluator loop that pushes into `Chase`.
-- API: `NPC.SharedStates` — reusable state functions: `Attack`, `Idle`, `Wander`, `Patrol`, `Stunned`, `RoomReaction`, `Despawn`.
+- API: `NPC.SharedStates` — reusable state functions: `Attack`, `Idle`, `Wander`, `Patrol`, `Stunned`, `RoomReaction`, `Despawn`. `Patrol` only ever adopts and targets `WellConnected` graph nodes, so an enemy that ends up standing on a stranded pocket of floor walks back to the main network instead of pacing it forever.
 - Subclass: `Class = NPC.extend(name)`, `Class.new` calls `NPC.new(model, config, Class)`, and `Class:BuildStateMachine()` returns the state table/triggers/evaluators. Overriding `Start`/`Despawn` must call `NPC.Start(self)` / `NPC.Despawn(self)`. Config supplies WalkSpeed, ChaseSpeed, DetectionRange, FieldOfView, GiveUpRange, AgentParams, IdleTime*, IdleNextState, AttackCooldown, and optional ObservationRange/ObservationHold, RespectsSafeRooms, Repath*/Commit*/DirectPursuit* tuning. Optional hooks a subclass may define: `AttackLostState`, `StopMirroring`, `_laneProbeDrop`.
 - Tags: applies `Enemy`; applies `Observable` when `Config.ObservationRange` is set
 - Requires: `Classes.StateMachine`, `Classes.NpcAnimator`, `Classes.Race`, `Services.VanishedService`, `Configs.DangerConfig`, `DangerMapService`, `HallwayGraphService`, `RoomService`, `EnemyObservationService`, `DeathService`
@@ -117,12 +117,13 @@ The fixture-free twin of `FixturePool`: instead of arming tagged models it sampl
 ### HallwayOddity.luau
 Base class for map-scope oddities that occupy a hallway span rather than a single prop. It resolves and picks hallway spans, caches the span's bounding box, and offers a helper for broadcasting door actions to all clients.
 - API: `HallwayOddity.new(config: { [string]: any }?, class: any?) -> self`
-- API: `HallwayOddity.Resolve(class, position: Vector3) -> HallwayRegion.Span?` — span at a position.
+- API: `HallwayOddity.Resolve(class, position: Vector3, direction: Vector3?) -> HallwayRegion.Span?` — span at a position; `direction` decides which hallway wins at a junction.
 - API: `HallwayOddity.Pick(class) -> HallwayRegion.Span?` — occupied / biased / distant span depending on `RequiresPlayer` and `Settings.OccupiedChance`.
 - API: `HallwayOddity:CanStart(span: HallwayRegion.Span?) -> (boolean, string?)`
 - API: `HallwayOddity:Start(span: HallwayRegion.Span, duration: number?) -> boolean` — caches `BoxCFrame`/`BoxSize`, then `Oddity.Start`.
-- API: `HallwayOddity:FireMapDoors(action: string, ...)` — fires `Oddities/MapDoors` to all clients with this oddity's token.
-- Remotes: `Oddities/MapDoors` (fired)
+- API: `HallwayOddity:FireMapDoors(action: string, ...)` — fires `Oddities/MapDoors` to all clients with this oddity's token; a `Start` payload is stashed for resync and cleared on `Stop`.
+- API: `HallwayOddity:ResyncTo(player: Player)` — refires the stashed `Start` payload to one player, so a client that joined or loaded late still sees in-flight doors and warnings.
+- Remotes: `Oddities/MapDoors` (fired), `Oddities/RequestMapDoors` (ensured to exist)
 - Requires: `ServerStorage.Classes.Oddity`, `ServerStorage.Services.HallwayRegionService`, `ReplicatedStorage.Services.CommunicationService`
 - Notes: class fields `Scope = "Map"`, `ConfigName = "MapOddityConfig"`, `RequiresPlayer`, `IncludeRoomFloors`
 
@@ -187,9 +188,9 @@ A Chaser that spawns on the ceiling and physically drops onto the floor before b
 ### Enemies\Chaos.luau
 Not an NPC at all — a fast-moving hazard that sweeps a precomputed route of points, killing any player whose distance to the travelled segment is within `KillRange` and granting a discovery event on near misses. It pivots the model along the route each Heartbeat rather than pathfinding.
 - API: `Chaos.new(model: Model, config, route: { Vector3 }, warningToken) -> self` — root part is `model.Chaos`; two-state Run/Despawn machine.
-- API: `Chaos:TravelRoute()` — lerps along each route leg, sweeping for kills; the final leg ends at the wall crash point, where it despawns.
+- API: `Chaos:TravelRoute()` — drops zero-length legs, then drives the whole route off one start stamp (`elapsed * WalkSpeed` against the cumulative leg lengths) rather than re-basing the clock per leg, so arrival never drifts from the times the warnings were scheduled against; sweeps for kills between consecutive frame positions. The final leg ends at the wall crash point, where it despawns.
 - API: `Chaos:OnStart()` — anchors the root.
-- API: `Chaos:OnDespawn() -> number?` — cancels the warning token, disables particles, lingers for their lifetime.
+- API: `Chaos:OnDespawn() -> number?` — cancels **and retracts** the warning token (clearing any red lights and `ChaosWarning` oddities still running), disables particles, lingers for their lifetime.
 - Tags: applies `Enemy`, `Chaos`
 - Requires: `ServerStorage.Classes.EnemyBase`, `DeathService`, `EnemyDiscoveryService`, `RoomService`, `MathService.DistanceToSegment`
 - Notes: extends EnemyBase; overrides `OnStart` / `OnDespawn`
@@ -252,6 +253,16 @@ The most elaborate enemy: it copies a random living player's appearance, name, v
 - Requires: `ServerStorage.Classes.NPC` extended from `Enemies.Chaser`, `Services.MimicMotionService`, `Configs.MimicConfig`, `Configs.AnimationConfig`, `HallwayGraphService`, `RoomService`, `EnemyDiscoveryService`
 - Notes: overrides `Start`, `Despawn`, `BuildStateMachine`; delegates the actual chase to `Chaser.Chase(..., false)`; sets `_laneProbeDrop` while floating so lane checks account for the raised hips
 
+### Enemies\MirrorStalker.luau
+The mirror-room lie: a stalker rig that only ever exists as a reflection. Its real body is spawned on the mirror room's floor behind one player and made fully invisible (every part, decal and texture saves its own transparency to `MirrorRoomConfig.TransparencyAttribute` and then goes to `Transparency = 1`, so the reflection can put each one back rather than forcing the rig opaque), while the `MirrorRoomConfig.OpaqueTag` tells `Classes.MirrorRoom` to render its ceiling twin solid instead of copying the source transparency through — so the player is followed on the ceiling with nothing behind them on the floor. Locomotion is a `SurfaceWalker` on the `+Y` normal driven per Heartbeat toward a follow point behind the target, clamped to the room's floor plan, with the gait fed to the animator by hand because the anchored root has no velocity. The reported gait never falls below `MinGaitSpeed`, which keeps the Stalker's `SneakyWalk` as the playing track even while it holds position -- at a true zero the animator reaches for `UseRigIdle` and the stock R15 idle plays instead. It is `Harmless`, never chases, never pathfinds and never leaves the room. Its model carries `MirrorRoomConfig.ViewerAttribute` set to the target's `UserId`, so only the target's client renders the reflection; other players in the room see nothing, and their presence has no effect on it. It follows for as long as the target stays in the room and only despawns when the target is caught looking behind: for `CheckHold` seconds straight, the target's view must reach where the real body is standing (`GazeService` against the body's own sample points within `CheckCone`/`CheckDistance`, which is exactly the spot a real stalker would occupy) while none of its mirrored points on the ceiling are in view (`ReflectionCone`/`ReflectionDistance`). Looking up at the reflection therefore never despawns it, however long the target stares. Only the target's view is ever consulted. The target dying, leaving the room, or leaving the game despawns it immediately.
+- API: `MirrorStalker.new(model: Model, config, player: Player?) -> self`
+- API: `MirrorStalker:Start()` — validates the room, blanks the body, marks the target as its only viewer, places it behind the target and starts the Heartbeat loop
+- API: `MirrorStalker:Despawn()` — disconnects, tears down walker and animator, fires `OnDespawn` and destroys the model
+- API: `self.OnDespawn: ((self) -> ())?` — assigned by `MirrorStalkerService` to clear its slot and start the cooldown
+- Tags: applies `Enemy`, `MirrorRoomConfig.OpaqueTag`; sets the `MirrorRoomConfig.ViewerAttribute` attribute
+- Requires: `Classes.NpcAnimator`, `ServerStorage.Classes.SurfaceWalker`, `Services.MirrorRoomService` (room lookup, bounds, mirror point), `GazeService`, `CharacterService`, `MathService`, `Configs.MirrorRoomConfig`
+- Notes: standalone class — it extends neither EnemyBase nor NPC, but exposes the same `new` / `Start` / `Despawn` / `EnemyId` contract `EnemyService:Spawn` needs; it is never adopted by `EnemyDirectorService`
+
 ### Enemies\Sisters.luau
 A pair of translucent, harmless figures that patrol the hallway ceilings forever. At start it clones itself into a twin, makes both rigs see-through, and walks them upside down via `SurfaceWalker`, endlessly pathfinding between random `HallwayGraphService` nodes. Both sisters are driven as one formation: a single virtual center walks the ceiling-snapped route and every Heartbeat each sister is placed abreast of it at her assigned side of `SideSpacing`, so they stay exactly side by side through corners; when a new leg reverses direction the side assignments are negated so the pair turns in place instead of circling each other. Both heads track the nearest player through the neck attachment each Heartbeat. No kill sweep, no light flicker, no forget-and-despawn — it patrols until despawned externally (config `Harmless = true` blocks touch kills).
 - API: `Sisters.new(model: Model, config, startTip: Vector3, direction: Vector3, destinationTip: Vector3?) -> self` — only `startTip`/`direction` are used now; the destination is accepted for the old call sites and ignored.
@@ -266,12 +277,12 @@ A pair of translucent, harmless figures that patrol the hallway ceilings forever
 ### Enemies\Stalker.luau
 Follows a player from behind without ever being seen: it tails at `FollowDistance` while unobserved, for as long as it takes, and being looked at throws it into a Flee state that sprint-routes to a hide spot, rejecting any path that would carry it through a player's view cone. The stalk ends only when it closes to `StrikeDistance` of the victim, at which point it Reveals — seizing their camera, turning to face them, and killing. It also owns the shared Peek behaviour states.
 - API: `Stalker.new(model: Model, config, spot: PeekSpotService.PeekSpot?, player: Player?) -> self` — passing a spot starts it in `Seek` (peek mode) instead of Idle.
-- API: `Stalker:Start()` — hides the name display, sets the walk track, then `NPC.Start`.
+- API: `Stalker:Start()` — hides the name display, disables the humanoid's `FallingDown` and `Ragdoll` states so it cannot trip over mid-stalk or on leaving a peek, sets the walk track, then `NPC.Start`.
 - API: `Stalker:Despawn()` — releases the camera and exits Peek, then `NPC.Despawn`.
 - API: `Stalker:BuildStateMachine() -> StateMachine` — Idle/Wander/Patrol/Stalk/Reveal/Flee/Stunned/Despawn plus all `Peek.States`.
-- API: `Stalker:OnPeekFinished(reason: string, player: Player?)` — the Peek callback; a completed peek may roll into a stalk based on local danger.
+- API: `Stalker:OnPeekFinished(reason: string, player: Player?)` — the Peek callback; once its whole peek sequence is `Done` it rolls `StalkChance` to walk up behind that player in `Stalk`, otherwise it despawns.
 - Remotes: `Enemies/FaceStalker` (fired)
-- Requires: `ServerStorage.Classes.NPC`, `Enemies.Behaviors.Peek`, `PeekSpotService`, `HideSpotService`, `DangerMapService`, `EnemyObservationService`
+- Requires: `ServerStorage.Classes.NPC`, `Enemies.Behaviors.Peek`, `PeekSpotService`, `HideSpotService`, `EnemyObservationService`
 - Notes: overrides `Start`, `Despawn`, `BuildStateMachine`; warns to output when a retreat ends `NoPath`/`Stuck`/`Obstructed`
 
 ### Enemies\WeepingAngel.luau
@@ -283,16 +294,16 @@ Chases normally but freezes solid the instant any player observes it, and resume
 - Notes: overrides `BuildStateMachine` only; Chase and Attack both re-check `IsObserved` and bail to Frozen
 
 ### Enemies\Behaviors\Peek.luau
-A shared, non-class behaviour module: a set of state functions letting any NPC hide at a `PeekSpotService` spot, lean out into view, hold, and pull back a fixed number of times. It anchors the NPC and poses it by CFrame rather than walking, and abandons if the player closes in, looks directly at it, or the arc leaves every player's screen.
-- API: `Peek.StateNames` — ordered list `{ "Seek", "Lurk", "Peek", "Retreat", "Rest" }` for trigger tables.
+A shared, non-class behaviour module: a set of state functions letting any NPC hide at a `PeekSpotService` spot, lean out into view, hold, and pull back a rolled number of times (`PeekCountMin/Max`). It anchors the NPC and poses it by CFrame rather than walking, and ends the sequence as `Seen` if the player closes in or looks directly at it. It follows the player between corners: whenever the spot has lost sight of them (`PeekSpotService:IsInSight` false for `FollowLostTime`, i.e. they rounded a corner or passed the fog limit) while lurking, leaning, holding or resting, it enters `Follow`, waits `FollowDelay`, then teleports unseen to the next spot `PeekSpotService:Find` returns, retrying every `FollowRetryInterval` and ending as `Lost` after `FollowGiveUpTime`. Only peeks that reached full lean count towards the sequence; when it runs out it ends as `Done`.
+- API: `Peek.StateNames` — ordered list `{ "Seek", "Follow", "Lurk", "Peek", "Retreat", "Rest" }` for trigger tables.
 - API: `Peek.States` — map of those ids to state functions, to be merged into the host's state table.
 - API: `Peek.GetFindOptions(config) -> PeekSpotService.FindOptions` — builds find options from the enemy config.
 - API: `Peek.Enter(npc: any)` — anchors the root, stops movement, rolls `PeeksLeft`.
-- API: `Peek.Exit(npc: any)` — unanchors, restores the humanoid state machine and walk speed.
-- Requires: `PeekSpotService`, `EnemyObservationService`; the host NPC must implement `OnPeekFinished(reason: string, player: Player?)` and supply config keys `PeekCountMin/Max`, `MinPeekDistance`, `MaxPeekDistance`, `RearArc`, `ViewCone`, `PeekWaitTime`, `LeanTime`, `HoldTimeMin/Max`, `RetreatTime`, `RestTimeMin/Max`, `RetryInterval`, `SeenHoldTime`
+- API: `Peek.Exit(npc: any)` — stands the root upright at its real standing height above the floor (the peek pose sits it lower, which made the rig fall over on release), unanchors, restores the humanoid state machine in `Running`, and restores walk speed.
+- Requires: `PeekSpotService`, `EnemyObservationService`, `MathService`; the host NPC must implement `OnPeekFinished(reason: string, player: Player?)` and supply config keys `PeekCountMin/Max`, `MinPeekDistance`, `MaxPeekDistance`, `PeekFogFraction`, `RearArc`, `ViewCone`, `PeekWaitTime`, `LeanTime`, `HoldTimeMin/Max`, `RetreatTime`, `RestTimeMin/Max`, `SeenHoldTime`, `FollowLostTime`, `FollowDelay`, `FollowRetryInterval`, `FollowGiveUpTime`
 
 ### Oddity.luau
-Root of the whole oddity hierarchy: a self-contained, timed anomaly with a numeric `Token`, a merged settings table, and a run window. `Oddity.extend(kind, parent)` builds subclasses; the two intermediate bases are `PropOddity` (`Scope = "Prop"`, context is a `Model`) and `PlayerOddity` (`Scope = "Player"`, context is a `Player`), alongside `HallwayOddity` (`Scope = "Map"`, context is a hallway span). Concrete oddities live in `Classes\Oddities\`, are auto-registered by `OddityService` at require time, and must satisfy the contract: a `.new(config)` returning `Base.new(config, Class)`, an optional `OnStart(context) -> boolean?` (return `false` to abort) and `OnStop()` hook, an optional static `Pick(class)` that chooses a context for ambient auto-spawning, and an optional static `IsAvailable(class)` / `CanStart(context)` gate; `OddityService:Start` instantiates the class with its config, checks `CanStart`, calls `Start`, and `Start` schedules its own `Stop` after the duration.
+Root of the whole oddity hierarchy: a self-contained, timed anomaly with a numeric `Token`, a merged settings table, and a run window. `Oddity.extend(kind, parent)` builds subclasses; the two intermediate bases are `PropOddity` (`Scope = "Prop"`, context is a `Model`) and `PlayerOddity` (`Scope = "Player"`, context is a `Player`), alongside `HallwayOddity` (`Scope = "Map"`, context is a hallway span) and direct map classes such as `MapLightsOut` (context is a world-space chunk). Concrete oddities live in `Classes\Oddities\`, are auto-registered by `OddityService` at require time, and must satisfy the contract: a `.new(config)` returning `Base.new(config, Class)`, an optional `OnStart(context) -> boolean?` (return `false` to abort) and `OnStop()` hook, an optional static `Pick(class)` that chooses a context for ambient auto-spawning, and an optional static `IsAvailable(class)` / `CanStart(context)` gate; `OddityService:Start` instantiates the class with its config, checks `CanStart`, calls `Start`, and `Start` schedules its own `Stop` after the duration.
 - API: `Oddity.extend(kind: string, parent: any?) -> class` — makes a subclass table with `ClassName`/`Kind` set
 - API: `Oddity.new(config: { [string]: any }?, class: any?)` — assigns the next `Token`, empty callback list, inactive
 - API: `Oddity:OnStopped(callback: (any) -> ())` — queue a one-shot callback fired on stop
@@ -333,7 +344,7 @@ Shared server-side base for inventory items that trigger a player oddity on thei
 ### Oddities\ChaosWarning.luau
 Extends `HallwayOddity`. Fires the client `MapDoors` remote so every door in the hallway box (room floors included) slams open and shut in chaos mode as a telegraph, with no light effects.
 - API: `ChaosWarning.new(config: { [string]: any }?)`
-- API: `ChaosWarning:OnStart() -> boolean` — sends `Start` with opening/closing speeds and door intervals, tagged `"ChaosWarning"`
+- API: `ChaosWarning:OnStart() -> boolean` — sends `Start` with opening/closing speeds and door intervals, tagged `"ChaosWarning"`, followed by `ArrivalAtStart`, `ArrivalAtFinish` (server-time stamps for when Chaos reaches each end of the span), `WarningTime`, which `ChaosWarningSoundService` interpolates to time the sound to the listener's own position, and `WarningRun`, shared by every span of one Chaos route so the client stings once per run
 - API: `ChaosWarning:OnStop()` — sends `Stop`
 - Remotes: `Oddities/MapDoors` (fired)
 - Requires: `Classes\HallwayOddity`
@@ -362,11 +373,22 @@ Extends `HallwayOddity`. Full panic event in one hallway: lights flicker chaotic
 - Remotes: `Oddities/MapDoors` (fired)
 - Requires: `Classes\HallwayOddity`, `Services\LightService`
 
+### Oddities\MapLightsOut.luau
+Extends `Oddity` directly. Selects a large world-space square over the maze rather than a hallway, then turns off every tagged light model whose bounds overlap that chunk for the duration. Ambient picks use danger-map floor points that are away from living players and avoid overlapping active blackout chunks.
+- API: `MapLightsOut.new(config: { [string]: any }?)` — adds `self.Chunk` and `self.LightClaim`
+- API: `MapLightsOut.Resolve(class: any, position: Vector3) -> Chunk` — builds a chunk around a requested position
+- API: `MapLightsOut.Pick(class: any) -> Chunk?` — selects a distant, non-overlapping chunk with the configured minimum number of lights
+- API: `MapLightsOut:CanStart(context: Chunk) -> (boolean, string?)`
+- API: `MapLightsOut:OnStart(context: Chunk) -> boolean` — claims the lights in the chunk
+- API: `MapLightsOut:OnStop()` — releases the claim and frees the chunk
+- Tags: reads `MazeFloor` and `Floor1Light`
+- Requires: `Classes\Oddity`, `Services\DangerMapService`, `Services\LightService`, `ReplicatedStorage.Services.CharacterService`
+
 ### Oddities\HallwayCrush.luau
 Extends `HallwayOddity`. Closes both walls of a straight hallway in until they meet, sealing the corridor. `HallwayWallService` supplies the frame, the junction mouths and the wall strips; the run is a **single junction-free stretch** of corridor, taken from `HallwayWallService.Limit` — the span with every mouth from either side cut out of it, then the remaining stretch that the target position stands in (or the longest one, when the pick had no target), capped to `MaxLength` only if that stretch is on its own longer than it. So the two ends of a run are the two intersections that bound it, and no intersection is ever inside one: a junction never has walls closing across it, and anyone standing in one is outside the effect entirely rather than relying on the lethal-interval and mouth-sealing rules below to spare them. Ambient picks that chose their span for being occupied pass that player's own position through, so the stretch that closes is the one they are standing in rather than the longest stretch elsewhere along the same span. Every wall inside the run closes over its **full extent**, cut only at the ends of the run itself. The map already segments its walls at each junction -- measured over 1986 walls, none covers more than half of an opening on its own side, and the furthest any reaches into one is the 1.24-stud stub the map itself builds into the corner -- so an opening simply has no wall part to move, and cutting at the junction mouths was only lopping the last stud off each wall and leaving a notch where the corridor stepped back out to full width. Each remaining in-span piece keeps its outer face pinned and grows inward -- thickness `+= offset`, centre moves in by `offset / 2` -- so the corridor narrows with no sightline opening up behind the wall. The map's five wall layers share exact top, bottom, end and face planes with each other, which z-fights badly once they are split and moved, so each layer takes its own tiny nudge from `LAYER_NUDGE` (end overshoot, height, and for Wainscot a hair of extra thickness since it matches Wallpaper exactly) with Wallpaper as the reference; pieces cut from the same wall overlap their shared ends rather than abutting, and the two sides use different overshoots and heights so nothing lines up when they meet at the seal. Everything is measured off the recorded base size, so it all reverts on stop. Split wallpaper pieces get a compensating `OffsetStudsU` so the tiling stays continuous across the new seam. Pilasters, hallway lanterns, paintings and whole doorways shift inward by the same offset, each doorway's `DoorHeader` is instead thickened like the wall it belongs to (it is the wall above the door, so translating it alone left a notch), the station's centred `CeilingBeam` shrinks by twice it, and each doorway gains three generated jamb slabs that line the reveal the moving door leaves behind, so walking through a door leads down a short stub before the room. Any opening the run leaves in a connecting hallway's wall is sealed shut as the run closes — held over from when a run could swallow whole intersections, and now idle on a map whose corridors all offer a junction-free stretch, since a run that stops at its junctions leaves no opening behind: for each junction, the wall segments flanking the opening are cloned and extended lengthwise toward each other, staying in that hallway's own wall plane, meeting in the middle with the same `SealOverlap`. Each layer is handled separately and skipped where it already runs unbroken across the junction -- crown moulding usually does -- so from the connecting hallway the branch reads as solid papered wall flush with the wall either side of it, with only the carpet left to give it away. The clones are parented to the effect's own model and sit a hair proud of the wall they extend, so nothing z-fights and the map's own walls are never touched. Standing in an opening as it seals is lethal, so nobody is left inside it. Floors, carpet runners and ceilings are untouched, because the corridor only ever narrows. Only the stretches where **both** sides actually have a closing wall are lethal: the per-side wall coverage is merged (gaps up to a doorway wide are closed so a door never creates a safe pocket), intersected, then inset by `SafeMargin`, so standing in a T or L mouth -- where one side is open corridor and nothing is closing on you -- is never counted as being crushed, in either orientation. Each doorway also registers an alcove -- the tunnel from its inner face out to the original wall plane, which covers that doorway's whole half of the corridor, because nothing is closing in from a side that has an opening in it -- so being pushed toward a door by the closing wall is never lethal, however far in the wall has come -- and it reaches `DoorwayMargin` studs past each edge of the opening, so standing off to one side of a door is safe rather than lethal. Standing in an alcove is never lethal, so sheltering in the recess behind a moving door is safe. Enemies caught in a lethal stretch are despawned through `EnemyBase:Despawn` the moment the gap first closes past `KillWidth`. The kill is client-initiated: the region, its lethal intervals and the closing curve are broadcast on `Oddities/MapCrush`, `ReplicatedStorage.Services.HallwayCrushDamageService` decides from the local character's own position and reports back, and the server re-validates within `KillTolerance` before recording cause `HallwayCrush` and applying the kill, once per player. A server backstop kills anyone still inside `BackstopDelay` after the corridor seals, so a silent or stalled client cannot walk away. On stop the walls slide back over `OpenTime` and every edited part, clone and pivot is restored exactly.
 - API: `HallwayCrush.new(config: { [string]: any }?)` — adds `self.Candidate`, `self.Edits`, `self.Movers`, `self.Headers`, `self.Seals`, `self.SealRegions`, `self.Shifters`, `self.Shrinkers`, `self.Reveals`, `self.Structure`, `self.Killed`
 - API: `HallwayCrush.Resolve(class: any, position: Vector3) -> Candidate?` — manual placement candidate, on the junction-free stretch the request position stands in
-- API: `HallwayCrush.Pick(class: any) -> Candidate?` — random span biased toward occupied ones by `OccupiedChance`, closing the stretch the occupant is in and otherwise the longest stretch of the span; the occupied-span list is resolved once per pick from `HallwayRegion.Occupants` rather than once per attempt
+- API: `HallwayCrush.Pick(class: any) -> Candidate?` — random span biased toward occupied ones by an effective `OccupiedChance` scaled linearly by player count up to `OccupiedChanceReferencePlayers`; unoccupied fallback spans are preferred, and the occupied-span list is resolved once per pick
 - API: `HallwayCrush:CanStart(context: any) -> (boolean, string?)`, `HallwayCrush:Start(context: any, duration: number?) -> boolean`
 - API: `HallwayCrush.Resolve` and `HallwayCrush.Pick` keep the capped run inside one contiguous junction-free interval and centre occupied selections around the player's position
 - API: `HallwayCrush:OnStart() -> boolean` — splits the walls, collects the fixtures, builds the reveals, computes the lethal intervals, broadcasts the region and starts the closing loop
@@ -440,7 +462,7 @@ Extends `PlayerOddity`. Sets the victim humanoid's `HeadScale` to `HeadSizeMulti
 - Requires: `Classes\PlayerOddity`
 
 ### Oddities\PlayerTransparency.luau
-Extends `PlayerOddity`. Makes every fully opaque part of the victim's character slightly see-through (including parts added while it runs) and restores them on stop.
+Extends `PlayerOddity`. Makes every fully opaque character part slightly see-through (including parts added while it runs), skips parts inside equipped Tools so their authored transparency is preserved for first-person viewmodels, and restores affected parts on stop.
 - API: `PlayerTransparency.new(config: { [string]: any }?)` — adds the original-transparency map and `DescendantAdded` hook
 - API: `PlayerTransparency:OnStart() -> boolean` — applies `OddTransparency` (0.1) and watches for new parts
 - API: `PlayerTransparency:OnStop()` — disconnects and restores
@@ -498,10 +520,10 @@ Server half of the Bandage tool: a bare `Healer` subclass, so activation consume
 - Requires: `Classes\Healer` (extends `ServerTool`)
 
 ### Tools\Camcorder.luau
-Server half of the camcorder: the gamepass gate. On `Record` it verifies the caller owns the tool and is alive, and — only when `CaptureConfig.RequireGamepass` is set — that they hold the pass named by `Config.Gamepass`, refusing while that pass id is still `0`. With the flag off the tool is available to everyone, which is how it ships until the pass is linked. Never consumes — the camcorder is unlimited use.
+Server half of the camcorder: the gamepass gate and temporary-use policy. On `Record` it verifies the caller owns the tool and is alive, and — only when `CaptureConfig.RequireGamepass` is set — that they hold the pass named by `Config.Gamepass`, refusing while that pass id is still `0`. With the flag off the tool is available to everyone until recording starts; `Finished` waits for the keep-or-burn choice, `Kept` removes the player's entire camcorder stack unless the cached pass is owned, and `Burned` or `Cancelled` preserve it. The pass owner keeps the unlimited-use camcorder.
 - API: none beyond the `ServerTool` hooks.
-- Remotes: `Tools/Signal` — listens `Record`, fires `Allowed` / `Denied`
-- Requires: `Classes.ServerTool`, `Configs.CaptureConfig`, `MarketplaceService`, `PerkService`
+- Remotes: `Tools/Signal` — listens `Record`, `Finished`, `Kept`, `Burned`, `Cancelled`, fires `Allowed` / `Denied`
+- Requires: `Classes.ServerTool`, `Configs.CaptureConfig`, `MarketplaceService`, `PerkService`, `InventoryService`
 
 ### Tools\Camera.luau
 Server half of the tripod Camera: validates the client's placement CFrame, hands it to PhotoCameraService, and consumes the tool so each camera is single use.
@@ -515,12 +537,12 @@ Server half of the Energy Drink tool: a bare `SpeedDrink` subclass, so activatio
 - Requires: `Classes\SpeedDrink` (extends `ServerTool`)
 
 ### Tools\Flashlight.luau
-Server half of the flashlight: activation toggles the `SpotLight` in the handle and plays the handle's click emitter; the light is forced off when unequipped or destroyed.
+Server half of the flashlight: activation toggles the replicated `LightOn` attribute that every client's `FlashlightService` renders from, and plays the handle's click emitter. The authored handle `SpotLight` is held disabled — it is only a template for the cone faces — and the attribute is cleared when the tool is unequipped or destroyed.
 - API: `Flashlight.new(tool: Tool)` — starts disabled
-- API: `Flashlight:SetEnabled(enabled: boolean)` — sets `self.Enabled` and the handle spotlight
+- API: `Flashlight:SetEnabled(enabled: boolean)` — sets `self.Enabled` and the `LightOn` attribute, and keeps the authored spotlight off
 - API: `Flashlight:OnActivated()` — toggle plus click sound
 - API: `Flashlight:OnUnequipped()` / `Flashlight:OnDestroy()` — force off
-- Requires: `Classes\ServerTool`
+- Requires: `Classes\ServerTool`, `Configs.FlashlightConfig`
 
 ### Tools\Gravity Warper.luau
 Server half of the Gravity Warper: on activation it verifies a ceiling exists above the holder, consumes one, tags the character with `Vanished.EyeExemptTag` ("IgnoreExceptEye") so every enemy except the Eye treats them as absent, and fires `GravityWarp/Warp` to the holder's client so `GravityWarpService` runs the ceiling tween. Player, character and root are captured before `Consume`, because consuming the last charge destroys the Tool synchronously. The tag and the `GravityWarping` attribute clear when the client reports done over `GravityWarp/Finished` (fired on every client exit path, so the gate spans the real warp including the descent and re-activation cannot slip in while the client is still finishing), on death, or on a fallback timer of `AscendTime + Duration + DescendTime + 5` if the report never arrives; a stale delayed clear cannot evict a newer warp's pending entry.

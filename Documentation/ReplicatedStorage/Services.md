@@ -8,10 +8,12 @@ Tiny math helper for pointing something at a target and easing a rotation toward
 - API: `Aim.Ease(rotation: CFrame, goal: CFrame, rate: number, deltaTime: number) -> CFrame` — exponential lerp toward goal
 
 ### AmbienceService.luau
-Client-only. Cycles the AudioPlayers under `ReplicatedStorage.Sounds.Ambience` one after another through a dedicated `AmbienceDuck` fader, fading that fader down as the walking distance to the nearest tagged enemy shrinks. Swaps to a looping `DeathAmbience` track while the death screen is up, and goes silent entirely on the lobby floor.
-- API: no public methods — runs entirely from its own Heartbeat connection.
+Client-only. Cycles the AudioPlayers under `ReplicatedStorage.Sounds.Ambience` one after another through an `AmbienceDuck` fader and `AmbienceMixer`, fading that fader down as the walking distance to the nearest streamed-in tagged enemy shrinks. While the server reports occupancy in any POI, each current ambience track cross-fades from its dry `POIDryFader` path into a full-volume `AudioPitchShifter`, `AudioDistortion`, `AudioTremolo` and `AudioFader` branch, so the altered sound is immediately audible and stays active until occupancy ends; its temporary graph is destroyed when the track ends. Swaps to a looping `DeathAmbience` track while the death screen is up, and goes silent entirely on the lobby floor.
+- API: `AmbienceService:Suppress(key: string, suppressed: boolean)` — hold the playlist muted while any key is set; `ChaosWarningSoundService` uses it so the ordinary ambience gets out of the way of a Chaos warning. Defined above the client guard, so the call is safe from shared code.
+- API: `AmbienceService:SetPOIActive(active: boolean)` — sets whether the altered ambience branch should fade up or down
+- API: otherwise no public methods — runs entirely from its own Heartbeat connection.
 - Tags: reads `Enemy`
-- Requires: `Configs.AmbienceConfig`, `Services.HallwayGraphService`, `DeathScreenService`, `LobbyService`, `AudioService`
+- Requires: `Configs.AmbienceConfig`, `Services.HallwayGraphService`, `DeathScreenService`, `LobbyService`, `AudioService`, `CharacterService`
 
 ### AudioService.luau
 Central sound playback helper covering both the new `AudioPlayer`/`AudioEmitter` API and legacy `Sound` instances. Clones templates out of `ReplicatedStorage.Sounds`, wires them to named `AudioFader` buses under `workspace.Sounds`, keeps their volume tied to the bus, and destroys them when they end. Client playback of a `RadioAllowed` template is also relayed to the server so walkie-talkies can rebroadcast it.
@@ -44,7 +46,7 @@ Client-only. Owns additive field-of-view offsets so multiple effects can push th
 - API: `CameraFovService:TweenOffset(name: string, degrees: number, tweenInfo: TweenInfo)` — tweens one named offset, cancelling any prior tween of that name
 
 ### CaptureGalleryService.luau
-Client-only front end for Roblox's Captures API, and the single place captures are taken, kept or thrown away. Wraps a capture (screenshot or video) in a `Media` record so the rest of the codebase never touches the raw `Capture` object, whose `FilePathString` and `Resolution` properties both throw on read. Captures taken this session sit in a pending list until the player keeps or burns them; kept ones go to the player's own Roblox captures gallery and come back on later sessions through `Refresh`. Nothing here is shareable — Roblox scopes an uploaded capture asset to the uploader, so a capture is only ever visible to the player who took it. Gallery permission is requested as soon as a capture is taken, and re-prompts on every later capture until the player accepts, since a denial is what silently stops captures persisting. Only a granted answer is cached. The prompt is always fired through `EnsurePermission`, never awaited inline: `PromptCaptureGalleryPermissionAsync` never returns in Studio, so blocking a capture on it would wedge the shutter permanently. Capture failures report the engine's actual reason — most usefully `NoSpaceOnDevice`, which is literal and is what a full disk looks like. `TakeScreenshotCaptureAsync` returns `NoSpaceOnDevice` in Studio, so `TakeScreenshot` silently falls back to the legacy `CaptureScreenshot` path, which produces a viewable capture that cannot be saved to the gallery.
+Client-only front end for Roblox's Captures API, and the single place captures are taken, kept or thrown away. Wraps a capture (screenshot or video) in a `Media` record so the rest of the codebase never touches the raw `Capture` object, whose `FilePathString` and `Resolution` properties both throw on read. Captures taken this session sit in a pending list until the player keeps or burns them; kept ones go to the player's own Roblox captures gallery and come back on later sessions through `Refresh`. Nothing here is shareable — Roblox scopes an uploaded capture asset to the uploader, so a capture is only ever visible to the player who took it. Gallery permission is requested synchronously only from an explicit Save or gallery Access action, never in the background during capture; concurrent callers wait for the same prompt result. A successful save moves the same media directly into the visible cache instead of making the UI wait for the device gallery to refresh. Capture failures report the engine's actual reason — most usefully `NoSpaceOnDevice`, which is literal and is what a full disk looks like. `TakeScreenshotCaptureAsync` returns `NoSpaceOnDevice` in Studio, so `TakeScreenshot` silently falls back to the legacy `CaptureScreenshot` path, which produces a viewable capture that cannot be saved to the gallery.
 - API: `CaptureGalleryService:TakeScreenshot() -> (Media?, string?)` — take a still with UI excluded; on failure falls back to the legacy path and returns the reason it could not be saved
 - API: `CaptureGalleryService:StartVideo(onFinished: (Media?, string?) -> ()) -> boolean` — begin recording; accepts both a normal stop and the engine's 30s time-limit result, while Roblox mutes voices during the take
 - API: `CaptureGalleryService:StopVideo()` / `CaptureGalleryService:IsRecording() -> boolean`
@@ -55,8 +57,7 @@ Client-only front end for Roblox's Captures API, and the single place captures a
 - API: `CaptureGalleryService:List() -> {Media}` — pending plus saved captures, newest first
 - API: `CaptureGalleryService:Content(media: Media) -> Content?` — a `Content` for `ImageLabel.ImageContent` or `VideoFrame.VideoContent`
 - API: `CaptureGalleryService:RequestPermission() -> boolean` — prompts and yields; returns false immediately if a prompt is already in flight
-- API: `CaptureGalleryService:EnsurePermission()` — fire-and-forget prompt, safe to call from a capture sequence
-- API: `CaptureGalleryService:WaitForPermission() -> boolean` — waits out an in-flight prompt, then asks
+- API: `CaptureGalleryService:WaitForPermission() -> boolean` — shares an in-flight explicit permission prompt or opens one and waits for the player's answer
 - API: `CaptureGalleryService:HasPermission() -> boolean`
 - API: `CaptureGalleryService.Changed` — BindableEvent fired when the pending or saved set changes
 - Requires: `Configs.CaptureConfig`
@@ -74,16 +75,42 @@ Client-only, gated on `FLAGS.Enemies`. Listens for the server's ceiling-vent doo
 - Requires: `Configs.FLAGS`, `TweenProxyService`
 
 ### ChaosLightService.luau
-Client-only. Watches `Floor1Light` models for the server-set `ChaosRed` attribute; while it is true every `Light` under the model is recoloured to the config red, and the captured baseline colours are restored the moment the server clears it. Purely event-driven — no per-frame loop — and streaming-safe because the tag listener rebinds models as they stream in with the attribute already replicated.
+Client-only. Watches `Floor1Light` models for the server-set `ChaosRed` attribute; while it is true every `Light` under the model is recoloured to the config red, and the captured baseline colours are restored when the attribute clears. Streaming-safe because the tag listener rebinds models as they stream in with the attribute already replicated; baselines are pruned of destroyed lights as they are written and dropped entirely on unbind.
+
+Red is also cleared locally the instant Chaos actually reaches the lamp, rather than waiting out the server's duration: a throttled loop (only while some lamp is red) reads every model tagged `Chaos`, marks a lamp *engaged* once Chaos comes within `PassEngageRange` of it, and clears it as soon as the lamp falls behind Chaos's look vector. Engaging first is what stops a lamp round the next corner clearing early. The server's timer remains the backstop, and a fresh `ChaosRed` resets both flags.
 - API: `ChaosLightService:IsRed(model: Model) -> boolean` — whether that light model is currently forced red
-- Tags: listens `Floor1Light`
-- Requires: `Configs.ChaosLightConfig`, `TagService`
+- API: `ChaosLightService:OnRedChanged(listener: (Model, boolean) -> ()) -> () -> ()` — fires on every red flip, including the local clear when Chaos passes; returns a disconnect. Use this rather than the raw `ChaosRed` attribute, which says nothing about the pass state and races this service's own handler.
+- Tags: listens `Floor1Light`, reads `ChaosLightConfig.ChaosTag` (`Chaos`)
+- Requires: `Configs.ChaosLightConfig`, `ChaosTrackerService`, `TagService`
 
 ### ChaosWarningSoundService.luau
-Client-only. Tracks the "ChaosWarning" regions the server announces over `MapDoors`, and if the player is in a hallway (or a room whose doorway touches that region) plays looping `ChaosHallwayAmbience` emitters from an invisible anchor at the nearest point in the hallway, plus a one-shot `ChaosIncoming` sting when first coming within 24 studs.
+Client-only. Tracks the `ChaosWarning` regions the server announces over `MapDoors` and plays looping `ChaosHallwayAmbience` emitters from an invisible anchor, plus a one-shot `ChaosIncoming` sting.
+
+The gate is not a hard edge. Three things together stop it cutting: the target gain ramps from full to nothing over the last `RedFadeBand` studs of `RedHearingRange`; the tracked red distance follows a nearer lamp instantly but a receding one only at `RedReleaseRate` studs per second, because the lamps behind you all clear at once as Chaos passes and the raw distance leaps by hundreds of studs between ticks; and the anchor takes whichever of the region centre line or the red lamp is genuinely closest, rather than preferring one until it crosses a threshold — that preference made the distance, and so the volume, jump, which is why the sound would cut and then return a step later. The sting gets its own source part rather than riding the anchor, so neither an anchor move nor `teardown` can chop it mid-play.
+
+**The gate is the red lamps themselves, not geometry.** The service keeps a set of currently-red light models fed by `ChaosLightService:OnRedChanged`, and is audible whenever the nearest red lamp is within `RedHearingRange` of the listener. Nothing else gates it — no box containment, no lead-time window, no wall raycast. That is deliberate: every earlier version derived its own spatial or timing test and then disagreed with the lights, which is the whole failure mode this cue exists to avoid. Standing in a corridor whose lamps are red but whose warned span box does not contain you is the common case, not an edge case, and box containment silenced it. Because a lamp only turns red within `LightRouteRange` of the route, "a red lamp is near me" already means "I am on Chaos's path", which is the other half of the requirement. The lamps also clear the instant Chaos passes them, so the cut needs no pass-tracking of its own.
+
+**Volume is Roblox's, not this service's.** The emitters keep the `DistanceAttenuationMode` and `DistanceAttenuationBounds` they are authored with (`Inverse` over `10 → 35` at the time of writing) and the service never calls `SetDistanceAttenuation`. Ramping is applied by scaling `AudioPlayer.Volume` against the level `AudioService`'s bus binding produced, captured once at clone time — the same mechanism every other sound in the game uses. Do **not** reintroduce a `DistanceAttenuationMode.Custom` override: an earlier version set every emitter to `Custom` over a flat curve, which discards the authored rolloff and makes the bed's reach a number in this file rather than a property of the sound.
+
+**The source stays in the hallway and follows the listener along it.** It is the point on the nearest warned region's centre line closest to the listener, so walking up and down a corridor cannot outrun it; only leaving does, because the lateral distance then grows and the rolloff takes over. When the nearest region's centre line is further away than `RedHearingRange` — which happens when the region covering the red lamps beside you is a different span from the nearest one — the anchor falls back to the red lamp's own position, so being in the red can never be silent. The source is deliberately never placed on Chaos: that plus a rolloff wide enough to still carry a thousand studs up-corridor is how the whole map could once hear him.
+
+The `ChaosIncoming` sting fires **once per Chaos run**, on the tick the gate first opens, from the same anchor so its own rolloff decides who hears it. Keying it on the run rather than the region matters because one route raises a separate `ChaosWarning` per span along it, and each would otherwise re-trigger the cue. The run id is forgotten once that run's last region stops. It is played non-looping through `Play3DSound`, so the clone tears itself down when it ends, and its template's `PlaybackRegion` starts 0.2s in, trimming head silence so the cue lands on the frame the red does.
+
+The anchor lerps between targets and snaps only on jumps over `AnchorSnapDistance`; volumes ramp with separate fade-in/out speeds and snap to target within `GainSnap`, so silence actually reaches zero and tears down after `ReleaseDelay`. While the listener is **inside** a warned region box the service holds `AmbienceService:Suppress`, muting the ordinary ambience playlist, and releases it on every exit path. Inside-the-box rather than "audible at all" is the condition because a listener merely near the corridor hears the bed at the quiet tail of its rolloff, and cutting the ordinary ambience for that replaces it with a hole rather than with a bed anyone can hear.
+
+Note when testing this in a headless Studio playtest: the `AudioListener` lives on the Camera, and a play session driven entirely over MCP never renders, so the camera never follows a server-side `PivotTo` and the listener stays at spawn. Measuring audibility requires reparenting the listener onto the character; reading emitter `Volume` or fader values proves nothing about whether anything is audible.
 - API: no public methods — runs entirely from its own connections.
-- Remotes: `Oddities/MapDoors` (listened; only `marker == "ChaosWarning"` payloads)
-- Requires: `Services.HallwaysService`, `AudioService`, `CharacterService`; hard-coded lookup of `workspace.Maze15.Rooms` / `.Doors`
+- Remotes: `Oddities/MapDoors` (listened; only `marker == "ChaosWarning"` payloads), `Oddities/RequestMapDoors` (fired once on init to resync in-flight warnings)
+- Requires: `Configs.ChaosWarningConfig`, `ChaosLightService`, `AudioService`, `AmbienceService:Suppress`, `CharacterService`, `CommunicationService`
+
+### ChaosTrackerService.luau
+Shared read-only view of the live Chaos enemies for the client effects that have to agree on when one goes past a point. `GetMovers` returns each streamed-in tagged Chaos model's pivot position and flattened, normalised heading; `AlongTo` projects a point onto that heading (positive ahead, negative once passed) and `RangeTo` gives the horizontal distance. `ChaosLightService` uses it to decide a lamp has been passed and `ChaosWarningSoundService` to cut the ambience, so both fire on the same geometry rather than each rolling their own.
+- API: `ChaosTrackerService.Tag` — the `Chaos` tag it reads
+- API: `ChaosTrackerService:GetMovers() -> { Mover }` — `{ Model, Position, Look }` per live Chaos. The returned table is reused between calls, so read it before calling again.
+- API: `ChaosTrackerService.AlongTo(mover: Mover, point: Vector3) -> number` — studs along the mover's heading; `<= 0` means it has passed that point
+- API: `ChaosTrackerService.RangeTo(mover: Mover, point: Vector3) -> number` — horizontal distance
+- Tags: reads `Chaos`
+- Requires: `CharacterService`
 
 ### CharacterService.luau
 Shared client/server helper for the common "is this player's character usable right now" checks, plus two small player-lifecycle utilities. Every function is defined with a dot, so call them with a dot.
@@ -93,21 +120,22 @@ Shared client/server helper for the common "is this player's character usable ri
 - API: `CharacterService.GetAliveRoot(player: Player) -> BasePart?` — same for `player.Character`
 - API: `CharacterService.GetAliveHumanoid(player: Player) -> Humanoid?` — the humanoid, or nil if missing/dead
 - API: `CharacterService.GetPosition(player: Player) -> Vector3?` — position of the alive root
+- API: `CharacterService.GetStreamedPivot(model: Model) -> CFrame?` — the model's pivot, or nil when its `PrimaryPart` is missing. On the client a streamed-out model keeps a frozen pivot (its spawn point if it never streamed in), so every client proximity check against enemies goes through this
 - API: `CharacterService.ForEachPlayer(callback: (player: Player) -> ()) -> RBXScriptConnection` — runs for every present player (spawned) and every future join; returns the `PlayerAdded` connection
 - API: `CharacterService.CleanupOnLeave(map: { [Player]: any }) -> RBXScriptConnection` — clears the player's entry from a table on `PlayerRemoving`
 
 ### ChaseMusicService.luau
-Client-only, gated on `FLAGS.Enemies`. For every tagged enemy that has a chase target, looks up its layered music entry in `ChaseMusicConfig`, and cross-fades the corresponding looping 2D tracks by proximity to the camera. Warns once per template name that is missing from `ReplicatedStorage.Sounds` and then stays silent.
+Client-only, gated on `FLAGS.Enemies`. For every streamed-in tagged enemy that has a chase target, looks up its layered music entry in `ChaseMusicConfig`, and cross-fades the corresponding looping 2D tracks by proximity to the camera. Warns once per template name that is missing from `ReplicatedStorage.Sounds` and then stays silent.
 - API: no public methods — runs entirely from its Heartbeat connection.
 - Tags: reads `Enemy`
-- Requires: `Configs.ChaseMusicConfig`, `MathService`, `TagService`, `AudioService`
+- Requires: `Configs.ChaseMusicConfig`, `CharacterService`, `MathService`, `TagService`, `AudioService`
 
 ### ChaserCameraService.luau
-Gated on `FLAGS.Enemies`. Drives camera reactions to enemies chasing the local player: a fading FOV offset while a ceiling dweller or mimic is hunting, and per-enemy dynamic rumble shakes scaled by distance from `ChaserCameraConfig.ChaseShakes`. Clears its cached chase FOV state when the local character dies. Also reacts to the server's vent-open and scream phases with one-shot shakes and a scream sound.
+Gated on `FLAGS.Enemies`. Drives camera reactions to enemies chasing the local player: a fading FOV offset while a ceiling dweller or mimic is hunting, and per-enemy dynamic rumble shakes scaled by distance to streamed-in enemies from `ChaserCameraConfig.ChaseShakes`. Its active state only reports a live FOV or rumble effect, so distant `AllPlayers` enemies do not suppress walking camera bob. Clears its cached chase FOV state when the local character dies. Also reacts to the server's vent-open and scream phases with one-shot shakes and a scream sound.
 - API: `ChaserCameraService:IsActive() -> boolean` — whether any chase camera effect is currently running (returns `false` when the flag is off)
 - Remotes: `Enemies/CeilingDwellerCamera` (listened; `Open` / `Scream` phases)
 - Tags: reads `Enemy`
-- Requires: `Configs.ChaserCameraConfig`, `ShakeService`, `CameraFovService`, `MathService`, `AudioService`
+- Requires: `Configs.ChaserCameraConfig`, `CharacterService`, `ShakeService`, `CameraFovService`, `MathService`, `AudioService`
 
 ### CommunicationService.luau
 Shared accessor for `ReplicatedStorage.Communication`. On the server it creates the folder if it is missing; on the client it waits for it. All three functions are defined with a dot and return the remote as `any`, so cast at the call site.
@@ -180,19 +208,19 @@ Client-only. For every player, silences Roblox's built-in `Died` sound on the ro
 - Requires: `AudioService`, `CharacterService`; plays `ReplicatedStorage.Sounds.PlayerDied`
 
 ### DoorService.luau
-Client-only. Owns every swinging door part inside a `Doorway`+`RoomDoor` model: on a polling interval it opens each door toward whichever of the local player or nearest tagged enemy is in range, and holds it forced shut when the player is inside a room with an enemy close by. Also applies the server's "map opening" boxes, which push every door inside a region open — or into a rattling chaos mode.
+Client-only. Owns every swinging door part inside a `Doorway`+`RoomDoor` model: on a polling interval it opens each door toward whichever of the local player or nearest streamed-in tagged enemy is in range, and holds it forced shut when the player is inside a room with an enemy close by. Also applies the server's "map opening" boxes, which push every door inside a region open — or into a rattling chaos mode.
 - API: no public methods — runs entirely from its own connections.
-- Remotes: `Oddities/MapDoors` (listened; `Start` / `Stop` with a region box, speed and mode)
+- Remotes: `Oddities/MapDoors` (listened; `Start` / `Stop` with a region box, speed and mode), `Oddities/RequestMapDoors` (fired once on init so a late client picks up openings that are already running)
 - Tags: listens `DoorPart`; reads `Enemy`, `Doorway`, `RoomDoor`
 - Requires: `Classes.DoorPart`, `Configs.DoorConfig`, `CharacterService`, `TagService`
 
 ### DrawerItemService.luau
-Client-only. Registers every `DrawerItem` model as an interactable pick-up and fires the server when one is activated, with a short cooldown. Newly appearing items also re-sync their parent drawer so the item sits at the drawer's current position.
+Client-only. Registers every `DrawerItem` model, including hallway currency displays, as an interactable pick-up and fires the server when one is activated, with a short cooldown. Successful currency pickups show a `+N Coins` or `+N Gems` notification and play the configured 2D pickup sound when its sound template exists. Newly appearing drawer items also re-sync their parent drawer so the item sits at the drawer's current position.
 - API: `DrawerItemService:GetFocused() -> Model?` — the item currently under the interaction cursor
 - API: `DrawerItemService:Pickup(model: Model?) -> boolean` — request pickup of the given (or focused) item
-- Remotes: `DrawerItem/Pickup` (fired)
+- Remotes: `DrawerItem/Pickup` (fired), `DrawerItem/PickupResult` (listened)
 - Tags: listens `DrawerItem`
-- Requires: `Configs.DrawerItemConfig`, `DrawerService`, `InteractionService`
+- Requires: `Configs.DrawerItemConfig`, `AudioService`, `DrawerService`, `InteractionService`, `MathService`, `NotificationService`
 
 ### DrawerService.luau
 Client-only. Wraps every `Drawer` model in a `Drawer` class instance, registers it as an interactable with an open/close prompt, and animates it toward the server's open attribute each frame. Toggling predicts the new state locally for up to a second so the drawer moves immediately, then falls back to the replicated attribute.
@@ -224,7 +252,7 @@ Drives the pre-built `ElevatorLoadingGui` fade-in/fade-out loading screen used w
 - Requires: `Configs.ElevatorConfig`, `TweenProxyService`, `GuiBuilderService`; reaches remotes by direct `ReplicatedStorage.Communication` indexing with `WaitForChild`
 
 ### EnemyDamageService.luau
-Client-authoritative death check: watches every `Enemy` tagged model's parts for touches against the local character and, if the player is not inside a tagged safe `Room`, not vanished, and the enemy is neither harmless nor an inactive Mimic, plays a random attack animation, tells the server, and zeroes the humanoid's health. Also kills on a server-sent `Strike` and replays the attack animation when another player is killed.
+Watches every `Enemy` tagged model's parts for touches against the local character and, if the player is not inside a tagged safe `Room`, not vanished, and the enemy is neither harmless nor an inactive Mimic, plays a random attack animation and reports the enemy to the server. The server records the cause before applying the kill, avoiding a client/server death-order race. Also kills on a server-sent `Strike` and replays the attack animation when another player is killed.
 - API: data table — empty; the touch watchers are installed on require.
 - Remotes: `Death/Kill` (fired and listened), `Death/Strike` (listened)
 - Tags: listens `Enemy`; reads `Room`
@@ -239,7 +267,7 @@ Reports to the server, roughly 20 times a second, which `Observable` models the 
 - Requires: `Services.SightlineService`, `Configs.ObservedFreezeConfig`, `Configs.FLAGS` (whole module is inert when `FLAGS.Enemies` is off)
 
 ### EyeHitEffectService.luau
-Full-screen feedback for the Eye enemy: on a hit remote it plays an eyelid blink, a blur pulse, a colour flash, an FOV punch, and a damage sound. Also exposes the continuous "being stared at" effect — vignette edges, a breathing pulse, and camera roll/sway — driven each frame by EyeRenderService.
+Full-screen feedback for the Eye enemy: on a hit remote it plays an eyelid blink, a blur pulse, a colour flash, an FOV punch, and a damage sound. Also exposes the continuous "being stared at" effect — vignette edges, a breathing pulse, and camera roll/sway (sway also shifts `Camera.Focus` so it never turns the first-person character) — driven each frame by EyeRenderService.
 - API: `EyeHitEffectService:UpdateGaze(strength: number, deltaTime: number)` — advance the gaze vignette and camera sway toward `strength` (0-1)
 - Remotes: `Enemies/EyeHit` (listened)
 - Requires: `Configs.EyeConfig`, `Configs.FLAGS`, `CameraFovService`, `AudioService`, `GuiBuilderService`, `MathService`
@@ -251,9 +279,21 @@ Renders every `Eye` tagged model client-side each frame: bobs it on its own phas
 - Requires: `Services.AimService`, `Services.BobService`, `Services.SightlineService`, `Services.VanishedService`, `Configs.EyeConfig`, `Configs.FLAGS`, `EyeHitEffectService`, `TagService`
 
 ### FirstPersonCameraService.luau
-Hides the default mouse icon, enables the custom `Cursor` GUI, and adds walking camera bob — a sine sway plus roll whose speed and amplitude scale with horizontal walk speed, fading in and out as the player starts and stops. Bob is suppressed entirely while the chaser camera is active.
+Hides the default mouse icon, enables the custom `Cursor` GUI, and adds walking camera bob — a stronger sine sway plus walk-cycle roll whose speed and amplitude scale with horizontal walk speed, fading in and out as the player starts and stops. Strafing adds a reduced, smoothed movement-direction camera tilt. Bob is suppressed entirely while an actual chaser camera effect is active. The bob's translation is also applied to `Camera.Focus`, because first-person CameraRelative facing follows the camera-to-Focus vector, which is only a fraction of a stud horizontally when looking up; moving the camera alone swung the character up to ±26°.
 - API: data table — empty; the render-step job is bound on require.
 - Requires: `Configs.CameraBobConfig`, `ChaserCameraService`, `MathService`
+
+### FlashlightDebugService.luau
+F7 panel for tuning the flashlight beam live. One cone is edited at a time through a cycling selector with Angle, Range and Brightness sliders, alongside master brightness, a warmth slider that drives the shared colour, and the three camera-offset axes. Emits the `FlashlightConfig` block to paste. Gated behind `FLAGS.FlashlightDebug`.
+- API: data table — empty; the panel is built on require
+- Requires: `Classes.DebugPanel`, `Configs.FlashlightDebugConfig`, `Configs.FlashlightConfig`, `Configs.FLAGS`, `FlashlightService`
+
+### FlashlightService.luau
+Client renderer for every flashlight beam. Replaces the single authored handle spotlight with a stack of `SpotLight` cones that share one origin, so their overlap gives a smooth centre-to-edge falloff instead of one hard-edged disc. The local player's cones ride an invisible part pinned to the camera each render step, putting the beam centre on the crosshair and following pitch as well as yaw; every other player's cones are parented to their own handle and keep the authored face. Cones exist only while a flashlight is held with the `LightOn` attribute set, and the authored spotlight is force-disabled on sight.
+- API: `FlashlightService:Refresh()` — re-applies `FlashlightConfig` to every live cone, rebuilding rigs if the cone count changed
+- API: `FlashlightService:IsLocalLit() -> boolean` — whether the local player's beam is currently built
+- Tags: listens to `Flashlight` through CollectionService directly, since `TagService` allows one listener per tag and `ToolClientService` already holds it
+- Requires: `Configs.FlashlightConfig`, `Configs.ToolConfigs`
 
 ### FriendAvatarService.luau
 Client-only cache that loads the local player's friend list and builds R15 character models from their HumanoidDescriptions, keyed by an arbitrary string so the same key always yields the same friend. Clones a pre-assembled prototype per user id and strips accessories that failed to weld.
@@ -273,6 +313,12 @@ Shows a stack of revive-offer cards cloned from the `ReviveFriendUI` template, e
 Drives the Studio-authored `StarterGui.GalleryGui`: before access is granted, the empty page shows an `ALLOW DEVICE CAPTURES` button and does not open Roblox's permission prompt on its own. Granting access reads the reel at once; later page opens refresh it without another prompt. The two-wide filmstrip clones `Design.MediaCanvas.Media.Template`, uses a still first frame for photos and tapes, and labels video cards `TAPE`. Selecting one shows the photo or starts a looping muted video. Clicking that large preview opens the authored full-screen viewer. Saved selections show a Delete button below the preview, which removes the item from this session's reel. Captures still pending a choice carry a green edge and expose Keep/Burn buttons.
 - API: none — side-effect only.
 - Requires: `Classes.GalleryCard`, `Configs.CaptureConfig`, `CaptureGalleryService`, `CaptureOverlayService`, `InterfaceService`, `NotificationService`; expects the complete `StarterGui.GalleryGui` hierarchy
+
+### GemsUIService.luau
+Client wiring for the Studio-authored `GemsUI` page. Each entry in `StoreConfig.GemPacks` names a `PackN` frame and a gem amount; the pack's `Amount` label is filled from it, and its `Purchase` button prompts the developer product that `MarketplaceService.Products.Gems` maps to that amount. Robux prices come from product info. An unpublished product (id `0`) shows `StoreConfig.Text.Unavailable` and flashes the balance red when clicked. The `Gems/Balance` label follows `KitStateService` and flashes green when the server's result is `StoreConfig.GemPurchaseResult`. Button motion is authored in Studio through xenterface's `Hover` tag and `Press` Configuration.
+- API: data table — empty; the page is wired on require.
+- Remotes: through `KitStateService` (`Gems/Sync`)
+- Requires: `Configs.StoreConfig`, `KitStateService`, `MarketplaceService` (project wrapper, `Products.Gems` and product info), `MathService`, `GuiBuilderService`; expects `GemsUI.Design` with `Gems.Balance` and `Pack1`–`Pack5`, each holding `Main.Amount` and `Main.Purchase.Price`
 
 ### GhostMotionService.luau
 Shared math and attribute protocol for ghost drift: builds a travel "leg" (origin, target, duration) that the server publishes onto the model as attributes and clients read back, plus bobbing and fade timing.
@@ -319,11 +365,11 @@ Shared crush-volume helper plus the client-side kill decision for the `HallwayCr
 - Requires: `Services.CharacterService`, `Services.CommunicationService`
 
 ### HallwayGraphService.luau
-Builds a navigable node graph from the tagged maze floor parts by intersecting hallway rectangles (perpendicular crossings and end-to-end parallel joins; the join's end-gap tolerance is twice the narrower floor's half-width, so a wide connector floor cannot bridge to a hallway dead-ending outside its walls), then offers nearest-node lookup, Dijkstra pathfinding, and walking-distance queries. Nodes inside a `SpawnSafeZone` part and edges crossing one are pruned from the graph, so nothing that routes over it ever passes through the spawn safe zone. The graph is cached and invalidated automatically whenever a tagged floor or spawn zone is added or removed.
+Builds a navigable node graph from the tagged maze floor parts by intersecting hallway rectangles (perpendicular crossings and end-to-end parallel joins; the join's end-gap tolerance is twice the narrower floor's half-width, so a wide connector floor cannot bridge to a hallway dead-ending outside its walls), then offers nearest-node lookup, Dijkstra pathfinding, and walking-distance queries. Every node is then raycast down onto the surface beneath it: nodes that find ground are snapped onto it, and nodes with nothing solid below are removed with their neighbours connected to each other, so a decorative marker rectangle floating over a void never becomes a patrol target while the route through the room survives. Nodes inside a `SpawnSafeZone` part and edges crossing one are pruned from the graph, so nothing that routes over it ever passes through the spawn safe zone. Each node then carries `WellConnected`, true only for the largest connected component, so callers can refuse to route to a pocket that the rest of the map cannot reach. The graph is cached and invalidated automatically whenever a tagged floor or spawn zone is added or removed.
 - API: `HallwayGraph:Build() -> { RouteNode }` — forces a fresh build, bypassing the cache
 - API: `HallwayGraph:Get() -> { RouteNode }` — cached node list
 - API: `HallwayGraph:Invalidate()` — drops the cache immediately; the tag add/remove signals instead coalesce into one deferred invalidate 0.5 s after the last event, so a streaming burst rebuilds once
-- API: `HallwayGraph:FindNearestNode(position: Vector3) -> RouteNode?` — linear scan
+- API: `HallwayGraph:FindNearestNode(position: Vector3, wellConnectedOnly: boolean?) -> RouteNode?` — linear scan; pass `true` to ignore nodes stranded off the main network
 - API: `HallwayGraph:CountExits(node: RouteNode) -> number` — neighbor count
 - API: `HallwayGraph:FindPath(from: RouteNode, to: RouteNode, edgeCost: ((RouteNode, RouteNode) -> number)?) -> { RouteNode }?` — Dijkstra over a binary-heap frontier (stale entries skipped) with optional custom cost
 - API: `HallwayGraph:GetWalkingDistance(firstPosition: Vector3, secondPosition: Vector3) -> number` — off-graph positions snapped to the nearest hallway span
@@ -368,7 +414,7 @@ Renders the "sound travelling to an enemy's ear" visual: for each server-sent ev
 - Requires: `Configs.HearingConfig`
 
 ### HeartbeatService.luau
-Plays a looping heartbeat that swells as the configured enemy gets closer and speeds up while it is pursuing, pitch-corrected through an AudioPitchShifter so the faster playback does not raise the pitch. The track is created on demand and stopped again once the volume fades to silence.
+Plays a looping heartbeat that swells as the nearest streamed-in copy of the configured enemy gets closer and speeds up while it is pursuing, pitch-corrected through an AudioPitchShifter so the faster playback does not raise the pitch. The track is created on demand and stopped again once the volume fades to silence.
 - API: `HeartbeatService:GetNearness(): number` — the current smoothed heartbeat volume (0 when silent)
 - Tags: reads `Enemy` (filtered by the `EnemyId` attribute)
 - Requires: `Configs.HeartbeatConfig`, `Configs.FLAGS`, `AudioService` (`FindTemplate`, `Play2D`, `Wire`, `GetBus`), `TagService`, `CharacterService`, `MathService`
@@ -402,7 +448,7 @@ Builds and drives the bestiary/index UI: a paginated grid of cards with Viewport
 - Requires: `Configs.IndexConfig`, `Services.RedactionService`, `Services.FriendAvatarService`, `DeathScreenService`, `InterfaceService`, `TweenProxyService`, `GuiBuilderService`; expects a pre-built `IndexGui.Design` tree
 
 ### InteractionService.luau
-Client-only singleton wrapper: returns a single `Interaction` instance (an empty table on the server), which raycasts from the camera each frame to find the registered model under the crosshair, highlights it, and draws the key prompt. The `Highlight` itself is created per selection and destroyed when the selection fades out, so no Highlight instance outlives the model it adorns.
+Client-only singleton wrapper: returns a single `Interaction` instance (an empty table on the server), which raycasts from the camera each frame to find the registered model under the crosshair, highlights it, and draws the key prompt. The `Highlight` itself is created inside the selected model per selection and destroyed when the selection fades out, so no Highlight instance outlives the model it highlights.
 - API: `InteractionService:Register(model: Model, options: Interaction.TargetOptions)` — register a target with its prompt text/function, reach, `CanSelect`, `IgnoreOcclusion`, and `OnActivated` callback
 - API: `InteractionService:Unregister(model: Model)` — drop a target and clear the selection if it was selected
 - API: `InteractionService:GetSelected(): Model?` — the model currently under the crosshair
@@ -411,14 +457,14 @@ Client-only singleton wrapper: returns a single `Interaction` instance (an empty
 - Requires: `Classes.Interaction` (which reads `Configs.DrawerConfig` and clones its prompt from the `Cursor` ScreenGui)
 
 ### InterfaceService.luau
-Owns the main menu page group: enables/disables the Index, Shop, VIP, Gems, Items, KitInventory, KitsShop, RollGui, Map and Gallery ScreenGuis through an xenterface controller, blurs and pulls back the camera FOV while a page is open, and manages mouse unlocking (including a Q toggle when no page is open). Also wires hover/press motion onto tagged side buttons and close buttons using named motion presets.
+Owns the main menu page group: enables/disables the Index, Shop, Gems, Items, KitInventory, KitsShop, RollGui, Map and Gallery ScreenGuis through an xenterface controller, blurs and pulls back the camera FOV while a page is open, and manages mouse unlocking (including a Q toggle when no page is open, even while the full-screen mouse blocker has processed the input). Also wires hover/press motion onto tagged side buttons and close buttons using named motion presets. The Map page is rejected unless the player owns the Map gamepass.
 - API: `InterfaceService.WireMotion(button: GuiButton, visual: GuiObject?, motionPreset: any?)` — add hover/press scale and tilt motion to any button (defaults to the button itself and the `HotelSideButton` preset)
 - API: `InterfaceService:Open(pageId: string)` — open one of the known pages, warning on an unknown id
 - API: `InterfaceService:Close()` — close whatever page is open
-- API: `InterfaceService:GetActive(): string` — the active page id (empty string when closed)
+- API: `InterfaceService:GetActive() -> string?` — the active page id, or nil when closed
 - API: `InterfaceService:SetMouseUnlocked(unlocked: boolean, force: boolean?)` — unlock/relock the mouse; `force` pins it unlocked until cleared
 - API: `InterfaceService:IsMouseUnlocked() -> boolean` — current cursor lock state, used to restore a forced prompt to its prior state
-- API: `InterfaceService:SetCameraFreed(freed: boolean)` — the half of unlocking that fights the camera: drops `Player.CameraMode` from `LockFirstPerson` to `Classic` (zoom stays pinned, so the view stays first person) and holds `MouseBehavior` on `Default` from a late render step, restoring the saved mode when relocked. Under `LockFirstPerson` the PlayerModule re-locks the mouse every frame and `GuiButton.Modal` has no effect, so without this the cursor appears but cannot move. Used by the Q toggle, the menu pages and `ComputerService` terminal sessions.
+- API: `InterfaceService:SetCameraFreed(freed: boolean)` — the half of unlocking that fights the camera: drops `Player.CameraMode` from `LockFirstPerson` to `Classic` (zoom stays pinned, so the view stays first person) and holds `MouseBehavior` on `Default` from a late render step, restoring the saved mode and continuously hiding the system mouse icon when relocked. Under `LockFirstPerson` the PlayerModule re-locks the mouse every frame and `GuiButton.Modal` has no effect, so without this the cursor appears but cannot move. Used by the Q toggle, the menu pages and `ComputerService` terminal sessions.
 - Tags: listens `SideButton`, `InterfaceCloseButton`
 - Requires: `Frameworks.xenterface` and its `Config.PresetConfig`, `CameraFovService`, `GuiBuilderService`, `Lighting.InterfaceBlur`
 - Page ids map to their ScreenGui and page-root child name, including `Map` -> `Map`/`Main`; a page missing from that table never gets enabled.
@@ -493,9 +539,10 @@ The look of a kit, shared by all three kit pages so they cannot drift: hands ite
 
 ### LanternSwayService.luau
 Makes named hanging lantern models physically swing while their light is in the chaos-red state. Each active lantern gets an invisible hinged proxy part with wind torque, random jolts, gravity scaling, and a swing limit computed from raycast wall clearance; the visible model is pivoted to the hinge angle each frame. Lanterns are culled by camera distance and a maximum simulated count, and are settled and torn down when the red state ends.
+Binding is driven by `ChaosLightService:OnRedChanged` rather than the `ChaosRed` attribute directly. Both services used to race on the same attribute signal — whichever connected first won, and if this one ran first it asked `IsRed` before the light service had updated and never bound. Going through the signal also means lanterns settle at the same instant the light clears, which is when Chaos actually passes rather than when the server's timer runs out.
 - API: data table — empty; the tag listeners and heartbeat loop run on require.
-- Tags: listens `Floor1Light` (filtered to the model names in the config, and gated by the `ChaosRed` attribute)
-- Requires: `Configs.LanternSwayConfig`, `ChaosLightService`
+- Tags: listens `Floor1Light` (filtered to the model names in the config)
+- Requires: `Configs.LanternSwayConfig`, `ChaosLightService:OnRedChanged` / `:IsRed`
 
 ### LobbyService.luau
 Answers whether a player is standing on the lobby floor, by requiring the humanoid to be grounded and then raycasting down from the root part against only the `LobbyFloor` tagged parts; the raycast filter is rebuilt only when a `LobbyFloor` tag is added or removed, not on every call.
@@ -505,7 +552,7 @@ Answers whether a player is standing on the lobby floor, by requiring the humano
 
 ### LookService.luau
 Two halves of head/torso look-at: it reports the local camera's pitch and yaw relative to the character's facing to the server on an interval (only when they move past a threshold), and it bends the Neck and Waist joints of every other player's character and every `Enemy` model toward their replicated `LookPitch`/`LookYaw` attributes. The applied transform is undone in PreAnimation so animations still play cleanly, and joints are cached weakly per model.
-- API: data table — empty; the report and joint-bend loops run on require.
+- API: `LookService.Local(root: BasePart?) -> (pitch: number, yaw: number)` — the local camera's clamped pitch and yaw relative to that root, the same values the report loop sends
 - Remotes: `Look/Update` (fired)
 - Tags: reads `Enemy`
 - Requires: `Configs.LookConfig`, `MathService`
@@ -547,16 +594,21 @@ Entries also carry a `Shape` of `Rect`, `Round` or `Wedge`. A `Round` entry is a
 - Requires: `Configs.MapConfig`
 
 ### MapService.luau
-Client-only front end for the map. Waits for the `Map` ScreenGui's paper `ImageLabel`, loads each sync into `MapLayoutService`, attaches `MapInkService` to the paper, replays stored discovery, and applies incremental reveals with a deferred flush so a burst of reveals costs one write. Also owns the local player marker, repositioned every render step.
+Client-only front end for the Map gamepass. Waits for the `Map` ScreenGui's paper `ImageLabel`, loads each sync into `MapLayoutService`, attaches `MapInkService` to the paper, replays stored discovery, and applies incremental reveals with a deferred flush so a burst of reveals costs one write. Non-owners ignore map data, cannot open the Map page, and have no M-key toggle binding. Also owns the local player marker, repositioned every render step.
 - API: `MapService:GetPaper() -> ImageLabel?`
 - API: `MapService:ToPaperScale(worldX: number, worldZ: number) -> UDim2` — world position as a scale offset inside the paper
 - Builds a clipped `Viewport` holding a pannable `Content` frame; the ink, markers, local player dot and other players' headshot markers all live inside it so they pan and zoom together
 - A computer room discovered while the map is shut is queued, then draws itself on with its marker popping shortly after, the next time the `Map` page is opened; one discovered while the map is already open plays immediately
 - Remotes: `Map/Sync` (listened), `Map/Reveal` (listened), `Map/Landmark` (listened)
-- Requires: `Configs.MapConfig`, `Classes.MapMarker`, `CharacterService`, `CommunicationService`, `MapControlService`, `MapInkService`, `MapLayoutService`
+- Requires: `Configs.MapConfig`, `Configs.PerkConfig`, `Classes.MapMarker`, `CharacterService`, `CommunicationService`, `MapControlService`, `MapInkService`, `MapLayoutService`
+
+### MinimapService.luau
+Client-only minimap front end for the Map gamepass. Builds the minimap viewport from the shared map layout, shows it only while the player is in the maze and no main page is open, and hides it immediately when Map ownership is absent. Rebuilds after the ownership attribute changes to true.
+- API: `MinimapService:IsShowing() -> boolean`
+- Requires: `Configs.MapConfig`, `Configs.PerkConfig`, `MapMarkerLayer`, `CharacterService`, `MapInkService`, `MapLayoutService`, `MapService`
 
 ### MarketplaceService\init.luau
-Wrapper around Roblox's own MarketplaceService that adds a shared server/client gamepass-ownership cache, cross-boundary purchase prompts, and a registry of per-product receipt handlers. Server also grants the VIP pass to holders of a legacy VIP subscription. `extend` merges the real MarketplaceService in, so every native member is still reachable through this module.
+Wrapper around Roblox's own MarketplaceService that adds a shared server/client gamepass-ownership cache, cross-boundary purchase prompts, and a registry of per-product receipt handlers. `extend` merges the real MarketplaceService in, so every native member is still reachable through this module.
 - API: `MarketplaceService:PromptProductPurchase(player: Player, productId: number)` — server relays to the owning client, client prompts
 - API: `MarketplaceService:PromptGamePassPurchase(player: Player, gamePassId: number)` — same server/client split
 - API: `MarketplaceService:UserOwnsGamePass(player: Player | number, gamePassId: number) -> boolean` — cached; client round-trips to the server and yields up to 10s
@@ -569,11 +621,11 @@ Wrapper around Roblox's own MarketplaceService that adds a shared server/client 
 
 ### MarketplaceService\Gamepasses.luau
 Gamepass asset ids keyed by name.
-- API: data table — `Pathfinder`, `KeepItems`, `Visor`, `DoubleSpeed` (all currently `0`, i.e. unpublished)
+- API: data table — `Pathfinder`, `KeepItems`, `Visor`, `UnlimitedStamina`, `PlayerLocator`, `Map`, `Camcorder`, `DoubleCoins`, `DoubleGems`; `Visor` is currently `0`, while the other listed passes are configured.
 
 ### MarketplaceService\Products.luau
-Developer-product asset ids, with per-item product ids nested under `Items`.
-- API: data table — `Revive`, `ReviveFriend`, and `Items` (Ball, Bandage, EnergyDrink, Flashlight, Medkit, Pathfinder, Shovel, Soda, SpellBook, Trap, Visor); only `Revive` has a real id
+Developer-product asset ids, with per-item product ids nested under `Items` and gem-pack product ids under `Gems`, keyed by the number of gems each pack grants.
+- API: data table — `Revive`, `ReviveFriend`, `Items` (Ball, Bandage, EnergyDrink, Flashlight, Medkit, Pathfinder, Shovel, Soda, SpellBook, Trap, Visor), `Gems` (`[5]`, `[15]`, `[40]`, `[100]`, `[220]`, placeholder `0` ids) and an empty `Coins`; only `Revive` has a real id
 
 ### MathService.luau
 Small pure-math helper library shared across the codebase: easing, framerate-independent lerp alphas, horizontal-plane vector work, angles, pulses, and number formatting. No state, no connections.
@@ -606,6 +658,16 @@ Client-side driver for the Mimic enemy: mirrors the local player's recorded move
 - Remotes: `Enemies/Mirror` (listened), `Enemies/MimicReveal` (listened)
 - Tags: listens `Enemy` (raw CollectionService signals, to find necks to twitch/head-lock)
 - Requires: `Classes.MotionTrail`, `Classes.NpcAnimator`, `Services.MimicMotionService`, `Configs.MimicConfig`, `Configs.AnimationConfig`, `AudioService` (reverb wiring)
+
+### MirrorRoomService.luau
+The mirror room's shared geometry, plus the client binding. Both halves run everywhere: room lookup and the bounds/mirror-plane maths re-exported from `Classes.MirrorRoom` so the server can ask the same questions the renderer does (used by `ServerStorage.Services.MirrorStalkerService` and `Classes.Enemies.MirrorStalker`). On the client only, it then listens the `MirrorRoom` tag inside workspace and binds a `Classes.MirrorRoom` to every tagged model.
+- API: `MirrorRoomService.GetRooms() -> { Model }` — every tagged room in workspace
+- API: `MirrorRoomService.GetRoomAt(position: Vector3) -> (Model?, Bounds?)` — the room containing a point
+- API: `MirrorRoomService.GetBounds(model: Model) -> Bounds?` — re-export of `MirrorRoom.GetBounds`
+- API: `MirrorRoomService.IsInside(bounds: Bounds, position: Vector3) -> boolean` — re-export of `MirrorRoom.IsInside`
+- API: `MirrorRoomService.MirrorPoint(bounds: Bounds, position: Vector3) -> Vector3` — re-export of `MirrorRoom.MirrorPoint`
+- Tags: listens `MirrorRoom` (client only)
+- Requires: `Configs.MirrorRoomConfig`, `Classes.MirrorRoom`, `TagService` (client only)
 
 ### MinigameService.luau
 Client-only arcade shell for the hackable computers: picks which minigame a given terminal runs (deterministic by position within its maze), builds the CRT-styled SurfaceGui with title bar, scanlines, win/deny overlays, and hosts one game module at a time. Owns its own pooled `AudioPlayer` sound-cue graph under SoundService.
@@ -655,7 +717,7 @@ Flag-gated startup timing log. The server stamps a start time on ReplicatedStora
 - Requires: `Configs.FLAGS`
 
 ### PhotoCaptureService.luau
-Client half of the tripod Camera's shutter. On the snap remote it fills the Studio-authored `StarterGui.PhotoFlash.Flash`, hides every `LayerCollector` under PlayerGui plus every core GUI type and the topbar, hides the viewmodel, clones the named figure rig locally (anchored, never replicated) at the server-chosen CFrame, and pins the camera to the tripod's lens while calling `CaptureGalleryService:TakeScreenshot`. The figure is cloned and the camera is moved `Capture.WarmupFrames` before the shutter, all of it behind the opaque flash, because a model parented the same frame it is photographed renders unshaded — that warmup is what keeps a dark rig from coming out default grey. Frame waits are deadline-bounded and every restore is guarded, so a client that stops rendering mid-shot (alt-tab) still gets its camera, character and interface back. GUIs are unparented rather than merely disabled, because services like MinimapService re-assert `Enabled` every render step and would otherwise win the frame the shutter fires. Every held frame re-asserts the whole disguise — GUIs stay unparented, the local character's parts stay visible, and its root is turned to the player's real camera yaw so a first-person player is photographed facing where they were looking rather than where they last walked.
+Client half of the tripod Camera's shutter. On the snap remote it fills the Studio-authored `StarterGui.PhotoFlash.Flash`, hides every `LayerCollector` under PlayerGui plus every core GUI type and the topbar, hides the viewmodel, clones the named figure rig locally (anchored, never replicated) at the server-chosen CFrame, and pins the camera to the tripod's lens while calling `CaptureGalleryService:TakeScreenshot`. Device-gallery permission is deferred until the player explicitly keeps the finished photo, so no permission prompt can interrupt the shutter sequence. The figure is cloned and the camera is moved `Capture.WarmupFrames` before the shutter, all of it behind the opaque flash, because a model parented the same frame it is photographed renders unshaded — that warmup is what keeps a dark rig from coming out default grey. Frame waits are deadline-bounded and every restore is guarded, so a client that stops rendering mid-shot (alt-tab) still gets its camera, character and interface back. GUIs are unparented rather than merely disabled, because services like MinimapService re-assert `Enabled` every render step and would otherwise win the frame the shutter fires. Every held frame re-asserts the whole disguise — GUIs stay unparented, the local character's parts stay visible, and its root is turned to the player's real camera yaw so a first-person player is photographed facing where they were looking rather than where they last walked.
 The camera never visibly snaps back: the finished photo is handed to PhotoDevelopService full-screen while the flash is still white, and only then are the camera, viewmodel, character and interface restored behind it, so the flash covers the jump out and the photo covers the jump home. Warns when the figure rig is missing from `ReplicatedStorage.Enemies`. Captures are per-client, so every player in the shot takes their own copy of the same framing, and Roblox scopes them to their owner — a photo can never be shown to anyone else.
 - API: `PhotoCaptureService:Take(lens: CFrame, fieldOfView: number, figure: CFrame?, figureName: string?)` — run the whole flash/capture/restore sequence
 - Remotes: `Photo/Snap` (listened)
@@ -663,7 +725,7 @@ The camera never visibly snaps back: the finished photo is handed to PhotoDevelo
 
 ### PhotoDevelopService.luau
 Fills the Studio-authored `StarterGui.PhotoDevelop` with a captured photo or tape and animates it as a sheet of film developing. A capture arriving from the shutter fills the whole screen, then flies down into the corner after its choice or hold. Tapes use a muted looping `VideoFrame` and start as soon as their data loads. The film grade, sheen, large-view growth and close animation stay the same for both media types. A new capture replaces whatever is on screen.
-- API: `PhotoDevelopService:Show(media: CaptureGalleryService.Media, fullscreen: boolean?)` — fill and animate the authored capture UI. A pending full-screen capture pins the mouse free so Q cannot relock it while Keep/Burn is open, then restores the prior cursor state after either choice
+- API: `PhotoDevelopService:Show(media: CaptureGalleryService.Media, fullscreen: boolean?, onDecision: ((kept: boolean) -> ())?)` — fill and animate the authored capture UI, invoking the optional callback after Keep succeeds, Keep fails, or Burn is chosen. A pending full-screen capture pins the mouse free so Q cannot relock it while Keep/Burn is open, then restores the prior cursor state after either choice, including the locked state when no interface page is active
 - API: `PhotoDevelopService:Expand()` / `PhotoDevelopService:Collapse()` — open and close the large view of the current photo
 - API: `PhotoDevelopService:Hide()` — slide the preview away and clear its media
 - Requires: `Configs.CaptureConfig`, `Configs.PhotoConfig`, `CaptureGalleryService`, `CaptureOverlayService`, `InterfaceService`, `NotificationService`; expects `StarterGui.PhotoDevelop`
@@ -674,13 +736,26 @@ Clones the Studio-authored `StarterGui.CaptureTemplates.PhotoTimer` countdown ab
 - Tags: listens `PhotoConfig.Tag`
 - Requires: `Configs.PhotoConfig`, `TagService`; expects `StarterGui.CaptureTemplates.PhotoTimer`
 
+### POIAudioService.luau
+Plays the `POIDiscovered` sting whenever the server reports the local player entering a point of interest, discovered or not, and passes the server's any-POI occupancy state to `AmbienceService`. Skips the play if the previous one is still going, and does nothing while the template has no asset set.
+- API: `POIAudioService:Play()` — plays unless already playing
+- API: `POIAudioService:IsPlaying() -> boolean`
+- Remotes: `POI/Enter` (listened), `POI/Occupancy` (fired to request and listened for state)
+- Requires: `POIConfig`, `AmbienceService`, `AudioService`, `ReplicatedStorage.Sounds.POIDiscovered`
+
+### POIUIService.luau
+Client point-of-interest popup. Drives the Studio-authored `POIGui`, which is white text on nothing: on a discovery each of the four lines fades in and rises on its own stagger, the name typing itself out a grapheme at a time, the hairline rule growing from zero width, and the counter ticking up from the previous total; it holds, then fades out with the rule collapsing again. The counter animates up from the previous total. Overlapping discoveries are queued and played one at a time.
+- API: `POIUIService:Show(name: string, count: number?, total: number?)` — queues a popup
+- Remotes: `POI/Discovered` (listened), `POI/Sync` (listened and fired as a resync request)
+- Requires: `POIConfig`, `GuiBuilderService`, `TweenProxyService`, `StarterGui.POIGui`
+
 ### PlayerLocatorService.luau
-Client-only teleport-to-player HUD: keeps a `LocatorMarker` per eligible player (all players, or friends only, depending on the toggled mode), highlights whichever marker is nearest the crosshair each frame, and fires the teleport remote on click. Renders the shared cooldown readout. If the `PlayerLocator` GUI is missing its expected children it degrades to a disabled stub exposing only `SetEnabled`/`IsEnabled`.
+Client-only teleport-to-player HUD for the Player Locator gamepass: keeps a `LocatorMarker` per eligible player (all players, or friends only, depending on the toggled mode), highlights whichever marker is nearest the crosshair each frame, and fires the teleport remote on click. The HUD remains disabled until the ownership attribute is true, including when an old saved tool is equipped. Renders the shared cooldown readout. If the `PlayerLocator` GUI is missing its expected children it degrades to a disabled stub exposing only `SetEnabled`/`IsEnabled`.
 - API: `PlayerLocatorService:SetEnabled(value: boolean)` — shows/hides the GUI, rebuilds markers, binds/unbinds the render step
 - API: `PlayerLocatorService:IsEnabled() -> boolean`
 - API: `PlayerLocatorService:GetMode() -> string` — current mode id from `PlayerLocatorConfig.Modes`
 - Remotes: `PlayerLocator/Teleport` (fired to request; listened for the returned cooldown)
-- Requires: `Classes.LocatorMarker`, `Configs.PlayerLocatorConfig`, `GuiBuilderService`; reads the `Cursor` GUI to find the aim point
+- Requires: `Classes.LocatorMarker`, `Configs.PerkConfig`, `Configs.PlayerLocatorConfig`, `GuiBuilderService`; reads the `Cursor` GUI to find the aim point
 
 ### PlayerOddityRenderService.luau
 Client renderer for the "everyone stares at you" oddity: while the server-sent stare is active, every other player's neck Motor6D is eased toward looking at your head (clamped to ±80° yaw, ±35° pitch), then eased back and released once settled.
@@ -706,12 +781,17 @@ Progressively reveals a string word by word in a stable pseudo-random order deri
 - API: `Redaction.NewlyVisible(text: string, seed: string, before: number, after: number) -> { number }` — indices gained between two progress values
 
 ### ShakeService.luau
-Client camera-shake front end over the vendored `CameraShaker`. Offers five named presets, keyed sustained shakes, and a `Rumble` handle whose magnitude can be driven continuously (e.g. by proximity).
+Client camera-shake front end over the vendored `CameraShaker`. Offers five named presets, keyed sustained shakes, and a `Rumble` handle whose magnitude can be driven continuously (e.g. by proximity). Shake translation is carried onto `Camera.Focus` as well so it never turns the first-person character.
 - API: `ShakeService:Create(shakeData: { ID: string, ShakeType: "Once" | "Sustained", Preset: string })` — presets are `Scare`, `Small`, `Jumpscare`, `Slam`, `Jolt`
 - API: `ShakeService:Delete(ID: string)` — fades out and forgets a sustained shake
 - API: `ShakeService:CreateDynamicRumble(startValue: number, params: RumbleParams?) -> Rumble` — handle with `:AdjustValue(n)`, `:Stop(fadeOutTime?)`, `:Start()`
 - API: `ShakeService.SustainedShakes` — id → live shake instance
 - Requires: `Classes.CameraShaker` (vendored third-party), `Services.PerfLoggerService`
+
+### ShopUIService.luau
+Client wiring for the Studio-authored `ShopUI` gamepass page. Every frame under `Design.ProductGrid` is a card named after its `MarketplaceService.Gamepasses` key. The legacy `DoubleSpeed` card name resolves to `UnlimitedStamina` until the Studio card is renamed. The card's `Purchase` button prompts that gamepass, and its `Price` label shows the Robux price from gamepass info. Once the matching `Perk_<Name>` attribute from `PerkService` is true, the currency icon is hidden and the label is widened to `StoreConfig.OwnedPrice` with `StoreConfig.Text.Owned`. A pass whose id is `0` shows `StoreConfig.Text.Unavailable` and never prompts. Button motion is authored in Studio through xenterface's `Hover` tag and `Press` Configuration.
+- API: data table — empty; the page is wired on require.
+- Requires: `Configs.PerkConfig` (`AttributePrefix`), `Configs.StoreConfig`, `MarketplaceService` (project wrapper, `Gamepasses` and product info), `MathService`, `GuiBuilderService`; expects `ShopUI.Design.ProductGrid` cards holding `Purchase.Price` and `Purchase.CurrencyIcon`
 
 ### ShopkeeperService.luau
 Client service for shopkeeper NPCs: registers each tagged model with the interaction system, keeps its `PageAttribute` in sync, plays a looping smile animation once FaceControls/Animator exist, and opens the matching interface page on activation.
@@ -757,7 +837,7 @@ Maps a viewport point onto a `SurfaceGui` canvas by intersecting the camera ray 
 - Requires: nothing
 
 ### SprintService.luau
-Client sprint state machine: binds hold-to-sprint keys (plus a touch toggle button), drains and regenerates stamina with an exhaustion lockout, and owns the humanoid's `WalkSpeed`. Maximum stamina and the sprint speed multiplier are per-character rather than fixed: both are read every time they are needed from the `Stamina` and `SprintMultiplier` character attributes through `HumanoidStatsService.ReadAttribute`, falling back to `SprintConfig` when unset, which is how a kit raises a player's stamina pool or sprint speed. It watches external WalkSpeed writes to re-derive the base speed and respects the server's speed-boost attributes, drives the sprint FOV offset, and uses Wallstick's movement source while the local character is surface-stuck.
+Client sprint state machine: binds hold-to-sprint keys (plus a touch toggle button), drains and regenerates stamina with an exhaustion lockout, and owns the humanoid's `WalkSpeed`. Players with the `UnlimitedStamina` gamepass keep stamina full and never drain or exhaust while sprinting. Maximum stamina and the sprint speed multiplier are per-character rather than fixed: both are read every time they are needed from the `Stamina` and `SprintMultiplier` character attributes through `HumanoidStatsService.ReadAttribute`, falling back to `SprintConfig` when unset, which is how a kit raises a player's stamina pool or sprint speed. It watches external WalkSpeed writes to re-derive the base speed and respects the server's speed-boost attributes, drives the sprint FOV offset, and uses Wallstick's movement source while the local character is surface-stuck.
 - API: `SprintService:GetStaminaFraction() -> number` — 0..1
 - API: `SprintService:IsSprinting() -> boolean`
 - API: `SprintService:IsExhausted() -> boolean`
@@ -819,7 +899,8 @@ One-question helper for whether a character should be treated as absent: it carr
 - API: source tags `InfiniteTag`, `SafeZoneTag`, `SpellBookTag`, `HoleTag` plus their `*EndsAtAttribute` names
 - Tags: reads `Ignore`, `IgnoreExceptEye`, `InfiniteImmunity`, `SafeZoneImmunity`, `SpellBookImmunity`, `HoleImmunity`
 ### ViewmodelService.luau
-Client first-person viewmodel: clones the equipped Tool (stripped of scripts, sounds and effects) under the camera, hides the real tool (its parts *and* its SurfaceGuis, which transparency alone cannot hide), and each render step positions the clone from camera CFrame plus yaw sway and speed-scaled bob. Auto-hides when not in first person or when the character's real hand is visible; supports per-tool anchor/rotation overrides, a per-tool `Scale` override for props too large for the shared scale, and named poses that other services switch between, lerped at the override's `PoseSpeed`. A pose either shifts the base placement (`AnchorOffset`, `ArmAnchorOffset`, `RotateOffset`, so live tuning of the base carries into it), replaces it outright (`Anchor`, `ArmAnchor`, `Rotate`), or declares a `Framing` block and is solved from the rig's own geometry — squaring a named part's face to the camera and backing off until a named GUI element covers the requested fraction of the viewport, which keeps it centred and upright no matter how the base pose or `Scale` are tuned. The rig's pivot is taken from the *clone's* handle rather than the live tool's, and every jointed part in the clone is re-seated to the rest pose its `Motor6D`/`Weld` `C0`/`C1` define before the pivot and bounds are measured. Nearly every tool is a rig hanging off an invisible `Handle`, and cloning one mid-animation would otherwise anchor the visible mesh at whatever animated offset it happened to hold on the equip frame — the shovel, whose `Equip` and `Dig` animations both drive its `Meshes/shovel` joint, came out at a different angle every time it was drawn. Exposes the currently equipped Tool for client debug panels.
+Client first-person viewmodel: clones the equipped Tool (stripped of scripts, sounds and effects) under the camera, hides the real tool (its parts *and* its SurfaceGuis, which transparency alone cannot hide), and each render step positions the clone from camera CFrame plus yaw sway and speed-scaled bob. Auto-hides when not in first person or when the character's real hand is visible; supports per-tool anchor/rotation overrides, a per-tool `Scale` override for props too large for the shared scale, and named poses that other services switch between, lerped at the override's `PoseSpeed`. A capture-hidden state immediately unparents the live viewmodel and keeps both the clone and real tool hidden until released. A pose either shifts the base placement (`AnchorOffset`, `ArmAnchorOffset`, `RotateOffset`, so live tuning of the base carries into it), replaces it outright (`Anchor`, `ArmAnchor`, `Rotate`), or declares a `Framing` block and is solved from the rig's own geometry — squaring a named part's face to the camera and backing off until a named GUI element covers the requested fraction of the viewport, which keeps it centred and upright no matter how the base pose or `Scale` are tuned. The rig's pivot is taken from the *clone's* handle rather than the live tool's, and every jointed part in the clone is re-seated to the rest pose its `Motor6D`/`Weld` `C0`/`C1` define before the pivot and bounds are measured. Nearly every tool is a rig hanging off an invisible `Handle`, and cloning one mid-animation would otherwise anchor the visible mesh at whatever animated offset it happened to hold on the equip frame — the shovel, whose `Equip` and `Dig` animations both drive its `Meshes/shovel` joint, came out at a different angle every time it was drawn. Exposes the currently equipped Tool for client debug panels.
+- API: `ViewmodelService:SetCaptureHidden(hidden: boolean)` — immediately suppress or restore the live first-person viewmodel and real equipped tool
 - API: `ViewmodelService:SetPose(pose: string?)` — select a named entry from the current tool's `Overrides[tool].Poses`, or `nil` for the base placement
 - API: `ViewmodelService:SetPoseOverride(active: boolean, pose: string?)` — pin a pose regardless of `SetPose`, for the debug panel
 - API: `ViewmodelService:GetDefaultAnchor() -> Vector3?` — default fit anchor for the equipped viewmodel

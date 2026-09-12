@@ -5,14 +5,17 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local MapConfig = require(ReplicatedStorage.Configs.MapConfig)
+local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local HallwaysService = require(ReplicatedStorage.Services.HallwaysService)
 local MapLayoutService = require(ReplicatedStorage.Services.MapLayoutService)
 local DataSaveService = require(ServerStorage.Services.DataSaveService)
+local PerkService = require(ServerStorage.Services.PerkService)
 
 local Discovery = MapConfig.Discovery
 local Remotes = MapConfig.Remotes
+local MAP_ATTRIBUTE = PerkConfig.AttributePrefix .. "Map"
 
 local MapDiscoveryService = {}
 
@@ -45,6 +48,10 @@ CapRayParams.FilterType = Enum.RaycastFilterType.Include
 CapRayParams.FilterDescendantsInstances = { workspace.Maze15.Walls }
 CapRayParams.RespectCanCollide = true
 CapRayParams.IgnoreWater = true
+
+local function ownsMap(player: Player): boolean
+	return player:GetAttribute(MAP_ATTRIBUTE) == true
+end
 
 local function refreshRayFilter()
 	local ignore = {}
@@ -270,6 +277,8 @@ function MapDiscoveryService:GetDiscovered(player: Player): { [string]: Interval
 end
 
 function MapDiscoveryService:Sync(player: Player)
+	if not ownsMap(player) then return end
+
 	local store = getStore(player)
 	local landmarks = getLandmarks(player)
 	if not store or not landmarks then return end
@@ -298,7 +307,9 @@ function MapDiscoveryService:UpdateLandmarks(player: Player, position: Vector3)
 			if found[key] then continue end
 
 			found[key] = true
-			LandmarkRemote:FireClient(player, kind, key)
+			if ownsMap(player) then
+				LandmarkRemote:FireClient(player, kind, key)
+			end
 		end
 	end
 end
@@ -346,16 +357,27 @@ function MapDiscoveryService:Update(player: Player)
 
 		if changed then
 			store[entry.Key] = known
-			RevealRemote:FireClient(player, entry.Key, known)
+			if ownsMap(player) then
+				RevealRemote:FireClient(player, entry.Key, known)
+			end
 		end
 	end
 end
 
 CharacterService.ForEachPlayer(function(player)
-	DataSaveService:Wait(player)
-	if player:IsDescendantOf(Players) then
-		MapDiscoveryService:Sync(player)
-	end
+	player:GetAttributeChangedSignal(MAP_ATTRIBUTE):Connect(function()
+		if ownsMap(player) then
+			MapDiscoveryService:Sync(player)
+		end
+	end)
+
+	task.spawn(function()
+		DataSaveService:Wait(player)
+		PerkService:WaitForPasses(player)
+		if player:IsDescendantOf(Players) then
+			MapDiscoveryService:Sync(player)
+		end
+	end)
 end)
 
 local Elapsed = 0

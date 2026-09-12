@@ -3,8 +3,8 @@
 Pure data tables. Each is named `TopicConfig` and returns only the table.
 
 ### AmbienceConfig.luau
-Distance-based volume falloff and fade timing for ambient sound emitters.
-- API: data table — `SilentDistance`, `FullVolumeDistance`, `FadeTime`, `UpdateInterval`
+Distance-based volume falloff and fade timing for ambient sound emitters, plus the POI cross-fade and unsettling pitch, distortion and tremolo tuning used while inside a POI.
+- API: data table — `SilentDistance`, `FullVolumeDistance`, `FadeTime`, `UpdateInterval`, `POI` (`Volume`, `FadeTime`, `Pitch`, `DistortionLevel`, `TremoloDepth`, `TremoloFrequency`)
 
 ### AnimationConfig.luau
 Animation asset ids plus per-enemy animation sets (walk/run/idle/attack/room-reaction/listen/lurk) used by enemy rigs and tools.
@@ -15,12 +15,16 @@ Idle breathing motion applied to character joints.
 - API: data table — `Period`, `InhaleFraction`, `Waist`, `Neck`, `Shoulder`, `Root`, `Smoothing`, `MaxDistance`
 
 ### CameraBobConfig.luau
-Walk-cycle camera bob amplitude, cadence and speed scaling.
-- API: data table — `VerticalDistance`, `HorizontalDistance`, `RollAngle`, `StepsPerSecond`, `ReferenceWalkSpeed`, `FadeSpeed`, `AmplitudeSpeedInfluence`, `MinAmplitudeScale`, `MaxAmplitudeScale`
+Walk-cycle camera bob amplitude, cadence, speed scaling and smoothed strafing tilt.
+- API: data table — `VerticalDistance`, `HorizontalDistance`, `RollAngle`, `StrafeTiltAngle`, `StrafeTiltSpeed`, `StepsPerSecond`, `ReferenceWalkSpeed`, `FadeSpeed`, `AmplitudeSpeedInfluence`, `MinAmplitudeScale`, `MaxAmplitudeScale`
 
 ### ChaosLightConfig.luau
-Red hallway-light warning that precedes the Chaos enemy.
-- API: data table — `RedColor`
+Red hallway-light warning that precedes the Chaos enemy, and how the client decides Chaos has passed a lamp.
+- API: data table — `RedColor`, `PassCheckInterval`, `PassEngageRange`
+
+### ChaosWarningConfig.luau
+Client gating and placement for the Chaos warning ambience: how often to re-evaluate, which bus/folder/sting to play, and how near a red lamp has to be for the cue to be audible. There are deliberately **no volume-over-distance values here** — how loud the bed is at a given range belongs to the emitters' own `DistanceAttenuationBounds` in `ReplicatedStorage.Sounds`, not to this config. `RedHearingRange` doubles as the distance beyond which the anchor stops using a region's centre line and falls back to the red lamp itself, and `RedFadeBand` is how much of that range is spent ramping the bed down to nothing so leaving the red is not a step. `RedReleaseRate` is how fast the tracked red distance is allowed to grow in studs per second: a nearer lamp is followed instantly, a receding one only at that rate, because lamps behind you all clear at once as Chaos passes and the raw distance would otherwise leap from a few studs to hundreds between ticks. `StingLifetime` is the backstop that cleans up the one-shot's own source part.
+- API: data table — `CheckInterval`, `AmbienceBus`, `AmbienceFolder`, `IncomingSound`, `RedHearingRange`, `RedFadeBand`, `RedReleaseRate`, `StingLifetime`, `FadeInSpeed`, `FadeOutSpeed`, `AnchorLerpSpeed`, `AnchorSnapDistance`, `ReleaseDelay`, `GainSnap`
 
 ### ChaseMusicConfig.luau
 Per-enemy chase music tracks with range, volume and fade rates.
@@ -59,15 +63,15 @@ Death-cause names and player-facing hints per enemy (including the `PaintingDwel
 
 ### DoorConfig.luau
 Swinging door physics, proximity open/close distances and enemy forced-open behaviour.
-- API: data table — `DoorwayTags`, `AnchorName` (the purely-translating part a door leaf follows when the doorway is moved; `Threshold`, not `DoorHeader`, which `HallwayCrush` rescales), `OpenAngle`, `OpenDistance`, `CloseDistance`, `MaxHeightDifference`, `SwingSpeed`, `EnemyTag`, `EnemyForceDistance`, `EnemyReleaseDistance`, `PollInterval`, spring keys (`Stiffness`, `DampingRatio`, `MaxStep`), settle keys
+- API: data table — `DoorwayTags`, `AnchorName` (the purely-translating part a door leaf follows when the doorway is moved; `Threshold`, not `DoorHeader`, which `HallwayCrush` rescales), `OpenAngle`, NPC door-reaction spacing (`KnockDistance` — how far off the door an NPC stands to knock, `ApproachPadding` and `MinApproachDistance` — the wider stand-off its pathfinding walk targets first, which has to clear the flanking lantern columns), `OpenDistance`, `CloseDistance`, `MaxHeightDifference`, `SwingSpeed`, `EnemyTag`, `EnemyForceDistance`, `EnemyReleaseDistance`, `PollInterval`, spring keys (`Stiffness`, `DampingRatio`, `MaxStep`), settle keys
 
 ### DrawerConfig.luau
 Openable drawers: tag/attribute names, spring motion, auto-close, interaction targeting, highlight, sounds and the prompt UI.
 - API: data table — `Tag`, `Attribute`, open/auto-close keys, `OutwardAxis`, handle-detection keys, spring/settle keys, `Targeting`, `Input`, `Highlight`, `Sound`, `UI`
 
 ### DrawerItemConfig.luau
-Items spawned inside drawers: spawn rates, rarity weights and the item-to-rarity table. At load time it clones `DrawerConfig.Input` and `DrawerConfig.UI` and overrides a few fields, and reuses `DrawerConfig.Targeting`/`Highlight` by reference.
-- API: data table — `Tag`, `Attribute`, `Remotes`, `Spawn`, `Targeting`, `Input`, `Highlight`, `UI`, `Rarities`, `Items`
+Items spawned inside drawers and the hallway currency pickups: drawer spawn rates, currency target and refill settings, hallway placement limits and supported surface names, rarity weights, currency weights and reward amounts, pickup feedback labels and sound names, display rotations, plus the item-to-rarity table. At load time it clones `DrawerConfig.Input` and `DrawerConfig.UI` and overrides a few fields, and reuses `DrawerConfig.Targeting`/`Highlight` by reference.
+- API: data table — `Tag`, `Attribute`, `Remotes`, `Feedback`, `DisplayRotations`, `Spawn`, `Hallway`, `Targeting`, `Input`, `Highlight`, `UI`, `Rarities`, `Items`, `Currencies`
 - Requires: `Configs/DrawerConfig`
 
 ### EffectsHUDConfig.luau
@@ -84,7 +88,15 @@ The Eye enemy: tracking range, the hit flash/blink/blur reaction, gaze-buildup s
 
 ### FLAGS.luau
 Global on/off switches for major systems and debug output.
-- API: data table — `Enemies`, `EnemyCommands`, `Director`, `DangerDebug`, `VoiceDebug`, `ViewmodelDebug`, `ItemPreviewDebug`, `PerfLog`
+- API: data table — `Enemies`, `EnemyCommands`, `Director`, `DangerDebug`, `VoiceDebug`, `ViewmodelDebug`, `ItemPreviewDebug`, `FlashlightDebug`, `PerfLog`
+
+### FlashlightConfig.luau
+The flashlight beam: the stacked spotlight cones, their shared colour, and where the local player's beam origin sits relative to the camera.
+- API: data table — `Attribute`, `Color`, `Master`, `CameraOffset`, `Cones` (each `Name`, `Angle`, `Range`, `Brightness`, `Shadows`)
+
+### FlashlightDebugConfig.luau
+Toggle key and slider steps for the flashlight beam panel.
+- API: data table — `ToggleKey`, `Step`, `AngleStep`, `WarmColor`
 
 ### GhostConfig.luau
 The Ghost enemy's turn, bob and fade timing.
@@ -107,8 +119,8 @@ The enemy Index (bestiary) UI: pagination, locked/undiscovered styling, the disc
 - API: data table — `EntriesPerPage`, `TemplateFolder`, `StartProgress`, `Locked`, `Discovery`, `Empty`, `HideUndiscovered`, `Pagination`, `Animation`, `Headshot`, `Entries`; exports types `StandinPart`, `Headshot`, `Entry`
 
 ### InventoryConfig.luau
-Hotbar/backpack sizes, the names that may only have one copy, keybinds, drag thresholds and slot styling for the inventory UI.
-- API: data table — `HotbarSlots`, `BackpackSlots`, `SingleCopy`, `ToggleKey`, `HotbarKeys`, `DragThreshold`, `TouchDragThreshold`, `SlotSize`, `SlotPadding`, `CornerRadius`, `Colors`, `Transparency`, `PlaceholderIcon`
+Hotbar/backpack sizes, keybinds, drag thresholds and slot styling for the inventory UI. Item quantities stack by name; the InventoryService separately maintains one required Walkie Talkie.
+- API: data table — `HotbarSlots`, `BackpackSlots`, `ToggleKey`, `HotbarKeys`, `DragThreshold`, `TouchDragThreshold`, `SlotSize`, `SlotPadding`, `CornerRadius`, `Colors`, `Transparency`, `PlaceholderIcon`
 
 ### ItemPreviewConfig.luau
 How every item ViewportFrame in the game frames its tool - the shop cards, the shop info panel, the inventory hotbar and all three kit pages read this one table through `ItemPreviewService`, so an item looks the same wherever it appears. `Default` is the framing every item starts from; `Items` holds only the per-item fields that differ from it. `FieldOfView` is global because it changes the perspective of every preview at once. The lighting trio is not decoration - without an explicit `Ambient`/`LightColor`/`LightDirection` tool models render as near-black silhouettes. Entries are written by hand or generated by the F2 item preview debug panel.
@@ -150,12 +162,16 @@ Settings for the look-direction system that replicates each player's aim to neck
 Everything tuning the discoverable map: remote names, the `Map` ScreenGui paths, discovery radius and tick rate, canvas resolution and margin, hand-drawn ink style (colour, opacity, width and its variance, wobble amplitude and frequency, overshoot, bleed), the room floor tags, the landmark tags and their discovery radii, line-of-sight sampling, pan and zoom limits, room and computer-room stroke weights and hatch settings, danger layer colours, and marker sizing and effect timings.
 
 ### MapOddityConfig.luau
-Roll timings, durations and per-effect tuning for the hallway/map oddity system (transparent hallways, doors opening, hallway chaos, gaze-gated blockers and the Void's widened crossing plank).
-- API: data table — `Enabled`, `RollInterval`, `InitialDelay`, `TriggerChance`, `MinDuration`, `MaxDuration`, `MinimumPlayerDistance`, `Effects` (`Transparency`, `DoorsOpen`, `HallwayChaos`, `HallwayBlocker`, `HallwayVoid` including `PlankWidth`, `HallwayCrush` (incl. `SafeMargin`, `KillTolerance`, `BackstopDelay`, `TrimOvershoot`, `DoorwayMargin`, `MinimumHRPOverlap`), `ChaosWarning`), plus hallway detection keys `HallwayTransparency`, `HallwayHeightWindow`, `HallwayBelowWindow`, `SpatialPadding`, `MinimumPartHallwayFraction`
+Spawn intervals, durations and per-effect tuning for the hallway/map oddity system (transparent hallways, world-space light blackouts, doors opening, hallway chaos, gaze-gated blockers and the Void's widened crossing plank). Every ambient effect supplies `SpawnIntervalMin` and `SpawnIntervalMax`; the scheduler samples `math.random(min, max)` directly before each map-wide spawn attempt.
+- API: data table — `Enabled`, `MinDuration`, `MaxDuration`, `MinimumPlayerDistance`, `Effects` (`Transparency`, `MapLightsOut` including `SpawnIntervalMin`, `SpawnIntervalMax`, `ChunkSize`, `ChunkHeight`, `ChunkBelow`, `MinimumLights` and `PickAttempts`, `DoorsOpen`, `HallwayChaos`, `HallwayBlocker`, `HallwayVoid` including `PlankWidth`, `HallwayCrush` including `SpawnIntervalMin`, `SpawnIntervalMax`, `OccupiedChance`, `OccupiedChanceReferencePlayers`, `SafeMargin`, `KillTolerance`, `BackstopDelay`, `TrimOvershoot`, `DoorwayMargin` and `MinimumHRPOverlap`, `ChaosWarning`), plus hallway detection keys `HallwayTransparency`, `HallwayHeightWindow`, `HallwayBelowWindow`, `SpatialPadding`, `MinimumPartHallwayFraction`
 
 ### MimicConfig.luau
 Behaviour tuning for the Mimic enemy — reaction delays, idle emotes, its reveal sequence, floating, turning and approach distances.
 - API: data table — reaction keys (`ReactionDelayMin/Max`, `KeyDeadzone`, `ReactionJitterMin/Max`), emote/spin keys, reveal keys (`HeadSnapDuration`, `RevealHoldTime`, `RevealSound*`, `RevealReverb*`, `RevealSub*`), float keys (`FloatHipRise`, `FloatRiseTime`, `FloatSettleTime`, `FloatBob*`), turning keys (`TurnRate`, `InteractionTurnRate`, `AimDrift*`, `FacingTorque`, `FacingResponsiveness`), and positioning keys (`WallProbeDistance`, `ApproachStopDistance`, `WithdrawGap`, `ShadowGap`, `Behind*`, `ImmediateBehindTurnChance`)
+
+### MirrorRoomConfig.luau
+Tuning for the mirrored connector room's reflections.
+- API: data table — `Tag`, `OpaqueTag` (subjects whose real body is invisible but whose reflection must still render solid, e.g. `MirrorStalker`), `TransparencyAttribute` (per-instance record of what a blanked part's transparency was, so the reflection restores it instead of forcing everything to zero and revealing the HumanoidRootPart), `ViewerAttribute` (a `UserId` on an enemy model limiting its reflection to that one player), `Padding`, `FloorTolerance`, `RetryDelay`, `CastShadow`, `BendLocalLook`, `ReflectEnemies`, `StripClasses`
 
 ### NotificationConfig.luau
 Visual settings for the top-center notification banner used for short player-facing feedback.
@@ -165,9 +181,12 @@ Visual settings for the top-center notification banner used for short player-fac
 Tag name, attribute name and reconciliation tolerances for the "freeze while observed" enemy movement system. Assembled field-by-field on a named local table rather than as a literal, but returns only that table.
 - API: data table — `Tag`, `FrozenAttribute`, `MaxOffset`, `ConfirmationTimeout`, `ReleaseSpeed`, `MinReportGap`
 
+### POIConfig.luau
+Point-of-interest tag, discovery, entry and occupancy remote names, the trigger-box padding and sweep interval used by the server, the entry sting's template/bus/cooldown, and every timing and string the discovery popup animates with.
+
 ### PerkConfig.luau
 Per-perk settings for the gamepass/perk system, keyed by perk name under a shared attribute prefix.
-- API: data table — `AttributePrefix`, `Loadout`, `Visor`, `DoubleSpeed`, `FriendRevive`
+- API: data table — `AttributePrefix`, `Loadout`, `Visor`, `PlayerLocator`, `Camcorder`, `UnlimitedStamina`, `FriendRevive`
 
 ### PhotoConfig.luau
 Every behavior value the tripod Camera photo system uses: the placed-model tag and attribute names, placement raycast limits, body height, the 180-degree model yaw and the ghost placement preview, countdown length, lens offset/FOV and the subject cone, ShadowFigure placement rules, capture flash timings including the figure render warmup, the unseen-despawn rule, countdown pulse rules, and film animation timings. The countdown, shutter flash, and film layout live in `StarterGui.CaptureTemplates.PhotoTimer`, `StarterGui.PhotoFlash`, and `StarterGui.PhotoDevelop`.
@@ -205,6 +224,10 @@ Speed multiplier, stamina economy, camera FOV blend, input bindings and stamina-
 ### StatsHUDConfig.luau
 Layout, colour thresholds and sampling intervals for the debug stats HUD panel (FPS, ping, danger level, enemy state rows).
 - API: data table — `EdgeMargin`, `RowHeight`, `CaptionWidth`, `PanelWidth`, `TextSize`, `BackgroundTransparency`, `Colors`, `Enemies`, `Fps`, `Ping`, `Danger`, `TagWaitTimeout`, `TagPollInterval`, `TagSettlePolls`
+
+### StoreConfig.luau
+Shared settings for the two Robux store pages, the gamepass `ShopUI` and the gem-pack `GemsUI`, plus the result code the server attaches to a granted gem purchase.
+- API: data table — `Text` (`Owned`, `Unavailable`, `GemsSuffix`), `OwnedPrice` (`Position`, `Size` of the price label once a pass is owned), `GemPurchaseResult`, `GemPacks` (ordered `{ Frame, Amount }` entries; `Amount` keys into `MarketplaceService.Products.Gems`), `Flash` (`Time`, `Success`, `Failure`)
 
 ### StreamingConfig.luau
 Corridor-streaming settings — prediction, replication lead times, reconciliation intervals, teleport timeouts and the tags/attributes used to mark streamed models. Currently disabled via `Enabled = false`.

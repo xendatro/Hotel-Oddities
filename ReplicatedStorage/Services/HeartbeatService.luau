@@ -38,7 +38,9 @@ local function getNearness(): (number, boolean)
 	local pursuing = false
 	for _, instance in TagService:GetTaggedOfPredicate(ENEMY_TAG, isHeartbeatEnemy) do
 		local model = instance :: Model
-		local distance = (model:GetPivot().Position - root.Position).Magnitude
+		local pivot = CharacterService.GetStreamedPivot(model)
+		if not pivot then continue end
+		local distance = (pivot.Position - root.Position).Magnitude
 		if distance > HeartbeatConfig.Range then continue end
 		if distance < nearest then
 			nearest = distance

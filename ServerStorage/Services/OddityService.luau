@@ -42,7 +42,10 @@ function OddityService:Register(class: any)
 	end
 	scope[class.Kind] = class
 	class.Settings = settingsFor(class)
-	scopeEnabled[class.Scope] = class.Settings.Enabled ~= false
+
+	local module = ReplicatedStorage.Configs:FindFirstChild(class.ConfigName)
+	local scopeConfig = if module then require(module) else {}
+	scopeEnabled[class.Scope] = scopeConfig.Enabled ~= false
 end
 
 function OddityService:Get(scope: string, kind: string): any?
@@ -73,9 +76,8 @@ end
 
 function OddityService:Start(class: any, context: any, duration: number?, overrides: { [string]: any }?): (any?, string?)
 	if EDIT_MODE then return nil, "oddities are disabled in Studio edit mode" end
-	if class.Settings.Enabled == false then return nil, "that oddity is disabled" end
+ 	if class.Settings.Enabled == false then return nil, "that oddity is disabled" end
 
-	print(class)
 	local settings = class.Settings
 	if type(overrides) == "table" then
 		settings = table.clone(class.Settings)
@@ -144,38 +146,11 @@ if not EDIT_MODE then
 
 			task.spawn(function()
 				local settings = class.Settings
-				local randomSpawnInterval = type(settings.SpawnIntervalMin) == "number"
-					and type(settings.SpawnIntervalMax) == "number"
-				local minimumSpawnInterval = if randomSpawnInterval
-					then math.max(math.floor(settings.SpawnIntervalMin), 0)
-					else 0
-				local maximumSpawnInterval = if randomSpawnInterval
-					then math.max(math.floor(settings.SpawnIntervalMax), minimumSpawnInterval)
-					else 0
-
-				local function waitForSpawn()
-					if randomSpawnInterval then
-						task.wait(math.random(minimumSpawnInterval, maximumSpawnInterval))
-					else
-						task.wait(math.max(settings.RollInterval or 45, 1))
-					end
-				end
-
-				if not randomSpawnInterval then
-					task.wait(math.max(settings.InitialDelay or 45, 0))
-				end
 				while true do
-					if randomSpawnInterval then
-						waitForSpawn()
-					end
-					if randomSpawnInterval or math.random() <= (settings.TriggerChance or 0.15) then
-						local context = class.Pick(class)
-						if context then
-							OddityService:Start(class, context)
-						end
-					end
-					if not randomSpawnInterval then
-						waitForSpawn()
+					task.wait(math.random(settings.SpawnIntervalMin, settings.SpawnIntervalMax))
+					local context = class.Pick(class)
+					if context then
+						OddityService:Start(class, context)
 					end
 				end
 			end)

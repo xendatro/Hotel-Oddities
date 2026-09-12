@@ -4,6 +4,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local InventoryService = require(ServerStorage.Services.InventoryService)
 local HallwayStreamingService = require(ServerStorage.Services.HallwayStreamingService)
+local PerkService = require(ServerStorage.Services.PerkService)
 
 local PlayerLocatorConfig = require(ReplicatedStorage.Configs.PlayerLocatorConfig)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
@@ -27,6 +28,7 @@ function PlayerLocatorService:GetCooldown(player: Player): number
 end
 
 function PlayerLocatorService:Teleport(player: Player, target: Player): boolean
+	if not PerkService:Owns(player, "PlayerLocator") then return false end
 	if target == player then return false end
 	if self:GetCooldown(player) > 0 then return false end
 
