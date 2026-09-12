@@ -380,7 +380,7 @@ become Services or Classes.
 - ServerStorage\Services\ElevatorService.luau — Teleports players from the lobby elevator into the maze with fade, loading and streaming.
 - ServerStorage\Services\EnemyCommandService.luau — Developer chat commands for spawning, listing and despawning enemies, including `/mirror` for the mirror-room encounter.
 - ServerStorage\Services\EnemyDebugService.luau — Broadcasts a periodic snapshot of active enemies to the stats HUD.
-- ServerStorage\Services\EnemyDirectorService.luau — Manages the live enemy population: spawning, placement scoring and despawning.
+- ServerStorage\Services\EnemyDirectorService.luau — Manages the live enemy population: spawning, placement scoring and despawning expired enemies unless they are engaged or mid peek sequence.
 - ServerStorage\Services\EnemyDiscoveryService.luau — Tracks and persists per-player bestiary discovery progress for each enemy.
 - ServerStorage\Services\EnemyObservationService.luau — Holds each client's validated report of which enemies it can see and from where.
 - ServerStorage\Services\EnemyService.luau — Enemy factory and active-enemy registry, including collision group setup.
