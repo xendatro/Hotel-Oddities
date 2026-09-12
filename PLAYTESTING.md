@@ -164,6 +164,14 @@ A Stalker walking at 18 studs/s reported `MoveDirection.Magnitude == 0` on every
 sample. Sample `RootPart` displacement or `AssemblyLinearVelocity`, and
 `Humanoid.WalkToPoint` for what it was told to walk to.
 
+**`Observed`** — **script sync can stop pulling disk edits into Studio.** On
+2026-09-12, edits to `NPC.luau` and `Peek.luau` on disk never reached the Studio
+copies after 20+ seconds, so a playtest would have run the old code. The cause
+is unconfirmed. Before a playtest, `find` a string from your edit in the
+script's `Source` from the Edit datamodel. If it's missing, apply the same
+replacements to `Source` there and compare `#Source` with the file's byte count
+(`wc -c`), after subtracting one per line for files saved with CRLF endings.
+
 **`Observed`** — **stopping and starting play is not instant.** Starting
 immediately after stopping can fail with "Stop play hasn't finished yet"; retry.
 Reparenting instances the client is mid-way through using has also dropped the
