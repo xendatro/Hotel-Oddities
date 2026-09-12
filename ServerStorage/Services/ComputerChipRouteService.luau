@@ -14,6 +14,7 @@ local ActiveComputations = 0
 local Revision = 0
 local InvalidationPending = false
 local NextCacheSweep = 0
+local Metrics = { GraphBuilds = 0, Requests = 0, CacheHits = 0, InFlightHits = 0, Direct = 0, Computations = 0, Forced = 0, PeakComputations = 0, ComputeSeconds = 0, MaxComputeSeconds = 0 }
 
 local function horizontal(v)
 	return Vector3.new(v.X, 0, v.Z)
@@ -76,7 +77,7 @@ end
 local function floorTouches(room, position)
 	for _, floor in room.Floors do
 		local localPoint = floor.CFrame:PointToObjectSpace(position)
-		local half = floor.Size / 2 + Vector3.new(1.5, 1.5, 1.5)
+		local half = floor.Size / 2 + Vector3.new(Config.EntranceSnapDistance, 1.5, Config.EntranceSnapDistance)
 		if math.abs(localPoint.X) <= half.X and math.abs(localPoint.Y) <= half.Y
 			and math.abs(localPoint.Z) <= half.Z then return true end
 	end
@@ -110,6 +111,7 @@ function Routes:Invalidate()
 end
 
 local function build(maze)
+	Metrics.GraphBuilds += 1
 	local graph = HallwayGraph:BuildCorridors(maze)
 	graph.Edges = {}
 	graph.Rooms = {}
@@ -143,6 +145,12 @@ local function build(maze)
 				port = nodeAt(position)
 				table.insert(graph.Nodes, port)
 				connect(port, anchor)
+			end
+			for _, nearby in graph.Hallways do
+				local point = project(nearby, position)
+				if (point - position).Magnitude <= Config.EntranceSnapDistance then
+					connect(port, attach(graph, nearby, point))
+				end
 			end
 			table.insert(room.Ports, port)
 		end
@@ -210,6 +218,7 @@ end
 local function roomAnchor(graph, room)
 	local approach = RoomService:GetDoorApproach(room, Config.AgentRadius)
 	if not approach then return nil end
+	approach = Vector3.new(approach.X, room:GetPivot().Position.Y, approach.Z)
 	local hallway, point = nearestHallway(graph, approach, Config.EntranceSnapDistance)
 	return if hallway then { Hallway = hallway, Position = point, Room = room } else nil
 end
@@ -261,9 +270,10 @@ end
 
 local function resolve(edge, alive)
 	local cached = validCached(edge)
-	if cached then return cached end
+	if cached then Metrics.CacheHits += 1; return cached end
 	local pending = SegmentCache[edge.Key]
 	if pending and not pending.Done then
+		Metrics.InFlightHits += 1
 		while not pending.Done do
 			if not alive() then return nil end
 			task.wait(0.05)
@@ -271,16 +281,19 @@ local function resolve(edge, alive)
 		return pending
 	end
 	local a, b = edge.A.Position, edge.B.Position
-	local result = { Done = false, Points = { a, b }, Length = (b - a).Magnitude, Forced = false }
+	local result = { Done = false, Points = { a, b }, Length = (b - a).Magnitude, Forced = false, Mode = "Direct" }
 	SegmentCache[edge.Key] = result
 	local ok, err = pcall(function()
-		if directClear(edge.Room, a, b) then return end
+		if directClear(edge.Room, a, b) then Metrics.Direct += 1; return end
 		while ActiveComputations >= Config.MaxConcurrentPaths do
 			if not alive() then result.Forced = true; return end
 			task.wait(0.05)
 		end
 		if not alive() then result.Forced = true; return end
 		ActiveComputations += 1
+		Metrics.Computations += 1
+		Metrics.PeakComputations = math.max(Metrics.PeakComputations, ActiveComputations)
+		local computeStart = os.clock()
 		local path = nil
 		local worked = pcall(function()
 			path = PathfindingService:CreatePath({ AgentRadius = Config.AgentRadius, AgentHeight = Config.AgentHeight,
@@ -289,7 +302,7 @@ local function resolve(edge, alive)
 			if path.Status ~= Enum.PathStatus.Success then return end
 			local points = { a }
 			for _, waypoint in path:GetWaypoints() do
-				if not containsRoom(edge.Room, waypoint.Position, 4) then return end
+				if not containsRoom(edge.Room, waypoint.Position, Config.EntranceSnapDistance) then return end
 				table.insert(points, waypoint.Position)
 			end
 			if #points < 2 then return end
@@ -299,9 +312,14 @@ local function resolve(edge, alive)
 		end)
 		if path then path:Destroy() end
 		ActiveComputations -= 1
+		local elapsed = os.clock() - computeStart
+		Metrics.ComputeSeconds += elapsed
+		Metrics.MaxComputeSeconds = math.max(Metrics.MaxComputeSeconds, elapsed)
 		result.Forced = not worked or #result.Points == 2
+		result.Mode = if result.Forced then "Forced" else "Pathfinding"
 	end)
 	if not ok then result.Forced = true; warn("Computer chip connector: " .. tostring(err)) end
+	if result.Forced then Metrics.Forced += 1; result.Mode = "Forced" end
 	result.Done = true
 	result.ExpiresAt = os.clock() + (if result.Forced then Config.FailureCacheLifetime else Config.ConnectorCacheLifetime)
 	return result
@@ -324,6 +342,7 @@ local function insertAnchor(graph, anchor)
 end
 
 function Routes:GetRoute(maze, origin, targetRoom, alive)
+	Metrics.Requests += 1
 	local base = getGraph(maze)
 	local target = roomAnchor(base, targetRoom)
 	if not target or not origin then return nil end
@@ -372,6 +391,18 @@ end
 
 function Routes:GetRevision()
 	return Revision
+end
+
+function Routes:GetDiagnostics(maze)
+	local graph = getGraph(maze)
+	local rooms, segments = {}, {}
+	for _, room in graph.Rooms do
+		table.insert(rooms, { Name = room.Model.Name, Entrances = #room.Ports, Position = (room.Min + room.Max) / 2 })
+	end
+	for key, segment in SegmentCache do
+		if segment.Done then table.insert(segments, { Key = key, Mode = segment.Mode, Points = segment.Points, Length = segment.Length }) end
+	end
+	return { Metrics = table.clone(Metrics), Rooms = rooms, Segments = segments, ActiveComputations = ActiveComputations }
 end
 
 for _, tag in { "MazeFloor", "HallwayRoomFloor" } do

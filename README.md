@@ -515,3 +515,5 @@ become Services or Classes.
 - HallwayGraphService.BuildCorridors supplies an isolated player corridor graph; EffectsHUDService.ShowTimed/Dismiss supply reusable timed HUD effects. ToolService accepts an optional configured Class so all colors share one implementation.
 - DrawerItemConfig gives each chip weight 12 through a shared ComputerChip rarity. ToolConfigs and EffectsHUDConfig derive the five names and duration/icon settings from ComputerChipConfig.
 - Studio assets: five colored clones of ReplicatedStorage.Tools.Computer Chip, five computer nameplates, and Communication.ComputerChip.Route/Sync; see Documentation\ReplicatedStorage\Tools.md.
+
+Computer chip playtest fixes connect split corridor approaches to connector entrances, tolerate raised doorway anchors, and clear trails when the target computer is removed. Runtime coverage: 865 room/connector-to-color routes resolved; all three connector fallback cases and 60 simultaneous route requests passed. Two-player visibility remains pending.

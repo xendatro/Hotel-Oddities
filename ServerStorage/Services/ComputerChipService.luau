@@ -64,7 +64,7 @@ function Service:Activate(player, tool, colorKey)
 	local character = player.Character
 	if not character or tool.Parent ~= character or not alivePlayer(player, character) then return false end
 	if InventoryService:Get(player, entry.ToolName) ~= tool or (tool:GetAttribute("quantity") or 0) < 1 then return false end
-	local maze, room = getTarget(entry)
+	local maze, room, computer = getTarget(entry)
 	if not maze then return false end
 	local root = CharacterService.GetAliveRoot(player)
 	local origin = Routes:Locate(maze, root.Position, RoomService:GetRoom(player))
@@ -74,6 +74,7 @@ function Service:Activate(player, tool, colorKey)
 	local requested = os.clock()
 	local function valid()
 		return Pending[player] == ticket and alivePlayer(player, character) and tool.Parent == character
+			and computer.Parent == room and computer:HasTag(Config.ComputerTag)
 			and os.clock() - requested < 20
 	end
 	local ok, route = pcall(function() return Routes:GetRoute(maze, origin, room, valid) end)
@@ -87,7 +88,7 @@ function Service:Activate(player, tool, colorKey)
 	Serial += 1
 	local now = workspace:GetServerTimeNow()
 	local state = {
-		Id = Serial, Version = 1, Entry = entry, Maze = maze, Room = room, Character = character,
+		Id = Serial, Version = 1, Entry = entry, Maze = maze, Room = room, Computer = computer, Character = character,
 		StartedAt = now, EndsAt = now + Config.Duration, Points = route.Points, Forced = route.Forced,
 		Revision = route.Revision, LastPosition = origin.Position, LastRoom = origin.Room,
 		LastConnector = origin.Connector and origin.Connector.Model,
@@ -118,6 +119,7 @@ local function repath(player, state, origin)
 	task.spawn(function()
 		local function valid()
 			return Active[player] == state and alivePlayer(player, state.Character)
+				and state.Computer.Parent == state.Room and state.Computer:HasTag(Config.ComputerTag)
 				and workspace:GetServerTimeNow() < state.EndsAt
 		end
 		local ok, route = pcall(function() return Routes:GetRoute(state.Maze, origin, state.Room, valid) end)
@@ -142,6 +144,7 @@ RunService.Heartbeat:Connect(function(dt)
 	accumulator = 0
 	for player, state in Active do
 		if not alivePlayer(player, state.Character) or workspace:GetServerTimeNow() >= state.EndsAt
+			or state.Computer.Parent ~= state.Room or not state.Computer:HasTag(Config.ComputerTag)
 			or not state.Room:IsDescendantOf(workspace) then
 			clear(player)
 			continue
