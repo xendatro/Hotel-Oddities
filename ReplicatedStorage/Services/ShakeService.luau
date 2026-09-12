@@ -14,6 +14,7 @@ local PerfLog = require(ReplicatedStorage.Services.PerfLoggerService)
 local function ShakeCamera(shakeCf)
 	local camera = workspace.CurrentCamera
 	if camera then
+		camera.Focus += camera.CFrame:VectorToWorldSpace(shakeCf.Position)
 		camera.CFrame = camera.CFrame * shakeCf
 	end
 end

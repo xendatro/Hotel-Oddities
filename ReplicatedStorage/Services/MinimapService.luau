@@ -4,6 +4,7 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local MapConfig = require(ReplicatedStorage.Configs.MapConfig)
+local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
 local MapMarkerLayer = require(ReplicatedStorage.Classes.MapMarkerLayer)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local MapInkService = require(ReplicatedStorage.Services.MapInkService)
@@ -23,6 +24,7 @@ if not RunService:IsClient() then
 end
 
 local Player = Players.LocalPlayer
+local MAP_ATTRIBUTE = PerkConfig.AttributePrefix .. "Map"
 local Screen: ScreenGui? = nil
 local Viewport: CanvasGroup? = nil
 local Rotor: Frame? = nil
@@ -32,11 +34,28 @@ local Within = false
 local ActiveId = ""
 local HandBack = 0
 
+local function ownsMap(): boolean
+	return Player:GetAttribute(MAP_ATTRIBUTE) == true
+end
+
 local function build()
+	if Screen and Screen.Parent then
+		if not ownsMap() then
+			Screen.Enabled = false
+			return
+		end
+		if Content then return end
+	end
+
 	local playerGui = Player:WaitForChild("PlayerGui")
 	local screen = playerGui:WaitForChild(Gui.ScreenGui, 10) :: ScreenGui?
 	if not screen then
 		warn(`MinimapService: {Gui.ScreenGui} did not replicate within 10 seconds`)
+		return
+	end
+	if not ownsMap() then
+		Screen = screen
+		screen.Enabled = false
 		return
 	end
 
@@ -96,6 +115,13 @@ xenterface:Controller(MapConfig.Gui.PageGroup).Fired:Connect(function(data)
 	local previous = ActiveId
 	ActiveId = data.ActiveId
 
+	if not ownsMap() then
+		if ActiveId == MapConfig.Gui.PageId then
+			xenterface:Controller(MapConfig.Gui.PageGroup):Fire("")
+		end
+		return
+	end
+
 	if ActiveId == MapConfig.Gui.PageId then
 		MapInkService:Reparent(nil)
 		return
@@ -109,6 +135,10 @@ end)
 RunService.RenderStepped:Connect(function()
 	local screen, viewport, rotor, content, layer = Screen, Viewport, Rotor, Content, Layer
 	if not screen or not viewport or not rotor or not content or not layer then return end
+	if not ownsMap() then
+		screen.Enabled = false
+		return
+	end
 
 	local root = CharacterService.GetAliveRoot(Player)
 	if root then
@@ -136,6 +166,18 @@ RunService.RenderStepped:Connect(function()
 	local canvas = MapLayoutService:ToCanvas(root.Position.X, root.Position.Z)
 	content.Size = UDim2.fromOffset(extent, extent)
 	content.Position = UDim2.new(0.5, -canvas.X / resolution * extent, 0.5, -canvas.Y / resolution * extent)
+end)
+
+Player:GetAttributeChangedSignal(MAP_ATTRIBUTE):Connect(function()
+	if ownsMap() then
+		build()
+		return
+	end
+
+	if Screen then Screen.Enabled = false end
+	if ActiveId == MapConfig.Gui.PageId then
+		xenterface:Controller(MapConfig.Gui.PageGroup):Fire("")
+	end
 end)
 
 return MinimapService

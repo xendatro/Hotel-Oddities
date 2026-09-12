@@ -4,6 +4,10 @@ return {
 
 	OpenAngle = 100,
 
+	KnockDistance = 1,
+	ApproachPadding = 2,
+	MinApproachDistance = 4.5,
+
 	OpenDistance = 4,
 	CloseDistance = 10,
 	MaxHeightDifference = 8,

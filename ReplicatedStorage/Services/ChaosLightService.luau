@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local ChaosTracker = require(ReplicatedStorage.Services.ChaosTrackerService)
 local Config = require(ReplicatedStorage.Configs.ChaosLightConfig)
 local TagService = require(ReplicatedStorage.Services.TagService)
 
@@ -15,9 +16,12 @@ local RED_ATTRIBUTE = "ChaosRed"
 
 type State = {
 	Model: Model,
+	Position: Vector3,
 	Baseline: { [Light]: Color3 },
 	TagCount: number,
 	Red: boolean,
+	Engaged: boolean,
+	Passed: boolean,
 	AttributeConnection: RBXScriptConnection?,
 	DescendantConnection: RBXScriptConnection?,
 }
@@ -27,6 +31,15 @@ type Binding = {
 }
 
 local States: { [Model]: State } = {}
+local Warned: { [Model]: State } = {}
+local Listeners: { (Model, boolean) -> () } = {}
+local TimeSincePass = 0
+
+local function announce(model: Model, red: boolean)
+	for _, listener in Listeners do
+		task.spawn(listener, model, red)
+	end
+end
 
 local function captureLight(state: State, light: Light)
 	if state.Baseline[light] ~= nil then return end
@@ -40,6 +53,8 @@ local function applyRed(state: State)
 	for light in state.Baseline do
 		if light.Parent then
 			light.Color = Config.RedColor
+		else
+			state.Baseline[light] = nil
 		end
 	end
 end
@@ -48,12 +63,21 @@ local function restore(state: State)
 	for light, color in state.Baseline do
 		if light.Parent then
 			light.Color = color
+		else
+			state.Baseline[light] = nil
 		end
 	end
 end
 
 local function evaluate(state: State)
-	local red = state.Model:GetAttribute(RED_ATTRIBUTE) == true
+	local warned = state.Model:GetAttribute(RED_ATTRIBUTE) == true
+	if not warned then
+		state.Engaged = false
+		state.Passed = false
+	end
+
+	local red = warned and not state.Passed
+	Warned[state.Model] = if red then state else nil
 	if red == state.Red then return end
 
 	state.Red = red
@@ -61,6 +85,27 @@ local function evaluate(state: State)
 		applyRed(state)
 	else
 		restore(state)
+	end
+	announce(state.Model, red)
+end
+
+local function stepPasses()
+	if not next(Warned) then return end
+
+	local chasing = ChaosTracker:GetMovers()
+	if #chasing == 0 then return end
+
+	for _, state in Warned do
+		for _, mover in chasing do
+			if ChaosTracker.RangeTo(mover, state.Position) <= Config.PassEngageRange then
+				state.Engaged = true
+			end
+			if state.Engaged and ChaosTracker.AlongTo(mover, state.Position) <= 0 then
+				state.Passed = true
+				evaluate(state)
+				break
+			end
+		end
 	end
 end
 
@@ -78,9 +123,12 @@ local function bind(instance: Instance): Binding?
 
 	local state: State = {
 		Model = model,
+		Position = model:GetPivot().Position,
 		Baseline = {},
 		TagCount = 1,
 		Red = false,
+		Engaged = false,
+		Passed = false,
 		AttributeConnection = nil,
 		DescendantConnection = nil,
 	}
@@ -123,7 +171,10 @@ local function unbind(_instance: Instance, binding: Binding?)
 	if state.Red then
 		state.Red = false
 		restore(state)
+		announce(state.Model, false)
 	end
+	table.clear(state.Baseline)
+	Warned[state.Model] = nil
 	States[state.Model] = nil
 end
 
@@ -132,6 +183,24 @@ function ChaosLightService:IsRed(model: Model): boolean
 	return state ~= nil and state.Red
 end
 
+function ChaosLightService:OnRedChanged(listener: (Model, boolean) -> ()): () -> ()
+	table.insert(Listeners, listener)
+	return function()
+		local index = table.find(Listeners, listener)
+		if index then
+			table.remove(Listeners, index)
+		end
+	end
+end
+
 TagService:Listen(LIGHT_TAG, bind, unbind, workspace)
+
+RunService.Heartbeat:Connect(function(deltaTime: number)
+	TimeSincePass += deltaTime
+	if TimeSincePass < Config.PassCheckInterval then return end
+
+	TimeSincePass = 0
+	stepPasses()
+end)
 
 return ChaosLightService

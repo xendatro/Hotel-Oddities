@@ -75,7 +75,12 @@ export type EnemyConfig = {
 	RestTimeMax: number?,
 	PeekCountMin: number?,
 	PeekCountMax: number?,
-	RetryInterval: number?,
+	PeekFogFraction: number?,
+	FollowLostTime: number?,
+	FollowDelay: number?,
+	FollowRetryInterval: number?,
+	FollowGiveUpTime: number?,
+	StalkChance: number?,
 
 	EngageRange: number?,
 	RunawayRange: number?,
@@ -136,6 +141,8 @@ export type EnemyConfig = {
 	LightRouteRange: number?,
 	WarnRedCullRange: number?,
 	WarnHallwayCullRange: number?,
+	WarnSpanPadding: number?,
+	CrashOverrun: number?,
 
 	SideSpacing: number?,
 	EndInset: number?,
@@ -164,7 +171,7 @@ export type EnemyConfig = {
 	CommandSpawnBehind: boolean?,
 }
 
-local ROOM_COST = { Room = math.huge }
+local ROOM_COST = { Room = 100000 }
 
 local EnemyConfigs: { [string]: EnemyConfig } = {
 	Chaser = {
@@ -237,7 +244,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		InvestigateRange = 2.5,
 		InvestigateSpeed = 10,
 		AlertSpeed = 14,
-		SearchTime = 0.2,
+		SearchTime = 1.5,
 		AlertThreshold = 0.35,
 		FrenzyThreshold = 0.75,
 		DeterminationPerNoiseMin = 0.18,
@@ -415,8 +422,9 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 		SpawnPeeking = true,
 
-		MinPeekDistance = 45,
-		MaxPeekDistance = 150,
+		MinPeekDistance = 22,
+		MaxPeekDistance = 90,
+		PeekFogFraction = 0.4,
 		RearArc = 300,
 
 		ViewCone = 140,
@@ -426,13 +434,18 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		RetreatTime = 0.3,
 		SeenHoldTime = 0.4,
 
-		HoldTimeMin = 10,
-		HoldTimeMax = 10,
-		RestTimeMin = 8,
-		RestTimeMax = 20,
-		PeekCountMin = 1,
-		PeekCountMax = 1,
-		RetryInterval = 1.5,
+		HoldTimeMin = 4,
+		HoldTimeMax = 7,
+		RestTimeMin = 2,
+		RestTimeMax = 5,
+		PeekCountMin = 2,
+		PeekCountMax = 4,
+
+		FollowLostTime = 0.75,
+		FollowDelay = 1.5,
+		FollowRetryInterval = 0.75,
+		FollowGiveUpTime = 25,
+		StalkChance = 1,
 
 		FleeCoverRange = 70,
 		FleeCoverMinDistance = 12,
@@ -443,6 +456,34 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 		CommandSpawnDistance = 14,
 		CommandSpawnBehind = true,
+	},
+
+	MirrorStalker = {
+		Model = "Ceiling Dweller",
+		Animations = AnimationConfig.Sets.Stalker,
+		Harmless = true,
+
+		Chance = 0.15,
+		Cooldown = 300,
+		RollCooldown = 120,
+		PollInterval = 0.4,
+		SpawnDelayMin = 1,
+		SpawnDelayMax = 3,
+
+		WalkSpeed = 15,
+		MinGaitSpeed = 4,
+		TurnRate = 7,
+		SpawnDistance = 13,
+		FollowDistance = 9,
+		FollowSlack = 1.5,
+		EdgeInset = 3,
+
+		CheckCone = 80,
+		CheckDistance = 140,
+		CheckHold = 0.15,
+
+		ReflectionCone = 100,
+		ReflectionDistance = 200,
 	},
 
 	Ghost = {
@@ -504,14 +545,16 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 		WalkSpeed = 70,
 		SpawnPlayerDistance = 100,
-		SpawnDelay = 7,
+		SpawnDelay = 15,
 		KillRange = 12,
-		WarningTime = 7,
+		WarningTime = 15,
 		LightPassDelay = 1.5,
 		LightRouteRange = 13,
 		WarnRedCullRange = 200,
 		WarnHallwayCullRange = 150,
+		WarnSpanPadding = 12,
 		RouteHeight = 3,
+		CrashOverrun = 4,
 
 		MaxAlive = 1,
 	},

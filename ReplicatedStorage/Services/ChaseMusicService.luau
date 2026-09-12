@@ -45,7 +45,9 @@ local function getTargetVolumes(position: Vector3): { [string]: number }
 		if not entry then continue end
 		local layers = if entry[1] then entry else { entry }
 
-		local distance = (model:GetPivot().Position - position).Magnitude
+		local pivot = CharacterService.GetStreamedPivot(model)
+		if not pivot then continue end
+		local distance = (pivot.Position - position).Magnitude
 		for _, layer in layers do
 			if distance <= layer.Range then
 				local volume = layer.Volume * getProximityFactor(distance, layer.Range, layer.FullVolumeDistance)

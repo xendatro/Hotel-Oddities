@@ -36,6 +36,11 @@ Kill.OnServerEvent:Connect(function(player: Player, enemy: Instance?)
 	if type(causeId) == "string" then
 		DeathService:RecordCause(player, causeId)
 	end
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid and humanoid.Health > 0 then
+		humanoid.Health = 0
+	end
 end)
 
 function DeathService:RecordCause(player: Player, causeId: string?)

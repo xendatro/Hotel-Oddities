@@ -207,8 +207,9 @@ function EyeHitEffectService:UpdateGaze(strength: number, deltaTime: number)
 		local clock = os.clock() / EyeConfig.GazeRollPeriod
 		local roll = math.rad(EyeConfig.GazeRollAngle) * gazeIntensity * math.noise(clock, 0)
 		local sway = EyeConfig.GazeSwayDistance * gazeIntensity
-		camera.CFrame *= CFrame.new(math.noise(0, clock) * sway, math.noise(clock, clock) * sway, 0)
-			* CFrame.Angles(0, 0, roll)
+		local offset = Vector3.new(math.noise(0, clock) * sway, math.noise(clock, clock) * sway, 0)
+		camera.Focus += camera.CFrame:VectorToWorldSpace(offset)
+		camera.CFrame *= CFrame.new(offset) * CFrame.Angles(0, 0, roll)
 	end
 end
 

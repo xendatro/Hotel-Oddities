@@ -66,8 +66,8 @@ return {
 		ChaosInterval = 120,
 
 		StalkerRotationInterval = 60,
-		StalkerSpawnAttempts = 3,
-		StalkerRetryDelay = 2,
+		StalkerSpawnAttempts = 12,
+		StalkerRetryDelay = 1.5,
 
 		StalkerLifetime = 120,
 
