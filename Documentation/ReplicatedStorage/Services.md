@@ -621,7 +621,7 @@ Wrapper around Roblox's own MarketplaceService that adds a shared server/client 
 
 ### MarketplaceService\Gamepasses.luau
 Gamepass asset ids keyed by name.
-- API: data table — `Pathfinder`, `KeepItems`, `Visor`, `DoubleSpeed`, `PlayerLocator`, `Map`, `Camcorder`, `DoubleCoins`, `DoubleGems` (all currently `0`, i.e. unpublished)
+- API: data table — `Pathfinder`, `KeepItems`, `Visor`, `UnlimitedStamina`, `PlayerLocator`, `Map`, `Camcorder`, `DoubleCoins`, `DoubleGems`; `Visor` is currently `0`, while the other listed passes are configured.
 
 ### MarketplaceService\Products.luau
 Developer-product asset ids, with per-item product ids nested under `Items` and gem-pack product ids under `Gems`, keyed by the number of gems each pack grants.
@@ -789,7 +789,7 @@ Client camera-shake front end over the vendored `CameraShaker`. Offers five name
 - Requires: `Classes.CameraShaker` (vendored third-party), `Services.PerfLoggerService`
 
 ### ShopUIService.luau
-Client wiring for the Studio-authored `ShopUI` gamepass page. Every frame under `Design.ProductGrid` is a card named after its `MarketplaceService.Gamepasses` key. The card's `Purchase` button prompts that gamepass, and its `Price` label shows the Robux price from gamepass info. Once the matching `Perk_<Name>` attribute from `PerkService` is true, the currency icon is hidden and the label is widened to `StoreConfig.OwnedPrice` with `StoreConfig.Text.Owned`. A pass whose id is `0` shows `StoreConfig.Text.Unavailable` and never prompts. Button motion is authored in Studio through xenterface's `Hover` tag and `Press` Configuration.
+Client wiring for the Studio-authored `ShopUI` gamepass page. Every frame under `Design.ProductGrid` is a card named after its `MarketplaceService.Gamepasses` key. The legacy `DoubleSpeed` card name resolves to `UnlimitedStamina` until the Studio card is renamed. The card's `Purchase` button prompts that gamepass, and its `Price` label shows the Robux price from gamepass info. Once the matching `Perk_<Name>` attribute from `PerkService` is true, the currency icon is hidden and the label is widened to `StoreConfig.OwnedPrice` with `StoreConfig.Text.Owned`. A pass whose id is `0` shows `StoreConfig.Text.Unavailable` and never prompts. Button motion is authored in Studio through xenterface's `Hover` tag and `Press` Configuration.
 - API: data table — empty; the page is wired on require.
 - Requires: `Configs.PerkConfig` (`AttributePrefix`), `Configs.StoreConfig`, `MarketplaceService` (project wrapper, `Gamepasses` and product info), `MathService`, `GuiBuilderService`; expects `ShopUI.Design.ProductGrid` cards holding `Purchase.Price` and `Purchase.CurrencyIcon`
 
@@ -837,7 +837,7 @@ Maps a viewport point onto a `SurfaceGui` canvas by intersecting the camera ray 
 - Requires: nothing
 
 ### SprintService.luau
-Client sprint state machine: binds hold-to-sprint keys (plus a touch toggle button), drains and regenerates stamina with an exhaustion lockout, and owns the humanoid's `WalkSpeed`. Maximum stamina and the sprint speed multiplier are per-character rather than fixed: both are read every time they are needed from the `Stamina` and `SprintMultiplier` character attributes through `HumanoidStatsService.ReadAttribute`, falling back to `SprintConfig` when unset, which is how a kit raises a player's stamina pool or sprint speed. It watches external WalkSpeed writes to re-derive the base speed and respects the server's speed-boost attributes, drives the sprint FOV offset, and uses Wallstick's movement source while the local character is surface-stuck.
+Client sprint state machine: binds hold-to-sprint keys (plus a touch toggle button), drains and regenerates stamina with an exhaustion lockout, and owns the humanoid's `WalkSpeed`. Players with the `UnlimitedStamina` gamepass keep stamina full and never drain or exhaust while sprinting. Maximum stamina and the sprint speed multiplier are per-character rather than fixed: both are read every time they are needed from the `Stamina` and `SprintMultiplier` character attributes through `HumanoidStatsService.ReadAttribute`, falling back to `SprintConfig` when unset, which is how a kit raises a player's stamina pool or sprint speed. It watches external WalkSpeed writes to re-derive the base speed and respects the server's speed-boost attributes, drives the sprint FOV offset, and uses Wallstick's movement source while the local character is surface-stuck.
 - API: `SprintService:GetStaminaFraction() -> number` — 0..1
 - API: `SprintService:IsSprinting() -> boolean`
 - API: `SprintService:IsExhausted() -> boolean`

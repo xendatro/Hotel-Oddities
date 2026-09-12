@@ -6,14 +6,12 @@ local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
 local MarketplaceService = require(ReplicatedStorage.Services.MarketplaceService)
 local InventoryService = require(ServerStorage.Services.InventoryService)
 local LoadoutService = require(ServerStorage.Services.LoadoutService)
-local SpeedBoostService = require(ServerStorage.Services.SpeedBoostService)
 
 local PASSES = MarketplaceService.Gamepasses
 local ATTRIBUTE_PREFIX = PerkConfig.AttributePrefix
 local VISOR_TOOL = PerkConfig.Visor.ToolName
 local PLAYER_LOCATOR_TOOL = PerkConfig.PlayerLocator.ToolName
 local CAMCORDER_TOOL = PerkConfig.Camcorder.ToolName
-local SPEED_MULTIPLIER = PerkConfig.DoubleSpeed.Multiplier
 
 local OWNERSHIP_TIMEOUT = 20
 
@@ -49,14 +47,6 @@ local function resolvePasses(player: Player)
 		player:SetAttribute(ATTRIBUTE_PREFIX .. passName, owns or nil)
 	end
 
-	SpeedBoostService:SetMultiplier(player, if passes.DoubleSpeed then SPEED_MULTIPLIER else 1)
-end
-
-local function applySpeed(player: Player, humanoid: Humanoid)
-	if not PerkService:Owns(player, "DoubleSpeed") then return end
-	if humanoid.Health <= 0 or humanoid.WalkSpeed <= 0 then return end
-
-	humanoid.WalkSpeed *= SPEED_MULTIPLIER
 end
 
 local function applyVisor(player: Player)
@@ -98,7 +88,6 @@ local function onCharacterAdded(player: Player, character: Model)
 	if not PerkService:WaitForPasses(player) then return end
 	if character.Parent == nil or player.Character ~= character then return end
 
-	applySpeed(player, humanoid)
 	applyKeptItems(player)
 	applyVisor(player)
 	applyPlayerLocator(player)

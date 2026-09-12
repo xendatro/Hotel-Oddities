@@ -17,13 +17,19 @@ end
 local player = Players.LocalPlayer
 local gui = GuiBuilderService.GetPlayerGui():WaitForChild("ShopUI") :: ScreenGui
 local grid = gui:WaitForChild("Design"):WaitForChild("ProductGrid") :: Frame
+local LEGACY_PASS_NAMES = {
+	DoubleSpeed = "UnlimitedStamina",
+}
 
 local function wirePass(card: Frame)
-	local passId = MarketplaceService.Gamepasses[card.Name]
+	local passName = if MarketplaceService.Gamepasses[card.Name] ~= nil
+		then card.Name
+		else LEGACY_PASS_NAMES[card.Name]
+	local passId = passName and MarketplaceService.Gamepasses[passName]
 	local purchase = card:WaitForChild("Purchase") :: ImageButton
 	local price = purchase:WaitForChild("Price") :: TextLabel
 	local currencyIcon = purchase:WaitForChild("CurrencyIcon") :: ImageLabel
-	local attribute = PerkConfig.AttributePrefix .. card.Name
+	local attribute = PerkConfig.AttributePrefix .. (passName or card.Name)
 	local basePosition = price.Position
 	local baseSize = price.Size
 	local robuxPrice: number? = nil

@@ -510,10 +510,10 @@ Geometry search that finds a corner a stalker enemy can stand behind hidden from
 - Requires: `HallwayGridService` (corner list), `EnemyObservationService` (enemy eyes/view cones, fog range), `MathService`, `ReplicatedStorage.Services.SpawnZoneService`
 
 ### PerkService.luau
-Resolves each player's gamepass ownership once on join, mirrors it to `Perk*` player attributes, and applies the perks on every spawn: double speed, the Visor tool, the permanent Player Locator tool, a permanent Camcorder only for its pass owner, and restoring items kept through death. Existing camcorders keep their saved quantity. Successful Player Locator and Camcorder purchases grant their tools immediately.
+Resolves each player's gamepass ownership once on join, mirrors it to `Perk*` player attributes, and applies the perks on every spawn: unlimited stamina, the Visor tool, the permanent Player Locator tool, a permanent Camcorder only for its pass owner, and restoring items kept through death. Existing camcorders keep their saved quantity. Successful Player Locator and Camcorder purchases grant their tools immediately.
 - API: `PerkService:Owns(player: Player, passName: string) -> boolean` — cached gamepass ownership
 - API: `PerkService:WaitForPasses(player: Player) -> boolean` — yields up to 20s until ownership is resolved
-- Requires: `PerkConfig`, `MarketplaceService.Gamepasses`, `InventoryService`, `LoadoutService` (death snapshot/restore), `SpeedBoostService` (sets the DoubleSpeed multiplier)
+- Requires: `PerkConfig`, `MarketplaceService.Gamepasses`, `InventoryService`, `LoadoutService` (death snapshot/restore)
 
 ### PhotoCameraService.luau
 Owns every placed tripod camera. Builds the world model out of the Camera tool's parts (anchored, joints, welds and scripts stripped), turns it by `Place.ModelYaw` so the body faces away from the placer, parents it before tagging it so clients never see the tag before the parts, stamps it with the owner and a server-time `SnapAt`, and after the countdown works out the shot: which living players sit inside the lens cone with a clear ray that ignores every player character (so standing behind a teammate still counts), where the figure should stand behind them (clamped to the tripod's own floor level when the ray finds a surface more than `Figure.MaxFloorRise` above or below it, so it never ends up hovering in a lift shaft), and which clients to fire `Photo/Snap` at — the subjects plus the owner. Afterwards a GazeService tracker watches the model and destroys it once nobody has looked at it for `Despawn.UnseenFor`.
@@ -624,9 +624,9 @@ Server-side behaviour of the spawn safe zone: while a player's root is inside a 
 - Requires: `ReplicatedStorage.Services.SpawnZoneService`, `CharacterService`, `VanishedService`, `Configs.SpawnZoneConfig`, `ServerStorage.Classes.NPC`
 
 ### SpeedBoostService.luau
-Central WalkSpeed arbiter: named boost sources per player, the highest wins, multiplied by any perk multiplier and never below the tracked base speed. Tracks the character's natural base speed separately, tolerates external writes (including stuns setting speed to 0), publishes `SpeedBoost*` attributes for the client FOV effect, and expires each source on a timer.
+Central WalkSpeed arbiter: named boost sources per player, the highest wins, multiplied by an optional global multiplier and never below the tracked base speed. Tracks the character's natural base speed separately, tolerates external writes (including stuns setting speed to 0), publishes `SpeedBoost*` attributes for the client FOV effect, and expires each source on a timer.
 - API: `SpeedBoostService:Apply(player, name: string, speed: number, duration: number, fov: number, effectTemplate: Instance?) -> boolean` — add or replace a named boost
-- API: `SpeedBoostService:SetMultiplier(player: Player, multiplier: number)` — global multiplier (used by the DoubleSpeed perk)
+- API: `SpeedBoostService:SetMultiplier(player: Player, multiplier: number)` — optional global multiplier
 - API: `SpeedBoostService:GetMultiplier(player: Player) -> number` — current multiplier
 - Requires: `SprintConfig`
 
