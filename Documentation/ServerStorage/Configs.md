@@ -24,4 +24,4 @@ Master per-enemy stat table driving enemy models, movement, senses, damage and s
 Placeholder table for gamepass definitions; currently empty, so nothing is configured.
 - API: data table — empty
 
-Blind pre-listening braking uses `OvershootDuration = 1` second, alongside `OvershootRange` and `OvershootMinimum`. This bounds the shared investigation/pursuit coast without changing listening animation duration. `ListenFadeTime = 0.35` controls the listening animation fade-in.
+Blind pre-listening braking uses `OvershootDuration = 1` second, alongside `OvershootRange` and `OvershootMinimum`. This bounds the shared investigation/pursuit coast without changing listening animation duration. `ListenFadeTime = 0.6` controls listening fade-in and its lead time before braking finishes; the shared search entry owns braking so blending starts after any approach movement. `ListenFadeOutTime = 0.6` controls the normal return to locomotion; urgent interruptions keep the default shorter fade.

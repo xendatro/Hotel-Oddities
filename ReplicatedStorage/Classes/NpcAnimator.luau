@@ -207,13 +207,13 @@ function NpcAnimator:PlayOverride(assetId: number, fadeTime: number?): Animation
 	return track
 end
 
-function NpcAnimator:StopOverride()
+function NpcAnimator:StopOverride(fadeTime: number?)
 	local track = self.Override
 	if not track then return end
 
 	self.Override = nil
 	self.OverrideAssetId = nil
-	track:Stop(TRANSITION_TIME)
+	track:Stop(fadeTime or TRANSITION_TIME)
 end
 
 function NpcAnimator:PlayHold(assetId: number)

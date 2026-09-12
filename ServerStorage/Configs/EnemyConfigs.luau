@@ -43,6 +43,7 @@ export type EnemyConfig = {
 	AlertSpeed: number?,
 	SearchTime: number?,
 	ListenFadeTime: number?,
+	ListenFadeOutTime: number?,
 	AlertThreshold: number?,
 	FrenzyThreshold: number?,
 	DeterminationPerNoiseMin: number?,
@@ -253,7 +254,8 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 		OvershootRange = 12,
 		OvershootDuration = 1,
-		ListenFadeTime = 0.35,
+		ListenFadeTime = 0.6,
+		ListenFadeOutTime = 0.6,
 		OvershootMinimum = 1.5,
 
 		DangerBias = 1,
