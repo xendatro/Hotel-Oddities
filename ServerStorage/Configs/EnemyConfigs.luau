@@ -73,7 +73,12 @@ export type EnemyConfig = {
 	RestTimeMax: number?,
 	PeekCountMin: number?,
 	PeekCountMax: number?,
-	RetryInterval: number?,
+	PeekFogFraction: number?,
+	FollowLostTime: number?,
+	FollowDelay: number?,
+	FollowRetryInterval: number?,
+	FollowGiveUpTime: number?,
+	StalkChance: number?,
 
 	EngageRange: number?,
 	RunawayRange: number?,
@@ -413,8 +418,9 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 		SpawnPeeking = true,
 
-		MinPeekDistance = 45,
-		MaxPeekDistance = 150,
+		MinPeekDistance = 22,
+		MaxPeekDistance = 90,
+		PeekFogFraction = 0.4,
 		RearArc = 300,
 
 		ViewCone = 140,
@@ -424,13 +430,18 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		RetreatTime = 0.3,
 		SeenHoldTime = 0.4,
 
-		HoldTimeMin = 10,
-		HoldTimeMax = 10,
-		RestTimeMin = 8,
-		RestTimeMax = 20,
-		PeekCountMin = 1,
-		PeekCountMax = 1,
-		RetryInterval = 1.5,
+		HoldTimeMin = 4,
+		HoldTimeMax = 7,
+		RestTimeMin = 2,
+		RestTimeMax = 5,
+		PeekCountMin = 2,
+		PeekCountMax = 4,
+
+		FollowLostTime = 0.75,
+		FollowDelay = 1.5,
+		FollowRetryInterval = 0.75,
+		FollowGiveUpTime = 25,
+		StalkChance = 1,
 
 		FleeCoverRange = 70,
 		FleeCoverMinDistance = 12,

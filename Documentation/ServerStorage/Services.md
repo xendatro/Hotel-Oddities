@@ -170,6 +170,7 @@ Server-side record of what each client reports it can see: validated lists of `E
 - API: `EnemyObservationService:IsReporting(player: Player) -> boolean` — has a fresh report
 - API: `EnemyObservationService:GetViewAngle(player: Player, model: Model) -> number?` — degrees off-centre, nil if unobserved
 - API: `EnemyObservationService:GetView(player: Player) -> (Vector3?, Vector3?)` — eye and look, with a root-part fallback
+- API: `EnemyObservationService:GetFogRange(player: Player) -> (number?, number?)` — the client's last reported `Lighting.FogStart`/`FogEnd`; unlike the view it is never treated as stale, because the client only reports when its camera moves and fog barely changes
 - API: `EnemyObservationService:GetViews() -> { View }` — one per living player
 - API: `EnemyObservationService.IsWithinCone(view: View, point: Vector3, cone: number) -> boolean` — dot-product cone test
 - API: `EnemyObservationService:GetEyes() -> { Vector3 }` — eye positions only
@@ -497,14 +498,16 @@ Same pattern as PaintingDwellerService but for the `Prop/PaintingFall` oddity �
 - Requires: `ServerStorage.Classes.FixturePool`, `ServerStorage.Services.FixtureCommandService`, `OddityService`; registers chat command `/painting` (alias `/paintings`)
 
 ### PeekSpotService.luau
-Geometry search that finds a corner a stalker enemy can stand behind hidden from the player, then lean out of into view. Raycasts a sampled body rig against standing room, floor continuity, lean-arc clearance and every enemy's view cone.
-- API: `PeekSpotService:Find(player: Player, options: FindOptions) -> PeekSpot?` — nearest valid peek spot
+Geometry search that finds a corner a stalker enemy can stand behind hidden from the player, then lean out of into view. Raycasts a sampled body rig against standing room, floor continuity, lean-arc clearance and every enemy's view cone. The search range is capped by the player's reported fog: with `FindOptions.FogFraction` set, corners farther than `FogStart + (FogEnd - FogStart) * FogFraction` are ignored so a peek is never lost in the fog. Spots inside a `SpawnSafeZone` are refused. In the maze, the usual reason nothing is found is supply rather than rejection: mid-corridor, a visible junction behind the player inside fog range exists only about half the time, and when one does ~80% of its corners pass.
+- API: `PeekSpotService:Find(player: Player, options: FindOptions) -> PeekSpot?` — best valid peek spot: nearest, with spots off to the side penalised up to 2x at 180° from directly behind
+- API: `PeekSpotService:GetMaxDistance(player: Player, options: FindOptions) -> number` — `MaxDistance` clamped by that player's fog
+- API: `PeekSpotService:IsInSight(spot: PeekSpot, player: Player, options: FindOptions) -> boolean` — whether the player could still see the spot's full lean: within the fog-capped range and with line of sight to its head
 - API: `PeekSpotService:IsStillValid(spot: PeekSpot, player: Player, options: FindOptions) -> boolean` — re-run the checks on an existing spot
 - API: `PeekSpotService:DebugCorner(player: Player, options: FindOptions, position: Vector3) -> any` — per-check rejection trace for the corner near a position
 - API: `PeekSpotService.LeanPoints(spot: PeekSpot, lean: number) -> {Vector3}` — sampled body points at a lean fraction
 - API: `PeekSpotService.PoseAt(spot: PeekSpot, lean: number, lookAt: Vector3?) -> CFrame` — root CFrame for a lean fraction
 - Tags: reads `Enemy` (raycast filter)
-- Requires: `HallwayGridService` (corner list), `EnemyObservationService` (enemy eyes/view cones), `MathService`
+- Requires: `HallwayGridService` (corner list), `EnemyObservationService` (enemy eyes/view cones, fog range), `MathService`, `ReplicatedStorage.Services.SpawnZoneService`
 
 ### PerkService.luau
 Resolves each player's gamepass ownership once on join, mirrors it to `Perk*` player attributes, and applies the perks on every spawn: double speed, the Visor tool, the permanent Player Locator tool, a permanent Camcorder only for its pass owner, and restoring items kept through death. Existing camcorders keep their saved quantity. Successful Player Locator and Camcorder purchases grant their tools immediately.
@@ -628,10 +631,10 @@ Central WalkSpeed arbiter: named boost sources per player, the highest wins, mul
 - Requires: `SprintConfig`
 
 ### StalkerService.luau
-Finds a peek spot behind the player and spawns a stalker-type enemy standing there facing them, optionally relaxing the rear-arc and minimum-distance constraints when no spot is found behind. Spots inside a `SpawnSafeZone` part are refused.
+Finds a peek spot behind the player and spawns a stalker-type enemy standing there facing them, optionally relaxing the rear-arc and minimum-distance constraints when no spot is found behind. `PeekSpotService` already refuses spots inside a `SpawnSafeZone` part.
 - API: `StalkerService:FindSpot(player: Player, enemyId: string?) -> PeekSpot?` — peek spot using that enemy's find options
 - API: `StalkerService:SpawnPeeking(player: Player, enemyId: string?, anyDirection: boolean?) -> any?` — spawn the enemy at a found spot
-- Requires: `PeekSpotService`, `EnemyConfigs`, `ServerStorage.Classes.Enemies.Behaviors.Peek` (find options), `EnemyService:Spawn`, `ReplicatedStorage.Services.SpawnZoneService`
+- Requires: `PeekSpotService`, `EnemyConfigs`, `ServerStorage.Classes.Enemies.Behaviors.Peek` (find options), `EnemyService:Spawn`
 
 ### StunService.luau
 Puts an enemy NPC or Eye into its `Stunned` state for a duration, and handles the client Ball hit report by re-verifying the thrower is within `ToolConfigs.Ball.ServerRange` of a live Eye before despawning it.

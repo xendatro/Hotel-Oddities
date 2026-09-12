@@ -12,7 +12,7 @@ local ABANDON_DISTANCE_SCALE = 0.6
 
 local Peek = {}
 
-Peek.StateNames = { "Seek", "Lurk", "Peek", "Retreat", "Rest" }
+Peek.StateNames = { "Seek", "Follow", "Lurk", "Peek", "Retreat", "Rest" }
 
 local function randomBetween(minimum: number, maximum: number): number
 	return math.random() * (maximum - minimum) + minimum
@@ -32,6 +32,7 @@ function Peek.GetFindOptions(config): PeekSpotService.FindOptions
 		MaxDistance = config.MaxPeekDistance,
 		RearArc = config.RearArc,
 		ViewCone = config.ViewCone,
+		FogFraction = config.PeekFogFraction,
 	}
 end
 
@@ -129,6 +130,24 @@ local function isArcOnScreen(npc: any, spot: PeekSpotService.PeekSpot): boolean
 	return false
 end
 
+local function watchSight(npc: any, spot: PeekSpotService.PeekSpot, player: Player): () -> boolean
+	local options = Peek.GetFindOptions(npc.Config)
+	local checkedAt, lostSince = -math.huge, nil :: number?
+
+	return function(): boolean
+		local now = os.clock()
+		if now - checkedAt >= POLL then
+			checkedAt = now
+			if PeekSpotService:IsInSight(spot, player, options) then
+				lostSince = nil
+			else
+				lostSince = lostSince or now
+			end
+		end
+		return lostSince ~= nil and now - lostSince >= npc.Config.FollowLostTime
+	end
+end
+
 local function getAudience(npc: any): Player?
 	local nearest, nearestDistance = nil, math.huge
 	local origin = npc.RootPart.Position
@@ -155,25 +174,49 @@ local function seek(_changeState: StateMachine.ChangeState, npc: any)
 	local spot, player = npc.Spot, npc.Audience
 	npc.Spot, npc.Audience = nil, nil
 	if not getAliveRoot(player) then
-		spot, player = nil, nil
+		spot, player = nil, getAudience(npc)
 	end
 
+	if not player then
+		return finish(npc, "Lost")
+	end
 	if not spot then
-		player = player or getAudience(npc)
-		spot = player and PeekSpotService:Find(player, Peek.GetFindOptions(npc.Config))
-	end
-
-	if not (player and spot) then
-		npc.PeeksLeft -= 1
-		if npc.PeeksLeft <= 0 then
-			return finish(npc, "Lost")
-		end
-		task.wait(npc.Config.RetryInterval)
-		return "Seek", npc
+		return "Follow", npc, player, 0
 	end
 
 	placeAt(npc, spot, player, 0)
 	return "Lurk", npc, spot, player
+end
+
+local function follow(_changeState: StateMachine.ChangeState, npc: any, player: Player, delay: number)
+	local config = npc.Config
+	local options = Peek.GetFindOptions(config)
+	local startedAt = os.clock()
+	local searchAt = startedAt + delay
+
+	while true do
+		if npc:IsObserved() then
+			return finish(npc, "Seen", player)
+		end
+		if not getAliveRoot(player) then
+			return finish(npc, "Lost")
+		end
+
+		local now = os.clock()
+		if now - startedAt >= config.FollowGiveUpTime then
+			return finish(npc, "Lost", player)
+		end
+
+		if now >= searchAt then
+			local spot = PeekSpotService:Find(player, options)
+			if spot and not npc:IsObserved() then
+				placeAt(npc, spot, player, 0)
+				return "Lurk", npc, spot, player
+			end
+			searchAt = os.clock() + config.FollowRetryInterval
+		end
+		task.wait(POLL)
+	end
 end
 
 local function lurk(
@@ -182,8 +225,10 @@ local function lurk(
 	spot: PeekSpotService.PeekSpot,
 	player: Player
 )
-	local expiresAt = os.clock() + npc.Config.PeekWaitTime
-	local abandonDistance = npc.Config.MinPeekDistance * ABANDON_DISTANCE_SCALE
+	local config = npc.Config
+	local expiresAt = os.clock() + config.PeekWaitTime
+	local abandonDistance = config.MinPeekDistance * ABANDON_DISTANCE_SCALE
+	local isLost = watchSight(npc, spot, player)
 
 	while true do
 		if npc:IsObserved() then
@@ -194,11 +239,11 @@ local function lurk(
 		if not root then
 			return "Seek", npc
 		end
-		if (root.Position - spot.Stand).Magnitude < abandonDistance then
-			return "Seek", npc
+		if (root.Position - spot.Stand).Magnitude < abandonDistance or os.clock() >= expiresAt then
+			return "Follow", npc, player, 0
 		end
-		if os.clock() >= expiresAt then
-			return "Seek", npc
+		if isLost() then
+			return "Follow", npc, player, config.FollowDelay
 		end
 
 		if not isArcOnScreen(npc, spot) then break end
@@ -207,8 +252,8 @@ local function lurk(
 		task.wait(POLL)
 	end
 
-	if not PeekSpotService:IsStillValid(spot, player, Peek.GetFindOptions(npc.Config)) then
-		return "Seek", npc
+	if not PeekSpotService:IsStillValid(spot, player, Peek.GetFindOptions(config)) then
+		return "Follow", npc, player, 0
 	end
 
 	return "Peek", npc, spot, player
@@ -221,26 +266,32 @@ local function peek(
 	player: Player
 )
 	local abandonDistance = npc.Config.MinPeekDistance * ABANDON_DISTANCE_SCALE
-	local walkedUp = false
+	local isLost = watchSight(npc, spot, player)
+	local caught, walkedUp, lost = false, false, false
 
-	local function isCaught()
-		if npc:IsObserved() then return true end
+	local function shouldStop(): boolean
+		if npc:IsObserved() then
+			caught = true
+			return true
+		end
 
 		local root = getAliveRoot(player)
 		if not root or (root.Position - spot.Stand).Magnitude < abandonDistance then
-			walkedUp = true
+			caught, walkedUp = true, true
 			return true
 		end
-		return false
+
+		lost = isLost()
+		return lost
 	end
 
-	local caught = not slide(npc, spot, player, npc.Config.LeanTime, 1, isCaught)
-	if not caught then
+	local leanedOut = slide(npc, spot, player, npc.Config.LeanTime, 1, shouldStop)
+	if leanedOut then
 		local duration = randomBetween(npc.Config.HoldTimeMin, npc.Config.HoldTimeMax)
-		caught = not hold(npc, spot, player, duration, isCaught)
+		hold(npc, spot, player, duration, shouldStop)
 	end
 
-	return "Retreat", npc, spot, player, caught, walkedUp
+	return "Retreat", npc, spot, player, caught, walkedUp, lost, leanedOut
 end
 
 local function retreat(
@@ -249,7 +300,9 @@ local function retreat(
 	spot: PeekSpotService.PeekSpot,
 	player: Player,
 	caught: boolean,
-	walkedUp: boolean?
+	walkedUp: boolean,
+	lost: boolean,
+	leanedOut: boolean
 )
 	if caught then
 		if not walkedUp then
@@ -260,27 +313,43 @@ local function retreat(
 	end
 	slide(npc, spot, player, npc.Config.RetreatTime, 0)
 
-	npc.PeeksLeft -= 1
+	if leanedOut then
+		npc.PeeksLeft -= 1
+	end
 	if npc.PeeksLeft <= 0 then
 		return finish(npc, "Done", player)
 	end
-	return "Rest", npc, player
+	if lost then
+		return "Follow", npc, player, npc.Config.FollowDelay
+	end
+	return "Rest", npc, spot, player
 end
 
-local function rest(_changeState: StateMachine.ChangeState, npc: any, player: Player?)
-	local expiresAt = os.clock() + randomBetween(npc.Config.RestTimeMin, npc.Config.RestTimeMax)
+local function rest(
+	_changeState: StateMachine.ChangeState,
+	npc: any,
+	spot: PeekSpotService.PeekSpot,
+	player: Player
+)
+	local config = npc.Config
+	local expiresAt = os.clock() + randomBetween(config.RestTimeMin, config.RestTimeMax)
+	local isLost = watchSight(npc, spot, player)
 
 	while os.clock() < expiresAt do
 		if npc:IsObserved() then
 			return finish(npc, "Seen", player)
 		end
+		if isLost() then
+			return "Follow", npc, player, config.FollowDelay
+		end
 		task.wait(POLL)
 	end
-	return "Seek", npc
+	return "Follow", npc, player, 0
 end
 
 Peek.States = {
 	Seek = seek,
+	Follow = follow,
 	Lurk = lurk,
 	Peek = peek,
 	Retreat = retreat,

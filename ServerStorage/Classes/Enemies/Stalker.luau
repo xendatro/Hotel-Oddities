@@ -5,7 +5,6 @@ local ServerStorage = game:GetService("ServerStorage")
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local MathService = require(ReplicatedStorage.Services.MathService)
-local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local EnemyDiscoveryService = require(ServerStorage.Services.EnemyDiscoveryService)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local HideSpotService = require(ServerStorage.Services.HideSpotService)
@@ -345,12 +344,8 @@ local function stunned(changeState: StateMachine.ChangeState, npc: any, duration
 end
 
 function Stalker:OnPeekFinished(reason: string, player: Player?)
-	if reason == "Done" and player and self:IsValidTarget(player) then
-		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
-		local danger = if root then DangerMapService:GetDanger(root.Position) else 0
-		if math.random() < danger then
-			return "Stalk", self, player
-		end
+	if reason == "Done" and player and self:IsValidTarget(player) and math.random() < self.Config.StalkChance then
+		return "Stalk", self, player
 	end
 	return "Despawn", self
 end

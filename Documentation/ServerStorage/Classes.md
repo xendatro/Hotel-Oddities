@@ -279,9 +279,9 @@ Follows a player from behind without ever being seen: it tails at `FollowDistanc
 - API: `Stalker:Start()` — hides the name display, sets the walk track, then `NPC.Start`.
 - API: `Stalker:Despawn()` — releases the camera and exits Peek, then `NPC.Despawn`.
 - API: `Stalker:BuildStateMachine() -> StateMachine` — Idle/Wander/Patrol/Stalk/Reveal/Flee/Stunned/Despawn plus all `Peek.States`.
-- API: `Stalker:OnPeekFinished(reason: string, player: Player?)` — the Peek callback; a completed peek may roll into a stalk based on local danger.
+- API: `Stalker:OnPeekFinished(reason: string, player: Player?)` — the Peek callback; once its whole peek sequence is `Done` it rolls `StalkChance` to walk up behind that player in `Stalk`, otherwise it despawns.
 - Remotes: `Enemies/FaceStalker` (fired)
-- Requires: `ServerStorage.Classes.NPC`, `Enemies.Behaviors.Peek`, `PeekSpotService`, `HideSpotService`, `DangerMapService`, `EnemyObservationService`
+- Requires: `ServerStorage.Classes.NPC`, `Enemies.Behaviors.Peek`, `PeekSpotService`, `HideSpotService`, `EnemyObservationService`
 - Notes: overrides `Start`, `Despawn`, `BuildStateMachine`; warns to output when a retreat ends `NoPath`/`Stuck`/`Obstructed`
 
 ### Enemies\WeepingAngel.luau
@@ -293,13 +293,13 @@ Chases normally but freezes solid the instant any player observes it, and resume
 - Notes: overrides `BuildStateMachine` only; Chase and Attack both re-check `IsObserved` and bail to Frozen
 
 ### Enemies\Behaviors\Peek.luau
-A shared, non-class behaviour module: a set of state functions letting any NPC hide at a `PeekSpotService` spot, lean out into view, hold, and pull back a fixed number of times. It anchors the NPC and poses it by CFrame rather than walking, and abandons if the player closes in, looks directly at it, or the arc leaves every player's screen.
-- API: `Peek.StateNames` — ordered list `{ "Seek", "Lurk", "Peek", "Retreat", "Rest" }` for trigger tables.
+A shared, non-class behaviour module: a set of state functions letting any NPC hide at a `PeekSpotService` spot, lean out into view, hold, and pull back a rolled number of times (`PeekCountMin/Max`). It anchors the NPC and poses it by CFrame rather than walking, and ends the sequence as `Seen` if the player closes in or looks directly at it. It follows the player between corners: whenever the spot has lost sight of them (`PeekSpotService:IsInSight` false for `FollowLostTime`, i.e. they rounded a corner or passed the fog limit) while lurking, leaning, holding or resting, it enters `Follow`, waits `FollowDelay`, then teleports unseen to the next spot `PeekSpotService:Find` returns, retrying every `FollowRetryInterval` and ending as `Lost` after `FollowGiveUpTime`. Only peeks that reached full lean count towards the sequence; when it runs out it ends as `Done`.
+- API: `Peek.StateNames` — ordered list `{ "Seek", "Follow", "Lurk", "Peek", "Retreat", "Rest" }` for trigger tables.
 - API: `Peek.States` — map of those ids to state functions, to be merged into the host's state table.
 - API: `Peek.GetFindOptions(config) -> PeekSpotService.FindOptions` — builds find options from the enemy config.
 - API: `Peek.Enter(npc: any)` — anchors the root, stops movement, rolls `PeeksLeft`.
 - API: `Peek.Exit(npc: any)` — unanchors, restores the humanoid state machine and walk speed.
-- Requires: `PeekSpotService`, `EnemyObservationService`; the host NPC must implement `OnPeekFinished(reason: string, player: Player?)` and supply config keys `PeekCountMin/Max`, `MinPeekDistance`, `MaxPeekDistance`, `RearArc`, `ViewCone`, `PeekWaitTime`, `LeanTime`, `HoldTimeMin/Max`, `RetreatTime`, `RestTimeMin/Max`, `RetryInterval`, `SeenHoldTime`
+- Requires: `PeekSpotService`, `EnemyObservationService`; the host NPC must implement `OnPeekFinished(reason: string, player: Player?)` and supply config keys `PeekCountMin/Max`, `MinPeekDistance`, `MaxPeekDistance`, `PeekFogFraction`, `RearArc`, `ViewCone`, `PeekWaitTime`, `LeanTime`, `HoldTimeMin/Max`, `RetreatTime`, `RestTimeMin/Max`, `SeenHoldTime`, `FollowLostTime`, `FollowDelay`, `FollowRetryInterval`, `FollowGiveUpTime`
 
 ### Oddity.luau
 Root of the whole oddity hierarchy: a self-contained, timed anomaly with a numeric `Token`, a merged settings table, and a run window. `Oddity.extend(kind, parent)` builds subclasses; the two intermediate bases are `PropOddity` (`Scope = "Prop"`, context is a `Model`) and `PlayerOddity` (`Scope = "Player"`, context is a `Player`), alongside `HallwayOddity` (`Scope = "Map"`, context is a hallway span) and direct map classes such as `MapLightsOut` (context is a world-space chunk). Concrete oddities live in `Classes\Oddities\`, are auto-registered by `OddityService` at require time, and must satisfy the contract: a `.new(config)` returning `Base.new(config, Class)`, an optional `OnStart(context) -> boolean?` (return `false` to abort) and `OnStop()` hook, an optional static `Pick(class)` that chooses a context for ambient auto-spawning, and an optional static `IsAvailable(class)` / `CanStart(context)` gate; `OddityService:Start` instantiates the class with its config, checks `CanStart`, calls `Start`, and `Start` schedules its own `Stop` after the duration.

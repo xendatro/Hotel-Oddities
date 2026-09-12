@@ -420,7 +420,7 @@ become Services or Classes.
 - ServerStorage\Services\OddityService.luau — Registry, config merging, direct min/max interval scheduling and lifecycle for every ambient oddity class.
 - ServerStorage\Services\PaintingDwellerService.luau — FixturePool wrapper that arms and triggers the painting dweller oddity, plus its /dweller command.
 - ServerStorage\Services\PaintingFallService.luau — FixturePool wrapper that arms and drops falling paintings, plus its /painting command.
-- ServerStorage\Services\PeekSpotService.luau — Geometry search for corners an enemy can hide behind and lean out of into the player's view.
+- ServerStorage\Services\PeekSpotService.luau — Fog-capped geometry search for corners behind the player an enemy can hide behind and lean out of into view, plus whether a spot is still in the player's sight.
 - ServerStorage\Services\PerkService.luau — Resolves gamepass ownership and applies double speed, visor, permanent Player Locator, permanent Camcorder, DoubleCoins, DoubleGems and keep-items perks on spawn or purchase.
 - ServerStorage\Services\PhotoCameraService.luau — Runs placed tripod cameras: countdown, subject detection, ShadowFigure placement, snap broadcast and unseen despawn.
 - ServerStorage\Services\PhotoCommandService.luau — /photo chat command for placing a test camera, snapping it early and forcing the ShadowFigure into frame.
@@ -471,9 +471,9 @@ become Services or Classes.
 - ServerStorage\Classes\Enemies\Mimic.luau — Copies a player's appearance and acts out odd encounter modes before revealing and chasing.
 - ServerStorage\Classes\Enemies\MirrorStalker.luau — Harmless stalker whose invisible body walks the mirror room's floor so only its target ever sees it, as a ceiling reflection, until they look behind them with the reflection out of view or leave the room.
 - ServerStorage\Classes\Enemies\Sisters.luau — Twinned translucent, harmless figures that patrol the hallway ceilings forever via SurfaceWalker, heads tracking the nearest player.
-- ServerStorage\Classes\Enemies\Stalker.luau — Tails a player from behind unseen until it closes to striking range, flees to cover when observed, and seizes the camera to kill.
+- ServerStorage\Classes\Enemies\Stalker.luau — Peeks at a player from corner to corner, then tails them from behind unseen until it closes to striking range, flees to cover when observed, and seizes the camera to kill.
 - ServerStorage\Classes\Enemies\WeepingAngel.luau — Chaser that freezes solid whenever any player is observing it.
-- ServerStorage\Classes\Enemies\Behaviors\Peek.luau — Shared state functions for hiding at a spot, leaning into view, and pulling back.
+- ServerStorage\Classes\Enemies\Behaviors\Peek.luau — Shared state functions for hiding at a spot, leaning into view, pulling back, and teleporting unseen to the next corner whenever the player leaves the spot's sight.
 - ServerStorage\Classes\Oddity.luau — Root oddity class: token, merged settings, timed start/stop lifecycle and subclass factory.
 - ServerStorage\Classes\PropOddity.luau — Intermediate oddity base whose context is a prop Model in the workspace.
 - ServerStorage\Classes\PlayerOddity.luau — Intermediate oddity base whose context is a Player, auto-stopping on death.
