@@ -23,3 +23,5 @@ Master per-enemy stat table driving enemy models, movement, senses, damage and s
 ### GamepassConfigs.luau
 Placeholder table for gamepass definitions; currently empty, so nothing is configured.
 - API: data table — empty
+
+Blind pre-listening braking uses `OvershootDuration = 1` second, alongside `OvershootRange` and `OvershootMinimum`. This bounds the shared investigation/pursuit coast without changing listening animation duration.

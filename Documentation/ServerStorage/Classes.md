@@ -169,6 +169,7 @@ Kinematic surface locomotion for any humanoid rig -- the NPC-side counterpart to
 
 ### Enemies\Blind.luau
 A deaf-to-sight, hearing-driven hunter: it registers an "ear" with `HearingService` and builds *Determination* from noises, which decays in silence and controls its speed tier (Investigate / Alert / Chase). Distinct behaviours are the flinch-and-turn "notice", coasting past a noise position after overshooting, playing the looping `Listen` animation override while standing at its search point, and only killing when highly certain.
+- Pre-listening slowdown: investigation and pursuit share a time-based linear deceleration, capped by `OvershootDuration` (1 second). Travel is limited by obstacle clearance, `OvershootRange`, and the braking distance for the current speed. New noises can still interrupt; listening duration is unchanged.
 - API: `Blind.new(model: Model, config) -> self` — adds the heard-noise and determination fields.
 - API: `Blind:BuildStateMachine() -> StateMachine` — Investigate/Pursue/Attack/Search plus the shared Idle/Wander/Patrol/Despawn and a Stunned wrapper that stops the listen override; evaluators `Hearing` and `Contact`.
 - Requires: `ServerStorage.Classes.NPC`, `HearingService`, `Configs.HeartbeatConfig`

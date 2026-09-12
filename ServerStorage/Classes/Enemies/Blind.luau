@@ -10,7 +10,6 @@ local NPC = require(ServerStorage.Classes.NPC)
 
 local PERCEPTION_INTERVAL = 0.1
 local CONTACT_GRACE = 0.15
-local COAST_MINIMUM_SPEED = 0.2
 local PURSUIT_ATTRIBUTE = HeartbeatConfig.PursuitAttribute
 
 local Blind = NPC.extend("Blind")
@@ -81,7 +80,8 @@ end
 local function coastPast(npc: any): boolean
 	local range = npc.Config.OvershootRange or 0
 	local base = npc.Humanoid.WalkSpeed
-	if range <= 0 or base <= 0 then return false end
+	local duration = npc.Config.OvershootDuration or 1
+	if range <= 0 or base <= 0 or duration <= 0 then return false end
 
 	local velocity = npc.RootPart.AssemblyLinearVelocity
 	local heading = Vector3.new(velocity.X, 0, velocity.Z)
@@ -92,7 +92,7 @@ local function coastPast(npc: any): boolean
 	if heading.Magnitude < 1e-3 then return false end
 	heading = heading.Unit
 
-	local room = npc:GetClearRun(heading, range)
+	local room = npc:GetClearRun(heading, math.min(range, base * duration / 2))
 	if room < (npc.Config.OvershootMinimum or 0) then
 		print("[Blind] no coast, clear run", math.floor(room + 0.5), "studs")
 		return false
@@ -103,16 +103,17 @@ local function coastPast(npc: any): boolean
 	local stop = start + heading * room
 	local heardAt = npc.LastNoiseAt
 
-	local deadline = os.clock() + (room / base) * 4 + 0.5
+	local startedAt = os.clock()
+	local deadline = startedAt + duration
 	local interrupted = false
 
 	while npc.Active and os.clock() < deadline do
 		local offset = npc.RootPart.Position - start
 		local travelled = Vector3.new(offset.X, 0, offset.Z):Dot(heading)
-		local progress = math.clamp(travelled / room, 0, 1)
-		if progress >= 1 then break end
+		local progress = math.clamp((os.clock() - startedAt) / duration, 0, 1)
+		if travelled >= room then break end
 
-		npc:SetSpeed(base * math.max(1 - progress, COAST_MINIMUM_SPEED))
+		npc:SetSpeed(base * (1 - progress))
 		npc.Humanoid:MoveTo(stop)
 
 		if npc.LastNoiseAt ~= heardAt then

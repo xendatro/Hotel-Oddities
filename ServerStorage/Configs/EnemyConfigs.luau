@@ -53,6 +53,7 @@ export type EnemyConfig = {
 	PursuitGiveUpRange: number?,
 	NoticeTurnTime: number?,
 	OvershootRange: number?,
+	OvershootDuration: number?,
 	OvershootMinimum: number?,
 
 	ObservationRange: number?,
@@ -250,6 +251,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		NoticeTurnTime = 0.25,
 
 		OvershootRange = 12,
+		OvershootDuration = 1,
 		OvershootMinimum = 1.5,
 
 		DangerBias = 1,
