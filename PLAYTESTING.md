@@ -152,6 +152,18 @@ which is usually what you want.
 **`Inferred`** — **never call `WaitForChild` without a timeout in an
 MCP-executed snippet.** An infinite yield hangs the call for its full timeout.
 
+**`Measured`** — **`MapCommandService:Execute` lands the player inside a spawn
+safe zone.** The character carries `SafeZoneImmunity`, so `Vanished.Is` is true
+and every enemy treats the player as an invalid target: a Stalker spawned 14
+studs behind sat in `Patrol`, and a peek sequence ended straight in `Despawn`.
+Pivot the character onto a `HallwayGraphService:Get()` node outside
+`SpawnZoneService:Contains` and check `Vanished.Is` before spawning anything.
+
+**`Measured`** — **`Humanoid.MoveDirection` reads 0 for NPCs on the server.**
+A Stalker walking at 18 studs/s reported `MoveDirection.Magnitude == 0` on every
+sample. Sample `RootPart` displacement or `AssemblyLinearVelocity`, and
+`Humanoid.WalkToPoint` for what it was told to walk to.
+
 **`Observed`** — **stopping and starting play is not instant.** Starting
 immediately after stopping can fail with "Stop play hasn't finished yet"; retry.
 Reparenting instances the client is mid-way through using has also dropped the
