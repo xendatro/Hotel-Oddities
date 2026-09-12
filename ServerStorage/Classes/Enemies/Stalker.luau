@@ -363,6 +363,8 @@ end
 
 function Stalker:Start()
 	self.Humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+	self.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+	self.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
 	self.Animator:SetMovementTrack("Walk")
 	NPC.Start(self)
 end

@@ -4,11 +4,14 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
+local MathService = require(ReplicatedStorage.Services.MathService)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local PeekSpotService = require(ServerStorage.Services.PeekSpotService)
 
 local POLL = 0.1
 local ABANDON_DISTANCE_SCALE = 0.6
+local FLOOR_PROBE_UP = 2
+local FLOOR_PROBE_DEPTH = 12
 
 local Peek = {}
 
@@ -50,14 +53,38 @@ function Peek.Enter(npc: any)
 	npc.RootPart.Anchored = true
 end
 
+local function standUpright(npc: any)
+	local root = npc.RootPart
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { npc.Model }
+	params.RespectCanCollide = true
+	params.CollisionGroup = root.CollisionGroup
+
+	local origin = root.Position
+	local hit = workspace:Raycast(origin + Vector3.yAxis * FLOOR_PROBE_UP, Vector3.yAxis * -FLOOR_PROBE_DEPTH, params)
+	local height = npc.Humanoid.HipHeight + root.Size.Y / 2
+	local position = if hit then Vector3.new(origin.X, hit.Position.Y + height, origin.Z) else origin
+
+	local look = MathService.Horizontal(root.CFrame.LookVector)
+	if look.Magnitude < 1e-3 then
+		look = Vector3.zAxis
+	end
+	root.CFrame = CFrame.lookAt(position, position + look.Unit)
+	root.AssemblyLinearVelocity = Vector3.zero
+	root.AssemblyAngularVelocity = Vector3.zero
+end
+
 function Peek.Exit(npc: any)
 	if not npc.Peeking then return end
 	npc.Peeking = false
 	npc.Lean = 0
 	npc.Spot, npc.Audience = nil, nil
 
+	standUpright(npc)
 	npc.RootPart.Anchored = false
 	npc.Humanoid.EvaluateStateMachine = true
+	npc.Humanoid:ChangeState(Enum.HumanoidStateType.Running)
 	npc:SetSpeed(npc.Config.WalkSpeed)
 end
 
