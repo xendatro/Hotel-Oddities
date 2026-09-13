@@ -1026,7 +1026,7 @@ function NPC:Pursue(
 				end
 				local following = list[index + 1]
 				self:MoveThrough(waypoint.Position, if following then following.Position else goal)
-			else
+			elseif self:HasMovementClearance(goal) or not followGraph(goal) then
 				if not self:MoveSupported(extendedGoal) then self:MoveSupported(goal) end
 			end
 		end
@@ -1320,7 +1320,7 @@ local function chooseDestination(current: any, memory: any, minimumDistance: num
 
 	local candidates, cumulative, total = {}, {}, 0
 	for _, node in (if graph then graph.Nodes else HallwayGraphService:Get()) do
-		if node == current or not node.CanBeDestination then continue end
+		if node == current or not node.CanBeDestination or not node.WellConnected then continue end
 		if (node.Position - origin).Magnitude < minimumDistance then continue end
 
 		local blockedUntil = memory.Blocked[node]
