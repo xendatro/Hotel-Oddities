@@ -30,4 +30,6 @@ return {
 	ClearanceProbe = 6,
 
 	RecullInterval = 0.25,
+
+	StreamSettleTime = 0.5,
 }

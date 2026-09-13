@@ -16,6 +16,7 @@ local DoorPart = require(ReplicatedStorage.Classes.DoorPart)
 local TagService = require(ReplicatedStorage.Services.TagService)
 
 local MapDoors = CommunicationService.Get("Oddities", "MapDoors")
+local RequestMapDoors = CommunicationService.Get("Oddities", "RequestMapDoors") :: RemoteEvent
 
 local Active: { [any]: true } = {}
 local DoorwayCache: { [BasePart]: Model | false } = {}
@@ -38,7 +39,10 @@ local function enemyPositions(): ({ Vector3 }, { [string]: boolean })
 	local forcedDoorways = {}
 	for _, model in CollectionService:GetTagged(DoorConfig.EnemyTag) do
 		if model:IsA("Model") then
-			table.insert(positions, model:GetPivot().Position)
+			local pivot = CharacterService.GetStreamedPivot(model)
+			if pivot then
+				table.insert(positions, pivot.Position)
+			end
 			local doorwayName = model:GetAttribute("ForcedDoorway")
 			if typeof(doorwayName) == "string" then
 				forcedDoorways[doorwayName] = true
@@ -230,5 +234,7 @@ end, function(part, door)
 	Active[door] = nil
 	door:Destroy()
 end, workspace)
+
+RequestMapDoors:FireServer()
 
 return DoorService

@@ -8,6 +8,11 @@ local MapOddityCommandService = {}
 local EFFECTS = {
 	transparency = "Transparency",
 	translucent = "Transparency",
+	blackout = "MapLightsOut",
+	black = "MapLightsOut",
+	lightsout = "MapLightsOut",
+	dark = "MapLightsOut",
+	darkness = "MapLightsOut",
 	door = "DoorsOpen",
 	doors = "DoorsOpen",
 	doorsopen = "DoorsOpen",
@@ -49,7 +54,7 @@ local function run(player: Player, argument: string?)
 
 	local effect = if command == nil or command == "" then "Transparency" else EFFECTS[command]
 	if not effect then
-		warn("[map oddity] use /mapoddity, /mapoddity doors, /mapoddity chaos, /mapoddity blocker, /mapoddity void, /mapoddity crush, or /mapoddity clear")
+		warn("[map oddity] use /mapoddity, /mapoddity blackout, /mapoddity doors, /mapoddity chaos, /mapoddity blocker, /mapoddity void, /mapoddity crush, or /mapoddity clear")
 		return
 	end
 
@@ -65,7 +70,7 @@ local function run(player: Player, argument: string?)
 		warn(`[map oddity] {reason}`)
 		return
 	end
-	warn(`[map oddity] applied {chosen} to the hallway containing {player.Name}`)
+	warn(`[map oddity] applied {chosen} near {player.Name}`)
 end
 
 ChatCommandService.Register("mapoddity", {

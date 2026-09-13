@@ -21,7 +21,11 @@ function ChaosWarning:OnStart()
 		math.clamp(self:Setting("ClosingSpeed", 1.2), 0.05, 4),
 		math.max(self:Setting("DoorIntervalMin", 0.3), 0.05),
 		math.max(self:Setting("DoorIntervalMax", 1.1), 0.06),
-		"ChaosWarning"
+		"ChaosWarning",
+		self:Setting("ArrivalAtStart", 0),
+		self:Setting("ArrivalAtFinish", 0),
+		self:Setting("WarningTime", 15),
+		self:Setting("WarningRun", 0)
 	)
 	return true
 end

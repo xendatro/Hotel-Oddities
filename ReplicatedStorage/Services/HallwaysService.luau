@@ -283,7 +283,7 @@ function Hallways.StraightSpanAt(position: Vector3, preferredDirection: Vector3?
 	local bestDistance = math.huge
 	for _, hallway in allHallways do
 		if contains(hallway, position) then
-			local span = straightSpan(hallway, position, preferredDirection, allHallways)
+			local span = straightSpan(hallway, position, preferred, allHallways)
 			if span then
 				local alignment = if preferred then math.abs(span.Axis:Dot(preferred)) else 0
 				local offset = position - span.Center

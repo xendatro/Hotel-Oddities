@@ -1,10 +1,6 @@
 return {
 	Enabled = true,
 
-	RollInterval = 45,
-	InitialDelay = 45,
-	TriggerChance = 0.15,
-
 	MinDuration = 45,
 	MaxDuration = 120,
 	MinimumPlayerDistance = 32,
@@ -13,13 +9,26 @@ return {
 			SpawnIntervalMin = 180,
 			SpawnIntervalMax = 420,
 		},
+		MapLightsOut = {
+			SpawnIntervalMin = 240,
+			SpawnIntervalMax = 480,
+			MinDuration = 60,
+			MaxDuration = 120,
+			MinimumPlayerDistance = 48,
+			ChunkSize = 215,
+			ChunkHeight = 56,
+			ChunkBelow = 4,
+			MinimumLights = 2,
+			PickAttempts = 96,
+		},
 		DoorsOpen = {
+			SpawnIntervalMin = 180,
+			SpawnIntervalMax = 420,
 			OpeningSpeed = 0.75,
 		},
 		HallwayChaos = {
-			RollInterval = 300,
-			InitialDelay = 120,
-			TriggerChance = 1,
+			SpawnIntervalMin = 300,
+			SpawnIntervalMax = 300,
 
 			OccupiedChance = 0.7,
 
@@ -31,7 +40,8 @@ return {
 			LightIntervalMax = 0.24,
 		},
 		HallwayBlocker = {
-			TriggerChance = 0.2,
+			SpawnIntervalMin = 180,
+			SpawnIntervalMax = 270,
 			DangerWeight = 0.35,
 			SplitClearance = 12,
 			GazeCone = 100,
@@ -45,9 +55,8 @@ return {
 			BlockerMaterial = Enum.Material.Glass,
 		},
 		HallwayVoid = {
-			RollInterval = 300,
-			InitialDelay = 120,
-			TriggerChance = 0.15,
+			SpawnIntervalMin = 1500,
+			SpawnIntervalMax = 2500,
 			MinDuration = 60,
 			MaxDuration = 120,
 
@@ -83,13 +92,13 @@ return {
 			KillDepth = 1.25,
 		},
 		HallwayCrush = {
-			RollInterval = 360,
-			InitialDelay = 180,
-			TriggerChance = 0.12,
+			SpawnIntervalMin = 240,
+			SpawnIntervalMax = 360,
 			MinDuration = 26,
 			MaxDuration = 40,
 
 			OccupiedChance = 0.55,
+			OccupiedChanceReferencePlayers = 10, --scales down the chance as more players join
 			PickAttempts = 64,
 			-- Longest run that closes at once.
 			MaxLength = 130,
