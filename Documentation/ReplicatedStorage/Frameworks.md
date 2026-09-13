@@ -1,6 +1,6 @@
 # ReplicatedStorage / Frameworks
 
-xenterface is a self-contained declarative UI framework living under `ReplicatedStorage\Frameworks\xenterface`, with its own Services/Classes/Config/Modules tree and its own `Tagger` module that wires the `Tab`, `Page` and `Hover` tags through the shared `TagService`. UI behaviour is authored entirely as attributes on GuiObjects (`PageGroup`, `PageId`, `Preset`, `Active`, `Inactive`, `ElementId`) written in a compact string animation language that `Sequence` parses into tweens. The framework is entered from `ReplicatedStorage\Services\InterfaceService.luau`, which requires the `xenterface` root module and takes a controller for the `"Main"` page group.
+xenterface is a self-contained declarative UI framework living under `ReplicatedStorage\Frameworks\xenterface`, with its own Services/Classes/Config/Modules tree and its own `Tagger` module that wires the `Tab`, `Page`, `Hover` and `Press` tags through the shared `TagService`. UI behaviour is authored entirely as attributes on GuiObjects (`PageGroup`, `PageId`, `Preset`, `Active`, `Inactive`, `ElementId`) written in a compact string animation language that `Sequence` parses into tweens. The framework is entered from `ReplicatedStorage\Services\InterfaceService.luau`, which requires the `xenterface` root module and takes a controller for the `"Main"` page group.
 
 ### xenterface\init.luau
 Root module of the framework; requires the two internal services and boots `Tagger` against the local `PlayerGui`, then exposes a small facade. Requiring this module is what starts all tag listening.
@@ -10,10 +10,10 @@ Root module of the framework; requires the two internal services and boots `Tagg
 - Requires: internal `Services.ControllerService`, `Services.ElementService`, `Modules.Tagger`
 
 ### xenterface\Modules\Tagger.luau
-Returns a single function that, given a `PlayerGui`, registers the framework's three `TagService:Listen` bindings. Each tag may be applied to the GuiObject itself or to a `Configuration` child of it, in which case the parent is the target and the child is the attribute source.
-- API: `Tagger(playerGui: Folder)` — installs the Tab/Page/Hover tag listeners
-- Tags: listens `Tab`, `Page`, `Hover`
-- Requires: `ReplicatedStorage.Services.TagService`; internal `Classes.Tab`, `Classes.Page`, `Classes.Hover`
+Returns a single function that, given a `PlayerGui`, registers the framework's four `TagService:Listen` bindings. Each tag may be applied to the GuiObject itself or to a `Configuration` child of it, in which case the parent is the target and the child is the attribute source. That is how one button carries both `Hover` and `Press` with separate presets.
+- API: `Tagger(playerGui: Folder)` — installs the Tab/Page/Hover/Press tag listeners
+- Tags: listens `Tab`, `Page`, `Hover`, `Press`
+- Requires: `ReplicatedStorage.Services.TagService`; internal `Classes.Tab`, `Classes.Page`, `Classes.Hover`, `Classes.Press`
 
 ### xenterface\Services\ControllerService.luau
 Registry of `Controller` objects keyed by page-group name, so every consumer of a group shares one controller. `Get` lazily creates on first request.
@@ -48,6 +48,14 @@ Thin `Toggle` subclass representing a page; it adds only a `Page` field and inhe
 - API: `Page.new(page: GuiObject, source: Configuration?) -> Page` — `source` defaults to the GuiObject
 - Requires: internal `Classes.Toggle`
 
+### xenterface\Classes\Press.luau
+`Toggle` subclass bound to a GuiButton's `MouseButton1Down`/`MouseButton1Up`, playing the Active sequence on press. On release it hands back to the button's `Hover` animation when the pointer is still over it, and plays its own Inactive sequence otherwise. Put the `Press` tag on a `Configuration` child so its `Preset` does not clash with the button's own `Hover` preset.
+- API: `Press.new(press: GuiButton, source: Configuration?) -> Press` — `source` defaults to the button
+- API: `Press:Pressed()` — activates
+- API: `Press:Released()` — reactivates the button's `Hover` if hovered, otherwise deactivates
+- API: `Press:Disconnect()` — drops `self.Connections`
+- Requires: `ReplicatedStorage.Services.TagService` (`GetApplied("Hover")`); internal `Classes.Toggle`
+
 ### xenterface\Classes\Sequence.luau
 The animation language compiler and player. It parses a sequence string (space/comma/semicolon separated phrases such as `pos-c`, `t-0.2`, `back out`, `scale-a-0.01`, `i`) into an ordered list of items holding tween properties, static properties, `TweenInfo` parts and delays, then plays them with `TweenService`, re-targeting the `Scale` property onto a child `UIScale`. Phrases support initial/present modifiers and `add`/`sub`/`mult`/`div` operations relative to the current property value; `i`/`initial` snapshots every property the paired sequence touches.
 - API: `Sequence.new(guiObject: GuiObject, sequence: string, otherSequences: {string}, state: string) -> Sequence` — compiles at construction, errors with the offending phrase
@@ -67,8 +75,8 @@ Wraps a `BindableEvent` in a table so the event and the signal both appear as me
 - Requires: internal `Services.ControllerService`, `Classes.Toggle`
 
 ### xenterface\Classes\Toggle.luau
-Shared base for `Tab`, `Page` and `Hover`: resolves the Active/Inactive sequence strings from a `Preset` attribute (looked up in `PresetConfig`) with per-object `Active`/`Inactive` attributes overriding them, builds a `Sequence` for each, and exposes the two playback methods. When one instance carries several system tags, the lower-priority system's sequences are suppressed so Hover beats Page and Page beats Tab.
-- API: `Toggle.new(guiObject: GuiObject, source: Configuration | GuiObject, systemType: string) -> Toggle` — `systemType` is `"Tab"`, `"Page"` or `"Hover"`
+Shared base for `Tab`, `Page`, `Hover` and `Press`: resolves the Active/Inactive sequence strings from a `Preset` attribute (looked up in `PresetConfig`) with per-object `Active`/`Inactive` attributes overriding them, builds a `Sequence` for each, and exposes the two playback methods. When one instance carries several system tags, the lower-priority system's sequences are suppressed so Hover beats Page and Page beats Tab.
+- API: `Toggle.new(guiObject: GuiObject, source: Configuration | GuiObject, systemType: string) -> Toggle` — `systemType` is `"Tab"`, `"Page"`, `"Hover"` or `"Press"`
 - API: `Toggle:Activate()` — stops the Inactive sequence and plays Active
 - API: `Toggle:Deactivate()` — stops the Active sequence and plays Inactive
 - Requires: internal `Config.PresetConfig`, `Classes.Sequence`
@@ -79,4 +87,4 @@ Lookup tables for the sequence language, plus a property type table built at loa
 
 ### xenterface\Config\PresetConfig.luau
 Named animation presets referenced by the `Preset` attribute. Most entries are `Active`/`Inactive` sequence-string pairs; the later `Hotel*` entries are plain numeric/Enum tables consumed directly by `InterfaceService` rather than by `Toggle`.
-- API: data table — `Example`, `Menu`, `Hover`, `Hover2`, `RectangleHover`, `RectangleSelect`, `ButtonHover`, `FrameHover`, `FrameHoverScale`, `HotelPage` (sequence pair plus `CloseTime`), `HotelSideButton`, `HotelCloseButton`, `HotelEffects` (tween tuning values)
+- API: data table — `Example`, `Menu`, `Hover`, `Hover2`, `RectangleHover`, `RectangleSelect`, `ButtonHover`, `FrameHover`, `FrameHoverScale`, `HotelPage` (sequence pair plus `CloseTime`), `StoreButtonHover` / `StoreButtonPress` (sequence pairs for the ShopUI and GemsUI purchase buttons), `HotelSideButton`, `HotelCloseButton`, `HotelEffects` (tween tuning values)

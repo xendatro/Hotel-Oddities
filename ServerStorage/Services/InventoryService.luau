@@ -12,7 +12,6 @@ local MoveRemote = CommunicationService.Get("Inventory", "Move")
 local DeleteRemote = CommunicationService.Get("Backpack", "Delete")
 
 local CAPACITY = InventoryConfig.HotbarSlots + InventoryConfig.BackpackSlots
-local SINGLE_COPY = InventoryConfig.SingleCopy
 local SAVED_ATTRIBUTES = { "uses" }
 
 local InventoryService = {}
@@ -20,6 +19,7 @@ local InventoryService = {}
 local Order: { [Player]: { [number]: string } } = {}
 local Ready: { [Player]: boolean } = {}
 local AttributeConnections: { [Tool]: { RBXScriptConnection } } = {}
+local Consolidating: { [Player]: boolean } = {}
 
 local function getOrder(player: Player): { [number]: string }
 	if not Order[player] then
@@ -85,34 +85,112 @@ local function trackAttributes(player: Player, tool: Tool)
 	end))
 end
 
-function InventoryService:Get(player: Player, toolName: string): Tool?
-	local backpack = player:FindFirstChildOfClass("Backpack")
-	local tool = backpack and backpack:FindFirstChild(toolName)
-	if tool and tool:IsA("Tool") then return tool end
-
-	local character = player.Character
-	if character then
-		tool = character:FindFirstChild(toolName)
-		if tool and tool:IsA("Tool") then return tool end
-	end
-	return nil
-end
-
-function InventoryService:GetAll(player: Player): { [string]: Tool }
-	local found = {}
+local function collectTools(player: Player): { [string]: { Tool } }
+	local grouped = {}
 
 	local function collect(container: Instance?)
 		if not container then return end
 		for _, item in container:GetChildren() do
-			if item:IsA("Tool") then
-				found[item.Name] = item
+			if not item:IsA("Tool") then continue end
+			local tools = grouped[item.Name]
+			if not tools then
+				tools = {}
+				grouped[item.Name] = tools
 			end
+			table.insert(tools, item)
 		end
 	end
 
-	collect(player:FindFirstChildOfClass("Backpack"))
 	collect(player.Character)
-	return found
+	collect(player:FindFirstChildOfClass("Backpack"))
+	return grouped
+end
+
+local function findFreeSlot(player: Player): number?
+	local order = getOrder(player)
+	for index = 1, CAPACITY do
+		if order[index] == nil then return index end
+	end
+	return nil
+end
+
+local function collapseOrder(player: Player, tools: { [string]: Tool })
+	local order = getOrder(player)
+	local placed = {}
+
+	for slot = 1, CAPACITY do
+		local toolName = order[slot]
+		if not toolName or not tools[toolName] or placed[toolName] then
+			order[slot] = nil
+		else
+			placed[toolName] = true
+		end
+	end
+
+	local unplaced = {}
+	for toolName in tools do
+		if not placed[toolName] then table.insert(unplaced, toolName) end
+	end
+	table.sort(unplaced)
+
+	for _, toolName in unplaced do
+		local slot = findFreeSlot(player)
+		if not slot then break end
+		order[slot] = toolName
+		placed[toolName] = true
+	end
+end
+
+local function consolidate(player: Player): { [string]: Tool }
+	if Consolidating[player] then
+		local current = {}
+		for toolName, copies in collectTools(player) do
+			current[toolName] = copies[1]
+		end
+		return current
+	end
+
+	Consolidating[player] = true
+	local grouped = collectTools(player)
+	local tools = {}
+	local quantities = {}
+
+	for toolName, copies in grouped do
+		local keep = copies[1]
+		local quantity = 0
+		for _, copy in copies do
+			local value = tonumber(copy:GetAttribute("quantity"))
+			quantity += math.max(0, math.floor(value or 1))
+		end
+
+		for index = 2, #copies do
+			copies[index]:Destroy()
+		end
+
+		if quantity > 0 then
+			tools[toolName] = keep
+			quantities[toolName] = quantity
+		else
+			keep:Destroy()
+		end
+	end
+
+	collapseOrder(player, tools)
+	for toolName, quantity in quantities do
+		local tool = tools[toolName]
+		trackAttributes(player, tool)
+		tool:SetAttribute("quantity", quantity)
+	end
+	Consolidating[player] = nil
+	return tools
+end
+
+function InventoryService:Get(player: Player, toolName: string): Tool?
+	return consolidate(player)[toolName]
+end
+
+function InventoryService:GetAll(player: Player): { [string]: Tool }
+	return consolidate(player)
 end
 
 function InventoryService:GetQuantity(player: Player): number
@@ -124,6 +202,7 @@ function InventoryService:GetQuantity(player: Player): number
 end
 
 function InventoryService:GetSlot(player: Player, toolName: string): number?
+	consolidate(player)
 	for index, name in getOrder(player) do
 		if name == toolName then return index end
 	end
@@ -141,14 +220,6 @@ function InventoryService:Wait(player: Player, timeout: number?): boolean
 		task.wait()
 	end
 	return true
-end
-
-local function findFreeSlot(player: Player): number?
-	local order = getOrder(player)
-	for index = 1, CAPACITY do
-		if order[index] == nil then return index end
-	end
-	return nil
 end
 
 function InventoryService:Sync(player: Player)
@@ -172,13 +243,8 @@ end
 
 function InventoryService:Add(player: Player, toolName: string, n: number): boolean
 	if n <= 0 then return false end
-	local tool = InventoryService:Get(player, toolName)
-	if SINGLE_COPY[toolName] then
-		if tool then
-			return InventoryService:EnsureSingle(player, toolName)
-		end
-		n = 1
-	end
+	local tools = consolidate(player)
+	local tool = tools[toolName]
 
 	if not tool then
 		local template = Tools:FindFirstChild(toolName)
@@ -211,51 +277,18 @@ end
 function InventoryService:EnsureSingle(player: Player, toolName: string): boolean
 	if not InventoryService:Wait(player, 10) then return false end
 
-	local tools = {}
-	for _, container in { player:FindFirstChildOfClass("Backpack"), player.Character } do
-		if not container then continue end
-		for _, child in container:GetChildren() do
-			if child:IsA("Tool") and child.Name == toolName then
-				table.insert(tools, child)
-			end
-		end
-	end
-
-	local tool = tools[1]
+	local tool = consolidate(player)[toolName]
 	if not tool then
 		return InventoryService:Add(player, toolName, 1)
 	end
-
-	for index = 2, #tools do
-		tools[index]:Destroy()
-	end
 	tool:SetAttribute("quantity", 1)
-
-	local order = getOrder(player)
-	local firstSlot
-	for slot, name in order do
-		if name == toolName then
-			if firstSlot then
-				order[slot] = nil
-			else
-				firstSlot = slot
-			end
-		end
-	end
-	if not firstSlot then
-		local slot = findFreeSlot(player)
-		if not slot then return false end
-		order[slot] = toolName
-	end
-
-	trackAttributes(player, tool)
 	InventoryService:Sync(player)
 	save(player)
 	return true
 end
 
 function InventoryService:Remove(player: Player, toolName: string, n: number)
-	local tool = InventoryService:Get(player, toolName)
+	local tool = consolidate(player)[toolName]
 	if not tool then return end
 
 	local remaining = (tool:GetAttribute("quantity") or 0) - n
@@ -274,7 +307,7 @@ function InventoryService:Remove(player: Player, toolName: string, n: number)
 end
 
 function InventoryService:RemoveAll(player: Player, toolName: string): number
-	local tool = InventoryService:Get(player, toolName)
+	local tool = consolidate(player)[toolName]
 	if not tool then return 0 end
 
 	local amount = tool:GetAttribute("quantity") or 0
@@ -305,35 +338,7 @@ function InventoryService:Move(player: Player, from: number, to: number): boolea
 end
 
 local function reconcile(player: Player)
-	local tools = InventoryService:GetAll(player)
-	local order = getOrder(player)
-
-	local placed = {}
-	for index, toolName in order do
-		if tools[toolName] then
-			placed[toolName] = true
-		else
-			order[index] = nil
-		end
-	end
-
-	local unplaced = {}
-	for toolName in tools do
-		if not placed[toolName] then
-			table.insert(unplaced, toolName)
-		end
-	end
-	table.sort(unplaced)
-
-	for _, toolName in unplaced do
-		local slot = findFreeSlot(player)
-		if not slot then break end
-		order[slot] = toolName
-	end
-
-	for _, tool in tools do
-		trackAttributes(player, tool)
-	end
+	consolidate(player)
 	InventoryService:Sync(player)
 	save(player)
 end
@@ -347,6 +352,7 @@ local function restore(player: Player)
 	if not backpack or not backpack:IsA("Backpack") then return end
 
 	local order = getOrder(player)
+	local existing = collectTools(player)
 	local placed = {}
 	for _, entry in profile.Data.Inventory or {} do
 		if type(entry) ~= "table" then continue end
@@ -361,7 +367,14 @@ local function restore(player: Player)
 		local template = Tools:FindFirstChild(name)
 		if not template or not template:IsA("Tool") then continue end
 
-		local tool = InventoryService:Get(player, name) or template:Clone()
+		local copies = existing[name]
+		local tool = copies and copies[1] or template:Clone()
+		if copies then
+			for index = 2, #copies do
+				copies[index]:Destroy()
+			end
+			existing[name] = nil
+		end
 		tool:SetAttribute("quantity", quantity)
 		if type(entry.Attributes) == "table" then
 			for _, attribute in SAVED_ATTRIBUTES do
@@ -454,6 +467,7 @@ Players.PlayerRemoving:Connect(function(player: Player)
 	end
 	Order[player] = nil
 	Ready[player] = nil
+	Consolidating[player] = nil
 end)
 
 return InventoryService

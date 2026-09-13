@@ -19,12 +19,41 @@ local DrawerItemConfig = {
 	Remotes = {
 		Folder = "DrawerItem",
 		Pickup = "Pickup",
+		Result = "PickupResult",
+	},
+
+	Feedback = {
+		Labels = {
+			Coins = "Coins",
+			Gems = "Gems",
+		},
+		Sounds = {
+			Coins = "CoinPickup",
+			Gems = "GemPickup",
+		},
+	},
+
+	DisplayRotations = {
+		Coin = CFrame.Angles(math.rad(90), 0, 0),
 	},
 
 	Spawn = {
 		TargetPercentage = 0.06,
+		CurrencyTargetPercentage = 0.2,
 		RefillDelay = 90,
 		SurfacePadding = 0.05,
+	},
+
+	Hallway = {
+		InitialAlive = 8,
+		MaxAlive = 8,
+		RefillDelay = 45,
+		MinimumSpacing = 24,
+		MinimumPlayerDistance = 20,
+		PlacementAttempts = 24,
+		SupportSurfaceNames = {
+			CarpetRunner = true,
+		},
 	},
 
 	Targeting = DrawerConfig.Targeting,
@@ -48,7 +77,19 @@ local DrawerItemConfig = {
 		Medkit = "Rare",
 		Lantern = "Rare",
 		Radar = "VeryRare",
-		["Player Locator"] = "VeryRare",
+	},
+
+	Currencies = {
+		Coin = {
+			Currency = "Coins",
+			Amount = 10,
+			Weight = 50,
+		},
+		Gem = {
+			Currency = "Gems",
+			Amount = 10,
+			Weight = 50,
+		},
 	},
 }
 

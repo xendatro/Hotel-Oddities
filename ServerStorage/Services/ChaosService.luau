@@ -1,3 +1,4 @@
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
@@ -14,27 +15,47 @@ local MapOddityService = require(ServerStorage.Services.MapOddityService)
 local ROUTE_ATTEMPTS = 8
 local START_CANDIDATES = 3
 local SEARCH_BUDGET = 15000
+local SEARCH_SECONDS = 0.01
+local SEARCH_MAX_DEPTH = 512
+local SEARCH_CLOCK_STRIDE = 256
 local TIE_JITTER = 0.5
 local WARNING_POLL = 0.25
 local CRASH_PROBE = 96
 local CRASH_MARGIN = 1.5
+local SPAN_ALIGNMENT = 0.9
+local DOORWAY_TAG = "Doorway"
+local ENEMY_FOLDER = "Enemies"
 
 type RouteNode = HallwayGraphService.RouteNode
 
-type WarningToken = {
+export type WarningToken = {
 	Cancelled: boolean,
+	Run: number,
+	Lights: { Model },
+	Oddities: { number },
+	Retract: () -> (),
+}
+
+type SpanCoverage = {
+	Key: string,
+	Span: Hallways.StraightSpan,
+	MinAlong: number,
+	MaxAlong: number,
+	MinTravel: number,
+	MaxTravel: number,
 }
 
 type PendingWarning = {
 	WarnAt: number,
 	ExpiresAt: number,
-	IsNearPlayer: () -> boolean,
-	Fire: (number) -> (),
+	IsNearPlayer: ({ Vector3 }) -> boolean,
+	Fire: (WarningToken, number) -> (),
 }
 
 local ChaosService = {}
 local Config = EnemyConfigs.Chaos
 local PendingTokens: { WarningToken } = {}
+local NextRun = 0
 
 local horizontal = MathService.Horizontal
 
@@ -53,15 +74,15 @@ local function livingRootPositions(): { Vector3 }
 	return positions
 end
 
-local function anyPlayerNear(position: Vector3, range: number): boolean
-	for _, playerPosition in livingRootPositions() do
+local function nearAny(positions: { Vector3 }, position: Vector3, range: number): boolean
+	for _, playerPosition in positions do
 		if (playerPosition - position).Magnitude <= range then return true end
 	end
 	return false
 end
 
-local function anyPlayerNearSpan(span: Hallways.StraightSpan, range: number): boolean
-	for _, playerPosition in livingRootPositions() do
+local function nearAnySpan(positions: { Vector3 }, span: Hallways.StraightSpan, range: number): boolean
+	for _, playerPosition in positions do
 		local along = math.clamp((playerPosition - span.Start):Dot(span.Axis), 0, span.Length)
 		if (playerPosition - (span.Start + span.Axis * along)).Magnitude <= range then
 			return true
@@ -73,6 +94,22 @@ end
 local CrashParams = RaycastParams.new()
 CrashParams.FilterType = Enum.RaycastFilterType.Exclude
 CrashParams.RespectCanCollide = true
+CrashParams.IgnoreWater = true
+CrashParams.CollisionGroup = EnemyService.CollisionGroup
+
+local function crashExclusions(): { Instance }
+	local exclude = {}
+	local enemies = workspace:FindFirstChild(ENEMY_FOLDER)
+	if enemies then
+		table.insert(exclude, enemies)
+	end
+	for _, doorway in CollectionService:GetTagged(DOORWAY_TAG) do
+		if doorway:IsDescendantOf(workspace) then
+			table.insert(exclude, doorway)
+		end
+	end
+	return exclude
+end
 
 local function crashPoint(route: { Vector3 }): Vector3?
 	local last = route[#route]
@@ -80,27 +117,63 @@ local function crashPoint(route: { Vector3 }): Vector3?
 	if direction.Magnitude < 1e-3 then return nil end
 	direction = direction.Unit
 
-	local exclude = {}
-	for _, player in Players:GetPlayers() do
-		if player.Character then
-			table.insert(exclude, player.Character)
-		end
-	end
-	CrashParams.FilterDescendantsInstances = exclude
+	CrashParams.FilterDescendantsInstances = crashExclusions()
 
 	local hit = workspace:Raycast(last, direction * CRASH_PROBE, CrashParams)
 	if hit then
 		local wall = Vector3.new(hit.Position.X, last.Y, hit.Position.Z)
 		return wall - direction * CRASH_MARGIN
 	end
-	return last + direction * CRASH_PROBE
+
+	local span = Hallways.StraightSpanAt(last, direction)
+	if span then
+		local ahead = (span.Finish - last):Dot(direction)
+		if ahead > 0 then
+			return last + direction * (ahead + (Config.CrashOverrun or 0))
+		end
+	end
+	return nil
 end
 
 local Rng = Random.new()
+local NO_NEIGHBORS: { RouteNode } = {}
+local AdjacencySource: { RouteNode }? = nil
+local Adjacency: { [RouteNode]: { RouteNode } } = {}
+local OptionPool: { { RouteNode } } = {}
+local RankPool: { { number } } = {}
 
-local function unvisitedExits(node: RouteNode, visited: { [RouteNode]: boolean }): number
+local function adjacency(): { [RouteNode]: { RouteNode } }
+	local nodes = HallwayGraphService:Get()
+	if AdjacencySource == nodes then return Adjacency end
+
+	AdjacencySource = nodes
+	Adjacency = {}
+	for _, node in nodes do
+		local neighbors = {}
+		for neighbor in node.Neighbors do
+			table.insert(neighbors, neighbor)
+		end
+		Adjacency[node] = neighbors
+	end
+	return Adjacency
+end
+
+local function bufferAt(pool: { { any } }, depth: number): { any }
+	local buffer = pool[depth]
+	if not buffer then
+		buffer = {}
+		pool[depth] = buffer
+	end
+	return buffer
+end
+
+local function unvisitedExits(
+	neighbors: { [RouteNode]: { RouteNode } },
+	node: RouteNode,
+	visited: { [RouteNode]: boolean }
+): number
 	local count = 0
-	for neighbor in node.Neighbors do
+	for _, neighbor in neighbors[node] do
 		if not visited[neighbor] then
 			count += 1
 		end
@@ -108,40 +181,58 @@ local function unvisitedExits(node: RouteNode, visited: { [RouteNode]: boolean }
 	return count
 end
 
-local function findLongestWalk(path: { RouteNode }, visited: { [RouteNode]: boolean }): { RouteNode }
+local function findLongestWalk(
+	path: { RouteNode },
+	visited: { [RouteNode]: boolean },
+	deadline: number
+): { RouteNode }
 	local best = table.clone(path)
+	if os.clock() >= deadline then return best end
+
+	local neighbors = adjacency()
 	local steps = 0
 
-	local function extend(current: RouteNode)
-		if steps >= SEARCH_BUDGET then return end
+	local function extend(current: RouteNode, depth: number)
+		if steps >= SEARCH_BUDGET or depth > SEARCH_MAX_DEPTH then return end
 		steps += 1
+		if steps % SEARCH_CLOCK_STRIDE == 0 and os.clock() >= deadline then
+			steps = SEARCH_BUDGET
+			return
+		end
 		if #path > #best then
 			best = table.clone(path)
 		end
 
-		local options = {}
-		local ranks = {}
-		for neighbor in current.Neighbors do
-			if not visited[neighbor] then
-				table.insert(options, neighbor)
-				ranks[neighbor] = unvisitedExits(neighbor, visited) + Rng:NextNumber() * TIE_JITTER
-			end
-		end
-		table.sort(options, function(first: RouteNode, second: RouteNode)
-			return ranks[first] < ranks[second]
-		end)
+		local options = bufferAt(OptionPool, depth) :: { RouteNode }
+		local ranks = bufferAt(RankPool, depth) :: { number }
+		local count = 0
+		for _, neighbor in neighbors[current] or NO_NEIGHBORS do
+			if visited[neighbor] then continue end
 
-		for _, option in options do
+			local rank = unvisitedExits(neighbors, neighbor, visited) + Rng:NextNumber() * TIE_JITTER
+			local slot = count
+			while slot > 0 and ranks[slot] > rank do
+				options[slot + 1] = options[slot]
+				ranks[slot + 1] = ranks[slot]
+				slot -= 1
+			end
+			options[slot + 1] = neighbor
+			ranks[slot + 1] = rank
+			count += 1
+		end
+
+		for index = 1, count do
+			local option = options[index]
 			visited[option] = true
 			table.insert(path, option)
-			extend(option)
+			extend(option, depth + 1)
 			table.remove(path)
 			visited[option] = nil
 			if steps >= SEARCH_BUDGET then return end
 		end
 	end
 
-	extend(path[#path])
+	extend(path[#path], 1)
 	return best
 end
 
@@ -160,12 +251,12 @@ local function toRoute(nodes: { RouteNode }): { Vector3 }?
 	return route
 end
 
-local function planRoute(start: RouteNode): { Vector3 }?
-	local nodes = findLongestWalk({ start }, { [start] = true })
+local function planRoute(start: RouteNode, deadline: number): { Vector3 }?
+	local nodes = findLongestWalk({ start }, { [start] = true }, deadline)
 	return toRoute(nodes)
 end
 
-local function planRouteThrough(start: RouteNode, targetPosition: Vector3): { Vector3 }?
+local function planRouteThrough(start: RouteNode, targetPosition: Vector3, deadline: number): { Vector3 }?
 	local target = HallwayGraphService:FindNearestNode(targetPosition)
 	if not target then return nil end
 
@@ -177,7 +268,7 @@ local function planRouteThrough(start: RouteNode, targetPosition: Vector3): { Ve
 		visited[node] = true
 	end
 
-	local nodes = findLongestWalk(table.clone(approach), visited)
+	local nodes = findLongestWalk(table.clone(approach), visited, deadline)
 	return toRoute(nodes)
 end
 
@@ -216,68 +307,157 @@ end
 local SPAN_HOLD_ACROSS = 2
 local SPAN_HOLD_HEIGHT = 4
 
-local function spanHolds(span: Hallways.StraightSpan, point: Vector3): boolean
+local function spanHolds(span: Hallways.StraightSpan, point: Vector3, direction: Vector3?): boolean
+	if direction and math.abs(span.Axis:Dot(direction)) < SPAN_ALIGNMENT then return false end
+
 	local offset = point - span.Center
 	if math.abs(offset.Y) > SPAN_HOLD_HEIGHT then return false end
 	if math.abs(offset:Dot(span.Axis)) > span.Length / 2 then return false end
 	return math.abs(offset:Dot(Vector3.yAxis:Cross(span.Axis).Unit)) <= SPAN_HOLD_ACROSS
 end
 
-local function collectWarnings(route: { Vector3 }, spawnAt: number): { PendingWarning }
+local function spanKey(span: Hallways.StraightSpan): string
+	return string.format(
+		"%d:%d:%d:%d",
+		math.round(span.Center.X),
+		math.round(span.Center.Z),
+		math.round(math.abs(span.Axis.X) * 10),
+		math.round(math.abs(span.Axis.Z) * 10)
+	)
+end
+
+local function trimSpan(
+	span: Hallways.StraightSpan,
+	minAlong: number,
+	maxAlong: number
+): Hallways.StraightSpan
+	local half = span.Length / 2
+	local padding = Config.WarnSpanPadding or 0
+	local low = math.clamp(math.min(minAlong, maxAlong) - padding, -half, half)
+	local high = math.clamp(math.max(minAlong, maxAlong) + padding, -half, half)
+	local start = span.Center + span.Axis * low
+	local finish = span.Center + span.Axis * high
+	return {
+		Start = start,
+		Finish = finish,
+		Center = start:Lerp(finish, 0.5),
+		Axis = span.Axis,
+		Length = high - low,
+		HalfWidth = span.HalfWidth,
+	}
+end
+
+local function routeDirection(route: { Vector3 }, index: number): Vector3?
+	if index < #route then
+		local forward = horizontal(route[index + 1] - route[index])
+		if forward.Magnitude > 1e-3 then return forward.Unit end
+	end
+	if index > 1 then
+		local back = horizontal(route[index] - route[index - 1])
+		if back.Magnitude > 1e-3 then return back.Unit end
+	end
+	return nil
+end
+
+local function collectWarnings(
+	route: { Vector3 },
+	spawnAt: number,
+	spawnTime: number,
+	run: number
+): { PendingWarning }
 	local pending: { PendingWarning } = {}
+	local warningTime = Config.WarningTime
+	local speed = Config.WalkSpeed
 
 	for _, light in LightService:GetModels() do
 		local lightPosition = light:GetPivot().Position
 		local distance, travel = distanceToRoute(lightPosition, route)
 		if distance > Config.LightRouteRange then continue end
 
-		local arrivalAt = spawnAt + travel / Config.WalkSpeed
+		local arrivalAt = spawnAt + travel / speed
 		table.insert(pending, {
-			WarnAt = arrivalAt - Config.WarningTime,
+			WarnAt = arrivalAt - warningTime,
 			ExpiresAt = arrivalAt,
-			IsNearPlayer = function()
-				return anyPlayerNear(lightPosition, Config.WarnRedCullRange or math.huge)
+			IsNearPlayer = function(positions: { Vector3 })
+				return nearAny(positions, lightPosition, Config.WarnRedCullRange or math.huge)
 			end,
-			Fire = function(remaining: number)
+			Fire = function(token: WarningToken, remaining: number)
 				LightService:WarnRed(light, remaining + (Config.LightPassDelay or 0))
+				table.insert(token.Lights, light)
 			end,
 		})
 	end
 
-	local seenSpans: { [string]: boolean } = {}
-	local travelled = 0
+	local coverages: { SpanCoverage } = {}
+	local current: SpanCoverage? = nil
 	local previousSpan: Hallways.StraightSpan? = nil
+	local travelled = 0
+
 	for index, point in route do
 		if index > 1 then
 			travelled += (point - route[index - 1]).Magnitude
 		end
 
+		local direction = routeDirection(route, index)
+
 		local span = previousSpan
-		if not span or not spanHolds(span, point) then
-			span = Hallways.StraightSpanAt(point)
+		if not span or not spanHolds(span, point, direction) then
+			span = Hallways.StraightSpanAt(point, direction)
 		end
 		previousSpan = span
-		if not span then continue end
+		if not span then
+			current = nil
+			continue
+		end
 
-		local key = string.format(
-			"%d:%d:%d:%d",
-			math.round(span.Center.X),
-			math.round(span.Center.Z),
-			math.round(math.abs(span.Axis.X) * 10),
-			math.round(math.abs(span.Axis.Z) * 10)
-		)
-		if seenSpans[key] then continue end
-		seenSpans[key] = true
+		local key = spanKey(span)
+		local along = horizontal(point - span.Center):Dot(span.Axis)
+		if current and current.Key == key then
+			if along < current.MinAlong then
+				current.MinAlong, current.MinTravel = along, travelled
+			end
+			if along > current.MaxAlong then
+				current.MaxAlong, current.MaxTravel = along, travelled
+			end
+		else
+			current = {
+				Key = key,
+				Span = span,
+				MinAlong = along,
+				MaxAlong = along,
+				MinTravel = travelled,
+				MaxTravel = travelled,
+			}
+			table.insert(coverages, current :: SpanCoverage)
+		end
+	end
 
-		local arrivalAt = spawnAt + travelled / Config.WalkSpeed
+	local tail = Config.LightPassDelay or 0
+	for _, coverage in coverages do
+		local resolved = trimSpan(coverage.Span, coverage.MinAlong, coverage.MaxAlong)
+		local arrivalAtStart = spawnTime + coverage.MinTravel / speed
+		local arrivalAtFinish = spawnTime + coverage.MaxTravel / speed
+		local firstAt = spawnAt + math.min(coverage.MinTravel, coverage.MaxTravel) / speed
+		local lastAt = spawnAt + math.max(coverage.MinTravel, coverage.MaxTravel) / speed
+
 		table.insert(pending, {
-			WarnAt = arrivalAt - Config.WarningTime,
-			ExpiresAt = arrivalAt,
-			IsNearPlayer = function()
-				return anyPlayerNearSpan(span, Config.WarnHallwayCullRange or math.huge)
+			WarnAt = firstAt - warningTime,
+			ExpiresAt = lastAt + tail,
+			IsNearPlayer = function(positions: { Vector3 })
+				return nearAnySpan(positions, resolved, Config.WarnHallwayCullRange or math.huge)
 			end,
-			Fire = function(remaining: number)
-				MapOddityService:Warn(point, remaining)
+			Fire = function(token: WarningToken, remaining: number)
+				local oddity = MapOddityService:Warn(
+					resolved,
+					remaining,
+					arrivalAtStart,
+					arrivalAtFinish,
+					warningTime,
+					run
+				)
+				if oddity then
+					table.insert(token.Oddities, oddity)
+				end
 			end,
 		})
 	end
@@ -285,8 +465,8 @@ local function collectWarnings(route: { Vector3 }, spawnAt: number): { PendingWa
 	return pending
 end
 
-local function scheduleWarnings(route: { Vector3 }, token: WarningToken, spawnAt: number)
-	local pending = collectWarnings(route, spawnAt)
+local function scheduleWarnings(route: { Vector3 }, token: WarningToken, spawnAt: number, spawnTime: number)
+	local pending = collectWarnings(route, spawnAt, spawnTime, token.Run)
 	if #pending == 0 then return end
 
 	table.sort(pending, function(first: PendingWarning, second: PendingWarning)
@@ -303,14 +483,17 @@ local function scheduleWarnings(route: { Vector3 }, token: WarningToken, spawnAt
 				index += 1
 			end
 
-			for position = #waiting, 1, -1 do
-				local warning = waiting[position]
-				local remaining = warning.ExpiresAt - now
-				if remaining <= 0 then
-					table.remove(waiting, position)
-				elseif warning.IsNearPlayer() then
-					warning.Fire(remaining)
-					table.remove(waiting, position)
+			if #waiting > 0 then
+				local positions = livingRootPositions()
+				for position = #waiting, 1, -1 do
+					local warning = waiting[position]
+					local remaining = warning.ExpiresAt - now
+					if remaining <= 0 then
+						table.remove(waiting, position)
+					elseif warning.IsNearPlayer(positions) then
+						warning.Fire(token, remaining)
+						table.remove(waiting, position)
+					end
 				end
 			end
 
@@ -327,11 +510,55 @@ local function removePending(token: WarningToken)
 	end
 end
 
-local function beginRoute(route: { Vector3 }, onSpawned: ((any) -> ())?): boolean
-	local token: WarningToken = { Cancelled = false }
-	local spawnAt = os.clock() + Config.SpawnDelay
+local function newToken(): WarningToken
+	local token: WarningToken
+	NextRun += 1
+	token = {
+		Cancelled = false,
+		Run = NextRun,
+		Lights = {},
+		Oddities = {},
+		Retract = function()
+			for _, light in token.Lights do
+				LightService:ClearRed(light)
+			end
+			table.clear(token.Lights)
+			for _, oddity in token.Oddities do
+				MapOddityService:Clear(oddity)
+			end
+			table.clear(token.Oddities)
+		end,
+	}
+	return token
+end
 
-	scheduleWarnings(route, token, spawnAt)
+local function beginRoute(route: { Vector3 }, onSpawned: ((any) -> ())?, onCancelled: (() -> ())?): boolean
+	local token = newToken()
+	local spawnAt = os.clock() + Config.SpawnDelay
+	local spawnTime = workspace:GetServerTimeNow() + Config.SpawnDelay
+
+	scheduleWarnings(route, token, spawnAt, spawnTime)
+
+	local function abandon(reason: string?)
+		token.Cancelled = true
+		token.Retract()
+		if reason then
+			warn(`[Chaos] {reason}`)
+		end
+		if onCancelled then
+			onCancelled()
+		end
+	end
+
+	task.spawn(function()
+		while not token.Cancelled and os.clock() < spawnAt do
+			if not HallwayGraphService:IsFarFromPlayers(route[1], Config.SpawnPlayerDistance) then
+				abandon("cancelled because a player approached its planned spawn")
+				return
+			end
+			task.wait(WARNING_POLL)
+		end
+	end)
 
 	table.insert(PendingTokens, token)
 	task.delay(math.max(spawnAt - os.clock(), 0), function()
@@ -339,16 +566,10 @@ local function beginRoute(route: { Vector3 }, onSpawned: ((any) -> ())?): boolea
 		if token.Cancelled then return end
 
 		local origin = route[1]
-		if not HallwayGraphService:IsFarFromPlayers(origin, Config.SpawnPlayerDistance) then
-			token.Cancelled = true
-			warn("[Chaos] cancelled because a player approached its planned spawn")
-			return
-		end
-
 		local destination = route[2]
 		local chaos = EnemyService:Spawn("Chaos", CFrame.lookAt(origin, destination), route, token)
 		if not chaos then
-			token.Cancelled = true
+			abandon(nil)
 			return
 		end
 		if onSpawned then
@@ -372,12 +593,13 @@ local function drawStart(): RouteNode?
 	return starts[math.random(#starts)]
 end
 
-function ChaosService:Spawn(onSpawned: ((any) -> ())?): boolean
+function ChaosService:Spawn(onSpawned: ((any) -> ())?, onCancelled: (() -> ())?): boolean
 	local best: { Vector3 }? = nil
+	local deadline = os.clock() + SEARCH_SECONDS
 	for _ = 1, START_CANDIDATES do
 		local start = drawStart()
 		if start then
-			local route = planRoute(start)
+			local route = planRoute(start, deadline)
 			if route and (not best or #route > #best) then
 				best = route
 			end
@@ -387,20 +609,21 @@ function ChaosService:Spawn(onSpawned: ((any) -> ())?): boolean
 		warn("[Chaos] found no route from any spawn node far from players")
 		return false
 	end
-	return beginRoute(best, onSpawned)
+	return beginRoute(best, onSpawned, onCancelled)
 end
 
-function ChaosService:SpawnThrough(player: Player, onSpawned: ((any) -> ())?): boolean
+function ChaosService:SpawnThrough(player: Player, onSpawned: ((any) -> ())?, onCancelled: (() -> ())?): boolean
 	local root = CharacterService.GetAliveRoot(player)
 	if not root then return false end
 
+	local deadline = os.clock() + SEARCH_SECONDS
 	for _ = 1, ROUTE_ATTEMPTS do
 		local start = drawStart()
 		if not start then return false end
 
-		local route = planRouteThrough(start, root.Position)
+		local route = planRouteThrough(start, root.Position, deadline)
 		if route then
-			return beginRoute(route, onSpawned)
+			return beginRoute(route, onSpawned, onCancelled)
 		end
 	end
 	warn("[Chaos] found no route through the command caller's position")
@@ -411,6 +634,7 @@ function ChaosService:CancelPending(): number
 	local count = #PendingTokens
 	for _, token in PendingTokens do
 		token.Cancelled = true
+		token.Retract()
 	end
 	table.clear(PendingTokens)
 	return count
