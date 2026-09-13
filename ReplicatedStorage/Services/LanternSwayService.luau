@@ -28,6 +28,8 @@ type SwayState = {
 	Seed: number,
 	Releasing: boolean,
 	ActiveTarget: boolean,
+	LastPartAdded: number,
+	PartConnection: RBXScriptConnection?,
 	Proxy: BasePart?,
 	AnchorPart: BasePart?,
 	HingeConstraint: HingeConstraint?,
@@ -94,8 +96,49 @@ local function makeStill(state: SwayState)
 	end
 end
 
+local function onPartAdded(state: SwayState, part: BasePart)
+	state.LastPartAdded = os.clock()
+	if not state.Proxy then return end
+
+	part.CFrame = state.Model:GetPivot() * state.RestPivot:Inverse() * part.CFrame
+	makeStill(state)
+end
+
+local function measure(state: SwayState): boolean
+	local model = state.Model
+	if not model:FindFirstChildWhichIsA("BasePart", true) then return false end
+
+	local boundsCFrame, boundsSize = model:GetBoundingBox()
+	local length = math.max(boundsSize.Y, 0.5)
+	local halfWidth = math.max(boundsSize.X, boundsSize.Z) / 2
+
+	local axisA = horizontal(boundsCFrame.RightVector) or Vector3.xAxis
+	local axisB = horizontal(boundsCFrame.LookVector) or axisA:Cross(Vector3.yAxis).Unit
+	local clearA = clearanceAlong(model, boundsCFrame.Position, axisA)
+	local clearB = clearanceAlong(model, boundsCFrame.Position, axisB)
+
+	local spanDir, acrossDir, spanClear
+	if clearA >= clearB then
+		spanDir, acrossDir, spanClear = axisA, axisB, clearA
+	else
+		spanDir, acrossDir, spanClear = axisB, axisA, clearB
+	end
+
+	local maxDisplacement = spanClear - Config.WallMargin - halfWidth
+	local fitLimit = math.deg(math.asin(math.clamp(maxDisplacement / length, 0, 1)))
+
+	state.RestPivot = model:GetPivot()
+	state.Hinge = boundsCFrame.Position + boundsCFrame.UpVector * (boundsSize.Y / 2)
+	state.SpanDir = spanDir
+	state.AcrossDir = acrossDir
+	state.Length = length
+	state.LimitDeg = math.min(Config.SwingLimit, fitLimit)
+	return true
+end
+
 local function makePhysical(state: SwayState)
 	if state.Proxy then return end
+	if not measure(state) then return end
 
 	local anchor = Instance.new("Part")
 	anchor.Name = "LanternSwayAnchor"
@@ -168,6 +211,10 @@ end
 local function removeState(index: number)
 	local state = StateList[index]
 	makeStill(state)
+	if state.PartConnection then
+		state.PartConnection:Disconnect()
+		state.PartConnection = nil
+	end
 	States[state.Model] = nil
 	local count = #StateList
 	StateList[index] = StateList[count]
@@ -181,37 +228,19 @@ local function bindLantern(model: Model)
 		return
 	end
 
-	local boundsCFrame, boundsSize = model:GetBoundingBox()
-	local hinge = boundsCFrame.Position + boundsCFrame.UpVector * (boundsSize.Y / 2)
-	local length = math.max(boundsSize.Y, 0.5)
-	local halfWidth = math.max(boundsSize.X, boundsSize.Z) / 2
-
-	local axisA = horizontal(boundsCFrame.RightVector) or Vector3.xAxis
-	local axisB = horizontal(boundsCFrame.LookVector) or axisA:Cross(Vector3.yAxis).Unit
-	local clearA = clearanceAlong(model, boundsCFrame.Position, axisA)
-	local clearB = clearanceAlong(model, boundsCFrame.Position, axisB)
-
-	local spanDir, acrossDir, spanClear
-	if clearA >= clearB then
-		spanDir, acrossDir, spanClear = axisA, axisB, clearA
-	else
-		spanDir, acrossDir, spanClear = axisB, axisA, clearB
-	end
-
-	local maxDisplacement = spanClear - Config.WallMargin - halfWidth
-	local fitLimit = math.deg(math.asin(math.clamp(maxDisplacement / length, 0, 1)))
-
-	state = {
+	local newState: SwayState = {
 		Model = model,
 		RestPivot = model:GetPivot(),
-		Hinge = hinge,
-		SpanDir = spanDir,
-		AcrossDir = acrossDir,
-		Length = length,
-		LimitDeg = math.min(Config.SwingLimit, fitLimit),
+		Hinge = model:GetPivot().Position,
+		SpanDir = Vector3.xAxis,
+		AcrossDir = Vector3.zAxis,
+		Length = 0.5,
+		LimitDeg = 0,
 		Seed = rng:NextNumber(0, 10000),
 		Releasing = false,
 		ActiveTarget = true,
+		LastPartAdded = -math.huge,
+		PartConnection = nil,
 		Proxy = nil,
 		AnchorPart = nil,
 		HingeConstraint = nil,
@@ -221,8 +250,13 @@ local function bindLantern(model: Model)
 		JoltAccel = 0,
 		JoltUntil = 0,
 	}
-	States[model] = state
-	table.insert(StateList, state)
+	newState.PartConnection = model.DescendantAdded:Connect(function(descendant)
+		if descendant:IsA("BasePart") then
+			onPartAdded(newState, descendant)
+		end
+	end)
+	States[model] = newState
+	table.insert(StateList, newState)
 end
 
 local function releaseLantern(model: Model)
@@ -241,7 +275,7 @@ local function recull()
 	local within: { SwayState } = {}
 	local distances: { [SwayState]: number } = {}
 	for _, state in StateList do
-		local distance = (state.Hinge - cameraPosition).Magnitude
+		local distance = (state.RestPivot.Position - cameraPosition).Magnitude
 		if distance <= radius then
 			distances[state] = distance
 			table.insert(within, state)
@@ -324,11 +358,7 @@ local function onHeartbeat(deltaTime: number)
 		end
 
 		if model.Parent == nil then
-			teardown(state)
-			States[model] = nil
-			local count = #StateList
-			StateList[index] = StateList[count]
-			StateList[count] = nil
+			removeState(index)
 		elseif not state.ActiveTarget then
 			makeStill(state)
 			if state.Releasing then
@@ -341,7 +371,7 @@ local function onHeartbeat(deltaTime: number)
 			end
 		elseif state.Releasing then
 			removeState(index)
-		else
+		elseif now - state.LastPartAdded >= Config.StreamSettleTime then
 			makePhysical(state)
 		end
 	end

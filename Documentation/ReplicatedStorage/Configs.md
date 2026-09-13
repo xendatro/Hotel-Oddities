@@ -152,7 +152,7 @@ Everything about kits that is not a kit: the six rarities (gem price, roll weigh
 
 ### LanternSwayConfig.luau
 Tuning for the client-side pendulum simulation that makes hanging hallway lanterns swing.
-- API: data table — `SwayModelNames`, `CameraCullRadius`, `MaxSimulated`, `SwingLimit`, `GravityScale`, `LimitBounce`, `WindStrength`, `WindSpeed`, `ImpulseChance`, `ImpulseStrength`, `Damping`, `SettleDamping`, `SettleAngle`, `WallMargin`, `ClearanceProbe`, `RecullInterval`
+- API: data table — `SwayModelNames`, `CameraCullRadius`, `MaxSimulated`, `SwingLimit`, `GravityScale`, `LimitBounce`, `WindStrength`, `WindSpeed`, `ImpulseChance`, `ImpulseStrength`, `Damping`, `SettleDamping`, `SettleAngle`, `WallMargin`, `ClearanceProbe`, `RecullInterval`, `StreamSettleTime` (seconds a lantern must go without a part streaming in before it is measured and simulated)
 
 ### LookConfig.luau
 Settings for the look-direction system that replicates each player's aim to neck and waist joints on other clients.

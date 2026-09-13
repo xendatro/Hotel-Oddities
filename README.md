@@ -94,7 +94,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\CaptureOverlayService.luau — Clones the Studio-authored capture overlay, then fills its date, time and blinking REC light.
 - ReplicatedStorage\Services\CeilingVentDoorService.luau — Tweens ceiling vent doors on the client when the server commands them.
 - ReplicatedStorage\Services\ChaosTrackerService.luau — Shared view of the live Chaos enemies: heading, and how far along it a point sits, so the lights and the warning sound agree on when one has passed.
-- ReplicatedStorage\Services\ChaosLightService.luau — Turns tagged floor lights red while the server-set ChaosRed attribute is on, and clears each one the instant Chaos passes it rather than on the server's timer.
+- ReplicatedStorage\Services\ChaosLightService.luau — Turns tagged floor lights red while the server-set ChaosRed attribute is on, re-reddens lights that stream back in, and clears each one the instant Chaos passes it rather than on the server's timer.
 - ReplicatedStorage\Services\ChaosWarningSoundService.luau — Plays hallway ambience and an incoming sting whenever a red Chaos lamp is within RedHearingRange of you, from a source on the warned hallway's centre line that follows you along it, with volume left entirely to the emitters' authored rolloff.
 - ReplicatedStorage\Services\CharacterService.luau — Shared nil-safe helpers for humanoids, alive root parts, streamed-in model pivots and player lifecycle cleanup.
 - ReplicatedStorage\Services\ChaseMusicService.luau — Cross-fades layered chase music by proximity to enemies that are hunting.
@@ -150,7 +150,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\KitShopUIService.luau — Straight-purchase kit catalogue for players who cannot roll, sorted most common first.
 - ReplicatedStorage\Services\KitStateService.luau — Client-side owned kits, equipped kit, gem balance and roll eligibility shared by all three kit pages.
 - ReplicatedStorage\Services\KitVisualService.luau — Kit previews, rarity card dressing and the stacked BUFFS/ITEMS list shared by every kit page.
-- ReplicatedStorage\Services\LanternSwayService.luau — Physics-hinged swinging for hanging lanterns during the chaos-red state, bound through ChaosLightService's red-changed signal.
+- ReplicatedStorage\Services\LanternSwayService.luau — Physics-hinged swinging for hanging lanterns during the chaos-red state, bound through ChaosLightService's red-changed signal and measured only once the lantern has finished streaming in.
 - ReplicatedStorage\Services\LobbyService.luau — Checks whether a player is standing on the tagged lobby floor.
 - ReplicatedStorage\Services\LookService.luau — Reports local camera pitch/yaw and bends other characters' neck and waist to match.
 - ReplicatedStorage\Services\MarketplaceService\init.luau — Wrapper over Roblox MarketplaceService adding a shared gamepass-ownership cache, cross-boundary purchase prompts and per-product receipt handlers.

@@ -42,8 +42,9 @@ local function announce(model: Model, red: boolean)
 end
 
 local function captureLight(state: State, light: Light)
-	if state.Baseline[light] ~= nil then return end
-	state.Baseline[light] = light.Color
+	if state.Baseline[light] == nil then
+		state.Baseline[light] = light.Color
+	end
 	if state.Red then
 		light.Color = Config.RedColor
 	end
