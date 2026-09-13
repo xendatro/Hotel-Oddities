@@ -286,8 +286,8 @@ become Services or Classes.
 - ReplicatedStorage\Configs\ItemPreviewConfig.luau — Shared framing and lighting for every item ViewportFrame, with per-item overrides.
 - ReplicatedStorage\Configs\ItemPreviewDebugConfig.luau — Toggle key and slider steps for the item preview debug panel.
 - ReplicatedStorage\Configs\ItemShopConfig.luau — Item shop catalogue, prices and card animation settings.
-- ReplicatedStorage\Configs\KitCatalogConfig.luau — The 24 kits: name, rarity, description, stat changes and granted items.
-- ReplicatedStorage\Configs\KitConfig.luau — Rarities, the six stat definitions, the point budget economy, roll settings and kit UI animation.
+- ReplicatedStorage\Configs\KitCatalogConfig.luau — The 24 kits: name, rarity, description, non-jump stat changes and granted items; all inherit the default player jump settings.
+- ReplicatedStorage\Configs\KitConfig.luau — Rarities, the five stat definitions, the point budget economy, roll settings and kit UI animation.
 - ReplicatedStorage\Configs\LanternSwayConfig.luau — Tuning for the swinging hallway lantern simulation.
 - ReplicatedStorage\Configs\LookConfig.luau — Replicated aim/look angle limits and neck-waist blend weights.
 - ReplicatedStorage\Configs\MapConfig.luau — Map discovery radius, canvas resolution, hand-drawn ink style, danger layer and marker tuning.

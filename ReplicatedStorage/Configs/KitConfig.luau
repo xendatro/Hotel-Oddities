@@ -117,18 +117,6 @@ local Stats: { Stat } = {
 		Order = 2,
 	},
 	{
-		Id = "JumpPower",
-		Apply = "Humanoid",
-		Name = "Jump",
-		Base = 50,
-		Mode = "Absolute",
-		HigherIsBetter = true,
-		Cost = 0.4,
-		Minimum = 30,
-		Maximum = 90,
-		Order = 3,
-	},
-	{
 		Id = "DetectionRadius",
 		Apply = "Attribute",
 		Name = "Stealth",

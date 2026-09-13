@@ -238,11 +238,10 @@ local Entries: { Kit } = {
 		Id = "Vanguard",
 		Name = "Vanguard",
 		Rarity = "Legendary",
-		Description = "Built to take the hit, then take the stairs two at a time.",
+		Description = "Built to take the hit and keep moving.",
 		Stats = {
 			MaxHealth = 200,
 			WalkSpeed = 20,
-			JumpPower = 70,
 		},
 		Items = {
 			Medkit = 1,
@@ -275,7 +274,6 @@ local Entries: { Kit } = {
 		Stats = {
 			MaxHealth = 50,
 			WalkSpeed = 24,
-			JumpPower = 80,
 			Stamina = 150,
 			SprintMultiplier = 1.8,
 		},
@@ -314,7 +312,6 @@ local Entries: { Kit } = {
 		Stats = {
 			MaxHealth = 160,
 			WalkSpeed = 22,
-			JumpPower = 70,
 			DetectionRadius = 0.75,
 		},
 		Items = {
@@ -353,7 +350,6 @@ local Entries: { Kit } = {
 		Stats = {
 			MaxHealth = 260,
 			WalkSpeed = 10,
-			JumpPower = 30,
 		},
 		Items = {
 			Medkit = 3,
