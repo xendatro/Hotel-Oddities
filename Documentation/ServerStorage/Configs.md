@@ -25,3 +25,6 @@ Placeholder table for gamepass definitions; currently empty, so nothing is confi
 - API: data table — empty
 
 Blind pre-listening braking uses `OvershootDuration = 1` second, alongside `OvershootRange` and `OvershootMinimum`. This bounds the shared investigation/pursuit coast without changing listening animation duration. `ListenFadeTime = 0.6` controls listening fade-in and its lead time before braking finishes; the shared search entry owns braking so blending starts after any approach movement. `ListenFadeOutTime = 0.6` controls the normal return to locomotion; urgent interruptions keep the default shorter fade.
+
+### NpcNavigationConfig.luau
+NPC ground-support settings: one-stud sampling, side probes at half agent radius, two-stud step-up, three-stud maximum drop, minimum normal Y 0.65, and 30-second patrol graph refresh on patrol entry.

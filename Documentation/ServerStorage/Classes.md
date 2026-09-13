@@ -575,3 +575,13 @@ Server half of the walkie talkie: asks `WalkieTalkieService` to reconcile the ow
 Shared server ToolBase/ServerTool subclass for all five colored computer chip tools. OnActivated delegates to ComputerChipService with the owner, exact Tool instance and configured ColorKey. Existing equip/liveness/busy/cooldown handling stays in ToolBase; no duplicate client activation is used. The service consumes exactly one inventory quantity only after the initial route succeeds and ownership/equipped state are rechecked.
 - Requires: Classes.ServerTool, Services.ComputerChipService.
 - Registration: ToolService resolves ToolConfigs[name].Class when present, otherwise the existing toolName-based class lookup.
+
+### ConnectorGraph.luau
+Shared corridor/connector graph geometry extracted from computer chip routing. Build(maze, revision) links entrance pairs and returns Rooms and Edges; both chips and NPC patrols reuse it. Layout tolerances come from ComputerChipConfig.
+
+### GroundSupport.luau
+Stateless Check(origin, destination, radius, raycastParams, config) samples collidable support along the center and two side lanes. Rejects absent ground, excessive drops and steep normals. NPC shared movement checks support before direct travel, waypoint shortcuts, overshoots and forced connector movement.
+
+NPC connector patrol update: danger-weighted destination selection and edge costs are retained on the shared entrance graph. WalkConnector tries clear direct movement, then agent-specific pathfinding contained in the connector approach bounds, then a timed direct attempt ignoring furniture clearance but retaining floor support. Spawn-zone edges are removed. Failed traversal retains escape recovery.
+
+Navigation prototype validation (2026-09-13): five real connector segment cases passed floor-support expectations; every waypoint segment of the native Abyss detour passed. Twenty gap placements (widths 1.1, 2, 4, 8 studs across five offsets) were rejected. A 2.5-stud drop passed; 3.5 and 15-stud drops failed; a supported wall-obstructed segment remained eligible for forced movement while a void overshoot failed. Shared graph build found 36 connectors, 63 entrance pairs and 389 nodes. Isolated WalkConnector control-flow checks exercised direct, pathfinding, forced and unsupported outcomes. Changed Luau compiled in Studio. These are edit-mode geometry/control-flow simulations, not a live humanoid playtest.

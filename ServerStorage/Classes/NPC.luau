@@ -60,6 +60,47 @@ local PATROL_DANGER_COST_OFFSET = 0.1
 local ENEMY_TAG = "Enemy"
 local OBSERVABLE_TAG = "Observable"
 
+local ConnectorGraph = require(ServerStorage.Classes.ConnectorGraph)
+local GroundSupport = require(ServerStorage.Classes.GroundSupport)
+local NavigationConfig = require(ServerStorage.Configs.NpcNavigationConfig)
+local SpawnZoneService = require(ReplicatedStorage.Services.SpawnZoneService)
+local PatrolGraph = nil
+local PatrolGraphExpires = 0
+
+local function getPatrolGraph()
+	local maze = workspace:FindFirstChild(NavigationConfig.MazeName)
+	if not maze then return nil end
+	if not PatrolGraph or PatrolGraph.Maze ~= maze or os.clock() >= PatrolGraphExpires then
+		PatrolGraph = ConnectorGraph.Build(maze)
+		PatrolGraphExpires = os.clock() + NavigationConfig.PatrolGraphLifetime
+		for _, room in PatrolGraph.Rooms do
+			for _, port in room.Ports do port.CanBeDestination = false end
+		end
+		for _, node in PatrolGraph.Nodes do
+			node.CanBeDestination = node.CanBeDestination and not SpawnZoneService:Contains(node.Position)
+			for neighbor in node.Neighbors do
+				if SpawnZoneService:IntersectsSegment(node.Position, neighbor.Position) then
+					node.Neighbors[neighbor] = nil
+					neighbor.Neighbors[node] = nil
+				end
+			end
+		end
+	end
+	return PatrolGraph
+end
+
+local function nearestPatrolNode(position, graph)
+	if not graph then return HallwayGraphService:FindNearestNode(position, true) end
+	local best, distance = nil, math.huge
+	for _, node in graph.Nodes do
+		local d = (node.Position - position).Magnitude
+		if next(node.Neighbors) and not SpawnZoneService:Contains(node.Position) and d < distance then
+			best, distance = node, d
+		end
+	end
+	return best
+end
+
 local NPC = {}
 NPC.__index = NPC
 
@@ -511,16 +552,44 @@ function NPC:GetClearRun(direction: Vector3, distance: number): number
 	heading = heading.Unit
 
 	local obstruction = self:_laneObstruction(self.RootPart.Position + heading * distance)
-	if not obstruction then return distance end
-
 	local radius = (self.Config.AgentParams and self.Config.AgentParams.AgentRadius) or 0
-	return math.clamp(obstruction.Distance - radius, 0, distance)
+	local clear = if obstruction then math.clamp(obstruction.Distance - radius, 0, distance) else distance
+	local supported = 0
+	local steps = math.max(1, math.ceil(clear / NavigationConfig.SupportSpacing))
+	for index = 1, steps do
+		local nextDistance = clear * index / steps
+		if not self:HasFloorSupport(self.RootPart.Position + heading * nextDistance) then break end
+		supported = nextDistance
+	end
+	return supported
+end
+
+function NPC:HasFloorSupport(destination: Vector3): boolean
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.RespectCanCollide = true
+	params.CollisionGroup = self.RootPart.CollisionGroup
+	local filter = { self.Model }
+	table.move(PlayerCharacters, 1, #PlayerCharacters, 2, filter)
+	params.FilterDescendantsInstances = filter
+	local height = self.Humanoid.HipHeight + self.RootPart.Size.Y / 2
+	local origin = self.RootPart.Position - Vector3.yAxis * height
+	return GroundSupport.Check(origin, destination, self.Config.AgentParams.AgentRadius, params, NavigationConfig)
+end
+
+function NPC:MoveSupported(destination: Vector3): boolean
+	if not self:HasFloorSupport(destination) then
+		self:StopMoving()
+		return false
+	end
+	self.Humanoid:MoveTo(destination)
+	return true
 end
 
 function NPC:HasMovementClearance(destination: Vector3): boolean
 	local offset = horizontal(destination - self.RootPart.Position)
 	if offset.Magnitude < 1e-3 then return true end
-	return self:_laneObstruction(destination) == nil
+	return self:HasFloorSupport(destination) and self:_laneObstruction(destination) == nil
 end
 
 function NPC:MoveTowards(destination: Vector3): boolean
@@ -529,13 +598,11 @@ function NPC:MoveTowards(destination: Vector3): boolean
 
 	local obstruction = self:_laneObstruction(destination)
 	if not obstruction then
-		self.Humanoid:MoveTo(destination)
-		return true
+		return self:MoveSupported(destination)
 	end
 	if obstruction.Distance < MIN_LANE_ADVANCE then return false end
 
-	self.Humanoid:MoveTo(self.RootPart.Position + offset.Unit * obstruction.Distance)
-	return true
+	return self:MoveSupported(self.RootPart.Position + offset.Unit * obstruction.Distance)
 end
 
 function NPC:_extendPast(destination: Vector3, beyond: Vector3?): Vector3
@@ -555,17 +622,17 @@ function NPC:MoveThrough(destination: Vector3, beyond: Vector3?)
 	local extended = self:_extendPast(destination, beyond)
 	local offset = horizontal(extended - root)
 	if offset.Magnitude < 1e-3 then
-		self.Humanoid:MoveTo(destination)
+		self:MoveSupported(destination)
 		return
 	end
 
 	local obstruction = self:_laneObstruction(extended)
 	if not obstruction then
-		self.Humanoid:MoveTo(extended)
+		if not self:MoveSupported(extended) then self:MoveSupported(destination) end
 	elseif obstruction.Distance <= horizontal(destination - root).Magnitude then
-		self.Humanoid:MoveTo(destination)
+		self:MoveSupported(destination)
 	else
-		self.Humanoid:MoveTo(root + offset.Unit * obstruction.Distance)
+		self:MoveSupported(root + offset.Unit * obstruction.Distance)
 	end
 end
 
@@ -609,7 +676,7 @@ function NPC:_walkPath(path: Path, shouldAbandon: (() -> boolean)?): string
 			self.Humanoid.Jump = true
 		end
 
-		self.Humanoid:MoveTo(waypoint.Position)
+		if not self:MoveSupported(waypoint.Position) then return finish("Blocked") end
 		local reached = false
 		local movementWinner = if shouldAbandon
 			then Race.new({
@@ -637,19 +704,22 @@ function NPC:_walkPath(path: Path, shouldAbandon: (() -> boolean)?): string
 end
 
 function NPC:_moveToWithTimeout(target: Vector3): boolean
+	if not self:HasFloorSupport(target) then self:StopMoving(); return false end
 	local budget = horizontal(target - self.RootPart.Position).Magnitude
 		/ math.max(self.Humanoid.WalkSpeed, 1) * PATROL_STEP_TIME_FACTOR + PATROL_STEP_TIME_SLACK
 	local arrived = false
 	local winner = Race.new({
 		Reached = function()
-			self.Humanoid:MoveTo(target)
+			if not self:MoveSupported(target) then return end
 			arrived = self.Humanoid.MoveToFinished:Wait()
 		end,
 		Timeout = function()
 			task.wait(budget)
 		end,
 	}):Fire()
-	return winner == "Reached" and arrived
+	local reached = winner == "Reached" and arrived
+	if not reached then self:StopMoving() end
+	return reached
 end
 
 function NPC:WalkPatrolEdge(destination: Vector3, lateralOffset: number?): boolean
@@ -668,6 +738,22 @@ function NPC:WalkPatrolEdge(destination: Vector3, lateralOffset: number?): boole
 		if not self:_moveToWithTimeout(target) then return false end
 	end
 	return true
+end
+
+function NPC:WalkConnector(destination: Vector3, room): boolean
+	if self:HasMovementClearance(destination) and self:_moveToWithTimeout(destination) then return true end
+	self:StopMoving()
+	local path = self:_computePath(self:_pathOrigin(), destination)
+	if path then
+		local inside = true
+		for _, waypoint in path:GetWaypoints() do
+			if not ConnectorGraph.ContainsRoom(room, waypoint.Position, 14) then inside = false; break end
+		end
+		local reached = inside and self:_walkPath(path) == "Reached"
+		path:Destroy()
+		if reached then return true end
+	end
+	return self:_moveToWithTimeout(destination)
 end
 
 function NPC:WalkTo(destination: Vector3, shouldAbandon: (() -> boolean)?): boolean
@@ -821,6 +907,8 @@ function NPC:Pursue(
 			then sighted and (closePursuit or os.clock() >= directBlockedUntil)
 			else closePursuit
 
+		direct = direct and self:HasFloorSupport(goal)
+
 		local chargeGoal = nil :: Vector3?
 		if not direct and not sighted and lastSeen and os.clock() >= directBlockedUntil then
 			if horizontal(self.RootPart.Position - lastSeen).Magnitude <= self:_getReachDistance() then
@@ -831,7 +919,7 @@ function NPC:Pursue(
 		end
 
 		if direct then
-			self.Humanoid:MoveTo(extendedGoal)
+			if not self:MoveSupported(extendedGoal) then self:MoveSupported(goal) end
 		elseif chargeGoal then
 			self:MoveThrough(chargeGoal, goal)
 		else
@@ -857,7 +945,7 @@ function NPC:Pursue(
 				local following = list[index + 1]
 				self:MoveThrough(waypoint.Position, if following then following.Position else goal)
 			else
-				self.Humanoid:MoveTo(extendedGoal)
+				if not self:MoveSupported(extendedGoal) then self:MoveSupported(goal) end
 			end
 		end
 
@@ -1143,12 +1231,12 @@ function NPC.SharedStates.Wander(_changeState: StateMachine.ChangeState, npc: an
 	return "Idle", npc
 end
 
-local function chooseDestination(current: any, memory: any, minimumDistance: number): any
+local function chooseDestination(current: any, memory: any, minimumDistance: number, graph): any
 	local origin = current.Position
 	local now = os.clock()
 
 	local candidates, cumulative, total = {}, {}, 0
-	for _, node in HallwayGraphService:Get() do
+	for _, node in (if graph then graph.Nodes else HallwayGraphService:Get()) do
 		if node == current or not node.CanBeDestination then continue end
 		if (node.Position - origin).Magnitude < minimumDistance then continue end
 
@@ -1189,11 +1277,11 @@ local function patrolEdgeCost(from: any, to: any): number
 	return (1 - math.clamp(danger, 0, 1)) + PATROL_DANGER_COST_OFFSET
 end
 
-local function emergencyEscape(npc: any): any
+local function emergencyEscape(npc: any, graph): any
 	npc:SetSpeed(npc.Config.WalkSpeed)
 	for _ = 1, PATROL_EMERGENCY_TRIES do
 		task.wait()
-		local node = HallwayGraphService:FindNearestNode(npc.RootPart.Position)
+		local node = nearestPatrolNode(npc.RootPart.Position, graph)
 		if node then
 			local path = npc:_computePath(
 				npc:_pathOrigin(),
@@ -1209,20 +1297,20 @@ local function emergencyEscape(npc: any): any
 		local angle = math.random() * math.pi * 2
 		local step = npc.RootPart.Position
 			+ Vector3.new(math.cos(angle), 0, math.sin(angle)) * PATROL_EMERGENCY_STEP
-		npc.Humanoid:MoveTo(step)
+		npc:MoveSupported(step)
 		task.wait(PATROL_EMERGENCY_WALK)
 		npc:StopMoving()
 	end
 	return nil
 end
 
-local function regainGraph(npc: any): any
-	local node = HallwayGraphService:FindNearestNode(npc.RootPart.Position)
+local function regainGraph(npc: any, graph): any
+	local node = nearestPatrolNode(npc.RootPart.Position, graph)
 	if not node then return nil end
 	if npc:GetWaypointDistance(node.Position) <= npc:_getReachDistance() then
 		return node
 	end
-	return emergencyEscape(npc)
+	return emergencyEscape(npc, graph)
 end
 
 function NPC.SharedStates.Patrol(changeState: StateMachine.ChangeState, npc: any)
@@ -1231,7 +1319,8 @@ function NPC.SharedStates.Patrol(changeState: StateMachine.ChangeState, npc: any
 	npc:SetSpeed(npc.Config.WalkSpeed)
 	npc:_discardPrefetch()
 
-	local current = regainGraph(npc)
+	local graph = getPatrolGraph()
+	local current = regainGraph(npc, graph)
 	if not current then
 		return NPC.SharedStates.Wander(changeState, npc)
 	end
@@ -1247,8 +1336,8 @@ function NPC.SharedStates.Patrol(changeState: StateMachine.ChangeState, npc: any
 	while true do
 		task.wait()
 
-		local destination = chooseDestination(current, memory, minimumTrip)
-			or chooseDestination(current, memory, 0)
+		local destination = chooseDestination(current, memory, minimumTrip, graph)
+			or chooseDestination(current, memory, 0, graph)
 		if not destination then return "Idle", npc end
 
 		local route = HallwayGraphService:FindPath(current, destination, patrolEdgeCost)
@@ -1265,13 +1354,19 @@ function NPC.SharedStates.Patrol(changeState: StateMachine.ChangeState, npc: any
 			local goal = nextNode.Position + Vector3.yAxis * PATROL_NODE_HEIGHT
 			local lateral = (math.random() - 0.5) * (DangerConfig.PatrolCarpetWidth or 0)
 
-			local reached = npc:WalkPatrolEdge(goal, lateral) or npc:WalkTo(goal)
+			local edge = graph and graph.Edges[current] and graph.Edges[current][nextNode]
+			local reached
+			if edge then
+				reached = npc:WalkConnector(goal, edge.Room)
+			else
+				reached = npc:WalkPatrolEdge(goal, lateral) or npc:WalkTo(goal)
+			end
 			if reached then
 				current = nextNode
 				index += 1
 			else
 				memory.Blocked[nextNode] = os.clock() + PATROL_BLOCKED_MEMORY
-				local freed = emergencyEscape(npc)
+				local freed = emergencyEscape(npc, graph)
 				if not freed then return "Idle", npc end
 				current = freed
 				break
