@@ -7,6 +7,7 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local CameraFovService = require(ReplicatedStorage.Services.CameraFovService)
+local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local PresetConfig = require(ReplicatedStorage.Frameworks.xenterface.Config.PresetConfig)
 
@@ -20,6 +21,7 @@ local PAGE_GROUP = "Main"
 local PAGE_PRESET = PresetConfig.HotelPage
 local EFFECT_PRESET = PresetConfig.HotelEffects
 local CLOSE_TIME = PAGE_PRESET.CloseTime
+local MAP_ATTRIBUTE = PerkConfig.AttributePrefix .. "Map"
 
 local player = Players.LocalPlayer
 local playerGui = GuiBuilderService.GetPlayerGui()
@@ -30,7 +32,6 @@ local blur = Lighting:WaitForChild("InterfaceBlur") :: BlurEffect
 local pageNames = {
 	Index = { Gui = "IndexGui", Root = "Design" },
 	Shop = { Gui = "ShopUI", Root = "Design" },
-	Vip = { Gui = "VipPerksUI", Root = "Design" },
 	Gems = { Gui = "GemsUI", Root = "Design" },
 	Items = { Gui = "ItemsGui", Root = "Design" },
 	KitInventory = { Gui = "KitInventory", Root = "Design" },
@@ -213,6 +214,11 @@ end
 controller.Fired:Connect(function(data)
 	local activeId = data.ActiveId
 	local inactiveId = data.InactiveId
+	if activeId == "Map" and player:GetAttribute(MAP_ATTRIBUTE) ~= true then
+		controller:Fire("")
+		return
+	end
+
 	local activeGui = pageGuis[activeId]
 	local inactiveGui = pageGuis[inactiveId]
 
@@ -250,10 +256,10 @@ mouseUnlockBlocker.Parent = mouseUnlockGui
 local mouseUnlocked = false
 local mouseUnlockForced = false
 local lockedMouseBehavior = UserInputService.MouseBehavior
-local lockedMouseIconEnabled = UserInputService.MouseIconEnabled
 local lockedCameraMode = player.CameraMode
 
 local MOUSE_FREE_BIND = "InterfaceMouseFree"
+local MOUSE_LOCKED_BIND = "InterfaceMouseLocked"
 local cameraFreed = false
 
 function InterfaceService:SetCameraFreed(freed: boolean)
@@ -261,6 +267,7 @@ function InterfaceService:SetCameraFreed(freed: boolean)
 	cameraFreed = freed
 
 	if freed then
+		RunService:UnbindFromRenderStep(MOUSE_LOCKED_BIND)
 		lockedCameraMode = player.CameraMode
 		if lockedCameraMode == Enum.CameraMode.LockFirstPerson then
 			player.CameraMode = Enum.CameraMode.Classic
@@ -275,6 +282,11 @@ function InterfaceService:SetCameraFreed(freed: boolean)
 
 	RunService:UnbindFromRenderStep(MOUSE_FREE_BIND)
 	player.CameraMode = lockedCameraMode
+	RunService:BindToRenderStep(MOUSE_LOCKED_BIND, Enum.RenderPriority.Last.Value + 1, function()
+		if UserInputService.MouseIconEnabled then
+			UserInputService.MouseIconEnabled = false
+		end
+	end)
 end
 
 function InterfaceService:SetMouseUnlocked(unlocked: boolean, force: boolean?)
@@ -287,7 +299,6 @@ function InterfaceService:SetMouseUnlocked(unlocked: boolean, force: boolean?)
 
 	if unlocked then
 		lockedMouseBehavior = UserInputService.MouseBehavior
-		lockedMouseIconEnabled = UserInputService.MouseIconEnabled
 		self:SetCameraFreed(true)
 		mouseUnlockGui.Enabled = true
 		mouseUnlockBlocker.Modal = true
@@ -298,7 +309,7 @@ function InterfaceService:SetMouseUnlocked(unlocked: boolean, force: boolean?)
 		mouseUnlockGui.Enabled = false
 		self:SetCameraFreed(false)
 		UserInputService.MouseBehavior = lockedMouseBehavior
-		UserInputService.MouseIconEnabled = lockedMouseIconEnabled
+		UserInputService.MouseIconEnabled = false
 	end
 end
 
@@ -306,13 +317,16 @@ function InterfaceService:IsMouseUnlocked(): boolean
 	return mouseUnlocked
 end
 
-UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
-	if processed or input.KeyCode ~= Enum.KeyCode.Q then return end
+UserInputService.InputBegan:Connect(function(input: InputObject)
+	if input.KeyCode ~= Enum.KeyCode.Q then return end
 	if interfaceOpen or mouseUnlockForced then return end
 	InterfaceService:SetMouseUnlocked(not mouseUnlocked)
 end)
 
 function InterfaceService:Open(pageId: string)
+	if pageId == "Map" and player:GetAttribute(MAP_ATTRIBUTE) ~= true then
+		return
+	end
 	if not pageGuis[pageId] then
 		warn(("[InterfaceService] No page named %q to open."):format(pageId))
 		return
@@ -324,8 +338,15 @@ function InterfaceService:Close()
 	controller:Fire("")
 end
 
-function InterfaceService:GetActive(): string
+function InterfaceService:GetActive(): string?
 	return controller.Active
 end
+
+player:GetAttributeChangedSignal(MAP_ATTRIBUTE):Connect(function()
+	if player:GetAttribute(MAP_ATTRIBUTE) == true then return end
+	if controller.Active == "Map" then
+		controller:Fire("")
+	end
+end)
 
 return InterfaceService
