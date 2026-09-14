@@ -9,13 +9,15 @@ return {
 		ToolName = "Visor",
 	},
 
+	PlayerLocator = {
+		ToolName = "Player Locator",
+	},
+
 	Camcorder = {
 		ToolName = "Camcorder",
 	},
 
-	DoubleSpeed = {
-		Multiplier = 2,
-	},
+	UnlimitedStamina = {},
 
 	FriendRevive = {
 		Window = 15,

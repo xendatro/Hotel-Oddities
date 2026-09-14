@@ -149,7 +149,7 @@ function EnemyObservationService:GetView(player: Player): (Vector3?, Vector3?)
 end
 
 function EnemyObservationService:GetFogRange(player: Player): (number?, number?)
-	local observation = getFresh(player)
+	local observation = Observations[player]
 	if not observation then return nil, nil end
 	return observation.FogStart, observation.FogEnd
 end

@@ -6,6 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local ComputerConfig = require(ReplicatedStorage.Configs.ComputerConfig)
 local MapConfig = require(ReplicatedStorage.Configs.MapConfig)
+local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
 local MapMarkerLayer = require(ReplicatedStorage.Classes.MapMarkerLayer)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local MapControlService = require(ReplicatedStorage.Services.MapControlService)
@@ -20,6 +21,7 @@ local Remotes = MapConfig.Remotes
 local MapService = {}
 
 local Player = Players.LocalPlayer
+local MAP_ATTRIBUTE = PerkConfig.AttributePrefix .. "Map"
 local Paper: ImageLabel? = nil
 local LegendPlaque: any = nil
 local Layers: { MapMarkerLayer.MapMarkerLayer } = {}
@@ -29,6 +31,11 @@ local PendingRooms: { { Key: string, Packed: { number } } } = {}
 local PendingPops: { string } = {}
 local IsOpen = false
 local Pending = false
+local MapInputConnection: RBXScriptConnection? = nil
+
+local function ownsMap(): boolean
+	return Player:GetAttribute(MAP_ATTRIBUTE) == true
+end
 
 local function getPaper(): ImageLabel
 	if Paper then return Paper :: ImageLabel end
@@ -267,6 +274,8 @@ function MapService:RefreshComputers()
 end
 
 local function onSync(layout: { any }, store: { [string]: { number } }, landmarks: { [string]: { [string]: boolean } })
+	if not ownsMap() then return end
+
 	local paper = getPaper()
 
 	MapLayoutService:Load(layout)
@@ -310,6 +319,7 @@ local function onSync(layout: { any }, store: { [string]: { number } }, landmark
 end
 
 local function onReveal(key: string, packed: { number })
+	if not ownsMap() then return end
 	if not MapInkService:IsAttached() then return end
 
 	local entry = MapLayoutService:Get(key)
@@ -335,11 +345,16 @@ end
 CommunicationService.Get(Remotes.Folder, Remotes.Sync).OnClientEvent:Connect(onSync)
 CommunicationService.Get(Remotes.Folder, Remotes.Reveal).OnClientEvent:Connect(onReveal)
 CommunicationService.Get(Remotes.Folder, Remotes.Landmark).OnClientEvent:Connect(function(kind: string, key: string)
+	if not ownsMap() then return end
 	placeLandmark(kind, key, true)
 end)
 
 xenterface:Controller(Gui.PageGroup).Fired:Connect(function(data)
 	local opened = data.ActiveId == Gui.PageId
+	if opened and not ownsMap() then
+		xenterface:Controller(Gui.PageGroup):Fire("")
+		return
+	end
 	if opened == IsOpen then return end
 
 	IsOpen = opened
@@ -350,11 +365,37 @@ xenterface:Controller(Gui.PageGroup).Fired:Connect(function(data)
 	playPending()
 end)
 
-UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
-	if processed or input.KeyCode ~= MapConfig.Controls.ToggleKey then return end
+local function bindMapInput()
+	if MapInputConnection or not ownsMap() then return end
+
+	MapInputConnection = UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
+		if processed or input.KeyCode ~= MapConfig.Controls.ToggleKey then return end
+
+		local controller = xenterface:Controller(Gui.PageGroup)
+		controller:Fire(if controller.Active == Gui.PageId then "" else Gui.PageId)
+	end)
+end
+
+local function unbindMapInput()
+	if not MapInputConnection then return end
+	MapInputConnection:Disconnect()
+	MapInputConnection = nil
+end
+
+bindMapInput()
+
+Player:GetAttributeChangedSignal(MAP_ATTRIBUTE):Connect(function()
+	if ownsMap() then
+		bindMapInput()
+		return
+	end
+
+	unbindMapInput()
 
 	local controller = xenterface:Controller(Gui.PageGroup)
-	controller:Fire(if controller.Active == Gui.PageId then "" else Gui.PageId)
+	if controller.Active == Gui.PageId then
+		controller:Fire("")
+	end
 end)
 
 ComputerService.Changed:Connect(function()

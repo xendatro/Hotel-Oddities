@@ -321,25 +321,42 @@ function HallwayCrush.Pick(class: any): Candidate?
 	if #spans == 0 then return nil end
 
 	local attempts = math.max(math.floor(setting(class, "PickAttempts", 64)), 1)
-	local occupiedChance = setting(class, "OccupiedChance", 0.4)
-	local occupied: { HallwayRegion.Occupant }? = nil
+	local referencePlayers = math.max(setting(class, "OccupiedChanceReferencePlayers", 10), 1)
+	local playerCount = math.min(#Players:GetPlayers(), referencePlayers)
+	local occupiedChance = math.clamp(
+		setting(class, "OccupiedChance", 0.4) * playerCount / referencePlayers,
+		0,
+		1
+	)
+	local occupied: { HallwayRegion.Occupant } = {}
+	for _, occupant in HallwayRegion.Occupants() do
+		local duplicate = false
+		for _, existing in occupied do
+			if HallwayRegion.Same(existing.Span, occupant.Span) then
+				duplicate = true
+				break
+			end
+		end
+		if not duplicate then table.insert(occupied, occupant) end
+	end
+
+	local unoccupiedSpans = {}
+	for _, span in spans do
+		local occupiedSpan = false
+		for _, occupant in occupied do
+			if HallwayRegion.Same(occupant.Span, span) then
+				occupiedSpan = true
+				break
+			end
+		end
+		if not occupiedSpan then table.insert(unoccupiedSpans, span) end
+	end
+	local fallbackSpans = if #unoccupiedSpans > 0 then unoccupiedSpans else spans
+
 	for _ = 1, attempts do
 		local span: HallwayRegion.Span? = nil
 		local target: Vector3? = nil
 		if math.random() <= occupiedChance then
-			if not occupied then
-				occupied = {}
-				for _, occupant in HallwayRegion.Occupants() do
-					local duplicate = false
-					for _, existing in occupied do
-						if HallwayRegion.Same(existing.Span, occupant.Span) then
-							duplicate = true
-							break
-						end
-					end
-					if not duplicate then table.insert(occupied, occupant) end
-				end
-			end
 			if #occupied > 0 then
 				local occupant = occupied[math.random(1, #occupied)]
 				span = occupant.Span
@@ -347,7 +364,7 @@ function HallwayCrush.Pick(class: any): Candidate?
 			end
 		end
 
-		local candidate = candidateFromSpan(class, span or spans[math.random(1, #spans)], target)
+		local candidate = candidateFromSpan(class, span or fallbackSpans[math.random(1, #fallbackSpans)], target)
 		if candidate and not isActive(candidate.Span) then return candidate end
 	end
 	return nil

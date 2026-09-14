@@ -16,15 +16,6 @@ local MarketplaceIds = {
 	Passes = MarketplaceService.Gamepasses,
 	Products = MarketplaceService.Products,
 }
-local VIP_GAMEPASS_ID = MarketplaceService.Gamepasses.VIP
-local LEGACY_VIP_SUBSCRIPTION_ID = "EXP-3498472065697186291"
-
-local function userOwnsLegacyVIPSubscription(player: Player): boolean
-	local success, status = pcall(function()
-		return _MarketplaceService:GetUserSubscriptionStatusAsync(player, LEGACY_VIP_SUBSCRIPTION_ID)
-	end)
-	return success and status and status.IsSubscribed == true
-end
 
 local function getPromptRemote(name: string): RemoteEvent
 	if RunService:IsServer() then
@@ -148,14 +139,6 @@ function MarketplaceService:UserOwnsGamePass(player: Player|number, gamePassId: 
 		end
 	end
 	if CACHE[player] and CACHE[player][gamePassId] == true then
-		return true
-	end
-	if RunService:IsServer() and gamePassId == VIP_GAMEPASS_ID and userOwnsLegacyVIPSubscription(player) then
-		if not CACHE[player] then
-			CACHE[player] = {}
-		end
-		CACHE[player][gamePassId] = true
-		GamePassSync:FireAllClients("UpdatePass", player, gamePassId, true)
 		return true
 	end
 	if CACHE[player] and CACHE[player][gamePassId] ~= nil then
