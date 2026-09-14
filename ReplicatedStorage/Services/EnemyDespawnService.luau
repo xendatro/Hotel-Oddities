@@ -45,13 +45,50 @@ function EnemyDespawnService:Emit(position: Vector3, bodySize: Vector3)
 		NumberSequenceKeypoint.new(1, diameter * 0.8),
 	})
 	emitter.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.65),
-		NumberSequenceKeypoint.new(0.2, 0.45),
+		NumberSequenceKeypoint.new(0, 0.4),
+		NumberSequenceKeypoint.new(0.2, 0.28),
 		NumberSequenceKeypoint.new(1, 1),
 	})
 	emitter.Parent = holder
+	local burst = emitter:Clone()
+	burst.Name = "DustBurst"
+	burst.Texture = Config.BurstTexture
+	burst.Lifetime = NumberRange.new(0.22, 0.35)
+	burst.Speed = NumberRange.new(diameter * 0.04, diameter * 0.1)
+	burst.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, diameter * 0.15),
+		NumberSequenceKeypoint.new(0.18, diameter * 0.6),
+		NumberSequenceKeypoint.new(1, diameter * 0.72),
+	})
+	burst.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.15),
+		NumberSequenceKeypoint.new(0.35, 0.3),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	burst.Parent = holder
+	local powder = emitter:Clone()
+	powder.Name = "PowderFlecks"
+	powder.FlipbookLayout = Enum.ParticleFlipbookLayout.None
+	powder.Texture = Config.PowderTexture
+	powder.Lifetime = NumberRange.new(0.25, 0.45)
+	powder.Speed = NumberRange.new(diameter * 0.25, diameter * 0.45)
+	powder.Drag = 5
+	powder.Acceleration = Vector3.new(0, -diameter * 0.2, 0)
+	powder.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, diameter * 0.1),
+		NumberSequenceKeypoint.new(0.4, diameter * 0.12),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	powder.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.25),
+		NumberSequenceKeypoint.new(0.5, 0.5),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	powder.Parent = holder
 	holder.Parent = workspace
+	burst:Emit(Config.BurstCount)
 	emitter:Emit(Config.ParticleCount)
+	powder:Emit(Config.PowderCount)
 	Debris:AddItem(holder, Config.Lifetime.Max + 0.2)
 end
 

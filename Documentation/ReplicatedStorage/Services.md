@@ -899,3 +899,5 @@ BuildCorridors(root) returns a fresh { Nodes, Hallways } graph using the same ha
 
 ### EnemyDespawnService.luau
 Client-only Emit(position, bodySize) creates a small powdery white flipbook burst on Enemies/DespawnPoof. Uses EnemyDespawnConfig, distance culling, six particles and Debris cleanup. Effects live separately from the removed enemy and have no collision, queries, touch or shadows.
+
+EnemyDespawnService layers a fast central dust burst, softer smoke and fine powder flecks using three resource-place textures. All three emit once; the central shape is more opaque for readability and each layer fades within the existing cleanup lifetime.
