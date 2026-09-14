@@ -7,6 +7,17 @@ if not RunService:IsClient() then return EnemyDespawnService end
 
 local Config = require(ReplicatedStorage.Configs.EnemyDespawnConfig)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local AudioService = require(ReplicatedStorage.Services.AudioService)
+
+local soundTemplate = Instance.new("AudioEmitter")
+soundTemplate.Name = "EnemyDespawnPoof"
+soundTemplate:SetDistanceAttenuation({ [0] = 1, [8] = 1, [Config.SoundMaxDistance] = 0 })
+local soundPlayer = Instance.new("AudioPlayer")
+soundPlayer.Name = "Player"
+soundPlayer.Asset = Config.SoundId
+soundPlayer.Volume = Config.SoundVolume
+soundPlayer.Parent = soundTemplate
+AudioService:Wire(soundPlayer, soundTemplate)
 
 function EnemyDespawnService:Emit(position: Vector3, bodySize: Vector3)
 	local camera = workspace.CurrentCamera
@@ -88,11 +99,17 @@ function EnemyDespawnService:Emit(position: Vector3, bodySize: Vector3)
 	holder.Parent = workspace
 	task.delay(0.05, function()
 		if not holder.Parent then return end
+		local playback = AudioService:Play3DSound(soundTemplate, holder, false, "SFX")
+		playback.Ended:Once(function()
+			task.delay(Config.Lifetime.Max + 0.2, function()
+				holder:Destroy()
+			end)
+		end)
 		burst:Emit(Config.BurstCount)
 		emitter:Emit(Config.ParticleCount)
 		powder:Emit(Config.PowderCount)
 	end)
-	Debris:AddItem(holder, Config.Lifetime.Max + 0.25)
+	Debris:AddItem(holder, 30)
 end
 
 local remote = CommunicationService.Get("Enemies", "DespawnPoof")

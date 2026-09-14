@@ -898,6 +898,7 @@ ShowTimed(effectName, duration, endsAt, color?) reuses the existing draining ico
 BuildCorridors(root) returns a fresh { Nodes, Hallways } graph using the same hallway intersection and connection algorithm as patrol. It selects MazeFloor parts under root outside its Connectors folder and excludes the room-floor shortcuts. This separate graph preserves player access to spawn-safe hallways and does not change the enemy graph's pruning or danger-weighted patrol behavior. ComputerChipRouteService adds explicit room portals and endpoint connections, then calls the existing FindPath with physical distance costs.
 
 ### EnemyDespawnService.luau
+Plays the configured one-shot positional sound through AudioService at the puff location. The invisible holder survives particle expiry until audio ends, with a 30-second fallback cleanup for unavailable audio.
 Client-only Emit(position, bodySize) creates a small powdery white flipbook burst on Enemies/DespawnPoof. Uses EnemyDespawnConfig, distance culling, six particles and Debris cleanup. Effects live separately from the removed enemy and have no collision, queries, touch or shadows.
 
 EnemyDespawnService layers a fast central dust burst, softer smoke and fine powder flecks using three resource-place textures. All three emit once; the central shape is more opaque for readability and each layer fades within the existing cleanup lifetime.

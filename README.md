@@ -521,4 +521,4 @@ Computer chip playtest fixes connect split corridor approaches to connector entr
 Enemy navigation: NPC patrols reuse ConnectorGraph entrance geometry with danger-weighted route costs. Connector traversal tries clear direct movement, bounded pathfinding, then a floor-supported forced direct attempt. GroundSupport samples direct movement and overshoots to reject void routes. NpcNavigationConfig controls support spacing, width, drops and graph refresh.
 
 - ReplicatedStorage\Configs\EnemyDespawnConfig.luau — Powdery white enemy despawn puff texture, size, lifetime and distance settings.
-- ReplicatedStorage\Services\EnemyDespawnService.luau — Local layered dust burst, smoke and powder flecks for each enemy despawn, triggered centrally by EnemyService.
+- ReplicatedStorage\Services\EnemyDespawnService.luau — Local layered dust burst, smoke and powder flecks with positional despawn audio, triggered centrally by EnemyService.

@@ -1,4 +1,7 @@
 return {
+	SoundId = "rbxassetid://127089163163176",
+	SoundVolume = 0.7,
+	SoundMaxDistance = 80,
 	Texture = "rbxassetid://11627083142",
 	Color = Color3.fromRGB(245, 245, 240),
 	ParticleCount = 6,
