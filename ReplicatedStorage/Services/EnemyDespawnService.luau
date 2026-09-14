@@ -86,10 +86,13 @@ function EnemyDespawnService:Emit(position: Vector3, bodySize: Vector3)
 	})
 	powder.Parent = holder
 	holder.Parent = workspace
-	burst:Emit(Config.BurstCount)
-	emitter:Emit(Config.ParticleCount)
-	powder:Emit(Config.PowderCount)
-	Debris:AddItem(holder, Config.Lifetime.Max + 0.2)
+	task.delay(0.05, function()
+		if not holder.Parent then return end
+		burst:Emit(Config.BurstCount)
+		emitter:Emit(Config.ParticleCount)
+		powder:Emit(Config.PowderCount)
+	end)
+	Debris:AddItem(holder, Config.Lifetime.Max + 0.25)
 end
 
 local remote = CommunicationService.Get("Enemies", "DespawnPoof")
