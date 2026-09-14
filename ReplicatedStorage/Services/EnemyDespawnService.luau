@@ -1,3 +1,4 @@
+local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -19,10 +20,10 @@ soundPlayer.Volume = Config.SoundVolume
 soundPlayer.Parent = soundTemplate
 AudioService:Wire(soundPlayer, soundTemplate)
 
-function EnemyDespawnService:Emit(position: Vector3, bodySize: Vector3)
+function EnemyDespawnService:Emit(position: Vector3, bodySize: Vector3, body: Model?)
 	local camera = workspace.CurrentCamera
 	if not camera or (camera.CFrame.Position - position).Magnitude > Config.MaxDistance then return end
-	local diameter = math.min(math.max(bodySize.X, bodySize.Y, bodySize.Z) * Config.SizeFraction, Config.MaximumSize)
+	local diameter = Config.ScaleMultiplier * math.min(math.max(bodySize.X, bodySize.Y, bodySize.Z) * Config.SizeFraction, Config.MaximumSize)
 	if diameter <= 0 then return end
 	local holder = Instance.new("Part")
 	holder.Name = "EnemyDespawnPoof"
@@ -105,6 +106,13 @@ function EnemyDespawnService:Emit(position: Vector3, bodySize: Vector3)
 				holder:Destroy()
 			end)
 		end)
+		if body and body.Parent then
+			for _, part in body:GetDescendants() do
+				if part:IsA("BasePart") or part:IsA("Decal") then
+					TweenService:Create(part, TweenInfo.new(Config.FadeDuration, Enum.EasingStyle.Linear), { Transparency = 1 }):Play()
+				end
+			end
+		end
 		burst:Emit(Config.BurstCount)
 		emitter:Emit(Config.ParticleCount)
 		powder:Emit(Config.PowderCount)
@@ -113,8 +121,8 @@ function EnemyDespawnService:Emit(position: Vector3, bodySize: Vector3)
 end
 
 local remote = CommunicationService.Get("Enemies", "DespawnPoof")
-remote.OnClientEvent:Connect(function(position, size)
-	EnemyDespawnService:Emit(position, size)
+remote.OnClientEvent:Connect(function(position, size, body)
+	EnemyDespawnService:Emit(position, size, body)
 end)
 
 return EnemyDespawnService

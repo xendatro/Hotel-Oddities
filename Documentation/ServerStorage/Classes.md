@@ -3,6 +3,7 @@
 Roblox class-syntax classes, server only. Connections live in `self.Connections`, built by a local `setUpConnections`.
 
 ### EnemyBase.luau
+Despawn keeps the inactive model for at least EnemyDespawnConfig.DespawnDelay so the client puff fade can finish.
 Minimal base class for non-humanoid enemies (props, hazards, static horrors) that are driven by a StateMachine rather than pathfinding. It owns the active flag, the tag set applied to the model while alive, and a deferred despawn that can linger before destroying the model.
 - API: `EnemyBase.extend(className: string) -> class` — makes a subclass table inheriting EnemyBase.
 - API: `EnemyBase.new(model: Model, config: any, class: any?) -> self` — sets `Model`, `Config`, `Active = false`.
@@ -16,6 +17,7 @@ Minimal base class for non-humanoid enemies (props, hazards, static horrors) tha
 - Requires: `ReplicatedStorage.Classes.StateMachine` (indirectly, via the subclass)
 
 ### NPC.luau
+Despawn stops AI and animations immediately, then retains the model for EnemyDespawnConfig.DespawnDelay before destruction for the client fade.
 The full humanoid-enemy base: pathfinding with prefetch, direct-pursuit/lane-clearance movement, line-of-sight and observation checks, target acquisition, network-ownership management, and a library of shared state functions (Idle/Wander/Patrol/Attack/Stunned/RoomReaction/Despawn). Danger-weighted hallway-graph patrol and safe-room reactions live here too.
 - API: `NPC.extend(className: string, parent: any?) -> class` — subclass table, optionally inheriting another NPC subclass.
 - API: `NPC.new(model: Model, config: EnemyConfigs.EnemyConfig, class: any?) -> self` — needs `model.Humanoid` and `model.HumanoidRootPart`; builds `NpcAnimator` and calls `BuildStateMachine`.

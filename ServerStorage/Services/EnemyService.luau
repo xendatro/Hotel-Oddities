@@ -149,7 +149,7 @@ function EnemyService:Spawn(enemyId: string, spawnCFrame: CFrame, ...: any)
 		for _, body in enemy.Models or { model } do
 			if not body:IsA("Model") or not body.Parent then continue end
 			local ok, frame, size = pcall(body.GetBoundingBox, body)
-			if ok then despawnEffect:FireAllClients(frame.Position, size) end
+			if ok then despawnEffect:FireAllClients(frame.Position, size, body) end
 		end
 	end
 	local despawn = enemy.Despawn

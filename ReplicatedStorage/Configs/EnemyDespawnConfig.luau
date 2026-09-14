@@ -1,4 +1,7 @@
 return {
+	ScaleMultiplier = 1.5,
+	FadeDuration = 0.15,
+	DespawnDelay = 0.25,
 	SoundId = "rbxassetid://127089163163176",
 	SoundVolume = 0.7,
 	SoundMaxDistance = 80,

@@ -160,6 +160,7 @@ Server-side record of what each client reports it can see: validated lists of `E
 - Tags: reads `Enemy`, `Observable`
 
 ### EnemyService.luau
+DespawnPoof includes the retiring model reference for the local transparency fade alongside its position and size.
 The enemy factory and registry: sets up the Enemies/Players/Furniture collision groups, clones the configured model, tags it with its `EnemyId`, hands it to the matching class in `ServerStorage.Classes.Enemies` and keeps the instance in an active list until its model is destroyed. Also strips ProximityPrompts from `Furniture` models and assigns character parts to the Players group.
 - API: `EnemyService:EnsureCollisionGroup()` — registers the three groups and their non-collidable pairs
 - API: `EnemyService:Spawn(enemyId: string, spawnCFrame: CFrame, ...: any) -> any?` — extra args are forwarded to the enemy class constructor; nil when `FLAGS.Enemies` is off

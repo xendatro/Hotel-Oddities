@@ -48,7 +48,7 @@ function EnemyBase:Despawn()
 	for _, tag in self.Tags do
 		self.Model:RemoveTag(tag)
 	end
-	local linger = self:OnDespawn() or 0
+	local linger = math.max(self:OnDespawn() or 0, require(game:GetService("ReplicatedStorage").Configs.EnemyDespawnConfig).DespawnDelay)
 
 	task.defer(function()
 		self.StateMachine:Stop()

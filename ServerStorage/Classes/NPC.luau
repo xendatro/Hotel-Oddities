@@ -260,6 +260,7 @@ function NPC:Despawn()
 	task.defer(function()
 		self.StateMachine:Stop()
 		self.Animator:Destroy()
+		task.wait(require(ReplicatedStorage.Configs.EnemyDespawnConfig).DespawnDelay)
 		self.Model:Destroy()
 	end)
 end
