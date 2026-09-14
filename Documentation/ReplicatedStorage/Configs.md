@@ -254,3 +254,6 @@ Shared configuration for the five navigation chips: color-to-room mapping, 60-se
 - ToolConfigs adds the five tagged tools with Class = ComputerChip and their ColorKey; EffectsHUDConfig gives each the computer icon, tinted by the active trail's color.
 
 Kits do not modify jumping. All 24 kits inherit the StarterPlayer jump settings; the current Studio default uses jump height mode at 3 studs. JumpPower is no longer a supported kit stat.
+
+### EnemyDespawnConfig.luau
+Six white smoke particles, 0.4–0.65-second lifetime, nominal size 70% of enemy bounds capped at six studs, and 180-stud distance culling. Texture 11627083142 comes from vfxresource, Tengen Explosives / Explosive (Blue) / Attachment / Smoke (BLACK); it is an 8-by-8 one-shot flipbook.

@@ -519,3 +519,6 @@ become Services or Classes.
 Computer chip playtest fixes connect split corridor approaches to connector entrances, tolerate raised doorway anchors, and clear trails when the target computer is removed. Runtime coverage: 865 room/connector-to-color routes resolved; all three connector fallback cases and 60 simultaneous route requests passed. Two-player visibility remains pending.
 
 Enemy navigation: NPC patrols reuse ConnectorGraph entrance geometry with danger-weighted route costs. Connector traversal tries clear direct movement, bounded pathfinding, then a floor-supported forced direct attempt. GroundSupport samples direct movement and overshoots to reject void routes. NpcNavigationConfig controls support spacing, width, drops and graph refresh.
+
+- ReplicatedStorage\Configs\EnemyDespawnConfig.luau — Powdery white enemy despawn puff texture, size, lifetime and distance settings.
+- ReplicatedStorage\Services\EnemyDespawnService.luau — Local one-shot smoke flipbook burst for each enemy despawn, triggered centrally by EnemyService.

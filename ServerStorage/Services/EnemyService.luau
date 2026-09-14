@@ -13,6 +13,9 @@ local EnemySizeService = require(ServerStorage.Services.EnemySizeService)
 local EnemyClasses = ServerStorage.Classes.Enemies
 local EnemyModels = ReplicatedStorage:WaitForChild("Enemies")
 
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local despawnEffect = CommunicationService.Ensure("Enemies", "DespawnPoof")
+
 local EnemyService = {}
 local ActiveEnemies = {}
 
@@ -139,8 +142,24 @@ function EnemyService:Spawn(enemyId: string, spawnCFrame: CFrame, ...: any)
 
 	local enemy = enemyClass.new(model, config, ...)
 	enemy.EnemyId = enemyId
+	local effectSent = false
+	local function emitPoof()
+		if effectSent then return end
+		effectSent = true
+		for _, body in enemy.Models or { model } do
+			if not body:IsA("Model") or not body.Parent then continue end
+			local ok, frame, size = pcall(body.GetBoundingBox, body)
+			if ok then despawnEffect:FireAllClients(frame.Position, size) end
+		end
+	end
+	local despawn = enemy.Despawn
+	enemy.Despawn = function(self, ...)
+		if self.Active then emitPoof() end
+		return despawn(self, ...)
+	end
 	table.insert(ActiveEnemies, enemy)
 	model.Destroying:Connect(function()
+		emitPoof()
 		local index = table.find(ActiveEnemies, enemy)
 		if index then
 			table.remove(ActiveEnemies, index)
