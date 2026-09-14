@@ -5,6 +5,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local LocatorMarker = require(ReplicatedStorage.Classes.LocatorMarker)
+local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
 local PlayerLocatorConfig = require(ReplicatedStorage.Configs.PlayerLocatorConfig)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
@@ -25,6 +26,7 @@ local RENDER_JOB = "PlayerLocatorFocus"
 local TAU = MathService.TAU
 
 local player = Players.LocalPlayer
+local LOCATOR_ATTRIBUTE = PerkConfig.AttributePrefix .. "PlayerLocator"
 local playerGui = GuiBuilderService.GetPlayerGui()
 
 local gui = playerGui:WaitForChild("PlayerLocator")
@@ -49,6 +51,7 @@ local Friends: { [number]: boolean } = {}
 local Asking: { [number]: boolean } = {}
 local modeIndex = 1
 local enabled = false
+local requested = false
 
 local refresh
 
@@ -91,6 +94,10 @@ local pendingTarget: Player? = nil
 
 local function isAvailable(): boolean
 	return os.clock() >= cooldownEndsAt
+end
+
+local function ownsLocator(): boolean
+	return player:GetAttribute(LOCATOR_ATTRIBUTE) == true
 end
 
 local function updateCooldown()
@@ -324,8 +331,8 @@ function refresh()
 	refreshing = false
 end
 
-function PlayerLocatorService:SetEnabled(value: boolean)
-	local wanted = value == true
+local function applyEnabled()
+	local wanted = requested and ownsLocator()
 	if enabled == wanted then return end
 
 	enabled = wanted
@@ -333,6 +340,11 @@ function PlayerLocatorService:SetEnabled(value: boolean)
 	refresh()
 	updateCooldown()
 	setRendering(enabled)
+end
+
+function PlayerLocatorService:SetEnabled(value: boolean)
+	requested = value == true
+	applyEnabled()
 end
 
 function PlayerLocatorService:IsEnabled(): boolean
@@ -361,6 +373,7 @@ end
 
 Players.PlayerAdded:Connect(refresh)
 Players.PlayerRemoving:Connect(forget)
+player:GetAttributeChangedSignal(LOCATOR_ATTRIBUTE):Connect(applyEnabled)
 
 gui.Enabled = false
 setMode(1)

@@ -18,7 +18,12 @@ function PlayerTransparency:OnStart()
 	local level = self:Setting("OddTransparency", 0.1)
 
 	local function apply(instance: Instance)
-		if not instance:IsA("BasePart") or instance.Transparency ~= 0 then return end
+		if not instance:IsA("BasePart")
+			or instance.Transparency ~= 0
+			or instance:FindFirstAncestorOfClass("Tool")
+		then
+			return
+		end
 		self.Original[instance] = 0
 		instance.Transparency = level
 	end

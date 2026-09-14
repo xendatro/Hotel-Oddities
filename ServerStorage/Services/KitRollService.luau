@@ -69,7 +69,7 @@ function KitRollService:Roll(player: Player): { [string]: any }
 		local rarity = pickRarity()
 		local pool = rarity and byRarity[rarity.Id]
 		if not pool or #pool == 0 then
-			GemService:Award(player, ROLL.GemCost)
+			GemService:Refund(player, ROLL.GemCost)
 			result = { Ok = false, Reason = "EmptyPool" }
 		else
 			local kit = pool[random:NextInteger(1, #pool)]
@@ -78,7 +78,7 @@ function KitRollService:Roll(player: Player): { [string]: any }
 
 			if duplicate then
 				refund = math.floor(KitConfig.GetRarity(kit).GemPrice * ROLL.DuplicateRefundFraction)
-				GemService:Award(player, refund)
+				GemService:Refund(player, refund)
 			end
 
 			result = {

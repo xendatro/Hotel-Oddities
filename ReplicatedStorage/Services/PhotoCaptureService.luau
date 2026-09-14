@@ -245,8 +245,6 @@ function PhotoCaptureService:Take(lens: CFrame, fieldOfView: number, figure: CFr
 	if busy then return end
 	busy = true
 
-	CaptureGalleryService:EnsurePermission()
-
 	local settings = PhotoConfig.Capture
 	local sheet = getFlash()
 
