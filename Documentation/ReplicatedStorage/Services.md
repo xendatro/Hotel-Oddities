@@ -212,10 +212,10 @@ Client HUD that stacks effect tiles down the right edge of the screen, each with
 - Requires: `Configs.EffectsHUDConfig`, `Configs.ToolConfigs`, `Services.VanishedService`, `GuiBuilderService`
 
 ### ElevatorDoorService.luau
-Client-side sliding doors for tagged elevator models: polls every player's distance on a config interval and tweens `Part1`/`Part2` apart when someone is close, with separate open and close distances for hysteresis. Only elevators whose type attribute marks them as the lobby elevator ever open; all others are forced shut.
+Client-side sliding doors for tagged elevator models: polls every player's distance on a config interval and tweens `Part1`/`Part2` apart when someone is close, with separate open and close distances for hysteresis. Arrival doors use local-player proximity. Exit doors, collision barrier and the five-color physical panel follow the local player's server-authorized Computer/Sync Colors and ExitUnlocked state. Lobby proximity still considers all players. A model DoorOffset attribute overrides the default door travel. Newly streamed display descendants receive the latest state.
 - API: data table — empty; registration and the poll loop run on require.
 - Tags: listens `Elevator`
-- Requires: `Configs.ElevatorConfig`, `AudioService`, `CharacterService`, `MathService`
+- Requires: `Configs.ElevatorConfig`, `ComputerConfig`, `ComputerChipConfig`, `CommunicationService`, `AudioService`, `CharacterService`, `MathService`
 
 ### ElevatorLoadingUIService.luau
 Drives the pre-built `ElevatorLoadingGui` fade-in/fade-out loading screen used while a hallway loads, panning the hero image to random points and sweeping a shimmer gradient across the loading text. Fires the fade-complete remote back with the server's token once the overlay has fully faded in; validates the GUI's shape and bails out with a warning if anything is missing.

@@ -2,11 +2,14 @@ local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
+local RunService = game:GetService("RunService")
 
 local ElevatorConfig = require(ReplicatedStorage.Configs.ElevatorConfig)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local HallwayStreamingService = require(ServerStorage.Services.HallwayStreamingService)
+
+local ComputerService = require(ServerStorage.Services.ComputerService)
 
 local ElevatorService = {}
 
@@ -167,6 +170,33 @@ Players.PlayerRemoving:Connect(function(player)
 	activeTeleports[player] = nil
 	nextTeleportAt[player] = nil
 	fadeReady[player] = nil
+end)
+
+local accessElapsed = 0
+RunService.Heartbeat:Connect(function(deltaTime)
+	accessElapsed += deltaTime
+	if accessElapsed < ElevatorConfig.AccessCheckInterval then return end
+	accessElapsed = 0
+	for model in states do
+		if model:GetAttribute(ElevatorConfig.TypeAttribute) ~= ElevatorConfig.ExitType then continue end
+		local hitbox = model:FindFirstChild(ElevatorConfig.HitboxName)
+		local approach = model:FindFirstChild("Approach")
+		if not hitbox or not hitbox:IsA("BasePart") or not approach or not approach:IsA("BasePart") then continue end
+		for _, player in Players:GetPlayers() do
+			local root = CharacterService.GetAliveRoot(player)
+			if not root then continue end
+			local p = hitbox.CFrame:PointToObjectSpace(root.Position)
+			local half = hitbox.Size / 2
+			if math.abs(p.X) <= half.X and math.abs(p.Y) <= half.Y and math.abs(p.Z) <= half.Z and not ComputerService:IsExitUnlocked(player) then
+				local character = player.Character
+				if character then
+					character:PivotTo(approach.CFrame)
+					root.AssemblyLinearVelocity = Vector3.zero
+					root.AssemblyAngularVelocity = Vector3.zero
+				end
+			end
+		end
+	end
 end)
 
 return ElevatorService

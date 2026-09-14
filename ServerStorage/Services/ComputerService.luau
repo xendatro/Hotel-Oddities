@@ -3,6 +3,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ComputerConfig = require(ReplicatedStorage.Configs.ComputerConfig)
+local ComputerChipConfig = require(ReplicatedStorage.Configs.ComputerChipConfig)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 
@@ -43,6 +44,22 @@ local function totalComputers(): number
 	return total
 end
 
+local function completedColors(player: Player): ({ [string]: boolean }, boolean)
+	local colors: { [string]: boolean } = {}
+	local allComplete = #ComputerChipConfig.Colors == 5
+	local maze = workspace:FindFirstChild(ComputerChipConfig.MazeName)
+	local rooms = maze and maze:FindFirstChild("Rooms")
+	local hacked = setOf(player)
+	for _, entry in ComputerChipConfig.Colors do
+		local room = rooms and rooms:FindFirstChild(entry.RoomName)
+		local model = room and room:FindFirstChild(ComputerConfig.ModelName)
+		local complete = model ~= nil and model:IsA("Model") and CollectionService:HasTag(model, TAG) and hacked[model] == true
+		colors[entry.Key] = complete
+		allComplete = allComplete and complete
+	end
+	return colors, allComplete
+end
+
 local function sync(player: Player)
 	local ids: { string } = {}
 	for model in pairs(setOf(player)) do
@@ -53,7 +70,8 @@ local function sync(player: Player)
 			end
 		end
 	end
-	Sync:FireClient(player, { Hacked = ids, Total = totalComputers() })
+	local colors, unlocked = completedColors(player)
+	Sync:FireClient(player, { Hacked = ids, Total = totalComputers(), Colors = colors, ExitUnlocked = unlocked })
 end
 
 local function syncAll()
@@ -88,6 +106,11 @@ end
 function ComputerService:IsHacked(player: Player, model: Model): boolean
 	local set = Hacked[player]
 	return set ~= nil and set[model] == true
+end
+
+function ComputerService:IsExitUnlocked(player: Player): boolean
+	local _, unlocked = completedColors(player)
+	return unlocked
 end
 
 function ComputerService:GetProgress(player: Player): (number, number)

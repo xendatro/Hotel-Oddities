@@ -5,6 +5,9 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local ElevatorConfig = require(ReplicatedStorage.Configs.ElevatorConfig)
+local ComputerConfig = require(ReplicatedStorage.Configs.ComputerConfig)
+local ComputerChipConfig = require(ReplicatedStorage.Configs.ComputerChipConfig)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local AudioService = require(ReplicatedStorage.Services.AudioService)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local MathService = require(ReplicatedStorage.Services.MathService)
@@ -28,6 +31,50 @@ type ElevatorState = {
 
 local states: { [Model]: ElevatorState } = {}
 local sincePoll = 0
+local completed: { [string]: boolean } = {}
+local exitUnlocked = false
+local receivedProgress = false
+
+local function refreshAccess(state: ElevatorState)
+	if state.Model:GetAttribute(ElevatorConfig.TypeAttribute) ~= ElevatorConfig.ExitType then return end
+	local barrier = state.Model:FindFirstChild("AccessBarrier")
+	if barrier and barrier:IsA("BasePart") then barrier.CanCollide = not exitUnlocked end
+	local panel = state.Model:FindFirstChild("StatusPanel")
+	local display = panel and panel:FindFirstChild("ProgressDisplay")
+	if not display then return end
+	local count = 0
+	for _, entry in ComputerChipConfig.Colors do
+		local complete = completed[entry.Key] == true
+		if complete then count += 1 end
+		local row = display:FindFirstChild(entry.Key)
+		if not row then continue end
+		local color = if complete then Color3.fromRGB(126, 226, 153) else Color3.fromRGB(220, 134, 124)
+		local status = row:FindFirstChild("Status")
+		if status and status:IsA("TextLabel") then
+			status.Text = if complete then "COMPLETE" else "MISSING"
+			status.TextColor3 = color
+		end
+		local indicator = row:FindFirstChild("Indicator")
+		local bar1 = indicator and indicator:FindFirstChild("Bar1")
+		local bar2 = indicator and indicator:FindFirstChild("Bar2")
+		if bar1 and bar1:IsA("Frame") and bar2 and bar2:IsA("Frame") then
+			bar1.BackgroundColor3 = color
+			bar2.BackgroundColor3 = color
+			bar1.Rotation = if complete then 45 else -45
+			bar1.Size = UDim2.fromOffset(if complete then 14 else 31, 5)
+			bar1.Position = if complete then UDim2.fromScale(0.22, 0.6) else UDim2.fromScale(0.5, 0.5)
+			bar2.Rotation = if complete then -45 else 45
+			bar2.Position = if complete then UDim2.fromScale(0.64, 0.45) else UDim2.fromScale(0.5, 0.5)
+		end
+	end
+	local summary = display:FindFirstChild("Summary")
+	if summary and summary:IsA("TextLabel") then
+		summary.Text = if exitUnlocked then "READY - ENTER" else `LOCKED   {count} / 5`
+		summary.TextColor3 = if exitUnlocked then Color3.fromRGB(126, 226, 153) else Color3.fromRGB(230, 150, 125)
+	end
+end
+
+
 
 local function findBasePart(parent: Instance, names: { string }): BasePart?
 	for _, name in names do
@@ -72,10 +119,11 @@ local function setOpen(state: ElevatorState, open: boolean)
 		AudioService:Play3DSound("Elevator", soundParent, false, "SFX")
 	end
 
+	local offset = state.Model:GetAttribute("DoorOffset") or ElevatorConfig.DoorOffset
 	local info = TweenInfo.new(ElevatorConfig.DoorTime, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 	if state.Part1 and state.Closed1 then
 		local target = if open
-			then state.Closed1 * CFrame.new(-ElevatorConfig.DoorOffset, 0, 0)
+			then state.Closed1 * CFrame.new(-offset, 0, 0)
 			else state.Closed1
 		local tween = TweenService:Create(state.Part1, info, { CFrame = target })
 		table.insert(state.Tweens, tween)
@@ -83,7 +131,7 @@ local function setOpen(state: ElevatorState, open: boolean)
 	end
 	if state.Part2 and state.Closed2 then
 		local target = if open
-			then state.Closed2 * CFrame.new(ElevatorConfig.DoorOffset, 0, 0)
+			then state.Closed2 * CFrame.new(offset, 0, 0)
 			else state.Closed2
 		local tween = TweenService:Create(state.Part2, info, { CFrame = target })
 		table.insert(state.Tweens, tween)
@@ -91,9 +139,9 @@ local function setOpen(state: ElevatorState, open: boolean)
 	end
 end
 
-local function nearestPlayerDistance(position: Vector3): number
+local function nearestPlayerDistance(position: Vector3, localOnly: boolean): number
 	local nearest = math.huge
-	for _, player in Players:GetPlayers() do
+	for _, player in (if localOnly then { Players.LocalPlayer } else Players:GetPlayers()) do
 		local root = CharacterService.GetAliveRoot(player)
 		if root then
 			local offset = root.Position - position
@@ -119,8 +167,10 @@ local function register(model: Instance)
 	}
 	states[model] = state
 	refreshDoors(state)
+	refreshAccess(state)
 	state.DescendantConnection = model.DescendantAdded:Connect(function()
 		refreshDoors(state)
+		refreshAccess(state)
 	end)
 end
 
@@ -147,17 +197,33 @@ RunService.Heartbeat:Connect(function(deltaTime)
 			unregister(model)
 			continue
 		end
-		if not isLobbyElevator(state) then
+		local kind = model:GetAttribute(ElevatorConfig.TypeAttribute)
+		if kind ~= ElevatorConfig.LobbyType and kind ~= ElevatorConfig.StartType and (kind ~= ElevatorConfig.ExitType or not exitUnlocked) then
 			setOpen(state, false)
 			continue
 		end
 
-		local distance = nearestPlayerDistance(model:GetPivot().Position)
+		local distance = nearestPlayerDistance(model:GetPivot().Position, not isLobbyElevator(state))
 		local shouldOpen = if state.Opened
 			then distance <= ElevatorConfig.CloseDistance
 			else distance <= ElevatorConfig.OpenDistance
 		setOpen(state, shouldOpen)
 	end
+end)
+
+task.spawn(function()
+	local sync = CommunicationService.Get(ComputerConfig.Remotes.Folder, ComputerConfig.Remotes.Sync)
+	sync.OnClientEvent:Connect(function(payload)
+		if type(payload) ~= "table" or type(payload.Colors) ~= "table" then return end
+		receivedProgress = true
+		completed = payload.Colors
+		exitUnlocked = payload.ExitUnlocked == true
+		for _, state in states do refreshAccess(state) end
+	end)
+	repeat
+		sync:FireServer()
+		task.wait(2)
+	until receivedProgress
 end)
 
 return ElevatorDoorService

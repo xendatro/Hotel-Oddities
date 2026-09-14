@@ -110,7 +110,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\DrawerItemService.luau — Registers drawer items as interactable pickups and requests them from the server.
 - ReplicatedStorage\Services\DrawerService.luau — Animates drawers open and closed with local prediction over the server's attribute.
 - ReplicatedStorage\Services\EffectsHUDService.luau — Right-edge HUD of effect tiles, with draining timers, `inf` for permanent immunity, and hole-hop immunity countdowns.
-- ReplicatedStorage\Services\ElevatorDoorService.luau — Opens and closes tagged lobby elevator doors as players approach.
+- ReplicatedStorage\Services\ElevatorDoorService.luau — Opens lobby and arrival doors by proximity; the exit panel, barrier and doors follow the local player's server-authorized five-color completion state.
 - ReplicatedStorage\Services\ElevatorLoadingUIService.luau — Fades the elevator loading overlay in and out around a hallway load.
 - ReplicatedStorage\Services\EnemyDamageService.luau — Client-side enemy touch detection that kills the local player outside safe rooms.
 - ReplicatedStorage\Services\EnemyObservationService.luau — Reports which observable models the local camera can see to the server.
@@ -274,7 +274,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\DrawerConfig.luau — Openable drawer motion, interaction, sound and prompt UI settings.
 - ReplicatedStorage\Configs\DrawerItemConfig.luau — Drawer loot spawn rates, rarity weights and item table; clones DrawerConfig's Input/UI at load.
 - ReplicatedStorage\Configs\EffectsHUDConfig.luau — Layout, colours and icons for the HUD effect tiles.
-- ReplicatedStorage\Configs\ElevatorConfig.luau — Elevator door motion, proximity and teleport fade settings.
+- ReplicatedStorage\Configs\ElevatorConfig.luau — Elevator types, door motion, proximity, exit access polling and teleport fade settings.
 - ReplicatedStorage\Configs\EyeConfig.luau — Eye enemy tracking, hit reaction and gaze screen-effect settings.
 - ReplicatedStorage\Configs\FLAGS.luau — Global on/off switches for major systems and debug output.
 - ReplicatedStorage\Configs\GhostConfig.luau — Ghost enemy turn, bob and fade timing.
@@ -350,7 +350,7 @@ become Services or Classes.
 - ServerStorage\Services\ChaseFlickerService.luau — Flickers the lights around a player being chased by a CeilingDweller or Mimic.
 - ServerStorage\Services\ChatCommandService.luau — Shared registry and dispatcher for `/` chat commands with an admin gate.
 - ServerStorage\Services\ComputerCommandService.luau — Admin `/hack` command for listing, teleporting to, and force-setting computers.
-- ServerStorage\Services\ComputerService.luau — Tracks and replicates which computers each player has hacked.
+- ServerStorage\Services\ComputerService.luau — Tracks each player's hacked computers and replicates streaming-safe color completion and exit eligibility.
 - ServerStorage\Services\CrouchService.luau — Mirrors the client's crouch state onto the character as a stealth attribute.
 - ServerStorage\Services\DangerDebugService.luau — Studio-only hook that rebakes the danger map from the client debug panel.
 - ServerStorage\Services\DangerMapService.luau — Bakes the map-wide danger field and serves weighted spawn points from it.
@@ -359,7 +359,7 @@ become Services or Classes.
 - ServerStorage\Services\DevProductService.luau — Wires every developer product in DevProductConfigs to a receipt handler.
 - ServerStorage\Services\DrawerItemService.luau — Stocks drawers with pickable item displays and handles pickup requests.
 - ServerStorage\Services\DrawerService.luau — Owns drawer open/closed state, sounds, and auto-closing.
-- ServerStorage\Services\ElevatorService.luau — Teleports players from the lobby elevator into the maze with fade, loading and streaming.
+- ServerStorage\Services\ElevatorService.luau — Teleports lobby arrivals to the maze arrival elevator with existing loading and streaming; rejects exit-cabin entry until that player completes all five computers.
 - ServerStorage\Services\EnemyCommandService.luau — Developer chat commands for spawning, listing and despawning enemies.
 - ServerStorage\Services\EnemyDebugService.luau — Broadcasts a periodic snapshot of active enemies to the stats HUD.
 - ServerStorage\Services\EnemyDirectorService.luau — Manages the live enemy population: spawning, placement scoring and despawning.
@@ -522,3 +522,5 @@ Enemy navigation: NPC patrols reuse ConnectorGraph entrance geometry with danger
 
 - ReplicatedStorage\Configs\EnemyDespawnConfig.luau — Powdery white enemy despawn puff texture, size, lifetime and distance settings.
 - ReplicatedStorage\Services\EnemyDespawnService.luau — Local 1.5x layered dust burst, smoke and powder flecks with a 0.15-second enemy fade and positional despawn audio, triggered centrally by EnemyService.
+
+Maze arrival/exit construction and placement: `Documentation/Workspace/MazeElevators.md`; reproducible edit-time build: `Tools/BuildMazeElevators.luau`.

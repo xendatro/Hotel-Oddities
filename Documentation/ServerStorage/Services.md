@@ -47,8 +47,9 @@ Implements the admin `/hack` chat command: lists every tagged computer with its 
 - Requires: `ChatCommandService` (registers `/hack`, admin-only), `ComputerService`, `ComputerConfig`
 
 ### ComputerService.luau
-Tracks which computer models each player has hacked, as per-player server state rather than an instance attribute, and replicates the set to that player. Auto-tags every eligible `Computer` model in the workspace, stamps each with a unique `ComputerConfig.IdAttribute` string attribute, and validates client completion reports by distance and rate. Sync payloads are streaming-safe: `{ Hacked = { id, ... }, Total = n }` (ids and a server-counted total, never Instance references, which deserialize to nil for streamed-out models). Re-syncs everyone when the tagged set changes, and answers rate-limited client sync requests fired back over the Sync remote.
+Tracks which computer models each player has hacked, as per-player server state rather than an instance attribute, and replicates the set to that player. Auto-tags every eligible `Computer` model in the workspace, stamps each with a unique `ComputerConfig.IdAttribute` string attribute, and validates client completion reports by distance and rate. Sync payloads are streaming-safe: `{ Hacked = { id, ... }, Total = n, Colors = { [color] = boolean }, ExitUnlocked = boolean }` (ids and a server-counted total, never Instance references, which deserialize to nil for streamed-out models). Re-syncs everyone when the tagged set changes, and answers rate-limited client sync requests fired back over the Sync remote.
 - API: `ComputerService:IsHacked(player: Player, model: Model) -> boolean`
+- API: `ComputerService:IsExitUnlocked(player: Player) -> boolean` — all five configured chip destination computers must be complete for that player.
 - API: `ComputerService:GetProgress(player: Player) -> (number, number)` — hacked count, total tagged computers
 - API: `ComputerService:SetHacked(player: Player, model: Model, hacked: boolean)` — syncs the player on change
 - Remotes: `ComputerConfig.Remotes.Folder/Complete` (listened), `.../Sync` (fired, and listened for client refresh requests)
@@ -109,7 +110,7 @@ Owns the open/closed state of drawer models as attributes, plays the open/close 
 - Requires: `DrawerConfig`, `AudioService`
 
 ### ElevatorService.luau
-Teleports players from the lobby elevator into the maze: on hitbox touch it shows the loading screen, waits for the client fade and a minimum loading time, streams the destination in, then pivots the character to a part tagged with `ElevatorConfig.SpawnTag` (preferring one inside `Maze15`).
+Teleports players from the lobby elevator into the maze: on hitbox touch it shows the loading screen, waits for the client fade and a minimum loading time, streams the destination in, then pivots the character to a part tagged with `ElevatorConfig.SpawnTag` (preferring one inside `Maze15`, now inside StartElevator). Every 0.2 seconds, the exit cabin rejects unauthorized players to its hallway Approach marker using ComputerService:IsExitUnlocked; no win action or teleport follows authorized entry.
 - API: `ElevatorService:SendToMap(player: Player, instant: boolean?) -> boolean` — returns whether streaming succeeded; `instant` skips the fade, loading screen and cooldown
 - Remotes: `Elevator/Loading` (fired), `Elevator/FadeComplete` (listened) — both optional, looked up with `.Find`
 - Tags: listens `ElevatorConfig.Tag`; reads `ElevatorConfig.SpawnTag`
