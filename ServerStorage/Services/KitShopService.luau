@@ -27,7 +27,7 @@ function KitShopService:Buy(player: Player, kitId: string): string
 	if not GemService:Spend(player, price) then return "InsufficientGems" end
 
 	if not KitService:Grant(player, kitId) then
-		GemService:Award(player, price)
+		GemService:Refund(player, price)
 		return "GrantFailed"
 	end
 

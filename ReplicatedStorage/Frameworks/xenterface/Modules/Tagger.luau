@@ -5,6 +5,7 @@ local TagService = require(ReplicatedStorage.Services.TagService)
 local Tab = require(script.Parent.Parent.Classes.Tab)
 local Page = require(script.Parent.Parent.Classes.Page)
 local Hover = require(script.Parent.Parent.Classes.Hover)
+local Press = require(script.Parent.Parent.Classes.Press)
 
 return function(playerGui: Folder)
 	TagService:Listen("Tab", function(obj)
@@ -37,5 +38,16 @@ return function(playerGui: Folder)
 	end, function(_, hoverObject)
 		hoverObject:Disconnect()
 	end, game)
-	
+
+	TagService:Listen("Press", function(obj)
+		if obj:IsA("GuiButton") then
+			return Press.new(obj)
+		elseif obj.Parent:IsA("GuiButton") then
+			return Press.new(obj.Parent, obj)
+		end
+		error(`Assigned Press tag to {obj:GetFullName()}, which does not follow proper Press hierarchy`)
+	end, function(_, pressObject)
+		pressObject:Disconnect()
+	end, playerGui)
+
 end

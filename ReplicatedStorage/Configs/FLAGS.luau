@@ -6,5 +6,6 @@ return {
 	VoiceDebug = true,
 	ViewmodelDebug = true,
 	ItemPreviewDebug = true,
+	FlashlightDebug = true,
 	PerfLog = false,
 }

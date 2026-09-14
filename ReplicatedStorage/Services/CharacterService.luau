@@ -36,6 +36,11 @@ function CharacterService.GetPosition(player: Player): Vector3?
 	return if root then root.Position else nil
 end
 
+function CharacterService.GetStreamedPivot(model: Model): CFrame?
+	if not model.PrimaryPart then return nil end
+	return model:GetPivot()
+end
+
 function CharacterService.ForEachPlayer(callback: (player: Player) -> ()): RBXScriptConnection
 	local connection = Players.PlayerAdded:Connect(callback)
 	for _, player in Players:GetPlayers() do

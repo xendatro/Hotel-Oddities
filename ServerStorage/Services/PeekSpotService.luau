@@ -7,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local HallwayGridService = require(ServerStorage.Services.HallwayGridService)
 local MathService = require(ReplicatedStorage.Services.MathService)
+local SpawnZoneService = require(ReplicatedStorage.Services.SpawnZoneService)
 
 local horizontal = MathService.Horizontal
 
@@ -46,6 +47,7 @@ local LEAN_SAMPLES = {
 	{ 3.2, -0.7 },
 }
 local LEAN_VISIBLE_SAMPLES = 2
+local SIDE_PENALTY = 1
 
 export type PeekSpot = {
 	Stand: Vector3,
@@ -60,6 +62,7 @@ export type FindOptions = {
 	MaxDistance: number,
 	RearArc: number,
 	ViewCone: number,
+	FogFraction: number?,
 }
 
 export type Corner = HallwayGridService.Corner
@@ -70,6 +73,7 @@ type Search = {
 	Eye: Vector3,
 	Back: Vector3,
 	FloorY: number,
+	MaxDistance: number,
 	Views: { EnemyObservationService.View },
 	Options: FindOptions,
 }
@@ -225,10 +229,15 @@ local function isArcClear(search: Search, spot: PeekSpot): boolean
 	return true
 end
 
-local function isLeanWorthwhile(search: Search, spot: PeekSpot, diagnostic: ((any) -> ())?): boolean
+local function isLeanVisible(search: Search, spot: PeekSpot): (boolean, number, boolean)
 	local out = bodyPoints(LEAN_SAMPLES, spot, 1)
 	local visible, headVisible = countVisible(search.Params, search.Eye, out)
-	if not headVisible or visible < LEAN_VISIBLE_SAMPLES then
+	return headVisible and visible >= LEAN_VISIBLE_SAMPLES, visible, headVisible
+end
+
+local function isLeanWorthwhile(search: Search, spot: PeekSpot, diagnostic: ((any) -> ())?): boolean
+	local seen, visible, headVisible = isLeanVisible(search, spot)
+	if not seen then
 		if diagnostic then diagnostic({ reason = "lean_visibility", visible = visible, head = headVisible }) end
 		return false
 	end
@@ -354,45 +363,64 @@ local function buildSearch(player: Player, options: FindOptions): Search?
 		Eye = eye,
 		Back = -horizontal(facing),
 		FloorY = root.Position.Y - ROOT_HEIGHT,
+		MaxDistance = PeekSpotService:GetMaxDistance(player, options),
 		Views = EnemyObservationService:GetViews(),
 		Options = options,
 	}
 end
 
+local function scoreSpot(search: Search, spot: PeekSpot): number
+	local offset = horizontal(spot.Stand - search.Eye)
+	local distance = offset.Magnitude
+	if distance < 1e-3 or search.Back.Magnitude < 1e-3 then return distance end
+
+	local alignment = math.clamp(offset.Unit:Dot(search.Back.Unit), -1, 1)
+	return distance * (1 + math.deg(math.acos(alignment)) / 180 * SIDE_PENALTY)
+end
+
+function PeekSpotService:GetMaxDistance(player: Player, options: FindOptions): number
+	local fraction = options.FogFraction
+	local fogStart, fogEnd = EnemyObservationService:GetFogRange(player)
+	if not (fraction and fogStart and fogEnd) then return options.MaxDistance end
+	return math.min(options.MaxDistance, fogStart + (fogEnd - fogStart) * fraction)
+end
+
 function PeekSpotService:Find(player: Player, options: FindOptions): PeekSpot?
 	local search = buildSearch(player, options)
 	if not search then return nil end
+	if search.MaxDistance < options.MinDistance then return nil end
 
-	local function collect(corners: { Corner }): { PeekSpot }
-		local spots = {}
-		for _, corner in shuffle(corners) do
-			if #spots >= ENOUGH_SPOTS then break end
-			if not isWithinArc(search.Eye, search.Back, corner.Position, options.RearArc) then continue end
-
-			local spot = placeOn(search, corner)
-			if spot then
-				table.insert(spots, spot)
-			end
-		end
-		return spots
-	end
-
-	local spots = collect(HallwayGridService:GetCorners(
+	local spots = {}
+	for _, corner in shuffle(HallwayGridService:GetCorners(
 		search.Eye,
 		search.FloorY,
 		options.MinDistance,
-		options.MaxDistance
-	))
-	if #spots == 0 then return nil end
+		search.MaxDistance
+	)) do
+		if #spots >= ENOUGH_SPOTS then break end
+		if not isWithinArc(search.Eye, search.Back, corner.Position, options.RearArc) then continue end
 
-	local best, bestDistance = nil, math.huge
+		local spot = placeOn(search, corner)
+		if spot and not SpawnZoneService:Contains(spot.Stand) then
+			table.insert(spots, spot)
+		end
+	end
+
+	local best, bestScore = nil, math.huge
 	for _, spot in spots do
-		local distance = (spot.Stand - search.Eye).Magnitude
-		if distance < bestDistance then
-			best, bestDistance = spot, distance
+		local score = scoreSpot(search, spot)
+		if score < bestScore then
+			best, bestScore = spot, score
 		end
 	end
 	return best
+end
+
+function PeekSpotService:IsInSight(spot: PeekSpot, player: Player, options: FindOptions): boolean
+	local search = buildSearch(player, options)
+	if not search then return false end
+	if horizontal(spot.Stand - search.Eye).Magnitude > search.MaxDistance then return false end
+	return (isLeanVisible(search, spot))
 end
 
 function PeekSpotService:DebugCorner(player: Player, options: FindOptions, position: Vector3): any
@@ -403,7 +431,7 @@ function PeekSpotService:DebugCorner(player: Player, options: FindOptions, posit
 		search.Eye,
 		search.FloorY,
 		options.MinDistance,
-		options.MaxDistance
+		search.MaxDistance
 	) do
 		if (corner.Position - position).Magnitude <= 4 then
 			local checks = {}

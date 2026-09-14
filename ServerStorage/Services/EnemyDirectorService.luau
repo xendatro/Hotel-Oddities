@@ -383,6 +383,9 @@ local function tickChaos(now: number, living: { Player })
 	local scheduled = ChaosService:Spawn(function(chaos: any)
 		ChaosPendingUntil = 0
 		register(chaos, "Chaos", config)
+	end, function()
+		ChaosPendingUntil = 0
+		NextChaosSpawn = os.clock() + Config.TickInterval
 	end)
 
 	if not scheduled then
@@ -496,7 +499,7 @@ local ENGAGED_STATES = {
 }
 
 local function isEngaged(enemy: any): boolean
-	if enemy.Target ~= nil then return true end
+	if enemy.Target ~= nil or enemy.Peeking then return true end
 
 	local machine = enemy.StateMachine
 	return machine ~= nil and ENGAGED_STATES[machine.State] == true

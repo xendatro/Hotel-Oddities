@@ -57,6 +57,10 @@ DiscoveryConfig.Rules = {
 		Death = 0.4,
 	},
 
+	MirrorStalker = {
+		Sight = false,
+	},
+
 	Mimic = {
 		Sight = false,
 		Event = 0.5,

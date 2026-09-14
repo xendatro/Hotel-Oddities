@@ -303,6 +303,7 @@ function Interaction:_applyHighlightAlpha()
 end
 
 function Interaction:_destroyHighlight()
+	self._highlightAlpha = 0
 	if not self._highlight then return end
 
 	self._highlight:Destroy()
@@ -319,12 +320,8 @@ function Interaction:_createHighlight(model: Model)
 	highlight.DepthMode = HIGHLIGHT.DepthMode
 	highlight.FillTransparency = 1
 	highlight.OutlineTransparency = 1
-	highlight.Adornee = model
-	highlight.Enabled = true
-	highlight.Parent = workspace
+	highlight.Parent = model
 	self._highlight = highlight
-
-	self:_applyHighlightAlpha()
 end
 
 function Interaction:_setSelected(target: Target?, immediate: boolean?)
@@ -339,22 +336,23 @@ function Interaction:_setSelected(target: Target?, immediate: boolean?)
 	self._selectionChanged:Fire(model)
 
 	if model then
-		self:_createHighlight(model)
+		if not (self._highlight and self._highlight.Parent == model) then
+			self:_createHighlight(model)
+		end
 	elseif immediate then
-		self._highlightAlpha = 0
 		self:_destroyHighlight()
 	end
 end
 
 function Interaction:_ensureHighlight()
-	local highlight = self._highlight
-	if not highlight then return end
-
-	if highlight.Parent ~= workspace then
-		highlight.Parent = workspace
-	end
-	if highlight.Adornee and not highlight.Adornee:IsDescendantOf(workspace) then
+	local selected = self._selected
+	if selected and not selected:IsDescendantOf(workspace) then
 		self:_setSelected(nil, true)
+	end
+
+	local highlight = self._highlight
+	if highlight and not highlight.Parent then
+		self:_destroyHighlight()
 	end
 end
 
@@ -497,7 +495,6 @@ function Interaction:_reset()
 	local wasSelected = self._selected ~= nil
 	self._selected = nil
 	self._selectedTarget = nil
-	self._highlightAlpha = 0
 	self:_destroyHighlight()
 	self._promptAlpha = 0
 	self._pressFlash = 0
