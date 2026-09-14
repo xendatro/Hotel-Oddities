@@ -39,6 +39,9 @@ local WANDER_ATTEMPTS = 6
 local PREFETCH_ORIGIN_TOLERANCE = 12
 local MIN_LANE_ADVANCE = 4
 local PREFETCH_DESTINATION_TOLERANCE = 1
+local GRAPH_REFRESH_INTERVAL = 0.75
+local GRAPH_LOOKAHEAD = 3
+local GRAPH_NODE_REACH = 4
 local FALLBACK_FIELD_OF_VIEW = 100
 local ROOM_REACTION_DURATION = 3.5
 local ROOM_REACTION_TURN_TIME = 0.45
@@ -171,6 +174,7 @@ function NPC.new(model: Model, config: EnemyConfigs.EnemyConfig, class: any?)
 	self._laneParams = RaycastParams.new()
 	self._laneParams.FilterType = Enum.RaycastFilterType.Exclude
 	self._laneParams.RespectCanCollide = true
+	self._laneParams.CollisionGroup = self.RootPart.CollisionGroup
 	self._laneFilter = {} :: { Instance }
 
 	self._sightParams = RaycastParams.new()
@@ -368,7 +372,7 @@ function NPC:ReactAtRoomDoor(
 	end
 
 	local agentParams = self.Config.AgentParams or {}
-	local approach, doorPosition = RoomService:GetDoorApproach(room, agentParams.AgentRadius or 2.5)
+	local approach, doorPosition, contact = RoomService:GetDoorApproach(room, agentParams.AgentRadius or 2.5)
 	if not approach or not doorPosition then
 		self:SetForcedDoorway(nil)
 		return false
@@ -377,9 +381,19 @@ function NPC:ReactAtRoomDoor(
 	self.Animator:Resume()
 	self:SetSpeed(movementSpeed or self.Config.WalkSpeed)
 	local arrived = self:WalkTo(approach, shouldCancel)
+	if not arrived then
+		self:StopMoving()
+		self:SetSpeed(0)
+		self:SetForcedDoorway(nil)
+		return false
+	end
+
+	if contact then
+		self:_moveToWithTimeout(Vector3.new(contact.X, self.RootPart.Position.Y, contact.Z))
+	end
 	self:StopMoving()
 	self:SetSpeed(0)
-	if not arrived then
+	if shouldCancel and shouldCancel() then
 		self:SetForcedDoorway(nil)
 		return false
 	end
@@ -494,22 +508,40 @@ function NPC:ComputePath(destination: Vector3, tolerance: number?): Path?
 	return self:_computePath(self:_pathOrigin(), destination)
 end
 
-function NPC:TakePrefetchedPath(destination: Vector3, tolerance: number?): Path?
-	local entry = self._prefetch
-	if not entry then return nil end
-	if not entry.Done then return nil end
+function NPC:_findJoinIndex(waypoints: { PathWaypoint }): number?
+	for index = #waypoints, 2, -1 do
+		local position = waypoints[index].Position
+		if self:GetWaypointDistance(position) <= PREFETCH_ORIGIN_TOLERANCE and self:HasMovementClearance(position) then
+			return index
+		end
+	end
+	return nil
+end
 
-	if (entry.Destination - destination).Magnitude > (tolerance or PREFETCH_DESTINATION_TOLERANCE)
-		or (entry.Origin - self.RootPart.Position).Magnitude > PREFETCH_ORIGIN_TOLERANCE
-	then
+function NPC:TakePrefetchedPath(destination: Vector3, tolerance: number?): (Path?, number)
+	local entry = self._prefetch
+	if not entry then return nil, 2 end
+	if not entry.Done then return nil, 2 end
+
+	if (entry.Destination - destination).Magnitude > (tolerance or PREFETCH_DESTINATION_TOLERANCE) then
 		self:_discardPrefetch()
-		return nil
+		return nil, 2
+	end
+
+	local joinIndex = 2
+	if (entry.Origin - self.RootPart.Position).Magnitude > PREFETCH_ORIGIN_TOLERANCE then
+		local found = if entry.Path then self:_findJoinIndex(self:GetMovementWaypoints(entry.Path)) else nil
+		if not found then
+			self:_discardPrefetch()
+			return nil, 2
+		end
+		joinIndex = found
 	end
 
 	self._prefetch = nil
 	local path = entry.Path
 	entry.Path = nil
-	return path
+	return path, joinIndex
 end
 
 function NPC:GetMovementWaypoints(path: Path)
@@ -673,6 +705,12 @@ function NPC:_walkPath(path: Path, shouldAbandon: (() -> boolean)?): string
 		if blockedAt and blockedAt >= index then return finish("Blocked") end
 
 		local waypoint = waypoints[index]
+		if index < #waypoints
+			and waypoint.Action ~= Enum.PathWaypointAction.Jump
+			and not self:HasMovementClearance(waypoint.Position)
+		then
+			continue
+		end
 		if waypoint.Action == Enum.PathWaypointAction.Jump then
 			self.Humanoid.Jump = true
 		end
@@ -736,6 +774,7 @@ function NPC:WalkPatrolEdge(destination: Vector3, lateralOffset: number?): boole
 		local target = if step == steps
 			then destination
 			else origin + direction * (distance * step / steps) + side
+		if not self:HasMovementClearance(target) then return false end
 		if not self:_moveToWithTimeout(target) then return false end
 	end
 	return true
@@ -835,7 +874,7 @@ function NPC:Pursue(
 			return
 		end
 
-		local ready = self:TakePrefetchedPath(requestedDestination or goal, repathDistance)
+		local ready, joinIndex = self:TakePrefetchedPath(requestedDestination or goal, repathDistance)
 		if not ready then return end
 		routeToNode = false
 
@@ -843,7 +882,7 @@ function NPC:Pursue(
 		path = ready
 		local list = self:GetMovementWaypoints(ready)
 		waypoints = list
-		index = self:AdvanceWaypoint(list, 2)
+		index = self:AdvanceWaypoint(list, joinIndex)
 		routeGoal = goal
 		failures = 0
 		nextRequestAt = os.clock() + repathInterval
@@ -865,6 +904,49 @@ function NPC:Pursue(
 		end
 		requestedDestination = destination
 		self:PrefetchPath(destination)
+	end
+
+	local graphRoute = nil :: { any }?
+	local graphIndex = 1
+	local graphRefreshAt = 0
+
+	local function followGraph(goal: Vector3): boolean
+		local now = os.clock()
+		if not graphRoute or now >= graphRefreshAt then
+			graphRefreshAt = now + GRAPH_REFRESH_INTERVAL
+			local from = HallwayGraphService:FindNearestNode(self.RootPart.Position, true)
+			local to = HallwayGraphService:FindNearestNode(goal, true)
+			graphRoute = if from and to then HallwayGraphService:FindPath(from, to) else nil
+			graphIndex = 1
+		end
+
+		local route = graphRoute
+		if not route then return false end
+
+		local position = self.RootPart.Position
+		while graphIndex < #route
+			and horizontal(route[graphIndex].Position - position).Magnitude <= GRAPH_NODE_REACH
+		do
+			graphIndex += 1
+		end
+
+		local target = graphIndex
+		for candidate = math.min(graphIndex + GRAPH_LOOKAHEAD, #route), graphIndex + 1, -1 do
+			if self:HasMovementClearance(route[candidate].Position + Vector3.yAxis * PATROL_NODE_HEIGHT) then
+				target = candidate
+				break
+			end
+		end
+		graphIndex = target
+
+		local point = route[target].Position + Vector3.yAxis * PATROL_NODE_HEIGHT
+		if target == #route and horizontal(point - position).Magnitude <= GRAPH_NODE_REACH then
+			return false
+		end
+
+		local following = route[target + 1]
+		self:MoveThrough(point, if following then following.Position + Vector3.yAxis * PATROL_NODE_HEIGHT else goal)
+		return true
 	end
 
 	while true do
@@ -945,7 +1027,7 @@ function NPC:Pursue(
 				end
 				local following = list[index + 1]
 				self:MoveThrough(waypoint.Position, if following then following.Position else goal)
-			else
+			elseif self:HasMovementClearance(goal) or not followGraph(goal) then
 				if not self:MoveSupported(extendedGoal) then self:MoveSupported(goal) end
 			end
 		end
@@ -959,6 +1041,7 @@ function NPC:Pursue(
 			elseif not direct and not chargeGoal then
 				dropRoute()
 				backOff()
+				graphRoute = nil
 			end
 		end
 
@@ -1238,7 +1321,7 @@ local function chooseDestination(current: any, memory: any, minimumDistance: num
 
 	local candidates, cumulative, total = {}, {}, 0
 	for _, node in (if graph then graph.Nodes else HallwayGraphService:Get()) do
-		if node == current or not node.CanBeDestination then continue end
+		if node == current or not node.CanBeDestination or not node.WellConnected then continue end
 		if (node.Position - origin).Magnitude < minimumDistance then continue end
 
 		local blockedUntil = memory.Blocked[node]

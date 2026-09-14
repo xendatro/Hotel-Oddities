@@ -7,6 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local CameraFovService = require(ReplicatedStorage.Services.CameraFovService)
 local MathService = require(ReplicatedStorage.Services.MathService)
 local HumanoidStatsService = require(ReplicatedStorage.Services.HumanoidStatsService)
+local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
 local SprintConfig = require(ReplicatedStorage.Configs.SprintConfig)
 local WallstickService = require(ReplicatedStorage.Services.WallstickService)
 
@@ -24,6 +25,7 @@ local STEP_JOB = "SprintStep"
 local MOVEMENT_THRESHOLD = 0.05
 local SPEED_BOOST_SPEED_ATTRIBUTE = "SpeedBoostSpeed"
 local SPEED_BOOST_BASE_SPEED_ATTRIBUTE = "SpeedBoostBaseSpeed"
+local UNLIMITED_STAMINA_ATTRIBUTE = PerkConfig.AttributePrefix .. "UnlimitedStamina"
 
 local player = Players.LocalPlayer
 
@@ -55,6 +57,10 @@ end
 
 local function sprintMultiplier(): number
 	return HumanoidStatsService.ReadAttribute(player.Character, "SprintMultiplier")
+end
+
+local function hasUnlimitedStamina(): boolean
+	return player:GetAttribute(UNLIMITED_STAMINA_ATTRIBUTE) == true
 end
 
 local function externalFactor(): number
@@ -146,13 +152,18 @@ local function canSprint(state: CharacterState?): boolean
 end
 
 local function step(deltaTime: number)
-	if exhausted and stamina >= maxStamina() then
+	local maximumStamina = maxStamina()
+	local unlimitedStamina = hasUnlimitedStamina()
+	if unlimitedStamina then
+		stamina = maximumStamina
+		exhausted = false
+	elseif exhausted and stamina >= maximumStamina then
 		exhausted = false
 	end
 
 	local wants = held or toggled
 	local blocked = next(sprintBlocks) ~= nil
-	local shouldSprint = wants and not blocked and not exhausted and stamina > 0 and canSprint(characterState)
+	local shouldSprint = wants and not blocked and not exhausted and (unlimitedStamina or stamina > 0) and canSprint(characterState)
 	if shouldSprint ~= sprinting then
 		sprinting = shouldSprint
 		applySpeed()
@@ -160,17 +171,21 @@ local function step(deltaTime: number)
 
 	if sprinting then
 		idleTime = 0
-		stamina = math.max(stamina - STAMINA.DrainRate * deltaTime, 0)
-		if stamina <= 0 then
-			exhausted = true
-			toggled = false
-			sprinting = false
-			applySpeed()
+		if unlimitedStamina then
+			stamina = maximumStamina
+		else
+			stamina = math.max(stamina - STAMINA.DrainRate * deltaTime, 0)
+			if stamina <= 0 then
+				exhausted = true
+				toggled = false
+				sprinting = false
+				applySpeed()
+			end
 		end
-	elseif stamina < maxStamina() then
+	elseif not unlimitedStamina and stamina < maximumStamina then
 		idleTime += deltaTime
 		if idleTime >= STAMINA.RegenDelay then
-			stamina = math.min(stamina + STAMINA.RegenRate * deltaTime, maxStamina())
+			stamina = math.min(stamina + STAMINA.RegenRate * deltaTime, maximumStamina)
 		end
 	end
 

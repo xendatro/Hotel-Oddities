@@ -21,9 +21,9 @@ function HallwayRegion.Same(first: Span, second: Span): boolean
 	return sameDirection or oppositeDirection
 end
 
-function HallwayRegion.At(position: Vector3, includeRoomFloors: boolean?): Span?
+function HallwayRegion.At(position: Vector3, includeRoomFloors: boolean?, direction: Vector3?): Span?
 	if not Hallways.At(position, includeRoomFloors) then return nil end
-	return Hallways.StraightSpanAt(position)
+	return Hallways.StraightSpanAt(position, direction)
 end
 
 export type Occupant = {
