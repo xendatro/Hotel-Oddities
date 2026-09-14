@@ -9,13 +9,17 @@ end
 
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local ItemConfig = require(ReplicatedStorage.Configs.DrawerItemConfig)
+local AudioService = require(ReplicatedStorage.Services.AudioService)
 local DrawerService = require(ReplicatedStorage.Services.DrawerService)
 local Interaction = require(ReplicatedStorage.Services.InteractionService)
+local MathService = require(ReplicatedStorage.Services.MathService)
+local NotificationService = require(ReplicatedStorage.Services.NotificationService)
 local TagService = require(ReplicatedStorage.Services.TagService)
 
 local PICKUP_COOLDOWN = 0.15
 
 local PickupRemote = CommunicationService.Get(ItemConfig.Remotes.Folder, ItemConfig.Remotes.Pickup)
+local PickupResultRemote = CommunicationService.Get(ItemConfig.Remotes.Folder, ItemConfig.Remotes.Result) :: RemoteEvent
 
 local States: { [Model]: true } = {}
 local focused: Model? = nil
@@ -67,5 +71,19 @@ Interaction.Selected:Connect(function(model: Model?)
 end)
 
 TagService:Listen(ItemConfig.Tag, register, unregister, workspace)
+
+PickupResultRemote.OnClientEvent:Connect(function(currency: any, amount: any)
+	if type(currency) ~= "string" or type(amount) ~= "number" or amount <= 0 then return end
+
+	local label = ItemConfig.Feedback.Labels[currency]
+	if type(label) ~= "string" then return end
+
+	NotificationService:Show(`+{MathService.Comma(amount)} {label}`)
+
+	local sound = ItemConfig.Feedback.Sounds[currency]
+	if type(sound) == "string" and AudioService:FindTemplate(sound) then
+		AudioService:Play2DSound(sound, false, "SFX")
+	end
+end)
 
 return DrawerItemService

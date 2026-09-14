@@ -7,6 +7,7 @@ local CaptureConfig = require(ReplicatedStorage.Configs.CaptureConfig)
 local CaptureGalleryService = require(ReplicatedStorage.Services.CaptureGalleryService)
 local NotificationService = require(ReplicatedStorage.Services.NotificationService)
 local PhotoDevelopService = require(ReplicatedStorage.Services.PhotoDevelopService)
+local ViewmodelService = require(ReplicatedStorage.Services.ViewmodelService)
 
 local Camcorder = ClientTool.extend("Camcorder")
 local HUD = CaptureConfig.Video.Hud
@@ -109,6 +110,17 @@ function Camcorder:_stow()
 	end
 end
 
+function Camcorder:_stopRecording()
+	if not self.OwnsRecording then return end
+	if not CaptureGalleryService:IsRecording() then
+		self.StopWhenStarted = true
+		return
+	end
+	self.StopWhenStarted = false
+	self.StopAt = nil
+	CaptureGalleryService:StopVideo()
+end
+
 function Camcorder:_roll()
 	if CaptureGalleryService:IsRecording() then
 		self:_stow()
@@ -117,47 +129,62 @@ function Camcorder:_roll()
 
 	local settings = CaptureConfig.Video
 
-	self:_stow()
+	self.OwnsRecording = true
+	self.StopWhenStarted = false
+	ViewmodelService:SetCaptureHidden(true)
 	task.wait(settings.HideToolFor)
 
-	self.OwnsRecording = true
-
-	local function stop()
-		if not self.OwnsRecording then return end
+	local started: boolean? = nil
+	started = CaptureGalleryService:StartVideo(function(media, message)
 		self.StopAt = nil
-		CaptureGalleryService:StopVideo()
-	end
-
-	local started = CaptureGalleryService:StartVideo(function(media, message)
-		self.StopAt = nil
+		self.StopWhenStarted = false
 		self.OwnsRecording = false
 		if self.Tool.Parent then self.Tool.Enabled = true end
 		hideRecording()
+		ViewmodelService:SetCaptureHidden(false)
+		task.defer(function()
+			self:Fire(if media then "Finished" else "Cancelled")
+		end)
 
 		if not media then
 			NotificationService:Show(message or CaptureConfig.Text.Unsupported)
 			return
 		end
 
-		PhotoDevelopService:Show(media, true)
+		PhotoDevelopService:Show(media, true, function(kept)
+			self:Fire(if kept then "Kept" else "Burned")
+		end)
 	end)
 
 	if not started then
+		self.StopWhenStarted = false
 		self.OwnsRecording = false
+		self.Tool.Enabled = true
+		ViewmodelService:SetCaptureHidden(false)
 		hideRecording()
+		return
+	end
+	if not self.OwnsRecording then return end
+	if self.StopWhenStarted then
+		self:_stopRecording()
 		return
 	end
 
 	NotificationService:Show(CaptureConfig.Text.Recording)
-	self.Tool.Enabled = false
-	showRecording(stop)
+	showRecording(function()
+		self:_stopRecording()
+	end)
+	if not self.OwnsRecording or not CaptureGalleryService:IsRecording() then
+		hideRecording()
+		return
+	end
 
 	local duration = math.min(settings.Duration, settings.MaxDuration)
 	self.StopAt = os.clock() + duration
 
 	task.delay(duration, function()
 		if not self.StopAt or os.clock() < self.StopAt - 0.05 then return end
-		stop()
+		self:_stopRecording()
 	end)
 end
 
@@ -168,6 +195,14 @@ function Camcorder:OnEquipped()
 			self:_stow()
 		end
 	end)
+end
+
+function Camcorder:OnUnequipped()
+	self.StopAt = nil
+	if self.OwnsRecording and not CaptureGalleryService:IsRecording() then
+		self.StopWhenStarted = true
+	end
+	CaptureGalleryService:StopVideo()
 end
 
 function Camcorder:OnActivated()
@@ -181,9 +216,11 @@ end
 
 function Camcorder:OnDestroy()
 	self.StopAt = nil
+	self.StopWhenStarted = false
 	if self.OwnsRecording and CaptureGalleryService:IsRecording() then
 		CaptureGalleryService:StopVideo()
 	end
+	ViewmodelService:SetCaptureHidden(false)
 	ClientTool.OnDestroy(self)
 end
 

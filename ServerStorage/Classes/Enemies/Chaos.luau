@@ -69,28 +69,46 @@ function Chaos:_killAlong(origin: Vector3, destination: Vector3)
 end
 
 function Chaos:TravelRoute()
+	local points = { self.Route[1] }
+	local lengths = { 0 }
+	local total = 0
 	for index = 2, #self.Route do
+		local point = self.Route[index]
+		local length = (point - points[#points]).Magnitude
+		if length < MINIMUM_LEG then continue end
+
+		table.insert(points, point)
+		table.insert(lengths, length)
+		total += length
+	end
+	if #points < 2 then return end
+
+	local speed = self.Config.WalkSpeed
+	local startedAt = os.clock()
+	local previous = points[1]
+	local leg = 2
+	local consumed = 0
+
+	while self.Active do
+		RunService.Heartbeat:Wait()
 		if not self.Active then return end
 
-		local origin = self.Route[index - 1]
-		local destination = self.Route[index]
-		local offset = destination - origin
-		local duration = offset.Magnitude / self.Config.WalkSpeed
-		if duration < MINIMUM_LEG then continue end
+		local travelled = math.min((os.clock() - startedAt) * speed, total)
+		while leg < #points and travelled >= consumed + lengths[leg] do
+			consumed += lengths[leg]
+			leg += 1
+		end
 
-		local startedAt = os.clock()
-		local previous = origin
-		local alpha = 0
-		repeat
-			RunService.Heartbeat:Wait()
-			if not self.Active then return end
+		local origin = points[leg - 1]
+		local destination = points[leg]
+		local alpha = math.clamp((travelled - consumed) / lengths[leg], 0, 1)
+		local position = origin:Lerp(destination, alpha)
 
-			alpha = math.min((os.clock() - startedAt) / duration, 1)
-			local position = origin:Lerp(destination, alpha)
-			self.Model:PivotTo(CFrame.lookAt(position, position + offset))
-			self:_killAlong(previous, position)
-			previous = position
-		until alpha >= 1
+		self.Model:PivotTo(CFrame.lookAt(position, position + (destination - origin)))
+		self:_killAlong(previous, position)
+		previous = position
+
+		if travelled >= total then return end
 	end
 end
 
@@ -100,6 +118,7 @@ end
 
 function Chaos:OnDespawn(): number?
 	self.WarningToken.Cancelled = true
+	self.WarningToken.Retract()
 	return stopParticles(self.Model)
 end
 

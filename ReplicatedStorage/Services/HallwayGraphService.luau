@@ -14,11 +14,22 @@ local CONNECTION_EPSILON = 0.5
 local NODE_MERGE_DISTANCE = 4
 local VERTICAL_CONNECTION_DISTANCE = 4
 local MINIMUM_EDGE = 1
+local GROUND_PROBE_UP = 4
+local GROUND_PROBE_DOWN = 20
+local NODE_CLEARANCE = 1.5
+local NODE_CLEARANCE_LIFT = 3
+local CLEARANCE_DIRECTIONS = {
+	Vector3.new(1, 0, 0),
+	Vector3.new(-1, 0, 0),
+	Vector3.new(0, 0, 1),
+	Vector3.new(0, 0, -1),
+}
 
 export type RouteNode = {
 	Position: Vector3,
 	Neighbors: { [RouteNode]: boolean },
 	CanBeDestination: boolean,
+	WellConnected: boolean,
 }
 
 type Hallway = {
@@ -83,6 +94,7 @@ local function getOrCreateNode(nodes: { RouteNode }, position: Vector3): RouteNo
 		Position = position,
 		Neighbors = {},
 		CanBeDestination = true,
+		WellConnected = true,
 	}
 	table.insert(nodes, node)
 	return node
@@ -151,6 +163,95 @@ local function addParallelIntersection(first: Hallway, second: Hallway, nodes: {
 				return
 			end
 		end
+	end
+end
+
+local GroundParams = RaycastParams.new()
+GroundParams.FilterType = Enum.RaycastFilterType.Exclude
+GroundParams.RespectCanCollide = true
+
+local function groundAt(position: Vector3): Vector3?
+	local enemies = workspace:FindFirstChild("Enemies")
+	GroundParams.FilterDescendantsInstances = if enemies then { enemies } else {}
+	local result = workspace:Raycast(
+		position + Vector3.yAxis * GROUND_PROBE_UP,
+		Vector3.yAxis * -(GROUND_PROBE_UP + GROUND_PROBE_DOWN),
+		GroundParams
+	)
+	return result and result.Position or nil
+end
+
+local function hasClearance(position: Vector3): boolean
+	local origin = position + Vector3.yAxis * NODE_CLEARANCE_LIFT
+	for _, direction in CLEARANCE_DIRECTIONS do
+		if workspace:Raycast(origin, direction * NODE_CLEARANCE, GroundParams) then return false end
+	end
+	return true
+end
+
+local function pruneUnusable(graph: Graph)
+	local removed: { [RouteNode]: boolean } = {}
+
+	for index = #graph.Nodes, 1, -1 do
+		local node = graph.Nodes[index]
+		local ground = groundAt(node.Position)
+		if ground and hasClearance(ground) then
+			node.Position = ground
+			continue
+		end
+
+		local neighbors: { RouteNode } = {}
+		for neighbor in node.Neighbors do
+			table.insert(neighbors, neighbor)
+			neighbor.Neighbors[node] = nil
+		end
+		for first = 1, #neighbors - 1 do
+			for second = first + 1, #neighbors do
+				connect(neighbors[first], neighbors[second])
+			end
+		end
+
+		removed[node] = true
+		table.clear(node.Neighbors)
+		table.remove(graph.Nodes, index)
+	end
+
+	for _, hallway in graph.Hallways do
+		for index = #hallway.Nodes, 1, -1 do
+			local node = hallway.Nodes[index]
+			if removed[node] then
+				hallway.JunctionReach[node] = nil
+				table.remove(hallway.Nodes, index)
+			end
+		end
+	end
+end
+
+local function markWellConnected(graph: Graph)
+	local component: { [RouteNode]: { RouteNode } } = {}
+	local largest: { RouteNode }? = nil
+
+	for _, node in graph.Nodes do
+		if component[node] then continue end
+		local members, stack = {}, { node }
+		component[node] = members
+		while #stack > 0 do
+			local current = table.remove(stack) :: RouteNode
+			table.insert(members, current)
+			for neighbor in current.Neighbors do
+				if not component[neighbor] then
+					component[neighbor] = members
+					table.insert(stack, neighbor)
+				end
+			end
+		end
+		if not largest or #members > #(largest :: { RouteNode }) then
+			largest = members
+		end
+	end
+
+	for _, node in graph.Nodes do
+		node.WellConnected = component[node] == largest
 	end
 end
 
@@ -297,9 +398,10 @@ function HallwayGraph:Invalidate()
 	Cached = nil
 end
 
-function HallwayGraph:FindNearestNode(position: Vector3): RouteNode?
+function HallwayGraph:FindNearestNode(position: Vector3, wellConnectedOnly: boolean?): RouteNode?
 	local nearest, nearestDistance = nil, math.huge
 	for _, node in self:Get() do
+		if wellConnectedOnly and not node.WellConnected then continue end
 		local distance = (node.Position - position).Magnitude
 		if distance < nearestDistance then
 			nearest, nearestDistance = node, distance

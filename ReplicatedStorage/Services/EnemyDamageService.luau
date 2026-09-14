@@ -94,7 +94,6 @@ local function kill(enemy: Model)
 	dead = true
 	playKillAnimation(enemy)
 	Kill:FireServer(enemy)
-	humanoid.Health = 0
 end
 
 local function tryKill(enemy: Model, hit: BasePart)

@@ -106,14 +106,6 @@ local Entries: { Entry } = {
 		Product = "Pathfinder",
 	},
 	{
-		Id = "Player Locator",
-		Name = "Player Locator",
-		Description = "Hold it up to see roughly where everyone else still is.",
-		CoinPrice = 1,
-		RobuxPrice = 1,
-		Product = "PlayerLocator",
-	},
-	{
 		Id = "Random Oddity",
 		Name = "Random Oddity",
 		Description = "Take whichever change the hotel feels like handing out.",

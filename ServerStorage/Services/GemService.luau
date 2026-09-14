@@ -3,13 +3,19 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
 local DataSaveService = require(ServerStorage.Services.DataSaveService)
 
 local Sync = CommunicationService.Get("Gems", "Sync") :: RemoteEvent
 
 local ATTRIBUTE = "Gems"
+local DOUBLE_ATTRIBUTE = PerkConfig.AttributePrefix .. "DoubleGems"
 
 local GemService = {}
+
+local function multiplier(player: Player): number
+	return if player:GetAttribute(DOUBLE_ATTRIBUTE) == true then 2 else 1
+end
 
 local function read(profile): number
 	local gems = tonumber(profile.Data.Gems) or 0
@@ -31,7 +37,20 @@ function GemService:Sync(player: Player, result: string?)
 	Sync:FireClient(player, gems, result)
 end
 
-function GemService:Award(player: Player, amount: number): boolean
+function GemService:Award(player: Player, amount: number, multiplied: boolean?): boolean
+	local profile = DataSaveService:Get(player)
+	if not profile then return false end
+
+	amount = math.floor(tonumber(amount) or 0)
+	if amount <= 0 then return false end
+
+	local factor = if multiplied == false then 1 else multiplier(player)
+	profile.Data.Gems = read(profile) + amount * factor
+	GemService:Sync(player)
+	return true
+end
+
+function GemService:Refund(player: Player, amount: number): boolean
 	local profile = DataSaveService:Get(player)
 	if not profile then return false end
 
