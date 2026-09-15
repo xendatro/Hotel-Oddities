@@ -112,7 +112,7 @@ One tile in the Gallery grid. Clones the complete Studio-authored `GalleryGui.De
 - Requires: `Configs.CaptureConfig`, `CaptureGalleryService`; expects the authored gallery card template
 
 ### KitCard.luau
-One kit tile in the inventory or shop grid: clones the GUI's `Template` ImageButton into a layout holder, dresses it with its rarity stroke, rarity ribbon, kit name, status line and dim overlay through `KitVisualService`, renders the kit's showcase item into the tile's ViewportFrame, and owns the hover/press/select/deal motion. Used by both kit pages so the two grids cannot drift apart.
+One kit tile in the inventory or shop grid: clones the GUI's `Template` ImageButton into a layout holder, dresses it with its rarity stroke, rarity ribbon, kit name, status line and dim overlay through `KitVisualService`, fills its portrait through `KitVisualService.FillPortrait` (the kit's `Image` headshot, or its showcase item in the tile's ViewportFrame when it has none), and owns the hover/press/select/deal motion. Used by both kit pages so the two grids cannot drift apart.
 - API: `KitCard.new(template: ImageButton, parent: Instance, kit, order: number, onSelect: (kit) -> ()) -> KitCard`
 - API: `KitCard:Pose(override: TweenInfo?)` - re-tween to whatever the current hover/press/selected state implies
 - API: `KitCard:SetSelected(selected: boolean)`

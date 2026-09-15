@@ -97,11 +97,7 @@ local function makeReelCard(kit: KitConfig.Kit, index: number): ImageButton
 	scale.Parent = card
 
 	KitVisualService.DressCard(card, kit)
-
-	local viewport = card:FindFirstChild("ViewportFrame")
-	if viewport and viewport:IsA("ViewportFrame") then
-		KitVisualService.BuildPreview(viewport, KitVisualService.Showcase(kit))
-	end
+	KitVisualService.FillPortrait(card, kit)
 
 	return card
 end

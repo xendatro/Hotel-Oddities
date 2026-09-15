@@ -6,6 +6,7 @@ export type Kit = {
 	Stats: { [string]: number },
 	Items: { [string]: number },
 	Showcase: string?,
+	Image: string?,
 }
 
 local DefaultKit = "Guest"
@@ -18,6 +19,7 @@ local Entries: { Kit } = {
 		Description = "The standard issue nothing. You checked in with what you were wearing.",
 		Stats = {},
 		Items = {},
+		Image = "rbxassetid://75309480343586",
 	},
 	{
 		Id = "Handyman",
@@ -30,6 +32,7 @@ local Entries: { Kit } = {
 			Bandage = 3,
 		},
 		Showcase = "Shovel",
+		Image = "rbxassetid://83301883581743",
 	},
 	{
 		Id = "Nightlight",
@@ -44,6 +47,7 @@ local Entries: { Kit } = {
 			Bandage = 1,
 		},
 		Showcase = "Flashlight",
+		Image = "rbxassetid://115611699063621",
 	},
 	{
 		Id = "Sprinter",
@@ -55,6 +59,128 @@ local Entries: { Kit } = {
 			Stamina = 130,
 		},
 		Items = {},
+		Image = "rbxassetid://138143718083781",
+	},
+	{
+		Id = "Survivor",
+		Name = "Survivor",
+		Rarity = "Common",
+		Description = "Checked in with a bruise already and a plan to leave with only a few more.",
+		Stats = {
+			MaxHealth = 128,
+		},
+		Items = {
+			Soda = 1,
+			Bandage = 1,
+		},
+		Showcase = "Soda",
+		Image = "rbxassetid://94149533150457",
+	},
+	{
+		Id = "Scavenger",
+		Name = "Scavenger",
+		Rarity = "Common",
+		Description = "Whatever the last guest left behind is yours now.",
+		Stats = {},
+		Items = {
+			Shovel = 1,
+			Flashlight = 1,
+			Soda = 1,
+		},
+		Showcase = "Shovel",
+		Image = "rbxassetid://84355433351119",
+	},
+	{
+		Id = "Orderly",
+		Name = "Orderly",
+		Rarity = "Common",
+		Description = "Pushes the cart, stocks the cupboard, does not ask what the stains are.",
+		Stats = {},
+		Items = {
+			Medkit = 1,
+			Bandage = 2,
+			Ball = 1,
+		},
+		Showcase = "Medkit",
+		Image = "rbxassetid://124059618438295",
+	},
+	{
+		Id = "Scholar",
+		Name = "Scholar",
+		Rarity = "Common",
+		Description = "You found the reading room. You did not put the book back.",
+		Stats = {},
+		Items = {
+			SpellBook = 1,
+		},
+		Showcase = "SpellBook",
+		Image = "rbxassetid://79662037084951",
+	},
+	{
+		Id = "Bouncer",
+		Name = "Bouncer",
+		Rarity = "Common",
+		Description = "Nobody gets past you. Mostly because you don't move.",
+		Stats = {
+			MaxHealth = 148,
+		},
+		Items = {},
+		Image = "rbxassetid://126857461943140",
+	},
+	{
+		Id = "Wanderer",
+		Name = "Wanderer",
+		Rarity = "Common",
+		Description = "Walks the halls after hours. Prefers not to say why.",
+		Stats = {
+			WalkSpeed = 18,
+		},
+		Items = {
+			Flashlight = 1,
+		},
+		Showcase = "Flashlight",
+		Image = "rbxassetid://119070141273624",
+	},
+	{
+		Id = "Brawler",
+		Name = "Brawler",
+		Rarity = "Common",
+		Description = "Throws first. Asks nothing.",
+		Stats = {
+			MaxHealth = 136,
+		},
+		Items = {
+			Ball = 2,
+		},
+		Showcase = "Ball",
+		Image = "rbxassetid://89889339639626",
+	},
+	{
+		Id = "Tinkerer",
+		Name = "Tinkerer",
+		Rarity = "Common",
+		Description = "One trap, a few bandages, and a suspicion that the wiring is alive.",
+		Stats = {},
+		Items = {
+			Trap = 1,
+			Bandage = 2,
+		},
+		Showcase = "Trap",
+		Image = "rbxassetid://118031386228470",
+	},
+	{
+		Id = "Housekeeper",
+		Name = "Housekeeper",
+		Rarity = "Common",
+		Description = "Nobody notices housekeeping. That is the whole job.",
+		Stats = {
+			DetectionRadius = 0.85,
+		},
+		Items = {
+			Soda = 1,
+		},
+		Showcase = "Soda",
+		Image = "rbxassetid://98681374720330",
 	},
 	{
 		Id = "Medic",
@@ -70,6 +196,7 @@ local Entries: { Kit } = {
 			Soda = 2,
 		},
 		Showcase = "Medkit",
+		Image = "rbxassetid://76968355865885",
 	},
 	{
 		Id = "Scout",
@@ -85,6 +212,7 @@ local Entries: { Kit } = {
 			Ball = 1,
 		},
 		Showcase = "Flashlight",
+		Image = "rbxassetid://72216273380442",
 	},
 	{
 		Id = "Trapper",
@@ -98,6 +226,7 @@ local Entries: { Kit } = {
 			Ball = 1,
 		},
 		Showcase = "Trap",
+		Image = "rbxassetid://89076048973499",
 	},
 	{
 		Id = "GlassGuest",
@@ -112,6 +241,98 @@ local Entries: { Kit } = {
 			["Energy Drink"] = 1,
 		},
 		Showcase = "Energy Drink",
+		Image = "rbxassetid://121606849660489",
+	},
+	{
+		Id = "Paramedic",
+		Name = "Paramedic",
+		Rarity = "Uncommon",
+		Description = "Arrives fast, patches faster, and drinks the energy drink on the way out.",
+		Stats = {
+			WalkSpeed = 18,
+		},
+		Items = {
+			Medkit = 1,
+			Bandage = 1,
+			["Energy Drink"] = 1,
+		},
+		Showcase = "Medkit",
+		Image = "rbxassetid://112413023859572",
+	},
+	{
+		Id = "Physician",
+		Name = "Physician",
+		Rarity = "Uncommon",
+		Description = "Second opinion: leave.",
+		Stats = {
+			MaxHealth = 150,
+		},
+		Items = {
+			Medkit = 1,
+			Soda = 1,
+		},
+		Showcase = "Medkit",
+		Image = "rbxassetid://139818801419177",
+	},
+	{
+		Id = "Sentinel",
+		Name = "Sentinel",
+		Rarity = "Uncommon",
+		Description = "Stands at the end of the hall and stays standing.",
+		Stats = {
+			WalkSpeed = 18,
+			MaxHealth = 140,
+		},
+		Items = {
+			Bandage = 2,
+		},
+		Showcase = "Bandage",
+		Image = "rbxassetid://136163045907737",
+	},
+	{
+		Id = "Poacher",
+		Name = "Poacher",
+		Rarity = "Uncommon",
+		Description = "Sets the snare, then makes sure nothing sees who set it.",
+		Stats = {
+			DetectionRadius = 0.8,
+		},
+		Items = {
+			Trap = 1,
+			Bandage = 1,
+		},
+		Showcase = "Trap",
+		Image = "rbxassetid://85894706464254",
+	},
+	{
+		Id = "FieldMedic",
+		Name = "Field Medic",
+		Rarity = "Uncommon",
+		Description = "Two medkits, because the first one is never enough here.",
+		Stats = {},
+		Items = {
+			Medkit = 2,
+			Bandage = 2,
+			Soda = 1,
+			Ball = 1,
+		},
+		Showcase = "Medkit",
+		Image = "rbxassetid://140224823355407",
+	},
+	{
+		Id = "Occultist",
+		Name = "Occultist",
+		Rarity = "Uncommon",
+		Description = "Reads aloud from things that should not be read at all.",
+		Stats = {
+			DetectionRadius = 0.9,
+		},
+		Items = {
+			SpellBook = 1,
+			Flashlight = 1,
+		},
+		Showcase = "SpellBook",
+		Image = "rbxassetid://108697681689911",
 	},
 	{
 		Id = "Ghost",
@@ -127,6 +348,7 @@ local Entries: { Kit } = {
 			Pathfinder = 1,
 		},
 		Showcase = "Visor",
+		Image = "rbxassetid://96607186665093",
 	},
 	{
 		Id = "Warden",
@@ -143,6 +365,7 @@ local Entries: { Kit } = {
 			Shovel = 1,
 		},
 		Showcase = "Shovel",
+		Image = "rbxassetid://134919988892057",
 	},
 	{
 		Id = "Sapper",
@@ -157,6 +380,7 @@ local Entries: { Kit } = {
 			Bandage = 1,
 		},
 		Showcase = "Trap",
+		Image = "rbxassetid://86028672886934",
 	},
 	{
 		Id = "Runner",
@@ -172,6 +396,68 @@ local Entries: { Kit } = {
 			["Energy Drink"] = 2,
 		},
 		Showcase = "Energy Drink",
+		Image = "rbxassetid://128135966458721",
+	},
+	{
+		Id = "Warlock",
+		Name = "Warlock",
+		Rarity = "Rare",
+		Description = "Half a curse, half a sprint, and a book you keep meaning to finish.",
+		Stats = {
+			WalkSpeed = 19,
+			MaxHealth = 130,
+		},
+		Items = {
+			SpellBook = 1,
+			Ball = 1,
+		},
+		Showcase = "SpellBook",
+		Image = "rbxassetid://100743959198850",
+	},
+	{
+		Id = "Wrecker",
+		Name = "Wrecker",
+		Rarity = "Rare",
+		Description = "Not subtle. Not sorry. Not slowing down for the furniture.",
+		Stats = {
+			MaxHealth = 140,
+		},
+		Items = {
+			Trap = 2,
+			Shovel = 1,
+			Ball = 2,
+		},
+		Showcase = "Shovel",
+		Image = "rbxassetid://89041060708431",
+	},
+	{
+		Id = "Bombardier",
+		Name = "Bombardier",
+		Rarity = "Rare",
+		Description = "Throw everything. Then run.",
+		Stats = {},
+		Items = {
+			Ball = 5,
+			Trap = 2,
+			["Energy Drink"] = 2,
+			Bandage = 1,
+		},
+		Showcase = "Ball",
+		Image = "rbxassetid://123311740201895",
+	},
+	{
+		Id = "Conjurer",
+		Name = "Conjurer",
+		Rarity = "Rare",
+		Description = "Two readings of the forbidden passage and a kit for when the second one goes wrong.",
+		Stats = {},
+		Items = {
+			SpellBook = 2,
+			Medkit = 1,
+			Soda = 1,
+		},
+		Showcase = "SpellBook",
+		Image = "rbxassetid://90269030317848",
 	},
 	{
 		Id = "Adrenaline",
@@ -191,6 +477,7 @@ local Entries: { Kit } = {
 			Bandage = 1,
 		},
 		Showcase = "Trap",
+		Image = "rbxassetid://98606682766941",
 	},
 	{
 		Id = "Bunker",
@@ -206,6 +493,7 @@ local Entries: { Kit } = {
 			Shovel = 1,
 		},
 		Showcase = "Medkit",
+		Image = "rbxassetid://112738817964535",
 	},
 	{
 		Id = "Phantom",
@@ -221,6 +509,7 @@ local Entries: { Kit } = {
 			Pathfinder = 1,
 		},
 		Showcase = "Visor",
+		Image = "rbxassetid://133907193282521",
 	},
 	{
 		Id = "Quartermaster",
@@ -237,6 +526,58 @@ local Entries: { Kit } = {
 			Ball = 2,
 		},
 		Showcase = "SpellBook",
+		Image = "rbxassetid://106798756798264",
+	},
+	{
+		Id = "Warlord",
+		Name = "Warlord",
+		Rarity = "Epic",
+		Description = "Takes the hall by force and the stairwell by shovel.",
+		Stats = {
+			WalkSpeed = 20,
+			MaxHealth = 160,
+		},
+		Items = {
+			Shovel = 1,
+			Trap = 1,
+			Bandage = 2,
+		},
+		Showcase = "Shovel",
+		Image = "rbxassetid://75762078814055",
+	},
+	{
+		Id = "Breacher",
+		Name = "Breacher",
+		Rarity = "Epic",
+		Description = "Digs through the floor, traps the door, and dares the hotel to follow.",
+		Stats = {
+			MaxHealth = 140,
+		},
+		Items = {
+			Shovel = 2,
+			Trap = 3,
+			Bandage = 2,
+		},
+		Showcase = "Shovel",
+		Image = "rbxassetid://108028479236354",
+	},
+	{
+		Id = "Harbinger",
+		Name = "Harbinger",
+		Rarity = "Epic",
+		Description = "Arrives before the screaming starts and leaves before it stops.",
+		Stats = {
+			DetectionRadius = 0.7,
+			WalkSpeed = 19,
+		},
+		Items = {
+			Trap = 1,
+			Ball = 2,
+			Flashlight = 1,
+			Bandage = 2,
+		},
+		Showcase = "Trap",
+		Image = "rbxassetid://75545635247390",
 	},
 	{
 		Id = "Vanguard",
@@ -255,6 +596,7 @@ local Entries: { Kit } = {
 			Ball = 1,
 		},
 		Showcase = "Trap",
+		Image = "rbxassetid://131689231280624",
 	},
 	{
 		Id = "Wraith",
@@ -272,6 +614,7 @@ local Entries: { Kit } = {
 			["Energy Drink"] = 1,
 		},
 		Showcase = "SpellBook",
+		Image = "rbxassetid://115972838747553",
 	},
 	{
 		Id = "Berserker",
@@ -291,6 +634,7 @@ local Entries: { Kit } = {
 			Bandage = 2,
 		},
 		Showcase = "Trap",
+		Image = "rbxassetid://97581691346553",
 	},
 	{
 		Id = "Concierge",
@@ -312,6 +656,25 @@ local Entries: { Kit } = {
 			["Energy Drink"] = 1,
 		},
 		Showcase = "Medkit",
+		Image = "rbxassetid://117504807384927",
+	},
+	{
+		Id = "Oracle",
+		Name = "Oracle",
+		Rarity = "Legendary",
+		Description = "Sees the whole floor at once and still takes the long way, for the drama.",
+		Stats = {
+			MaxHealth = 140,
+			WalkSpeed = 20,
+			DetectionRadius = 0.9,
+		},
+		Items = {
+			SpellBook = 2,
+			Medkit = 1,
+			Ball = 1,
+		},
+		Showcase = "SpellBook",
+		Image = "rbxassetid://131593923794576",
 	},
 	{
 		Id = "Apex",
@@ -330,6 +693,7 @@ local Entries: { Kit } = {
 			Ball = 1,
 		},
 		Showcase = "Trap",
+		Image = "rbxassetid://119864086043210",
 	},
 	{
 		Id = "Revenant",
@@ -350,6 +714,7 @@ local Entries: { Kit } = {
 			Bandage = 1,
 		},
 		Showcase = "Pathfinder",
+		Image = "rbxassetid://114159922530767",
 	},
 	{
 		Id = "Colossus",
@@ -369,6 +734,7 @@ local Entries: { Kit } = {
 			Ball = 3,
 		},
 		Showcase = "Shovel",
+		Image = "rbxassetid://122260326768062",
 	},
 	{
 		Id = "Archivist",
@@ -388,6 +754,7 @@ local Entries: { Kit } = {
 			Ball = 2,
 		},
 		Showcase = "Pathfinder",
+		Image = "rbxassetid://135069229787362",
 	},
 }
 

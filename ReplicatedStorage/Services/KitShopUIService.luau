@@ -29,7 +29,7 @@ local template = kitsFrame:WaitForChild("Template") :: ImageButton
 local info = design:WaitForChild("Info") :: Frame
 local infoName = info:WaitForChild("KitName") :: TextLabel
 local infoDescription = info:WaitForChild("KitDescription") :: TextLabel
-local infoViewport = info:WaitForChild("Preview"):WaitForChild("ViewportFrame") :: ViewportFrame
+local infoPreview = info:WaitForChild("Preview") :: ImageLabel
 local infoStats = info:WaitForChild("KitStats") :: Frame
 local priceLabel = info:WaitForChild("gem_icon"):WaitForChild("KitPrice") :: TextLabel
 local buyButton = info:WaitForChild("GemBuyButton") :: ImageButton
@@ -48,13 +48,14 @@ template.Visible = false
 local infoNameBase = infoName.Position
 local infoDescriptionBase = infoDescription.Position
 local infoTweens: { Tween } = {}
+local infoPortrait: (ImageLabel | ViewportFrame)? = nil
 
 local function playInfoTransition()
 	TweenProxyService.CancelAll(infoTweens)
 
 	infoName.TextTransparency = 1
 	infoDescription.TextTransparency = 1
-	infoViewport.ImageTransparency = 1
+	if infoPortrait then infoPortrait.ImageTransparency = 1 end
 	infoName.Position = infoNameBase + UDim2.fromScale(0, INFO.Rise)
 	infoDescription.Position = infoDescriptionBase + UDim2.fromScale(0, INFO.Rise)
 
@@ -62,8 +63,10 @@ local function playInfoTransition()
 	infoTweens = {
 		TweenService:Create(infoName, tweenInfo, { TextTransparency = 0, Position = infoNameBase }),
 		TweenService:Create(infoDescription, tweenInfo, { TextTransparency = 0, Position = infoDescriptionBase }),
-		TweenService:Create(infoViewport, tweenInfo, { ImageTransparency = 0 }),
 	}
+	if infoPortrait then
+		table.insert(infoTweens, TweenService:Create(infoPortrait, tweenInfo, { ImageTransparency = 0 }))
+	end
 	for _, tween in infoTweens do tween:Play() end
 end
 
@@ -97,7 +100,7 @@ local function paintInfo(animate: boolean)
 	infoName.TextColor3 = rarity.Accent
 	infoDescription.Text = kit.Description
 	priceLabel.Text = MathService.Comma(rarity.GemPrice)
-	KitVisualService.BuildPreview(infoViewport, KitVisualService.Showcase(kit))
+	infoPortrait = KitVisualService.FillPortrait(infoPreview, kit)
 	KitVisualService.FillDetails(infoStats, kit, animate)
 	paintBuyButton()
 

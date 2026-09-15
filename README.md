@@ -62,7 +62,7 @@ extend it instead of writing a second copy.
 | `ToolBase` / `ClientTool` / `ServerTool` / `PlayerOddityTool` | `ReplicatedStorage\Classes`, `ServerStorage\Classes` | Base classes for the two halves of every tool and player-oddity items |
 | `HumanoidStatsService` | `ReplicatedStorage\Services` | Named-source stat stack (health, speed, jump, stamina, sprint speed, detection radius) for any humanoid |
 | `ItemPreviewService` | `ReplicatedStorage\Services` | Rendering and framing a tool model in any ViewportFrame, and refreshing every viewport of an item |
-| `KitVisualService` / `KitCard` | `ReplicatedStorage\Services`, `ReplicatedStorage\Classes` | Kit tile dressing, rarity styling, viewport previews and stat/item rows |
+| `KitVisualService` / `KitCard` | `ReplicatedStorage\Services`, `ReplicatedStorage\Classes` | Kit tile dressing, rarity styling, headshot portraits with viewport fallback, and stat/item rows |
 | `CaptureGalleryService` | `ReplicatedStorage\Services` | Taking, keeping, burning, hiding and listing the player's own screenshots and camcorder tapes |
 | `KitStateService` | `ReplicatedStorage\Services` | Client's owned-kits, equipped-kit and gem balance view, and every kit remote call |
 | `CoinService` | `ServerStorage\Services` | Coin balance: read, award with DoubleCoins, spend, refund and replicate |
@@ -149,7 +149,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\KitRollUIService.luau — The kit roll carousel: server-authoritative result, weighted filler, scaling/tilting tiles, rarity bloom and shake.
 - ReplicatedStorage\Services\KitShopUIService.luau — Straight-purchase kit catalogue for players who cannot roll, sorted most common first.
 - ReplicatedStorage\Services\KitStateService.luau — Client-side owned kits, equipped kit, gem balance and roll eligibility shared by all three kit pages.
-- ReplicatedStorage\Services\KitVisualService.luau — Kit previews, rarity card dressing and the stacked BUFFS/ITEMS list shared by every kit page.
+- ReplicatedStorage\Services\KitVisualService.luau — Kit headshot portraits (item viewport fallback), rarity card dressing and the stacked BUFFS/ITEMS list shared by every kit page.
 - ReplicatedStorage\Services\LanternSwayService.luau — Physics-hinged swinging for hanging lanterns during the chaos-red state, bound through ChaosLightService's red-changed signal and measured only once the lantern has finished streaming in.
 - ReplicatedStorage\Services\LobbyService.luau — Checks whether a player is standing on the tagged lobby floor.
 - ReplicatedStorage\Services\LookService.luau — Reports local camera pitch/yaw and bends other characters' neck and waist to match.
@@ -221,7 +221,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\Hole.luau — Crawl-hole prompt that requests six seconds of server-checked immunity before teleporting the player to the twin hole with the same ID.
 - ReplicatedStorage\Classes\Interaction.luau — Camera-raycast interaction system with highlight and animated key prompt.
 - ReplicatedStorage\Classes\InventorySlot.luau — One hotbar slot with a viewport preview of the tool model.
-- ReplicatedStorage\Classes\KitCard.luau — One kit tile: rarity dressing, viewport preview and hover/press/select motion.
+- ReplicatedStorage\Classes\KitCard.luau — One kit tile: rarity dressing, headshot portrait and hover/press/select motion.
 - ReplicatedStorage\Classes\LocatorMarker.luau — Per-player billboard marker with headshot bubble, name plate and highlight.
 - ReplicatedStorage\Classes\MapMarker.luau — One inked map symbol with a spring pop, ping ring and flash for the moment it is discovered.
 - ReplicatedStorage\Classes\MapCanvas.luau — Soft-brush pixel canvas over an EditableImage with max-alpha stamping and dirty-rect flushing.
@@ -300,7 +300,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\ItemPreviewConfig.luau — Shared framing and lighting for every item ViewportFrame, with per-item overrides.
 - ReplicatedStorage\Configs\ItemPreviewDebugConfig.luau — Toggle key and slider steps for the item preview debug panel.
 - ReplicatedStorage\Configs\ItemShopConfig.luau — Item shop catalogue, prices and card animation settings.
-- ReplicatedStorage\Configs\KitCatalogConfig.luau — The 24 kits: name, rarity, description, non-jump stat changes and granted items; all inherit the default player jump settings.
+- ReplicatedStorage\Configs\KitCatalogConfig.luau — The 47 kits (13/10/8/7/5/4 from Common to Mythic): name, rarity, description, headshot image, non-jump stat changes and granted items; all inherit the default player jump settings.
 - ReplicatedStorage\Configs\KitConfig.luau — Rarities, the five stat definitions, the point budget economy, roll settings and kit UI animation.
 - ReplicatedStorage\Configs\LanternSwayConfig.luau — Tuning for the swinging hallway lantern simulation.
 - ReplicatedStorage\Configs\LookConfig.luau — Replicated aim/look angle limits and neck-waist blend weights.

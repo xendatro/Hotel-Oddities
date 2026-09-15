@@ -119,6 +119,39 @@ function KitVisualService.DressCard(button: ImageButton, kit: KitConfig.Kit)
 	end
 end
 
+function KitVisualService.FillPortrait(container: GuiObject, kit: KitConfig.Kit): ImageLabel | ViewportFrame
+	local viewport = container:FindFirstChild("ViewportFrame")
+	local headshot = ensure(container, "Headshot", "ImageLabel") :: ImageLabel
+	headshot.BackgroundTransparency = 1
+	headshot.ScaleType = Enum.ScaleType.Fit
+
+	if viewport and viewport:IsA("ViewportFrame") then
+		headshot.AnchorPoint = viewport.AnchorPoint
+		headshot.Position = viewport.Position
+		headshot.Size = viewport.Size
+		headshot.ZIndex = viewport.ZIndex
+	end
+
+	local image = kit.Image
+	if image and image ~= "" then
+		headshot.Image = image
+		headshot.Visible = true
+		if viewport and viewport:IsA("ViewportFrame") then
+			viewport.Visible = false
+			ItemPreviewService:Clear(viewport)
+		end
+		return headshot
+	end
+
+	headshot.Visible = false
+	if viewport and viewport:IsA("ViewportFrame") then
+		viewport.Visible = true
+		KitVisualService.BuildPreview(viewport, KitVisualService.Showcase(kit))
+		return viewport
+	end
+	return headshot
+end
+
 function KitVisualService.SetCardStatus(button: ImageButton, text: string, dimmed: boolean, color: Color3?)
 	local status = button:FindFirstChild("StatusLabel")
 	if status and status:IsA("TextLabel") then

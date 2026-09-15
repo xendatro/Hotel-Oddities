@@ -82,11 +82,7 @@ function KitCard.new(
 	}, KitCard) :: KitCard
 
 	KitVisualService.DressCard(button, kit)
-
-	local viewport = button:FindFirstChild("ViewportFrame")
-	if viewport and viewport:IsA("ViewportFrame") then
-		KitVisualService.BuildPreview(viewport, KitVisualService.Showcase(kit))
-	end
+	KitVisualService.FillPortrait(button, kit)
 
 	self.Connections = setUpConnections(self, onSelect)
 	return self
