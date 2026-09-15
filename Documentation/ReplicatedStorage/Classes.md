@@ -91,6 +91,16 @@ Client look-at interaction system: raycasts from the camera each render step ove
 - API: `Interaction:Destroy()`
 - Requires: `Configs.DrawerConfig` (Targeting/Input/Highlight/UI sections), `PlayerGui.Cursor` UI template
 
+### InventoryCard.luau
+One item tile on the Inventory page: clones the page's `Template` ImageButton into a layout holder (or fills a hotbar slot frame when given a full-scale size), renders the tool through `ItemPreviewService`, stamps a `Quantity` badge for stacks, owns the hover/press/select/deal motion shared with the shop cards, and surfaces the press that starts a drag. Rebuilt from the inventory snapshot every time it changes.
+- API: `InventoryCard.new(template: ImageButton, parent: Instance, entry: Entry, order: number, onSelect: (InventoryCard) -> (), onPress: (InventoryCard, InputObject) -> (), size: UDim2?) -> InventoryCard`
+- API: `InventoryCard:Pose(override: TweenInfo?)`
+- API: `InventoryCard:SetSelected(selected: boolean)`
+- API: `InventoryCard:SetDragging(dragging: boolean)` — fades the tile while its ghost is being dragged
+- API: `InventoryCard:Deal(delay: number)`
+- API: `InventoryCard:Destroy()` — also clears the tile's viewport
+- Requires: `Configs.InventoryConfig`, `Configs.ItemShopConfig` (card animation numbers), `Services.ItemPreviewService`
+
 ### InventorySlot.luau
 One inventory hotbar slot: an ImageButton with a ViewportFrame preview of the tool model, a quantity label and an optional slot number. The preview goes through `ItemPreviewService`, so a hotbar slot frames an item exactly as the shop card and the kit tile do.
 - API: `InventorySlot.new(index: number, showNumber: boolean) -> InventorySlot` — builds the (unparented) frame

@@ -457,7 +457,7 @@ Client-only singleton wrapper: returns a single `Interaction` instance (an empty
 - Requires: `Classes.Interaction` (which reads `Configs.DrawerConfig` and clones its prompt from the `Cursor` ScreenGui)
 
 ### InterfaceService.luau
-Owns the main menu page group: enables/disables the Index, Shop, Gems, Items, KitInventory, KitsShop, RollGui, Map and Gallery ScreenGuis through an xenterface controller, blurs and pulls back the camera FOV while a page is open, and manages mouse unlocking (including a Q toggle when no page is open, even while the full-screen mouse blocker has processed the input). Also wires hover/press motion onto tagged side buttons and close buttons using named motion presets. The Map page is rejected unless the player owns the Map gamepass.
+Owns the main menu page group: enables/disables the Index, Shop, Gems, Items, Inventory, KitInventory, KitsShop, RollGui, Map and Gallery ScreenGuis through an xenterface controller, blurs and pulls back the camera FOV while a page is open, and manages mouse unlocking (including a Q toggle when no page is open, even while the full-screen mouse blocker has processed the input). Also wires hover/press motion onto tagged side buttons and close buttons using named motion presets. The Map page is rejected unless the player owns the Map gamepass.
 - API: `InterfaceService.WireMotion(button: GuiButton, visual: GuiObject?, motionPreset: any?)` — add hover/press scale and tilt motion to any button (defaults to the button itself and the `HotelSideButton` preset)
 - API: `InterfaceService:Open(pageId: string)` — open one of the known pages, warning on an unknown id
 - API: `InterfaceService:Close()` — close whatever page is open
@@ -469,11 +469,22 @@ Owns the main menu page group: enables/disables the Index, Shop, Gems, Items, Ki
 - Requires: `Frameworks.xenterface` and its `Config.PresetConfig`, `CameraFovService`, `GuiBuilderService`, `Lighting.InterfaceBlur`
 - Page ids map to their ScreenGui and page-root child name, including `Map` -> `Map`/`Main`; a page missing from that table never gets enabled.
 
+### InventoryPageUIService.luau
+Drives the `InventoryGui` page (a refit of the item shop GUI): the player's bag items as `InventoryCard`s in the `Items` grid, the five hotbar items as cards sitting in `Hotbar.Slot1`-`Slot5` over the authored hotbar boxes, and an info panel with the selected item's name (with its stacked count), description and preview. Moving is possible on every device two ways: the info panel's `MoveButton` reads `TO HOTBAR` or `TO BAG` and sends the selected item to the first free slot on the other side (flashing `HOTBAR FULL` / `BAG FULL` when there is none), and any card can be dragged (mouse or touch, past `InventoryConfig`'s drag threshold) with a ghost clone onto a hotbar slot to swap into it, or from the hotbar back into the grid to drop it in the first free bag slot. Every move goes through `InventoryUIService:Move`, so the hotbar HUD and the server stay in step, and the page rebuilds its cards on `InventoryUIService.Changed`. Pressing any of `InventoryConfig.ToggleKeys` toggles the page through `InterfaceService`; the `InventoryButton` in `SideGui` opens it like every other side button.
+- Remotes: through `InventoryUIService` (`Inventory/Move`)
+- Requires: `Classes.InventoryCard`, `Configs.InventoryConfig`, `Configs.ItemShopConfig` (names, descriptions and the card/info animation numbers), `GuiBuilderService`, `InterfaceService`, `InventoryUIService`, `ItemPreviewService`, `TweenProxyService`; expects the pre-built `InventoryGui.Design` tree with `Items.Template`, `Hotbar.Slot1`-`Slot5`, `Info.MoveButton`
+
 ### InventoryUIService.luau
-Replaces the Roblox backpack with a built-from-code hotbar plus a toggleable backpack grid of `InventorySlot` objects. Handles click-to-equip, number-key equipping, and drag-and-drop reordering (with a ghost clone and drop-target highlighting), applying the swap locally before telling the server.
-- API: `InventoryUIService:Refresh()` — repaint every slot from the latest server snapshot and the equipped tool
+Replaces the Roblox backpack with a built-from-code hotbar of exactly `InventoryConfig.HotbarSlots` (five) `InventorySlot` objects, all drawn from the start with empty ones dimmed rather than hidden. Handles click-to-equip, number-key equipping and drag-and-drop reordering between hotbar slots (with a ghost clone and drop-target highlighting), applying the swap locally before telling the server. It also holds the client's copy of the whole slot-ordered inventory (hotbar and bag) and is the single source the Inventory page reads and moves through.
+- API: `InventoryUIService:Refresh()` — repaint every hotbar slot from the latest server snapshot and the equipped tool
+- API: `InventoryUIService:GetSnapshot() -> { [slot]: Entry }` / `:GetEntry(index) -> Entry?` — the client copy of every occupied slot (`Slot`, `Name`, `Quantity`, `Icon`)
+- API: `InventoryUIService:IsHotbarSlot(index) -> boolean` / `:FindFreeSlot(inHotbar: boolean) -> number?`
+- API: `InventoryUIService:Move(from, to) -> boolean` — swap two slots locally, fire `Changed`, then tell the server
+- API: `InventoryUIService:Equip(toolName)` — toggle equipping a tool the player holds
+- API: `InventoryUIService:GetEquipped() -> string?`
+- API: `InventoryUIService.Changed` — fires after every server sync and every local move
 - Remotes: `Inventory/Update` (listened and fired), `Inventory/Move` (fired)
-- Requires: `Classes.InventorySlot`, `Configs.InventoryConfig`, `InterfaceService` (mouse unlocking), `CharacterService`, `GuiBuilderService`; disables the core Backpack GUI
+- Requires: `Classes.InventorySlot`, `Configs.InventoryConfig`, `CharacterService`, `GuiBuilderService`; disables the core Backpack GUI
 
 ### ItemPreviewService.luau
 The one renderer behind every item ViewportFrame in the game - shop cards, the shop info panel, inventory hotbar slots and all three kit pages - so an item is framed identically wherever it appears. Renders a `ReplicatedStorage.Tools` tool into a `WorldModel` with scripts, audio and effects stripped and every part anchored, then aims a camera at the model's bounding box using the framing for that item from `ItemPreviewConfig` (yaw, pitch, zoom, padding and a screen-space offset), and applies the config's `Ambient`/`LightColor`/`LightDirection` without which tool models read as near-black silhouettes. Every rendered viewport stays in a registry keyed by the ViewportFrame, so `Refresh` can re-aim every live viewport of one item at once - that is what makes the debug panel update the whole game as you drag a slider. The registry deliberately holds strong keys and prunes unparented viewports on refresh; with weak keys Luau collected the entries while the ViewportFrames were still on screen and refreshes silently did nothing.

@@ -288,7 +288,7 @@ Creates linked entry/exit hole pairs (the Shovel's dig): the entry goes where th
 - Requires: `ToolConfigs.Shovel` (`MaxDigDistance`, `DigDepth`), `TagService:GetTaggedOfAncestor`, `CharacterService.GetAliveRoot`
 
 ### InventoryService.luau
-Authoritative backpack/hotbar model: it tracks a slot-ordered list of tool names per player, clones templates out of `ReplicatedStorage.Tools`, keeps quantities on a `quantity` attribute, mirrors the layout to the client, and persists slots/quantities/`uses` into the player's DataSave profile. It restores the saved inventory on join, reconciles it whenever the character respawns, clears everything on death, and always guarantees exactly one Walkie Talkie.
+Authoritative backpack/hotbar model: it tracks a slot-ordered list of tool names per player, clones templates out of `ReplicatedStorage.Tools`, keeps quantities on a `quantity` attribute, mirrors the layout to the client, and persists slots/quantities/`uses` into the player's DataSave profile. It restores the saved inventory on join (a saved slot that no longer exists or is already taken is placed in the first free slot rather than dropped, which is what keeps items when the capacity changes), reconciles it whenever the character respawns, clears everything on death, and always guarantees exactly one Walkie Talkie. Slots 1-`HotbarSlots` are the hotbar and the rest are the bag; `Add` fills the first free slot, so pickups land on the hotbar while it has room.
 - API: `InventoryService:Get(player: Player, toolName: string) -> Tool?`
 - API: `InventoryService:GetAll(player: Player) -> { [string]: Tool }` — backpack plus equipped
 - API: `InventoryService:GetQuantity(player: Player) -> number` — summed `quantity` attributes

@@ -362,7 +362,11 @@ local function restore(player: Player)
 		if type(name) ~= "string" or type(slot) ~= "number" or type(quantity) ~= "number" then continue end
 		slot = math.floor(slot)
 		quantity = math.floor(quantity)
-		if slot < 1 or slot > CAPACITY or quantity < 1 or placed[name] or order[slot] then continue end
+		if quantity < 1 or placed[name] then continue end
+		if slot < 1 or slot > CAPACITY or order[slot] then
+			slot = findFreeSlot(player)
+			if not slot then continue end
+		end
 
 		local template = Tools:FindFirstChild(name)
 		if not template or not template:IsA("Tool") then continue end

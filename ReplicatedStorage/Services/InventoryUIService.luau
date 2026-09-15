@@ -6,28 +6,37 @@ local UserInputService = game:GetService("UserInputService")
 
 local InventoryConfig = require(ReplicatedStorage.Configs.InventoryConfig)
 local InventorySlot = require(ReplicatedStorage.Classes.InventorySlot)
-local InterfaceService = require(ReplicatedStorage.Services.InterfaceService)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 
 local InventoryUIService = {}
 
+export type Entry = {
+	Slot: number,
+	Name: string,
+	Quantity: number,
+	Icon: string?,
+}
+
 if not RunService:IsClient() then
 	return InventoryUIService
 end
 
-local COLORS = InventoryConfig.Colors
-local CAPACITY = InventoryConfig.HotbarSlots + InventoryConfig.BackpackSlots
+local HOTBAR = InventoryConfig.HotbarSlots
+local CAPACITY = HOTBAR + InventoryConfig.BackpackSlots
 
 local player = Players.LocalPlayer
 local Update = CommunicationService.Get("Inventory", "Update") :: RemoteEvent
 local Move = CommunicationService.Get("Inventory", "Move") :: RemoteEvent
 
-local Slots: { InventorySlot.InventorySlot } = {}
-local Snapshot: { [number]: { Name: string, Quantity: number, Icon: string? } } = {}
+local changed = Instance.new("BindableEvent")
+InventoryUIService.Changed = changed.Event
 
-local screenGui, hotbar, panel, panelGrid
+local Slots: { InventorySlot.InventorySlot } = {}
+local Snapshot: { [number]: Entry } = {}
+
+local screenGui, hotbar
 local drag = nil :: {
 	Slot: any,
 	Origin: Vector2,
@@ -38,18 +47,17 @@ local drag = nil :: {
 }?
 
 local function build()
-	screenGui = GuiBuilderService.CreateScreenGui("InventoryGui", 10)
+	screenGui = GuiBuilderService.CreateScreenGui("HotbarGui", 10)
 
 	local slotSize = InventoryConfig.SlotSize
 	local padding = InventoryConfig.SlotPadding
-	local hotbarCount = InventoryConfig.HotbarSlots
 
 	hotbar = Instance.new("Frame")
 	hotbar.Name = "Hotbar"
 	hotbar.BackgroundTransparency = 1
 	hotbar.AnchorPoint = Vector2.new(0.5, 1)
 	hotbar.Position = UDim2.new(0.5, 0, 1, -12)
-	hotbar.Size = UDim2.fromOffset(hotbarCount * slotSize + (hotbarCount - 1) * padding, slotSize)
+	hotbar.Size = UDim2.fromOffset(HOTBAR * slotSize + (HOTBAR - 1) * padding, slotSize)
 	hotbar.Parent = screenGui
 
 	local hotbarLayout = Instance.new("UIListLayout")
@@ -59,40 +67,9 @@ local function build()
 	hotbarLayout.Padding = UDim.new(0, padding)
 	hotbarLayout.Parent = hotbar
 
-	panel = Instance.new("Frame")
-	panel.Name = "Backpack"
-	panel.Visible = false
-	panel.BackgroundColor3 = COLORS.Panel
-	panel.BackgroundTransparency = InventoryConfig.Transparency.Panel
-	panel.BorderSizePixel = 0
-	panel.AnchorPoint = Vector2.new(0.5, 1)
-	panel.Position = UDim2.new(0.5, 0, 1, -(slotSize + 24))
-	panel.Size = UDim2.fromOffset(hotbarCount * slotSize + (hotbarCount + 1) * padding, 0)
-	panel.AutomaticSize = Enum.AutomaticSize.Y
-	panel.Parent = screenGui
-
-	GuiBuilderService.Corner(panel, UDim.new(0, InventoryConfig.CornerRadius))
-
-	local panelStroke = Instance.new("UIStroke")
-	panelStroke.Color = COLORS.Stroke
-	panelStroke.Parent = panel
-
-	local panelPadding = Instance.new("UIPadding")
-	for _, side in { "PaddingTop", "PaddingBottom", "PaddingLeft", "PaddingRight" } do
-		panelPadding[side] = UDim.new(0, padding)
-	end
-	panelPadding.Parent = panel
-
-	panelGrid = Instance.new("UIGridLayout")
-	panelGrid.CellSize = UDim2.fromOffset(slotSize, slotSize)
-	panelGrid.CellPadding = UDim2.fromOffset(padding, padding)
-	panelGrid.SortOrder = Enum.SortOrder.LayoutOrder
-	panelGrid.Parent = panel
-
-	for index = 1, CAPACITY do
-		local isHotbar = index <= hotbarCount
-		local slot = InventorySlot.new(index, isHotbar)
-		slot.Frame.Parent = isHotbar and hotbar or panel
+	for index = 1, HOTBAR do
+		local slot = InventorySlot.new(index, true)
+		slot.Frame.Parent = hotbar
 		Slots[index] = slot
 	end
 end
@@ -116,9 +93,8 @@ end
 
 function InventoryUIService:Refresh()
 	local equipped = equippedToolName()
-	local showEmpty = panel.Visible
 
-	for index = 1, CAPACITY do
+	for index = 1, HOTBAR do
 		local slot = Slots[index]
 		local entry = Snapshot[index]
 
@@ -129,24 +105,56 @@ function InventoryUIService:Refresh()
 			slot:SetEmpty()
 		end
 
-		slot.Frame.Visible = showEmpty or entry ~= nil
+		slot.Frame.Visible = true
 	end
 end
 
-local function setBackpackVisible(visible: boolean)
-	panel.Visible = visible
-	InventoryUIService:Refresh()
-	InterfaceService:SetMouseUnlocked(visible, visible)
+function InventoryUIService:GetSnapshot(): { [number]: Entry }
+	return table.clone(Snapshot)
 end
 
-local function toggleEquip(slot)
-	if slot:IsEmpty() then return end
+function InventoryUIService:GetEntry(index: number): Entry?
+	return Snapshot[index]
+end
 
+function InventoryUIService:GetEquipped(): string?
+	return equippedToolName()
+end
+
+function InventoryUIService:IsHotbarSlot(index: number): boolean
+	return index >= 1 and index <= HOTBAR
+end
+
+function InventoryUIService:FindFreeSlot(inHotbar: boolean): number?
+	local first = if inHotbar then 1 else HOTBAR + 1
+	local last = if inHotbar then HOTBAR else CAPACITY
+
+	for index = first, last do
+		if Snapshot[index] == nil then return index end
+	end
+	return nil
+end
+
+function InventoryUIService:Move(from: number, to: number): boolean
+	if from == to or Snapshot[from] == nil then return false end
+	if from < 1 or from > CAPACITY or to < 1 or to > CAPACITY then return false end
+
+	Snapshot[from], Snapshot[to] = Snapshot[to], Snapshot[from]
+	if Snapshot[from] then Snapshot[from].Slot = from end
+	if Snapshot[to] then Snapshot[to].Slot = to end
+
+	InventoryUIService:Refresh()
+	changed:Fire()
+	Move:FireServer(from, to)
+	return true
+end
+
+function InventoryUIService:Equip(toolName: string)
 	local character = player.Character
 	local humanoid = CharacterService.GetAliveHumanoid(player)
 	if not humanoid then return end
 
-	local tool = findTool(slot.ToolName)
+	local tool = findTool(toolName)
 	if not tool or not tool.Enabled then return end
 
 	if tool.Parent == character then
@@ -158,18 +166,21 @@ local function toggleEquip(slot)
 	InventoryUIService:Refresh()
 end
 
+local function toggleEquip(slot)
+	if slot:IsEmpty() then return end
+	InventoryUIService:Equip(slot.ToolName)
+end
+
 local function slotAt(point: Vector2)
 	for _, slot in Slots do
 		local frame = slot.Frame
-		if frame.Visible and frame.Parent.Visible then
-			local topLeft = frame.AbsolutePosition
-			local size = frame.AbsoluteSize
-			if
-				point.X >= topLeft.X and point.X <= topLeft.X + size.X
-				and point.Y >= topLeft.Y and point.Y <= topLeft.Y + size.Y
-			then
-				return slot
-			end
+		local topLeft = frame.AbsolutePosition
+		local size = frame.AbsoluteSize
+		if
+			point.X >= topLeft.X and point.X <= topLeft.X + size.X
+			and point.Y >= topLeft.Y and point.Y <= topLeft.Y + size.Y
+		then
+			return slot
 		end
 	end
 	return nil
@@ -244,9 +255,7 @@ local function endDrag(position: Vector3)
 		return
 	end
 
-	Snapshot[source.Index], Snapshot[target.Index] = Snapshot[target.Index], Snapshot[source.Index]
-	InventoryUIService:Refresh()
-	Move:FireServer(source.Index, target.Index)
+	InventoryUIService:Move(source.Index, target.Index)
 end
 
 local function setUpConnections()
@@ -302,14 +311,7 @@ local function setUpConnections()
 	end)
 
 	UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
-		if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
-
-		if input.KeyCode == InventoryConfig.ToggleKey then
-			setBackpackVisible(not panel.Visible)
-			return
-		end
-
-		if processed then return end
+		if processed or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
 
 		for index, keyCode in InventoryConfig.HotbarKeys do
 			if input.KeyCode == keyCode and Slots[index] then
@@ -325,6 +327,7 @@ local function setUpConnections()
 			Snapshot[entry.Slot] = entry
 		end
 		InventoryUIService:Refresh()
+		changed:Fire()
 	end)
 
 	local characterConnections: { RBXScriptConnection } = {}
