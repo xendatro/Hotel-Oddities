@@ -66,7 +66,6 @@ local infoTweens: { Tween } = {}
 local drag = nil :: {
 	Card: InventoryCard.InventoryCard,
 	Origin: Vector2,
-	PointerOffset: Vector2,
 	Started: boolean,
 	Ghost: ImageButton?,
 	Target: number?,
@@ -148,6 +147,21 @@ local function paintInfo(animate: boolean)
 	if animate then playInfoTransition() end
 end
 
+local function paintSlotStrokes()
+	local target = drag and drag.Target
+	for index, stroke in slotStrokes do
+		if target == index then
+			stroke.Color = PAGE.DropStrokeColor
+			stroke.Transparency = 0
+		elseif selectedIndex == index and cards[index] then
+			stroke.Color = PAGE.SelectStrokeColor
+			stroke.Transparency = 0
+		else
+			stroke.Transparency = 1
+		end
+	end
+end
+
 local function selectSlot(index: number?, animate: boolean)
 	if index == selectedIndex then return end
 
@@ -159,6 +173,7 @@ local function selectSlot(index: number?, animate: boolean)
 	local selected = cards[index or 0]
 	if selected then selected:SetSelected(true) end
 
+	paintSlotStrokes()
 	paintInfo(animate)
 end
 
@@ -175,11 +190,9 @@ local function onPress(card: InventoryCard.InventoryCard, input: InputObject)
 		return
 	end
 
-	local pointer = Vector2.new(input.Position.X, input.Position.Y)
 	drag = {
 		Card = card,
-		Origin = pointer,
-		PointerOffset = pointer - card.Button.AbsolutePosition,
+		Origin = Vector2.new(input.Position.X, input.Position.Y),
 		Started = false,
 	}
 end
@@ -205,7 +218,7 @@ local function rebuild()
 			order,
 			onSelect,
 			onPress,
-			if isHotbar then UDim2.fromScale(1, 1) else nil
+			isHotbar
 		)
 	end
 
@@ -222,6 +235,7 @@ local function rebuild()
 	local selected = cards[selectedIndex or 0]
 	if selected then selected:SetSelected(true) end
 
+	paintSlotStrokes()
 	paintInfo(false)
 end
 
@@ -267,9 +281,8 @@ end
 
 local function setTarget(index: number?)
 	if not drag or drag.Target == index then return end
-	if drag.Target then slotStrokes[drag.Target].Transparency = 1 end
 	drag.Target = index
-	if index then slotStrokes[index].Transparency = 0 end
+	paintSlotStrokes()
 end
 
 local function beginDrag(position: Vector3)
@@ -277,12 +290,16 @@ local function beginDrag(position: Vector3)
 	local card = drag.Card
 	drag.Started = true
 
+	local holderSize = hotbarSlots[1].AbsoluteSize
 	local ghost = card.Button:Clone()
 	ghost.Name = "DragGhost"
-	ghost.AnchorPoint = Vector2.zero
+	local aspect = ghost:FindFirstChildOfClass("UIAspectRatioConstraint")
+	if aspect then aspect:Destroy() end
+	ghost.Visible = true
+	ghost.AnchorPoint = Vector2.new(0.5, 0.5)
 	ghost.Rotation = 0
-	ghost.Size = UDim2.fromOffset(card.Button.AbsoluteSize.X, card.Button.AbsoluteSize.Y)
-	ghost.Position = UDim2.fromOffset(position.X - drag.PointerOffset.X, position.Y - drag.PointerOffset.Y)
+	ghost.Size = UDim2.fromOffset(holderSize.X, holderSize.Y)
+	ghost.Position = UDim2.fromOffset(position.X, position.Y)
 	ghost.ImageTransparency = InventoryConfig.Transparency.Dragging
 	ghost.ZIndex = PAGE.GhostZIndex
 	ghost.Active = false
@@ -300,7 +317,7 @@ end
 
 local function updateDrag(position: Vector3)
 	if not drag or not drag.Ghost then return end
-	drag.Ghost.Position = UDim2.fromOffset(position.X - drag.PointerOffset.X, position.Y - drag.PointerOffset.Y)
+	drag.Ghost.Position = UDim2.fromOffset(position.X, position.Y)
 
 	local target = slotAt(Vector2.new(position.X, position.Y))
 	setTarget(if target ~= drag.Card.Index then target else nil)

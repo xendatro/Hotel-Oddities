@@ -47,6 +47,7 @@ return {
 		DragGuiDisplayOrder = 100,
 		GhostZIndex = 60,
 		DropStrokeColor = Color3.fromRGB(96, 168, 96),
+		SelectStrokeColor = Color3.fromRGB(70, 70, 70),
 		DropStrokeThickness = 3,
 		NoticeTime = 1.2,
 		Ink = Color3.fromRGB(70, 70, 70),

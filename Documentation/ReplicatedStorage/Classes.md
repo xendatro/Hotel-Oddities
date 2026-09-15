@@ -93,10 +93,10 @@ Client look-at interaction system: raycasts from the camera each render step ove
 
 ### InventoryCard.luau
 One item tile on the Inventory page: clones the page's `Template` ImageButton into a layout holder (or fills a hotbar slot frame when given a full-scale size), renders the tool through `ItemPreviewService`, stamps a `Quantity` badge for stacks, owns the hover/press/select/deal motion shared with the shop cards, and surfaces the press that starts a drag. Rebuilt from the inventory snapshot every time it changes.
-- API: `InventoryCard.new(template: ImageButton, parent: Instance, entry: Entry, order: number, onSelect: (InventoryCard) -> (), onPress: (InventoryCard, InputObject) -> (), size: UDim2?) -> InventoryCard`
+- API: `InventoryCard.new(template: ImageButton, parent: Instance, entry: Entry, order: number, onSelect: (InventoryCard) -> (), onPress: (InventoryCard, InputObject) -> (), pinned: boolean?) -> InventoryCard` — a pinned card fills its parent exactly and never scales, lifts or tilts, so hotbar cards always match the box they sit in
 - API: `InventoryCard:Pose(override: TweenInfo?)`
 - API: `InventoryCard:SetSelected(selected: boolean)`
-- API: `InventoryCard:SetDragging(dragging: boolean)` — fades the tile while its ghost is being dragged
+- API: `InventoryCard:SetDragging(dragging: boolean)` — hides the tile while its ghost is being dragged
 - API: `InventoryCard:Deal(delay: number)`
 - API: `InventoryCard:Destroy()` — also clears the tile's viewport
 - Requires: `Configs.InventoryConfig`, `Configs.ItemShopConfig` (card animation numbers), `Services.ItemPreviewService`

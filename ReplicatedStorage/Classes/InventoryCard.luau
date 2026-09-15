@@ -28,6 +28,7 @@ export type InventoryCard = typeof(setmetatable({} :: {
 	Hovered: boolean,
 	Pressed: boolean,
 	Selected: boolean,
+	Pinned: boolean,
 	Tween: Tween?,
 	Connections: { [string]: RBXScriptConnection },
 }, InventoryCard))
@@ -92,12 +93,12 @@ function InventoryCard.new(
 	order: number,
 	onSelect: (InventoryCard) -> (),
 	onPress: (InventoryCard, InputObject) -> (),
-	size: UDim2?
+	pinned: boolean?
 ): InventoryCard
 	local holder = Instance.new("Frame")
 	holder.Name = `Slot{entry.Slot}`
 	holder.BackgroundTransparency = 1
-	holder.Size = size or template.Size
+	holder.Size = if pinned then UDim2.fromScale(1, 1) else template.Size
 	holder.LayoutOrder = order
 	holder.Parent = parent
 
@@ -127,6 +128,7 @@ function InventoryCard.new(
 		Hovered = false,
 		Pressed = false,
 		Selected = false,
+		Pinned = pinned == true,
 		Tween = nil,
 		Connections = {},
 	}, InventoryCard) :: InventoryCard
@@ -139,6 +141,14 @@ function InventoryCard:Pose(override: TweenInfo?)
 	local scale, lift, tilt = 1, 0, 0
 	local duration = CARD.SettleTime
 	local style = Enum.EasingStyle.Back
+
+	if self.Pinned then
+		if self.Tween then self.Tween:Cancel() end
+		self.Button.Size = UDim2.fromScale(1, 1)
+		self.Button.Position = UDim2.fromScale(0.5, 0.5)
+		self.Button.Rotation = 0
+		return
+	end
 
 	if self.Pressed then
 		scale, duration, style = CARD.PressScale, CARD.PressTime, Enum.EasingStyle.Quad
@@ -168,21 +178,15 @@ function InventoryCard:SetSelected(selected: boolean)
 end
 
 function InventoryCard:SetDragging(dragging: boolean)
-	local transparency = if dragging then InventoryConfig.Transparency.Dragging else 0
-	self.Button.ImageTransparency = transparency
-
-	local viewport = self.Button:FindFirstChild("ViewportFrame")
-	if viewport and viewport:IsA("ViewportFrame") then
-		viewport.ImageTransparency = transparency
-	end
-
-	local badge = self.Button:FindFirstChild("Quantity")
-	if badge and badge:IsA("TextLabel") then
-		badge.TextTransparency = transparency
-	end
+	self.Button.Visible = not dragging
 end
 
 function InventoryCard:Deal(delay: number)
+	if self.Pinned then
+		self:Pose()
+		return
+	end
+
 	if self.Tween then self.Tween:Cancel() end
 
 	self.Button.Size = UDim2.fromScale(CARD.EnterScale, CARD.EnterScale)
