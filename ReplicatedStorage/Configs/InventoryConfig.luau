@@ -43,6 +43,8 @@ return {
 	Page = {
 		Id = "Inventory",
 		Gui = "InventoryGui",
+		DragGui = "InventoryDragGui",
+		DragGuiDisplayOrder = 100,
 		GhostZIndex = 60,
 		DropStrokeColor = Color3.fromRGB(96, 168, 96),
 		DropStrokeThickness = 3,

@@ -109,6 +109,17 @@ function InventoryUIService:Refresh()
 	end
 end
 
+function InventoryUIService:SetHotbarVisible(visible: boolean)
+	if not visible and drag then
+		if drag.Ghost then drag.Ghost:Destroy() end
+		if drag.Target and drag.Target ~= drag.Slot then drag.Target:SetDropTarget(false) end
+		drag.Slot.Frame.BackgroundTransparency = InventoryConfig.Transparency.Slot
+		drag = nil
+	end
+	screenGui.Enabled = visible
+	if visible then InventoryUIService:Refresh() end
+end
+
 function InventoryUIService:GetSnapshot(): { [number]: Entry }
 	return table.clone(Snapshot)
 end

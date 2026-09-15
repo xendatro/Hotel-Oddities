@@ -38,6 +38,8 @@ local infoViewport = info:WaitForChild("Preview"):WaitForChild("ViewportFrame") 
 local moveButton = info:WaitForChild("MoveButton") :: ImageButton
 local moveLabel = moveButton:WaitForChild("TextLabel") :: TextLabel
 
+local dragGui = GuiBuilderService.CreateScreenGui(PAGE.DragGui, PAGE.DragGuiDisplayOrder)
+
 local hotbarSlots: { Frame } = {}
 local slotStrokes: { UIStroke } = {}
 for index = 1, HOTBAR do
@@ -285,7 +287,7 @@ local function beginDrag(position: Vector3)
 	ghost.ZIndex = PAGE.GhostZIndex
 	ghost.Active = false
 	ghost.Interactable = false
-	ghost.Parent = gui
+	ghost.Parent = dragGui
 
 	local viewport = ghost:FindFirstChild("ViewportFrame")
 	if viewport and viewport:IsA("ViewportFrame") then
@@ -405,6 +407,7 @@ end)
 InventoryUIService.Changed:Connect(rebuild)
 
 gui:GetPropertyChangedSignal("Enabled"):Connect(function()
+	InventoryUIService:SetHotbarVisible(not gui.Enabled)
 	if gui.Enabled then
 		deal()
 	else
