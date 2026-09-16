@@ -547,6 +547,6 @@ Computer chip playtest fixes connect split corridor approaches to connector entr
 Enemy navigation: NPC patrols reuse ConnectorGraph entrance geometry with danger-weighted route costs. Connector traversal tries clear direct movement, bounded pathfinding, then a floor-supported forced direct attempt. GroundSupport samples direct movement and overshoots to reject void routes. NpcNavigationConfig controls support spacing, width, drops and graph refresh.
 
 - ReplicatedStorage\Configs\EnemyDespawnConfig.luau — Powdery white enemy despawn puff texture, size, lifetime and distance settings.
-- ReplicatedStorage\Services\EnemyDespawnService.luau — Local 1.5x layered dust burst, smoke and powder flecks with a 0.15-second enemy fade and positional despawn audio, triggered centrally by EnemyService.
+- ReplicatedStorage\Services\EnemyDespawnService.luau — Local 1.5x layered dust burst, smoke and powder flecks with a 0.15-second enemy fade and positional despawn audio, triggered centrally by EnemyService for enemies whose config enables the sequence.
 
 Maze arrival/exit construction and placement: `Documentation/Workspace/MazeElevators.md`; reproducible edit-time build: `Tools/BuildMazeElevators.luau`.

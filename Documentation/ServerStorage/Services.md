@@ -656,4 +656,4 @@ Studio playtest results: 865 routes from 137 hotel rooms and 36 connector starts
 
 ComputerChipRouteService now delegates unchanged entrance graph construction to ServerStorage.Classes.ConnectorGraph, shared with danger-weighted enemy patrols. Chip distance costs and trail fallback behavior remain unchanged.
 
-EnemyService despawn VFX: wraps each spawned enemy's Despawn method to broadcast Enemies/DespawnPoof before cleanup, once per enemy. Emits for each model in multi-body enemies and uses model destruction as a guarded fallback. All despawn reasons trigger the effect, including director cleanup. Client visuals use the VFX resource smoke texture.
+EnemyService despawn VFX: wraps each spawned enemy's Despawn method to broadcast Enemies/DespawnPoof before cleanup, once per enemy, unless its config sets DespawnEffect to false. Emits for each model in multi-body enemies and uses model destruction as a guarded fallback. All eligible despawn reasons trigger the effect, including director cleanup. Client visuals use the VFX resource smoke texture.
