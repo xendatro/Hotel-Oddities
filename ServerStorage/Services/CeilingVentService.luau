@@ -370,6 +370,10 @@ local function runWalkIn(state: VentState)
 
 		local rig = template:Clone() :: Model
 		rig.Name = "CeilingDwellerWalkIn"
+		local humanoid = rig:FindFirstChildOfClass("Humanoid") :: Humanoid?
+		if humanoid then
+			humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+		end
 		rig:SetAttribute("EnemyId", nil)
 		for _, tag in CollectionService:GetTags(rig) do
 			CollectionService:RemoveTag(rig, tag)
