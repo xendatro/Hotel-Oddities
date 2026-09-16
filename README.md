@@ -140,7 +140,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\HumanoidStatsService.luau — Named-source stat stack applied to any humanoid, restoring untouched stats to their spawn values.
 - ReplicatedStorage\Services\IndexUIService.luau — Paginated bestiary UI with viewport headshots, progressive text reveals and shared cursor unlocking for death reveals.
 - ReplicatedStorage\Services\InteractionService.luau — Singleton crosshair interaction target registry, highlight and key prompt.
-- ReplicatedStorage\Services\InterfaceService.luau — Main menu page switching (Index, Shop, Gems, Items, Inventory, kits, roll, map, gallery), blur, FOV pull-back and mouse unlocking, including Q toggling through the mouse blocker and enforced system-cursor hiding after relock.
+- ReplicatedStorage\Services\InterfaceService.luau — Main menu page switching (Index, Shop, Gems, Items, Inventory, kits, roll, map, gallery), blur, FOV pull-back and mouse unlocking, including Q toggling through the mouse blocker and enforced system-cursor hiding after relock; direct page-root close buttons animate themselves instead of rotating the full menu frame.
 - ReplicatedStorage\Services\InventoryPageUIService.luau — The Inventory page: bag grid, in-page hotbar row, item info, TO HOTBAR / TO BAG button and drag-and-drop between them, toggled by keybind or side button.
 - ReplicatedStorage\Services\InventoryUIService.luau — Fixed five-slot hotbar HUD with equipping and drag reordering, plus the client's slot-ordered inventory snapshot and move API.
 - ReplicatedStorage\Services\ItemPreviewService.luau — The one item-viewport renderer: frames a tool model for every shop card, hotbar slot and kit tile, and can re-aim every live viewport of an item at once.
