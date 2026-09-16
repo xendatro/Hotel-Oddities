@@ -374,8 +374,10 @@ local function build(corridorRoot: Instance?): Graph
 			node.Position = if ground then ground.Position else node.Position
 		end
 	else
+		pruneUnusable(graph)
 		pruneSpawnZones(graph)
 	end
+	markWellConnected(graph)
 	return graph
 end
 

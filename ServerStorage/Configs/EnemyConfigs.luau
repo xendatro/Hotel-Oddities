@@ -37,6 +37,7 @@ export type EnemyConfig = {
 	AttackRange: number?,
 	AttackCooldown: number?,
 	Harmless: boolean?,
+	DespawnEffect: boolean?,
 
 	InvestigateRange: number?,
 	InvestigateSpeed: number?,
@@ -387,6 +388,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 	Stalker = {
 		Model = "Ceiling Dweller",
 		Animations = AnimationConfig.Sets.Stalker,
+		DespawnEffect = false,
 
 		WalkSpeed = 18,
 		ChaseSpeed = 24,

@@ -142,8 +142,10 @@ function EnemyService:Spawn(enemyId: string, spawnCFrame: CFrame, ...: any)
 
 	local enemy = enemyClass.new(model, config, ...)
 	enemy.EnemyId = enemyId
+	local shouldEmitPoof = config.DespawnEffect ~= false
 	local effectSent = false
 	local function emitPoof()
+		if not shouldEmitPoof then return end
 		if effectSent then return end
 		effectSent = true
 		for _, body in enemy.Models or { model } do

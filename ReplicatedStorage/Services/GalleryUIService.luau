@@ -224,21 +224,19 @@ access.Activated:Connect(function()
 	access.Interactable = false
 	access.Text = CaptureConfig.Text.Accessing
 
-	task.spawn(function()
-		local granted = CaptureGalleryService:RequestPermission()
-		if granted then
-			CaptureGalleryService:Refresh(true)
-		else
-			NotificationService:Show(CaptureConfig.Text.Denied)
-		end
+	local granted = CaptureGalleryService:RequestPermission()
+	if granted then
+		CaptureGalleryService:Refresh(true)
+	else
+		NotificationService:Show(CaptureConfig.Text.Denied)
+	end
 
-		refreshing = false
-		access.Interactable = true
-		access.Text = CaptureConfig.Text.Access
-		if not gui.Enabled then return end
-		rebuild()
-		deal()
-	end)
+	refreshing = false
+	access.Interactable = true
+	access.Text = CaptureConfig.Text.Access
+	if not gui.Enabled then return end
+	rebuild()
+	deal()
 end)
 
 InterfaceService.WireMotion(save)
@@ -246,10 +244,8 @@ save.Activated:Connect(function()
 	local media = selectedMedia()
 	if not media then return end
 
-	task.spawn(function()
-		local ok = CaptureGalleryService:Save(media)
-		NotificationService:Show(if ok then CaptureConfig.Text.Saved else CaptureConfig.Text.SaveFailed)
-	end)
+	local ok = CaptureGalleryService:Save(media)
+	NotificationService:Show(if ok then CaptureConfig.Text.Saved else CaptureConfig.Text.SaveFailed)
 end)
 
 InterfaceService.WireMotion(discard)
