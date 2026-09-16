@@ -123,7 +123,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\FlashlightService.luau — Renders every flashlight beam as stacked spotlight cones, camera-mounted for the local player so the beam centre sits on the crosshair.
 - ReplicatedStorage\Services\FriendAvatarService.luau — Client-only cache that builds character models from the local player's friends' avatars.
 - ReplicatedStorage\Services\FriendReviveUIService.luau — Timed revive-offer cards for downed teammates.
-- ReplicatedStorage\Services\GalleryUIService.luau — Studio-authored Gallery page: explicit device-capture access, tape thumbnails, autoplay previews, click-to-full-screen viewing and per-item reel removal.
+- ReplicatedStorage\Services\GalleryUIService.luau — Studio-authored Gallery page: direct user-triggered device-capture permission and save prompts, tape thumbnails, autoplay previews, click-to-full-screen viewing and per-item reel removal.
 - ReplicatedStorage\Services\GemsUIService.luau — Gem-pack page: pack amounts, Robux product prompts and prices, and a gem balance that flashes on purchase.
 - ReplicatedStorage\Services\GhostMotionService.luau — Ghost drift leg math and the model-attribute protocol the server and clients share.
 - ReplicatedStorage\Services\GhostRenderService.luau — Renders ghosts as translucent friend-avatar rigs driven by replicated motion.
