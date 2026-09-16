@@ -208,11 +208,11 @@ Client-only. For every player, silences Roblox's built-in `Died` sound on the ro
 - Requires: `AudioService`, `CharacterService`; plays `ReplicatedStorage.Sounds.PlayerDied`
 
 ### DoorService.luau
-Client-only. Owns every swinging door part inside a `Doorway`+`RoomDoor` model: on a polling interval it opens each door toward whichever of the local player or nearest streamed-in tagged enemy is in range, and holds it forced shut when the player is inside a room with an enemy close by. Also applies the server's "map opening" boxes, which push every door inside a region open — or into a rattling chaos mode.
+Client renderer for every swinging door part inside a `Doorway`+`RoomDoor` model. It follows the server's replicated player-proximity open state and opener position, retains local streamed-in enemy reactions, holds the door forced shut when the player is inside a room with an enemy close by, and applies the server's "map opening" boxes, which push every door inside a region open — or into a rattling chaos mode.
 - API: no public methods — runs entirely from its own connections.
 - Remotes: `Oddities/MapDoors` (listened; `Start` / `Stop` with a region box, speed and mode), `Oddities/RequestMapDoors` (fired once on init so a late client picks up openings that are already running)
 - Tags: listens `DoorPart`; reads `Enemy`, `Doorway`, `RoomDoor`
-- Requires: `Classes.DoorPart`, `Configs.DoorConfig`, `CharacterService`, `TagService`
+- Requires: `Classes.DoorPart`, `Configs.DoorConfig` (`OpenAttribute`, `OpenFromAttribute`), `CharacterService`, `TagService`
 
 ### DrawerItemService.luau
 Client-only. Registers every `DrawerItem` model, including hallway currency displays, as an interactable pick-up and fires the server when one is activated, with a short cooldown. Successful currency pickups show a `+N Coins` or `+N Gems` notification and play the configured 2D pickup sound when its sound template exists. Newly appearing drawer items also re-sync their parent drawer so the item sits at the drawer's current position.

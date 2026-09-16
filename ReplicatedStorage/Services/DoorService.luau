@@ -195,13 +195,12 @@ local function poll()
 			and (forceForReaction or enemyDistance <= forceLimit)
 		door:SetForced(lockedFromInside)
 
-		local nearest = playerPosition
-		local nearestDistance = if playerPosition then (playerPosition - center).Magnitude else math.huge
-		if not lockedFromInside and enemyPosition and enemyDistance < nearestDistance then
-			nearest, nearestDistance = enemyPosition, enemyDistance
-		end
 		local limit = door:IsOpen() and DoorConfig.CloseDistance or DoorConfig.OpenDistance
-		door:SetOpen(nearest ~= nil and nearestDistance <= limit, nearest)
+		local serverOpen = door.Part:GetAttribute(DoorConfig.OpenAttribute) == true
+		local serverFrom = door.Part:GetAttribute(DoorConfig.OpenFromAttribute)
+		local enemyOpen = not lockedFromInside and enemyPosition ~= nil and enemyDistance <= limit
+		local openFrom = if serverOpen and typeof(serverFrom) == "Vector3" then serverFrom else enemyPosition
+		door:SetOpen(not lockedFromInside and (serverOpen or enemyOpen), openFrom)
 	end
 end
 

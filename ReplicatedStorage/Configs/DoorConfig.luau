@@ -1,6 +1,8 @@
 return {
 	DoorwayTags = { "Doorway", "RoomDoor" },
 	AnchorName = "Threshold",
+	OpenAttribute = "DoorOpen",
+	OpenFromAttribute = "DoorOpenFrom",
 
 	OpenAngle = 100,
 

@@ -96,6 +96,12 @@ Records why each player died — from client kill reports, explicit strikes, or 
 Registers one MarketplaceService receipt handler per entry in `DevProductConfigs`, running the configured grant inside a pcall and only reporting `PurchaseGranted` on success.
 - Requires: `ReplicatedStorage.Services.MarketplaceService:CreateReceipt`, `ServerStorage.Configs.DevProductConfigs`
 
+### DoorService.luau
+Server-authoritative door proximity poll. Every `PollInterval`, it checks all alive players against each tagged swinging room door, uses the configured open/close hysteresis, and writes the replicated open state and opener position so every client renders the same player-triggered opening.
+- API: no public methods — runs entirely from its polling loop.
+- Tags: listens `DoorPart`; reads `Doorway` and `RoomDoor`; writes `DoorConfig.OpenAttribute` and `DoorConfig.OpenFromAttribute`
+- Requires: `Configs.DoorConfig`, `CharacterService`, `TagService`
+
 ### DrawerItemService.luau
 Populates drawers with pickable item displays: clones a Tool from `ReplicatedStorage.Tools` into a script-free, anchored display model, measures the drawer's bounds and handle direction to seat it on the front surface, and keeps roughly `TargetPercentage` of drawers stocked on a refill timer. Handles client pickup requests with reach, debounce and inventory checks, avoiding repeating the last drawer or item.
 - Remotes: `DrawerItemConfig.Remotes.Folder/Pickup` (listened)
