@@ -146,7 +146,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\ItemPreviewService.luau — The one item-viewport renderer: frames a tool model for every shop card, hotbar slot and kit tile, and can re-aim every live viewport of an item at once.
 - ReplicatedStorage\Services\ItemPreviewDebugService.luau — F2 panel that tunes an item's viewport framing live across every viewport showing it, and emits the ItemPreviewConfig entry to paste.
 - ReplicatedStorage\Services\ItemsUIService.luau — Item shop page with tool previews and coin or Robux purchases.
-- ReplicatedStorage\Services\KitInventoryUIService.luau — Owned-kit grid sorted rarest first, with equip control and the kit's stats and items.
+- ReplicatedStorage\Services\KitInventoryUIService.luau — Owned-kit grid sorted rarest first, with equip control and the kit's stats and items; its ROLL/SHOP nav button carries the `SideButton` tag and `HotelSideButton` motion preset.
 - ReplicatedStorage\Services\KitRollUIService.luau — The kit roll carousel: server-authoritative result, weighted filler, scaling/tilting tiles, rarity bloom and shake.
 - ReplicatedStorage\Services\KitShopUIService.luau — Straight-purchase kit catalogue for players who cannot roll, sorted most common first.
 - ReplicatedStorage\Services\KitStateService.luau — Client-side owned kits, equipped kit, gem balance and roll eligibility shared by all three kit pages.
