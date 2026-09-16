@@ -1,10 +1,12 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
+local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
 local InventoryService = require(ServerStorage.Services.InventoryService)
 local ChatCommandService = require(ServerStorage.Services.ChatCommandService)
 
 local Tools = ReplicatedStorage.Tools
+local PLAYER_LOCATOR = PerkConfig.PlayerLocator
 
 local MAX_AMOUNT = 100
 
@@ -55,6 +57,10 @@ function ToolCommandService:Execute(sender: Player, argument: string?): boolean
 	if not InventoryService:Add(target, tool.Name, amount) then
 		warn(`[give] could not give {target.Name} {amount}x {tool.Name}`)
 		return false
+	end
+
+	if tool.Name == PLAYER_LOCATOR.ToolName then
+		target:SetAttribute(PLAYER_LOCATOR.GrantAttribute, true)
 	end
 
 	warn(`[give] {sender.Name} gave {target.Name} {amount}x {tool.Name}`)

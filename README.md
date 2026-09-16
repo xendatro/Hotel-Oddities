@@ -428,7 +428,7 @@ become Services or Classes.
 - ServerStorage\Services\PhotoCommandService.luau — /photo chat command for placing a test camera, snapping it early and forcing the ShadowFigure into frame.
 - ServerStorage\Services\POIDiscoveryService.luau — Awards, persists and replicates each player's discovered points of interest from standing inside tagged parts, and replicates whether each player occupies any POI.
 - ServerStorage\Services\PlayerCharacterStreamingService.luau — Marks every player character as persistent so it is never streamed out.
-- ServerStorage\Services\PlayerLocatorService.luau — Pass-gated, cooldown-gated teleport behind another player for the Player Locator tool.
+- ServerStorage\Services\PlayerLocatorService.luau — Pass-gated (or /give-granted), cooldown-gated teleport behind another player for the Player Locator tool.
 - ServerStorage\Services\PlayerOddityCommandService.luau — Registers the /oddity chat command for triggering player oddities by effect and target.
 - ServerStorage\Services\PlayerOddityService.luau — Randomly applies one weighted player-scope oddity at a time to a living player.
 - ServerStorage\Services\ProfileService.luau — Vendored third-party datastore session-locking library (loleris' ProfileService).
@@ -442,7 +442,7 @@ become Services or Classes.
 - ServerStorage\Services\SpeedBoostService.luau — Central WalkSpeed arbiter for named, expiring speed boosts and optional multipliers.
 - ServerStorage\Services\StalkerService.luau — Spawns stalker-type enemies at a peek spot found behind the player.
 - ServerStorage\Services\StunService.luau — Stuns enemy NPCs and Eyes, kills NPCs caught by traps and Eyes hit by the Ball, and validates client ball-hit reports by range.
-- ServerStorage\Services\ToolCommandService.luau — Admin-only /give chat command for handing out tools by name and amount.
+- ServerStorage\Services\ToolCommandService.luau — Admin-only /give chat command for handing out tools by name and amount; giving the Player Locator unlocks it without the gamepass.
 - ServerStorage\Services\ToolService.luau — Binds tagged Tools to their server tool classes and routes client tool events to them.
 - ServerStorage\Services\VoiceActivityService.luau — Tunes nested voice emitters, restores microphone input after respawn, and emits noise at whoever is speaking so enemies can hear them.
 - ServerStorage\Services\VoiceDebugService.luau — Studio-only remote for live-tweaking voice and radio volumes behind the VoiceDebug flag.

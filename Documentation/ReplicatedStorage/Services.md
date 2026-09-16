@@ -764,7 +764,7 @@ Client point-of-interest popup. Drives the Studio-authored `POIGui`, which is wh
 - Requires: `POIConfig`, `GuiBuilderService`, `TweenProxyService`, `StarterGui.POIGui`
 
 ### PlayerLocatorService.luau
-Client-only teleport-to-player HUD for the Player Locator gamepass: keeps a `LocatorMarker` per eligible player (all players, or friends only, depending on the toggled mode), highlights whichever marker is nearest the crosshair each frame, and fires the teleport remote on click. The HUD remains disabled until the ownership attribute is true, including when an old saved tool is equipped. Renders the shared cooldown readout. If the `PlayerLocator` GUI is missing its expected children it degrades to a disabled stub exposing only `SetEnabled`/`IsEnabled`.
+Client-only teleport-to-player HUD for the Player Locator gamepass: keeps a `LocatorMarker` per eligible player (all players, or friends only, depending on the toggled mode), highlights whichever marker is nearest the crosshair each frame, and fires the teleport remote on click. The HUD remains disabled until the ownership attribute or the `/give` grant attribute (`PerkConfig.PlayerLocator.GrantAttribute`) is true, including when an old saved tool is equipped. Renders the shared cooldown readout. If the `PlayerLocator` GUI is missing its expected children it degrades to a disabled stub exposing only `SetEnabled`/`IsEnabled`.
 - API: `PlayerLocatorService:SetEnabled(value: boolean)` — shows/hides the GUI, rebuilds markers, binds/unbinds the render step
 - API: `PlayerLocatorService:IsEnabled() -> boolean`
 - API: `PlayerLocatorService:GetMode() -> string` — current mode id from `PlayerLocatorConfig.Modes`

@@ -494,11 +494,11 @@ Sets every player character's `ModelStreamingMode` to `Persistent` so characters
 - API: data table — empty; all behaviour is in the connections
 
 ### PlayerLocatorService.luau
-Backs the Player Locator tool: teleports the holder behind a chosen player, on a cooldown, after asking `HallwayStreamingService` to stream in the destination. Replies to the client with the remaining cooldown on every request.
+Backs the Player Locator tool: teleports the holder behind a chosen player, on a cooldown, after asking `HallwayStreamingService` to stream in the destination. Replies to the client with the remaining cooldown on every request. Only pass owners, or players carrying the `PerkConfig.PlayerLocator.GrantAttribute` flag set by `/give`, may teleport.
 - API: `PlayerLocatorService:Teleport(player: Player, target: Player) -> boolean` — attempt the teleport
 - API: `PlayerLocatorService:GetCooldown(player: Player) -> number` — seconds left
 - Remotes: `PlayerLocator/Teleport` (listened; fired back to the requesting client)
-- Requires: `PlayerLocatorConfig`, `HallwayStreamingService:PrepareTeleport`, `InventoryService` (equip check)
+- Requires: `PerkConfig.PlayerLocator`, `PerkService:Owns`, `PlayerLocatorConfig`, `HallwayStreamingService:PrepareTeleport`, `InventoryService` (equip check)
 
 ### PlayerOddityCommandService.luau
 Registers the `/oddity` chat command, parsing an optional effect name (size / headsize / transparency / stare) and an optional player name — with exact, display-name and prefix matching — then asking `PlayerOddityService` to trigger it. `headsize` also accepts `bighead`. Reports results and failures via `warn`.
@@ -589,9 +589,9 @@ Puts an enemy NPC or Eye into its `Stunned` state for a duration, and handles th
 - Requires: `ServerStorage.Classes.NPC`, `ServerStorage.Classes.Enemies.Eye`, `ToolConfigs.Ball`
 
 ### ToolCommandService.luau
-Registers the admin-only `/give` chat command, parsing `<tool> [amount]` or `<player> <tool> [amount]` against the `ReplicatedStorage.Tools` folder and handing the items over via InventoryService. Amounts clamp to 100 and every outcome is reported with `warn`.
+Registers the admin-only `/give` chat command, parsing `<tool> [amount]` or `<player> <tool> [amount]` against the `ReplicatedStorage.Tools` folder and handing the items over via InventoryService. Amounts clamp to 100 and every outcome is reported with `warn`. Giving the Player Locator also sets the session-only `PerkConfig.PlayerLocator.GrantAttribute` flag on the receiver, which lets the locator work without the gamepass; this is the only place that flag is set.
 - API: `ToolCommandService:Execute(sender: Player, argument: string?) -> boolean` — run the give command
-- Requires: `ChatCommandService` (registration and `FindPlayer`), `InventoryService`
+- Requires: `ChatCommandService` (registration and `FindPlayer`), `InventoryService`, `PerkConfig.PlayerLocator`
 
 ### ToolService.luau
 Binds each entry in `ToolConfigs` to its matching class under `ServerStorage.Classes.Tools` through that config's tag, keeping a Tool-to-instance map, and routes client tool events to the right instance's `_Dispatch`. Also back-fills `OnEquipped` shortly after creation for tools that were already in a character.

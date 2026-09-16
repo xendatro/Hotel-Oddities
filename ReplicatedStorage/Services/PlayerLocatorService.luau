@@ -27,6 +27,7 @@ local TAU = MathService.TAU
 
 local player = Players.LocalPlayer
 local LOCATOR_ATTRIBUTE = PerkConfig.AttributePrefix .. "PlayerLocator"
+local GRANT_ATTRIBUTE = PerkConfig.PlayerLocator.GrantAttribute
 local playerGui = GuiBuilderService.GetPlayerGui()
 
 local gui = playerGui:WaitForChild("PlayerLocator")
@@ -97,7 +98,7 @@ local function isAvailable(): boolean
 end
 
 local function ownsLocator(): boolean
-	return player:GetAttribute(LOCATOR_ATTRIBUTE) == true
+	return player:GetAttribute(LOCATOR_ATTRIBUTE) == true or player:GetAttribute(GRANT_ATTRIBUTE) == true
 end
 
 local function updateCooldown()
@@ -374,6 +375,7 @@ end
 Players.PlayerAdded:Connect(refresh)
 Players.PlayerRemoving:Connect(forget)
 player:GetAttributeChangedSignal(LOCATOR_ATTRIBUTE):Connect(applyEnabled)
+player:GetAttributeChangedSignal(GRANT_ATTRIBUTE):Connect(applyEnabled)
 
 gui.Enabled = false
 setMode(1)

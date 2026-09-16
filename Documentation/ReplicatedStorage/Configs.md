@@ -185,7 +185,7 @@ Tag name, attribute name and reconciliation tolerances for the "freeze while obs
 Point-of-interest tag, discovery, entry and occupancy remote names, the trigger-box padding and sweep interval used by the server, the entry sting's template/bus/cooldown, and every timing and string the discovery popup animates with.
 
 ### PerkConfig.luau
-Per-perk settings for the gamepass/perk system, keyed by perk name under a shared attribute prefix.
+Per-perk settings for the gamepass/perk system, keyed by perk name under a shared attribute prefix. `PlayerLocator.GrantAttribute` names the player flag `/give` sets to unlock the locator without the pass.
 - API: data table — `AttributePrefix`, `Loadout`, `Visor`, `PlayerLocator`, `Camcorder`, `UnlimitedStamina`, `FriendRevive`
 
 ### PhotoConfig.luau

@@ -11,6 +11,7 @@ return {
 
 	PlayerLocator = {
 		ToolName = "Player Locator",
+		GrantAttribute = "PlayerLocatorGranted",
 	},
 
 	Camcorder = {
