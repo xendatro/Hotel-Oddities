@@ -318,7 +318,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\PhotoConfig.luau — Placement, countdown, lens, ShadowFigure, capture, despawn and film animation timing for the tripod camera; film layout lives in StarterGui.
 - ReplicatedStorage\Configs\PlayerLocatorConfig.luau — Marker layout, focus animation and palette for the Player Locator tool.
 - ReplicatedStorage\Configs\PlayerOddityConfig.luau — Roll timings and effect weights for whole-character size, head-size, transparency and head-stare player oddities.
-- ReplicatedStorage\Configs\PropOddityConfig.luau — Per-effect tuning for falling lanterns, falling paintings and the painting dweller.
+- ReplicatedStorage\Configs\PropOddityConfig.luau — Per-effect tuning for falling lanterns, falling paintings and the painting dweller; painting-dweller fixture debug highlights are disabled.
 - ReplicatedStorage\Configs\ShopkeeperConfig.luau — Shopkeeper NPC tag, reach, input bindings and prompt UI styling.
 - ReplicatedStorage\Configs\SpawnZoneConfig.luau — Tag, poll interval and repel cooldown for the spawn safe zone system.
 - ReplicatedStorage\Configs\SprintBoostConfig.luau — Visual definitions for speed-boost auras on the sprint bar.

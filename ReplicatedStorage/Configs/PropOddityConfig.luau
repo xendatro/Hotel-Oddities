@@ -119,7 +119,7 @@ return {
 			AttackAnimation = 126599509413874,
 			HoleImage = 110897645187028,
 
-			DebugHighlight = true,
+			DebugHighlight = false,
 			DebugLog = true,
 		},
 
