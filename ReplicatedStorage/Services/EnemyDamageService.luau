@@ -10,6 +10,7 @@ local ROOM_TAG = "Room"
 local WALL_INSET = 1
 local MAX_INSET_FRACTION = 0.25
 local SAFE_PAD = 0.5
+local KILL_DEBOUNCE = 0.25
 
 local EnemyDamageService = {}
 
@@ -17,7 +18,7 @@ local localPlayer = Players.LocalPlayer
 local character: Model? = localPlayer.Character
 local connections: { [Model]: { RBXScriptConnection } } = {}
 local attackTracks: { [Model]: { AnimationTrack } } = {}
-local dead = false
+local lastKillAt = -math.huge
 
 local function isInSafeRoom(): boolean
 	if not character then return false end
@@ -79,7 +80,7 @@ local function getHumanoid(): Humanoid?
 end
 
 local function kill(enemy: Model)
-	if dead or not character then return end
+	if not character or os.clock() - lastKillAt < KILL_DEBOUNCE then return end
 	if isInSafeRoom() then return end
 	if not enemy:IsDescendantOf(workspace) then return end
 	if Vanished.Is(character) then return end
@@ -91,7 +92,7 @@ local function kill(enemy: Model)
 	local humanoid = getHumanoid()
 	if not humanoid or humanoid.Health <= 0 then return end
 
-	dead = true
+	lastKillAt = os.clock()
 	playKillAnimation(enemy)
 	Kill:FireServer(enemy)
 end
@@ -134,7 +135,7 @@ end
 
 local function setCharacter(newCharacter: Model?)
 	character = newCharacter
-	dead = false
+	lastKillAt = -math.huge
 end
 
 if not localPlayer then
