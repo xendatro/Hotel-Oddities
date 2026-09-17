@@ -144,16 +144,17 @@ Shared accessor for `ReplicatedStorage.Communication`. On the server it creates 
 - API: `CommunicationService.Ensure(folderName: string, remoteName: string, className: string?) -> any` — creates the folder and the remote if absent; `className` defaults to `"RemoteEvent"`
 
 ### ComputerHUDService.luau
-Client-only. Builds the small "hacked / total" pill in the top-right corner, reading both numbers from `ComputerService:GetProgress()` so the display stays stable while computers stream in and out. Hidden when there are no computers, and pulses its stroke and text once all of them are hacked.
-- API: `ComputerHUDService:GetProgress() -> (number, number)` — hacked count and total count
-- Tags: reads `HackComputer`
-- Requires: `Configs.ComputerConfig`, `ComputerService`, `GuiBuilderService`; optionally `Configs.ComputerAssets` for the icon image (falls back to a text glyph)
+Client-only. Drives the Studio-authored `ComputersGui` notepad on the right of the screen: one row per `ComputerChipConfig.Colors` entry (Blue, Red, Green, Yellow, Purple) with a checkbox, a monitor icon tinted in that chip's colour (`ComputerAssets.MonitorIcon`, dimmed by `HUD.PendingIconTransparency` until done) and the colour name, which gains the hand-drawn tick and a rich-text strikethrough once the server reports that computer complete. The footer reads `HUD.LockedText` with the done count until `ComputerService:IsExitUnlocked()`, then `HUD.UnlockedText` pulsing towards `HUD.Complete`. Hidden when there are no computers at all.
+- API: `ComputerHUDService:GetProgress() -> (number, number)` — hacked count and total count, from `ComputerService`
+- Requires: `Configs.ComputerAssets`, `Configs.ComputerChipConfig`, `Configs.ComputerConfig`, `ComputerService`, `GuiBuilderService`; expects `ComputersGui.Design` with `Title.Label`, `Rows.<Key>` (`Box`, `Check`, `Icon`, `Label`) and `Footer`
 
 ### ComputerService.luau
 Client-only. Owns the hackable computers: registers each tagged model with `InteractionService` (selectable only once its screen part has streamed in), draws the animated idle SurfaceGui on its screen part, and on activation locks the raw camera FOV, tweens the camera onto the screen, frees the camera lock through `InterfaceService:SetCameraFreed` so the cursor works during the session, disables player controls, and hands the model to `MinigameService`. Completing the minigame marks the computer hacked locally and tells the server the moment the win fanfare starts, so leaving or dying during the fanfare cannot drop the completion; the server's snapshot remote is authoritative. Hacked state is keyed by each model's `ComputerConfig.IdAttribute` string, so it survives the model instance being destroyed and recreated by streaming; a fresh snapshot is requested over the Sync remote at startup.
 - API: `ComputerService.Changed` — `RBXScriptSignal` fired whenever the hacked set changes
 - API: `ComputerService:IsHacked(model: Model) -> boolean` — whether that computer is already done
 - API: `ComputerService:GetProgress() -> (number, number)` — hacked count and the server-synced total (falls back to counting replicated tags before the first snapshot)
+- API: `ComputerService:GetColors() -> { [key]: boolean }` — per-chip-colour completion from the last server snapshot
+- API: `ComputerService:IsExitUnlocked() -> boolean` — the server's exit verdict from the last snapshot
 - API: `ComputerService:GetFocused() -> Model?` — the computer currently under the interaction cursor
 - API: `ComputerService:IsSessionOpen() -> boolean` — whether a minigame session is running
 - API: `ComputerService:Activate(model: Model?) -> boolean` — opens a session on the given (or focused) computer
@@ -251,8 +252,14 @@ Drives the pre-built `ElevatorLoadingGui` fade-in/fade-out loading screen used w
 - Remotes: `Elevator/Loading` (listened), `Elevator/FadeComplete` (fired)
 - Requires: `Configs.ElevatorConfig`, `TweenProxyService`, `GuiBuilderService`; reaches remotes by direct `ReplicatedStorage.Communication` indexing with `WaitForChild`
 
+### EndScreenService.luau
+Client-only. Drives the Studio-authored `EndGui` (the win screen) when the server sends `Ending/Show`: closes any open page, force-unlocks the mouse, then runs the beat sequence from `EndingConfig.Timing` and `.Motion` with TweenService - the black backdrop fades in, the paper `Card` drops in from above and settles from its start tilt to a slight lean, the `Logo` fades and scales up, the `TitleChip` pops in on a `UIScale`, the `Subtitle` types itself out in the typewriter font behind a blinking caret, the `PostIt` swings in, and last the `PlayAgainButton` rises and becomes interactable. PLAY AGAIN fires `Ending/PlayAgain` once (the label reads `Text.Working` while waiting); `Ending/Hide` drops the card off the bottom while the backdrop fades, disables the GUI, relocks the mouse and resets every element for next time. Every beat checks a generation counter, so a hide mid-sequence cancels cleanly.
+- API: `EndScreenService:Show()` / `:Hide()` / `:IsVisible() -> boolean`
+- Remotes: `Ending/Show`, `Ending/Hide` (listened), `Ending/PlayAgain` (fired)
+- Requires: `Configs.EndingConfig`, `CommunicationService`, `GuiBuilderService`, `InterfaceService`; expects `EndGui.Main.Card.Paper` with `Logo`, `TitleChip.Label`, `Subtitle`, `PostIt.Label`/`Note` and `PlayAgainButton.Label`
+
 ### EnemyDamageService.luau
-Watches every `Enemy` tagged model's parts for touches against the local character and, if the player is not inside a tagged safe `Room`, not vanished, and the enemy is neither harmless nor an inactive Mimic, plays a random attack animation and reports the enemy to the server. The server records the cause before applying the kill, avoiding a client/server death-order race. Also kills on a server-sent `Strike` and replays the attack animation when another player is killed. Repeat reports are held off by a short `KILL_DEBOUNCE` rather than a per-life flag: the old `dead` latch was set before the server answered, so one report the server refused (an untagged enemy) silently blocked every later kill until respawn.
+Watches every `Enemy` tagged model's parts for touches against the local character and, if the player is not inside a tagged safe `Room`, not vanished, and the enemy is neither harmless nor an inactive Mimic, plays a random attack animation and reports the enemy to the server. The server records the cause before applying the kill, avoiding a client/server death-order race. A server-sent `Strike` now only plays the enemy's attack animation (the server has already applied the damage), and the attack animation is replayed when another player is killed. Repeat reports are held off by a short `KILL_DEBOUNCE` rather than a per-life flag: the old `dead` latch was set before the server answered, so one report the server refused (an untagged enemy) silently blocked every later kill until respawn.
 - API: data table — empty; the touch watchers are installed on require.
 - Remotes: `Death/Kill` (fired and listened), `Death/Strike` (listened)
 - Tags: listens `Enemy`; reads `Room`

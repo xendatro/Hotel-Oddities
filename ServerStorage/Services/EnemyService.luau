@@ -156,12 +156,12 @@ function EnemyService:Spawn(enemyId: string, spawnCFrame: CFrame, ...: any)
 	end
 	local despawn = enemy.Despawn
 	enemy.Despawn = function(self, ...)
-		if self.Active then emitPoof() end
+		if self.Active and not self.SilentDespawn then emitPoof() end
 		return despawn(self, ...)
 	end
 	table.insert(ActiveEnemies, enemy)
 	model.Destroying:Connect(function()
-		emitPoof()
+		if not enemy.SilentDespawn then emitPoof() end
 		local index = table.find(ActiveEnemies, enemy)
 		if index then
 			table.remove(ActiveEnemies, index)

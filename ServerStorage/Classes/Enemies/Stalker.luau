@@ -313,7 +313,8 @@ local function reveal(_changeState: StateMachine.ChangeState, npc: any, target: 
 
 	task.wait(KILL_LINGER)
 	releaseCamera(npc)
-	return "Despawn", npc
+	npc.SilentDespawn = true
+	return "Flee", npc
 end
 
 local function flee(_changeState: StateMachine.ChangeState, npc: any)

@@ -60,8 +60,7 @@ function Chaos:_killAlong(origin: Vector3, destination: Vector3)
 
 		local distance = MathService.DistanceToSegment(root.Position, origin, destination)
 		if distance <= self.Config.KillRange then
-			DeathService:RecordCause(player, self.EnemyId)
-			humanoid.Health = 0
+			DeathService:Hit(player, self.Model, self.Config.Damage or math.huge, self.EnemyId)
 		elseif distance <= self.Config.KillRange * NEAR_MISS_SCALE then
 			EnemyDiscoveryService:GrantEvent(player, self.EnemyId)
 		end

@@ -36,6 +36,12 @@ export type EnemyConfig = {
 	Damage: number?,
 	AttackRange: number?,
 	AttackCooldown: number?,
+	AfterAttack: string?,
+	RecoverTime: number?,
+	RecoverSpeedScale: number?,
+	RunAwaySpeed: number?,
+	RunAwayTime: number?,
+	RunAwayDespawnDistance: number?,
 	Harmless: boolean?,
 	DespawnEffect: boolean?,
 
@@ -212,7 +218,10 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		FieldOfView = 110,
 		RespectsSafeRooms = true,
 
-		Damage = math.huge,
+		Damage = 35,
+		AfterAttack = "Recover",
+		RecoverTime = 2,
+		RecoverSpeedScale = 0.45,
 		AttackRange = 4.5,
 		AttackCooldown = 1.5,
 
@@ -245,7 +254,10 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		GiveUpRange = 100,
 		RespectsSafeRooms = true,
 
-		Damage = math.huge,
+		Damage = 40,
+		AfterAttack = "Recover",
+		RecoverTime = 2,
+		RecoverSpeedScale = 0.4,
 		AttackCooldown = 1.5,
 
 		InvestigateRange = 2.5,
@@ -301,7 +313,11 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		FieldOfView = 360,
 		RespectsSafeRooms = true,
 
-		Damage = math.huge,
+		Damage = 45,
+		AfterAttack = "Retreat",
+		RunAwaySpeed = 34,
+		RunAwayTime = 8,
+		RunAwayDespawnDistance = 24,
 		AttackRange = 4.5,
 		AttackCooldown = 1.5,
 
@@ -340,7 +356,11 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		FieldOfView = 360,
 		RespectsSafeRooms = true,
 
-		Damage = math.huge,
+		Damage = 50,
+		AfterAttack = "Retreat",
+		RunAwaySpeed = 30,
+		RunAwayTime = 8,
+		RunAwayDespawnDistance = 24,
 		AttackRange = 4.5,
 		AttackCooldown = 1.5,
 
@@ -413,7 +433,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		FieldOfView = 360,
 		RespectsSafeRooms = true,
 
-		Damage = math.huge,
+		Damage = 60,
 		AttackRange = 4.5,
 		AttackCooldown = 1.5,
 
@@ -559,6 +579,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		Model = "Chaos",
 
 		WalkSpeed = 70,
+		Damage = 100,
 		SpawnPlayerDistance = 100,
 		SpawnDelay = 15,
 		KillRange = 12,
@@ -607,6 +628,11 @@ ceilingDwellerConfig.FieldOfView = 360
 ceilingDwellerConfig.ObservationRange = 300
 ceilingDwellerConfig.ObservationHold = 0.08
 ceilingDwellerConfig.AllowRoomReaction = false
+ceilingDwellerConfig.Damage = 50
+ceilingDwellerConfig.AfterAttack = "Retreat"
+ceilingDwellerConfig.RunAwaySpeed = 30
+ceilingDwellerConfig.RunAwayTime = 8
+ceilingDwellerConfig.RunAwayDespawnDistance = 24
 
 EnemyConfigs.CeilingDweller = ceilingDwellerConfig
 

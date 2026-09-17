@@ -258,7 +258,7 @@ function PaintingDweller:_pollAttack()
 		local playerRoot = livingRoot(target)
 		if not playerRoot then return end
 		if (playerRoot.Position - upper.Position).Magnitude > reach + 2 then return end
-		DeathService:Strike(target, rig, "PaintingDweller")
+		DeathService:Hit(target, rig, self:Setting("Damage", 30), "PaintingDweller")
 	end)
 end
 

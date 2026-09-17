@@ -5,6 +5,7 @@ export type Cause = {
 
 return {
 	CauseMemory = 8,
+	HitCooldown = 1,
 
 	Revive = {
 		ForceFieldDuration = 25,
@@ -18,17 +19,17 @@ return {
 	Causes = {
 		Chaser = {
 			Name = "Mad Guest",
-			Hint = "It sees you and it runs faster than you do. Get out of sight and hide in a room.",
+			Hint = "This guest is nuts! It will chase you with a knife. Run from it.",
 		},
 
 		CeilingDweller = {
 			Name = "Ceiling Dweller",
-			Hint = "It waits in the ceiling vents and drops on whoever opens one. Look up first.",
+			Hint = "Ceiling Dweller waits in ceiling vents, dropping on its victims. Look up! +999 aura",
 		},
 
 		Blind = {
 			Name = "Blind",
-			Hint = "It cannot see. It only hears you. Running is loud, walking is quieter, and crouching makes no sound at all.",
+			Hint = "",
 		},
 
 		WeepingAngel = {

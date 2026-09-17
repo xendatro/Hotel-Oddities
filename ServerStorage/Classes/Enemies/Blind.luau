@@ -283,8 +283,14 @@ local function attack(_changeState: StateMachine.ChangeState, npc: any, target: 
 	end
 
 	npc:Attack(target)
-	task.wait(npc.Config.AttackCooldown)
-	return "Idle", npc
+	startListening(npc)
+	npc:Recover(target)
+	stopListening(npc, npc.Config.ListenFadeOutTime)
+	if npc:IsValidTarget(target) then
+		registerContact(npc, target)
+		return "Pursue", npc, target
+	end
+	return "Search", npc, npc.RootPart.Position
 end
 
 local function search(_changeState: StateMachine.ChangeState, npc: any, lastKnown: Vector3)

@@ -2,9 +2,11 @@ local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
+local ComputerChipConfig = require(ReplicatedStorage.Configs.ComputerChipConfig)
 local ComputerConfig = require(ReplicatedStorage.Configs.ComputerConfig)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local ChatCommandService = require(ServerStorage.Services.ChatCommandService)
+local EndingConfig = require(ReplicatedStorage.Configs.EndingConfig)
 local ComputerService = require(ServerStorage.Services.ComputerService)
 
 local ComputerCommandService = {}
@@ -59,9 +61,37 @@ local function gameOf(model: Model, computers: { Model }): string
 	return ORDER[1]
 end
 
+local function colorOf(model: Model): string?
+	local maze = workspace:FindFirstChild(ComputerChipConfig.MazeName)
+	local rooms = maze and maze:FindFirstChild("Rooms")
+	for _, entry in ComputerChipConfig.Colors do
+		local room = rooms and rooms:FindFirstChild(entry.RoomName)
+		if room and model.Parent == room then return entry.Key end
+	end
+	return nil
+end
+
+local function computerForColor(lowered: string): Model?
+	local maze = workspace:FindFirstChild(ComputerChipConfig.MazeName)
+	local rooms = maze and maze:FindFirstChild("Rooms")
+	if not rooms then return nil end
+	for _, entry in ComputerChipConfig.Colors do
+		if entry.Key:lower() ~= lowered then continue end
+		local room = rooms:FindFirstChild(entry.RoomName)
+		local model = room and room:FindFirstChild(ComputerConfig.ModelName)
+		if model and model:IsA("Model") then return model end
+	end
+	return nil
+end
+
 local function findComputer(text: string): (Model?, string?)
 	local lowered = text:lower()
 	local computers = allComputers()
+
+	local byColor = computerForColor(lowered)
+	if byColor then
+		return byColor, gameOf(byColor, computers)
+	end
 
 	for _, model in computers do
 		local game_ = gameOf(model, computers)
@@ -109,21 +139,26 @@ local function describe(sender: Player): string
 	for _, model in computers do
 		local room = sortKey(model)
 		local done = if ComputerService:IsHacked(sender, model) then "HACKED" else "locked"
-		table.insert(lines, `[hack]   {gameOf(model, computers)} -- {room} -- {done}`)
+		local color = colorOf(model)
+		table.insert(lines, `[hack]   {gameOf(model, computers)} -- {room}{if color then " -- " .. color else ""} -- {done}`)
 	end
 	return table.concat(lines, "\n")
 end
 
 local function setAll(sender: Player, hacked: boolean)
+	if not hacked then
+		ComputerService:ResetProgress(sender)
+		return
+	end
 	for _, model in allComputers() do
-		ComputerService:SetHacked(sender, model, hacked)
+		ComputerService:SetHacked(sender, model, true)
 	end
 end
 
 function ComputerCommandService:Execute(sender: Player, argument: string?): boolean
 	argument = argument and argument:match("^%s*(.-)%s*$") or ""
 	if argument == "" then
-		warn("[hack] usage: /hack list | /hack <game|room> | /hack win <game|room|all> | /hack reset [game|room|all]")
+		warn("[hack] usage: /hack list | /hack <color|game|room> | /hack win <color|game|room|all> | /hack reset [color|game|room|all]")
 		return false
 	end
 
@@ -168,6 +203,19 @@ ChatCommandService.Register("hack", {
 	AdminOnly = true,
 	Handler = function(player: Player, argument: string?)
 		ComputerCommandService:Execute(player, argument)
+	end,
+})
+
+ChatCommandService.Register(EndingConfig.Command, {
+	AdminOnly = true,
+	Handler = function(player: Player, argument: string?)
+		local target = if argument and argument ~= "" then ChatCommandService.FindPlayer(argument) else player
+		if not target then
+			warn(`[{EndingConfig.Command}] no player matches "{argument}"`)
+			return
+		end
+		ComputerService:ResetProgress(target)
+		warn(`[{EndingConfig.Command}] computer progress reset for {target.Name}`)
 	end,
 })
 

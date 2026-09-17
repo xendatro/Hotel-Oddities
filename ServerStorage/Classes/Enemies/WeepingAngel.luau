@@ -79,6 +79,7 @@ function WeepingAngel:BuildStateMachine(): StateMachine.StateMachine
 		Frozen = frozen,
 		Chase = released(chase),
 		Attack = released(attack),
+		Retreat = released(NPC.SharedStates.Retreat),
 		Despawn = released(NPC.SharedStates.Despawn),
 		Stunned = released(NPC.SharedStates.Stunned),
 	}, {

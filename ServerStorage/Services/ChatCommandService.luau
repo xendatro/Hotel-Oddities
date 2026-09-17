@@ -1,14 +1,14 @@
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 
 local ChatCommandService = {}
 
-ChatCommandService.AdminUserIds = {
-	[265199502] = true,
-	[1936118388] = true,
-	[512253031] = true,
-	[91928215] = true
+ChatCommandService.GroupId = if game.CreatorType == Enum.CreatorType.Group then game.CreatorId else 0
+ChatCommandService.AllowedRoles = {
+	owner = true,
+	developer = true,
 }
+
+local Roles: { [Player]: string } = {}
 
 type Options = {
 	Aliases: { string }?,
@@ -20,8 +20,25 @@ type Entry = { Name: string, AdminOnly: boolean, Handler: (player: Player, argum
 
 local Commands: { [string]: { Entry } } = {}
 
+local function resolveRole(player: Player): string
+	local cached = Roles[player]
+	if cached then return cached end
+
+	local role = ""
+	if ChatCommandService.GroupId > 0 then
+		local ok, result = pcall(player.GetRoleInGroup, player, ChatCommandService.GroupId)
+		if ok and type(result) == "string" then role = result end
+	end
+	if player.Parent == Players then Roles[player] = role end
+	return role
+end
+
+function ChatCommandService.GetRole(player: Player): string
+	return resolveRole(player)
+end
+
 function ChatCommandService.IsAllowed(player: Player): boolean
-	return RunService:IsStudio() or ChatCommandService.AdminUserIds[player.UserId] == true
+	return ChatCommandService.AllowedRoles[resolveRole(player):lower()] == true
 end
 
 function ChatCommandService.FindPlayer(name: string): Player?
@@ -63,16 +80,18 @@ local function onChatted(player: Player, message: string)
 	local entries = name and Commands[name:lower()]
 	if not entries then return end
 
+	if not ChatCommandService.IsAllowed(player) then
+		warn(`[{name}] {player.Name} ({player.UserId}) is not allowed to use chat commands`)
+		return
+	end
+
 	for _, entry in entries do
-		if entry.AdminOnly and not ChatCommandService.IsAllowed(player) then
-			warn(`[{entry.Name}] {player.Name} ({player.UserId}) is not allowed to use /{entry.Name}`)
-			continue
-		end
 		entry.Handler(player, if argument ~= "" then argument else nil)
 	end
 end
 
 local function watch(player: Player)
+	task.spawn(resolveRole, player)
 	player.Chatted:Connect(function(message: string)
 		onChatted(player, message)
 	end)
@@ -82,5 +101,9 @@ Players.PlayerAdded:Connect(watch)
 for _, player in Players:GetPlayers() do
 	watch(player)
 end
+
+Players.PlayerRemoving:Connect(function(player: Player)
+	Roles[player] = nil
+end)
 
 return ChatCommandService

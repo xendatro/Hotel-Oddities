@@ -109,6 +109,7 @@ return {
 			AttackReach = 7,
 			AttackCooldown = 1.6,
 			AttackHitTime = 0.38,
+			Damage = 30,
 
 			ShakeRadius = 32,
 			FlickerLights = 2,

@@ -29,11 +29,13 @@ Background loop that flickers the lights in the hallway containing a chased play
 - Requires: `EnemyService:ForEachActive`, `LightService:FlickerHallwayContaining`
 
 ### ChatCommandService.luau
-Shared registry for `/command` chat commands: other modules call `.Register` and this service parses every player's chat, matches the command name or alias, enforces the admin gate and invokes the handler. Handlers receive `(player, argument)` where `argument` is the trimmed remainder of the message or `nil` when empty; admin-only commands are allowed in Studio or for the hardcoded `AdminUserIds`. Registered by `ComputerCommandService` (`/hack`, admin), `EnemyCommandService` (`/spawn`, `/peek`, `/despawn`, `/vent`, `/enemies`, non-admin), plus `InvincibleCommandService`, `MapCommandService`, `MapOddityCommandService`, `LanternSwingCommandService`, `PlayerOddityCommandService`, `ToolCommandService` and `Services.FixtureCommandService`.
+Shared registry for `/command` chat commands: other modules call `.Register` and this service parses every player's chat, matches the command name or alias, enforces the admin gate and invokes the handler. Handlers receive `(player, argument)` where `argument` is the trimmed remainder of the message or `nil` when empty. Every command, whatever its `AdminOnly` flag says, is allowed only for players whose role in the game's owning group (`game.CreatorId`, so Xenware Studios) is one of `AllowedRoles` - Owner or Developer, matched case-insensitively; roles are looked up once per player on join through `GetRoleInGroup` and cached, a failed lookup counts as no role, and there is no Studio bypass, so a Studio test account without the role is refused too. Registered by `ComputerCommandService` (`/hack`, admin), `EnemyCommandService` (`/spawn`, `/peek`, `/despawn`, `/vent`, `/enemies`, non-admin), plus `InvincibleCommandService`, `MapCommandService`, `MapOddityCommandService`, `LanternSwingCommandService`, `PlayerOddityCommandService`, `ToolCommandService` and `Services.FixtureCommandService`.
 - API: `ChatCommandService.Register(name: string, options: { Aliases: { string }?, AdminOnly: boolean?, Handler: (player: Player, argument: string?) -> () })` — names and aliases are lowercased; registering the same name again adds another handler and every handler for a matched name runs
-- API: `ChatCommandService.IsAllowed(player: Player) -> boolean` — true in Studio or for an id in `AdminUserIds`
+- API: `ChatCommandService.IsAllowed(player: Player) -> boolean` — true when the player's cached group role is in `AllowedRoles`
+- API: `ChatCommandService.GetRole(player: Player) -> string` — the cached group role name, empty when unknown
 - API: `ChatCommandService.FindPlayer(name: string) -> Player?` — matches Name, DisplayName or UserId, case-insensitively
-- API: `ChatCommandService.AdminUserIds` — mutable `{ [number]: true }` table of allowed user ids
+- API: `ChatCommandService.GroupId` — the owning group's id (0 when the place is user-owned, which then refuses every command)
+- API: `ChatCommandService.AllowedRoles` — mutable `{ [lowercase role name]: true }` table, `owner` and `developer` by default
 
 ### CameraCommandService.luau
 Initializes each player's `CameraMaxZoomDistance` to `0.5` and registers `/camera` (alias `/cam`) to toggle their maximum camera zoom between `0.5` and `128`.
@@ -42,9 +44,10 @@ Initializes each player's `CameraMaxZoomDistance` to `0.5` and registers `/camer
 
 ### ComputerCommandService.luau
 Implements the admin `/hack` chat command: lists every tagged computer with its assigned minigame and hacked state, teleports the caller in front of one, or force-sets computers hacked/locked. Computers are named by cycling a fixed game order per maze, and can be addressed by game name prefix or by `room_<name>`.
-- API: `ComputerCommandService:Execute(sender: Player, argument: string?) -> boolean` — handles `list`, `win <game|room|all>`, `reset [game|room|all]`, or a bare target to teleport to
+- API: `ComputerCommandService:Execute(sender: Player, argument: string?) -> boolean` — handles `list`, `win <color|game|room|all>`, `reset [color|game|room|all]` (`reset all` goes through `ComputerService:ResetProgress`), or a bare target to teleport to; a target is resolved first as a chip colour (`blue`, `red`, `green`, `yellow`, `purple`, through `ComputerChipConfig.Colors` room names), then as a game name prefix, then as a room
+- Also registers the admin `/resetprogress [player]` command (name from `EndingConfig.Command`) that resets the caller's, or the named player's, computer progress and nothing else
 - Tags: reads `ComputerConfig.Tag`
-- Requires: `ChatCommandService` (registers `/hack`, admin-only), `ComputerService`, `ComputerConfig`
+- Requires: `ChatCommandService` (registers `/hack` and `/resetprogress`, both admin-only), `ComputerService`, `ComputerConfig`, `Configs.ComputerChipConfig`, `Configs.EndingConfig`
 
 ### ComputerService.luau
 Tracks which computer models each player has hacked, as per-player server state rather than an instance attribute, and replicates the set to that player. Auto-tags every eligible `Computer` model in the workspace, stamps each with a unique `ComputerConfig.IdAttribute` string attribute, and validates client completion reports by distance and rate. Sync payloads are streaming-safe: `{ Hacked = { id, ... }, Total = n, Colors = { [color] = boolean }, ExitUnlocked = boolean }` (ids and a server-counted total, never Instance references, which deserialize to nil for streamed-out models). Re-syncs everyone when the tagged set changes, and answers rate-limited client sync requests fired back over the Sync remote.
@@ -52,6 +55,7 @@ Tracks which computer models each player has hacked, as per-player server state 
 - API: `ComputerService:IsExitUnlocked(player: Player) -> boolean` — all five configured chip destination computers must be complete for that player.
 - API: `ComputerService:GetProgress(player: Player) -> (number, number)` — hacked count, total tagged computers
 - API: `ComputerService:SetHacked(player: Player, model: Model, hacked: boolean)` — syncs the player on change
+- API: `ComputerService:ResetProgress(player: Player)` — forgets every computer that player has hacked and syncs them; used by the end screen's play-again path and the `/resetprogress` command
 - Remotes: `ComputerConfig.Remotes.Folder/Complete` (listened), `.../Sync` (fired, and listened for client refresh requests)
 - Tags: applies `ComputerConfig.Tag`
 - Requires: `ComputerConfig`
@@ -85,13 +89,14 @@ ProfileService front-end: loads, reconciles and releases one `PlayerData` profil
 - Requires: `ServerStorage.Services.ProfileService` (third-party), `ItemShopConfig`
 
 ### DeathService.luau
-Records why each player died — from client kill reports, explicit strikes, or the killer model's `EnemyId` — and on death fires the death screen with that cause and a revive token. Validates client kill claims against room safety, the `Enemy` tag (or the enemy being the one this service itself struck, which is how untagged oddity rigs such as the Painting Dweller land their kill), `Harmless`, and the Mimic's attack window.
+Owns enemy damage and death causes. `Hit` is the one path every enemy hurt goes through: it refuses dead players, enforces `DeathConfig.HitCooldown` per player-and-enemy pair (so a server-side attack and the client's contact report for the same touch never stack), records the cause, remembers the killer, tells the client over `Death/Strike` (enemy and damage, for the attack animation) and then applies `TakeDamage`, setting health to zero outright for `math.huge`. Client contact reports on `Death/Kill` deal the enemy's `EnemyConfigs` `Damage` (unknown enemies stay lethal); `Strike` is now just a lethal `Hit`. On death it fires the death screen with the remembered cause and a revive token. Validates client kill claims against room safety, the `Enemy` tag (or the enemy being the one this service itself struck, which is how untagged oddity rigs such as the Painting Dweller land their kill), `Harmless`, and the Mimic's attack window.
 - API: `DeathService:RecordCause(player: Player, causeId: string?)` — stamps or refreshes the cause
-- API: `DeathService:Strike(player: Player, enemy: Model, causeId: string?)` — records the cause and tells the client which enemy struck
+- API: `DeathService:Hit(player: Player, enemy: Model, damage: number, causeId: string?) -> boolean` — the damage path described above; false when refused or on cooldown
+- API: `DeathService:Strike(player: Player, enemy: Model, causeId: string?)` — a lethal `Hit`, kept for hazards that must kill outright
 - API: `DeathService:ClearCause(player: Player, causeId: string)` — clears only if it is still the current cause
 - API: `DeathService:GetCause(player: Player) -> string?` — nil once older than `DeathConfig.CauseMemory`
-- Remotes: `Death/Kill` (listened and fired to all), `Death/Strike` (fired), `Death/Show` (fired)
-- Requires: `DeathConfig`, `ReviveService:Offer`, `FriendReviveService:Offer`, `EnemyDiscoveryService:GrantDeath`, `RoomService`
+- Remotes: `Death/Kill` (listened and fired to all), `Death/Strike` (fired with the enemy and the damage dealt), `Death/Show` (fired)
+- Requires: `DeathConfig`, `Configs.EnemyConfigs` (per-enemy `Damage`), `ReviveService:Offer`, `FriendReviveService:Offer`, `EnemyDiscoveryService:GrantDeath`, `RoomService`
 
 ### DevProductService.luau
 Registers one MarketplaceService receipt handler per entry in `DevProductConfigs`, running the configured grant inside a pcall and only reporting `PurchaseGranted` on success.
@@ -115,6 +120,16 @@ Owns the open/closed state of drawer models as attributes, plays the open/close 
 - Remotes: `Drawer/Toggle` (listened)
 - Tags: reads `DrawerConfig.Tag`
 - Requires: `DrawerConfig`, `AudioService`
+
+### EndingService.luau
+The win. Every `EndingConfig.CheckInterval` it checks each `Elevator` tagged model of type `Exit`: an alive player standing inside its `Hitbox` with `ComputerService:IsExitUnlocked` true is frozen (root anchored, velocity cleared), remembered as ending, and sent `Ending/Show` so the client can play the end screen. `Ending/PlayAgain` from a player who is ending calls `ComputerService:ResetProgress` (only their hacked computers, nothing else), streams the lobby in, pivots the character onto `Workspace.Lobby`'s SpawnLocation (`SpawnLift` above it), unfreezes them and sends `Ending/Hide`. The ending flag drops when the character is removed or the player leaves; `ElevatorService` keeps rejecting unauthorised players, so only authorised entries ever reach here.
+- API: `EndingService:IsEnding(player: Player) -> boolean`
+- API: `EndingService:Begin(player: Player) -> boolean` - freeze and show, false if already ending or dead
+- API: `EndingService:Finish(player: Player) -> boolean` - the play-again path: reset, teleport to the lobby, unfreeze, hide
+- API: `EndingService:Cancel(player: Player)` - unfreeze and hide without resetting or teleporting
+- Remotes: `Ending/Show`, `Ending/Hide` (fired), `Ending/PlayAgain` (listened); all created with `.Ensure`
+- Tags: reads `ElevatorConfig.Tag`
+- Requires: `Configs.ElevatorConfig`, `Configs.EndingConfig`, `CharacterService`, `CommunicationService`, `ComputerService`
 
 ### ElevatorService.luau
 Teleports players from the lobby elevator into the maze: on hitbox touch it shows the loading screen, waits for the client fade and a minimum loading time, streams the destination in, then pivots the character to a part tagged with `ElevatorConfig.SpawnTag` (preferring one inside `Maze15`, now inside StartElevator). Every 0.2 seconds, the exit cabin rejects unauthorized players to its hallway Approach marker using ComputerService:IsExitUnlocked; no win action or teleport follows authorized entry.

@@ -107,26 +107,12 @@ return {
 	},
 
 	HUD = {
-		Name = "ComputersUI",
-		DisplayOrder = 12,
-
-		EdgeMargin = 12,
-		VerticalPosition = 0.375,
-		Size = UDim2.fromOffset(96, 36),
-
-		Font = Enum.Font.Arcade,
-		IconSize = 22,
-		IconPadding = 8,
-
-		Background = Color3.fromRGB(6, 12, 24),
-		BackgroundTransparency = 0.25,
-		Stroke = Color3.fromRGB(0, 200, 255),
-		StrokeThickness = 2,
-		Text = Color3.fromRGB(220, 236, 255),
-		Complete = Color3.fromRGB(96, 255, 128),
+		Name = "ComputersGui",
+		Title = "COMPUTERS",
+		LockedText = "%d of %d hacked",
+		UnlockedText = "EXIT UNLOCKED",
+		PendingIconTransparency = 0.55,
+		Complete = Color3.fromRGB(64, 118, 72),
 		FlashSpeed = 1.5,
-		FlashDepth = 0.55,
-
-		FallbackIcon = "PC",
 	},
 }

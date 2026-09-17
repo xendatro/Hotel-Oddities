@@ -136,6 +136,12 @@ function ComputerService:SetHacked(player: Player, model: Model, hacked: boolean
 	sync(player)
 end
 
+function ComputerService:ResetProgress(player: Player)
+	Hacked[player] = nil
+	LastComplete[player] = nil
+	sync(player)
+end
+
 Complete.OnServerEvent:Connect(function(player: Player, model: any)
 	if typeof(model) ~= "Instance" or not model:IsA("Model") then return end
 	if not model:IsDescendantOf(workspace) or not CollectionService:HasTag(model, TAG) then return end

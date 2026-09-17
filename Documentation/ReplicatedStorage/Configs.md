@@ -39,10 +39,10 @@ Behavior settings for the camcorder, the photo keep-or-burn prompt and the Galle
 
 ### ComputerAssets.luau
 Image asset ids for the hackable-computer UI.
-- API: data table — `ComputerIcon`, `LockIcon`, `CheckIcon`
+- API: data table — `ComputerIcon`, `LockIcon`, `CheckIcon`, `MonitorIcon` (the white hand-drawn CRT the computer notepad tints per chip colour)
 
 ### ComputerConfig.luau
-Everything for the hackable computer objective: tagging, interaction, camera framing, prompt UI, screen SurfaceGui and the HUD counter.
+Everything for the hackable computer objective: tagging, interaction, camera framing, prompt UI, screen SurfaceGui and the computer notepad (`HUD`: the `ComputersGui` name, title, locked/unlocked footer strings, pending icon transparency, the complete colour and flash speed).
 - API: data table — `Tag`, `IdAttribute`, `ModelName`, `ScreenPath`, `Remotes`, `Colors`, `Targeting`, `Input`, `Camera`, `Highlight`, `UI`, `IdleScreen`, `HUD`
 
 ### CreepConfig.luau
@@ -59,7 +59,7 @@ Danger-field noise generation over the map plus the Director's enemy population,
 
 ### DeathConfig.luau
 Death-cause names and player-facing hints per enemy (including the `PaintingDweller` cause shown as "Painting Lurker"), plus the full styling and timing of the glitchy "killed by" death screen.
-- API: data table — `CauseMemory`, `Revive`, `Unknown`, `Causes`, `Screen`; exports type `Cause`
+- API: data table — `CauseMemory`, `HitCooldown` (seconds one enemy must wait before it can hurt the same player again, shared by server attacks and client contact reports), `Revive`, `Unknown`, `Causes`, `Screen`; exports type `Cause`
 
 ### DoorConfig.luau
 Swinging door physics, replicated player-proximity state, proximity open/close distances and enemy forced-open behaviour.
@@ -85,6 +85,11 @@ Elevator instance names, Lobby/Start/Exit types, door motion, proximity threshol
 ### EyeConfig.luau
 The Eye enemy: tracking range, the hit flash/blink/blur reaction, gaze-buildup screen effects and idle bobbing.
 - API: data table — `TrackRange`, `TurnRate`, `StunTurnRate`, `Hit*` group, `Gaze*` group, `BobHeight`, `BobPeriod`
+
+### EndingConfig.luau
+Everything the win screen and its server half share: the `Ending` remote folder and names, the `EndGui` name, the `/resetprogress` command name, the exit-cabin poll interval and the lift above the lobby SpawnLocation, the on-screen strings (`Text`: title, typewriter subtitle, post-it chapter line and note, button label, the waiting label and the caret), the beat timings (`Timing`: backdrop, card, logo, chip, typing interval and caret blink, post-it, button, fade out) and the motion numbers (`Motion`: card start/end/exit Y and rotations, logo start scale, post-it rotations, button rise), plus the backdrop and ink colours.
+- API: data table - `Remotes`, `Gui`, `Command`, `CheckInterval`, `SpawnLift`, `Text`, `Timing`, `Motion`, `Colors`
+- Requires: nothing
 
 ### FLAGS.luau
 Global on/off switches for major systems and debug output.
@@ -202,7 +207,7 @@ Roll timings and effect weights for the player oddity system that randomly resiz
 - API: data table — `Enabled`, `RollInterval`, `InitialDelay`, `TriggerChance`, `MinDuration`, `MaxDuration`, `MinimumPlayersForHeadStare`, `EffectWeights`, `SizeOptions`, `HeadSizeMultiplier`, `OddTransparency`, `HeadTurnRate`, `HeadReturnRate`
 
 ### PropOddityConfig.luau
-Per-effect tuning for prop-based oddities — falling lanterns, falling paintings, the painting dweller, and the scurrying rat — covering arming, approach detection, candidate selection, and either repair rules (the fixture effects) or crossing-site sampling and rat motion (`RatScurry`). `PaintingDweller` carries `StartAnimation` (one-shot burst-out), `ThrashAnimation` (loop that follows it), `AttackAnimation`, `HoleImage` and `RootDrop`, the studs the rig hangs below the canvas centre; its fixture debug highlight is disabled.
+Per-effect tuning for prop-based oddities — falling lanterns, falling paintings, the painting dweller (whose `Damage` is what each lunge takes off the player), and the scurrying rat — covering arming, approach detection, candidate selection, and either repair rules (the fixture effects) or crossing-site sampling and rat motion (`RatScurry`). `PaintingDweller` carries `StartAnimation` (one-shot burst-out), `ThrashAnimation` (loop that follows it), `AttackAnimation`, `HoleImage` and `RootDrop`, the studs the rig hangs below the canvas centre; its fixture debug highlight is disabled.
 - API: data table — `Enabled`, `Effects` (`LanternFall`, `PaintingFall`, `PaintingDweller`, `RatScurry`)
 
 ### ShopkeeperConfig.luau
