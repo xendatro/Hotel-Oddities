@@ -302,6 +302,11 @@ Vendored EgoMoose Rbx-Wallstick (June 2026 upstream): sticks the local player's 
 ### CameraShaker\ (init.luau, CameraShakeInstance.luau, CameraShakePresets.luau)
 Vendored third-party camera shake library (Sleitnick's CameraShaker); used through ShakeService — not modified in this project.
 
+### Icon\ (init.luau, Attribute.luau, Reference.luau, Types.luau, Utility.luau, VERSION.luau, Elements\, Features\, Packages\)
+Vendored TopbarPlus v3.4.0 (ForeverHD): builds and themes icons on Roblox's topbar, with its own container ScreenGui, caption, dropdown, menu and gamepad support. Not modified in this project. Drive it through `Services.TopbarIconService` rather than constructing directly.
+- API: `Icon.new() -> Icon`, then chainable `:setImage`, `:setLabel`, `:setCaption`, `:setOrder`, `:setImageScale`, `:align`, `:autoDeselect`, `:oneClick`, `:select`, `:deselect`, `:bindEvent`, `:bindToggleKey`, `:destroy`
+- API: `Icon.getIcon(nameOrUID)`, `Icon.setTopbarEnabled(bool)`, `Icon.modifyBaseTheme(modifications)`, `Icon.setDisplayOrder(int)`
+
 ## Minigames
 
 ### Minigames\MinigameBase.luau

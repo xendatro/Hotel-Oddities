@@ -70,6 +70,7 @@ extend it instead of writing a second copy.
 | `EnemyBase` | `ServerStorage\Classes` | Base class every enemy extends |
 | `NPC` | `ServerStorage\Classes` | Base class for pathfinding humanoid enemies |
 | `SurfaceWalker` | `ServerStorage\Classes` | Walks any humanoid rig/NPC along walls or ceilings kinematically |
+| `Icon` / `TopbarIconService` | `ReplicatedStorage\Classes`, `ReplicatedStorage\Services` | Roblox topbar icons (vendored TopbarPlus) and the pages they open |
 | `Wallstick` / `WallstickService` | `ReplicatedStorage\Classes`, `ReplicatedStorage\Services` | Player wall/ceiling sticking (vendored EgoMoose controller) |
 | `Oddity` / `PropOddity` / `PlayerOddity` / `HallwayOddity` / `FixtureFall` | `ServerStorage\Classes` | The oddity hierarchy every concrete oddity extends |
 | `FixturePool` / `CrossingPool` | `ServerStorage\Classes` | Arming and approach detection for oddities triggered by walking toward a fixture or a hallway point |
@@ -198,6 +199,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\StatsHUDService.luau — Debug HUD showing FPS, ping, danger-field value and a live enemy list.
 - ReplicatedStorage\Services\TagService.luau — The tag-to-module pipeline: registers apply/unapply callbacks per CollectionService tag and stores the data they return.
 - ReplicatedStorage\Services\ToolClientService.luau — Bootstraps tool classes for the local player's tools and routes server tool events to them.
+- ReplicatedStorage\Services\TopbarIconService.luau — Builds the Index, Gems and Gallery TopbarPlus icons, opens the matching InterfaceService page on select and keeps icon selection in sync with the Main page controller.
 - ReplicatedStorage\Services\TweenProxyService.luau — Tweens arbitrary values through a throwaway ValueBase and a callback, including model scaling.
 - ReplicatedStorage\Services\VanishedService.luau — Checks shared and source-specific immunity tags or a ForceField, with source syncing and an Eye-specific check that skips the exempt tag.
 - ReplicatedStorage\Services\ViewmodelService.luau — First-person viewmodel that clones the equipped tool under the camera with sway, bob and named per-tool poses, can suppress the live viewmodel for captures, and exposes its equipped tool and default fit anchor to debug panels.
@@ -242,6 +244,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\Vow.luau — Cancellable single-function thread wrapper backing the state machine.
 - ReplicatedStorage\Classes\Watch.luau — Turns an NPC's neck and waist to look at the local player.
 - ReplicatedStorage\Classes\CameraShaker\ — Vendored third-party camera shake library used through ShakeService.
+- ReplicatedStorage\Classes\Icon\ — Vendored TopbarPlus v3.4.0 topbar icon library, driven through TopbarIconService.
 - ReplicatedStorage\Classes\Wallstick\ — Vendored EgoMoose Rbx-Wallstick surface-sticking controller (modernized constraints), driven through WallstickService; mirrors WalkSpeed into its hidden mover, offers direct planar motion for seam-free gravity warps, patches gravity and screen-relative look handling into the live camera, and fully restores humanoid state, rotation type and constraints when disabled.
 - ReplicatedStorage\Classes\Minigames\MinigameBase.luau — Base class every terminal minigame extends, providing themed GUI builders, input helpers, heartbeat and win/fail plumbing.
 - ReplicatedStorage\Classes\Minigames\AimTrainer.luau — Click-the-target minigame; 20 hits on shrinking timers, 3 misses wipe the run.
@@ -329,6 +332,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\StoreConfig.luau — Shop and Gems page text, owned-price layout, gem pack frames and amounts, balance flash and the gem purchase result code.
 - ReplicatedStorage\Configs\StreamingConfig.luau — Corridor streaming prediction, reconciliation and tag settings (currently disabled).
 - ReplicatedStorage\Configs\ToolConfigs.luau — Per-tool tags and behaviour values for every usable tool, including the Shovel's six-second hole immunity duration.
+- ReplicatedStorage\Configs\TopbarConfig.luau — Which interface pages get a topbar icon, plus each icon's image, label, order and alignment.
 - ReplicatedStorage\Configs\ViewmodelConfig.luau — First-person viewmodel placement, sway, bob, per-tool overrides and named poses.
 - ReplicatedStorage\Configs\ViewmodelDebugConfig.luau — F3 walkie-talkie viewmodel tuning panel keybind, slider steps and tunable pose list.
 - ReplicatedStorage\Configs\VoiceChatConfig.luau — Proximity voice chat volume, distance and activity detection settings.
