@@ -149,6 +149,18 @@ in the right one; `_G` is not shared between them and neither survives
 restarting the play session. Module upvalues last as long as the datamodel,
 which is usually what you want.
 
+**`Measured`** — **`_G` is nil inside an MCP `execute_luau` snippet.** On
+2026-09-16 `_G.WalkieLog = _G.WalkieLog or {}` failed with "attempt to index nil
+with 'WalkieLog'" in the Client datamodel. To carry state between snippets, keep
+it on an instance instead, such as a `StringValue` or an attribute under the
+local player.
+
+**`Measured`** — **Studio playtests do not reproduce split replication.** A tool
+the server gives on respawn arrived on the client with every descendant already
+present at `ChildAdded` in three out of three tries. To test code against a
+subtree that arrives in pieces, detach a child on the client, reparent the root,
+then restore the child.
+
 **`Inferred`** — **never call `WaitForChild` without a timeout in an
 MCP-executed snippet.** An infinite yield hangs the call for its full timeout.
 

@@ -63,26 +63,58 @@ local function findScreenPart(root: Instance): BasePart?
 	return nil
 end
 
+local REQUIRED_SCREEN_PATHS = {
+	{ "Header", "Title" },
+	{ "Header", "Mode" },
+	{ "Header", "Settings" },
+	{ "Header", "Power" },
+	{ "Roster", "Empty" },
+	{ "Roster", "Scrollbar", "Thumb" },
+	{ "Roster", "List", "Row", "Dot" },
+	{ "Roster", "List", "Row", "PlayerName" },
+	{ "Roster", "List", "Row", "Status" },
+	{ "Roster", "List", "Row", "Meter", "Fill" },
+	{ "Roster", "List", "Row", "Controls", "Mute" },
+	{ "Roster", "List", "Row", "Controls", "Volume", "Fill" },
+	{ "Roster", "List", "Row", "Controls", "Volume", "Knob" },
+	{ "Settings", "List", "SettingRow", "Title" },
+	{ "Settings", "List", "SettingRow", "Value" },
+	{ "Settings", "List", "SettingRow", "Slider", "Fill" },
+	{ "Settings", "List", "SettingRow", "Slider", "Knob" },
+	{ "Footer", "Signal" },
+	{ "Footer", "Hint" },
+	{ "Off", "Prompt" },
+}
+
+local function findPath(root: Instance, path: { string }): Instance?
+	local current: Instance? = root
+	for _, name in path do
+		current = current and current:FindFirstChild(name)
+	end
+	return current
+end
+
 local function readScreen(part: BasePart): Screen?
 	local gui = part:FindFirstChildOfClass("SurfaceGui")
 	local main = gui and gui:FindFirstChild("Main")
 	local body = main and main:FindFirstChild("Body")
-	local roster = body and body:FindFirstChild("Roster")
-	local settings = body and body:FindFirstChild("Settings")
-	if not roster or not settings then return nil end
+	if not body then return nil end
+	for _, path in REQUIRED_SCREEN_PATHS do
+		if not findPath(body, path) then return nil end
+	end
 
 	return {
 		Gui = gui :: SurfaceGui,
 		Part = part,
-		Header = body:FindFirstChild("Header") :: Frame,
-		Roster = roster :: Frame,
-		List = roster:FindFirstChild("List") :: ScrollingFrame,
-		RowTemplate = roster:FindFirstChild("List").Row :: Frame,
-		Settings = settings :: Frame,
-		SettingList = settings:FindFirstChild("List") :: Frame,
-		SettingTemplate = settings:FindFirstChild("List").SettingRow :: Frame,
-		Footer = body:FindFirstChild("Footer") :: Frame,
-		Off = body:FindFirstChild("Off") :: Frame,
+		Header = body.Header :: Frame,
+		Roster = body.Roster :: Frame,
+		List = body.Roster.List :: ScrollingFrame,
+		RowTemplate = body.Roster.List.Row :: Frame,
+		Settings = body.Settings :: Frame,
+		SettingList = body.Settings.List :: Frame,
+		SettingTemplate = body.Settings.List.SettingRow :: Frame,
+		Footer = body.Footer :: Frame,
+		Off = body.Off :: Frame,
 	}
 end
 
