@@ -44,10 +44,10 @@ Initializes each player's `CameraMaxZoomDistance` to `0.5` and registers `/camer
 
 ### ComputerCommandService.luau
 Implements the admin `/hack` chat command: lists every tagged computer with its assigned minigame and hacked state, teleports the caller in front of one, or force-sets computers hacked/locked. Computers are named by cycling a fixed game order per maze, and can be addressed by game name prefix or by `room_<name>`.
-- API: `ComputerCommandService:Execute(sender: Player, argument: string?) -> boolean` — handles `list`, `win <game|room|all>`, `reset [game|room|all]` (`reset all` goes through `ComputerService:ResetProgress`), or a bare target to teleport to
+- API: `ComputerCommandService:Execute(sender: Player, argument: string?) -> boolean` — handles `list`, `win <color|game|room|all>`, `reset [color|game|room|all]` (`reset all` goes through `ComputerService:ResetProgress`), or a bare target to teleport to; a target is resolved first as a chip colour (`blue`, `red`, `green`, `yellow`, `purple`, through `ComputerChipConfig.Colors` room names), then as a game name prefix, then as a room
 - Also registers the admin `/resetprogress [player]` command (name from `EndingConfig.Command`) that resets the caller's, or the named player's, computer progress and nothing else
 - Tags: reads `ComputerConfig.Tag`
-- Requires: `ChatCommandService` (registers `/hack` and `/resetprogress`, both admin-only), `ComputerService`, `ComputerConfig`, `Configs.EndingConfig`
+- Requires: `ChatCommandService` (registers `/hack` and `/resetprogress`, both admin-only), `ComputerService`, `ComputerConfig`, `Configs.ComputerChipConfig`, `Configs.EndingConfig`
 
 ### ComputerService.luau
 Tracks which computer models each player has hacked, as per-player server state rather than an instance attribute, and replicates the set to that player. Auto-tags every eligible `Computer` model in the workspace, stamps each with a unique `ComputerConfig.IdAttribute` string attribute, and validates client completion reports by distance and rate. Sync payloads are streaming-safe: `{ Hacked = { id, ... }, Total = n, Colors = { [color] = boolean }, ExitUnlocked = boolean }` (ids and a server-counted total, never Instance references, which deserialize to nil for streamed-out models). Re-syncs everyone when the tagged set changes, and answers rate-limited client sync requests fired back over the Sync remote.

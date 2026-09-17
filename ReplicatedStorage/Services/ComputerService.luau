@@ -69,6 +69,8 @@ local lastClosed = 0
 
 local HackedIds: { [string]: true } = {}
 local serverTotal: number? = nil
+local ColorState: { [string]: boolean } = {}
+local exitUnlocked = false
 
 local changed = Instance.new("BindableEvent")
 ComputerService.Changed = changed.Event
@@ -314,6 +316,21 @@ local function applySnapshot(snapshot: any)
 		serverTotal = total
 	end
 
+	local colors = (snapshot :: { [string]: any }).Colors
+	if type(colors) == "table" then
+		table.clear(ColorState)
+		for key, done in colors :: { [string]: any } do
+			if type(key) == "string" then
+				ColorState[key] = done == true
+			end
+		end
+	end
+
+	local unlocked = (snapshot :: { [string]: any }).ExitUnlocked
+	if type(unlocked) == "boolean" then
+		exitUnlocked = unlocked
+	end
+
 	applyState()
 end
 
@@ -481,6 +498,14 @@ function ComputerService:GetProgress(): (number, number)
 	end
 
 	return hacked, math.max(total :: number, hacked)
+end
+
+function ComputerService:GetColors(): { [string]: boolean }
+	return table.clone(ColorState)
+end
+
+function ComputerService:IsExitUnlocked(): boolean
+	return exitUnlocked
 end
 
 function ComputerService:GetFocused(): Model?

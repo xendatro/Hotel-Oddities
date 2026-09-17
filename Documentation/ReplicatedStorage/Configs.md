@@ -39,10 +39,10 @@ Behavior settings for the camcorder, the photo keep-or-burn prompt and the Galle
 
 ### ComputerAssets.luau
 Image asset ids for the hackable-computer UI.
-- API: data table — `ComputerIcon`, `LockIcon`, `CheckIcon`
+- API: data table — `ComputerIcon`, `LockIcon`, `CheckIcon`, `MonitorIcon` (the white hand-drawn CRT the computer notepad tints per chip colour)
 
 ### ComputerConfig.luau
-Everything for the hackable computer objective: tagging, interaction, camera framing, prompt UI, screen SurfaceGui and the HUD counter.
+Everything for the hackable computer objective: tagging, interaction, camera framing, prompt UI, screen SurfaceGui and the computer notepad (`HUD`: the `ComputersGui` name, title, locked/unlocked footer strings, pending icon transparency, the complete colour and flash speed).
 - API: data table — `Tag`, `IdAttribute`, `ModelName`, `ScreenPath`, `Remotes`, `Colors`, `Targeting`, `Input`, `Camera`, `Highlight`, `UI`, `IdleScreen`, `HUD`
 
 ### CreepConfig.luau
