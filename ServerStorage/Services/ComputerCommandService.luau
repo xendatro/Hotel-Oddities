@@ -5,6 +5,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local ComputerConfig = require(ReplicatedStorage.Configs.ComputerConfig)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local ChatCommandService = require(ServerStorage.Services.ChatCommandService)
+local EndingConfig = require(ReplicatedStorage.Configs.EndingConfig)
 local ComputerService = require(ServerStorage.Services.ComputerService)
 
 local ComputerCommandService = {}
@@ -115,8 +116,12 @@ local function describe(sender: Player): string
 end
 
 local function setAll(sender: Player, hacked: boolean)
+	if not hacked then
+		ComputerService:ResetProgress(sender)
+		return
+	end
 	for _, model in allComputers() do
-		ComputerService:SetHacked(sender, model, hacked)
+		ComputerService:SetHacked(sender, model, true)
 	end
 end
 
@@ -168,6 +173,19 @@ ChatCommandService.Register("hack", {
 	AdminOnly = true,
 	Handler = function(player: Player, argument: string?)
 		ComputerCommandService:Execute(player, argument)
+	end,
+})
+
+ChatCommandService.Register(EndingConfig.Command, {
+	AdminOnly = true,
+	Handler = function(player: Player, argument: string?)
+		local target = if argument and argument ~= "" then ChatCommandService.FindPlayer(argument) else player
+		if not target then
+			warn(`[{EndingConfig.Command}] no player matches "{argument}"`)
+			return
+		end
+		ComputerService:ResetProgress(target)
+		warn(`[{EndingConfig.Command}] computer progress reset for {target.Name}`)
 	end,
 })
 

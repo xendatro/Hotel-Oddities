@@ -42,9 +42,10 @@ Initializes each player's `CameraMaxZoomDistance` to `0.5` and registers `/camer
 
 ### ComputerCommandService.luau
 Implements the admin `/hack` chat command: lists every tagged computer with its assigned minigame and hacked state, teleports the caller in front of one, or force-sets computers hacked/locked. Computers are named by cycling a fixed game order per maze, and can be addressed by game name prefix or by `room_<name>`.
-- API: `ComputerCommandService:Execute(sender: Player, argument: string?) -> boolean` — handles `list`, `win <game|room|all>`, `reset [game|room|all]`, or a bare target to teleport to
+- API: `ComputerCommandService:Execute(sender: Player, argument: string?) -> boolean` — handles `list`, `win <game|room|all>`, `reset [game|room|all]` (`reset all` goes through `ComputerService:ResetProgress`), or a bare target to teleport to
+- Also registers the admin `/resetprogress [player]` command (name from `EndingConfig.Command`) that resets the caller's, or the named player's, computer progress and nothing else
 - Tags: reads `ComputerConfig.Tag`
-- Requires: `ChatCommandService` (registers `/hack`, admin-only), `ComputerService`, `ComputerConfig`
+- Requires: `ChatCommandService` (registers `/hack` and `/resetprogress`, both admin-only), `ComputerService`, `ComputerConfig`, `Configs.EndingConfig`
 
 ### ComputerService.luau
 Tracks which computer models each player has hacked, as per-player server state rather than an instance attribute, and replicates the set to that player. Auto-tags every eligible `Computer` model in the workspace, stamps each with a unique `ComputerConfig.IdAttribute` string attribute, and validates client completion reports by distance and rate. Sync payloads are streaming-safe: `{ Hacked = { id, ... }, Total = n, Colors = { [color] = boolean }, ExitUnlocked = boolean }` (ids and a server-counted total, never Instance references, which deserialize to nil for streamed-out models). Re-syncs everyone when the tagged set changes, and answers rate-limited client sync requests fired back over the Sync remote.
@@ -52,6 +53,7 @@ Tracks which computer models each player has hacked, as per-player server state 
 - API: `ComputerService:IsExitUnlocked(player: Player) -> boolean` — all five configured chip destination computers must be complete for that player.
 - API: `ComputerService:GetProgress(player: Player) -> (number, number)` — hacked count, total tagged computers
 - API: `ComputerService:SetHacked(player: Player, model: Model, hacked: boolean)` — syncs the player on change
+- API: `ComputerService:ResetProgress(player: Player)` — forgets every computer that player has hacked and syncs them; used by the end screen's play-again path and the `/resetprogress` command
 - Remotes: `ComputerConfig.Remotes.Folder/Complete` (listened), `.../Sync` (fired, and listened for client refresh requests)
 - Tags: applies `ComputerConfig.Tag`
 - Requires: `ComputerConfig`
@@ -114,6 +116,16 @@ Owns the open/closed state of drawer models as attributes, plays the open/close 
 - Remotes: `Drawer/Toggle` (listened)
 - Tags: reads `DrawerConfig.Tag`
 - Requires: `DrawerConfig`, `AudioService`
+
+### EndingService.luau
+The win. Every `EndingConfig.CheckInterval` it checks each `Elevator` tagged model of type `Exit`: an alive player standing inside its `Hitbox` with `ComputerService:IsExitUnlocked` true is frozen (root anchored, velocity cleared), remembered as ending, and sent `Ending/Show` so the client can play the end screen. `Ending/PlayAgain` from a player who is ending calls `ComputerService:ResetProgress` (only their hacked computers, nothing else), streams the lobby in, pivots the character onto `Workspace.Lobby`'s SpawnLocation (`SpawnLift` above it), unfreezes them and sends `Ending/Hide`. The ending flag drops when the character is removed or the player leaves; `ElevatorService` keeps rejecting unauthorised players, so only authorised entries ever reach here.
+- API: `EndingService:IsEnding(player: Player) -> boolean`
+- API: `EndingService:Begin(player: Player) -> boolean` - freeze and show, false if already ending or dead
+- API: `EndingService:Finish(player: Player) -> boolean` - the play-again path: reset, teleport to the lobby, unfreeze, hide
+- API: `EndingService:Cancel(player: Player)` - unfreeze and hide without resetting or teleporting
+- Remotes: `Ending/Show`, `Ending/Hide` (fired), `Ending/PlayAgain` (listened); all created with `.Ensure`
+- Tags: reads `ElevatorConfig.Tag`
+- Requires: `Configs.ElevatorConfig`, `Configs.EndingConfig`, `CharacterService`, `CommunicationService`, `ComputerService`
 
 ### ElevatorService.luau
 Teleports players from the lobby elevator into the maze: on hitbox touch it shows the loading screen, waits for the client fade and a minimum loading time, streams the destination in, then pivots the character to a part tagged with `ElevatorConfig.SpawnTag` (preferring one inside `Maze15`, now inside StartElevator). Every 0.2 seconds, the exit cabin rejects unauthorized players to its hallway Approach marker using ComputerService:IsExitUnlocked; no win action or teleport follows authorized entry.

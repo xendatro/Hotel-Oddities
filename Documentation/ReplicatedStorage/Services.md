@@ -251,6 +251,12 @@ Drives the pre-built `ElevatorLoadingGui` fade-in/fade-out loading screen used w
 - Remotes: `Elevator/Loading` (listened), `Elevator/FadeComplete` (fired)
 - Requires: `Configs.ElevatorConfig`, `TweenProxyService`, `GuiBuilderService`; reaches remotes by direct `ReplicatedStorage.Communication` indexing with `WaitForChild`
 
+### EndScreenService.luau
+Client-only. Drives the Studio-authored `EndGui` (the win screen) when the server sends `Ending/Show`: closes any open page, force-unlocks the mouse, then runs the beat sequence from `EndingConfig.Timing` and `.Motion` with TweenService - the black backdrop fades in, the paper `Card` drops in from above and settles from its start tilt to a slight lean, the `Logo` fades and scales up, the `TitleChip` pops in on a `UIScale`, the `Subtitle` types itself out in the typewriter font behind a blinking caret, the `PostIt` swings in, and last the `PlayAgainButton` rises and becomes interactable. PLAY AGAIN fires `Ending/PlayAgain` once (the label reads `Text.Working` while waiting); `Ending/Hide` drops the card off the bottom while the backdrop fades, disables the GUI, relocks the mouse and resets every element for next time. Every beat checks a generation counter, so a hide mid-sequence cancels cleanly.
+- API: `EndScreenService:Show()` / `:Hide()` / `:IsVisible() -> boolean`
+- Remotes: `Ending/Show`, `Ending/Hide` (listened), `Ending/PlayAgain` (fired)
+- Requires: `Configs.EndingConfig`, `CommunicationService`, `GuiBuilderService`, `InterfaceService`; expects `EndGui.Main.Card.Paper` with `Logo`, `TitleChip.Label`, `Subtitle`, `PostIt.Label`/`Note` and `PlayAgainButton.Label`
+
 ### EnemyDamageService.luau
 Watches every `Enemy` tagged model's parts for touches against the local character and, if the player is not inside a tagged safe `Room`, not vanished, and the enemy is neither harmless nor an inactive Mimic, plays a random attack animation and reports the enemy to the server. The server records the cause before applying the kill, avoiding a client/server death-order race. Also kills on a server-sent `Strike` and replays the attack animation when another player is killed. Repeat reports are held off by a short `KILL_DEBOUNCE` rather than a per-life flag: the old `dead` latch was set before the server answered, so one report the server refused (an untagged enemy) silently blocked every later kill until respawn.
 - API: data table — empty; the touch watchers are installed on require.

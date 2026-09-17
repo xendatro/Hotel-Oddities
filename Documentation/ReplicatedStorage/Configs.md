@@ -86,6 +86,11 @@ Elevator instance names, Lobby/Start/Exit types, door motion, proximity threshol
 The Eye enemy: tracking range, the hit flash/blink/blur reaction, gaze-buildup screen effects and idle bobbing.
 - API: data table — `TrackRange`, `TurnRate`, `StunTurnRate`, `Hit*` group, `Gaze*` group, `BobHeight`, `BobPeriod`
 
+### EndingConfig.luau
+Everything the win screen and its server half share: the `Ending` remote folder and names, the `EndGui` name, the `/resetprogress` command name, the exit-cabin poll interval and the lift above the lobby SpawnLocation, the on-screen strings (`Text`: title, typewriter subtitle, post-it chapter line and note, button label, the waiting label and the caret), the beat timings (`Timing`: backdrop, card, logo, chip, typing interval and caret blink, post-it, button, fade out) and the motion numbers (`Motion`: card start/end/exit Y and rotations, logo start scale, post-it rotations, button rise), plus the backdrop and ink colours.
+- API: data table - `Remotes`, `Gui`, `Command`, `CheckInterval`, `SpawnLift`, `Text`, `Timing`, `Motion`, `Colors`
+- Requires: nothing
+
 ### FLAGS.luau
 Global on/off switches for major systems and debug output.
 - API: data table — `Enemies`, `EnemyCommands`, `Director`, `DangerDebug`, `VoiceDebug`, `ViewmodelDebug`, `ItemPreviewDebug`, `FlashlightDebug`, `PerfLog`

@@ -114,6 +114,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\EffectsHUDService.luau — Right-edge HUD of effect tiles, with draining timers, `inf` for permanent immunity, and hole-hop immunity countdowns.
 - ReplicatedStorage\Services\ElevatorDoorService.luau — Opens lobby and arrival doors by proximity; the exit panel, barrier and doors follow the local player's server-authorized five-color completion state.
 - ReplicatedStorage\Services\ElevatorLoadingUIService.luau — Fades the elevator loading overlay in and out around a hallway load.
+- ReplicatedStorage\Services\EndScreenService.luau — The animated win screen: paper card, logo, title chip, typewriter line, chapter-two post-it and the PLAY AGAIN button.
 - ReplicatedStorage\Services\EnemyDamageService.luau — Client-side enemy touch detection that reports contact kills to the server outside safe rooms.
 - ReplicatedStorage\Services\EnemyObservationService.luau — Reports which observable models the local camera can see to the server.
 - ReplicatedStorage\Services\EyeHitEffectService.luau — Blink, blur, flash and gaze-vignette screen effects for the Eye enemy.
@@ -290,6 +291,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\EffectsHUDConfig.luau — Layout, colours and icons for the HUD effect tiles.
 - ReplicatedStorage\Configs\ElevatorConfig.luau — Elevator types, door motion, proximity, exit access polling and teleport fade settings.
 - ReplicatedStorage\Configs\EyeConfig.luau — Eye enemy tracking, hit reaction and gaze screen-effect settings.
+- ReplicatedStorage\Configs\EndingConfig.luau — Win-screen strings, beat timings, motion numbers, remote names and the /resetprogress command name.
 - ReplicatedStorage\Configs\FLAGS.luau — Global on/off switches for major systems and debug output.
 - ReplicatedStorage\Configs\FlashlightConfig.luau — Stacked spotlight cones, shared beam colour and the local beam's camera offset.
 - ReplicatedStorage\Configs\FlashlightDebugConfig.luau — Toggle key and slider steps for the flashlight beam panel.
@@ -369,8 +371,8 @@ become Services or Classes.
 - ServerStorage\Services\ChaosService.luau — Budgeted longest-path search through unvisited hallway nodes from the best of three far-from-players starts, schedules 15-second-lead light and oddity warnings along the route's own travel direction, each trimmed to the stretch of hallway the route actually travels so a corridor the route only clips is never telegraphed end to end, then spawns Chaos to run it into a wall; retracts every warning it fired if the spawn is abandoned or Chaos despawns.
 - ServerStorage\Services\ChaseFlickerService.luau — Flickers the lights around a player being chased by a CeilingDweller or Mimic.
 - ServerStorage\Services\ChatCommandService.luau — Shared registry and dispatcher for `/` chat commands with an admin gate.
-- ServerStorage\Services\ComputerCommandService.luau — Admin `/hack` command for listing, teleporting to, and force-setting computers.
-- ServerStorage\Services\ComputerService.luau — Tracks each player's hacked computers and replicates streaming-safe color completion and exit eligibility.
+- ServerStorage\Services\ComputerCommandService.luau — Admin `/hack` command for listing, teleporting to, and force-setting computers, plus `/resetprogress` to wipe a player's computer progress.
+- ServerStorage\Services\ComputerService.luau — Tracks each player's hacked computers, resets them on demand, and replicates streaming-safe color completion and exit eligibility.
 - ServerStorage\Services\CrouchService.luau — Mirrors the client's crouch state onto the character as a stealth attribute.
 - ServerStorage\Services\DangerDebugService.luau — Studio-only hook that rebakes the danger map from the client debug panel.
 - ServerStorage\Services\DangerMapService.luau — Bakes the map-wide danger field and serves weighted spawn points from it.
@@ -380,6 +382,7 @@ become Services or Classes.
 - ServerStorage\Services\DoorService.luau — Polls alive player proximity to swinging room doors and replicates each door's open state and opener position.
 - ServerStorage\Services\DrawerItemService.luau — Stocks drawers and hallways with pickable tool/currency displays, applies currency display rotations, and handles inventory pickups and currency rewards.
 - ServerStorage\Services\DrawerService.luau — Owns drawer open/closed state, sounds, and auto-closing.
+- ServerStorage\Services\EndingService.luau — Detects an authorised player inside the exit cabin, freezes them for the end screen, and on play-again resets their computer progress and returns them to the lobby.
 - ServerStorage\Services\ElevatorService.luau — Teleports lobby arrivals to the maze arrival elevator with existing loading and streaming; rejects exit-cabin entry until that player completes all five computers.
 - ServerStorage\Services\EnemyCommandService.luau — Developer chat commands for spawning, listing and despawning enemies.
 - ServerStorage\Services\EnemyDebugService.luau — Broadcasts a periodic snapshot of active enemies to the stats HUD.
