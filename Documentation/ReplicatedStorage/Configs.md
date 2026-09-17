@@ -238,6 +238,10 @@ Per-tool settings keyed by tool name, giving each tool its CollectionService tag
 - API: data table — one entry per tool: `Flashlight`, `Bandage`, `Medkit`, `SpellBook`, `Trap`, `Ball`, `Shovel`, `Pathfinder`, `Soda`, `Energy Drink`, `Visor`, `Gravity Warper`, `Player Locator`, `Walkie Talkie`, `Big Head`, `Big Character`, `Small Character`, `Transparency`, `Random Oddity`
 - Player oddity entries use `OddityKind`, optional `OddityOverrides`, or `OddityChoices` for the random four-effect item. `Shovel.HoleImmunityDuration` sets the six-second immunity granted when entering a hole.
 
+### TopbarConfig.luau
+Which interface pages get a TopbarPlus icon, and how those icons look.
+- API: data table -- `PageGroup`, `Alignment`, `ImageScale`, `Icons` (ordered `{ PageId, Name, Label, Image, Order }` entries; `PageId` keys into `InterfaceService`'s pages)
+
 ### ViewmodelConfig.luau
 Placement, scale, sway/bob and per-tool orientation overrides for the first-person viewmodel and its fake arm. `Overrides.Camera` anchors the tripod by its handle, while `Overrides["Walkie Talkie"]` separately positions the radio and fake hand with `Anchor` and `ArmAnchor`, then scales and rolls the radio so its screen stays visible. An override may also carry `Poses` — variants selected by `ViewmodelService:SetPose` and blended in at `PoseSpeed`. A pose offsets the base (`AnchorOffset`/`ArmAnchorOffset`/`RotateOffset`), replaces it (`Anchor`/`ArmAnchor`/`Rotate`), or declares `Framing` (`Part`, `Element`, `Coverage`) and is solved from the rig's geometry instead. The walkie defines `Talk`, which offsets the base so hand tuning carries into it, and `Raised`, which is framed on the screen's `Main` element so it stays centred and square whatever the base pose and scale are.
 Every `Rotate`/`RotateOffset` is a `CFrame.Angles(x, y, z)` triple in XYZ order, which is the order the F3 panel reads and writes.

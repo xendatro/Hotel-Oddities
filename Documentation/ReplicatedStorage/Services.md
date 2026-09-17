@@ -897,6 +897,11 @@ Client bootstrap for tool classes: for every entry in `ToolConfigs` that has a m
 - Tags: listens each `ToolConfigs[name].Tag`
 - Requires: `Configs.ToolConfigs`, `Classes.Tools.*`, `TagService`
 
+### TopbarIconService.luau
+Puts the Index, Gems and Gallery buttons on Roblox's topbar with TopbarPlus (`Classes.Icon`) instead of the sidebar. Each `TopbarConfig.Icons` entry becomes one icon carrying that page's sidebar icon image alongside its name as a visible label, and selecting it opens the matching `InterfaceService` page while deselecting it closes that page. Icons keep `autoDeselect` off and are instead kept in sync from the shared `Main` page controller's `Fired` signal, so a page closed by its own close button, by the escape path or by another tab leaves the topbar showing the right selection without bouncing the interface. The matching `SideGui.Main` buttons (`Enemies`, the gems `Rectangle_1_copy` and `GalleryButton`) are hidden and untagged in StarterGui, so they no longer appear in the sidebar. Client-only.
+- API: `TopbarIconService:GetIcon(pageId: string) -> any?` -- the TopbarPlus icon bound to a page
+- Requires: `Classes.Icon`, `InterfaceService`, `Configs.TopbarConfig`, `Frameworks.xenterface`
+
 ### TweenProxyService.luau
 Generic helper for tweening things TweenService cannot touch directly: it creates a throwaway ValueBase, tweens its `Value`, and pushes each change into a callback, cleaning up on completion.
 - API: `TweenProxyService.Proxy(className: string, initialValue: any, goalValue: any, tweenInfo: TweenInfo, apply: (value: any) -> ()) -> Tween` — returns the tween unplayed; snaps to `goalValue` only if it completes normally
