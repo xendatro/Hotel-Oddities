@@ -8,6 +8,7 @@ local EnemyDiscoveryService = require(ServerStorage.Services.EnemyDiscoveryServi
 local FriendReviveService = require(ServerStorage.Services.FriendReviveService)
 local ReviveService = require(ServerStorage.Services.ReviveService)
 local RoomService = require(ServerStorage.Services.RoomService)
+local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 
 local Show = CommunicationService.Get("Death", "Show") :: RemoteEvent
 local Kill = CommunicationService.Ensure("Death", "Kill") :: RemoteEvent
@@ -22,6 +23,14 @@ type Record = {
 
 local Records: { [Player]: Record } = {}
 local Killers: { [Player]: Model } = {}
+local LastHit: { [Player]: { [Model]: number } } = {}
+
+local function damageOf(enemy: Model): number
+	local enemyId = enemy:GetAttribute("EnemyId")
+	local config = if type(enemyId) == "string" then EnemyConfigs[enemyId] else nil
+	local damage = config and config.Damage
+	return if type(damage) == "number" then damage else math.huge
+end
 
 Kill.OnServerEvent:Connect(function(player: Player, enemy: Instance?)
 	if RoomService:IsInRoom(player) then return end
@@ -31,17 +40,35 @@ Kill.OnServerEvent:Connect(function(player: Player, enemy: Instance?)
 	if enemy:GetAttribute("EnemyId") == "Mimic" and enemy:GetAttribute("MimicAttackActive") ~= true then
 		return
 	end
-	Killers[player] = enemy
 	local causeId = enemy:GetAttribute("EnemyId")
-	if type(causeId) == "string" then
-		DeathService:RecordCause(player, causeId)
-	end
+	DeathService:Hit(player, enemy, damageOf(enemy), if type(causeId) == "string" then causeId else nil)
+end)
+
+function DeathService:Hit(player: Player, enemy: Model, damage: number, causeId: string?): boolean
+	if not enemy:IsDescendantOf(workspace) then return false end
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	if humanoid and humanoid.Health > 0 then
-		humanoid.Health = 0
+	if not humanoid or humanoid.Health <= 0 then return false end
+
+	local hits = LastHit[player]
+	if not hits then
+		hits = setmetatable({}, { __mode = "k" }) :: any
+		LastHit[player] = hits
 	end
-end)
+	local now = os.clock()
+	if now - (hits[enemy] or -math.huge) < DeathConfig.HitCooldown then return false end
+	hits[enemy] = now
+
+	self:RecordCause(player, causeId or enemy:GetAttribute("EnemyId") :: string?)
+	Killers[player] = enemy
+	Strike:FireClient(player, enemy, damage)
+	if damage >= humanoid.Health or damage == math.huge then
+		humanoid.Health = 0
+	else
+		humanoid:TakeDamage(damage)
+	end
+	return true
+end
 
 function DeathService:RecordCause(player: Player, causeId: string?)
 	if not causeId then return end
@@ -55,11 +82,7 @@ function DeathService:RecordCause(player: Player, causeId: string?)
 end
 
 function DeathService:Strike(player: Player, enemy: Model, causeId: string?)
-	if not enemy:IsDescendantOf(workspace) then return end
-
-	self:RecordCause(player, causeId or enemy:GetAttribute("EnemyId") :: string?)
-	Killers[player] = enemy
-	Strike:FireClient(player, enemy)
+	self:Hit(player, enemy, math.huge, causeId)
 end
 
 function DeathService:ClearCause(player: Player, causeId: string)
@@ -77,6 +100,7 @@ end
 
 local function watchCharacter(player: Player, character: Model)
 	Records[player] = nil
+	LastHit[player] = nil
 
 	local humanoid = character:WaitForChild("Humanoid") :: Humanoid
 	humanoid.Died:Once(function()

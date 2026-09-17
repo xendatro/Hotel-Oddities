@@ -174,12 +174,13 @@ function Chaser:BuildStateMachine(): StateMachine.StateMachine
 		Despawn = despawn,
 		Chase = chase,
 		Attack = attack,
+		Retreat = NPC.SharedStates.Retreat,
 		Search = search,
 		RoomReaction = roomReaction,
 		Stunned = stunned,
 	}, {
 		Perception = { "Idle", "Wander", "Patrol", "Search" },
-		Impact = { "Idle", "Wander", "Patrol", "Search", "Chase", "Attack", "RoomReaction" },
+		Impact = { "Idle", "Wander", "Patrol", "Search", "Chase", "Attack", "RoomReaction", "Retreat" },
 	}, {
 		Perception = npc:MakePerceptionEvaluator(PERCEPTION_INTERVAL, function()
 			return npc:GetNearestVisibleTarget()

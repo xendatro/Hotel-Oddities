@@ -908,7 +908,16 @@ local function attack(_changeState: StateMachine.ChangeState, npc: any, target: 
 
 	npc:Attack(target)
 	npc:AssumeIdentity(target)
-	task.wait(npc.Config.AttackCooldown)
+	if npc.Config.AfterAttack == "Retreat" then
+		npc.EncounterMode = nil
+		npc._revealed = false
+		npc.Model:SetAttribute(CHASE_TARGET_ATTRIBUTE, nil)
+		npc:SetAttackActive(false)
+		npc:StopFloat()
+		npc.Animator:StopOverride()
+		return "Retreat", npc, target
+	end
+	npc:Recover(target)
 	return finishEncounter(npc, "Idle")
 end
 
@@ -1340,6 +1349,7 @@ function Mimic:BuildStateMachine(): StateMachine.StateMachine
 		Stalk = stalk,
 		Chase = walkingFreely(chase),
 		Attack = walkingFreely(attack),
+		Retreat = walkingFreely(NPC.SharedStates.Retreat),
 		Search = walkingFreely(search),
 		Stunned = walkingFreely(stunned),
 	}, {

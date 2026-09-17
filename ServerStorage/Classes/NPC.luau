@@ -10,6 +10,7 @@ local MathService = require(ReplicatedStorage.Services.MathService)
 local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
 local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local DeathService = require(ServerStorage.Services.DeathService)
+local HideSpotService = require(ServerStorage.Services.HideSpotService)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local HallwayGraphService = require(ReplicatedStorage.Services.HallwayGraphService)
@@ -261,12 +262,20 @@ function NPC:Despawn()
 		self._ownershipRemovedConnection = nil
 	end
 
+	local silent = self.SilentDespawn == true
 	task.defer(function()
 		self.StateMachine:Stop()
 		self.Animator:Destroy()
-		task.wait(require(ReplicatedStorage.Configs.EnemyDespawnConfig).DespawnDelay)
+		if not silent then
+			task.wait(require(ReplicatedStorage.Configs.EnemyDespawnConfig).DespawnDelay)
+		end
 		self.Model:Destroy()
 	end)
+end
+
+function NPC:DespawnSilently()
+	self.SilentDespawn = true
+	self:Despawn()
 end
 
 function NPC:SetSpeed(speed: number)
@@ -1249,13 +1258,47 @@ function NPC:GetNearestTarget(): Player?
 	end)
 end
 
-function NPC:Attack(player: Player)
+function NPC:Attack(player: Player): boolean
 	local root = getAliveRoot(player)
-	if not root then return end
-	if self.Config.RespectsSafeRooms and RoomService:IsInRoom(player) then return end
-	if Vanished.Is(root.Parent) then return end
+	if not root then return false end
+	if self.Config.RespectsSafeRooms and RoomService:IsInRoom(player) then return false end
+	if Vanished.Is(root.Parent) then return false end
 
-	DeathService:Strike(player, self.Model, self.EnemyId)
+	local damage = self.Config.Damage
+	return DeathService:Hit(player, self.Model, if type(damage) == "number" then damage else math.huge, self.EnemyId)
+end
+
+function NPC:Recover(target: Player)
+	local config = self.Config
+	local duration = config.RecoverTime or 0
+	if duration <= 0 then
+		task.wait(config.AttackCooldown or 0)
+		return
+	end
+
+	self:SetSpeed((config.ChaseSpeed or config.WalkSpeed) * (config.RecoverSpeedScale or 0.45))
+	local finish = os.clock() + duration
+	while os.clock() < finish do
+		local position = self:GetTargetPosition(target)
+		if position then
+			self.Humanoid:MoveTo(position)
+		else
+			self:StopMoving()
+		end
+		task.wait(MOVEMENT_POLL_INTERVAL * 4)
+	end
+	self:SetSpeed(config.ChaseSpeed or config.WalkSpeed)
+end
+
+function NPC:NearestPlayerDistance(): number
+	local nearest = math.huge
+	for _, player in Players:GetPlayers() do
+		local root = getAliveRoot(player)
+		if root then
+			nearest = math.min(nearest, (root.Position - self.RootPart.Position).Magnitude)
+		end
+	end
+	return nearest
 end
 
 function NPC:BeginChase(target: Player)
@@ -1290,8 +1333,56 @@ function NPC.SharedStates.Attack(_changeState: StateMachine.ChangeState, npc: an
 	end
 
 	npc:Attack(target)
-	task.wait(npc.Config.AttackCooldown)
+	if npc.Config.AfterAttack == "Retreat" then
+		return "Retreat", npc, target
+	end
+
+	npc:Recover(target)
+	if npc:GetTargetPosition(target) then
+		return "Chase", npc, target
+	end
 	return "Idle", npc
+end
+
+function NPC.SharedStates.Retreat(_changeState: StateMachine.ChangeState, npc: any, target: Player?)
+	local config = npc.Config
+	npc.Target = nil
+	npc:SetForcedDoorway(nil)
+	npc.Animator:Resume()
+	npc:SetSpeed(config.RunAwaySpeed or config.FleeSpeed or (config.ChaseSpeed or config.WalkSpeed) * 1.3)
+
+	local deadline = os.clock() + (config.RunAwayTime or 8)
+	local clearance = config.RunAwayDespawnDistance or 24
+	local function gone(): boolean
+		return os.clock() >= deadline or (not npc:IsObserved() and npc:NearestPlayerDistance() >= clearance)
+	end
+
+	local options = { Range = config.FleeCoverRange or 70, MinDistance = config.FleeCoverMinDistance or 12 }
+	while not gone() do
+		local away = nil
+		local root = target and getAliveRoot(target)
+		if root then
+			local flat = npc.RootPart.Position - root.Position
+			flat = Vector3.new(flat.X, 0, flat.Z)
+			if flat.Magnitude > 0.5 then away = flat.Unit end
+		end
+		options.Heading = away
+
+		local spot = HideSpotService:Find(npc.RootPart.Position, config.AgentParams.AgentRadius, options)
+		if not spot then
+			if away then
+				npc.Humanoid:MoveTo(npc.RootPart.Position + away * 20)
+			end
+			task.wait(0.5)
+			continue
+		end
+
+		npc:WalkTo(spot, gone)
+		task.wait(0.2)
+	end
+
+	npc:DespawnSilently()
+	coroutine.yield()
 end
 
 function NPC.SharedStates.Idle(_changeState: StateMachine.ChangeState, npc: any)

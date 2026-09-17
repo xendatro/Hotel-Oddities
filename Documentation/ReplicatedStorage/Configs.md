@@ -59,7 +59,7 @@ Danger-field noise generation over the map plus the Director's enemy population,
 
 ### DeathConfig.luau
 Death-cause names and player-facing hints per enemy (including the `PaintingDweller` cause shown as "Painting Lurker"), plus the full styling and timing of the glitchy "killed by" death screen.
-- API: data table — `CauseMemory`, `Revive`, `Unknown`, `Causes`, `Screen`; exports type `Cause`
+- API: data table — `CauseMemory`, `HitCooldown` (seconds one enemy must wait before it can hurt the same player again, shared by server attacks and client contact reports), `Revive`, `Unknown`, `Causes`, `Screen`; exports type `Cause`
 
 ### DoorConfig.luau
 Swinging door physics, replicated player-proximity state, proximity open/close distances and enemy forced-open behaviour.
@@ -207,7 +207,7 @@ Roll timings and effect weights for the player oddity system that randomly resiz
 - API: data table — `Enabled`, `RollInterval`, `InitialDelay`, `TriggerChance`, `MinDuration`, `MaxDuration`, `MinimumPlayersForHeadStare`, `EffectWeights`, `SizeOptions`, `HeadSizeMultiplier`, `OddTransparency`, `HeadTurnRate`, `HeadReturnRate`
 
 ### PropOddityConfig.luau
-Per-effect tuning for prop-based oddities — falling lanterns, falling paintings, the painting dweller, and the scurrying rat — covering arming, approach detection, candidate selection, and either repair rules (the fixture effects) or crossing-site sampling and rat motion (`RatScurry`). `PaintingDweller` carries `StartAnimation` (one-shot burst-out), `ThrashAnimation` (loop that follows it), `AttackAnimation`, `HoleImage` and `RootDrop`, the studs the rig hangs below the canvas centre; its fixture debug highlight is disabled.
+Per-effect tuning for prop-based oddities — falling lanterns, falling paintings, the painting dweller (whose `Damage` is what each lunge takes off the player), and the scurrying rat — covering arming, approach detection, candidate selection, and either repair rules (the fixture effects) or crossing-site sampling and rat motion (`RatScurry`). `PaintingDweller` carries `StartAnimation` (one-shot burst-out), `ThrashAnimation` (loop that follows it), `AttackAnimation`, `HoleImage` and `RootDrop`, the studs the rig hangs below the canvas centre; its fixture debug highlight is disabled.
 - API: data table — `Enabled`, `Effects` (`LanternFall`, `PaintingFall`, `PaintingDweller`, `RatScurry`)
 
 ### ShopkeeperConfig.luau

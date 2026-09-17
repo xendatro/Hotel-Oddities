@@ -151,8 +151,9 @@ for _, enemy in CollectionService:GetTagged("Enemy") do
 end
 
 Strike.OnClientEvent:Connect(function(enemy: Instance?)
-	if enemy and enemy:IsA("Model") then
-		kill(enemy)
+	if enemy and enemy:IsA("Model") and enemy:IsDescendantOf(workspace) then
+		lastKillAt = os.clock()
+		playKillAnimation(enemy)
 	end
 end)
 

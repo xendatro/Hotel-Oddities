@@ -88,13 +88,14 @@ ProfileService front-end: loads, reconciles and releases one `PlayerData` profil
 - Requires: `ServerStorage.Services.ProfileService` (third-party), `ItemShopConfig`
 
 ### DeathService.luau
-Records why each player died — from client kill reports, explicit strikes, or the killer model's `EnemyId` — and on death fires the death screen with that cause and a revive token. Validates client kill claims against room safety, the `Enemy` tag (or the enemy being the one this service itself struck, which is how untagged oddity rigs such as the Painting Dweller land their kill), `Harmless`, and the Mimic's attack window.
+Owns enemy damage and death causes. `Hit` is the one path every enemy hurt goes through: it refuses dead players, enforces `DeathConfig.HitCooldown` per player-and-enemy pair (so a server-side attack and the client's contact report for the same touch never stack), records the cause, remembers the killer, tells the client over `Death/Strike` (enemy and damage, for the attack animation) and then applies `TakeDamage`, setting health to zero outright for `math.huge`. Client contact reports on `Death/Kill` deal the enemy's `EnemyConfigs` `Damage` (unknown enemies stay lethal); `Strike` is now just a lethal `Hit`. On death it fires the death screen with the remembered cause and a revive token. Validates client kill claims against room safety, the `Enemy` tag (or the enemy being the one this service itself struck, which is how untagged oddity rigs such as the Painting Dweller land their kill), `Harmless`, and the Mimic's attack window.
 - API: `DeathService:RecordCause(player: Player, causeId: string?)` — stamps or refreshes the cause
-- API: `DeathService:Strike(player: Player, enemy: Model, causeId: string?)` — records the cause and tells the client which enemy struck
+- API: `DeathService:Hit(player: Player, enemy: Model, damage: number, causeId: string?) -> boolean` — the damage path described above; false when refused or on cooldown
+- API: `DeathService:Strike(player: Player, enemy: Model, causeId: string?)` — a lethal `Hit`, kept for hazards that must kill outright
 - API: `DeathService:ClearCause(player: Player, causeId: string)` — clears only if it is still the current cause
 - API: `DeathService:GetCause(player: Player) -> string?` — nil once older than `DeathConfig.CauseMemory`
-- Remotes: `Death/Kill` (listened and fired to all), `Death/Strike` (fired), `Death/Show` (fired)
-- Requires: `DeathConfig`, `ReviveService:Offer`, `FriendReviveService:Offer`, `EnemyDiscoveryService:GrantDeath`, `RoomService`
+- Remotes: `Death/Kill` (listened and fired to all), `Death/Strike` (fired with the enemy and the damage dealt), `Death/Show` (fired)
+- Requires: `DeathConfig`, `Configs.EnemyConfigs` (per-enemy `Damage`), `ReviveService:Offer`, `FriendReviveService:Offer`, `EnemyDiscoveryService:GrantDeath`, `RoomService`
 
 ### DevProductService.luau
 Registers one MarketplaceService receipt handler per entry in `DevProductConfigs`, running the configured grant inside a pcall and only reporting `PurchaseGranted` on success.
