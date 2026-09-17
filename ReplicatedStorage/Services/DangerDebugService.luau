@@ -9,7 +9,6 @@ local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 
 local MAZE_FLOOR_TAG = "MazeFloor"
-local START_TAG = "Start"
 
 local TOGGLE_KEY = Enum.KeyCode.F4
 local HEATMAP_SPACING = 24
@@ -21,9 +20,7 @@ local MARKER_HEIGHT = 0.6
 
 local READOUT_INTERVAL = 0.1
 
-local TAG_WAIT_TIMEOUT = 20
-local TAG_POLL_INTERVAL = 0.25
-local TAG_SETTLE_POLLS = 4
+local SETTINGS_RETRY_INTERVAL = 1
 
 local DangerDebugService = {}
 
@@ -34,6 +31,7 @@ end
 local LocalPlayer = Players.LocalPlayer
 
 local SetConfig: RemoteEvent? = nil
+local RequestSettings: RemoteFunction? = nil
 
 local Settings: DangerField.FieldSettings
 local Extent = 1
@@ -53,14 +51,23 @@ local function getFloors(): { BasePart }
 	return floors
 end
 
-local function rebuildSettings()
+local function applySettings(settings: any, extent: any)
+	if type(settings) ~= "table" then return false end
+	Settings = settings
+	Extent = if type(extent) == "number" and extent > 1 then extent else 1
 	Floors = getFloors()
+	return true
+end
 
-	local extent, centre = DangerField.MeasureExtent(Floors)
-	Extent = extent
+local function pullSettings(): boolean
+	local remote = RequestSettings
+	if not remote then return false end
 
-	local startPart = CollectionService:GetTagged(START_TAG)[1] :: BasePart?
-	Settings = DangerField.BuildSettings(if startPart then startPart.Position else centre, extent)
+	local ok, settings, extent = pcall(function()
+		return remote:InvokeServer()
+	end)
+	if not ok then return false end
+	return applySettings(settings, extent)
 end
 
 local function dangerColor(danger: number): Color3
@@ -225,8 +232,8 @@ local function build()
 		})
 	end)
 
-	debugPanel:AddButton("reload map from tags", function()
-		rebuildSettings()
+	debugPanel:AddButton("reload map from server", function()
+		pullSettings()
 		debugPanel:SetTitle(`danger map -- extent {math.floor(Extent)} studs`)
 		drawHeatmap()
 	end)
@@ -236,23 +243,20 @@ local function build()
 end
 
 task.spawn(function()
-	local deadline = os.clock() + TAG_WAIT_TIMEOUT
-	local previous, settled = -1, 0
+	RequestSettings = CommunicationService.Get("Danger", "GetSettings") :: RemoteFunction
 
-	while os.clock() < deadline do
-		local count = #getFloors()
-		if count > 0 and count == previous then
-			settled += 1
-			if settled >= TAG_SETTLE_POLLS then break end
-		else
-			settled = 0
-		end
-		previous = count
-		task.wait(TAG_POLL_INTERVAL)
+	while not pullSettings() do
+		task.wait(SETTINGS_RETRY_INTERVAL)
 	end
 
-	rebuildSettings()
 	build()
+
+	local settingsChanged = CommunicationService.Get("Danger", "Settings") :: RemoteEvent
+	settingsChanged.OnClientEvent:Connect(function(settings: any, extent: any)
+		if applySettings(settings, extent) then
+			requestRedraw()
+		end
+	end)
 end)
 
 task.spawn(function()

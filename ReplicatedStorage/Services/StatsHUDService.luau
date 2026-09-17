@@ -1,4 +1,3 @@
-local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -14,9 +13,6 @@ local StatsHUDService = {}
 if not RunService:IsClient() then
 	return StatsHUDService
 end
-
-local MAZE_FLOOR_TAG = "MazeFloor"
-local START_TAG = "Start"
 
 local COLORS = StatsHUDConfig.Colors
 
@@ -250,16 +246,6 @@ end
 
 local Settings: DangerField.FieldSettings? = nil
 
-local function getFloors(): { BasePart }
-	local floors = {}
-	for _, instance in CollectionService:GetTagged(MAZE_FLOOR_TAG) do
-		if instance:IsA("BasePart") and instance:IsDescendantOf(workspace) then
-			table.insert(floors, instance)
-		end
-	end
-	return floors
-end
-
 local function refreshDanger()
 	local character = localPlayer.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -275,46 +261,30 @@ local function refreshDanger()
 	end
 end
 
-local settleDeadline = os.clock() + StatsHUDConfig.TagWaitTimeout
-local settlePrevious, settleCount = -1, 0
-local settleDone = false
-
-local function pollSettle()
-	if settleDone then return end
-
-	local finished = false
-	if os.clock() >= settleDeadline then
-		finished = true
-	else
-		local count = #getFloors()
-		if count > 0 and count == settlePrevious then
-			settleCount += 1
-			if settleCount >= StatsHUDConfig.TagSettlePolls then
-				finished = true
-			end
-		else
-			settleCount = 0
+task.spawn(function()
+	local settingsChanged = CommunicationService.Get("Danger", "Settings") :: RemoteEvent
+	settingsChanged.OnClientEvent:Connect(function(settings: any)
+		if type(settings) == "table" then
+			Settings = settings
 		end
-		settlePrevious = count
+	end)
+
+	local requestSettings = CommunicationService.Get("Danger", "GetSettings") :: RemoteFunction
+	while Settings == nil do
+		local ok, settings = pcall(function()
+			return requestSettings:InvokeServer()
+		end)
+		if ok and type(settings) == "table" then
+			Settings = settings
+			break
+		end
+		task.wait(StatsHUDConfig.Danger.RetryInterval)
 	end
-
-	if not finished then return end
-	settleDone = true
-
-	local floors = getFloors()
-	if #floors == 0 then
-		return
-	end
-
-	local extent, centre = DangerField.MeasureExtent(floors)
-	local startPart = CollectionService:GetTagged(START_TAG)[1] :: BasePart?
-	Settings = DangerField.BuildSettings(if startPart then startPart.Position else centre, extent)
-end
+end)
 
 local enemyAccumulator = EnemyConfig.Interval
 local pingAccumulator = StatsHUDConfig.Ping.Interval
 local dangerAccumulator = StatsHUDConfig.Danger.Interval
-local settleAccumulator = StatsHUDConfig.TagPollInterval
 local pollConnection: RBXScriptConnection
 
 pollConnection = RunService.Heartbeat:Connect(function(deltaTime: number)
@@ -339,14 +309,6 @@ pollConnection = RunService.Heartbeat:Connect(function(deltaTime: number)
 	if dangerAccumulator >= StatsHUDConfig.Danger.Interval then
 		dangerAccumulator = 0
 		refreshDanger()
-	end
-
-	if not settleDone then
-		settleAccumulator += deltaTime
-		if settleAccumulator >= StatsHUDConfig.TagPollInterval then
-			settleAccumulator = 0
-			pollSettle()
-		end
 	end
 end)
 

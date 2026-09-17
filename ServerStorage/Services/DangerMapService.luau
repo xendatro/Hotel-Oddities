@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
 local DangerField = require(ReplicatedStorage.Services.DangerFieldService)
 local SpawnZoneService = require(ReplicatedStorage.Services.SpawnZoneService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 
 local MAZE_FLOOR_TAG = "MazeFloor"
 local START_TAG = "Start"
@@ -16,6 +17,9 @@ local Points: { SpawnPoint } = {}
 local Settings: DangerField.FieldSettings? = nil
 local Extent = 0
 local WeightCache: { [number]: { number } } = {}
+
+local SettingsChanged = CommunicationService.Ensure("Danger", "Settings") :: RemoteEvent
+local RequestSettings = CommunicationService.Ensure("Danger", "GetSettings", "RemoteFunction") :: RemoteFunction
 
 local function getFloors(): { BasePart }
 	local floors = {}
@@ -55,6 +59,8 @@ function DangerMapService:Rebake(overrides: { [string]: any }?)
 		end
 	end
 	WeightCache = {}
+
+	SettingsChanged:FireAllClients(Settings, Extent)
 end
 
 function DangerMapService:GetSettings(): DangerField.FieldSettings?
@@ -119,5 +125,9 @@ function DangerMapService:PickPoint(bias: number, accept: (SpawnPoint) -> boolea
 end
 
 DangerMapService:Rebake()
+
+RequestSettings.OnServerInvoke = function()
+	return Settings, Extent
+end
 
 return DangerMapService

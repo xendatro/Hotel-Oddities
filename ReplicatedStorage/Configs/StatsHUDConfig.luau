@@ -56,11 +56,8 @@ return {
 
 	Danger = {
 		Interval = 0.25,
+		RetryInterval = 1,
 		Good = 0.34,
 		Fair = 0.67,
 	},
-
-	TagWaitTimeout = 20,
-	TagPollInterval = 0.25,
-	TagSettlePolls = 4,
 }

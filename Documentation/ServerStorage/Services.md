@@ -62,20 +62,21 @@ Receives crouch state from the client and mirrors it onto the character as the `
 - Requires: `CrouchConfig`
 
 ### DangerDebugService.luau
-Studio-only listener that accepts a whitelist of numeric danger-field overrides from the client debug panel, rebakes the danger map and resets the enemy director. Returns immediately unless `FLAGS.DangerDebug` and running in Studio.
-- Remotes: `Danger/SetConfig` (listened)
+Studio-only listener that accepts a whitelist of numeric danger-field overrides from the client debug panel, rebakes the danger map and resets the enemy director. Returns immediately unless `FLAGS.DangerDebug` and running in Studio. The rebake broadcasts the new settings, so every client's readout follows the overrides.
+- Remotes: `Danger/SetConfig` (listened; created here)
 - Requires: `DangerMapService:Rebake`, `EnemyDirectorService:Reset`
 
 ### DangerMapService.luau
-Bakes and serves the map-wide "danger" field: measures the extent of all `MazeFloor` parts, builds field settings anchored at the `Start` part, and samples weighted spawn points from it. Points inside a `SpawnSafeZone` part are dropped at bake time, so nothing drawing from the baked points ever spawns in the spawn safe zone. Rebakes once at require time and caches cumulative weight tables per danger bias.
+Bakes and serves the map-wide "danger" field: measures the extent of all `MazeFloor` parts, builds field settings anchored at the `Start` part, and samples weighted spawn points from it. Points inside a `SpawnSafeZone` part are dropped at bake time, so nothing drawing from the baked points ever spawns in the spawn safe zone. Rebakes once at require time and caches cumulative weight tables per danger bias. This is the single authority for the field: the baked settings and extent are broadcast on `Danger/Settings` after every rebake and served on demand over `Danger/GetSettings`, so no client ever derives them from its own view of the map.
 - API: `DangerMapService:Rebake(overrides: { [string]: any }?)` — re-measures floors and re-bakes points
 - API: `DangerMapService:GetSettings() -> DangerField.FieldSettings?`
 - API: `DangerMapService:GetExtent() -> number`
 - API: `DangerMapService:GetDanger(position: Vector3) -> number` — 0 when no settings are baked
 - API: `DangerMapService:GetPoints() -> { SpawnPoint }`
 - API: `DangerMapService:PickPoint(bias: number, accept: (SpawnPoint) -> boolean, attempts: number) -> SpawnPoint?` — danger-weighted draw with rejection
+- Remotes: `Danger/Settings` (fired to all clients after each rebake, `(settings, extent)`), `Danger/GetSettings` (RemoteFunction, returns `(settings, extent)`) — both created here
 - Tags: reads `MazeFloor`, `Start`
-- Requires: `Services.DangerFieldService`, `SpawnZoneService`, `DangerConfig`
+- Requires: `Services.DangerFieldService`, `SpawnZoneService`, `DangerConfig`, `CommunicationService`
 
 ### DataSaveService.luau
 ProfileService front-end: loads, reconciles and releases one `PlayerData` profile per player, and lets other code either grab a loaded profile or yield until it arrives. The template holds currency, sword ownership, inventory, processed receipts, discovered enemies and discovered map intervals. Studio sessions load `Studio_Player_<UserId>` keys instead of `Player_<UserId>` (via `RunService:IsStudio()`), so a Studio playtest and a live game client hold separate profiles and never contest the session lock — Studio keeps its own separately saved data.

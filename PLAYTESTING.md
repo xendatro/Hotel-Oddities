@@ -164,6 +164,16 @@ then restore the child.
 **`Inferred`** — **never call `WaitForChild` without a timeout in an
 MCP-executed snippet.** An infinite yield hangs the call for its full timeout.
 
+**`Measured`** — **MCP `execute_luau` cannot `require` anything.** On 2026-09-17
+every `require` in a snippet failed with "cannot require 'X' since 'X' has
+additional values for the Capabilities property: LoadUnownedAsset (and 3 more)",
+in Edit, Server and Client alike, including `ReplicatedStorage.Playtest.Wait`
+and a freshly built parentless `ModuleScript`. The snippet thread runs in a
+restricted capability context; whether this is permanent is unconfirmed. So the
+`Playtest` helpers are unreachable from the MCP, and so is the old
+compile-probe trick for syntax-checking a module. Write snippets against
+instances and properties only, and inline any helper logic you need.
+
 **`Measured`** — **`MapCommandService:Execute` lands the player inside a spawn
 safe zone.** The character carries `SafeZoneImmunity`, so `Vanished.Is` is true
 and every enemy treats the player as an invalid target: a Stalker spawned 14

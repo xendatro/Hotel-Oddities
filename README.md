@@ -195,7 +195,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\SurfaceCursorService.luau — Projects viewport points onto a SurfaceGui canvas so in-world screens stay clickable under the camera.
 - ReplicatedStorage\Services\SprintUIService.luau — The stamina bar itself: eased fill, colour bands, exhaustion pulse and auto-fade.
 - ReplicatedStorage\Services\StalkerCameraService.luau — Locks the camera onto the Stalker, anchoring the player and pushing FOV for kills.
-- ReplicatedStorage\Services\StatsHUDService.luau — Debug HUD showing FPS, ping, danger-field value and a live enemy list.
+- ReplicatedStorage\Services\StatsHUDService.luau — Debug HUD showing FPS, ping, the server's danger-field value at your position, and a live enemy list.
 - ReplicatedStorage\Services\TagService.luau — The tag-to-module pipeline: registers apply/unapply callbacks per CollectionService tag and stores the data they return.
 - ReplicatedStorage\Services\ToolClientService.luau — Bootstraps tool classes for the local player's tools and routes server tool events to them.
 - ReplicatedStorage\Services\TopbarIconService.luau — Builds the Index, Gems and Gallery TopbarPlus icons, opens the matching InterfaceService page on select and keeps icon selection in sync with the Main page controller.
@@ -377,7 +377,7 @@ become Services or Classes.
 - ServerStorage\Services\ComputerService.luau — Tracks each player's hacked computers and replicates streaming-safe color completion and exit eligibility.
 - ServerStorage\Services\CrouchService.luau — Mirrors the client's crouch state onto the character as a stealth attribute.
 - ServerStorage\Services\DangerDebugService.luau — Studio-only hook that rebakes the danger map from the client debug panel.
-- ServerStorage\Services\DangerMapService.luau — Bakes the map-wide danger field and serves weighted spawn points from it.
+- ServerStorage\Services\DangerMapService.luau — Bakes the map-wide danger field, serves weighted spawn points from it, and replicates the baked settings to clients.
 - ServerStorage\Services\DataSaveService.luau — Loads, reconciles and releases per-player ProfileService profiles, keyed separately for Studio sessions so playtests never contest the live game's session lock.
 - ServerStorage\Services\DeathService.luau — Records the cause of each player's death, applies reported contact kills, and drives the death screen and revive offers.
 - ServerStorage\Services\DevProductService.luau — Wires every developer product in DevProductConfigs to a receipt handler.

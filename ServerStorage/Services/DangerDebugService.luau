@@ -27,7 +27,7 @@ local TUNABLE = {
 }
 
 task.spawn(function()
-	local setConfig = CommunicationService.Get("Danger", "SetConfig") :: RemoteEvent
+	local setConfig = CommunicationService.Ensure("Danger", "SetConfig") :: RemoteEvent
 
 	setConfig.OnServerEvent:Connect(function(player: Player, payload: any)
 		if type(payload) ~= "table" then return end

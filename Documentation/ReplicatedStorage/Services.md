@@ -176,10 +176,10 @@ Client-only. Owns crouching: binds the crouch keys (and a touch button on mobile
 - Requires: `Configs.CrouchConfig`, `SprintService`, `GuiBuilderService`, `MathService`
 
 ### DangerDebugService.luau
-Client-only developer tool, gated on `FLAGS.DangerDebug`. Waits for the `MazeFloor` tags to settle, rebuilds the danger-field settings from them, and opens an F4 debug panel with a live readout at the player's position plus sliders for every field parameter. Sliders redraw a local heatmap of coloured markers; one button pushes the same numbers to the server.
-- API: no public methods — the panel is built at require time.
-- Remotes: `Danger/SetConfig` (fired by the "apply to server" button)
-- Tags: reads `MazeFloor`, `Start`
+Client-only developer tool, gated on `FLAGS.DangerDebug`. Pulls the server's baked danger-field settings and map extent over `Danger/GetSettings` (retrying every second until they exist), then opens an F4 debug panel with a live readout at the player's position plus sliders for every field parameter. Sliders redraw a local heatmap of coloured markers; one button pushes the same numbers to the server. Re-pulls and redraws whenever the server rebakes. `MazeFloor` parts are read only to place heatmap markers, never to derive the settings.
+- API: no public methods — the panel is built once the server's settings arrive.
+- Remotes: `Danger/GetSettings` (invoked at startup and by the "reload map from server" button), `Danger/Settings` (listened; server rebake), `Danger/SetConfig` (fired by the "apply to server" button)
+- Tags: reads `MazeFloor`
 - Requires: `Classes.DebugPanel`, `Services.DangerFieldService`, `Configs.FLAGS`
 
 ### DangerFieldService.luau
@@ -873,10 +873,9 @@ Client camera lock for the Stalker: on the remote, smoothly turns the camera to 
 - Requires: `CameraFovService`, `CharacterService.GetAliveHumanoid`
 
 ### StatsHUDService.luau
-Client debug HUD in the bottom-left: FPS, ping, sampled danger-field value at your position, and a live list of enemies (id, state, distance) colour-coded by threat, plus the stalker's current target. Waits for maze floor tags to settle before building the danger field.
+Client debug HUD in the bottom-left: FPS, ping, sampled danger-field value at your position, and a live list of enemies (id, state, distance) colour-coded by threat, plus the stalker's current target. The danger value uses the server's baked field settings, pulled over `Danger/GetSettings` at startup and refreshed from `Danger/Settings` on every rebake, so every client reads the same number the spawn director does; it shows `--` until they arrive.
 - API: none — side-effect only.
-- Remotes: `Enemies/DebugSnapshot` (listened)
-- Tags: reads `MazeFloor`, `Start`
+- Remotes: `Enemies/DebugSnapshot` (listened), `Danger/GetSettings` (invoked at startup), `Danger/Settings` (listened)
 - Requires: `Services.DangerFieldService`, `Configs.StatsHUDConfig`, `GuiBuilderService`
 
 ### TagService.luau
