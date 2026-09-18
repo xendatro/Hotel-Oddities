@@ -55,7 +55,7 @@ Crouch movement, camera drop, crouch animations, stealth/noise effects and the c
 
 ### DangerConfig.luau
 Danger-field noise generation over the map plus the Director's enemy population, spawn placement weights and tick intervals.
-- API: data table — noise/field keys (`Seed`, `FeatureScaleFraction`, `Octaves`, `Persistence`, `NoiseGain`, `Contrast`, `FloorHeight`, `FloorSeparation`, `SafeRadiusFraction`, `RampLengthFraction`, `PointSpacing`), `PathDangerWeight`, `ProgrammaticVents`, patrol/route keys, `Director`; exports type `FieldSettings`
+- API: data table — noise/field keys (`Seed`, `FeatureScaleFraction`, `Octaves`, `Persistence`, `NoiseGain`, `Contrast`, `FloorHeight`, `FloorSeparation`, `SafeRadiusFraction`, `RampLengthFraction`, `RampExponent`, `PointSpacing`), `PathDangerWeight`, `ProgrammaticVents`, patrol/route keys, `Director`; exports type `FieldSettings`
 
 ### DeathConfig.luau
 Death-cause names and player-facing hints per enemy (including the `PaintingDweller` cause shown as "Painting Lurker"), plus the full styling and timing of the glitchy "killed by" death screen.
@@ -184,6 +184,10 @@ Tuning for the mirrored connector room's reflections.
 Visual settings for the top-center notification banner used for short player-facing feedback.
 - API: data table — `DisplayOrder`, `Width`, `Height`, `TopMargin`, `Gap`, `Duration`, `FadeTime`, `BackgroundColor`, `BackgroundTransparency`, `StrokeColor`, `AccentColor`, `TextColor`, `TextStrokeColor`, `TextSize`
 
+### OverheadNameConfig.luau
+Tag, attribute and styling for the always-on overhead name drawn above players and the Mimic. `VerifiedGlyph` is the private-use codepoint Roblox fonts render as the verified badge. `StudSize` is in studs, so the name shrinks with distance like the character does, and `MaxTextSize` caps it up close. `TowardCamera` pulls the billboard that many studs toward the viewer so hats and other head accessories draw behind it.
+- API: data table — `Tag`, `UserIdAttribute`, `VerifiedGlyph`, `StudSize`, `ExtentsOffset`, `StudsOffsetWorldSpace`, `TowardCamera`, `MaxDistance`, `AlwaysOnTop`, `Font`, `MaxTextSize`, `TextColor`, `StrokeColor`, `StrokeTransparency`
+
 ### ObservedFreezeConfig.luau
 Tag name, attribute name and reconciliation tolerances for the "freeze while observed" enemy movement system. Assembled field-by-field on a named local table rather than as a literal, but returns only that table.
 - API: data table — `Tag`, `FrozenAttribute`, `MaxOffset`, `ConfirmationTimeout`, `ReleaseSpeed`, `MinReportGap`
@@ -201,7 +205,7 @@ Every behavior value the tripod Camera photo system uses: the placed-model tag a
 - API: data table — `Tag`, `ModelName`, `Attributes`, `Place`, `Countdown`, `Lens`, `Figure`, `Capture`, `Despawn`, `Timer`, `Develop`
 
 ### PlayerLocatorConfig.luau
-Cooldown, marker layout, focus animation and colour/font palette for the Player Locator tool's on-screen teammate markers.
+Cooldown, marker layout, screen-space focus range, focus animation and colour/font palette for the Player Locator tool's on-screen teammate markers.
 - API: data table — `Modes`, `Cooldown`, `CooldownFormat`, `MarkerCooldownFormat`, `ArriveDistance`, `Highlight`, `Marker`, `Focus`, `Press`, `Colors`, `Fonts`
 
 ### PlayerOddityConfig.luau

@@ -24,6 +24,7 @@ local TUNABLE = {
 	FloorSeparation = true,
 	SafeRadius = true,
 	RampLength = true,
+	RampExponent = true,
 }
 
 task.spawn(function()

@@ -44,9 +44,9 @@ function DangerMapService:Rebake(overrides: { [string]: any }?)
 	local extent, centre = DangerField.MeasureExtent(floors)
 	Extent = extent
 
-	local startPart = CollectionService:GetTagged(START_TAG)[1] :: BasePart?
+	local startPart = SpawnZoneService:GetZones()[1] or CollectionService:GetTagged(START_TAG)[1] :: BasePart?
 	if not startPart then
-		warn(`[danger] no part tagged "{START_TAG}"; measuring the safe zone from the middle of the map instead`)
+		warn(`[danger] no spawn zone or part tagged "{START_TAG}"; measuring the safe zone from the middle of the map instead`)
 	end
 	local startPosition = if startPart then startPart.Position else centre
 
@@ -72,7 +72,7 @@ function DangerMapService:GetExtent(): number
 end
 
 function DangerMapService:GetDanger(position: Vector3): number
-	if not Settings then return 0 end
+	if not Settings or SpawnZoneService:Contains(position) then return 0 end
 	return DangerField.Sample(position, Settings :: DangerField.FieldSettings)
 end
 

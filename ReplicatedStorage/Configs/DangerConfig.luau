@@ -10,6 +10,7 @@ export type FieldSettings = {
 	StartPosition: Vector3,
 	SafeRadius: number,
 	RampLength: number,
+	RampExponent: number,
 }
 
 return {
@@ -28,8 +29,9 @@ return {
 
 	FloorSeparation = 1.25,
 
-	SafeRadiusFraction = 0.14,
-	RampLengthFraction = 0.38,
+	SafeRadiusFraction = 0.07,
+	RampLengthFraction = 0.25,
+	RampExponent = 1.3,
 
 	PointSpacing = 10,
 

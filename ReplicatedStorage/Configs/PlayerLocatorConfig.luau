@@ -44,9 +44,9 @@ return {
 	},
 
 	Focus = {
-		RadiusScale = 0.13,
-		MinRadius = 88,
-		MaxRadius = 260,
+		RadiusScale = 0.18,
+		MinRadius = 112,
+		MaxRadius = 340,
 		ReleaseSlack = 1.35,
 
 		InTime = 0.26,

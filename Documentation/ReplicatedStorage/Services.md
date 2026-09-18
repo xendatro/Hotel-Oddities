@@ -187,7 +187,7 @@ Client-only developer tool, gated on `FLAGS.DangerDebug`. Pulls the server's bak
 Procedural "danger" heat field over the maze: fractal Brownian noise per floor, gated by distance from the spawn so the area around start is always safe. Also bakes a grid of candidate spawn points with their danger values.
 - API: `DangerField.GetFloorIndex(position: Vector3, settings: FieldSettings) -> number` — floor number from Y
 - API: `DangerField.SampleField(position: Vector3, settings: FieldSettings) -> number` — raw fBm noise 0-1 with contrast
-- API: `DangerField.SampleGate(position: Vector3, settings: FieldSettings) -> number` — smoothstep ramp out of the safe radius
+- API: `DangerField.SampleGate(position: Vector3, settings: FieldSettings) -> number` — smoothstep ramp out of the safe radius, raised to `RampExponent` so it stays low for longer before reaching full strength
 - API: `DangerField.Sample(position: Vector3, settings: FieldSettings) -> number` — gate * field, the usable danger value
 - API: `DangerField.MeasureExtent(floors: { BasePart }) -> (number, Vector3)` — largest horizontal span and center
 - API: `DangerField.BakePoints(floors: { BasePart }, spacing: number, settings: FieldSettings) -> { SpawnPoint }` — grid of `{ Position, Danger }` on floor tops
@@ -464,7 +464,7 @@ Client-only singleton wrapper: returns a single `Interaction` instance (an empty
 - Requires: `Classes.Interaction` (which reads `Configs.DrawerConfig` and clones its prompt from the `Cursor` ScreenGui)
 
 ### InterfaceService.luau
-Owns the main menu page group: enables/disables the Index, Shop, Gems, Items, Inventory, KitInventory, KitsShop, RollGui, Map and Gallery ScreenGuis through an xenterface controller, blurs and pulls back the camera FOV while a page is open, and manages mouse unlocking (including a Q toggle when no page is open, even while the full-screen mouse blocker has processed the input). Also wires hover/press motion onto tagged side buttons and close buttons using named motion presets; close buttons that sit directly on a page root animate themselves rather than scaling the full-page frame. The Map page is rejected unless the player owns the Map gamepass.
+Owns the main menu page group: enables/disables the Index, Shop, Gems, Items, Inventory, KitInventory, KitsShop, RollGui, Map and Gallery ScreenGuis through an xenterface controller, blurs and pulls back the camera FOV while a page is open, and manages mouse unlocking (including a Q toggle when no page is open, even while the full-screen mouse blocker has processed the input). Also wires hover/press motion onto tagged side buttons and close buttons using named motion presets; close buttons that sit directly on a page root animate themselves rather than scaling the full-page frame. Every tagged close button must keep `Active = true` so Roblox sends it input; this includes `StarterGui.GemsUI.Design.CloseButton`. The Map page is rejected unless the player owns the Map gamepass.
 - API: `InterfaceService.WireMotion(button: GuiButton, visual: GuiObject?, motionPreset: any?)` — add hover/press scale and tilt motion to any button (defaults to the button itself and the `HotelSideButton` preset)
 - API: `InterfaceService:Open(pageId: string)` — open one of the known pages, warning on an unknown id
 - API: `InterfaceService:Close()` — close whatever page is open
@@ -713,6 +713,12 @@ Client-side "weeping angel" renderer: while a tagged enemy is inside the camera 
 - API: none — side-effect only.
 - Tags: listens `ObservedFreezeConfig.Tag`
 - Requires: `Services.SightlineService` (frustum/occlusion), `EnemyObservationService` (reports what the client can see), `Configs.ObservedFreezeConfig`
+
+### OverheadNameService.luau
+Client-only owner of every `OverheadName` billboard. Every other player's character gets one, and so does any model tagged `OverheadNameConfig.Tag`, which shows the player whose `UserId` is in its `OverheadNameConfig.UserIdAttribute` attribute (the Mimic uses this). The local player's own character gets none. Billboards live in a `PlayerGui.OverheadNames` folder, so the MirrorRoom's reflection clones never carry one, and the whole set is rebuilt if that folder is removed.
+- API: `OverheadNameService:GetName(player: Player) -> string` — display name plus verified badge glyph; works on both sides
+- Tags: listens `OverheadNameConfig.Tag`
+- Requires: `Classes.OverheadName`, `Configs.OverheadNameConfig`, `GuiBuilderService`
 
 ### PaintingDwellerShakeService.luau
 Twenty-line client shim: on the painting dweller pop remote, fires a one-shot `Slam` camera shake.

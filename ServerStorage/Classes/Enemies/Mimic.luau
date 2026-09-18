@@ -1,3 +1,4 @@
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -6,6 +7,7 @@ local TweenService = game:GetService("TweenService")
 
 local AnimationConfig = require(ReplicatedStorage.Configs.AnimationConfig)
 local MimicConfig = require(ReplicatedStorage.Configs.MimicConfig)
+local OverheadNameConfig = require(ReplicatedStorage.Configs.OverheadNameConfig)
 local MimicMotion = require(ReplicatedStorage.Services.MimicMotionService)
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
@@ -34,7 +36,6 @@ local Mimic = NPC.extend("Mimic", Chaser)
 
 local ENCOUNTER_MODES = { "Withdraw", "Shadow", "Wallface", "Turnaway", "Passerby", "Blocker", "Afk" }
 local RADIO_TOOL_NAME = "Walkie Talkie"
-local VERIFIED_GLYPH = 0xE000
 
 local HEAD_LOCK_ATTRIBUTE = "MimicHeadLockUserId"
 local ATTACK_ACTIVE_ATTRIBUTE = "MimicAttackActive"
@@ -948,7 +949,7 @@ end
 function Mimic.new(model: Model, config)
 	local self = NPC.new(model, config, Mimic)
 
-	self.Humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.Viewer
+	self.Humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 	self.Humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.DisplayWhenDamaged
 
 	self.Identity = nil :: Player?
@@ -1239,12 +1240,9 @@ function Mimic:ClearFacing()
 	self.Humanoid.AutoRotate = true
 end
 
-function Mimic:_copyBadge(identity: Player)
-	local name = identity.DisplayName
-	if identity.HasVerifiedBadge then
-		name ..= " " .. utf8.char(VERIFIED_GLYPH)
-	end
-	self.Humanoid.DisplayName = name
+function Mimic:_copyName(identity: Player)
+	self.Model:SetAttribute(OverheadNameConfig.UserIdAttribute, identity.UserId)
+	CollectionService:AddTag(self.Model, OverheadNameConfig.Tag)
 end
 
 function Mimic:_copyRadio(identity: Player)
@@ -1289,7 +1287,7 @@ function Mimic:AssumeIdentity(player: Player)
 		while self.Active and self.Identity and self.Identity ~= self._appliedIdentity do
 			local identity = self.Identity :: Player
 			self.Model.Name = identity.Name
-			self:_copyBadge(identity)
+			self:_copyName(identity)
 
 			local description = getDescription(identity)
 			if description then

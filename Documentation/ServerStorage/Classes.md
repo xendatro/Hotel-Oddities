@@ -250,14 +250,15 @@ The most elaborate enemy: it copies a random living player's appearance, name, v
 - API: `Mimic:BuildStateMachine() -> StateMachine` — Idle(loiter)/AfkIdle/Wander/Patrol/Stalk/Chase/Attack/Search/Stunned/Despawn with a `Perception` evaluator.
 - API: `Mimic:RollEncounterMode(allowAfk: boolean?) -> string`
 - API: `Mimic:PickIdentity() -> Player?` — prefers a player who cannot currently see it.
-- API: `Mimic:AssumeIdentity(player: Player)` — applies name, badge, HumanoidDescription and radio copy on a background thread.
+- API: `Mimic:AssumeIdentity(player: Player)` — sets the `OverheadNameConfig.UserIdAttribute` attribute and `OverheadNameConfig.Tag` tag so every client draws the copied player's overhead name and badge, then applies the HumanoidDescription and radio copy on a background thread. The default humanoid name display is off.
+- Tags: applies `OverheadNameConfig.Tag`
 - API: `Mimic:StartMirroring(target: Player)` / `Mimic:StartSpinning(target: Player)` / `Mimic:StopMirroring()` — hand control of the model to a client and take it back.
 - API: `Mimic:SetHeadLock(target: Player?)` / `Mimic:SetAttackActive(active: boolean)` — attributes clients read.
 - API: `Mimic:SetFacing(direction: Vector3?)` / `Mimic:ClearFacing()` — AlignOrientation-based facing while walking.
 - API: `Mimic:StartFloat()` / `Mimic:StopFloat()` — hip-height rise with a sine bob; shows/hides the chase face.
 - API: `Mimic:ShowChaseFace()` / `Mimic:HideChaseFace()` — builds the welded eyes/mouth/teeth model procedurally.
 - Remotes: `Enemies/Mirror` (fired), `Enemies/MimicReveal` (fired)
-- Requires: `ServerStorage.Classes.NPC` extended from `Enemies.Chaser`, `Services.MimicMotionService`, `Configs.MimicConfig`, `Configs.AnimationConfig`, `HallwayGraphService`, `RoomService`, `EnemyDiscoveryService`
+- Requires: `ServerStorage.Classes.NPC` extended from `Enemies.Chaser`, `Services.MimicMotionService`, `Configs.MimicConfig`, `Configs.OverheadNameConfig`, `Configs.AnimationConfig`, `HallwayGraphService`, `RoomService`, `EnemyDiscoveryService`
 - Notes: overrides `Start`, `Despawn`, `BuildStateMachine`; delegates the actual chase to `Chaser.Chase(..., false)`; sets `_laneProbeDrop` while floating so lane checks account for the raised hips
 
 ### Enemies\MirrorStalker.luau
