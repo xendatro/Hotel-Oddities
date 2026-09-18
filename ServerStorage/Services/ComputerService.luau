@@ -8,6 +8,7 @@ local ComputerChipConfig = require(ReplicatedStorage.Configs.ComputerChipConfig)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local AnalyticsService = require(ServerStorage.Services.AnalyticsService)
+local DataSaveService = require(ServerStorage.Services.DataSaveService)
 
 local ComputerService = {}
 
@@ -23,9 +24,11 @@ local Complete = CommunicationService.Ensure(ComputerConfig.Remotes.Folder, Comp
 local Sync = CommunicationService.Ensure(ComputerConfig.Remotes.Folder, ComputerConfig.Remotes.Sync) :: RemoteEvent
 
 local Hacked: { [Player]: { [Model]: true } } = {}
+local SavedIds: { [Player]: { [string]: true } } = {}
+local Ready: { [Player]: boolean } = {}
+local ResetPending: { [Player]: boolean } = {}
 local LastComplete: { [Player]: number } = {}
 local LastSyncRequest: { [Player]: number } = {}
-local nextComputerId = 0
 
 local function setOf(player: Player): { [Model]: true }
 	local set = Hacked[player]
@@ -34,6 +37,63 @@ local function setOf(player: Player): { [Model]: true }
 		Hacked[player] = set
 	end
 	return set
+end
+
+local function idOf(model: Model): string?
+	local id = model:GetAttribute(ID_ATTRIBUTE)
+	return if type(id) == "string" then id else nil
+end
+
+local function generatedId(model: Model): string
+	local path = model:GetFullName():gsub("[^%w_]", "_")
+	return `Computer_{path}`
+end
+
+local function restoreModel(model: Model)
+	local id = idOf(model)
+	if not id then return end
+
+	for player, saved in SavedIds do
+		if Ready[player] and saved[id] then
+			setOf(player)[model] = true
+		end
+	end
+end
+
+local sync: (Player) -> ()
+
+local function readSaved(player: Player, profile: any)
+	local stored = profile.Data.HackedComputers
+	local saved: { [string]: true } = {}
+	if type(stored) == "table" then
+		for key, value in pairs(stored) do
+			if type(key) == "string" and value == true then
+				saved[key] = true
+			elseif type(value) == "string" then
+				saved[value] = true
+			end
+		end
+	end
+	if ResetPending[player] then
+		table.clear(saved)
+		ResetPending[player] = nil
+	end
+	profile.Data.HackedComputers = saved
+	SavedIds[player] = saved
+	Ready[player] = true
+end
+
+local function loadPlayer(player: Player)
+	local profile = DataSaveService:Wait(player)
+	if not profile or not player:IsDescendantOf(Players) then return end
+
+	readSaved(player, profile)
+	for _, instance in CollectionService:GetTagged(TAG) do
+		if instance:IsA("Model") and instance:IsDescendantOf(workspace) then
+			restoreModel(instance)
+		end
+	end
+	sync(player)
 end
 
 local function totalComputers(): number
@@ -62,7 +122,7 @@ local function completedColors(player: Player): ({ [string]: boolean }, boolean)
 	return colors, allComplete
 end
 
-local function sync(player: Player)
+sync = function(player: Player)
 	local ids: { string } = {}
 	for model in pairs(setOf(player)) do
 		if model:IsDescendantOf(workspace) then
@@ -93,13 +153,13 @@ local function register(instance: Instance)
 	if not eligible(instance) then return end
 	local model = instance :: Model
 
-	if type(model:GetAttribute(ID_ATTRIBUTE)) ~= "string" then
-		nextComputerId += 1
-		model:SetAttribute(ID_ATTRIBUTE, `Computer_{nextComputerId}`)
+	if not idOf(model) then
+		model:SetAttribute(ID_ATTRIBUTE, generatedId(model))
 	end
 	if not CollectionService:HasTag(model, TAG) then
 		CollectionService:AddTag(model, TAG)
 	end
+	restoreModel(model)
 	if model:GetAttribute(LEGACY_ATTRIBUTE) ~= nil then
 		model:SetAttribute(LEGACY_ATTRIBUTE, nil)
 	end
@@ -130,11 +190,19 @@ function ComputerService:GetProgress(player: Player): (number, number)
 end
 
 function ComputerService:SetHacked(player: Player, model: Model, hacked: boolean)
+	if not Ready[player] then return end
+	local id = idOf(model)
+	if not id then return end
+
 	local set = setOf(player)
 	local was = set[model] == true
 	if was == hacked then return end
 
 	set[model] = if hacked then true else nil
+	local saved = SavedIds[player]
+	if saved then
+		saved[id] = if hacked then true else nil
+	end
 	sync(player)
 
 	if not hacked then return end
@@ -151,10 +219,19 @@ end
 function ComputerService:ResetProgress(player: Player)
 	Hacked[player] = nil
 	LastComplete[player] = nil
+	local saved = SavedIds[player]
+	if saved then
+		table.clear(saved)
+	elseif DataSaveService:Get(player) then
+		DataSaveService:Get(player).Data.HackedComputers = {}
+	else
+		ResetPending[player] = true
+	end
 	sync(player)
 end
 
 Complete.OnServerEvent:Connect(function(player: Player, model: any)
+	if not Ready[player] then return end
 	if typeof(model) ~= "Instance" or not model:IsA("Model") then return end
 	if not model:IsDescendantOf(workspace) or not CollectionService:HasTag(model, TAG) then return end
 	if ComputerService:IsHacked(player, model) then return end
@@ -176,18 +253,32 @@ Sync.OnServerEvent:Connect(function(player: Player)
 	sync(player)
 end)
 
-CollectionService:GetInstanceAddedSignal(TAG):Connect(syncAll)
+CollectionService:GetInstanceAddedSignal(TAG):Connect(function(instance: Instance)
+	if instance:IsA("Model") then restoreModel(instance) end
+	syncAll()
+end)
 CollectionService:GetInstanceRemovedSignal(TAG):Connect(function(instance: Instance)
+	local id = if instance:IsA("Model") then idOf(instance) else nil
 	for _, set in Hacked do
 		set[instance :: Model] = nil
+	end
+	if id then
+		for _, saved in SavedIds do
+			saved[id] = nil
+		end
 	end
 	syncAll()
 end)
 
-Players.PlayerAdded:Connect(sync)
+Players.PlayerAdded:Connect(function(player: Player)
+	task.spawn(loadPlayer, player)
+end)
 
 Players.PlayerRemoving:Connect(function(player: Player)
 	Hacked[player] = nil
+	SavedIds[player] = nil
+	Ready[player] = nil
+	ResetPending[player] = nil
 	LastComplete[player] = nil
 	LastSyncRequest[player] = nil
 end)
@@ -199,7 +290,7 @@ end
 workspace.DescendantAdded:Connect(register)
 
 for _, player in Players:GetPlayers() do
-	sync(player)
+	task.spawn(loadPlayer, player)
 end
 
 return ComputerService

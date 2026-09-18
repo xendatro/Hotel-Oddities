@@ -58,15 +58,15 @@ Implements the admin `/hack` chat command: lists every tagged computer with its 
 - Requires: `ChatCommandService` (registers `/hack` and `/resetprogress`, both admin-only), `ComputerService`, `ComputerConfig`, `Configs.ComputerChipConfig`, `Configs.EndingConfig`
 
 ### ComputerService.luau
-Tracks which computer models each player has hacked, as per-player server state rather than an instance attribute, and replicates the set to that player. Auto-tags every eligible `Computer` model in the workspace, stamps each with a unique `ComputerConfig.IdAttribute` string attribute, and validates client completion reports by distance and rate. Sync payloads are streaming-safe: `{ Hacked = { id, ... }, Total = n, Colors = { [color] = boolean }, ExitUnlocked = boolean }` (ids and a server-counted total, never Instance references, which deserialize to nil for streamed-out models). The per-player hacked set holds strong references to the models (a weak-keyed set let the collector silently drop earlier hacks, so progress read back as only the most recent computer); entries are cleared explicitly when a computer loses the tag. Re-syncs everyone when the tagged set changes, and answers rate-limited client sync requests fired back over the Sync remote.
+Tracks each player's hacked computers in memory and in `profile.Data.HackedComputers`, keyed by each model's `ComputerConfig.IdAttribute` string. When a model has no authored id, the service derives a stable id from its workspace path before tagging it. It restores saved ids after the profile loads, reapplies them to models tagged later, and replicates the set to that player. Sync payloads are streaming-safe: `{ Hacked = { id, ... }, Total = n, Colors = { [color] = boolean }, ExitUnlocked = boolean }` (ids and a server-counted total, never Instance references, which deserialize to nil for streamed-out models). The per-player hacked set holds strong references to the models; entries are cleared from memory and the profile when a computer loses the tag. Re-syncs everyone when the tagged set changes, and answers rate-limited client sync requests fired back over the Sync remote.
 - API: `ComputerService:IsHacked(player: Player, model: Model) -> boolean`
 - API: `ComputerService:IsExitUnlocked(player: Player) -> boolean` — all five configured chip destination computers must be complete for that player.
 - API: `ComputerService:GetProgress(player: Player) -> (number, number)` — hacked count, total tagged computers
 - API: `ComputerService:SetHacked(player: Player, model: Model, hacked: boolean)` — syncs the player on change
-- API: `ComputerService:ResetProgress(player: Player)` — forgets every computer that player has hacked and syncs them; used by the end screen's play-again path and the `/resetprogress` command
+- API: `ComputerService:ResetProgress(player: Player)` — clears every hacked computer from memory and `profile.Data.HackedComputers`, then syncs the player; used by the end screen's play-again path and the `/resetprogress` command
 - Remotes: `ComputerConfig.Remotes.Folder/Complete` (listened), `.../Sync` (fired, and listened for client refresh requests)
 - Tags: applies `ComputerConfig.Tag`
-- Requires: `ComputerConfig`
+- Requires: `ComputerConfig`, `ComputerChipConfig`, `DataSaveService`, `AnalyticsService`
 
 ### CrouchService.luau
 Receives crouch state from the client and mirrors it onto the character as the `CrouchConfig.Stealth.Attribute`, rate-limiting reports and coalescing rapid toggles. Clears the attribute on each respawn.
@@ -91,7 +91,7 @@ Bakes and serves the map-wide "danger" field: measures the extent of all `MazeFl
 - Requires: `Services.DangerFieldService`, `SpawnZoneService`, `DangerConfig`, `CommunicationService`
 
 ### DataSaveService.luau
-ProfileService front-end: loads, reconciles and releases one `PlayerData` profile per player, and lets other code either grab a loaded profile or yield until it arrives. The template holds currency, sword ownership, inventory, processed receipts, discovered enemies, discovered map intervals and `OnboardingStep` (the furthest onboarding funnel step `AnalyticsService` has already reported for this player, so the onboarding pass is logged once per account rather than once per run). Studio sessions load `Studio_Player_<UserId>` keys instead of `Player_<UserId>` (via `RunService:IsStudio()`), so a Studio playtest and a live game client hold separate profiles and never contest the session lock — Studio keeps its own separately saved data.
+ProfileService front-end: loads, reconciles and releases one `PlayerData` profile per player, and lets other code either grab a loaded profile or yield until it arrives. The template holds currency, sword ownership, inventory, processed receipts, discovered enemies, discovered map intervals, hacked computer ids, and `OnboardingStep` (the furthest onboarding funnel step `AnalyticsService` has already reported for this player, so the onboarding pass is logged once per account rather than once per run). Studio sessions load `Studio_Player_<UserId>` keys instead of `Player_<UserId>` (via `RunService:IsStudio()`), so a Studio playtest and a live game client hold separate profiles and never contest the session lock — Studio keeps its own separately saved data.
 - API: `DataSaveService:Get(player: Player) -> Profile?` — nil until the profile finishes loading
 - API: `DataSaveService:Wait(player: Player) -> Profile?` — yields the calling thread until loaded
 - Requires: `ServerStorage.Services.ProfileService` (third-party), `ItemShopConfig`

@@ -384,11 +384,11 @@ become Services or Classes.
 - ServerStorage\Services\ChaseFlickerService.luau — Flickers the lights around a player being chased by a CeilingDweller or Mimic.
 - ServerStorage\Services\ChatCommandService.luau — Shared registry and dispatcher for `/` chat commands, gated to the owning group's Owner and Developer roles.
 - ServerStorage\Services\ComputerCommandService.luau — Admin `/hack` command for listing, teleporting to, and force-setting computers by chip colour, game or room, plus `/resetprogress` to wipe a player's computer progress.
-- ServerStorage\Services\ComputerService.luau — Tracks each player's hacked computers, resets them on demand, and replicates streaming-safe color completion and exit eligibility.
+- ServerStorage\Services\ComputerService.luau — Persists each player's hacked computer ids, restores them across sessions, resets them on demand, and replicates streaming-safe color completion and exit eligibility.
 - ServerStorage\Services\CrouchService.luau — Mirrors the client's crouch state onto the character as a stealth attribute.
 - ServerStorage\Services\DangerDebugService.luau — Studio-only hook that rebakes the danger map from the client debug panel.
 - ServerStorage\Services\DangerMapService.luau — Bakes the map-wide danger field, serves weighted spawn points from it, and replicates the baked settings to clients.
-- ServerStorage\Services\DataSaveService.luau — Loads, reconciles and releases per-player ProfileService profiles, keyed separately for Studio sessions so playtests never contest the live game's session lock.
+- ServerStorage\Services\DataSaveService.luau — Loads, reconciles and releases per-player ProfileService profiles, including hacked computer ids, keyed separately for Studio sessions so playtests never contest the live game's session lock.
 - ServerStorage\Services\DeathService.luau — Records the cause of each player's death, applies reported contact kills, and drives the death screen and revive offers.
 - ServerStorage\Services\DevProductService.luau — Wires every developer product in DevProductConfigs to a receipt handler.
 - ServerStorage\Services\DoorService.luau — Polls alive player proximity to swinging room doors and replicates each door's open state and opener position.
