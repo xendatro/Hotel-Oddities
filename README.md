@@ -420,7 +420,7 @@ become Services or Classes.
 - ServerStorage\Services\HearingService.luau — Registry of "ears" that receive NoiseService noises after a distance-based travel delay.
 - ServerStorage\Services\HideSpotService.luau — Finds a standing spot on the maze floor that breaks line of sight from every enemy eye.
 - ServerStorage\Services\HoleService.luau — Creates and expires linked entry/exit hole pairs for the Shovel's dig and validates six-second hole-hop immunity.
-- ServerStorage\Services\InventoryService.luau — Authoritative slot-ordered hotbar/bag with per-item quantity stacking, duplicate cleanup, client sync, profile persistence and out-of-range restores rerouted to free slots.
+- ServerStorage\Services\InventoryService.luau — Authoritative slot-ordered hotbar/bag with per-item quantity stacking, duplicate cleanup, client sync, profile persistence, out-of-range restores rerouted to free slots, and unequipping tools moved into the bag.
 - ServerStorage\Services\InvincibleCommandService.luau — Admin /invincible toggle that applies permanent immunity while keeping the shared Vanished tag.
 - ServerStorage\Services\ItemShopService.luau — Coin and Robux item shop with voice gating, receipt dedupe, CoinService spending and inventory grants.
 - ServerStorage\Services\KitRollService.luau — Policy-gated gem rolls with weighted rarities and duplicate refunds.

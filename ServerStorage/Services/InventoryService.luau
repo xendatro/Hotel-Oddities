@@ -106,6 +106,18 @@ local function collectTools(player: Player): { [string]: { Tool } }
 	return grouped
 end
 
+local function stowBagged(player: Player)
+	local character = player.Character
+	local backpack = player:FindFirstChildOfClass("Backpack")
+	if not character or not backpack then return end
+
+	for slot, toolName in getOrder(player) do
+		if slot <= InventoryConfig.HotbarSlots then continue end
+		local tool = character:FindFirstChild(toolName)
+		if tool and tool:IsA("Tool") then tool.Parent = backpack end
+	end
+end
+
 local function findFreeSlot(player: Player): number?
 	local order = getOrder(player)
 	for index = 1, CAPACITY do
@@ -332,6 +344,7 @@ function InventoryService:Move(player: Player, from: number, to: number): boolea
 	if order[from] == nil then return false end
 
 	order[from], order[to] = order[to], order[from]
+	stowBagged(player)
 	InventoryService:Sync(player)
 	save(player)
 	return true

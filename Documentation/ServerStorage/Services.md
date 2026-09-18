@@ -348,7 +348,7 @@ Authoritative backpack/hotbar model: it tracks a slot-ordered list of tool names
 - API: `InventoryService:Remove(player: Player, toolName: string, n: number)` — destroys the tool at zero
 - API: `InventoryService:RemoveAll(player: Player, toolName: string) -> number` — returns the amount removed
 - API: `InventoryService:Clear(player: Player)`
-- API: `InventoryService:Move(player: Player, from: number, to: number) -> boolean` — swaps two slots
+- API: `InventoryService:Move(player: Player, from: number, to: number) -> boolean` — swaps two slots and unequips any tool that lands in the bag
 - Remotes: `Inventory/Update` (fired and listened), `Inventory/Move` (listened), `Backpack/Delete` (listened)
 - Requires: `InventoryConfig` (`HotbarSlots` + `BackpackSlots` = capacity), `DataSaveService`
 
