@@ -69,7 +69,6 @@ local DrawerItemConfig = {
 	},
 
 	Items = {
-		Food = "Common",
 		Bandage = "Common",
 		Soda = "Common",
 		["Energy Drink"] = "Uncommon",
