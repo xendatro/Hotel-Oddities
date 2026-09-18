@@ -194,6 +194,11 @@ local function build()
 		requestRedraw()
 	end)
 
+	debugPanel:AddSlider("RampExponent", 0.5, 4, Settings.RampExponent or 1, 0.05, function(value)
+		Settings.RampExponent = value
+		requestRedraw()
+	end)
+
 	debugPanel:AddSlider("Octaves", 1, 4, Settings.Octaves, 1, function(value)
 		Settings.Octaves = value
 		requestRedraw()
@@ -225,6 +230,7 @@ local function build()
 			NoiseGain = Settings.NoiseGain,
 			SafeRadius = Settings.SafeRadius,
 			RampLength = Settings.RampLength,
+			RampExponent = Settings.RampExponent,
 			Octaves = Settings.Octaves,
 			Persistence = Settings.Persistence,
 			FloorHeight = Settings.FloorHeight,

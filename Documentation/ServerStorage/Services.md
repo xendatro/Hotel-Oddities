@@ -71,15 +71,15 @@ Studio-only listener that accepts a whitelist of numeric danger-field overrides 
 - Requires: `DangerMapService:Rebake`, `EnemyDirectorService:Reset`
 
 ### DangerMapService.luau
-Bakes and serves the map-wide "danger" field: measures the extent of all `MazeFloor` parts, builds field settings anchored at the `Start` part, and samples weighted spawn points from it. Points inside a `SpawnSafeZone` part are dropped at bake time, so nothing drawing from the baked points ever spawns in the spawn safe zone. Rebakes once at require time and caches cumulative weight tables per danger bias. This is the single authority for the field: the baked settings and extent are broadcast on `Danger/Settings` after every rebake and served on demand over `Danger/GetSettings`, so no client ever derives them from its own view of the map.
+Bakes and serves the map-wide "danger" field: measures the extent of all `MazeFloor` parts, builds field settings anchored at the first `SpawnSafeZone` part (the maze spawn; falls back to the `Start` part, then the map centre), and samples weighted spawn points from it. Points inside a `SpawnSafeZone` part are dropped at bake time, so nothing drawing from the baked points ever spawns in the spawn safe zone. Rebakes once at require time and caches cumulative weight tables per danger bias. This is the single authority for the field: the baked settings and extent are broadcast on `Danger/Settings` after every rebake and served on demand over `Danger/GetSettings`, so no client ever derives them from its own view of the map.
 - API: `DangerMapService:Rebake(overrides: { [string]: any }?)` — re-measures floors and re-bakes points
 - API: `DangerMapService:GetSettings() -> DangerField.FieldSettings?`
 - API: `DangerMapService:GetExtent() -> number`
-- API: `DangerMapService:GetDanger(position: Vector3) -> number` — 0 when no settings are baked
+- API: `DangerMapService:GetDanger(position: Vector3) -> number` — 0 when no settings are baked or the position is inside a spawn safe zone
 - API: `DangerMapService:GetPoints() -> { SpawnPoint }`
 - API: `DangerMapService:PickPoint(bias: number, accept: (SpawnPoint) -> boolean, attempts: number) -> SpawnPoint?` — danger-weighted draw with rejection
 - Remotes: `Danger/Settings` (fired to all clients after each rebake, `(settings, extent)`), `Danger/GetSettings` (RemoteFunction, returns `(settings, extent)`) — both created here
-- Tags: reads `MazeFloor`, `Start`
+- Tags: reads `MazeFloor`, `SpawnSafeZone` (through `SpawnZoneService`), `Start`
 - Requires: `Services.DangerFieldService`, `SpawnZoneService`, `DangerConfig`, `CommunicationService`
 
 ### DataSaveService.luau
