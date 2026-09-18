@@ -222,10 +222,13 @@ function ComputerService:ResetProgress(player: Player)
 	local saved = SavedIds[player]
 	if saved then
 		table.clear(saved)
-	elseif DataSaveService:Get(player) then
-		DataSaveService:Get(player).Data.HackedComputers = {}
 	else
-		ResetPending[player] = true
+		local profile = DataSaveService:Get(player)
+		if profile then
+			profile.Data.HackedComputers = {}
+		else
+			ResetPending[player] = true
+		end
 	end
 	sync(player)
 end
