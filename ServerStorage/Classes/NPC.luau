@@ -166,6 +166,7 @@ function NPC.new(model: Model, config: EnemyConfigs.EnemyConfig, class: any?)
 	self._observedUntil = nil :: number?
 	self._unreachable = {} :: { [Player]: number }
 	self._patrol = nil :: any
+	self._stallToken = nil :: number?
 	self._prefetch = nil :: any
 	self._networkOwner = nil :: Player?
 	self._ownershipConnection = nil :: RBXScriptConnection?
@@ -768,6 +769,41 @@ function NPC:_moveToWithTimeout(target: Vector3): boolean
 	local reached = winner == "Reached" and arrived
 	if not reached then self:StopMoving() end
 	return reached
+end
+
+function NPC:WatchPatrolStall()
+	local token = (self._stallToken or 0) + 1
+	self._stallToken = token
+
+	local interval = NavigationConfig.PatrolStallInterval
+	local limit = NavigationConfig.PatrolStallTime
+	local threshold = NavigationConfig.PatrolStallDistance
+
+	task.spawn(function()
+		local anchor = self.RootPart.Position
+		local stalled = 0
+
+		while self._stallToken == token do
+			local elapsed = task.wait(interval)
+			if self._stallToken ~= token then return end
+			if not self.Active or self.StateMachine.State ~= "Patrol" then return end
+
+			local position = self.RootPart.Position
+			if horizontal(position - anchor).Magnitude >= threshold then
+				anchor = position
+				stalled = 0
+				continue
+			end
+
+			stalled += elapsed
+			if stalled < limit then continue end
+
+			self._stallToken = nil
+			warn(`[npc] {self.Model.Name} has not moved in {limit}s of patrolling; despawning`)
+			self:Despawn()
+			return
+		end
+	end)
 end
 
 function NPC:WalkPatrolEdge(destination: Vector3, lateralOffset: number?): boolean
@@ -1488,11 +1524,16 @@ local function regainGraph(npc: any, graph): any
 	return emergencyEscape(npc, graph)
 end
 
-function NPC.SharedStates.Patrol(changeState: StateMachine.ChangeState, npc: any)
+function NPC.SharedStates.Patrol(
+	changeState: StateMachine.ChangeState,
+	npc: any,
+	onArrive: ((npc: any) -> string?)?
+)
 	npc.Target = nil
 	npc.Animator:Resume()
 	npc:SetSpeed(npc.Config.WalkSpeed)
 	npc:_discardPrefetch()
+	npc:WatchPatrolStall()
 
 	local graph = getPatrolGraph()
 	local current = regainGraph(npc, graph)
@@ -1521,6 +1562,7 @@ function NPC.SharedStates.Patrol(changeState: StateMachine.ChangeState, npc: any
 			continue
 		end
 
+		local completed = true
 		local index = 2
 		while index <= #route do
 			task.wait()
@@ -1544,8 +1586,14 @@ function NPC.SharedStates.Patrol(changeState: StateMachine.ChangeState, npc: any
 				local freed = emergencyEscape(npc, graph)
 				if not freed then return "Idle", npc end
 				current = freed
+				completed = false
 				break
 			end
+		end
+
+		if completed and onArrive then
+			local nextState = onArrive(npc)
+			if nextState then return nextState, npc end
 		end
 	end
 end
