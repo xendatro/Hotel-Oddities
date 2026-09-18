@@ -166,7 +166,7 @@ Settings for the look-direction system that replicates each player's aim to neck
 - API: data table — `SendInterval`, `SendThreshold`, `MaxPitch`, `MaxYaw`, `Neck`, `Waist`, `Smoothing`, `MimicUpdateInterval`, `Debug`
 
 ### MapConfig.luau
-Everything tuning the discoverable map: remote names, the `Map` ScreenGui paths, discovery radius and tick rate, canvas resolution and margin, hand-drawn ink style (colour, opacity, width and its variance, wobble amplitude and frequency, overshoot, bleed), the room floor tags, the landmark tags and their discovery radii, line-of-sight sampling, pan and zoom limits, room and computer-room stroke weights and hatch settings, danger layer colours, and marker sizing and effect timings.
+Everything tuning the discoverable map: remote names, the `Map` ScreenGui paths, discovery radius and tick rate, canvas resolution and margin, hand-drawn ink style (colour, opacity, width and its variance, wobble amplitude and frequency, overshoot, bleed), the room floor tags, the landmark tags, optional landmark name filters and their discovery radii, line-of-sight sampling, pan and zoom limits, room and computer-room stroke weights and hatch settings, danger layer colours, and marker sizing and effect timings.
 
 ### MapOddityConfig.luau
 Spawn intervals, durations and per-effect tuning for the hallway/map oddity system (transparent hallways, world-space light blackouts, doors opening, hallway chaos, gaze-gated blockers and the Void's widened crossing plank). Every ambient effect supplies `SpawnIntervalMin` and `SpawnIntervalMax`; the scheduler samples `math.random(min, max)` directly before each map-wide spawn attempt.

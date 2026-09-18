@@ -442,7 +442,7 @@ Server owner of per-player map discovery. On a fixed tick it projects each livin
 - API: `MapDiscoveryService:Update(player: Player)` — one discovery pass, replicating any hallway that grew
 - API: `MapDiscoveryService:UpdateLandmarks(player: Player, position: Vector3)` — records tagged landmarks inside their radius, firing only the first time each is seen
 - Remotes: `Map/Sync` (fired), `Map/Reveal` (fired), `Map/Landmark` (fired)
-- Tags: reads `MazeFloor`, `HallwayRoomFloor` through `HallwaysService`, plus `RoomFloor` and `ComputerRoomFloor`; reads each `MapConfig.Landmarks` tag (`HackComputer`, `Spawn`, `Exit`)
+- Tags: reads `MazeFloor`, `HallwayRoomFloor` through `HallwaysService`, plus `RoomFloor` and `ComputerRoomFloor`; reads each `MapConfig.Landmarks` tag (`HackComputer`, `Spawn`, `Elevator`) and applies configured name filters, including `ExitElevator` for the exit landmark
 - Requires: `ReplicatedStorage.Configs.MapConfig`, `CharacterService`, `CommunicationService`, `HallwaysService`, `DataSaveService`
 
 ### MapCommandService.luau

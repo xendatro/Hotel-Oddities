@@ -298,6 +298,7 @@ function MapDiscoveryService:UpdateLandmarks(player: Player, position: Vector3)
 
 		for _, instance in CollectionService:GetTagged(settings.Tag) do
 			if not instance:IsDescendantOf(workspace) then continue end
+			if settings.Name and instance.Name ~= settings.Name then continue end
 
 			local pivot = if instance:IsA("Model") then instance:GetPivot().Position elseif instance:IsA("BasePart") then instance.Position else nil
 			if not pivot then continue end
