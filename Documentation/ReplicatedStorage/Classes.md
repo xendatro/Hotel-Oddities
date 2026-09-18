@@ -203,7 +203,7 @@ Replacement for the default Animate script on NPC rigs: disables `Animate`, load
 - Requires: `Configs.AnimationConfig`, `Configs.MimicConfig`, the rig's `Animate` script
 
 ### OverheadName.luau
-One always-on name billboard above a model's head, showing a player's `DisplayName` with the verified badge glyph appended when `HasVerifiedBadge` is true. It is built on the client, so the text is whatever that client's `Player.DisplayName` reads. It forces the model's humanoid `DisplayDistanceType` to `None` and keeps it there, follows head and humanoid replacements (the Mimic swaps both when it applies a description), and hides while the humanoid is dead.
+One always-on name billboard above a model's head, showing a player's `DisplayName` with the verified badge glyph appended when `HasVerifiedBadge` is true. It is built on the client, so the text is whatever that client's `Player.DisplayName` reads. The billboard is sized in studs with scaled text, and offset toward the camera so head accessories do not cover it. It forces the model's humanoid `DisplayDistanceType` to `None` and keeps it there, follows head and humanoid replacements (the Mimic swaps both when it applies a description), and hides while the humanoid is dead.
 - API: `OverheadName.new(model: Model, player: Player, parent: Instance) -> OverheadName` — `player` is whose name to show, which for the Mimic is not the model's owner
 - API: `OverheadName.Format(player: Player) -> string` — static; display name plus badge glyph
 - API: `OverheadName:Destroy()`

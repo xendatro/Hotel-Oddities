@@ -4,14 +4,15 @@ return {
 
 	VerifiedGlyph = 0xE000,
 
-	Size = Vector2.new(240, 32),
+	StudSize = Vector2.new(6, 0.6),
 	ExtentsOffset = Vector3.new(0, 1, 0),
-	StudsOffset = Vector3.new(0, 0.6, 0),
+	StudsOffsetWorldSpace = Vector3.new(0, 0.6, 0),
+	TowardCamera = 2,
 	MaxDistance = math.huge,
 	AlwaysOnTop = false,
 
 	Font = Enum.Font.Merriweather,
-	TextSize = 17,
+	MaxTextSize = 28,
 	TextColor = Color3.fromRGB(240, 230, 206),
 	StrokeColor = Color3.fromRGB(20, 15, 10),
 	StrokeTransparency = 0.35,

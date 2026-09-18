@@ -19,9 +19,10 @@ local function build(parent: Instance): (BillboardGui, TextLabel)
 	billboard.AlwaysOnTop = OverheadNameConfig.AlwaysOnTop
 	billboard.LightInfluence = 0
 	billboard.ClipsDescendants = false
-	billboard.Size = UDim2.fromOffset(OverheadNameConfig.Size.X, OverheadNameConfig.Size.Y)
+	billboard.Size = UDim2.fromScale(OverheadNameConfig.StudSize.X, OverheadNameConfig.StudSize.Y)
 	billboard.ExtentsOffsetWorldSpace = OverheadNameConfig.ExtentsOffset
-	billboard.StudsOffsetWorldSpace = OverheadNameConfig.StudsOffset
+	billboard.StudsOffsetWorldSpace = OverheadNameConfig.StudsOffsetWorldSpace
+	billboard.StudsOffset = Vector3.new(0, 0, OverheadNameConfig.TowardCamera)
 	billboard.MaxDistance = OverheadNameConfig.MaxDistance
 	billboard.Enabled = false
 	billboard.Parent = parent
@@ -31,12 +32,15 @@ local function build(parent: Instance): (BillboardGui, TextLabel)
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1
 	label.Font = OverheadNameConfig.Font
-	label.TextSize = OverheadNameConfig.TextSize
+	label.TextScaled = true
 	label.TextColor3 = OverheadNameConfig.TextColor
 	label.TextStrokeColor3 = OverheadNameConfig.StrokeColor
 	label.TextStrokeTransparency = OverheadNameConfig.StrokeTransparency
-	label.TextTruncate = Enum.TextTruncate.AtEnd
 	label.Parent = billboard
+
+	local constraint = Instance.new("UITextSizeConstraint")
+	constraint.MaxTextSize = OverheadNameConfig.MaxTextSize
+	constraint.Parent = label
 
 	return billboard, label
 end

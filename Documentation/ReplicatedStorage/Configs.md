@@ -183,8 +183,8 @@ Visual settings for the top-center notification banner used for short player-fac
 - API: data table — `DisplayOrder`, `Width`, `Height`, `TopMargin`, `Gap`, `Duration`, `FadeTime`, `BackgroundColor`, `BackgroundTransparency`, `StrokeColor`, `AccentColor`, `TextColor`, `TextStrokeColor`, `TextSize`
 
 ### OverheadNameConfig.luau
-Tag, attribute and styling for the always-on overhead name drawn above players and the Mimic. `VerifiedGlyph` is the private-use codepoint Roblox fonts render as the verified badge.
-- API: data table — `Tag`, `UserIdAttribute`, `VerifiedGlyph`, `Size`, `ExtentsOffset`, `StudsOffset`, `MaxDistance`, `AlwaysOnTop`, `Font`, `TextSize`, `TextColor`, `StrokeColor`, `StrokeTransparency`
+Tag, attribute and styling for the always-on overhead name drawn above players and the Mimic. `VerifiedGlyph` is the private-use codepoint Roblox fonts render as the verified badge. `StudSize` is in studs, so the name shrinks with distance like the character does, and `MaxTextSize` caps it up close. `TowardCamera` pulls the billboard that many studs toward the viewer so hats and other head accessories draw behind it.
+- API: data table — `Tag`, `UserIdAttribute`, `VerifiedGlyph`, `StudSize`, `ExtentsOffset`, `StudsOffsetWorldSpace`, `TowardCamera`, `MaxDistance`, `AlwaysOnTop`, `Font`, `MaxTextSize`, `TextColor`, `StrokeColor`, `StrokeTransparency`
 
 ### ObservedFreezeConfig.luau
 Tag name, attribute name and reconciliation tolerances for the "freeze while observed" enemy movement system. Assembled field-by-field on a named local table rather than as a literal, but returns only that table.
