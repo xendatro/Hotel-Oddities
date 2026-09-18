@@ -29,9 +29,9 @@ return {
 
 	FloorSeparation = 1.25,
 
-	SafeRadiusFraction = 0.14,
-	RampLengthFraction = 0.5,
-	RampExponent = 1.6,
+	SafeRadiusFraction = 0.07,
+	RampLengthFraction = 0.25,
+	RampExponent = 1.3,
 
 	PointSpacing = 10,
 
