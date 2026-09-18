@@ -68,15 +68,16 @@ return {
 			Talk = "CLICK LMB - TOGGLE TALK",
 			Talking = "TRANSMITTING",
 			Raised = "%s - LOWER RADIO",
+			Lowered = "%s - RAISE RADIO",
 			Settings = "%s - LOWER RADIO",
 		},
+		HintCycle = 2.5,
 		OffPrompt = "PRESS %s",
 		OffPromptTouch = "TAP POWER",
 	},
 
 	Prompt = {
 		Text = "[%s] TURN ON WALKIE-TALKIE",
-		RaiseText = "[%s] RAISE WALKIE-TALKIE",
 		TouchText = "TAP THE POWER BUTTON TO USE YOUR WALKIE-TALKIE",
 		FadeTime = 0.25,
 	},

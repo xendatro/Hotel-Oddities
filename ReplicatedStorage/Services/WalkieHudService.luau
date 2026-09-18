@@ -73,14 +73,10 @@ local function step()
 	local raised = WalkieTalkieService:IsRaised()
 	local isTouch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
-	if not powered then
-		prompt.Text = if isTouch
-			then PROMPT.TouchText
-			else string.format(PROMPT.Text, Config.Keys.Power.Name)
-	elseif not isTouch then
-		prompt.Text = string.format(PROMPT.RaiseText, Config.Keys.Raise.Name)
-	end
-	setPromptVisible(equipped and (not powered or (not isTouch and not raised)))
+	prompt.Text = if isTouch
+		then PROMPT.TouchText
+		else string.format(PROMPT.Text, Config.Keys.Power.Name)
+	setPromptVisible(equipped and not powered)
 
 	touch.Visible = isTouch and equipped
 	powerButton.Visible = touch.Visible
