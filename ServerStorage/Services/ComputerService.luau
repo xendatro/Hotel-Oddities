@@ -138,9 +138,13 @@ function ComputerService:SetHacked(player: Player, model: Model, hacked: boolean
 	sync(player)
 
 	if not hacked then return end
-	AnalyticsService:LogStep(player, "FirstComputer")
-	if select(2, completedColors(player)) then
-		AnalyticsService:LogStep(player, "ExitUnlocked")
+	local colors = completedColors(player)
+	local count = 0
+	for _, complete in colors do
+		if complete then count += 1 end
+	end
+	if count > 0 then
+		AnalyticsService:LogStep(player, `Computers{count}`)
 	end
 end
 

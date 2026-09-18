@@ -376,7 +376,7 @@ become Services or Classes.
 
 ### ServerStorage\Services
 
-- ServerStorage\Services\AnalyticsService.luau — Reports the seven-step MazeRun funnel (and its once-per-account onboarding mirror) to Roblox analytics, with a fresh session per run and monotonic steps.
+- ServerStorage\Services\AnalyticsService.luau — Reports the ten-step MazeRun funnel (and its once-per-account onboarding mirror) to Roblox analytics, with a fresh session per run and monotonic steps.
 - ServerStorage\Services\CameraCommandService.luau — Initializes each player's maximum camera zoom to 0.5 and registers /camera (alias /cam) to toggle it between 0.5 and 128.
 - ServerStorage\Services\BadgeService.luau — Awards and caches Roblox badges limited to the ids listed in BadgeConfigs.
 - ServerStorage\Services\CeilingVentService.luau — Springs ceiling vents on approaching players and drops a CeilingDweller through them, after a telegraphed ceiling walk-in where the dweller crawls into the vent; walk-in humanoid names stay hidden.
@@ -536,7 +536,7 @@ become Services or Classes.
 
 ### ServerStorage\Configs
 
-- ServerStorage\Configs\AnalyticsConfig.luau — Funnel name, on/off switches and the seven ordered funnel steps of one run.
+- ServerStorage\Configs\AnalyticsConfig.luau — Funnel name, on/off switches and the ten ordered funnel steps of one run, one per computer hacked.
 - ServerStorage\Configs\BadgeConfigs.luau — Empty placeholder table for badge award settings.
 - ServerStorage\Configs\DevProductConfigs.luau — Empty placeholder table for developer product definitions.
 - ServerStorage\Configs\DiscoveryConfig.luau — Sight, proximity, event and death discovery gain rates per enemy, with a defaults resolver.
