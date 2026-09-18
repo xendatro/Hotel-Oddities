@@ -248,11 +248,11 @@ become Services or Classes.
 - ReplicatedStorage\Classes\Wallstick\ — Vendored EgoMoose Rbx-Wallstick surface-sticking controller (modernized constraints), driven through WallstickService; mirrors WalkSpeed into its hidden mover, offers direct planar motion for seam-free gravity warps, patches gravity and screen-relative look handling into the live camera, and fully restores humanoid state, rotation type and constraints when disabled.
 - ReplicatedStorage\Classes\Minigames\MinigameBase.luau — Base class every terminal minigame extends, providing themed GUI builders, input helpers, heartbeat and win/fail plumbing.
 - ReplicatedStorage\Classes\Minigames\AimTrainer.luau — Click-the-target minigame; 20 hits on shrinking timers, 3 misses wipe the run.
-- ReplicatedStorage\Classes\Minigames\Frogger.luau — Frogger minigame; cross six lanes of traffic twice without being hit.
+- ReplicatedStorage\Classes\Minigames\Frogger.luau — Frogger minigame; cross six lanes of traffic three times in a row without being hit.
 - ReplicatedStorage\Classes\Minigames\Memory.luau — 4x4 emoji pair-matching minigame with a 20-move limit.
 - ReplicatedStorage\Classes\Minigames\Minesweeper.luau — 8x8 Minesweeper minigame with flag mode and a safe first click.
 - ReplicatedStorage\Classes\Minigames\Simon.luau — Simon-says minigame; repeat a growing four-pad sequence up to length seven.
-- ReplicatedStorage\Classes\Minigames\Snake.luau — Snake minigame on a 16x12 grid; eat fifteen pellets as the tick speeds up.
+- ReplicatedStorage\Classes\Minigames\Snake.luau — Snake minigame on a 16x12 grid; eat twelve pellets as the tick speeds up.
 - ReplicatedStorage\Classes\Tools\Ball.luau — Client ball tool; throws a ball prop at a targeted Eye and reports the hit to the server.
 - ReplicatedStorage\Classes\Tools\Camcorder.luau — Client camcorder; suppresses its viewmodel while the Studio-authored REC/STOP HUD runs, calls the engine stop directly on unequip, reports recording completion, then offers keep or burn before reporting the final decision.
 - ReplicatedStorage\Classes\Tools\Camera.luau — Client camera tool; shows a ghost placement preview and asks the server to stand the tripod where you aim.
@@ -474,14 +474,14 @@ become Services or Classes.
 - ServerStorage\Classes\Enemies\Blind.luau — Hearing-driven hunter whose determination builds from noise and decays in silence; investigation and pursuit brake within one second at their search point, blending into listening during the final 0.6 seconds and fading back to locomotion over 0.6 seconds afterward.
 - ServerStorage\Classes\Enemies\CeilingDweller.luau — Chaser that drops from the ceiling onto its victim before hunting normally.
 - ServerStorage\Classes\Enemies\Chaos.luau — Fast hazard that sweeps a precomputed route, killing everything along the segment, and despawns crashing into the wall at the route's end.
-- ServerStorage\Classes\Enemies\Chaser.luau — Plain sight-based pursuer with visual variants; the template most humanoid enemies extend. Safe-room door reactions are controlled by the config's `AllowRoomReaction` flag.
+- ServerStorage\Classes\Enemies\Chaser.luau — Plain sight-based pursuer with visual variants; the template most humanoid enemies extend. Between patrol routes it sometimes sleeps sitting against a hallway wall, waking to chase anyone who walks past without crouching. Safe-room door reactions are controlled by the config's `AllowRoomReaction` flag.
 - ServerStorage\Classes\Enemies\Creep.luau — Stationary eye-cluster that kills the hallway lights and despawns when approached.
 - ServerStorage\Classes\Enemies\Eye.luau — Static hazard that damages players by view angle for looking at it.
 - ServerStorage\Classes\Enemies\Ghost.luau — Floating enemy that drifts on published motion legs and lurks unseen in dangerous hallways.
 - ServerStorage\Classes\Enemies\Mimic.luau — Copies a player's appearance and acts out odd encounter modes before revealing and chasing.
 - ServerStorage\Classes\Enemies\MirrorStalker.luau — Harmless stalker whose invisible body walks the mirror room's floor so only its target ever sees it, as a ceiling reflection, until they look behind them with the reflection out of view or leave the room.
 - ServerStorage\Classes\Enemies\Sisters.luau — Twinned translucent, harmless figures that patrol the hallway ceilings forever via SurfaceWalker, heads tracking the nearest player.
-- ServerStorage\Classes\Enemies\Stalker.luau — Peeks at a player from corner to corner, then tails them from behind unseen at their own pace with a catch-up boost until it closes to striking range, flees to cover when observed, and snaps right behind them to seize the camera and kill.
+- ServerStorage\Classes\Enemies\Stalker.luau — Peeks at a player from corner to corner, then tails them from behind unseen at their own pace with a catch-up boost until it closes to striking range, flees to cover when observed, and snaps right behind them to seize the camera and kill. Wears its own `Enemies.Stalker` rig: the Ceiling Dweller's all-black skin with neon red eyes, the same model the Index shows.
 - ServerStorage\Classes\Enemies\WeepingAngel.luau — Chaser that freezes solid whenever any player is observing it.
 - ServerStorage\Classes\Enemies\Behaviors\Peek.luau — Shared state functions for hiding at a spot, leaning into view, pulling back, teleporting unseen to the next corner whenever the player leaves the spot's sight, and standing the rig upright on release.
 - ServerStorage\Classes\Oddity.luau — Root oddity class: token, merged settings, timed start/stop lifecycle and subclass factory.

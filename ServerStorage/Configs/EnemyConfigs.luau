@@ -81,6 +81,10 @@ export type EnemyConfig = {
 	HoldTimeMax: number?,
 	RestTimeMin: number?,
 	RestTimeMax: number?,
+	RestChance: number?,
+	RestWallInset: number?,
+	RestWakeRadius: number?,
+	RestWakeTime: number?,
 	PeekCountMin: number?,
 	PeekCountMax: number?,
 	PeekFogFraction: number?,
@@ -225,8 +229,15 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		AttackRange = 4.5,
 		AttackCooldown = 1.5,
 
+		RestChance = 0.35,
+		RestTimeMin = 20,
+		RestTimeMax = 45,
+		RestWallInset = 2,
+		RestWakeRadius = 16,
+		RestWakeTime = 1.1,
+
 		DangerBias = 1,
-		MaxAlive = 2,
+		MaxAlive = 3,
 		SpawnGrace = 2,
 	},
 
@@ -284,7 +295,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		OvershootMinimum = 1.5,
 
 		DangerBias = 1,
-		MaxAlive = 2,
+		MaxAlive = 3,
 		SpawnGrace = 2,
 	},
 
@@ -406,7 +417,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 	},
 
 	Stalker = {
-		Model = "Ceiling Dweller",
+		Model = "Stalker",
 		Animations = AnimationConfig.Sets.Stalker,
 		DespawnEffect = false,
 

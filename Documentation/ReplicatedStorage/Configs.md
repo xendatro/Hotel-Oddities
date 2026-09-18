@@ -7,8 +7,8 @@ Distance-based volume falloff and fade timing for ambient sound emitters, plus t
 - API: data table — `SilentDistance`, `FullVolumeDistance`, `FadeTime`, `UpdateInterval`, `POI` (`Volume`, `FadeTime`, `Pitch`, `DistortionLevel`, `TremoloDepth`, `TremoloFrequency`)
 
 ### AnimationConfig.luau
-Animation asset ids plus per-enemy animation sets (walk/run/idle/attack/room-reaction/listen/lurk) used by enemy rigs and tools.
-- API: data table — `Animations` (id lookup), `Sets` (per-enemy `AnimationSet`); exports type `AnimationSet`. A set's optional `RoomReaction` id replaces the cheer emote at safe-room doors (Chaser knocks with `DoorKnock`); a set's optional `Listen` id is a looping override played while standing at a search point (Blind uses `BlindListen`); a set's optional `Lurk` id is the standing idle GhostRenderService plays while the ghost holds a lurk spot (`GhostIdle`). The `Sisters` set makes the sisters walk with `GhostIdle`.
+Animation asset ids plus per-enemy animation sets (walk/run/idle/attack/room-reaction/listen/lurk/sleep/wake) used by enemy rigs and tools.
+- API: data table — `Animations` (id lookup), `Sets` (per-enemy `AnimationSet`); exports type `AnimationSet`. A set's optional `RoomReaction` id replaces the cheer emote at safe-room doors (Chaser knocks with `DoorKnock`); a set's optional `Listen` id is a looping override played while standing at a search point (Blind uses `BlindListen`); a set's optional `Lurk` id is the standing idle GhostRenderService plays while the ghost holds a lurk spot (`GhostIdle`). A set's optional `Sleep` and `Wake` ids are the sit-against-the-wall doze and the startled get-up the Chaser's `Rest` state plays (`ChaserSleep`, `ChaserWake`). The `Sisters` set makes the sisters walk with `GhostIdle`.
 
 ### BreatheConfig.luau
 Idle breathing motion applied to character joints.
@@ -120,7 +120,7 @@ Proximity heartbeat sound for the Blind enemy, with volume and rate ramps betwee
 - API: data table — `EnemyId`, `Template`, `Range`, `FullDistance`, `Volume`, `PursuitAttribute`, `Rate`, fade/rate speeds, `SilenceEpsilon`
 
 ### IndexConfig.luau
-The enemy Index (bestiary) UI: pagination, locked/undiscovered styling, the discovery reveal animation, card/button/page tweens, headshot camera framing and every enemy entry, including the "Painting Lurker" (`PaintingDweller`) entry rendered with the Painting Dweller rig.
+The enemy Index (bestiary) UI: pagination, locked/undiscovered styling, the discovery reveal animation, card/button/page tweens, headshot camera framing and every enemy entry, including the "Painting Lurker" (`PaintingDweller`) entry rendered with the Painting Dweller rig. The `Stalker` entry draws `ReplicatedStorage.Enemies.Stalker`, which is now the black red-eyed rig the enemy itself spawns.
 - API: data table — `EntriesPerPage`, `TemplateFolder`, `StartProgress`, `Locked`, `Discovery`, `Empty`, `HideUndiscovered`, `Pagination`, `Animation`, `Headshot`, `Entries`; exports types `StandinPart`, `Headshot`, `Entry`
 
 ### InventoryConfig.luau
