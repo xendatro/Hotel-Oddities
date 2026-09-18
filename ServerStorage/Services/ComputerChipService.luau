@@ -6,6 +6,9 @@ local ServerStorage = game:GetService("ServerStorage")
 local Config = require(ReplicatedStorage.Configs.ComputerChipConfig)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local ComputerService = require(ServerStorage.Services.ComputerService)
+local DrawerItemService = require(ServerStorage.Services.DrawerItemService)
+local DrawerService = require(ServerStorage.Services.DrawerService)
 local InventoryService = require(ServerStorage.Services.InventoryService)
 local RoomService = require(ServerStorage.Services.RoomService)
 local Routes = require(ServerStorage.Services.ComputerChipRouteService)
@@ -18,16 +21,43 @@ local Pending = {}
 local LastSync = {}
 local Serial = 0
 local Entries = {}
+local Exit = Config.Exit
+local RandomGenerator = Random.new()
 
 for _, entry in Config.Colors do Entries[entry.Key] = entry end
+Entries[Exit.Key] = Exit
 
 local function getTarget(entry)
 	local maze = workspace:FindFirstChild(Config.MazeName)
+	if entry == Exit then
+		local elevator = maze and maze:FindFirstChild(Exit.ElevatorName)
+		local approach = elevator and elevator:FindFirstChild(Exit.ApproachName)
+		if not approach or not approach:IsA("BasePart") then return nil end
+		return maze, elevator, approach
+	end
 	local rooms = maze and maze:FindFirstChild("Rooms")
 	local room = rooms and rooms:FindFirstChild(entry.RoomName)
 	local computer = room and room:FindFirstChild("ComputerModel")
 	if not computer or not computer:IsA("Model") or not computer:HasTag(Config.ComputerTag) then return nil end
 	return maze, room, computer
+end
+
+local function targetValid(entry, holder, target)
+	if target.Parent ~= holder or not holder:IsDescendantOf(workspace) then return false end
+	return entry == Exit or target:HasTag(Config.ComputerTag)
+end
+
+local function destinationOf(entry, holder, target)
+	return if entry == Exit then target.Position else holder
+end
+
+local function finish(entry, holder, route)
+	local finalPart = entry == Exit and holder:FindFirstChild(Exit.EndName)
+	if not finalPart or not finalPart:IsA("BasePart") then return route end
+	local last = route.Points[#route.Points]
+	local points = table.clone(route.Points)
+	table.insert(points, Vector3.new(finalPart.Position.X, last.Y, finalPart.Position.Z))
+	return { Points = points, Revision = route.Revision, Forced = route.Forced }
 end
 
 local function send(player, state)
@@ -64,7 +94,8 @@ function Service:Activate(player, tool, colorKey)
 	local character = player.Character
 	if not character or tool.Parent ~= character or not alivePlayer(player, character) then return false end
 	if InventoryService:Get(player, entry.ToolName) ~= tool or (tool:GetAttribute("quantity") or 0) < 1 then return false end
-	local maze, room, computer = getTarget(entry)
+	if entry == Exit and not ComputerService:IsExitUnlocked(player) then return false end
+	local maze, holder, target = getTarget(entry)
 	if not maze then return false end
 	local root = CharacterService.GetAliveRoot(player)
 	local origin = Routes:Locate(maze, root.Position, RoomService:GetRoom(player))
@@ -74,21 +105,22 @@ function Service:Activate(player, tool, colorKey)
 	local requested = os.clock()
 	local function valid()
 		return Pending[player] == ticket and alivePlayer(player, character) and tool.Parent == character
-			and computer.Parent == room and computer:HasTag(Config.ComputerTag)
+			and targetValid(entry, holder, target)
 			and os.clock() - requested < 20
 	end
-	local ok, route = pcall(function() return Routes:GetRoute(maze, origin, room, valid) end)
+	local ok, route = pcall(function() return Routes:GetRoute(maze, origin, destinationOf(entry, holder, target), valid) end)
 	local accept = valid()
 	if Pending[player] == ticket then Pending[player] = nil end
 	if not ok then warn("Computer chip route: " .. tostring(route)); return false end
 	if not route or not accept or InventoryService:Get(player, entry.ToolName) ~= tool
 		or (tool:GetAttribute("quantity") or 0) < 1 then return false end
+	route = finish(entry, holder, route)
 	InventoryService:Remove(player, entry.ToolName, 1)
 	clear(player)
 	Serial += 1
 	local now = workspace:GetServerTimeNow()
 	local state = {
-		Id = Serial, Version = 1, Entry = entry, Maze = maze, Room = room, Computer = computer, Character = character,
+		Id = Serial, Version = 1, Entry = entry, Maze = maze, Holder = holder, Target = target, Character = character,
 		StartedAt = now, EndsAt = now + Config.Duration, Points = route.Points, Forced = route.Forced,
 		Revision = route.Revision, LastPosition = origin.Position, LastRoom = origin.Room,
 		LastConnector = origin.Connector and origin.Connector.Model,
@@ -119,13 +151,15 @@ local function repath(player, state, origin)
 	task.spawn(function()
 		local function valid()
 			return Active[player] == state and alivePlayer(player, state.Character)
-				and state.Computer.Parent == state.Room and state.Computer:HasTag(Config.ComputerTag)
+				and targetValid(state.Entry, state.Holder, state.Target)
 				and workspace:GetServerTimeNow() < state.EndsAt
 		end
-		local ok, route = pcall(function() return Routes:GetRoute(state.Maze, origin, state.Room, valid) end)
+		local destination = destinationOf(state.Entry, state.Holder, state.Target)
+		local ok, route = pcall(function() return Routes:GetRoute(state.Maze, origin, destination, valid) end)
 		state.Busy = false
 		if not ok then warn("Computer chip reroute: " .. tostring(route)); return end
 		if not route or not valid() then return end
+		route = finish(state.Entry, state.Holder, route)
 		state.Points, state.Forced, state.Revision = route.Points, route.Forced, route.Revision
 		state.LastPosition = origin.Position
 		state.LastRoom = origin.Room
@@ -144,8 +178,7 @@ RunService.Heartbeat:Connect(function(dt)
 	accumulator = 0
 	for player, state in Active do
 		if not alivePlayer(player, state.Character) or workspace:GetServerTimeNow() >= state.EndsAt
-			or state.Computer.Parent ~= state.Room or not state.Computer:HasTag(Config.ComputerTag)
-			or not state.Room:IsDescendantOf(workspace) then
+			or not targetValid(state.Entry, state.Holder, state.Target) then
 			clear(player)
 			continue
 		end
@@ -190,6 +223,13 @@ local function markComputers()
 		end
 	end
 end
+
+DrawerService.Opened:Connect(function(player, drawer)
+	if RandomGenerator:NextNumber() >= Exit.DrawerChance or not ComputerService:IsExitUnlocked(player) then return end
+	local held = InventoryService:Get(player, Exit.ToolName)
+	if held and (held:GetAttribute("quantity") or 0) > 0 then return end
+	DrawerItemService:SpawnFor(player, drawer, Exit.ToolName)
+end)
 
 markComputers()
 workspace.DescendantAdded:Connect(function(instance)

@@ -121,6 +121,8 @@ Server-authoritative door proximity poll. Every `PollInterval`, it checks all al
 Populates drawers with pickable item displays: clones a Tool from `ReplicatedStorage.Tools` into a script-free, anchored display model, measures the drawer's bounds and handle direction to seat it on the front surface, and keeps roughly `TargetPercentage` of drawers stocked on a refill timer. It also keeps `Hallway.MaxAlive` loose pickups on hallway floors, spaced and away from players. Handles client pickup requests with reach, debounce and inventory checks, avoiding repeating the last drawer or item.
 - Three weighted rolls, each skipping whatever spawned last: `chooseItemName` for drawer tools (`Rarities` via `Items`), `chooseCurrencyName` for drawer currencies (`Currencies`), and `chooseHallwayName` for loose hallway pickups, which pools `Currencies` with `Hallway.Items` so map-only tools and computer chips drop in hallways while drawer tools stay in drawers.
 - Pickup validation accepts drawer tools, map-only hallway tools and currencies, so a hallway-only tool cannot be rejected after it spawns.
+- Owned displays: `SpawnFor` puts a display in an empty drawer with `OwnerUserId` set. Each player has at most one; a new one replaces the old. Only the owner can pick it up, it does not count toward the drawer stocking target, and it is removed when the owner leaves. Its pickup does not touch the refill timer or the no-repeat state.
+- API: `DrawerItemService:SpawnFor(player: Player, drawer: Model, itemName: string) -> Model?` — nil if the drawer is occupied or unknown
 - Remotes: `DrawerItemConfig.Remotes.Folder/Pickup` (listened)
 - Tags: listens `DrawerConfig.Tag`; applies `DrawerItemConfig.Tag`
 - Requires: `DrawerConfig`, `DrawerItemConfig`, `InventoryService:Wait` / `:Add`, `ReplicatedStorage.Tools`
@@ -128,6 +130,7 @@ Populates drawers with pickable item displays: clones a Tool from `ReplicatedSto
 ### DrawerService.luau
 Owns the open/closed state of drawer models as attributes, plays the open/close sound, and auto-closes drawers left open longer than `AutoCloseDelay`. Client toggle requests are rate-limited and distance-checked.
 - API: `DrawerService:SetOpen(model: Model, open: boolean)` — sets the state attributes and plays the sound
+- API: `DrawerService.Opened: RBXScriptSignal<(Player, Model)>` — fires when a player's toggle request opens a closed drawer
 - Remotes: `Drawer/Toggle` (listened)
 - Tags: reads `DrawerConfig.Tag`
 - Requires: `DrawerConfig`, `AudioService`
@@ -698,15 +701,17 @@ Owns one active navigation-chip effect per player. Validates the held inventory 
 - Routes and expiry are sent only to the owning player via ComputerChip/Route. ComputerChip/Sync is a rate-limited snapshot request; the client never supplies destinations or waypoints.
 - Every 0.5 seconds, cheap position/state checks decide whether work is needed. Recomputations are throttled to 3 seconds, triggered by movement, corridor/room transitions, off-route movement, graph revisions, or connector cache refresh. At most one route request per player runs at a time; stale/expired results are discarded.
 - Hotel-room starts project through RoomService:GetDoorApproach to the connected corridor centerline. Destinations stop on the hallway centerline outside the computer room. No trail segment is added inside those adjacent rooms.
+- The White Computer Chip (`ComputerChipConfig.Exit`) targets `Maze15.ExitElevator` instead of a computer. Activation also requires `ComputerService:IsExitUnlocked`. Its route runs to the hallway point at the elevator's `Approach` part, and one more point at the `Threshold` leads the trail into the doorway.
+- White chip drops: on `DrawerService.Opened`, a player with the exit unlocked who holds no White chip rolls `Exit.DrawerChance`. A success calls `DrawerItemService:SpawnFor`, so the chip only appears in that drawer for that player.
 - Death, leaving, expiration or removal of the destination clears the effect. The workspace-level ComputerModel template is never a target. Computer color labels are refreshed from config; hacking/minigame completion remains independent.
-- Requires: ComputerChipConfig, CharacterService, CommunicationService, InventoryService, RoomService, ComputerChipRouteService.
+- Requires: ComputerChipConfig, CharacterService, CommunicationService, ComputerService, DrawerItemService, DrawerService, InventoryService, RoomService, ComputerChipRouteService.
 
 ### ComputerChipRouteService.luau
 Builds a player navigation graph from HallwayGraphService:BuildCorridors and attaches connector entrances. Authoritative Connectors markers are preferred; legacy rooms infer entrances where real corridor endpoints touch their tagged room floors. Every entrance pair is connected, and source positions inside a connector connect to its exits. Regular hotel/computer rooms attach only through their doorway's outside hallway point.
 - Shortest path: reuses HallwayGraphService:FindPath with distance-only costs, never DangerMapService or patrol danger weights. Unresolved connector edges start with direct-distance lower bounds; edges used by a candidate route are resolved and Dijkstra is repeated until the selected route has current measured lengths.
 - Connector fallback order: player-volume overlap/swept-clearance and ground-support check for direct travel; bounded ComputeAsync to route around furniture (no jumps and no adjacent-room traversal); forced direct entrance-to-exit segment if navigation fails. Pathfinding results leaving the connector bounds are rejected. Forced segments may cross obstacles, as requested.
 - Caches room/entrance-pair results across players, coalesces in-flight requests and caps concurrent ComputeAsync calls at two. Successful results expire after 30 seconds, forced fallbacks after 5; expired cache entries are swept. Floor-tag or connector-part additions/removals invalidate the graph, and periodic route refresh picks up moved obstacles through cache expiration.
-- API: Locate(maze, position, hotelRoom?), GetRoute(maze, origin, targetRoom, aliveCallback), GetRevision(), Invalidate(). All graph instances with temporary source/destination nodes are private to each request.
+- API: Locate(maze, position, hotelRoom?), GetRoute(maze, origin, destination, aliveCallback), GetRevision(), Invalidate(). `destination` is a room Model (anchored at its doorway) or a Vector3 snapped to the nearest hallway within EntranceSnapDistance. All graph instances with temporary source/destination nodes are private to each request.
 
 Computer chip routing follow-up: connector entrance inference uses EntranceSnapDistance to cover gaps and split approach-floor pieces, linking nearby corridor projections. Doorway anchoring uses the room elevation so raised decorative threshold parts do not reject an otherwise valid hallway. Connector path bounds include the entrance approach tolerance. GetDiagnostics(maze) exposes graph entrance summaries, cached segment modes/points, and computation/concurrency counters for runtime inspection. ComputerChipService retains the exact target computer and cancels pending, active, and rerouting work if that computer leaves its room or loses its tag.
 

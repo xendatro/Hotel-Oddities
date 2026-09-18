@@ -27,6 +27,7 @@ local ItemByDrawer: { [Model]: Model } = {}
 local DrawerByItem: { [Model]: Model } = {}
 local HallwayItems: { [Model]: true } = {}
 local LastPickup: { [Player]: number } = {}
+local OwnedBy: { [Player]: Model } = {}
 local HallwayFolder = Instance.new("Folder")
 HallwayFolder.Name = "HallwayDrawerItems"
 HallwayFolder.Parent = workspace
@@ -229,6 +230,35 @@ local function spawnItem(drawer: Model, itemName: string): Model?
 	return display
 end
 
+local function removeOwned(player: Player)
+	local item = OwnedBy[player]
+	OwnedBy[player] = nil
+	if not item then return end
+
+	local drawer = DrawerByItem[item]
+	if drawer and ItemByDrawer[drawer] == item then
+		ItemByDrawer[drawer] = nil
+	end
+	DrawerByItem[item] = nil
+	item:Destroy()
+end
+
+function DrawerItemService:SpawnFor(player: Player, drawer: Model, itemName: string): Model?
+	if not Drawers[drawer] or not drawer:IsDescendantOf(workspace) or ItemByDrawer[drawer] then return nil end
+
+	local template = templateFor(itemName)
+	local display = template and makeDisplay(template)
+	if not display then return nil end
+
+	removeOwned(player)
+	display:SetAttribute(ItemConfig.OwnerAttribute, player.UserId)
+	placeOnDrawer(drawer, display)
+	ItemByDrawer[drawer] = display
+	DrawerByItem[display] = drawer
+	OwnedBy[player] = display
+	return display
+end
+
 local function surveyDrawers(): (number, number, { Model }, { Model })
 	local itemCount = 0
 	for drawer, item in ItemByDrawer do
@@ -239,7 +269,8 @@ local function surveyDrawers(): (number, number, { Model }, { Model })
 		end
 
 		local itemName = item:GetAttribute(ItemConfig.Attribute)
-		if type(itemName) ~= "string" or not ItemConfig.Currencies[itemName] then
+		local owned = item:GetAttribute(ItemConfig.OwnerAttribute) ~= nil
+		if not owned and (type(itemName) ~= "string" or not ItemConfig.Currencies[itemName]) then
 			itemCount += 1
 		end
 	end
@@ -593,7 +624,9 @@ Pickup.OnServerEvent:Connect(function(player: Player, item: any)
 	local itemName = item:GetAttribute(ItemConfig.Attribute)
 	if type(itemName) ~= "string" then return end
 	local currency = ItemConfig.Currencies[itemName]
-	if not ItemConfig.Items[itemName] and not ItemConfig.Hallway.Items[itemName] and not currency then return end
+	local owner = item:GetAttribute(ItemConfig.OwnerAttribute)
+	if owner ~= nil and (owner ~= player.UserId or OwnedBy[player] ~= item) then return end
+	if owner == nil and not ItemConfig.Items[itemName] and not ItemConfig.Hallway.Items[itemName] and not currency then return end
 
 	local now = os.clock()
 	if now - (LastPickup[player] or 0) < PICKUP_DEBOUNCE then return end
@@ -618,6 +651,11 @@ Pickup.OnServerEvent:Connect(function(player: Player, item: any)
 		collected = InventoryService:Add(player, itemName, 1)
 	end
 	if not collected then return end
+
+	if owner ~= nil then
+		removeOwned(player)
+		return
+	end
 
 	if drawer then
 		ItemByDrawer[drawer] = nil
@@ -690,6 +728,7 @@ end)
 
 Players.PlayerRemoving:Connect(function(player: Player)
 	LastPickup[player] = nil
+	removeOwned(player)
 end)
 
 return DrawerItemService

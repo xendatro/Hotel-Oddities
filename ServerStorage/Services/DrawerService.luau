@@ -15,6 +15,8 @@ local MIN_INTERVAL = 0.1
 local Toggle = CommunicationService.Get("Drawer", "Toggle") :: RemoteEvent
 
 local LastToggle: { [Player]: number } = {}
+local opened = Instance.new("BindableEvent")
+DrawerService.Opened = opened.Event
 
 function DrawerService:SetOpen(model: Model, open: boolean)
 	if model:GetAttribute(DrawerConfig.Attribute) == open then
@@ -79,7 +81,9 @@ Toggle.OnServerEvent:Connect(function(player: Player, model: any, open: any)
 	if not position or (model:GetPivot().Position - position).Magnitude > REACH then return end
 
 	LastToggle[player] = now
+	local wasOpen = model:GetAttribute(DrawerConfig.Attribute) == true
 	DrawerService:SetOpen(model, open)
+	if open and not wasOpen then opened:Fire(player, model) end
 end)
 
 Players.PlayerRemoving:Connect(function(player: Player)

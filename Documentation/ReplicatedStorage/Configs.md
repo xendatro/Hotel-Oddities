@@ -71,14 +71,16 @@ Openable drawers: tag/attribute names, spring motion, auto-close, interaction ta
 
 ### DrawerItemConfig.luau
 Items spawned inside drawers and the loose hallway pickups: drawer spawn rates, currency target and refill settings, hallway placement limits and supported surface names, rarity weights, currency weights and reward amounts, pickup feedback labels and sound names, display rotations, plus separate drawer and map-only item pools. At load time it clones `DrawerConfig.Input` and `DrawerConfig.UI` and overrides a few fields, and reuses `DrawerConfig.Targeting`/`Highlight` by reference.
-- API: data table — `Tag`, `Attribute`, `Remotes`, `Feedback`, `DisplayRotations`, `Spawn`, `Hallway`, `Targeting`, `Input`, `Highlight`, `UI`, `Rarities`, `Items`, `Currencies`
+- API: data table — `Tag`, `Attribute`, `OwnerAttribute`, `Remotes`, `Feedback`, `DisplayRotations`, `Spawn`, `Hallway`, `Targeting`, `Input`, `Highlight`, `UI`, `Rarities`, `Items`, `Currencies`
 - `Hallway.Items` is the non-currency half of the hallway pool. It contains map-only tools weighted from the shared rarity scale, then adds one entry per chip tool at its `LootWeight` times `Hallway.ItemWeightScale` (0.05). Coins and gems keep their own weights.
 - Each chip color also gets its own `Rarities.ComputerChip<Key>` entry and points at it in `Items`, replacing the single shared ComputerChip weight.
+- `OwnerAttribute` (`OwnerUserId`) marks a drawer display that belongs to one player. The White Computer Chip is never in `Items` or `Hallway.Items`; it only spawns through `DrawerItemService:SpawnFor`.
 - Requires: `Configs/ComputerChipConfig`, `Configs/DrawerConfig`
 
 ### EffectsHUDConfig.luau
 Layout, colours and icon ids for the active-item/effect tiles on the HUD.
 - API: data table — `TileSize`, `TilePadding`, `CornerRadius`, `IconInset`, `EdgeMargin`, `Colors`, `Transparency`, `FlashDuration`, `HoleLifetime`, `FlashItems`, `Icons`
+- Every chip in `ComputerChipConfig.Colors`, plus `ComputerChipConfig.Exit`, gets the computer icon.
 
 ### ElevatorConfig.luau
 Elevator instance names, Lobby/Start/Exit types, door motion, proximity thresholds, AccessCheckInterval (0.2 seconds), the teleport fade/loading sequence, and the client arrival-rotation remote name.
@@ -252,6 +254,7 @@ Corridor-streaming settings — prediction, replication lead times, reconciliati
 ### ToolConfigs.luau
 Per-tool settings keyed by tool name, giving each tool its CollectionService tag plus its own behaviour values (heal amounts, cooldowns, sounds, movement settings and player-oddity effect selections). Exports a `ToolConfig` type.
 - API: data table — one entry per tool: `Flashlight`, `Bandage`, `Medkit`, `SpellBook`, `Trap`, `Ball`, `Shovel`, `Pathfinder`, `Soda`, `Energy Drink`, `Visor`, `Gravity Warper`, `Player Locator`, `Walkie Talkie`, `Big Head`, `Big Character`, `Small Character`, `Transparency`, `Random Oddity`
+- The five colored chips and the White Computer Chip (`ComputerChipConfig.Exit`) are added at load with `Class = "ComputerChip"` and their `ColorKey`.
 - Player oddity entries use `OddityKind`, optional `OddityOverrides`, or `OddityChoices` for the random four-effect item. `Shovel.HoleImmunityDuration` sets the six-second immunity granted when entering a hole.
 
 ### TopHUDConfig.luau
@@ -296,11 +299,12 @@ Range, angle limits and joint weighting for the Watch class, which makes an NPC'
 ### ComputerChipConfig.luau
 Shared configuration for the five navigation chips: color-to-room mapping, 60-second duration, cubic fade exponent, per-color loot weight (Blue 34, Green 27, Red 21, Purple 16, Yellow 12, with `LootWeight = 12` as the fallback for a color that omits its own), server route checks (0.5 seconds), reroute throttle (3 seconds / 8 studs), connector cache lifetimes, a two-job ComputeAsync concurrency cap, player clearance, and local neon-dot spacing, visibility range and pooling limits. Change Duration here to update tool configuration, the effect HUD countdown and trail lifetime together.
 - Colors: Blue -> Room_357, Red -> Room_419, Green -> Room_466, Yellow -> Room_599, Purple -> Room_998, all under Maze15.Rooms.
+- `Exit` is the White Computer Chip, kept outside `Colors` so the five-computer HUD, exit panel and completion check are unchanged. It routes to `Maze15.ExitElevator`: the route snaps to the hallway at the elevator's `Approach` part and ends at its `Threshold`. `DrawerChance` (0.25) is the chance per drawer a player opens, and it only applies to players who have completed all five computers.
 - Each color entry carries a `LootWeight` ordered by how hard its computer's minigame is: Blue (Memory) 34, Green (Frogger) 27, Red (AimTrainer) 21, Purple (Simon) 16, Yellow (Snake) 12.
 - Attributes: ComputerChipColor on the real computers and chip templates.
 - Remotes: ComputerChip/Route (server-to-owner route, duration, expiry and revision), ComputerChip/Sync (owner requests an active route snapshot).
 - DrawerItemConfig gives each name its own `ComputerChip<Key>` rarity carrying that color's LootWeight, and adds a scaled copy of it to `Hallway.Items` so chips also drop loose in hallways alongside coins and gems; existing stocking targets and refill timers are unchanged. The no-immediate-repeat rule still applies.
-- ToolConfigs adds the five tagged tools with Class = ComputerChip and their ColorKey; EffectsHUDConfig gives each the computer icon, tinted by the active trail's color.
+- ToolConfigs adds the five tagged tools plus the White chip with Class = ComputerChip and their ColorKey; EffectsHUDConfig gives each the computer icon, tinted by the active trail's color.
 
 Kits do not modify jumping. All 24 kits inherit the StarterPlayer jump settings; the current Studio default uses jump height mode at 3 studs. JumpPower is no longer a supported kit stat.
 

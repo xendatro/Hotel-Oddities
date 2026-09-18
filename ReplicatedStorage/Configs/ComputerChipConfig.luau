@@ -39,4 +39,13 @@ return {
 		{ Key = "Yellow", ToolName = "Yellow Computer Chip", RoomName = "Room_599", Color = Color3.fromRGB(255, 220, 55), LootWeight = 12 },
 		{ Key = "Purple", ToolName = "Purple Computer Chip", RoomName = "Room_998", Color = Color3.fromRGB(190, 95, 255), LootWeight = 16 },
 	},
+	Exit = {
+		Key = "White",
+		ToolName = "White Computer Chip",
+		Color = Color3.fromRGB(245, 245, 255),
+		ElevatorName = "ExitElevator",
+		ApproachName = "Approach",
+		EndName = "Threshold",
+		DrawerChance = 0.25,
+	},
 }

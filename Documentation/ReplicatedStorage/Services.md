@@ -218,7 +218,7 @@ Client renderer for every swinging door part inside a `Doorway`+`RoomDoor` model
 - Requires: `Classes.DoorPart`, `Configs.DoorConfig` (`OpenAttribute`, `OpenFromAttribute`), `CharacterService`, `TagService`
 
 ### DrawerItemService.luau
-Client-only. Registers every `DrawerItem` model, including hallway currency displays, as an interactable pick-up and fires the server when one is activated, with a short cooldown. Successful currency pickups show a `+N Coins` or `+N Gems` notification and play the configured 2D pickup sound when its sound template exists. Newly appearing drawer items also re-sync their parent drawer so the item sits at the drawer's current position.
+Client-only. Registers every `DrawerItem` model, including hallway currency displays, as an interactable pick-up and fires the server when one is activated, with a short cooldown. Successful currency pickups show a `+N Coins` or `+N Gems` notification and play the configured 2D pickup sound when its sound template exists. Newly appearing drawer items also re-sync their parent drawer so the item sits at the drawer's current position. A display whose `OwnerUserId` attribute names another player is destroyed locally and never registered, so only its owner sees it.
 - API: `DrawerItemService:GetFocused() -> Model?` — the item currently under the interaction cursor
 - API: `DrawerItemService:Pickup(model: Model?) -> boolean` — request pickup of the given (or focused) item
 - Remotes: `DrawerItem/Pickup` (fired), `DrawerItem/PickupResult` (listened)

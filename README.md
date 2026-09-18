@@ -110,7 +110,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\DeathScreenService.luau — Builds and drives the glitch death screen and reports back when it finishes.
 - ReplicatedStorage\Services\DeathSoundService.luau — Replaces Roblox's default death sound with the custom one at the character's position.
 - ReplicatedStorage\Services\DoorService.luau — Renders room doors from the server's replicated player proximity state, local enemy reactions, and server map opening regions.
-- ReplicatedStorage\Services\DrawerItemService.luau — Registers drawer and loose hallway displays as interactable pickups, requests them from the server, and shows currency pickup feedback with sound.
+- ReplicatedStorage\Services\DrawerItemService.luau — Registers drawer and loose hallway displays as interactable pickups, removes displays owned by other players, requests pickups from the server, and shows currency pickup feedback with sound.
 - ReplicatedStorage\Services\DrawerService.luau — Animates drawers open and closed with local prediction over the server's attribute.
 - ReplicatedStorage\Services\EffectsHUDService.luau — Right-edge HUD of effect tiles, with draining timers, `inf` for permanent immunity, and hole-hop immunity countdowns.
 - ReplicatedStorage\Services\ElevatorDoorService.luau — Opens lobby and arrival doors by proximity; the exit panel, barrier and doors follow the local player's server-authorized five-color completion state.
@@ -394,8 +394,8 @@ become Services or Classes.
 - ServerStorage\Services\DeathService.luau — Records the cause of each player's death, applies reported contact kills, and drives the death screen and revive offers.
 - ServerStorage\Services\DevProductService.luau — Wires every developer product in DevProductConfigs to a receipt handler.
 - ServerStorage\Services\DoorService.luau — Polls alive player proximity to swinging room doors and replicates each door's open state and opener position.
-- ServerStorage\Services\DrawerItemService.luau — Stocks drawers with pickable tool/currency displays and hallways with currencies, map-only tools and computer chips, applies currency display rotations, and handles inventory pickups and currency rewards.
-- ServerStorage\Services\DrawerService.luau — Owns drawer open/closed state, sounds, and auto-closing.
+- ServerStorage\Services\DrawerItemService.luau — Stocks drawers with pickable tool/currency displays and hallways with currencies, map-only tools and computer chips, applies currency display rotations, spawns owner-only drawer displays, and handles inventory pickups and currency rewards.
+- ServerStorage\Services\DrawerService.luau — Owns drawer open/closed state, sounds, and auto-closing, and signals when a player opens a drawer.
 - ServerStorage\Services\EndingService.luau — Detects an authorised player inside the exit cabin, freezes them for the end screen, and on play-again resets their computer progress and returns them to the lobby.
 - ServerStorage\Services\ElevatorService.luau — Teleports lobby arrivals to the maze arrival elevator with existing loading and streaming, signals the client to align its first-person view to the map Spawn heading, and rejects exit-cabin entry until that player completes all five computers.
 - ServerStorage\Services\EnemyCommandService.luau — Developer chat commands for spawning, listing and despawning enemies.
@@ -556,14 +556,14 @@ become Services or Classes.
 
 ## Colored computer chip navigation
 
-- ReplicatedStorage\Configs\ComputerChipConfig.luau — Five computer colors with per-color loot weights, matching drawer loot tools, duration, fade, route cache limits and neon-dot settings.
+- ReplicatedStorage\Configs\ComputerChipConfig.luau — Five computer colors with per-color loot weights, the White exit chip's elevator target and drawer chance, matching drawer loot tools, duration, fade, route cache limits and neon-dot settings.
 - ServerStorage\Classes\Tools\ComputerChip.luau — Shared server tool activation through the existing ToolBase lifecycle.
-- ServerStorage\Services\ComputerChipService.luau — Validated single-use inventory consumption, owner-only route messages, timed effects and rerouting.
+- ServerStorage\Services\ComputerChipService.luau — Validated single-use inventory consumption, owner-only route messages, timed effects and rerouting, plus the White chip that routes to the exit elevator and drops only in drawers, for players who have completed every computer.
 - ServerStorage\Services\ComputerChipRouteService.luau — Distance-only patrol-graph routing with connector entrance/direct/pathfinding/forced-direct fallbacks and hallway-only room endpoints.
 - ReplicatedStorage\Services\ComputerChipTrailService.luau — Local pooled neon dots, continuous expiry fade and the existing right-side effects HUD countdown.
 - HallwayGraphService.BuildCorridors supplies an isolated player corridor graph; EffectsHUDService.ShowTimed/Dismiss supply reusable timed HUD effects. ToolService accepts an optional configured Class so all colors share one implementation.
 - DrawerItemConfig gives drawer tools their rarity weights, keeps the player-oddity tools, Gravity Warper and Key in the map-only hallway pool, and gives each chip its own ComputerChip<Key> rarity at that color's LootWeight (Blue 34, Green 27, Red 21, Purple 16, Yellow 12) plus a scaled hallway entry. ToolConfigs and EffectsHUDConfig derive the five chip names and duration/icon settings from ComputerChipConfig.
-- Studio assets: five colored clones of ReplicatedStorage.Tools.Computer Chip, five computer nameplates, and Communication.ComputerChip.Route/Sync; see Documentation\ReplicatedStorage\Tools.md.
+- Studio assets: White Computer Chip, five colored clones of ReplicatedStorage.Tools.Computer Chip, five computer nameplates, and Communication.ComputerChip.Route/Sync; see Documentation\ReplicatedStorage\Tools.md.
 
 Computer chip playtest fixes connect split corridor approaches to connector entrances, tolerate raised doorway anchors, and clear trails when the target computer is removed. Runtime coverage: 865 room/connector-to-color routes resolved; all three connector fallback cases and 60 simultaneous route requests passed. Two-player visibility remains pending.
 

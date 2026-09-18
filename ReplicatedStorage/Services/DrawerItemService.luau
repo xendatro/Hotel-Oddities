@@ -1,3 +1,4 @@
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -27,6 +28,11 @@ local lastPickup = 0
 
 local function register(model: Model): Model?
 	if not model:IsA("Model") then return nil end
+	local owner = model:GetAttribute(ItemConfig.OwnerAttribute)
+	if owner ~= nil and owner ~= Players.LocalPlayer.UserId then
+		task.defer(model.Destroy, model)
+		return nil
+	end
 
 	States[model] = true
 	Interaction:Register(model, {

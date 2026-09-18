@@ -15,6 +15,7 @@ UI.PickupText = "Pick Up"
 local DrawerItemConfig = {
 	Tag = "DrawerItem",
 	Attribute = "ToolName",
+	OwnerAttribute = "OwnerUserId",
 
 	Remotes = {
 		Folder = "DrawerItem",
