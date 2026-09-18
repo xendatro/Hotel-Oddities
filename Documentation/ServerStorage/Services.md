@@ -109,7 +109,8 @@ Server-authoritative door proximity poll. Every `PollInterval`, it checks all al
 - Requires: `Configs.DoorConfig`, `CharacterService`, `TagService`
 
 ### DrawerItemService.luau
-Populates drawers with pickable item displays: clones a Tool from `ReplicatedStorage.Tools` into a script-free, anchored display model, measures the drawer's bounds and handle direction to seat it on the front surface, and keeps roughly `TargetPercentage` of drawers stocked on a refill timer. Handles client pickup requests with reach, debounce and inventory checks, avoiding repeating the last drawer or item.
+Populates drawers with pickable item displays: clones a Tool from `ReplicatedStorage.Tools` into a script-free, anchored display model, measures the drawer's bounds and handle direction to seat it on the front surface, and keeps roughly `TargetPercentage` of drawers stocked on a refill timer. It also keeps `Hallway.MaxAlive` loose pickups on hallway floors, spaced and away from players. Handles client pickup requests with reach, debounce and inventory checks, avoiding repeating the last drawer or item.
+- Three weighted rolls, each skipping whatever spawned last: `chooseItemName` for drawer tools (`Rarities` via `Items`), `chooseCurrencyName` for drawer currencies (`Currencies`), and `chooseHallwayName` for loose hallway pickups, which pools `Currencies` with `Hallway.Items` so computer chips drop in hallways as well as drawers.
 - Remotes: `DrawerItemConfig.Remotes.Folder/Pickup` (listened)
 - Tags: listens `DrawerConfig.Tag`; applies `DrawerItemConfig.Tag`
 - Requires: `DrawerConfig`, `DrawerItemConfig`, `InventoryService:Wait` / `:Add`, `ReplicatedStorage.Tools`
@@ -301,6 +302,10 @@ Custom per-player streaming layer: it slices the `Maze15` map into per-hallway c
 - Tags: listens `HallwayRoomFloor`, `Enemy`, `StreamingConfig.IgnoreTag`; applies `StreamingConfig.ModelTag`
 - Requires: `StreamingConfig`, `ReplicatedStorage.Services.HallwaysService` (`StraightSpans`), `HallwayGraphService`, `MathService.Horizontal`, `CharacterService.GetAliveRoot`
 
+### HealthRegenService.luau
+Owns player health regeneration, replacing Roblox's built-in one: the engine's default `Health` script is destroyed as soon as it is inserted into a character, and this service heals `HealthRegenConfig.Rate` of `MaxHealth` per second on a `Step` tick, only once `DamageDelay` seconds have passed since the last drop in health. At the shipped numbers that is a tenth of Roblox's default rate behind a ten-second pause after any hit.
+- Requires: `HealthRegenConfig`
+
 ### HearingService.luau
 Registry of "ears" (enemies, props) that want to be told about noises. It subscribes to `NoiseService`, filters each noise by radius and the ear's own `Accepts` predicate, then delays the callback by a distance-based travel time and announces the travelling sound to clients.
 - API: `HearingService:AddEar(key: any, ear: Ear) -> () -> ()` — returns a disconnect function; dead ears (`IsAlive() == false`) are pruned automatically
@@ -392,7 +397,8 @@ Central authority over every `Floor1Light` model: it captures each lamp's baseli
 - API: `LightService:GetModels() -> { Model }` — cached, invalidated by tag add/remove
 - API: `LightService:DisableNear(position: Vector3, radius: number) -> LightClaim`
 - API: `LightService:DisableAlongHallway(position: Vector3, distance: number) -> LightClaim`
-- API: `LightService:DisableHallway(position: Vector3, preferredDirection: Vector3?, connectedDistance: number?, spanDistance: number?) -> LightClaim` — includes branch hallways and rooms touching the span; the hallways belonging to a span are resolved once per span geometry and memoised until the hallway cache changes, with the expensive `StraightSpanAt` probe only run for non-parallel floors that sit on the span's own line
+- API: `LightService:DisableHallway(position: Vector3, preferredDirection: Vector3?, connectedDistance: number?, spanDistance: number?) -> LightClaim` — includes branch hallways and rooms touching the span
+; the hallways belonging to a span are resolved once per span geometry and memoised until the hallway cache changes, with the expensive `StraightSpanAt` probe only run for non-parallel floors that sit on the span's own line
 - API: `LightService:DisableModel(model: Model) -> LightClaim`
 - API: `LightService:Release(claim: LightClaim)` — idempotent
 - API: `LightService:WarnRed(model: Model, duration: number)` — sets/extends the `ChaosRed` attribute
