@@ -10,6 +10,7 @@ local CommunicationService = require(ReplicatedStorage.Services.CommunicationSer
 local HallwayStreamingService = require(ServerStorage.Services.HallwayStreamingService)
 
 local ComputerService = require(ServerStorage.Services.ComputerService)
+local AnalyticsService = require(ServerStorage.Services.AnalyticsService)
 
 local ElevatorService = {}
 
@@ -112,12 +113,16 @@ function ElevatorService:SendToMap(player: Player, instant: boolean?): boolean
 	activeTeleports[player] = nil
 	if not instant then
 		nextTeleportAt[player] = os.clock() + ElevatorConfig.TeleportCooldown
+		if streamed then
+			AnalyticsService:LogStep(player, "ReachedMaze")
+		end
 	end
 	return streamed
 end
 
 local function teleportPlayer(state: ElevatorState, player: Player)
 	if not state.Model.Parent or not isLobbyElevator(state) then return end
+	AnalyticsService:LogStep(player, "EnteredElevator")
 	ElevatorService:SendToMap(player, false)
 end
 

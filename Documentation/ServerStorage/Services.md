@@ -2,6 +2,14 @@
 
 Server only, self-initializing at require time via `ServerScriptService\Init.legacy.luau`. Never add an `:Init()` method.
 
+### AnalyticsService.luau
+The one place funnel analytics are reported from. It owns a per-run funnel session (a fresh GUID per attempt) and logs the seven steps of a run through Roblox's `AnalyticsService:LogFunnelStepEvent`, plus the same steps once per player lifetime through `LogOnboardingFunnelStepEvent` so the new-player report is populated too. Steps are monotonic: a step is dropped if the session has already reached it or passed it, so dying and walking back into the elevator never double-counts, and the run's progress survives death exactly as computer progress does. A run session starts on join and again on `EndingService:Finish` (play again), because that is the only point the game wipes computer progress. Every Roblox analytics call is wrapped in `pcall`, and nothing is logged in Studio unless `AnalyticsConfig.LogInStudio` is set. Custom (non-funnel) analytics are deliberately not here.
+- API: `AnalyticsService:LogStep(player: Player, stepId: string)` — `stepId` is a key of `AnalyticsConfig.Steps`; warns on an unknown id and never yields
+- API: `AnalyticsService:StartRun(player: Player) -> string` — retires the old session and returns the new session id
+- API: `AnalyticsService:GetStep(player: Player) -> number` — the furthest step number reached this run, 0 before the first
+- Fired from: `Players.PlayerAdded`/`CharacterAdded` here (`Joined`, `Spawned`), `ElevatorService` (`EnteredElevator` on touching the lobby elevator, `ReachedMaze` once the destination actually streamed and only for non-instant rides, so `/map` does not count), `ComputerService:SetHacked` (`FirstComputer`, and `ExitUnlocked` when the fifth colour completes), `EndingService:Begin` (`Escaped`)
+- Requires: `ServerStorage.Configs.AnalyticsConfig`, `DataSaveService` (the persisted `OnboardingStep` that keeps the onboarding funnel to one pass per player)
+
 ### BadgeService.luau
 Wrapper around Roblox's BadgeService that awards only badge ids listed in BadgeConfigs and keeps a per-player ownership cache. Ownership is prefetched asynchronously when a player joins and cleared when they leave.
 - API: `BadgeService:AwardBadge(player: Player, id: number) -> boolean` — refuses unknown ids and already-owned badges
@@ -83,7 +91,7 @@ Bakes and serves the map-wide "danger" field: measures the extent of all `MazeFl
 - Requires: `Services.DangerFieldService`, `SpawnZoneService`, `DangerConfig`, `CommunicationService`
 
 ### DataSaveService.luau
-ProfileService front-end: loads, reconciles and releases one `PlayerData` profile per player, and lets other code either grab a loaded profile or yield until it arrives. The template holds currency, sword ownership, inventory, processed receipts, discovered enemies and discovered map intervals. Studio sessions load `Studio_Player_<UserId>` keys instead of `Player_<UserId>` (via `RunService:IsStudio()`), so a Studio playtest and a live game client hold separate profiles and never contest the session lock — Studio keeps its own separately saved data.
+ProfileService front-end: loads, reconciles and releases one `PlayerData` profile per player, and lets other code either grab a loaded profile or yield until it arrives. The template holds currency, sword ownership, inventory, processed receipts, discovered enemies, discovered map intervals and `OnboardingStep` (the furthest onboarding funnel step `AnalyticsService` has already reported for this player, so the onboarding pass is logged once per account rather than once per run). Studio sessions load `Studio_Player_<UserId>` keys instead of `Player_<UserId>` (via `RunService:IsStudio()`), so a Studio playtest and a live game client hold separate profiles and never contest the session lock — Studio keeps its own separately saved data.
 - API: `DataSaveService:Get(player: Player) -> Profile?` — nil until the profile finishes loading
 - API: `DataSaveService:Wait(player: Player) -> Profile?` — yields the calling thread until loaded
 - Requires: `ServerStorage.Services.ProfileService` (third-party), `ItemShopConfig`

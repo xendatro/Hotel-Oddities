@@ -9,6 +9,7 @@ local EndingConfig = require(ReplicatedStorage.Configs.EndingConfig)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local ComputerService = require(ServerStorage.Services.ComputerService)
+local AnalyticsService = require(ServerStorage.Services.AnalyticsService)
 
 local Show = CommunicationService.Ensure(EndingConfig.Remotes.Folder, EndingConfig.Remotes.Show) :: RemoteEvent
 local Hide = CommunicationService.Ensure(EndingConfig.Remotes.Folder, EndingConfig.Remotes.Hide) :: RemoteEvent
@@ -49,6 +50,7 @@ function EndingService:Begin(player: Player): boolean
 	root.AssemblyLinearVelocity = Vector3.zero
 	root.AssemblyAngularVelocity = Vector3.zero
 	root.Anchored = true
+	AnalyticsService:LogStep(player, "Escaped")
 	Show:FireClient(player)
 	return true
 end
@@ -59,6 +61,7 @@ function EndingService:Finish(player: Player): boolean
 	Ending[player] = nil
 
 	ComputerService:ResetProgress(player)
+	AnalyticsService:StartRun(player)
 
 	local root = character:FindFirstChild("HumanoidRootPart")
 	local spawn = lobbySpawn()
