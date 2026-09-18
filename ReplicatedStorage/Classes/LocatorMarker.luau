@@ -4,6 +4,7 @@ local TweenService = game:GetService("TweenService")
 
 local PlayerLocatorConfig = require(ReplicatedStorage.Configs.PlayerLocatorConfig)
 local AudioService = require(ReplicatedStorage.Services.AudioService)
+local OverheadNameService = require(ReplicatedStorage.Services.OverheadNameService)
 
 local LocatorMarker = {}
 LocatorMarker.__index = LocatorMarker
@@ -182,7 +183,8 @@ local function build(player: Player, parent: Instance)
 	name.TextColor3 = COLORS.NameIdle
 	name.TextStrokeColor3 = COLORS.NameStroke
 	name.TextStrokeTransparency = 0.35
-	name.Text = player.DisplayName
+	name.TextTransparency = 1
+	name.Text = OverheadNameService:GetName(player)
 	name.Parent = plate
 
 	local distance = Instance.new("TextLabel")
@@ -325,7 +327,6 @@ function LocatorMarker:SetFocused(focused: boolean)
 		if not self.Focused then
 			bubble.Visible = false
 			self.Distance.Visible = false
-			self.Name.TextTransparency = 0
 			self.Distance.TextTransparency = 1
 		end
 	end)

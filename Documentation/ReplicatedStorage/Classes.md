@@ -132,7 +132,7 @@ One kit tile in the inventory or shop grid: clones the GUI's `Template` ImageBut
 - Requires: `Configs.KitConfig`, `Services.KitVisualService`
 
 ### LocatorMarker.luau
-Per-player billboard marker for the player locator: headshot bubble, halo, name plate and distance readout, all tweened between an idle and a focused state, plus a character Highlight. Rebinds itself as the player's character spawns, dies and is removed.
+Per-player billboard marker for the player locator: headshot bubble, halo, name plate and distance readout, all tweened between an idle and a focused state, plus a character Highlight. The name plate only shows while focused, because `OverheadNameService` already draws the name above every player; its text comes from `OverheadNameService:GetName`. Rebinds itself as the player's character spawns, dies and is removed.
 - API: `LocatorMarker.new(player: Player, parent: Instance, onActivated: (Player) -> ()) -> LocatorMarker`
 - API: `LocatorMarker:SetFocused(focused: boolean)` — expands/collapses the bubble and plate, plays the hover sound
 - API: `LocatorMarker:Pulse(phase: number)` — drives the halo scale while focused
@@ -143,7 +143,7 @@ Per-player billboard marker for the player locator: headshot bubble, halo, name 
 - API: `LocatorMarker:Confirm()` — expand-and-fade confirmation
 - API: `LocatorMarker:GetAnchor() -> BasePart?` — the adorned root part while shown
 - API: `LocatorMarker:Destroy()`
-- Requires: `Configs.PlayerLocatorConfig`, `Services.AudioService`
+- Requires: `Configs.PlayerLocatorConfig`, `Services.AudioService`, `Services.OverheadNameService`
 
 ### MapCanvas.luau
 A software pixel canvas backing an `EditableImage`. Owns an RGBA `buffer` it composites into with a soft round brush, then pushes only the changed rectangle through `WritePixelsBuffer`. Compositing takes the maximum alpha rather than blending over, which makes repeated drawing of the same ink idempotent and removes seams where separately drawn strokes meet.
@@ -201,6 +201,13 @@ Replacement for the default Animate script on NPC rigs: disables `Animate`, load
 - API: `NpcAnimator:Reload()` — reloads locomotion and emote tracks in place
 - API: `NpcAnimator:Destroy()`
 - Requires: `Configs.AnimationConfig`, `Configs.MimicConfig`, the rig's `Animate` script
+
+### OverheadName.luau
+One always-on name billboard above a model's head, showing a player's `DisplayName` with the verified badge glyph appended when `HasVerifiedBadge` is true. It is built on the client, so the text is whatever that client's `Player.DisplayName` reads. It forces the model's humanoid `DisplayDistanceType` to `None` and keeps it there, follows head and humanoid replacements (the Mimic swaps both when it applies a description), and hides while the humanoid is dead.
+- API: `OverheadName.new(model: Model, player: Player, parent: Instance) -> OverheadName` — `player` is whose name to show, which for the Mimic is not the model's owner
+- API: `OverheadName.Format(player: Player) -> string` — static; display name plus badge glyph
+- API: `OverheadName:Destroy()`
+- Requires: `Configs.OverheadNameConfig`
 
 ### PathfinderMarker.luau
 One numbered waypoint marker for the pathfinder debug/authoring tool, cloned from `ReplicatedStorage.Props.Other.PathfinderMarker` and scaled in on placement. Returns nil (with a warning) if the template is missing.

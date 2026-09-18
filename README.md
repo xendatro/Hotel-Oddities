@@ -171,6 +171,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\MinimapService.luau — Map gamepass minimap that stays hidden until ownership is available and only shows in the maze while no main page is open.
 - ReplicatedStorage\Services\NotificationService.luau — Client top-center notification banner for short server feedback messages.
 - ReplicatedStorage\Services\ObservedFreezeService.luau — Client weeping-angel renderer that visually pins tagged enemies while they are in view and reconciles them when you look away.
+- ReplicatedStorage\Services\OverheadNameService.luau — Client-built always-on overhead names (display name plus verified badge) for other players and for tagged models such as the Mimic.
 - ReplicatedStorage\Services\PaintingDwellerShakeService.luau — Fires a one-shot Slam camera shake when the painting dweller pops.
 - ReplicatedStorage\Services\PerfGraphService.luau — F8 developer panel with time-aligned scrolling per-frame graphs of FPS and Workspace instances streamed in plus out, the latter stacked by instance category with a colour key, on fixed labelled scales.
 - ReplicatedStorage\Services\PerfLogService.luau — Client performance watchdog for frame spikes, FPS drops and bursts of workspace instance churn.
@@ -227,12 +228,13 @@ become Services or Classes.
 - ReplicatedStorage\Classes\InventoryCard.luau — One Inventory page tile: item preview, stack badge, card motion and drag hand-off.
 - ReplicatedStorage\Classes\InventorySlot.luau — One hotbar slot with a viewport preview of the tool model.
 - ReplicatedStorage\Classes\KitCard.luau — One kit tile: rarity dressing, headshot portrait and hover/press/select motion.
-- ReplicatedStorage\Classes\LocatorMarker.luau — Per-player billboard marker with headshot bubble, name plate and highlight.
+- ReplicatedStorage\Classes\LocatorMarker.luau — Per-player billboard marker with headshot bubble, focus-only name plate and highlight.
 - ReplicatedStorage\Classes\MapMarker.luau — One inked map symbol with a spring pop, ping ring and flash for the moment it is discovered.
 - ReplicatedStorage\Classes\MapCanvas.luau — Soft-brush pixel canvas over an EditableImage with max-alpha stamping and dirty-rect flushing.
 - ReplicatedStorage\Classes\MirrorRoom.luau — Renders upside-down reflections of every player and enemy standing in a mirrored connector room, solid ones for `MirrorOpaque` subjects whose real body is invisible, skipping enemies whose `MirrorViewer` is another player.
 - ReplicatedStorage\Classes\MotionTrail.luau — Rolling buffer of a humanoid's recent motion samples.
 - ReplicatedStorage\Classes\NpcAnimator.luau — Replaces the default Animate script for NPC locomotion, emotes and overrides, with optional per-animation fade-in timing.
+- ReplicatedStorage\Classes\OverheadName.luau — One always-on name billboard above a model's head that also keeps the default humanoid name display off.
 - ReplicatedStorage\Classes\PathfinderMarker.luau — Numbered waypoint marker model for the pathfinder tool.
 - ReplicatedStorage\Classes\Race.luau — Runs functions concurrently and returns the key of the first to finish.
 - ReplicatedStorage\Classes\RigMotion.luau — Base class for procedural rig motions layered over the animator.
@@ -316,6 +318,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\MirrorRoomConfig.luau — Bounds padding, retry delay, the opaque-reflection tag, saved-transparency and single-viewer attributes, and the instance classes stripped from a mirror-room reflection.
 - ReplicatedStorage\Configs\MimicConfig.luau — Behaviour tuning for the Mimic enemy's reactions, reveal and movement.
 - ReplicatedStorage\Configs\NotificationConfig.luau — Visual settings for the client notification banner.
+- ReplicatedStorage\Configs\OverheadNameConfig.luau — Tag, identity attribute, verified glyph and styling for overhead names.
 - ReplicatedStorage\Configs\ObservedFreezeConfig.luau — Tag, attribute and tolerances for freeze-when-observed enemies.
 - ReplicatedStorage\Configs\POIConfig.luau — Point-of-interest tag, discovery and occupancy remotes, trigger-box padding, entry sting settings and popup animation timings.
 - ReplicatedStorage\Configs\PerfGraphConfig.luau — F8 performance graph panel keybind, size, fixed graph maxima, reference lines, FPS thresholds, colours and the instance-churn category list.
@@ -478,7 +481,7 @@ become Services or Classes.
 - ServerStorage\Classes\Enemies\Creep.luau — Stationary eye-cluster that kills the hallway lights and despawns when approached.
 - ServerStorage\Classes\Enemies\Eye.luau — Static hazard that damages players by view angle for looking at it.
 - ServerStorage\Classes\Enemies\Ghost.luau — Floating enemy that drifts on published motion legs and lurks unseen in dangerous hallways.
-- ServerStorage\Classes\Enemies\Mimic.luau — Copies a player's appearance and acts out odd encounter modes before revealing and chasing.
+- ServerStorage\Classes\Enemies\Mimic.luau — Copies a player's appearance and overhead name and acts out odd encounter modes before revealing and chasing.
 - ServerStorage\Classes\Enemies\MirrorStalker.luau — Harmless stalker whose invisible body walks the mirror room's floor so only its target ever sees it, as a ceiling reflection, until they look behind them with the reflection out of view or leave the room.
 - ServerStorage\Classes\Enemies\Sisters.luau — Twinned translucent, harmless figures that patrol the hallway ceilings forever via SurfaceWalker, heads tracking the nearest player.
 - ServerStorage\Classes\Enemies\Stalker.luau — Peeks at a player from corner to corner, then tails them from behind unseen at their own pace with a catch-up boost until it closes to striking range, flees to cover when observed, and snaps right behind them to seize the camera and kill.
