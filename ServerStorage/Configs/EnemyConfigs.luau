@@ -344,8 +344,8 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		Model = "Mimic",
 		Animations = AnimationConfig.Sets.Mimic,
 
-		WalkSpeed = 16,
-		ChaseSpeed = 23,
+		WalkSpeed = 15,
+		ChaseSpeed = 21,
 		RepathInterval = 0.4,
 		RepathDistance = 7,
 		AgentParams = {
@@ -367,7 +367,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		FieldOfView = 360,
 		RespectsSafeRooms = true,
 
-		Damage = 50,
+		Damage = math.huge,
 		AfterAttack = "Retreat",
 		RunAwaySpeed = 30,
 		RunAwayTime = 8,

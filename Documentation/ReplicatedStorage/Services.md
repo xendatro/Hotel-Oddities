@@ -829,6 +829,19 @@ Camera visibility tests: builds a frustum from a Camera, does cone/sphere inters
 - API: `Sightline.OnScreen(camera: Camera, frustum: Frustum, model: Model) -> boolean` — bounding-box test only, no raycast
 - API: `Sightline.CanSee(camera: Camera, frustum: Frustum, ignore: Instance?, model: Model) -> boolean` — frustum test plus line-of-sight raycast per part
 
+### SistersGazeService.luau
+Client half of being caught by the Sisters. Every Heartbeat it looks for a `Sisters` tagged model whose head is within `SistersConfig.Gaze.Range` of the camera, within `Gaze.Angle` degrees of the camera's look direction and unobstructed by a raycast from the camera (a hit on either sister counts as visible), and counts how long that eye contact has been held. Once it has lasted `Gaze.DwellTime` it fires `Sisters/Gaze` with the model and waits for the server's `Sisters/Gazed` reply: a caught reply plays `SistersVertigoService` with the server's lead time and suppresses further reports for the lead plus `Gaze.Cooldown`; a refused reply backs off for `Gaze.RetryDelay`; no reply within `Gaze.ReplyTimeout` unlocks the next report. Detection is skipped, and the suppression window pushed out past the warp by `Gaze.Cooldown`, while `GravityWarpService.IsActive()` or `WallstickService.IsEnabled()`, and skipped while the character is dead or `Vanished`. Respawning resets the dwell, the pending flag and the vertigo effect. Gated behind `FLAGS.Enemies`.
+- API: `SistersGazeService.FindGazed(camera: Camera, character: Model) -> Model?` — the sister currently being looked in the eye, if any
+- Remotes: `Sisters/Gaze` (fired), `Sisters/Gazed` (listened)
+- Tags: listens `Sisters` (via `TagService:Listen`, scoped to workspace)
+- Requires: `CharacterService`, `CommunicationService`, `GravityWarpService`, `MathService`, `SistersVertigoService`, `TagService`, `VanishedService`, `WallstickService`, `Configs.SistersConfig`, `Configs.FLAGS`
+
+### SistersVertigoService.luau
+The "vertigo" screen effect for locking eyes with the Sisters: a cold flash, a hard blur that clears, the world draining to a desaturated blue-grey with raised contrast, a field-of-view pull inward through `CameraFovService` (`SistersVertigo` offset), three thin rings rippling outward from the centre of the screen on a stagger, a one-shot `Jolt` camera shake and a 2D sting. After the lead time the colour drain and FOV pull release over `Vertigo.ReleaseTime`, timed to overlap the gravity warp's ascent. Builds its own `SistersVertigo` ScreenGui plus a `ColorCorrectionEffect` and `BlurEffect` in Lighting on require; replaying cancels the previous run.
+- API: `SistersVertigoService:Play(leadTime: number?)` — play the effect, releasing after `leadTime` (default `Vertigo.LeadTime`)
+- API: `SistersVertigoService:Stop()` — cancel and release immediately over `Vertigo.StopTime`
+- Requires: `AudioService`, `CameraFovService`, `GuiBuilderService`, `ShakeService`, `Configs.SistersConfig`
+
 ### SpawnZoneService.luau
 Shared registry of the spawn safe zone parts (tagged `SpawnSafeZone`): keeps the tagged workspace parts cached and answers geometric queries against their oriented boxes. Used to keep the hallway graph, enemy spawn placement and enemy behaviour out of the safe area around the maze spawn.
 - API: `SpawnZoneService:GetZones() -> { BasePart }` — current zone parts
@@ -959,7 +972,7 @@ Client footstep engine for players and tagged enemies. Silences the default Robl
 ### WalkieTalkieService.luau
 Client walkie-talkie brain: owns power, equip, raised and toggle-transmit state, and all local audio routing. Power (`Keys.Power`, default G) is independent of holding the tool — a powered radio keeps receiving from the backpack, but transmitting needs it equipped. Transmission toggles on left mouse (or the touch TALK button) and drives the `Talk` viewmodel pose; `Keys.Raise` (default R) lifts the radio into the `Raised` pose for the full-screen UI. Mutes the player's own radio emitter via a private `AudioInteractionGroup`, crossfades each remote player's proximity voice against their incoming radio route by listener distance, multiplies that route by the local per-player mute/volume, and reads each route's level from an `AudioAnalyzer` for the roster meters. Category and per-player sliders remain normalized from 0–100% while translating through their configured maximum gains. Your own meter follows your microphone through `VoiceActivityService:GetLevel` while transmission is toggled on, with the same gain and attack/release ballistics as everyone else's, rather than pinning to full. Syncs the local power state from the replicated attribute so a server death shutdown also turns off the local radio. The roster reports powered owners marked dead separately from disabled radios and keeps each dead row in the slot it held when death began. Refuses to power on when voice chat is unavailable for the user.
 - API: `WalkieTalkieService:SetPowered(value)` / `:TogglePower()` / `:IsPowered() -> boolean`
-- API: `WalkieTalkieService:SetEquipped(value)` / `:IsEquipped() -> boolean` — driven by the tool class
+- API: `WalkieTalkieService:SetEquipped(value, tool: Tool?)` / `:IsEquipped() -> boolean` — driven by the tool class; the equipped state remembers which Tool claimed it, so a stale duplicate copy being destroyed (every hotbar change consolidates duplicates) cannot clear the state of the walkie actually in hand
 - API: `WalkieTalkieService:SetRaised(value)` / `:ToggleRaised()` / `:IsRaised() -> boolean`
 - API: `WalkieTalkieService:SetTransmitting(value)` / `:IsTransmitting() -> boolean`
 - API: `WalkieTalkieService:ToggleTransmitting()` — toggle transmission on left mouse or the touch TALK button

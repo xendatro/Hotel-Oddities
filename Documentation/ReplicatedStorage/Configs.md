@@ -70,9 +70,11 @@ Openable drawers: tag/attribute names, spring motion, auto-close, interaction ta
 - API: data table — `Tag`, `Attribute`, open/auto-close keys, `OutwardAxis`, handle-detection keys, spring/settle keys, `Targeting`, `Input`, `Highlight`, `Sound`, `UI`
 
 ### DrawerItemConfig.luau
-Items spawned inside drawers and the hallway currency pickups: drawer spawn rates, currency target and refill settings, hallway placement limits and supported surface names, rarity weights, currency weights and reward amounts, pickup feedback labels and sound names, display rotations, plus the item-to-rarity table. At load time it clones `DrawerConfig.Input` and `DrawerConfig.UI` and overrides a few fields, and reuses `DrawerConfig.Targeting`/`Highlight` by reference.
+Items spawned inside drawers and the loose hallway pickups: drawer spawn rates, currency target and refill settings, hallway placement limits and supported surface names, rarity weights, currency weights and reward amounts, pickup feedback labels and sound names, display rotations, plus the item-to-rarity table. At load time it clones `DrawerConfig.Input` and `DrawerConfig.UI` and overrides a few fields, and reuses `DrawerConfig.Targeting`/`Highlight` by reference.
 - API: data table — `Tag`, `Attribute`, `Remotes`, `Feedback`, `DisplayRotations`, `Spawn`, `Hallway`, `Targeting`, `Input`, `Highlight`, `UI`, `Rarities`, `Items`, `Currencies`
-- Requires: `Configs/DrawerConfig`
+- `Hallway.Items` is the non-currency half of the hallway pool, built at load time from `ComputerChipConfig.Colors`: one entry per chip tool weighted at its LootWeight times `Hallway.ItemWeightScale` (0.3), rounded up to at least 1. Coins and gems keep their own weights, so chips are roughly a quarter of hallway spawns.
+- Each chip color also gets its own `Rarities.ComputerChip<Key>` entry and points at it in `Items`, replacing the single shared ComputerChip weight.
+- Requires: `Configs/ComputerChipConfig`, `Configs/DrawerConfig`
 
 ### EffectsHUDConfig.luau
 Layout, colours and icon ids for the active-item/effect tiles on the HUD.
@@ -214,6 +216,11 @@ Per-effect tuning for prop-based oddities — falling lanterns, falling painting
 Tag, interaction reach, input bindings, highlight styling and prompt-pill UI settings for the shopkeeper NPC.
 - API: data table — `Tag`, `PageAttribute`, `Targeting`, `Input`, `Highlight`, `UI`, `SmileAnimationId`
 
+### SistersConfig.luau
+Everything the Sisters eye-contact catch shares between client and server: the `Sisters` tag, the `Sisters` remote folder and its `Gaze`/`Gazed` names, the gaze test (`Gaze`: camera range and cone angle, dwell time, the server's extra range slack, the post-warp cooldown, the client's retry delay after a refusal and its reply timeout), the vertigo screen effect numbers (`Vertigo`: lead time before the warp, sting name, shake preset, flash, blur, FOV pull, colour drain, release and stop timings, ring count/stagger/scale/stroke) and the ceiling warp length (`Warp.Duration`, 30 seconds like the Gravity Warper).
+- API: data table — `Tag`, `Remotes`, `Gaze`, `Vertigo`, `Warp`
+- Requires: nothing
+
 ### SpawnZoneConfig.luau
 Tag name, timing and geometry for the spawn safe zone system: which tag marks zone parts, how often the server polls player positions against the zones, the per-enemy cooldown between touch repels, the vertical padding applied to all zone containment tests, and the styling of the runtime border walls.
 - API: data table — `Tag`, `PlayerPollInterval`, `RepelCooldown`, `VerticalPad`, `Border` (`Thickness`, `Transparency`, `Color`)
@@ -278,11 +285,12 @@ Range, angle limits and joint weighting for the Watch class, which makes an NPC'
 - API: data table — `TrackRange`, `MaxPitchUp`, `MaxPitchDown`, `MaxYaw`, `Smoothing`, `Neck`, `Waist`
 
 ### ComputerChipConfig.luau
-Shared configuration for the five navigation chips: color-to-room mapping, 60-second duration, cubic fade exponent, shared loot weight (12 per color), server route checks (0.5 seconds), reroute throttle (3 seconds / 8 studs), connector cache lifetimes, a two-job ComputeAsync concurrency cap, player clearance, and local neon-dot spacing, visibility range and pooling limits. Change Duration here to update tool configuration, the effect HUD countdown and trail lifetime together.
+Shared configuration for the five navigation chips: color-to-room mapping, 60-second duration, cubic fade exponent, per-color loot weight (Blue 34, Green 27, Red 21, Purple 16, Yellow 12, with `LootWeight = 12` as the fallback for a color that omits its own), server route checks (0.5 seconds), reroute throttle (3 seconds / 8 studs), connector cache lifetimes, a two-job ComputeAsync concurrency cap, player clearance, and local neon-dot spacing, visibility range and pooling limits. Change Duration here to update tool configuration, the effect HUD countdown and trail lifetime together.
 - Colors: Blue -> Room_357, Red -> Room_419, Green -> Room_466, Yellow -> Room_599, Purple -> Room_998, all under Maze15.Rooms.
+- Each color entry carries a `LootWeight` ordered by how hard its computer's minigame is: Blue (Memory) 34, Green (Frogger) 27, Red (AimTrainer) 21, Purple (Simon) 16, Yellow (Snake) 12.
 - Attributes: ComputerChipColor on the real computers and chip templates.
 - Remotes: ComputerChip/Route (server-to-owner route, duration, expiry and revision), ComputerChip/Sync (owner requests an active route snapshot).
-- DrawerItemConfig adds all five names to its Items table with the same ComputerChip rarity weight; existing stocking targets and refill timers are unchanged. The no-immediate-repeat rule still applies.
+- DrawerItemConfig gives each name its own `ComputerChip<Key>` rarity carrying that color's LootWeight, and adds a scaled copy of it to `Hallway.Items` so chips also drop loose in hallways alongside coins and gems; existing stocking targets and refill timers are unchanged. The no-immediate-repeat rule still applies.
 - ToolConfigs adds the five tagged tools with Class = ComputerChip and their ColorKey; EffectsHUDConfig gives each the computer icon, tinted by the active trail's color.
 
 Kits do not modify jumping. All 24 kits inherit the StarterPlayer jump settings; the current Studio default uses jump height mode at 3 studs. JumpPower is no longer a supported kit stat.

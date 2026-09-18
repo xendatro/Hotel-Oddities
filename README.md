@@ -142,7 +142,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\HumanoidStatsService.luau — Named-source stat stack applied to any humanoid, restoring untouched stats to their spawn values.
 - ReplicatedStorage\Services\IndexUIService.luau — Paginated bestiary UI with viewport headshots, progressive text reveals and shared cursor unlocking for death reveals.
 - ReplicatedStorage\Services\InteractionService.luau — Singleton crosshair interaction target registry, highlight and key prompt.
-- ReplicatedStorage\Services\InterfaceService.luau — Main menu page switching (Index, Shop, Gems, Items, Inventory, kits, roll, map, gallery), blur, FOV pull-back and mouse unlocking, including Q toggling through the mouse blocker and enforced system-cursor hiding after relock; direct page-root close buttons animate themselves instead of rotating the full menu frame.
+- ReplicatedStorage\Services\InterfaceService.luau — Main menu page switching (Index, Shop, Gems, Items, Inventory, kits, roll, map, gallery), blur, FOV pull-back and mouse unlocking, including Q toggling through the mouse blocker and enforced system-cursor hiding after relock; direct page-root close buttons animate themselves instead of rotating the full menu frame; side buttons carry a name-and-keybind label and their keys toggle their own page.
 - ReplicatedStorage\Services\InventoryPageUIService.luau — The Inventory page: bag grid, in-page hotbar row, item info, TO HOTBAR / TO BAG button and drag-and-drop between them, toggled by keybind or side button.
 - ReplicatedStorage\Services\InventoryUIService.luau — Fixed five-slot hotbar HUD with equipping and drag reordering, plus the client's slot-ordered inventory snapshot and move API.
 - ReplicatedStorage\Services\ItemPreviewService.luau — The one item-viewport renderer: frames a tool model for every shop card, hotbar slot and kit tile, and can re-aim every live viewport of an item at once.
@@ -189,6 +189,8 @@ become Services or Classes.
 - ReplicatedStorage\Services\ShopUIService.luau — Gamepass shop page: per-card purchase prompts, live Robux prices, owned state from perk attributes and legacy card-name compatibility for the UnlimitedStamina pass.
 - ReplicatedStorage\Services\ShopkeeperService.luau — Client service binding shopkeeper NPCs to interactions, smile animations and their interface page.
 - ReplicatedStorage\Services\SightlineService.luau — Camera frustum and raycast visibility tests with a self-maintaining per-model part cache.
+- ReplicatedStorage\Services\SistersGazeService.luau — Detects held eye contact with a Sister (range, cone, line of sight), reports it to the server, and plays the vertigo effect when the catch is accepted.
+- ReplicatedStorage\Services\SistersVertigoService.luau — The vertigo screen effect for locking eyes with the Sisters: cold flash, blur, colour drain, FOV pull, rippling rings, jolt shake and sting, released as the ceiling warp begins.
 - ReplicatedStorage\Services\SpawnZoneService.luau — Shared registry of tagged spawn-safe-zone parts with vertically padded point and segment queries against their boxes.
 - ReplicatedStorage\Services\SpeedBoostRenderService.luau — Tweens the FOV offset and colour-correction screen effect for speed boosts.
 - ReplicatedStorage\Services\SprintBoostUIService.luau — Decorated overlay drawn over the stamina bar while a speed boost is running.
@@ -325,6 +327,8 @@ become Services or Classes.
 - ReplicatedStorage\Configs\PlayerOddityConfig.luau — Roll timings and effect weights for whole-character size, head-size, transparency and head-stare player oddities.
 - ReplicatedStorage\Configs\PropOddityConfig.luau — Per-effect tuning for falling lanterns, falling paintings and the painting dweller; painting-dweller fixture debug highlights are disabled.
 - ReplicatedStorage\Configs\ShopkeeperConfig.luau — Shopkeeper NPC tag, reach, input bindings and prompt UI styling.
+- ReplicatedStorage\Configs\SistersConfig.luau — Sisters eye-contact gaze test, vertigo effect tuning, remote names and the 30-second ceiling warp length.
+- ReplicatedStorage\Configs\SideButtonConfig.luau — Side-bar button labels, their keybinds and the label's styling.
 - ReplicatedStorage\Configs\SpawnZoneConfig.luau — Tag, poll interval and repel cooldown for the spawn safe zone system.
 - ReplicatedStorage\Configs\SprintBoostConfig.luau — Visual definitions for speed-boost auras on the sprint bar.
 - ReplicatedStorage\Configs\SprintConfig.luau — Sprint speed, stamina economy, input bindings and stamina bar styling.
@@ -403,6 +407,7 @@ become Services or Classes.
 - ServerStorage\Services\GemShopService.luau — Deduplicated Robux receipts that grant each gem pack's amount.
 - ServerStorage\Services\GazeService.luau — Server line-of-sight library for cone and raycast visibility checks, with a seen/unseen tracker.
 - ServerStorage\Services\GhostAreaService.luau — Picks area-weighted hover points over hallways for the Ghost, avoiding nearby players.
+- ServerStorage\Services\GravityWarpService.luau — Shared server half of a gravity warp: validates, gates, tags the character and cues the client tween for both the Gravity Warper tool and the Sisters catch.
 - ServerStorage\Services\HallwayGridService.luau — Finds hallway corner mouths near a viewer for placing things just out of sight.
 - ServerStorage\Services\HallwayRegionService.luau — Straight-hallway span helpers for matching, bounding, occupancy and weighted random picks.
 - ServerStorage\Services\HallwayWallService.luau — Wall-level geometry for a straight hallway: junction mouths per side, the junction-free stretches between them, and the tagged wall strips flanking the span.
@@ -447,6 +452,7 @@ become Services or Classes.
 - ServerStorage\Services\ReviveService.luau — Sells and grants the Revive product, restoring the player's death location, items and a ForceField.
 - ServerStorage\Services\RoomService.luau — Tags rooms, gives them enemy-only pathfinding blockers, and tracks which room each player is in.
 - ServerStorage\Services\SistersService.luau — Picks a danger-weighted hallway start point and spawns the Sisters ceiling patrol there.
+- ServerStorage\Services\SistersGazeService.luau — Validates client eye-contact reports against the Sisters and starts the 30-second ceiling warp after the vertigo lead time, with a per-player cooldown.
 - ServerStorage\Services\SpawnZoneGuardService.luau — Applies source-specific permanent immunity to players inside the spawn safe zone, repels NPC enemies that touch it back to patrol, and builds the zone's translucent runtime border walls.
 - ServerStorage\Services\SpeedBoostService.luau — Central WalkSpeed arbiter for named, expiring speed boosts and optional multipliers.
 - ServerStorage\Services\StalkerService.luau — Spawns stalker-type enemies at a peek spot found behind the player.
@@ -479,7 +485,7 @@ become Services or Classes.
 - ServerStorage\Classes\Enemies\Creep.luau — Stationary eye-cluster that kills the hallway lights and despawns when approached.
 - ServerStorage\Classes\Enemies\Eye.luau — Static hazard that damages players by view angle for looking at it.
 - ServerStorage\Classes\Enemies\Ghost.luau — Floating enemy that drifts on published motion legs and lurks unseen in dangerous hallways.
-- ServerStorage\Classes\Enemies\Mimic.luau — Copies a player's appearance and acts out odd encounter modes before revealing and chasing.
+- ServerStorage\Classes\Enemies\Mimic.luau — Copies a player's appearance and acts out odd encounter modes before revealing and chasing; its hit is a one-shot kill and it walks and chases slightly slower than the other pursuers to pay for it.
 - ServerStorage\Classes\Enemies\MirrorStalker.luau — Harmless stalker whose invisible body walks the mirror room's floor so only its target ever sees it, as a ceiling reflection, until they look behind them with the reflection out of view or leave the room.
 - ServerStorage\Classes\Enemies\Sisters.luau — Twinned translucent, harmless figures that patrol the hallway ceilings forever via SurfaceWalker, heads tracking the nearest player.
 - ServerStorage\Classes\Enemies\Stalker.luau — Peeks at a player from corner to corner, then tails them from behind unseen at their own pace with a catch-up boost until it closes to striking range, flees to cover when observed, and snaps right behind them to seize the camera and kill. Wears its own `Enemies.Stalker` rig: the Ceiling Dweller's all-black skin with neon red eyes, the same model the Index shows.
@@ -512,7 +518,7 @@ become Services or Classes.
 - ServerStorage\Classes\Tools\Camera.luau — Server half of the tripod camera; validates placement, spawns it and consumes the single use.
 - ServerStorage\Classes\Tools\Energy Drink.luau — Server half of the Energy Drink tool; a plain SpeedDrink subclass.
 - ServerStorage\Classes\Tools\Flashlight.luau — Server half of the flashlight, toggling the replicated LightOn attribute the clients render from.
-- ServerStorage\Classes\Tools\Gravity Warper.luau — Server half of the gravity warper; consumes one, tags the character IgnoreExceptEye for the warp duration and cues the client tween.
+- ServerStorage\Classes\Tools\Gravity Warper.luau — Server half of the gravity warper; checks and consumes one, then starts the warp through the shared server GravityWarpService.
 - ServerStorage\Classes\Tools\Medkit.luau — Server half of the Medkit tool; a plain Healer subclass.
 - ServerStorage\Classes\Tools\Pathfinder.luau — Server half of the Pathfinder, spending a use per placed marker unless the perk is owned.
 - ServerStorage\Classes\Tools\Random Oddity.luau — Server half of the random player-oddity item; chooses among the four player effects.

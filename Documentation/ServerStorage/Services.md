@@ -244,6 +244,18 @@ Picks hover points for the Ghost enemy by choosing a hallway weighted by its flo
 - API: `GhostAreaService:GetRandomPoint() -> Vector3?` — area-weighted hover point, or nil if none is clear
 - Requires: `EnemyConfigs.Ghost`, `ReplicatedStorage.Services.HallwaysService`, `CharacterService.GetAliveRoot`, `SpawnZoneService`
 
+### GravityWarpService.luau
+The server half of a gravity warp, shared by the Gravity Warper tool and the Sisters eye-contact catch. `Warp` verifies the player is alive, not already warping and has a ceiling within `ToolConfigs["Gravity Warper"].MaxCeilingDistance`, then sets the `GravityWarping` attribute, tags the character with `Vanished.EyeExemptTag` ("IgnoreExceptEye") so every enemy except the Eye treats them as absent, and fires `GravityWarp/Warp` to that client (after an optional lead time, skipped if the character has died meanwhile) so the client `GravityWarpService` runs the ceiling tween. The attribute and tag clear when the client reports done over `GravityWarp/Finished` (fired on every client exit path, so the gate spans the real warp including the descent), on death, or on a fallback timer of lead + `AscendTime` + duration + `DescendTime` + 5 if the report never arrives; each warp's finish only acts while it is still that player's pending finish, so a stale timer can never clear a newer warp.
+- API: `GravityWarpService:CanWarp(player: Player) -> boolean` — alive, not warping, ceiling above
+- API: `GravityWarpService:Warp(player: Player, duration: number?, leadTime: number?) -> boolean` — start a warp of `duration` seconds (default the tool's `Duration`), firing the client after `leadTime`
+- API: `GravityWarpService:IsWarping(character: Model?) -> boolean`
+- API: `GravityWarpService:TravelTime(duration: number?) -> number` — ascend + duration + descend
+- API: `GravityWarpService:FindCeiling(character: Model, root: BasePart, maxDistance: number?) -> RaycastResult?`
+- API: `GravityWarpService.WarpingAttribute` — `"GravityWarping"`
+- Remotes: `GravityWarp/Warp` (ensured and fired), `GravityWarp/Finished` (ensured and listened)
+- Tags: applies/removes `IgnoreExceptEye` on the character
+- Requires: `ReplicatedStorage.Services.CharacterService`, `ReplicatedStorage.Services.CommunicationService`, `ReplicatedStorage.Services.VanishedService`, `ReplicatedStorage.Configs.ToolConfigs`
+
 ### HallwayGridService.luau
 Finds hallway "corner mouths" near a viewer — graph nodes with a side branch roughly perpendicular to the line of sight — and returns the physical corner position derived from the widths of the crossing and branching hallways. Used to place things just out of view around a corner.
 - API: `HallwayGridService:GetCorners(eye: Vector3, floorY: number, minDistance: number, maxDistance: number) -> { Corner }` — each corner carries `Position`, `Axis` (eye-to-corner), `Lateral` (into the branch) and fixed `Depths = { 0, 2 }`
@@ -582,6 +594,13 @@ Spawns the Sisters ceiling patrol at one end of a straight hallway span, choosin
 - API: `SistersService:Spawn() -> any?` — pick a weighted route and spawn
 - API: `SistersService:SpawnInHallway(player: Player) -> any?` — spawn on the span the player is standing in, from the far end
 - Requires: `EnemyConfigs.Sisters`, `Hallways` module (`StraightSpans`, `StraightSpanAt`), `DangerMapService`, `HallwayGraphService:IsFarFromPlayers`, `EnemyService:Spawn`
+
+### SistersGazeService.luau
+Server half of being caught by the Sisters. Validates each client's `Sisters/Gaze` report — the instance is a `Sisters` tagged model in workspace, the player is alive, not `Vanished` and not on cooldown, and their root is within `SistersConfig.Gaze.Range + ServerRangeSlack` of that sister's head — then starts a ceiling warp through the server `GravityWarpService` for `SistersConfig.Warp.Duration` with `Vertigo.LeadTime` of delay so the client's vertigo effect plays first. A successful catch puts the player on cooldown for the lead plus the warp's travel time plus `Gaze.Cooldown`. Every report is answered over `Sisters/Gazed` with whether it was accepted and the lead time.
+- API: `SistersGazeService:Catch(player: Player, sister: Model) -> boolean` — validate and start the warp
+- API: `SistersGazeService:IsOnCooldown(player: Player) -> boolean`
+- Remotes: `Sisters/Gaze` (ensured and listened), `Sisters/Gazed` (ensured and fired)
+- Requires: `GravityWarpService`, `ReplicatedStorage.Services.CharacterService`, `ReplicatedStorage.Services.CommunicationService`, `ReplicatedStorage.Services.VanishedService`, `ReplicatedStorage.Configs.SistersConfig`
 
 ### SpawnZoneGuardService.luau
 Server-side behaviour of the spawn safe zone: while a player's root is inside a `SpawnSafeZone` part their character carries the `Ignore` tag (so enemies cannot see, target, or kill them), removed again when they leave — an `Ignore` the character already had from elsewhere is left alone. Any NPC enemy whose body touches a zone part gives up its target and is forced back to its `Patrol` state (or `Idle` when it has no patrol), on a per-enemy cooldown; stunned enemies are left alone. On bind it also hides the zone part and builds four barely-see-through border walls (`SpawnZoneConfig.Border`) around its footprint at runtime, parented to the zone so they follow wherever the zone part is placed.
