@@ -977,7 +977,7 @@ Client owner of the walkie-talkie's on-model screen. Binds to the `SurfaceGui` i
 - Requires: `Configs.WalkieTalkieConfig`, `InterfaceService`, `SurfaceCursorService`, `ViewmodelService`, `WalkieTalkieService`; the `Main` frame authored inside `ReplicatedStorage.Tools["Walkie Talkie"].Screen.Screen`
 
 ### WalkieHudService.luau
-Client screen-space companion to the walkie-talkie. Drives the `WalkieHud` ScreenGui authored in StarterGui: fades `Main.Prompt` (text and stroke together) in while the radio is equipped but off, and shows `Main.Touch`'s PWR / RADIO / TALK buttons on touch devices to toggle power, raise the radio and toggle transmission. Layout and colours live on the instances; the service only supplies the prompt strings, the fade time and the pressed-state background.
+Client screen-space companion to the walkie-talkie. Drives the `WalkieHud` ScreenGui authored in StarterGui: fades `Main.Prompt` (text and stroke together) in while the radio is equipped but off, then on keyboard keeps it up as the raise-key hint (`Prompt.RaiseText`) while the powered radio is lowered, and shows `Main.Touch`'s PWR / RADIO / TALK buttons on touch devices to toggle power, raise the radio and toggle transmission. Layout and colours live on the instances; the service only supplies the prompt strings, the fade time and the pressed-state background.
 - API: none — side-effect only.
 - Requires: `Configs.WalkieTalkieConfig` (`Prompt`, `Touch.ActiveBackground`, `Keys`), `GuiBuilderService`, `WalkieTalkieService`; the `WalkieHud` ScreenGui in StarterGui
 

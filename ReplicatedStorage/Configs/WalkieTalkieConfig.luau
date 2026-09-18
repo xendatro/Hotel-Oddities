@@ -76,6 +76,7 @@ return {
 
 	Prompt = {
 		Text = "[%s] TURN ON WALKIE-TALKIE",
+		RaiseText = "[%s] RAISE WALKIE-TALKIE",
 		TouchText = "TAP THE POWER BUTTON TO USE YOUR WALKIE-TALKIE",
 		FadeTime = 0.25,
 	},
