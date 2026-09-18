@@ -7,6 +7,8 @@ local VoiceChatService = game:GetService("VoiceChatService")
 
 local Config = require(ReplicatedStorage.Configs.WalkieTalkieConfig)
 local DataSaveService = require(ServerStorage.Services.DataSaveService)
+local InventoryService = require(ServerStorage.Services.InventoryService)
+local InventoryConfig = require(ReplicatedStorage.Configs.InventoryConfig)
 local NoiseService = require(ServerStorage.Services.NoiseService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 
@@ -960,6 +962,13 @@ if RunService:IsServer() then
 
 	SetPower.OnServerEvent:Connect(function(player: Player, on: any)
 		if type(on) == "boolean" then WalkieTalkieService:SetPower(player, on) end
+	end)
+
+	InventoryService.Moved:Connect(function(player: Player)
+		local slot = InventoryService:GetSlot(player, Config.ToolName)
+		if slot and slot > InventoryConfig.HotbarSlots then
+			WalkieTalkieService:SetPower(player, false)
+		end
 	end)
 
 	SetTransmit.OnServerEvent:Connect(function(player: Player, active: any)

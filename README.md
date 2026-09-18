@@ -465,7 +465,7 @@ become Services or Classes.
 - ServerStorage\Services\ToolService.luau — Binds tagged Tools to their server tool classes and routes client tool events to them.
 - ServerStorage\Services\VoiceActivityService.luau — Tunes nested voice emitters, restores microphone input after respawn, and emits noise at whoever is speaking so enemies can hear them.
 - ServerStorage\Services\VoiceDebugService.luau — Studio-only remote for live-tweaking voice and radio volumes behind the VoiceDebug flag.
-- ServerStorage\Services\WalkieTalkieService.luau — Builds the power-gated radio audio graph with per-listener category faders, toggle-transmit gating, privacy modes, automatic power-off and dead markers on death, clean respawn rebuilds, sound relays and radio noise.
+- ServerStorage\Services\WalkieTalkieService.luau — Builds the power-gated radio audio graph with per-listener category faders, toggle-transmit gating, privacy modes, power-off when moved into the bag or on death, dead markers on death, clean respawn rebuilds, sound relays and radio noise.
 - ServerStorage\Services\WallstickService.luau — Server bootstrap for Wallstick: collision groups, the workspace Wallstick model, per-player streaming foci and the replication listener.
 
 ### ServerStorage\Classes

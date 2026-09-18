@@ -16,6 +16,9 @@ local SAVED_ATTRIBUTES = { "uses" }
 
 local InventoryService = {}
 
+local moved = Instance.new("BindableEvent")
+InventoryService.Moved = moved.Event
+
 local Order: { [Player]: { [number]: string } } = {}
 local Ready: { [Player]: boolean } = {}
 local AttributeConnections: { [Tool]: { RBXScriptConnection } } = {}
@@ -347,6 +350,7 @@ function InventoryService:Move(player: Player, from: number, to: number): boolea
 	stowBagged(player)
 	InventoryService:Sync(player)
 	save(player)
+	moved:Fire(player, from, to)
 	return true
 end
 
