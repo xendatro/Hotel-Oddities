@@ -81,8 +81,8 @@ Layout, colours and icon ids for the active-item/effect tiles on the HUD.
 - API: data table — `TileSize`, `TilePadding`, `CornerRadius`, `IconInset`, `EdgeMargin`, `Colors`, `Transparency`, `FlashDuration`, `HoleLifetime`, `FlashItems`, `Icons`
 
 ### ElevatorConfig.luau
-Elevator instance names, Lobby/Start/Exit types, door motion, proximity thresholds, AccessCheckInterval (0.2 seconds), and the teleport fade/loading sequence.
-- API: data table — `Tag`, `TypeAttribute`, `LobbyType`, `DoorsName`, `HitboxName`, `SpawnTag`, `DoorOffset`, `DoorTime`, `OpenDistance`, `CloseDistance`, `MaxHeightDifference`, `PollInterval`, `MinimumLoadingTime`, fade keys, `TeleportCooldown`
+Elevator instance names, Lobby/Start/Exit types, door motion, proximity thresholds, AccessCheckInterval (0.2 seconds), the teleport fade/loading sequence, and the client arrival-rotation remote name.
+- API: data table — `Tag`, `TypeAttribute`, `LobbyType`, `DoorsName`, `HitboxName`, `SpawnTag`, `ArrivalRemoteName`, `DoorOffset`, `DoorTime`, `OpenDistance`, `CloseDistance`, `MaxHeightDifference`, `PollInterval`, `MinimumLoadingTime`, fade keys, `TeleportCooldown`
 
 ### EyeConfig.luau
 The Eye enemy: tracking range, the hit flash/blink/blur reaction, gaze-buildup screen effects and idle bobbing.

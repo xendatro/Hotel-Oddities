@@ -8,6 +8,7 @@ return {
 	DoorsName = "Doors",
 	HitboxName = "Hitbox",
 	SpawnTag = "Spawn",
+	ArrivalRemoteName = "Arrival",
 	DoorOffset = 2.5,
 	DoorTime = 1.25,
 	OpenDistance = 20,

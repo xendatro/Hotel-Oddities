@@ -141,9 +141,9 @@ The win. Every `EndingConfig.CheckInterval` it checks each `Elevator` tagged mod
 - Requires: `Configs.ElevatorConfig`, `Configs.EndingConfig`, `CharacterService`, `CommunicationService`, `ComputerService`
 
 ### ElevatorService.luau
-Teleports players from the lobby elevator into the maze: on hitbox touch it shows the loading screen, waits for the client fade and a minimum loading time, streams the destination in, then pivots the character to a part tagged with `ElevatorConfig.SpawnTag` (preferring one inside `Maze15`, now inside StartElevator). Every 0.2 seconds, the exit cabin rejects unauthorized players to its hallway Approach marker using ComputerService:IsExitUnlocked; no win action or teleport follows authorized entry.
+Teleports players from the lobby elevator into the maze: on hitbox touch it shows the loading screen, waits for the client fade and a minimum loading time, streams the destination in, then pivots the character to a part tagged with `ElevatorConfig.SpawnTag` (preferring one inside `Maze15`, now inside StartElevator). After a successful pivot it fires the configured arrival remote with that CFrame so the first-person client can align its camera to the map heading, including instant `/map` teleports. Every 0.2 seconds, the exit cabin rejects unauthorized players to its hallway Approach marker using ComputerService:IsExitUnlocked; no win action or teleport follows authorized entry.
 - API: `ElevatorService:SendToMap(player: Player, instant: boolean?) -> boolean` — returns whether streaming succeeded; `instant` skips the fade, loading screen and cooldown
-- Remotes: `Elevator/Loading` (fired), `Elevator/FadeComplete` (listened) — both optional, looked up with `.Find`
+- Remotes: `Elevator/Loading` (fired), `Elevator/FadeComplete` (listened) — both optional, looked up with `.Find`; `Elevator/<ElevatorConfig.ArrivalRemoteName>` is ensured and fired after a successful arrival pivot
 - Tags: listens `ElevatorConfig.Tag`; reads `ElevatorConfig.SpawnTag`
 - Requires: `ElevatorConfig`, `HallwayStreamingService:PrepareTeleport`
 

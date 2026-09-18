@@ -4,7 +4,9 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local CameraBobConfig = require(ReplicatedStorage.Configs.CameraBobConfig)
+local ElevatorConfig = require(ReplicatedStorage.Configs.ElevatorConfig)
 local ChaserCameraService = require(ReplicatedStorage.Services.ChaserCameraService)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local MathService = require(ReplicatedStorage.Services.MathService)
 
 local FirstPersonCameraService = {}
@@ -12,6 +14,7 @@ local FirstPersonCameraService = {}
 local RENDER_JOB = "CameraBob"
 local TAU = MathService.TAU
 local localPlayer = Players.LocalPlayer
+local arrivalRemote = CommunicationService.Get("Elevator", ElevatorConfig.ArrivalRemoteName) :: RemoteEvent
 
 UserInputService.MouseIconEnabled = false
 localPlayer.PlayerGui:WaitForChild("Cursor").Enabled = true
@@ -26,6 +29,22 @@ local phase = 0
 local weight = 0
 local amplitude = 1
 local strafe = 0
+
+local function alignToArrival(target: CFrame)
+	local camera = workspace.CurrentCamera
+	if not camera then return end
+
+	local flatLook = Vector3.new(target.LookVector.X, 0, target.LookVector.Z)
+	if flatLook.Magnitude < 1e-3 then return end
+
+	local currentLook = camera.CFrame.LookVector
+	local pitch = math.asin(math.clamp(currentLook.Y, -1, 1))
+	local horizontal = math.cos(pitch)
+	local look = flatLook.Unit * horizontal + Vector3.yAxis * math.sin(pitch)
+	local position = camera.CFrame.Position
+	camera.CFrame = CFrame.lookAt(position, position + look)
+	camera.Focus = CFrame.new(position + look)
+end
 
 local function bindCharacter(character: Model)
 	local state = {
@@ -103,6 +122,10 @@ end)
 if localPlayer.Character then
 	task.spawn(bindCharacter, localPlayer.Character)
 end
+
+arrivalRemote.OnClientEvent:Connect(function(target: any)
+	if typeof(target) == "CFrame" then alignToArrival(target) end
+end)
 
 RunService:BindToRenderStep(RENDER_JOB, Enum.RenderPriority.Camera.Value + 2, render)
 

@@ -120,7 +120,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\EnemyObservationService.luau — Reports which observable models the local camera can see to the server.
 - ReplicatedStorage\Services\EyeHitEffectService.luau — Blink, blur, flash and gaze-vignette screen effects for the Eye enemy.
 - ReplicatedStorage\Services\EyeRenderService.luau — Bobs and aims tagged Eye models at the camera and computes gaze strength.
-- ReplicatedStorage\Services\FirstPersonCameraService.luau — Walking camera bob, strafing tilt and custom cursor setup for first person, shifting Camera.Focus with the bob so it never turns the character.
+- ReplicatedStorage\Services\FirstPersonCameraService.luau — Walking camera bob, strafing tilt and custom cursor setup for first person, aligning the view to the map Spawn heading after elevator arrival, and shifting Camera.Focus with the bob so it never turns the character.
 - ReplicatedStorage\Services\FlashlightDebugService.luau — F7 panel for tuning the flashlight beam cones, warmth and camera offset live.
 - ReplicatedStorage\Services\FlashlightService.luau — Renders every flashlight beam as stacked spotlight cones, camera-mounted for the local player so the beam centre sits on the crosshair.
 - ReplicatedStorage\Services\FriendAvatarService.luau — Client-only cache that builds character models from the local player's friends' avatars.
@@ -296,7 +296,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\DrawerConfig.luau — Openable drawer motion, interaction, sound and prompt UI settings.
 - ReplicatedStorage\Configs\DrawerItemConfig.luau — Drawer tool/currency loot rates, hallway placement limits and the hallway item pool (currencies plus scaled chip weights), rarity and currency weights, reward amounts, pickup feedback sounds, display rotations and item tables; clones DrawerConfig's Input/UI at load.
 - ReplicatedStorage\Configs\EffectsHUDConfig.luau — Layout, colours and icons for the HUD effect tiles.
-- ReplicatedStorage\Configs\ElevatorConfig.luau — Elevator types, door motion, proximity, exit access polling and teleport fade settings.
+- ReplicatedStorage\Configs\ElevatorConfig.luau — Elevator types, door motion, proximity, exit access polling, teleport fade settings and the arrival camera remote name.
 - ReplicatedStorage\Configs\EyeConfig.luau — Eye enemy tracking, hit reaction and gaze screen-effect settings.
 - ReplicatedStorage\Configs\EndingConfig.luau — Win-screen strings, beat timings, motion numbers, remote names and the /resetprogress command name.
 - ReplicatedStorage\Configs\FLAGS.luau — Global on/off switches for major systems and debug output.
@@ -395,7 +395,7 @@ become Services or Classes.
 - ServerStorage\Services\DrawerItemService.luau — Stocks drawers with pickable tool/currency displays and hallways with currencies and computer chips, applies currency display rotations, and handles inventory pickups and currency rewards.
 - ServerStorage\Services\DrawerService.luau — Owns drawer open/closed state, sounds, and auto-closing.
 - ServerStorage\Services\EndingService.luau — Detects an authorised player inside the exit cabin, freezes them for the end screen, and on play-again resets their computer progress and returns them to the lobby.
-- ServerStorage\Services\ElevatorService.luau — Teleports lobby arrivals to the maze arrival elevator with existing loading and streaming; rejects exit-cabin entry until that player completes all five computers.
+- ServerStorage\Services\ElevatorService.luau — Teleports lobby arrivals to the maze arrival elevator with existing loading and streaming, signals the client to align its first-person view to the map Spawn heading, and rejects exit-cabin entry until that player completes all five computers.
 - ServerStorage\Services\EnemyCommandService.luau — Developer chat commands for spawning, listing and despawning enemies.
 - ServerStorage\Services\EnemyDebugService.luau — Broadcasts a periodic snapshot of active enemies to the stats HUD.
 - ServerStorage\Services\EnemyDirectorService.luau — Manages the live enemy population: spawning, placement scoring and despawning expired enemies unless they are engaged or mid peek sequence.
