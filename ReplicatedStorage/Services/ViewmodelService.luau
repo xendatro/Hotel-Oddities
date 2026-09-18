@@ -12,8 +12,6 @@ if not RunService:IsClient() then
 	return ViewmodelService
 end
 
-local ChaserCameraService = require(ReplicatedStorage.Services.ChaserCameraService)
-
 local BIND_NAME = "ViewmodelStep"
 
 local player = Players.LocalPlayer
@@ -288,10 +286,7 @@ local function step(deltaTime: number)
 	if lastCameraCFrame then
 		local delta = camCFrame:ToObjectSpace(lastCameraCFrame).Rotation
 		local _, deltaYaw = delta:ToEulerAnglesYXZ()
-		local swayAmount = if ChaserCameraService:IsActive()
-			then ViewmodelConfig.ChaseSwayAmount
-			else ViewmodelConfig.SwayAmount
-		local target = CFrame.Angles(0, deltaYaw * swayAmount, 0)
+		local target = CFrame.Angles(0, deltaYaw * ViewmodelConfig.SwayAmount, 0)
 		swayCFrame = swayCFrame:Lerp(target, MathService.ExpAlpha(ViewmodelConfig.SwaySpeed, deltaTime))
 	end
 	lastCameraCFrame = camCFrame

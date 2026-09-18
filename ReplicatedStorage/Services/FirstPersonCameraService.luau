@@ -5,7 +5,6 @@ local UserInputService = game:GetService("UserInputService")
 
 local CameraBobConfig = require(ReplicatedStorage.Configs.CameraBobConfig)
 local ElevatorConfig = require(ReplicatedStorage.Configs.ElevatorConfig)
-local ChaserCameraService = require(ReplicatedStorage.Services.ChaserCameraService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local MathService = require(ReplicatedStorage.Services.MathService)
 
@@ -72,18 +71,12 @@ local function render(deltaTime: number)
 		and humanoid.MoveDirection.Magnitude > 0.05
 		and horizontalSpeed > 0.1
 		and humanoid.FloorMaterial ~= Enum.Material.Air
-	local chaserActive = ChaserCameraService:IsActive()
-	if chaserActive then
-		weight = 0
-		strafe = 0
-	else
-		local targetWeight = if moving then 1 else 0
-		weight += (targetWeight - weight) * MathService.ExpAlpha(CameraBobConfig.FadeSpeed, deltaTime)
-		local targetStrafe = if moving
-			then math.clamp(state.Root.CFrame:VectorToObjectSpace(humanoid.MoveDirection).X, -1, 1)
-			else 0
-		strafe += (targetStrafe - strafe) * MathService.ExpAlpha(CameraBobConfig.StrafeTiltSpeed, deltaTime)
-	end
+	local targetWeight = if moving then 1 else 0
+	weight += (targetWeight - weight) * MathService.ExpAlpha(CameraBobConfig.FadeSpeed, deltaTime)
+	local targetStrafe = if moving
+		then math.clamp(state.Root.CFrame:VectorToObjectSpace(humanoid.MoveDirection).X, -1, 1)
+		else 0
+	strafe += (targetStrafe - strafe) * MathService.ExpAlpha(CameraBobConfig.StrafeTiltSpeed, deltaTime)
 
 	if moving then
 		local speedRatio = horizontalSpeed / CameraBobConfig.ReferenceWalkSpeed
