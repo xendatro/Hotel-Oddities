@@ -203,7 +203,7 @@ Every behavior value the tripod Camera photo system uses: the placed-model tag a
 - API: data table — `Tag`, `ModelName`, `Attributes`, `Place`, `Countdown`, `Lens`, `Figure`, `Capture`, `Despawn`, `Timer`, `Develop`
 
 ### PlayerLocatorConfig.luau
-Cooldown, marker layout, focus animation and colour/font palette for the Player Locator tool's on-screen teammate markers.
+Cooldown, marker layout, screen-space focus range, focus animation and colour/font palette for the Player Locator tool's on-screen teammate markers.
 - API: data table — `Modes`, `Cooldown`, `CooldownFormat`, `MarkerCooldownFormat`, `ArriveDistance`, `Highlight`, `Marker`, `Focus`, `Press`, `Colors`, `Fonts`
 
 ### PlayerOddityConfig.luau
