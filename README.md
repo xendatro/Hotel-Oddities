@@ -206,7 +206,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\TopbarIconService.luau — Builds the Index, Gems and Gallery TopbarPlus icons, opens the matching InterfaceService page on select and keeps icon selection in sync with the Main page controller.
 - ReplicatedStorage\Services\TweenProxyService.luau — Tweens arbitrary values through a throwaway ValueBase and a callback, including model scaling.
 - ReplicatedStorage\Services\VanishedService.luau — Checks shared and source-specific immunity tags or a ForceField, with source syncing and an Eye-specific check that skips the exempt tag.
-- ReplicatedStorage\Services\ViewmodelService.luau — First-person viewmodel that clones the equipped tool under the camera with sway, bob and named per-tool poses, can suppress the live viewmodel for captures, and exposes its equipped tool and default fit anchor to debug panels.
+- ReplicatedStorage\Services\ViewmodelService.luau — First-person viewmodel that clones the equipped tool under the camera with sway, chase sway, bob and named per-tool poses, can suppress the live viewmodel for captures, and exposes its equipped tool and default fit anchor to debug panels.
 - ReplicatedStorage\Services\ViewmodelDebugService.luau — F3 developer panel for tuning every equipped tool, with dynamic titles, per-tool config output and a state button only for tools with multiple poses.
 - ReplicatedStorage\Services\VoiceActivityService.luau — Detects when the local player is speaking from an AudioAnalyzer, reports it to the server, and cuts incoming proximity voice off while the local player is dead.
 - ReplicatedStorage\Services\VoiceDebugService.luau — Debug panel of sliders for local proximity-voice and radio volumes.
@@ -342,7 +342,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\ToolConfigs.luau — Per-tool tags and behaviour values for every usable tool, including the Shovel's six-second hole immunity duration.
 - ReplicatedStorage\Configs\TopHUDConfig.luau — Currency roll animation, danger meter tiers, colours, glow pulse and scaling for the top-centre HUD strip.
 - ReplicatedStorage\Configs\TopbarConfig.luau — Which interface pages get a topbar icon, plus each icon's image, label, order and alignment.
-- ReplicatedStorage\Configs\ViewmodelConfig.luau — First-person viewmodel placement, sway, bob, per-tool overrides and named poses.
+- ReplicatedStorage\Configs\ViewmodelConfig.luau — First-person viewmodel placement, normal and chase sway, bob, per-tool overrides and named poses.
 - ReplicatedStorage\Configs\ViewmodelDebugConfig.luau — F3 walkie-talkie viewmodel tuning panel keybind, slider steps and tunable pose list.
 - ReplicatedStorage\Configs\VoiceChatConfig.luau — Proximity voice chat volume, distance and activity detection settings.
 - ReplicatedStorage\Configs\VoiceDebugConfig.luau — Slider definitions for the F6 voice volume debug panel, holding live config references.

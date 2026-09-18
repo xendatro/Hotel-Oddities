@@ -9,6 +9,7 @@ return {
 	},
 
 	SwayAmount = 0.6,
+	ChaseSwayAmount = 1.0,
 	SwaySpeed = 8,
 
 	BobAmount = 0.03,
