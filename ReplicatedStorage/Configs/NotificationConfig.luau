@@ -2,7 +2,7 @@ return {
 	DisplayOrder = 60,
 	Width = 360,
 	Height = 56,
-	TopMargin = 24,
+	TopMargin = 64,
 	Gap = 8,
 	Duration = 2.5,
 	FadeTime = 0.18,

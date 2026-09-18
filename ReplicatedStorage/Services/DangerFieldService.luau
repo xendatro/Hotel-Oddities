@@ -1,8 +1,12 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
 
 type FieldSettings = DangerConfig.FieldSettings
+
+local SETTINGS_RETRY_INTERVAL = 1
 
 local DangerField = {}
 
@@ -110,6 +114,37 @@ function DangerField.BakePoints(floors: { BasePart }, spacing: number, settings:
 	end
 
 	return points
+end
+
+local replicatedSettings: FieldSettings? = nil
+local fetching = false
+
+function DangerField.GetReplicatedSettings(): FieldSettings?
+	if replicatedSettings or fetching or not RunService:IsClient() then
+		return replicatedSettings
+	end
+	fetching = true
+
+	task.spawn(function()
+		local settingsChanged = CommunicationService.Get("Danger", "Settings") :: RemoteEvent
+		settingsChanged.OnClientEvent:Connect(function(settings: any)
+			if type(settings) == "table" then
+				replicatedSettings = settings
+			end
+		end)
+
+		local requestSettings = CommunicationService.Get("Danger", "GetSettings") :: RemoteFunction
+		while replicatedSettings == nil do
+			local ok, settings = pcall(requestSettings.InvokeServer, requestSettings)
+			if ok and type(settings) == "table" then
+				replicatedSettings = settings
+				break
+			end
+			task.wait(SETTINGS_RETRY_INTERVAL)
+		end
+	end)
+
+	return replicatedSettings
 end
 
 function DangerField.BuildSettings(startPosition: Vector3, extent: number, overrides: { [string]: any }?): FieldSettings

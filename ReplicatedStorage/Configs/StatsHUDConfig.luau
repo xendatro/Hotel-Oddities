@@ -57,7 +57,6 @@ return {
 
 	Danger = {
 		Interval = 0.25,
-		RetryInterval = 1,
 		Good = 0.34,
 		Fair = 0.67,
 	},

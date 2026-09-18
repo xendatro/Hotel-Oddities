@@ -181,7 +181,7 @@ Tuning for the mirrored connector room's reflections.
 - API: data table — `Tag`, `OpaqueTag` (subjects whose real body is invisible but whose reflection must still render solid, e.g. `MirrorStalker`), `TransparencyAttribute` (per-instance record of what a blanked part's transparency was, so the reflection restores it instead of forcing everything to zero and revealing the HumanoidRootPart), `ViewerAttribute` (a `UserId` on an enemy model limiting its reflection to that one player), `Padding`, `FloorTolerance`, `RetryDelay`, `CastShadow`, `BendLocalLook`, `ReflectEnemies`, `StripClasses`
 
 ### NotificationConfig.luau
-Visual settings for the top-center notification banner used for short player-facing feedback.
+Visual settings for the top-center notification banner used for short player-facing feedback. `TopMargin` places banners below the `TopHud` coins, gems and danger strip.
 - API: data table — `DisplayOrder`, `Width`, `Height`, `TopMargin`, `Gap`, `Duration`, `FadeTime`, `BackgroundColor`, `BackgroundTransparency`, `StrokeColor`, `AccentColor`, `TextColor`, `TextStrokeColor`, `TextSize`
 
 ### OverheadNameConfig.luau
@@ -239,7 +239,7 @@ Speed multiplier, stamina economy, camera FOV blend, input bindings and stamina-
 
 ### StatsHUDConfig.luau
 Layout, colour thresholds and sampling intervals for the debug stats HUD panel (FPS, ping, danger level, enemy state rows).
-- API: data table — `ToggleKey` (F5), `EdgeMargin`, `RowHeight`, `CaptionWidth`, `PanelWidth`, `TextSize`, `BackgroundTransparency`, `Colors`, `Enemies`, `Fps`, `Ping`, `Danger` (`Interval`, `RetryInterval`, `Good`, `Fair`)
+- API: data table — `ToggleKey` (F5), `EdgeMargin`, `RowHeight`, `CaptionWidth`, `PanelWidth`, `TextSize`, `BackgroundTransparency`, `Colors`, `Enemies`, `Fps`, `Ping`, `Danger` (`Interval`, `Good`, `Fair`)
 
 ### StoreConfig.luau
 Shared settings for the two Robux store pages, the gamepass `ShopUI` and the gem-pack `GemsUI`, plus the result code the server attaches to a granted gem purchase.
@@ -253,6 +253,11 @@ Corridor-streaming settings — prediction, replication lead times, reconciliati
 Per-tool settings keyed by tool name, giving each tool its CollectionService tag plus its own behaviour values (heal amounts, cooldowns, sounds, movement settings and player-oddity effect selections). Exports a `ToolConfig` type.
 - API: data table — one entry per tool: `Flashlight`, `Bandage`, `Medkit`, `SpellBook`, `Trap`, `Ball`, `Shovel`, `Pathfinder`, `Soda`, `Energy Drink`, `Visor`, `Gravity Warper`, `Player Locator`, `Walkie Talkie`, `Big Head`, `Big Character`, `Small Character`, `Transparency`, `Random Oddity`
 - Player oddity entries use `OddityKind`, optional `OddityOverrides`, or `OddityChoices` for the random four-effect item. `Shovel.HoleImmunityDuration` sets the six-second immunity granted when entering a hole.
+
+### TopHUDConfig.luau
+Settings for the top-centre coins, gems and danger strip driven by `TopHUDService`. Danger tiers are ordered by `Threshold`, and the eased danger value uses the last tier it reaches. `Glow` (0-1) is how strongly that tier pulses the red glow ring and track tint, and `PulsePeriod` is the pulse length in seconds.
+- API: data table — `Gui`, `ReferenceHeight`, `MinScale`, `MaxScale`, `Currencies` (`Coins`/`Gems`: `Attribute`, `Flash`), `Roll` (`Time`, `FlashHold`, `FlashFade`, `PopScale`, `PopTime`), `Danger` (`Interval`, `FollowSpeed`, `ColorFollowSpeed`, `GlowFollowSpeed`, `Track`, `Stroke`, `GlowColor`, `GlowMinTransparency`, `TrackTint`, `StrokeTint`, `Unknown`, `Tiers` of `{ Name, Threshold, Fill, FillEdge, Glow, PulsePeriod }`)
+- Type: `Tier`
 
 ### TopbarConfig.luau
 Which interface pages get a TopbarPlus icon, and how those icons look.

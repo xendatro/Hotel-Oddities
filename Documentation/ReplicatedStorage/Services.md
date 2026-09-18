@@ -192,7 +192,9 @@ Procedural "danger" heat field over the maze: fractal Brownian noise per floor, 
 - API: `DangerField.MeasureExtent(floors: { BasePart }) -> (number, Vector3)` — largest horizontal span and center
 - API: `DangerField.BakePoints(floors: { BasePart }, spacing: number, settings: FieldSettings) -> { SpawnPoint }` — grid of `{ Position, Danger }` on floor tops
 - API: `DangerField.BuildSettings(startPosition: Vector3, extent: number, overrides: { [string]: any }?) -> FieldSettings` — config values scaled to the map extent
-- Requires: `Configs.DangerConfig`
+- API: `DangerField.GetReplicatedSettings() -> FieldSettings?` — client only: the server's baked settings, or nil until they arrive. The first call starts pulling them over `Danger/GetSettings`, retrying every second, and keeps them current from `Danger/Settings` on every rebake. Always nil on the server
+- Remotes: `Danger/GetSettings` (invoked), `Danger/Settings` (listened), both only after a client calls `GetReplicatedSettings`
+- Requires: `Configs.DangerConfig`, `CommunicationService`
 
 ### DeathScreenService.luau
 Client-only. Builds and drives the glitch death screen: scanlines, a moving sweep, RGB-split name text, glitch slice bursts, a vignette, and a typed-out hint, all faded by blur and colour-correction effects. The server sends the cause and a token; once the screen has been held long enough and faded out, the token is sent back.
@@ -900,9 +902,9 @@ Client camera lock for the Stalker: on the remote, smoothly turns the camera to 
 - Requires: `CameraFovService`, `CharacterService.GetAliveHumanoid`
 
 ### StatsHUDService.luau
-Client debug HUD in the bottom-left, hidden until toggled with `StatsHUDConfig.ToggleKey` (F5) and only for players whose `Admin` attribute is true: FPS, ping, sampled danger-field value at your position, and a live list of enemies (id, state, distance) colour-coded by threat, plus the stalker's current target. The danger value uses the server's baked field settings, pulled over `Danger/GetSettings` at startup and refreshed from `Danger/Settings` on every rebake, so every client reads the same number the spawn director does; it shows `--` until they arrive.
+Client debug HUD in the bottom-left, hidden until toggled with `StatsHUDConfig.ToggleKey` (F5) and only for players whose `Admin` attribute is true: FPS, ping, sampled danger-field value at your position, and a live list of enemies (id, state, distance) colour-coded by threat, plus the stalker's current target. The danger value uses the server's baked field settings from `DangerFieldService.GetReplicatedSettings`, so every client reads the same number the spawn director does; it shows `--` until they arrive.
 - API: none — side-effect only.
-- Remotes: `Enemies/DebugSnapshot` (listened), `Danger/GetSettings` (invoked at startup), `Danger/Settings` (listened)
+- Remotes: `Enemies/DebugSnapshot` (listened)
 - Requires: `Services.DangerFieldService`, `Configs.StatsHUDConfig`, `GuiBuilderService`
 
 ### TagService.luau
@@ -927,6 +929,12 @@ Client bootstrap for tool classes: for every entry in `ToolConfigs` that has a m
 Puts the Index, Gems and Gallery buttons on Roblox's topbar with TopbarPlus (`Classes.Icon`) instead of the sidebar. Each `TopbarConfig.Icons` entry becomes one icon carrying that page's sidebar icon image alongside its name as a visible label, and selecting it opens the matching `InterfaceService` page while deselecting it closes that page. Icons keep `autoDeselect` off and are instead kept in sync from the shared `Main` page controller's `Fired` signal, so a page closed by its own close button, by the escape path or by another tab leaves the topbar showing the right selection without bouncing the interface. The matching `SideGui.Main` buttons (`Enemies`, the gems `Rectangle_1_copy` and `GalleryButton`) are hidden and untagged in StarterGui, so they no longer appear in the sidebar. Client-only.
 - API: `TopbarIconService:GetIcon(pageId: string) -> any?` -- the TopbarPlus icon bound to a page
 - Requires: `Classes.Icon`, `InterfaceService`, `Configs.TopbarConfig`, `Frameworks.xenterface`
+
+### TopHUDService.luau
+Drives the Studio-authored `StarterGui.TopHud` strip centred under the topbar: coin balance on the left, gem balance on the right and a compact danger meter between them. Balances follow the player's `Coins` and `Gems` attributes. On a change the old number slides out and fades while the new one slides in from the other side, upward for a gain and downward for a spend. A gain also tints the new number in the currency's `Flash` colour and pops the icon. The first value arrives without animation. The danger meter samples `DangerField.Sample` at the root part every `Danger.Interval` seconds, reads 0 while the player last stood on the lobby floor, and eases the fill toward it. The tier the eased value falls in sets the label (SAFE, UNEASY, TENSE, DIRE, DEADLY), the fill gradient and the label colour. Higher tiers fade in a red glow ring around the track and a track tint that pulse faster as danger rises. One notch per tier boundary is cloned from the authored `Notch` template. The whole strip scales with viewport height through its `Scale` UIScale. Client-only.
+- API: none — side-effect only.
+- Requires: `Configs.TopHUDConfig`, `CharacterService`, `DangerFieldService`, `GuiBuilderService`, `LobbyService`, `MathService`
+- Studio: `StarterGui.TopHud.Design` holds `Scale`, `Coins` and `Gems` (each an `Icon` with a `Pop` UIScale and layered coin or gem art, plus a clipping `Amount` frame with `Current` and `Next` labels) and `Danger` (`Caption`, `Level`, `Glow.Stroke`, `Track` with `Stroke`, `Fill.Gradient` and `Notches.Notch`)
 
 ### TweenProxyService.luau
 Generic helper for tweening things TweenService cannot touch directly: it creates a throwaway ValueBase, tweens its `Value`, and pushes each change into a callback, cleaning up on completion.

@@ -252,14 +252,13 @@ local function refreshPing()
 	end
 end
 
-local Settings: DangerField.FieldSettings? = nil
-
 local function refreshDanger()
 	local character = localPlayer.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local settings = DangerField.GetReplicatedSettings()
 
-	if Settings and root then
-		local danger = DangerField.Sample(root.Position, Settings)
+	if settings and root then
+		local danger = DangerField.Sample(root.Position, settings)
 		dangerRow.Value.Text = string.format("%d%%", math.floor(danger * 100 + 0.5))
 		dangerRow.Value.TextColor3 =
 			band(danger, StatsHUDConfig.Danger.Good, StatsHUDConfig.Danger.Fair, false)
@@ -268,27 +267,6 @@ local function refreshDanger()
 		dangerRow.Value.TextColor3 = COLORS.Unknown
 	end
 end
-
-task.spawn(function()
-	local settingsChanged = CommunicationService.Get("Danger", "Settings") :: RemoteEvent
-	settingsChanged.OnClientEvent:Connect(function(settings: any)
-		if type(settings) == "table" then
-			Settings = settings
-		end
-	end)
-
-	local requestSettings = CommunicationService.Get("Danger", "GetSettings") :: RemoteFunction
-	while Settings == nil do
-		local ok, settings = pcall(function()
-			return requestSettings:InvokeServer()
-		end)
-		if ok and type(settings) == "table" then
-			Settings = settings
-			break
-		end
-		task.wait(StatsHUDConfig.Danger.RetryInterval)
-	end
-end)
 
 local enemyAccumulator = EnemyConfig.Interval
 local pingAccumulator = StatsHUDConfig.Ping.Interval
