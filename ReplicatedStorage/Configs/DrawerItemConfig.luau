@@ -47,6 +47,7 @@ local DrawerItemConfig = {
 	Hallway = {
 		InitialAlive = 8,
 		MaxAlive = 8,
+		ItemWeightScale = 0.05,
 		RefillDelay = 45,
 		MinimumSpacing = 24,
 		MinimumPlayerDistance = 20,
@@ -92,9 +93,16 @@ local DrawerItemConfig = {
 	},
 }
 
-DrawerItemConfig.Rarities.ComputerChip = ComputerChipConfig.LootWeight
+DrawerItemConfig.Hallway.Items = {}
+
 for _, entry in ComputerChipConfig.Colors do
-	DrawerItemConfig.Items[entry.ToolName] = "ComputerChip"
+	local rarity = `ComputerChip{entry.Key}`
+	local weight = entry.LootWeight or ComputerChipConfig.LootWeight
+
+	DrawerItemConfig.Rarities[rarity] = weight
+	DrawerItemConfig.Items[entry.ToolName] = rarity
+	DrawerItemConfig.Hallway.Items[entry.ToolName] =
+		weight * DrawerItemConfig.Hallway.ItemWeightScale
 end
 
 return DrawerItemConfig

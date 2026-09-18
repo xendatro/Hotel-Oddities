@@ -72,7 +72,7 @@ Openable drawers: tag/attribute names, spring motion, auto-close, interaction ta
 ### DrawerItemConfig.luau
 Items spawned inside drawers and the loose hallway pickups: drawer spawn rates, currency target and refill settings, hallway placement limits and supported surface names, rarity weights, currency weights and reward amounts, pickup feedback labels and sound names, display rotations, plus the item-to-rarity table. At load time it clones `DrawerConfig.Input` and `DrawerConfig.UI` and overrides a few fields, and reuses `DrawerConfig.Targeting`/`Highlight` by reference.
 - API: data table — `Tag`, `Attribute`, `Remotes`, `Feedback`, `DisplayRotations`, `Spawn`, `Hallway`, `Targeting`, `Input`, `Highlight`, `UI`, `Rarities`, `Items`, `Currencies`
-- `Hallway.Items` is the non-currency half of the hallway pool, built at load time from `ComputerChipConfig.Colors`: one entry per chip tool weighted at its LootWeight times `Hallway.ItemWeightScale` (0.3), rounded up to at least 1. Coins and gems keep their own weights, so chips are roughly a quarter of hallway spawns.
+- `Hallway.Items` is the non-currency half of the hallway pool, built at load time from `ComputerChipConfig.Colors`: one entry per chip tool weighted at its LootWeight times `Hallway.ItemWeightScale` (0.05). Coins and gems keep their own weights, so chips make up about one in twenty hallway spawns.
 - Each chip color also gets its own `Rarities.ComputerChip<Key>` entry and points at it in `Items`, replacing the single shared ComputerChip weight.
 - Requires: `Configs/ComputerChipConfig`, `Configs/DrawerConfig`
 

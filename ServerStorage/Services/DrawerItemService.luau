@@ -375,6 +375,43 @@ local function chooseCurrencyName(): string?
 	return pool[#pool].Name
 end
 
+local function chooseHallwayName(): string?
+	local candidates = {}
+	local fallback = {}
+	local totalWeight = 0
+	local fallbackWeight = 0
+
+	local function consider(itemName: any, weight: any)
+		if type(itemName) ~= "string" or type(weight) ~= "number" or weight <= 0 then return end
+		if not templateFor(itemName) then return end
+
+		fallbackWeight += weight
+		table.insert(fallback, { Name = itemName, Weight = weight })
+		if itemName ~= LastItemName then
+			totalWeight += weight
+			table.insert(candidates, { Name = itemName, Weight = weight })
+		end
+	end
+
+	for currencyName, entry in ItemConfig.Currencies do
+		consider(currencyName, if type(entry) == "table" then entry.Weight else nil)
+	end
+	for itemName, weight in ItemConfig.Hallway.Items do
+		consider(itemName, weight)
+	end
+
+	local pool = if #candidates > 0 then candidates else fallback
+	local weight = if #candidates > 0 then totalWeight else fallbackWeight
+	if #pool == 0 or weight <= 0 then return nil end
+
+	local roll = RandomGenerator:NextNumber(0, weight)
+	for _, entry in pool do
+		roll -= entry.Weight
+		if roll <= 0 then return entry.Name end
+	end
+	return pool[#pool].Name
+end
+
 local function floorTarget(position: Vector3, itemCFrame: CFrame, itemSize: Vector3, rotation: CFrame?): CFrame
 	local itemHalfHeight = extentAlong(itemCFrame, itemSize, Vector3.yAxis)
 	return CFrame.new(
@@ -451,15 +488,15 @@ local function trySpawnHallway(): boolean
 	end
 	if activeCount >= ItemConfig.Hallway.MaxAlive then return false end
 
-	local currencyName = chooseCurrencyName()
-	local template = currencyName and templateFor(currencyName)
+	local itemName = chooseHallwayName()
+	local template = itemName and templateFor(itemName)
 	if not template then return false end
 
 	local display = makeDisplay(template)
 	if not display then return false end
 
 	local itemCFrame, itemSize = display:GetBoundingBox()
-	local rotation = ItemConfig.DisplayRotations[currencyName]
+	local rotation = ItemConfig.DisplayRotations[itemName]
 	local point = DangerMapService:PickPoint(0, function(candidate)
 		local surface = hallwaySurface(candidate.Position)
 		if not Hallways.At(candidate.Position)
@@ -486,7 +523,7 @@ local function trySpawnHallway(): boolean
 	display.Parent = HallwayFolder
 	CollectionService:AddTag(display, ItemConfig.Tag)
 	HallwayItems[display] = true
-	LastItemName = currencyName
+	LastItemName = itemName
 	return true
 end
 
