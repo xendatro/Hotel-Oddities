@@ -68,7 +68,6 @@ function ToolCommandService:Execute(sender: Player, argument: string?): boolean
 end
 
 ChatCommandService.Register("give", {
-	AdminOnly = true,
 	Handler = function(player: Player, argument: string?)
 		ToolCommandService:Execute(player, argument)
 	end,

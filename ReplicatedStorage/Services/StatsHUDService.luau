@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
+local UserInputService = game:GetService("UserInputService")
 
 local DangerField = require(ReplicatedStorage.Services.DangerFieldService)
 local StatsHUDConfig = require(ReplicatedStorage.Configs.StatsHUDConfig)
@@ -68,6 +69,13 @@ local function buildRow(parent: Instance, order: number, caption: string): Row
 end
 
 local screenGui = GuiBuilderService.CreateScreenGui("StatsHud", 1000, true)
+screenGui.Enabled = false
+
+UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
+	if processed or input.KeyCode ~= StatsHUDConfig.ToggleKey then return end
+	if localPlayer:GetAttribute("Admin") ~= true then return end
+	screenGui.Enabled = not screenGui.Enabled
+end)
 
 local panel = Instance.new("Frame")
 panel.Name = "Stats"

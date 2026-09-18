@@ -900,7 +900,7 @@ Client camera lock for the Stalker: on the remote, smoothly turns the camera to 
 - Requires: `CameraFovService`, `CharacterService.GetAliveHumanoid`
 
 ### StatsHUDService.luau
-Client debug HUD in the bottom-left: FPS, ping, sampled danger-field value at your position, and a live list of enemies (id, state, distance) colour-coded by threat, plus the stalker's current target. The danger value uses the server's baked field settings, pulled over `Danger/GetSettings` at startup and refreshed from `Danger/Settings` on every rebake, so every client reads the same number the spawn director does; it shows `--` until they arrive.
+Client debug HUD in the bottom-left, hidden until toggled with `StatsHUDConfig.ToggleKey` (F5) and only for players whose `Admin` attribute is true: FPS, ping, sampled danger-field value at your position, and a live list of enemies (id, state, distance) colour-coded by threat, plus the stalker's current target. The danger value uses the server's baked field settings, pulled over `Danger/GetSettings` at startup and refreshed from `Danger/Settings` on every rebake, so every client reads the same number the spawn director does; it shows `--` until they arrive.
 - API: none — side-effect only.
 - Remotes: `Enemies/DebugSnapshot` (listened), `Danger/GetSettings` (invoked at startup), `Danger/Settings` (listened)
 - Requires: `Services.DangerFieldService`, `Configs.StatsHUDConfig`, `GuiBuilderService`

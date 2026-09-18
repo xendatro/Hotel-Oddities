@@ -239,7 +239,7 @@ Speed multiplier, stamina economy, camera FOV blend, input bindings and stamina-
 
 ### StatsHUDConfig.luau
 Layout, colour thresholds and sampling intervals for the debug stats HUD panel (FPS, ping, danger level, enemy state rows).
-- API: data table — `EdgeMargin`, `RowHeight`, `CaptionWidth`, `PanelWidth`, `TextSize`, `BackgroundTransparency`, `Colors`, `Enemies`, `Fps`, `Ping`, `Danger` (`Interval`, `RetryInterval`, `Good`, `Fair`)
+- API: data table — `ToggleKey` (F5), `EdgeMargin`, `RowHeight`, `CaptionWidth`, `PanelWidth`, `TextSize`, `BackgroundTransparency`, `Colors`, `Enemies`, `Fps`, `Ping`, `Danger` (`Interval`, `RetryInterval`, `Good`, `Fair`)
 
 ### StoreConfig.luau
 Shared settings for the two Robux store pages, the gamepass `ShopUI` and the gem-pack `GemsUI`, plus the result code the server attaches to a granted gem purchase.

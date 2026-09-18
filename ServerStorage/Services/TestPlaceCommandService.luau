@@ -30,7 +30,6 @@ function TestPlaceCommandService:Execute(player: Player): boolean
 end
 
 ChatCommandService.Register("test", {
-	AdminOnly = true,
 	Handler = function(player: Player, argument: string?)
 		if argument ~= nil then return end
 		task.spawn(function()

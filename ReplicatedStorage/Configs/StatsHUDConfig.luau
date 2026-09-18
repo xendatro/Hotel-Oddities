@@ -1,4 +1,5 @@
 return {
+	ToggleKey = Enum.KeyCode.F5,
 	EdgeMargin = 8,
 	RowHeight = 18,
 	CaptionWidth = 58,
