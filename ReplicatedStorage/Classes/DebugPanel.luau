@@ -260,7 +260,7 @@ function DebugPanel.new(title: string, toggleKey: Enum.KeyCode, width: number?):
 	self._connections = {}
 
 	table.insert(self._connections, UserInputService.InputBegan:Connect(function(input, processed)
-		if not processed and input.KeyCode == toggleKey then
+		if not processed and input.KeyCode == toggleKey and Players.LocalPlayer:GetAttribute("Admin") == true then
 			setOpen(self, not self._isOpen)
 		end
 	end))

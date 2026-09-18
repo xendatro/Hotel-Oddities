@@ -3,6 +3,7 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
+local ChatCommandService = require(ServerStorage.Services.ChatCommandService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local EnemyDirectorService = require(ServerStorage.Services.EnemyDirectorService)
@@ -31,6 +32,7 @@ task.spawn(function()
 	local setConfig = CommunicationService.Ensure("Danger", "SetConfig") :: RemoteEvent
 
 	setConfig.OnServerEvent:Connect(function(player: Player, payload: any)
+		if not ChatCommandService.IsAllowed(player) then return end
 		if type(payload) ~= "table" then return end
 
 		local overrides = {}

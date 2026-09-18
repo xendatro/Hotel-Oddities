@@ -39,6 +39,7 @@ Background loop that flickers the lights in the hallway containing a chased play
 ### ChatCommandService.luau
 Shared registry for `/command` chat commands: other modules call `.Register` and this service parses every player's chat, matches the command name or alias, enforces the admin gate and invokes the handler. Handlers receive `(player, argument)` where `argument` is the trimmed remainder of the message or `nil` when empty. Every command, whatever its `AdminOnly` flag says, is allowed only for players whose role in the game's owning group (`game.CreatorId`, so Xenware Studios) is one of `AllowedRoles` - Owner or Developer, matched case-insensitively; roles are looked up once per player on join through `GetRoleInGroup` and cached, a failed lookup counts as no role, and there is no Studio bypass, so a Studio test account without the role is refused too. Registered by `ComputerCommandService` (`/hack`, admin), `EnemyCommandService` (`/spawn`, `/peek`, `/despawn`, `/vent`, `/enemies`, non-admin), plus `InvincibleCommandService`, `MapCommandService`, `MapOddityCommandService`, `LanternSwingCommandService`, `PlayerOddityCommandService`, `ToolCommandService` and `Services.FixtureCommandService`.
 - API: `ChatCommandService.Register(name: string, options: { Aliases: { string }?, AdminOnly: boolean?, Handler: (player: Player, argument: string?) -> () })` — names and aliases are lowercased; registering the same name again adds another handler and every handler for a matched name runs
+- Attributes: sets the Player `Admin` boolean from `IsAllowed` once the role resolves on join, which gates every client `DebugPanel`
 - API: `ChatCommandService.IsAllowed(player: Player) -> boolean` — true when the player's cached group role is in `AllowedRoles`
 - API: `ChatCommandService.GetRole(player: Player) -> string` — the cached group role name, empty when unknown
 - API: `ChatCommandService.FindPlayer(name: string) -> Player?` — matches Name, DisplayName or UserId, case-insensitively
@@ -74,7 +75,7 @@ Receives crouch state from the client and mirrors it onto the character as the `
 - Requires: `CrouchConfig`
 
 ### DangerDebugService.luau
-Studio-only listener that accepts a whitelist of numeric danger-field overrides from the client debug panel, rebakes the danger map and resets the enemy director. Returns immediately unless `FLAGS.DangerDebug` and running in Studio. The rebake broadcasts the new settings, so every client's readout follows the overrides.
+Studio-only listener that accepts a whitelist of numeric danger-field overrides from the client debug panel, rebakes the danger map and resets the enemy director. Returns immediately unless `FLAGS.DangerDebug` and running in Studio. Requests from players failing `ChatCommandService.IsAllowed` are ignored. The rebake broadcasts the new settings, so every client's readout follows the overrides.
 - Remotes: `Danger/SetConfig` (listened; created here)
 - Requires: `DangerMapService:Rebake`, `EnemyDirectorService:Reset`
 
@@ -665,7 +666,7 @@ Tunes each player's voice input volume and every nested character voice emitter'
 - Requires: `VoiceChatConfig`, `NoiseService:Emit`
 
 ### VoiceDebugService.luau
-Studio-only debug hook, gated behind `FLAGS.VoiceDebug`: lets a client set any volume entry declared in `VoiceDebugConfig` live and re-applies it to the voice and walkie-talkie chains. Returns immediately without connecting anything when the flag is off or outside Studio.
+Studio-only debug hook, gated behind `FLAGS.VoiceDebug`: lets a client set any volume entry declared in `VoiceDebugConfig` live and re-applies it to the voice and walkie-talkie chains. Requests from players failing `ChatCommandService.IsAllowed` are ignored. Returns immediately without connecting anything when the flag is off or outside Studio.
 - API: data table — empty; the module only wires the remote
 - Remotes: `VoiceDebug/SetVolume` (listened)
 - Requires: `VoiceDebugConfig`, `FLAGS`, `VoiceActivityService:ApplyVolume`, `WalkieTalkieService:ApplyVolumes`

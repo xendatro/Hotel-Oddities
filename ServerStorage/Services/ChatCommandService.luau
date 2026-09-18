@@ -91,7 +91,9 @@ local function onChatted(player: Player, message: string)
 end
 
 local function watch(player: Player)
-	task.spawn(resolveRole, player)
+	task.spawn(function()
+		player:SetAttribute("Admin", ChatCommandService.IsAllowed(player))
+	end)
 	player.Chatted:Connect(function(message: string)
 		onChatted(player, message)
 	end)
