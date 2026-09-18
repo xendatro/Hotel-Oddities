@@ -28,7 +28,7 @@ local nextComputerId = 0
 local function setOf(player: Player): { [Model]: true }
 	local set = Hacked[player]
 	if not set then
-		set = (setmetatable({}, { __mode = "k" }) :: any) :: { [Model]: true }
+		set = {}
 		Hacked[player] = set
 	end
 	return set
@@ -165,7 +165,12 @@ Sync.OnServerEvent:Connect(function(player: Player)
 end)
 
 CollectionService:GetInstanceAddedSignal(TAG):Connect(syncAll)
-CollectionService:GetInstanceRemovedSignal(TAG):Connect(syncAll)
+CollectionService:GetInstanceRemovedSignal(TAG):Connect(function(instance: Instance)
+	for _, set in Hacked do
+		set[instance :: Model] = nil
+	end
+	syncAll()
+end)
 
 Players.PlayerAdded:Connect(sync)
 
