@@ -593,7 +593,7 @@ Pickup.OnServerEvent:Connect(function(player: Player, item: any)
 	local itemName = item:GetAttribute(ItemConfig.Attribute)
 	if type(itemName) ~= "string" then return end
 	local currency = ItemConfig.Currencies[itemName]
-	if not ItemConfig.Items[itemName] and not currency then return end
+	if not ItemConfig.Items[itemName] and not ItemConfig.Hallway.Items[itemName] and not currency then return end
 
 	local now = os.clock()
 	if now - (LastPickup[player] or 0) < PICKUP_DEBOUNCE then return end

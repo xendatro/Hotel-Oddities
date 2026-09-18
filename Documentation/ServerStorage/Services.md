@@ -119,7 +119,8 @@ Server-authoritative door proximity poll. Every `PollInterval`, it checks all al
 
 ### DrawerItemService.luau
 Populates drawers with pickable item displays: clones a Tool from `ReplicatedStorage.Tools` into a script-free, anchored display model, measures the drawer's bounds and handle direction to seat it on the front surface, and keeps roughly `TargetPercentage` of drawers stocked on a refill timer. It also keeps `Hallway.MaxAlive` loose pickups on hallway floors, spaced and away from players. Handles client pickup requests with reach, debounce and inventory checks, avoiding repeating the last drawer or item.
-- Three weighted rolls, each skipping whatever spawned last: `chooseItemName` for drawer tools (`Rarities` via `Items`), `chooseCurrencyName` for drawer currencies (`Currencies`), and `chooseHallwayName` for loose hallway pickups, which pools `Currencies` with `Hallway.Items` so computer chips drop in hallways as well as drawers.
+- Three weighted rolls, each skipping whatever spawned last: `chooseItemName` for drawer tools (`Rarities` via `Items`), `chooseCurrencyName` for drawer currencies (`Currencies`), and `chooseHallwayName` for loose hallway pickups, which pools `Currencies` with `Hallway.Items` so map-only tools and computer chips drop in hallways while drawer tools stay in drawers.
+- Pickup validation accepts drawer tools, map-only hallway tools and currencies, so a hallway-only tool cannot be rejected after it spawns.
 - Remotes: `DrawerItemConfig.Remotes.Folder/Pickup` (listened)
 - Tags: listens `DrawerConfig.Tag`; applies `DrawerItemConfig.Tag`
 - Requires: `DrawerConfig`, `DrawerItemConfig`, `InventoryService:Wait` / `:Add`, `ReplicatedStorage.Tools`

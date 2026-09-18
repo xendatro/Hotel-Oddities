@@ -70,11 +70,18 @@ local DrawerItemConfig = {
 	},
 
 	Items = {
+		Ball = "Common",
 		Bandage = "Common",
 		Soda = "Common",
 		["Energy Drink"] = "Uncommon",
 		Flashlight = "Uncommon",
+		Camera = "Uncommon",
+		Camcorder = "Uncommon",
 		Medkit = "Rare",
+		Shovel = "Rare",
+		Trap = "Rare",
+		Visor = "Rare",
+		SpellBook = "VeryRare",
 		Lantern = "Rare",
 		Radar = "VeryRare",
 	},
@@ -94,6 +101,21 @@ local DrawerItemConfig = {
 }
 
 DrawerItemConfig.Hallway.Items = {}
+
+local MapOnlyRarities = {
+	Key = "Common",
+	["Gravity Warper"] = "Rare",
+	["Big Head"] = "VeryRare",
+	["Big Character"] = "VeryRare",
+	["Small Character"] = "VeryRare",
+	Transparency = "VeryRare",
+	["Random Oddity"] = "VeryRare",
+}
+
+for itemName, rarityName in MapOnlyRarities do
+	DrawerItemConfig.Hallway.Items[itemName] =
+		DrawerItemConfig.Rarities[rarityName] * DrawerItemConfig.Hallway.ItemWeightScale
+end
 
 for _, entry in ComputerChipConfig.Colors do
 	local rarity = `ComputerChip{entry.Key}`

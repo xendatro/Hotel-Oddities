@@ -294,7 +294,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\DeathConfig.luau — Death causes, player hints and the killed-by death screen styling.
 - ReplicatedStorage\Configs\DoorConfig.luau — Swinging door physics, replicated player-proximity attributes, and proximity open/close behaviour.
 - ReplicatedStorage\Configs\DrawerConfig.luau — Openable drawer motion, interaction, sound and prompt UI settings.
-- ReplicatedStorage\Configs\DrawerItemConfig.luau — Drawer tool/currency loot rates, hallway placement limits and the hallway item pool (currencies plus scaled chip weights), rarity and currency weights, reward amounts, pickup feedback sounds, display rotations and item tables; clones DrawerConfig's Input/UI at load.
+- ReplicatedStorage\Configs\DrawerItemConfig.luau — Drawer tool/currency loot rates, hallway placement limits, map-only hallway items and scaled chip weights, rarity and currency weights, reward amounts, pickup feedback sounds, display rotations and item tables; clones DrawerConfig's Input/UI at load.
 - ReplicatedStorage\Configs\EffectsHUDConfig.luau — Layout, colours and icons for the HUD effect tiles.
 - ReplicatedStorage\Configs\ElevatorConfig.luau — Elevator types, door motion, proximity, exit access polling, teleport fade settings and the arrival camera remote name.
 - ReplicatedStorage\Configs\EyeConfig.luau — Eye enemy tracking, hit reaction and gaze screen-effect settings.
@@ -392,7 +392,7 @@ become Services or Classes.
 - ServerStorage\Services\DeathService.luau — Records the cause of each player's death, applies reported contact kills, and drives the death screen and revive offers.
 - ServerStorage\Services\DevProductService.luau — Wires every developer product in DevProductConfigs to a receipt handler.
 - ServerStorage\Services\DoorService.luau — Polls alive player proximity to swinging room doors and replicates each door's open state and opener position.
-- ServerStorage\Services\DrawerItemService.luau — Stocks drawers with pickable tool/currency displays and hallways with currencies and computer chips, applies currency display rotations, and handles inventory pickups and currency rewards.
+- ServerStorage\Services\DrawerItemService.luau — Stocks drawers with pickable tool/currency displays and hallways with currencies, map-only tools and computer chips, applies currency display rotations, and handles inventory pickups and currency rewards.
 - ServerStorage\Services\DrawerService.luau — Owns drawer open/closed state, sounds, and auto-closing.
 - ServerStorage\Services\EndingService.luau — Detects an authorised player inside the exit cabin, freezes them for the end screen, and on play-again resets their computer progress and returns them to the lobby.
 - ServerStorage\Services\ElevatorService.luau — Teleports lobby arrivals to the maze arrival elevator with existing loading and streaming, signals the client to align its first-person view to the map Spawn heading, and rejects exit-cabin entry until that player completes all five computers.
@@ -560,7 +560,7 @@ become Services or Classes.
 - ServerStorage\Services\ComputerChipRouteService.luau — Distance-only patrol-graph routing with connector entrance/direct/pathfinding/forced-direct fallbacks and hallway-only room endpoints.
 - ReplicatedStorage\Services\ComputerChipTrailService.luau — Local pooled neon dots, continuous expiry fade and the existing right-side effects HUD countdown.
 - HallwayGraphService.BuildCorridors supplies an isolated player corridor graph; EffectsHUDService.ShowTimed/Dismiss supply reusable timed HUD effects. ToolService accepts an optional configured Class so all colors share one implementation.
-- DrawerItemConfig gives each chip its own ComputerChip<Key> rarity at that color's LootWeight (Blue 34, Green 27, Red 21, Purple 16, Yellow 12) and a scaled entry in the hallway pool. ToolConfigs and EffectsHUDConfig derive the five names and duration/icon settings from ComputerChipConfig.
+- DrawerItemConfig gives drawer tools their rarity weights, keeps the player-oddity tools, Gravity Warper and Key in the map-only hallway pool, and gives each chip its own ComputerChip<Key> rarity at that color's LootWeight (Blue 34, Green 27, Red 21, Purple 16, Yellow 12) plus a scaled hallway entry. ToolConfigs and EffectsHUDConfig derive the five chip names and duration/icon settings from ComputerChipConfig.
 - Studio assets: five colored clones of ReplicatedStorage.Tools.Computer Chip, five computer nameplates, and Communication.ComputerChip.Route/Sync; see Documentation\ReplicatedStorage\Tools.md.
 
 Computer chip playtest fixes connect split corridor approaches to connector entrances, tolerate raised doorway anchors, and clear trails when the target computer is removed. Runtime coverage: 865 room/connector-to-color routes resolved; all three connector fallback cases and 60 simultaneous route requests passed. Two-player visibility remains pending.

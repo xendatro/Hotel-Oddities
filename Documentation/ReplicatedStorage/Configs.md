@@ -70,9 +70,9 @@ Openable drawers: tag/attribute names, spring motion, auto-close, interaction ta
 - API: data table — `Tag`, `Attribute`, open/auto-close keys, `OutwardAxis`, handle-detection keys, spring/settle keys, `Targeting`, `Input`, `Highlight`, `Sound`, `UI`
 
 ### DrawerItemConfig.luau
-Items spawned inside drawers and the loose hallway pickups: drawer spawn rates, currency target and refill settings, hallway placement limits and supported surface names, rarity weights, currency weights and reward amounts, pickup feedback labels and sound names, display rotations, plus the item-to-rarity table. At load time it clones `DrawerConfig.Input` and `DrawerConfig.UI` and overrides a few fields, and reuses `DrawerConfig.Targeting`/`Highlight` by reference.
+Items spawned inside drawers and the loose hallway pickups: drawer spawn rates, currency target and refill settings, hallway placement limits and supported surface names, rarity weights, currency weights and reward amounts, pickup feedback labels and sound names, display rotations, plus separate drawer and map-only item pools. At load time it clones `DrawerConfig.Input` and `DrawerConfig.UI` and overrides a few fields, and reuses `DrawerConfig.Targeting`/`Highlight` by reference.
 - API: data table — `Tag`, `Attribute`, `Remotes`, `Feedback`, `DisplayRotations`, `Spawn`, `Hallway`, `Targeting`, `Input`, `Highlight`, `UI`, `Rarities`, `Items`, `Currencies`
-- `Hallway.Items` is the non-currency half of the hallway pool, built at load time from `ComputerChipConfig.Colors`: one entry per chip tool weighted at its LootWeight times `Hallway.ItemWeightScale` (0.05). Coins and gems keep their own weights, so chips make up about one in twenty hallway spawns.
+- `Hallway.Items` is the non-currency half of the hallway pool. It contains map-only tools weighted from the shared rarity scale, then adds one entry per chip tool at its `LootWeight` times `Hallway.ItemWeightScale` (0.05). Coins and gems keep their own weights.
 - Each chip color also gets its own `Rarities.ComputerChip<Key>` entry and points at it in `Items`, replacing the single shared ComputerChip weight.
 - Requires: `Configs/ComputerChipConfig`, `Configs/DrawerConfig`
 
@@ -139,7 +139,7 @@ F2 developer-panel settings for framing item viewports live.
 - API: data table - `ToggleKey`, `Step`, `AngleStep`
 
 ### ItemShopConfig.luau
-Catalogue and presentation settings for the in-game item shop: every purchasable entry's id, name, blurb, coin and Robux prices, its developer-product key and whether it needs voice chat. The id must match a `ReplicatedStorage.Tools` tool name, because that is what the shop grants and what the preview renders. Every item with a `ToolConfigs` entry is listed here; the ones that were never meant to be sold carry placeholder prices of 1 until they are priced or removed. Viewport framing lives in `ItemPreviewConfig`, not here. At load time it builds an `EntriesById` lookup by iterating `Entries`, and exports an `Entry` type.
+Catalogue and presentation settings for the in-game item shop: every purchasable entry's id, name, blurb, coin and Robux prices, its developer-product key and whether it needs voice chat. The id must match a `ReplicatedStorage.Tools` tool name, because that is what the shop grants and what the preview renders. Map-only tools and tools granted by other systems do not need an entry here. Viewport framing lives in `ItemPreviewConfig`, not here. At load time it builds an `EntriesById` lookup by iterating `Entries`, and exports an `Entry` type.
 - API: data table — `StartingCoins`, `RobuxIcon`, `Entries`, `EntriesById`, `Animation`
 
 ### KitCatalogConfig.luau
