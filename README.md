@@ -152,7 +152,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\KitRollUIService.luau — The kit roll carousel: server-authoritative result, weighted filler, scaling/tilting tiles, rarity bloom and shake.
 - ReplicatedStorage\Services\KitShopUIService.luau — Straight-purchase kit catalogue for players who cannot roll, sorted most common first.
 - ReplicatedStorage\Services\KitStateService.luau — Client-side owned kits, equipped kit, gem balance and roll eligibility shared by all three kit pages.
-- ReplicatedStorage\Services\KitVisualService.luau — Kit headshot portraits (item viewport fallback), rarity card dressing and the stacked BUFFS/ITEMS list shared by every kit page.
+- ReplicatedStorage\Services\KitVisualService.luau — Kit headshot portraits (item viewport fallback), rarity card dressing and the stacked BUFFS/ITEMS list shared by every kit page, with stat signs shown in each stat's player-facing direction.
 - ReplicatedStorage\Services\LanternSwayService.luau — Physics-hinged swinging for hanging lanterns during the chaos-red state, bound through ChaosLightService's red-changed signal and measured only once the lantern has finished streaming in.
 - ReplicatedStorage\Services\LobbyService.luau — Checks whether a player is standing on the tagged lobby floor.
 - ReplicatedStorage\Services\LookService.luau — Reports local camera pitch/yaw and bends other characters' neck and waist to match.
