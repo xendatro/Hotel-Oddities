@@ -280,6 +280,8 @@ local function refreshChrome(current: Screen, powered: boolean, raised: boolean)
 	current.Footer.Hint.Text = if raised
 		then string.format(UI.Hints.Raised, Config.Keys.Raise.Name)
 		elseif transmitting then UI.Hints.Talking
+		elseif math.floor(os.clock() / UI.HintCycle) % 2 == 1
+		then string.format(UI.Hints.Lowered, Config.Keys.Raise.Name)
 		else UI.Hints.Talk
 
 	current.Off.Visible = not powered

@@ -70,6 +70,7 @@ end
 local function step()
 	local equipped = WalkieTalkieService:IsEquipped()
 	local powered = WalkieTalkieService:IsPowered()
+	local raised = WalkieTalkieService:IsRaised()
 	local isTouch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
 	prompt.Text = if isTouch
@@ -80,10 +81,10 @@ local function step()
 	touch.Visible = isTouch and equipped
 	powerButton.Visible = touch.Visible
 	raiseButton.Visible = touch.Visible and powered
-	talkButton.Visible = touch.Visible and powered and not WalkieTalkieService:IsRaised()
+	talkButton.Visible = touch.Visible and powered and not raised
 
 	powerButton.BackgroundColor3 = background(powered)
-	raiseButton.BackgroundColor3 = background(WalkieTalkieService:IsRaised())
+	raiseButton.BackgroundColor3 = background(raised)
 	talkButton.BackgroundColor3 = background(WalkieTalkieService:IsTransmitting())
 end
 
