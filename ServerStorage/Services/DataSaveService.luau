@@ -27,6 +27,8 @@ local PROFILE_TEMPLATE = {
 	WalkieAudio = {},
 	WalkieMode = "All",
 
+	OnboardingStep = 0,
+
 	DiscoveredEnemies = {},
 	DiscoveredMap = {},
 	DiscoveredLandmarks = {},

@@ -1,11 +1,13 @@
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
 
 local ComputerConfig = require(ReplicatedStorage.Configs.ComputerConfig)
 local ComputerChipConfig = require(ReplicatedStorage.Configs.ComputerChipConfig)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local AnalyticsService = require(ServerStorage.Services.AnalyticsService)
 
 local ComputerService = {}
 
@@ -134,6 +136,16 @@ function ComputerService:SetHacked(player: Player, model: Model, hacked: boolean
 
 	set[model] = if hacked then true else nil
 	sync(player)
+
+	if not hacked then return end
+	local colors = completedColors(player)
+	local count = 0
+	for _, complete in colors do
+		if complete then count += 1 end
+	end
+	if count > 0 then
+		AnalyticsService:LogStep(player, `Computers{count}`)
+	end
 end
 
 function ComputerService:ResetProgress(player: Player)

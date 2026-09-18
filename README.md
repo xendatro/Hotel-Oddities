@@ -376,6 +376,7 @@ become Services or Classes.
 
 ### ServerStorage\Services
 
+- ServerStorage\Services\AnalyticsService.luau — Reports the ten-step MazeRun funnel (and its once-per-account onboarding mirror) to Roblox analytics, with a fresh session per run and monotonic steps.
 - ServerStorage\Services\CameraCommandService.luau — Initializes each player's maximum camera zoom to 0.5 and registers /camera (alias /cam) to toggle it between 0.5 and 128.
 - ServerStorage\Services\BadgeService.luau — Awards and caches Roblox badges limited to the ids listed in BadgeConfigs.
 - ServerStorage\Services\CeilingVentService.luau — Springs ceiling vents on approaching players and drops a CeilingDweller through them, after a telegraphed ceiling walk-in where the dweller crawls into the vent; walk-in humanoid names stay hidden.
@@ -500,7 +501,7 @@ become Services or Classes.
 - ServerStorage\Classes\PlayerOddityTool.luau — Shared server tool base that triggers a configured player oddity, notifies on rejection, and consumes the item after success.
 - ServerStorage\Classes\Oddities\ChaosWarning.luau — Hallway oddity that slams every nearby door open and shut as a telegraph.
 - ServerStorage\Classes\Oddities\DoorsOpen.luau — Hallway oddity that swings all doors in an occupied span open and holds them.
-- ServerStorage\Classes\Oddities\HallwayBlocker.luau — Hallway oddity that drops a gate prop into an unseen corridor to wall it off.
+- ServerStorage\Classes\Oddities\HallwayBlocker.luau — Hallway oddity that drops a gate prop into an unseen corridor to wall it off, standing it in a junction-free stretch of real hallway floor so it never lands in a connector room or faces the wrong way.
 - ServerStorage\Classes\Oddities\HallwayChaos.luau — Hallway oddity combining chaotic light flicker with slamming doors.
 - ServerStorage\Classes\Oddities\HallwayCrush.luau — Hallway oddity that closes both walls of one junction-free stretch of corridor inward until they seal, dragging the pilasters, lanterns, paintings and doors with them and crushing unprotected players whose HRP overlap the lethal volume past the configured threshold.
 - ServerStorage\Classes\Oddities\HallwayVoid.luau — Hallway oddity that cuts a bottomless pit into the corridor floor and kills whoever falls in unless they are protected by immunity.
@@ -535,6 +536,7 @@ become Services or Classes.
 
 ### ServerStorage\Configs
 
+- ServerStorage\Configs\AnalyticsConfig.luau — Funnel name, on/off switches and the ten ordered funnel steps of one run, one per computer hacked.
 - ServerStorage\Configs\BadgeConfigs.luau — Empty placeholder table for badge award settings.
 - ServerStorage\Configs\DevProductConfigs.luau — Empty placeholder table for developer product definitions.
 - ServerStorage\Configs\DiscoveryConfig.luau — Sight, proximity, event and death discovery gain rates per enemy, with a defaults resolver.

@@ -2,6 +2,10 @@
 
 Pure data tables, server only.
 
+### AnalyticsConfig.luau
+The funnel `AnalyticsService` reports: whether analytics run at all, whether they run in Studio, the funnel's name, whether the onboarding pass is mirrored, and the ten ordered steps of one run. Step numbers are the funnel order and must stay contiguous and ascending, because `AnalyticsService` uses them as the monotonic watermark for a session; step names are what shows on the Roblox analytics dashboard, so renaming one splits its history.
+- API: data table — `Enabled`, `LogInStudio`, `Funnel` (`"MazeRun"`), `Onboarding`, `Steps` (`Joined` 1, `Spawned` 2, `EnteredElevator` 3, `ReachedMaze` 4, `Computers1`-`Computers5` 5-9, `Escaped` 10 — one step per computer completed, so the drop-off between the first and fifth is visible rather than collapsed into one bucket, and `Computers5` is also the moment the exit unlocks); exports type `Step`
+
 ### BadgeConfigs.luau
 Placeholder table for badge award settings; currently empty, so nothing is configured.
 - API: data table — empty
