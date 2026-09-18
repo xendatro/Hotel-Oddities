@@ -80,6 +80,14 @@ export type RumbleParams = {
 	RotationInfluence: Vector3?,
 }
 
+export type ImpulseParams = {
+	Magnitude: number,
+	Roughness: number,
+	FadeOutTime: number,
+	PositionInfluence: Vector3?,
+	RotationInfluence: Vector3?,
+}
+
 local Rumble = {}
 Rumble.__index = Rumble
 
@@ -141,6 +149,13 @@ function ShakeService:Delete(ID: string)
 		ShakeService.SustainedShakes[ID] = nil
 		PerfLog.Log("Shake", `sustained {ID} stop`)
 	end
+end
+
+function ShakeService:Impulse(params: ImpulseParams, scale: number?)
+	local impulse = CameraShaker.CameraShakeInstance.new(params.Magnitude * (scale or 1), params.Roughness, 0, params.FadeOutTime)
+	impulse.PositionInfluence = params.PositionInfluence or Vector3.zero
+	impulse.RotationInfluence = params.RotationInfluence or Vector3.one
+	camShake:Shake(impulse)
 end
 
 function ShakeService:CreateDynamicRumble(startValue: number, params: RumbleParams?)

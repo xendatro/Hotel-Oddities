@@ -9,6 +9,35 @@ return {
 
 	MimicFovDelay = 0.25,
 
+	MadGuest = {
+		EnemyId = "Chaser",
+		Range = 60,
+		FullIntensityDistance = 8,
+		FieldOfView = {
+			Far = 6,
+			Near = 16,
+			Speed = 4,
+		},
+		Punch = {
+			FieldOfView = 12,
+			DecaySpeed = 5,
+		},
+		Sting = {
+			Sound = "MadGuestSting",
+			Shake = "Jolt",
+			Cooldown = 8,
+		},
+		Stomp = {
+			Range = 45,
+			FullIntensityDistance = 6,
+			Magnitude = 1.6,
+			Roughness = 14,
+			FadeOutTime = 0.25,
+			PositionInfluence = Vector3.new(0.04, 0.12, 0),
+			RotationInfluence = Vector3.new(1, 0.25, 0.45),
+		},
+	},
+
 	ChaseShakes = {
 		Chaos = {
 			AllPlayers = true,
@@ -22,13 +51,13 @@ return {
 			RotationInfluence = Vector3.new(1.2, 1.2, 0.55),
 		},
 		Chaser = {
-			Range = 55,
-			FullIntensityDistance = 12,
-			Intensity = 0.35,
-			Roughness = 16,
+			Range = 60,
+			FullIntensityDistance = 8,
+			Intensity = 0.6,
+			Roughness = 3.5,
 			MagnitudeScale = 5,
-			PositionInfluence = Vector3.new(0.12, 0.12, 0.08),
-			RotationInfluence = Vector3.new(0.45, 0.45, 0.1),
+			PositionInfluence = Vector3.new(0.02, 0.02, 0),
+			RotationInfluence = Vector3.new(0.55, 0.4, 0.75),
 		},
 		CeilingDweller = {
 			Range = 55,

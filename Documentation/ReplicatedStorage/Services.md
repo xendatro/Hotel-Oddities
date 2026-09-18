@@ -131,11 +131,11 @@ Client-only, gated on `FLAGS.Enemies`. For every streamed-in tagged enemy that h
 - Requires: `Configs.ChaseMusicConfig`, `CharacterService`, `MathService`, `TagService`, `AudioService`
 
 ### ChaserCameraService.luau
-Gated on `FLAGS.Enemies`. Drives camera reactions to enemies chasing the local player: a fading FOV offset while a ceiling dweller or mimic is hunting, and per-enemy dynamic rumble shakes scaled by distance to streamed-in enemies from `ChaserCameraConfig.ChaseShakes`. Its active state only reports a live FOV or rumble effect, so distant `AllPlayers` enemies do not suppress walking camera bob. Clears its cached chase FOV state when the local character dies. Also reacts to the server's vent-open and scream phases with one-shot shakes and a scream sound.
+Gated on `FLAGS.Enemies`. Drives camera reactions to enemies chasing the local player: a fading FOV offset while a ceiling dweller or mimic is hunting, and per-enemy dynamic rumble shakes scaled by distance to streamed-in enemies from `ChaserCameraConfig.ChaseShakes`. Its active state only reports a live FOV or rumble effect, so distant `AllPlayers` enemies do not suppress walking camera bob. Clears its cached chase FOV state when the local character dies. Also reacts to the server's vent-open and scream phases with one-shot shakes and a scream sound. The Mad Guest (`ChaserCameraConfig.MadGuest`, EnemyId `Chaser`) gets its own chase treatment while it hunts the local player: a chase-start sting (Jolt shake, a decaying FOV punch and the optional `MadGuestSting` 2D sound, on a cooldown), a `MadGuestChase` FOV offset that widens from `FieldOfView.Far` to `FieldOfView.Near` as it closes in, a slow rolling handheld sway from its `ChaseShakes.Chaser` rumble, and a camera thud on each of its footsteps through `WalkSoundService:OnEnemyStep`, scaled by distance.
 - API: `ChaserCameraService:IsActive() -> boolean` — whether any chase camera effect is currently running (returns `false` when the flag is off)
 - Remotes: `Enemies/CeilingDwellerCamera` (listened; `Open` / `Scream` phases)
 - Tags: reads `Enemy`
-- Requires: `Configs.ChaserCameraConfig`, `CharacterService`, `ShakeService`, `CameraFovService`, `MathService`, `AudioService`
+- Requires: `Configs.ChaserCameraConfig`, `CharacterService`, `ShakeService`, `CameraFovService`, `MathService`, `AudioService`, `WalkSoundService`
 
 ### CommunicationService.luau
 Shared accessor for `ReplicatedStorage.Communication`. On the server it creates the folder if it is missing; on the client it waits for it. All three functions are defined with a dot and return the remote as `any`, so cast at the call site.
@@ -811,6 +811,7 @@ Progressively reveals a string word by word in a stable pseudo-random order deri
 Client camera-shake front end over the vendored `CameraShaker`. Offers five named presets, keyed sustained shakes, and a `Rumble` handle whose magnitude can be driven continuously (e.g. by proximity). Shake translation is carried onto `Camera.Focus` as well so it never turns the first-person character.
 - API: `ShakeService:Create(shakeData: { ID: string, ShakeType: "Once" | "Sustained", Preset: string })` — presets are `Scare`, `Small`, `Jumpscare`, `Slam`, `Jolt`
 - API: `ShakeService:Delete(ID: string)` — fades out and forgets a sustained shake
+- API: `ShakeService:Impulse(params: ImpulseParams, scale: number?)` — one-shot custom shake from `Magnitude`, `Roughness`, `FadeOutTime` and optional `PositionInfluence` / `RotationInfluence`, with the magnitude multiplied by `scale`
 - API: `ShakeService:CreateDynamicRumble(startValue: number, params: RumbleParams?) -> Rumble` — handle with `:AdjustValue(n)`, `:Stop(fadeOutTime?)`, `:Start()`
 - API: `ShakeService.SustainedShakes` — id → live shake instance
 - Requires: `Classes.CameraShaker` (vendored third-party), `Services.PerfLoggerService`
@@ -971,7 +972,7 @@ Client-only debug panel behind `FLAGS.VoiceDebug` with sliders for proximity-voi
 
 ### WalkSoundService.luau
 Client footstep engine for players and tagged enemies. Silences the default Roblox running sound, including any new `Running` sound made when Roblox's character sound script restarts, and keeps its volume at zero. It instead times steps from the character's looping Core-priority locomotion track (falling back to a speed-scaled interval), playing a random emitter from `Sounds.Footsteps`. Enemies get custom distance attenuation out to 45 studs and per-enemy volume; crouching players get quieter, slower, shorter-range steps.
-- API: none — side-effect only.
+- API: `WalkSoundService:OnEnemyStep(callback: (Model) -> ()) -> () -> ()` — calls back with the enemy model on each enemy footstep; returns a disconnect function
 - Tags: listens `Enemy`
 - Requires: `AudioService.Play3DSound`, `CharacterService.ForEachPlayer`, `TagService`, `Configs.WalkSoundConfig`, `Configs.CrouchConfig` (`Stealth`)
 

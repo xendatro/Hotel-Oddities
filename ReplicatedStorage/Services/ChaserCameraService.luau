@@ -11,6 +11,7 @@ local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local MathService = require(ReplicatedStorage.Services.MathService)
 local ShakeService = require(ReplicatedStorage.Services.ShakeService)
+local WalkSoundService = require(ReplicatedStorage.Services.WalkSoundService)
 
 local ChaserCameraService = {}
 
@@ -29,12 +30,19 @@ local CEILING_DWELLER_ID = "CeilingDweller"
 local MIMIC_ID = "Mimic"
 local RENDER_JOB = "ChaserCameraEffects"
 local FOV_OFFSET_NAME = "ChaserCamera"
+local MAD_GUEST_FOV_NAME = "MadGuestChase"
 local SHAKE_EPSILON = 0.01
+local MAD_GUEST = ChaserCameraConfig.MadGuest
 
 local localPlayer = Players.LocalPlayer
 local ceilingFovIntensity = 0
 local fovChaseAssumedUntil = 0
 local Shakes: { [string]: { Rumble: any, Intensity: number } } = {}
+local madGuestFov = 0
+local madGuestPunch = 0
+local lastMadGuestSting = -math.huge
+local madGuestChasing: { [Model]: boolean } = {}
+local chasingMadGuests: { [Model]: boolean } = {}
 
 local cameraEvent = CommunicationService.Get("Enemies", "CeilingDwellerCamera") :: RemoteEvent
 
@@ -70,7 +78,30 @@ local function isCameraEffectModel(instance: Instance): boolean
 end
 
 function ChaserCameraService:IsActive(): boolean
-	return ceilingFovIntensity > 0.02 or next(Shakes) ~= nil
+	return ceilingFovIntensity > 0.02 or madGuestFov > 0.02 or next(Shakes) ~= nil
+end
+
+local function playMadGuestSting()
+	local now = os.clock()
+	if now - lastMadGuestSting < MAD_GUEST.Sting.Cooldown then return end
+	lastMadGuestSting = now
+	madGuestPunch = 1
+	ShakeService:Create({ ID = "MadGuestSting", ShakeType = "Once", Preset = MAD_GUEST.Sting.Shake })
+	local template = AudioService:FindTemplate(MAD_GUEST.Sting.Sound)
+	if template then
+		AudioService:Play2D(template, false, "SFX")
+	end
+end
+
+local function updateMadGuestFov(chased: boolean, proximity: number, deltaTime: number): number
+	local fov = MAD_GUEST.FieldOfView
+	local target = if chased then fov.Far + (fov.Near - fov.Far) * proximity else 0
+	local speed = if target > madGuestFov then fov.Speed else ChaserCameraConfig.FovReleaseSpeed
+	madGuestFov += (target - madGuestFov) * MathService.ExpAlpha(speed, deltaTime)
+	if madGuestFov < 1e-3 then madGuestFov = 0 end
+	madGuestPunch *= 1 - MathService.ExpAlpha(MAD_GUEST.Punch.DecaySpeed, deltaTime)
+	if madGuestPunch < 1e-3 then madGuestPunch = 0 end
+	return madGuestFov + madGuestPunch * MAD_GUEST.Punch.FieldOfView
 end
 
 local mimicChaseSince: { [Model]: number } = {}
@@ -93,11 +124,14 @@ local function render(deltaTime: number)
 		ceilingFovIntensity = 0
 		fovChaseAssumedUntil = 0
 		table.clear(mimicChaseSince)
+		madGuestPunch = 0
 	end
 
 	local targetCeilingChase = 0
 	table.clear(shakeTargets)
 	table.clear(chasingMimics)
+	table.clear(chasingMadGuests)
+	local madGuestProximity = 0
 	if alive then
 		for instance in EnemyModels do
 			if not isCameraEffectModel(instance) then continue end
@@ -117,15 +151,29 @@ local function render(deltaTime: number)
 			end
 
 			local enemyId = model:GetAttribute(ENEMY_ID_ATTRIBUTE)
-			local entry = if enemyId then ChaserCameraConfig.ChaseShakes[enemyId] else nil
 			local pivot = CharacterService.GetStreamedPivot(model)
+			local distance = if pivot then (pivot.Position - camera.CFrame.Position).Magnitude else math.huge
+			if chasingLocalPlayer and enemyId == MAD_GUEST.EnemyId then
+				chasingMadGuests[model] = true
+				if not madGuestChasing[model] then
+					playMadGuestSting()
+				end
+				local proximity = getProximityIntensity(distance, MAD_GUEST.Range, MAD_GUEST.FullIntensityDistance)
+				madGuestProximity = math.max(madGuestProximity, proximity)
+			end
+
+			local entry = if enemyId then ChaserCameraConfig.ChaseShakes[enemyId] else nil
 			if entry and pivot and (chasingLocalPlayer or entry.AllPlayers == true) then
-				local distance = (pivot.Position - camera.CFrame.Position).Magnitude
 				local proximity = getProximityIntensity(distance, entry.Range, entry.FullIntensityDistance)
 				local target = entry.Intensity * proximity ^ (entry.FalloffExponent or 1)
 				shakeTargets[enemyId] = math.max(shakeTargets[enemyId] or 0, target)
 			end
 		end
+	end
+
+	table.clear(madGuestChasing)
+	for model in chasingMadGuests do
+		madGuestChasing[model] = true
 	end
 
 	for model in mimicChaseSince do
@@ -146,6 +194,10 @@ local function render(deltaTime: number)
 
 	local offset = ceilingFovIntensity * ChaserCameraConfig.CeilingDweller.FieldOfView
 	CameraFovService:SetOffset(FOV_OFFSET_NAME, offset)
+	CameraFovService:SetOffset(
+		MAD_GUEST_FOV_NAME,
+		updateMadGuestFov(next(madGuestChasing) ~= nil, madGuestProximity, deltaTime)
+	)
 
 	for enemyId, target in shakeTargets do
 		if target > 0 and not Shakes[enemyId] then
@@ -178,6 +230,20 @@ cameraEvent.OnClientEvent:Connect(function(phase: string)
 		fovChaseAssumedUntil = os.clock() + 1
 		ShakeService:Create({ ID = "DwellerScream", ShakeType = "Once", Preset = "Slam" })
 		AudioService:Play2DSound("Scream", false, "SFX", { Volume = 2 })
+	end
+end)
+
+WalkSoundService:OnEnemyStep(function(model: Model)
+	if not madGuestChasing[model] then return end
+	local camera = workspace.CurrentCamera
+	local pivot = CharacterService.GetStreamedPivot(model)
+	if not camera or not pivot then return end
+
+	local stomp = MAD_GUEST.Stomp
+	local distance = (pivot.Position - camera.CFrame.Position).Magnitude
+	local proximity = getProximityIntensity(distance, stomp.Range, stomp.FullIntensityDistance)
+	if proximity > 0 then
+		ShakeService:Impulse(stomp, proximity)
 	end
 end)
 

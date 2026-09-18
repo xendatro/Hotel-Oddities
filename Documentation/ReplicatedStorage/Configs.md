@@ -31,8 +31,8 @@ Per-enemy chase music tracks with range, volume and fade rates.
 - API: data table — `FadeInSpeed`, `FadeOutSpeed`, `Enemies` (Chaser, CeilingDweller, Mimic)
 
 ### ChaserCameraConfig.luau
-Chase-driven camera FOV changes and per-enemy camera shake profiles.
-- API: data table — `FadeInSpeed`, `FadeOutSpeed`, `FovReleaseSpeed`, `CeilingDweller`, `MimicFovDelay`, `ChaseShakes` (Chaos, Chaser, CeilingDweller, Mimic)
+Chase-driven camera FOV changes and per-enemy camera shake profiles, plus the Mad Guest's chase camera: proximity FOV range, chase-start punch and sting (sound template name, shake preset, cooldown) and per-footstep stomp impulse.
+- API: data table — `FadeInSpeed`, `FadeOutSpeed`, `FovReleaseSpeed`, `CeilingDweller`, `MimicFovDelay`, `MadGuest` (`EnemyId`, `Range`, `FullIntensityDistance`, `FieldOfView`, `Punch`, `Sting`, `Stomp`), `ChaseShakes` (Chaos, Chaser, CeilingDweller, Mimic)
 
 ### CaptureConfig.luau
 Behavior settings for the camcorder, the photo keep-or-burn prompt and the Gallery page: `RequireGamepass`, the gallery permission enum, video duration and the 30s engine cap, the REC/STOP GUI name and stop key, screenshot timeout, gallery page/GUI names and the universe filter, keep/burn and access text, capture date/time formats, and player-facing capture strings. Visual layout and style live in `StarterGui.CamcorderRecording`, `StarterGui.CaptureTemplates`, `StarterGui.GalleryGui`, `StarterGui.PhotoDevelop`, and `StarterGui.PhotoFlash`.
