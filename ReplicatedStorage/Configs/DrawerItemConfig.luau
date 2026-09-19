@@ -40,16 +40,16 @@ local DrawerItemConfig = {
 
 	Spawn = {
 		TargetPercentage = 0.06,
-		CurrencyTargetPercentage = 0.2,
-		RefillDelay = 90,
+		CurrencyTargetPercentage = 0.35,
+		RefillDelay = 20,
 		SurfacePadding = 0.05,
 	},
 
 	Hallway = {
-		InitialAlive = 8,
-		MaxAlive = 8,
+		InitialAlive = 20,
+		MaxAlive = 20,
 		ItemWeightScale = 0.05,
-		RefillDelay = 45,
+		RefillDelay = 15,
 		MinimumSpacing = 24,
 		MinimumPlayerDistance = 20,
 		PlacementAttempts = 24,
@@ -90,13 +90,13 @@ local DrawerItemConfig = {
 	Currencies = {
 		Coin = {
 			Currency = "Coins",
-			Amount = 10,
-			Weight = 50,
+			Amount = 1,
+			Weight = 60,
 		},
 		Gem = {
 			Currency = "Gems",
-			Amount = 10,
-			Weight = 50,
+			Amount = 1,
+			Weight = 40,
 		},
 	},
 }
