@@ -660,23 +660,25 @@ function NPC:_extendPast(destination: Vector3, beyond: Vector3?): Vector3
 	return destination + heading.Unit * PURSUIT_OVERSHOOT
 end
 
-function NPC:MoveThrough(destination: Vector3, beyond: Vector3?)
+function NPC:MoveForced(destination: Vector3)
+	self.Humanoid:MoveTo(destination)
+end
+
+function NPC:MoveThrough(destination: Vector3, beyond: Vector3?): boolean
 	local root = self.RootPart.Position
 	local extended = self:_extendPast(destination, beyond)
 	local offset = horizontal(extended - root)
 	if offset.Magnitude < 1e-3 then
-		self:MoveSupported(destination)
-		return
+		return self:MoveSupported(destination)
 	end
 
 	local obstruction = self:_laneObstruction(extended)
 	if not obstruction then
-		if not self:MoveSupported(extended) then self:MoveSupported(destination) end
+		return self:MoveSupported(extended) or self:MoveSupported(destination)
 	elseif obstruction.Distance <= horizontal(destination - root).Magnitude then
-		self:MoveSupported(destination)
-	else
-		self:MoveSupported(root + offset.Unit * obstruction.Distance)
+		return self:MoveSupported(destination)
 	end
+	return self:MoveSupported(root + offset.Unit * obstruction.Distance)
 end
 
 function NPC:AdvanceWaypoint(waypoints: { PathWaypoint }, index: number): number
@@ -990,8 +992,7 @@ function NPC:Pursue(
 		end
 
 		local following = route[target + 1]
-		self:MoveThrough(point, if following then following.Position + Vector3.yAxis * PATROL_NODE_HEIGHT else goal)
-		return true
+		return self:MoveThrough(point, if following then following.Position + Vector3.yAxis * PATROL_NODE_HEIGHT else goal)
 	end
 
 	while true do
@@ -1046,11 +1047,17 @@ function NPC:Pursue(
 			end
 		end
 
+		local moved = false
 		if direct then
-			if not self:MoveSupported(extendedGoal) then self:MoveSupported(goal) end
+			moved = self:MoveSupported(extendedGoal) or self:MoveSupported(goal)
 		elseif chargeGoal then
-			self:MoveThrough(chargeGoal, goal)
-		else
+			moved = self:MoveThrough(chargeGoal, goal)
+			if not moved then
+				directBlockedUntil = os.clock() + DIRECT_STALL_RETRY
+			end
+		end
+
+		if not moved then
 			local list = waypoints
 			if list and blockedAt and blockedAt >= index then
 				dropRoute()
@@ -1071,9 +1078,20 @@ function NPC:Pursue(
 					self.Humanoid.Jump = true
 				end
 				local following = list[index + 1]
-				self:MoveThrough(waypoint.Position, if following then following.Position else goal)
-			elseif self:HasMovementClearance(goal) or not followGraph(goal) then
-				if not self:MoveSupported(extendedGoal) then self:MoveSupported(goal) end
+				moved = self:MoveThrough(waypoint.Position, if following then following.Position else goal)
+				if not moved then
+					dropRoute()
+					backOff()
+				end
+			end
+			if not moved and self:HasMovementClearance(goal) then
+				moved = self:MoveSupported(extendedGoal) or self:MoveSupported(goal)
+			end
+			if not moved then
+				moved = followGraph(goal)
+			end
+			if not moved then
+				self:MoveForced(extendedGoal)
 			end
 		end
 
