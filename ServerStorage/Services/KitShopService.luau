@@ -3,6 +3,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local KitConfig = require(ReplicatedStorage.Configs.KitConfig)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local AnalyticsService = require(ServerStorage.Services.AnalyticsService)
 local DataSaveService = require(ServerStorage.Services.DataSaveService)
 local GemService = require(ServerStorage.Services.GemService)
 local KitService = require(ServerStorage.Services.KitService)
@@ -24,13 +25,14 @@ function KitShopService:Buy(player: Player, kitId: string): string
 	if KitService:Owns(player, kitId) then return "AlreadyOwned" end
 
 	local price = KitConfig.GetRarity(kit).GemPrice
-	if not GemService:Spend(player, price) then return "InsufficientGems" end
+	if not GemService:Spend(player, price, kitId) then return "InsufficientGems" end
 
 	if not KitService:Grant(player, kitId) then
 		GemService:Refund(player, price)
 		return "GrantFailed"
 	end
 
+	AnalyticsService:LogEvent(player, "KitPurchased", price, { Kit = kitId, Rarity = kit.Rarity })
 	return "Purchased"
 end
 

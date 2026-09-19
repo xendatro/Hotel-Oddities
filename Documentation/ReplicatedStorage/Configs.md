@@ -31,8 +31,8 @@ Per-enemy chase music tracks with range, volume and fade rates.
 - API: data table — `FadeInSpeed`, `FadeOutSpeed`, `Enemies` (Chaser, CeilingDweller, Mimic)
 
 ### ChaserCameraConfig.luau
-Chase-driven camera FOV changes and per-enemy camera shake profiles, plus the Mad Guest's chase camera: proximity FOV range, chase-start punch and sting (sound template name, shake preset, cooldown) and per-footstep stomp impulse.
-- API: data table — `FadeInSpeed`, `FadeOutSpeed`, `FovReleaseSpeed`, `CeilingDweller`, `MimicFovDelay`, `MadGuest` (`EnemyId`, `Range`, `FullIntensityDistance`, `FieldOfView`, `Punch`, `Sting`, `Stomp`), `ChaseShakes` (Chaos, Chaser, CeilingDweller, Mimic)
+Chase-driven camera FOV changes and per-enemy camera shake profiles.
+- API: data table — `FadeInSpeed`, `FadeOutSpeed`, `FovReleaseSpeed`, `CeilingDweller`, `MimicFovDelay`, `ChaseShakes` (Chaos, Chaser, CeilingDweller, Mimic)
 
 ### CaptureConfig.luau
 Behavior settings for the camcorder, the photo keep-or-burn prompt and the Gallery page: `RequireGamepass`, the gallery permission enum, video duration and the 30s engine cap, the REC/STOP GUI name and stop key, screenshot timeout, gallery page/GUI names and the universe filter, keep/burn and access text, capture date/time formats, and player-facing capture strings. Visual layout and style live in `StarterGui.CamcorderRecording`, `StarterGui.CaptureTemplates`, `StarterGui.GalleryGui`, `StarterGui.PhotoDevelop`, and `StarterGui.PhotoFlash`.
@@ -55,11 +55,11 @@ Crouch movement, camera drop, crouch animations, stealth/noise effects and the c
 
 ### DangerConfig.luau
 Danger-field noise generation over the map plus the Director's enemy population, spawn placement weights and tick intervals.
-- API: data table — noise/field keys (`Seed`, `FeatureScaleFraction`, `Octaves`, `Persistence`, `NoiseGain`, `Contrast`, `FloorHeight`, `FloorSeparation`, `SafeRadiusFraction`, `RampLengthFraction`, `RampExponent`, `PointSpacing`), `PathDangerWeight`, `ProgrammaticVents`, patrol/route keys, `Director`; exports type `FieldSettings`
+- API: data table — noise/field keys (`Seed`, `FeatureScaleFraction`, `Octaves`, `Persistence`, `NoiseGain`, `Contrast`, `FloorHeight`, `FloorSeparation`, `SafeRadiusFraction`, `RampLengthFraction`, `PointSpacing`), `PathDangerWeight`, `ProgrammaticVents`, patrol/route keys, `Director`; exports type `FieldSettings`
 
 ### DeathConfig.luau
 Death-cause names and player-facing hints per enemy (including the `PaintingDweller` cause shown as "Painting Lurker"), plus the full styling and timing of the glitchy "killed by" death screen.
-- API: data table — `CauseMemory`, `HitCooldown` (seconds one enemy must wait before it can hurt the same player again, shared by server attacks and client contact reports), `Revive`, `Unknown`, `Causes`, `Screen`; exports type `Cause`
+- API: data table — `CauseMemory`, `HitCooldown` (seconds one enemy must wait before it can hurt the same player again, shared by server attacks and client contact reports), `Revive` (`ForceFieldDuration`, and `SelfSource`, the `Revived` analytics `Source` for a self-bought revive), `UnknownId` (the cause id analytics report when nothing was chasing the player), `Unknown`, `Causes`, `Screen`; exports type `Cause`
 
 ### DoorConfig.luau
 Swinging door physics, replicated player-proximity state, proximity open/close distances and enemy forced-open behaviour.
@@ -70,21 +70,19 @@ Openable drawers: tag/attribute names, spring motion, auto-close, interaction ta
 - API: data table — `Tag`, `Attribute`, open/auto-close keys, `OutwardAxis`, handle-detection keys, spring/settle keys, `Targeting`, `Input`, `Highlight`, `Sound`, `UI`
 
 ### DrawerItemConfig.luau
-Items spawned inside drawers and the loose hallway pickups: drawer spawn rates, currency target and refill settings, hallway placement limits and supported surface names, rarity weights, currency weights and reward amounts, pickup feedback labels and sound names, display rotations, plus separate drawer and map-only item pools. At load time it clones `DrawerConfig.Input` and `DrawerConfig.UI` and overrides a few fields, and reuses `DrawerConfig.Targeting`/`Highlight` by reference.
-- API: data table — `Tag`, `Attribute`, `OwnerAttribute`, `Remotes`, `Feedback`, `DisplayRotations`, `Spawn`, `Hallway`, `Targeting`, `Input`, `Highlight`, `UI`, `Rarities`, `Items`, `Currencies`
-- `Hallway.Items` is the non-currency half of the hallway pool. It contains map-only tools weighted from the shared rarity scale, then adds one entry per chip tool at its `LootWeight` times `Hallway.ItemWeightScale` (0.05). Coins and gems keep their own weights.
+Items spawned inside drawers and the loose hallway pickups: drawer spawn rates, currency target and refill settings, hallway placement limits and supported surface names, rarity weights, currency weights and reward amounts, pickup feedback labels and sound names, display rotations, plus the item-to-rarity table. At load time it clones `DrawerConfig.Input` and `DrawerConfig.UI` and overrides a few fields, and reuses `DrawerConfig.Targeting`/`Highlight` by reference.
+- API: data table — `Tag`, `Attribute`, `Remotes`, `Feedback`, `DisplayRotations`, `Spawn`, `Hallway`, `Targeting`, `Input`, `Highlight`, `UI`, `Rarities`, `Items`, `Currencies`
+- `Hallway.Items` is the non-currency half of the hallway pool, built at load time from `ComputerChipConfig.Colors`: one entry per chip tool weighted at its LootWeight times `Hallway.ItemWeightScale` (0.3), rounded up to at least 1. Coins and gems keep their own weights, so chips are roughly a quarter of hallway spawns.
 - Each chip color also gets its own `Rarities.ComputerChip<Key>` entry and points at it in `Items`, replacing the single shared ComputerChip weight.
-- `OwnerAttribute` (`OwnerUserId`) marks a drawer display that belongs to one player. The White Computer Chip is never in `Items` or `Hallway.Items`; it only spawns through `DrawerItemService:SpawnFor`.
 - Requires: `Configs/ComputerChipConfig`, `Configs/DrawerConfig`
 
 ### EffectsHUDConfig.luau
 Layout, colours and icon ids for the active-item/effect tiles on the HUD.
 - API: data table — `TileSize`, `TilePadding`, `CornerRadius`, `IconInset`, `EdgeMargin`, `Colors`, `Transparency`, `FlashDuration`, `HoleLifetime`, `FlashItems`, `Icons`
-- Every chip in `ComputerChipConfig.Colors`, plus `ComputerChipConfig.Exit`, gets the computer icon.
 
 ### ElevatorConfig.luau
-Elevator instance names, Lobby/Start/Exit types, door motion, proximity thresholds, AccessCheckInterval (0.2 seconds), the teleport fade/loading sequence, and the client arrival-rotation remote name.
-- API: data table — `Tag`, `TypeAttribute`, `LobbyType`, `DoorsName`, `HitboxName`, `SpawnTag`, `ArrivalRemoteName`, `DoorOffset`, `DoorTime`, `OpenDistance`, `CloseDistance`, `MaxHeightDifference`, `PollInterval`, `MinimumLoadingTime`, fade keys, `TeleportCooldown`
+Elevator instance names, Lobby/Start/Exit types, door motion, proximity thresholds, AccessCheckInterval (0.2 seconds), and the teleport fade/loading sequence.
+- API: data table — `Tag`, `TypeAttribute`, `LobbyType`, `DoorsName`, `HitboxName`, `SpawnTag`, `DoorOffset`, `DoorTime`, `OpenDistance`, `CloseDistance`, `MaxHeightDifference`, `PollInterval`, `MinimumLoadingTime`, fade keys, `TeleportCooldown`
 
 ### EyeConfig.luau
 The Eye enemy: tracking range, the hit flash/blink/blur reaction, gaze-buildup screen effects and idle bobbing.
@@ -128,7 +126,7 @@ The enemy Index (bestiary) UI: pagination, locked/undiscovered styling, the disc
 - API: data table — `EntriesPerPage`, `TemplateFolder`, `StartProgress`, `Locked`, `Discovery`, `Empty`, `HideUndiscovered`, `Pagination`, `Animation`, `Headshot`, `Entries`; exports types `StandinPart`, `Headshot`, `Entry`
 
 ### InventoryConfig.luau
-The inventory's shape on every device: a fixed 5-slot hotbar (`HotbarSlots`, keys 1-5 in `HotbarKeys`) plus a 25-slot bag (`BackpackSlots`), the `ToggleKeys` that open the Inventory page (I on keyboard, Y on gamepad), drag thresholds and the code-built hotbar slot styling. `Page` carries everything the Inventory page needs that is not authored in the GUI: its page id and ScreenGui name, the name and display order of the ScreenGui the drag ghost rides in, the drag ghost ZIndex, the drop-target and selection strokes, the notice hold time, ink/bad colours for the quantity badge and refusals, and the `Text` table (`ToHotbar`, `ToBag`, `HotbarFull`, `BagFull`, `Empty`, `EmptyDescription`). Item quantities stack by name; the InventoryService separately maintains one required Walkie Talkie.
+The inventory's shape on every device: a fixed 5-slot hotbar (`HotbarSlots`, keys 1-5 in `HotbarKeys`) plus a 25-slot bag (`BackpackSlots`), the `ToggleKeys` that open the Inventory page (Y on gamepad; the keyboard key moved to `SideButtonConfig`, which owns E), drag thresholds and the code-built hotbar slot styling. `Page` carries everything the Inventory page needs that is not authored in the GUI: its page id and ScreenGui name, the name and display order of the ScreenGui the drag ghost rides in, the drag ghost ZIndex, the drop-target and selection strokes, the notice hold time, ink/bad colours for the quantity badge and refusals, and the `Text` table (`ToHotbar`, `ToBag`, `HotbarFull`, `BagFull`, `Empty`, `EmptyDescription`). Item quantities stack by name; the InventoryService separately maintains one required Walkie Talkie.
 - API: data table — `HotbarSlots`, `BackpackSlots`, `ToggleKeys`, `HotbarKeys`, `DragThreshold`, `TouchDragThreshold`, `SlotSize`, `SlotPadding`, `CornerRadius`, `Colors`, `Transparency`, `PlaceholderIcon`, `Page`
 
 ### ItemPreviewConfig.luau
@@ -141,7 +139,7 @@ F2 developer-panel settings for framing item viewports live.
 - API: data table - `ToggleKey`, `Step`, `AngleStep`
 
 ### ItemShopConfig.luau
-Catalogue and presentation settings for the in-game item shop: every purchasable entry's id, name, blurb, coin and Robux prices, its developer-product key and whether it needs voice chat. The id must match a `ReplicatedStorage.Tools` tool name, because that is what the shop grants and what the preview renders. Map-only tools and tools granted by other systems do not need an entry here. Viewport framing lives in `ItemPreviewConfig`, not here. At load time it builds an `EntriesById` lookup by iterating `Entries`, and exports an `Entry` type.
+Catalogue and presentation settings for the in-game item shop: every purchasable entry's id, name, blurb, coin and Robux prices, its developer-product key and whether it needs voice chat. The id must match a `ReplicatedStorage.Tools` tool name, because that is what the shop grants and what the preview renders. Every item with a `ToolConfigs` entry is listed here; the ones that were never meant to be sold carry placeholder prices of 1 until they are priced or removed. Viewport framing lives in `ItemPreviewConfig`, not here. At load time it builds an `EntriesById` lookup by iterating `Entries`, and exports an `Entry` type.
 - API: data table — `StartingCoins`, `RobuxIcon`, `Entries`, `EntriesById`, `Animation`
 
 ### KitCatalogConfig.luau
@@ -151,7 +149,7 @@ The 47 kits themselves, bottom-heavy by rarity: 13 Common, 10 Uncommon, 8 Rare, 
 
 ### KitConfig.luau
 Everything about kits that is not a kit: the six rarities (gem price, roll weight, point budget - 12, 22, 34, 48, 64 and 80 from Common to Mythic - colour and accent), the five stat definitions (base value, allowed range, whether higher is better, its point cost, and whether it is applied as a Humanoid property or a character attribute - `Stamina` and `SprintMultiplier` take their bases straight from `SprintConfig` so there is one source of truth), rolling settings, card/button/info/row animation numbers, and the button strings (`Text.BalancePrefix` is what every gem balance label reads before its number). It re-exports `KitCatalogConfig`'s entries so callers only require one module. `Roll` also carries the reel's feel - `CardWidth`/`CardHeight` (kept under 1 so the winner's flash can grow without the CanvasGroup cutting it), `CardTilt`, `MinScale`/`MaxScale` for the carousel, `ShakeTime`/`ShakeStrength`, `BackdropTime`/`BackdropTransparency` and `ResultPop`. The point economy is the balancing spine: an item costs its `ItemShopConfig` coin price divided by `ItemPointDivisor`, a stat costs its distance from base times the stat's `Cost`, stats set in the bad direction refund points up to `MaxRefundFraction` of the budget, and `Validate` reports every kit that overspends its rarity's budget or names an unknown stat, item or rarity.
-- API: data table - `Rarities`, `RaritiesById`, `Stats`, `StatsById`, `Entries`, `EntriesById`, `DefaultKit`, `Roll`, `Animation`, `Text`
+- API: data table - `Rarities`, `RaritiesById`, `Stats`, `StatsById`, `Entries`, `EntriesById`, `DefaultKit`, `Roll` (`Roll.Sku` is the name a roll's gem spend carries in the economy events), `Animation`, `Text`
 - API: `KitConfig.GetRarity(kit) -> Rarity`
 - API: `KitConfig.ItemPoints(itemId: string) -> number`
 - API: `KitConfig.StatPoints(statId: string, value: number) -> number`
@@ -168,11 +166,11 @@ Settings for the look-direction system that replicates each player's aim to neck
 - API: data table — `SendInterval`, `SendThreshold`, `MaxPitch`, `MaxYaw`, `Neck`, `Waist`, `Smoothing`, `MimicUpdateInterval`, `Debug`
 
 ### MapConfig.luau
-Everything tuning the discoverable map: remote names, the `Map` ScreenGui paths, discovery radius and tick rate, canvas resolution and margin, hand-drawn ink style (colour, opacity, width and its variance, wobble amplitude and frequency, overshoot, bleed), the room floor tags, the landmark tags, optional landmark name filters and their discovery radii, line-of-sight sampling, pan and zoom limits, room and computer-room stroke weights and hatch settings, danger layer colours, and marker sizing and effect timings.
+Everything tuning the discoverable map: remote names, the `Map` ScreenGui paths, discovery radius and tick rate, canvas resolution and margin, hand-drawn ink style (colour, opacity, width and its variance, wobble amplitude and frequency, overshoot, bleed), the room floor tags, the landmark tags and their discovery radii, line-of-sight sampling, pan and zoom limits, room and computer-room stroke weights and hatch settings, danger layer colours, and marker sizing and effect timings.
 
 ### MapOddityConfig.luau
 Spawn intervals, durations and per-effect tuning for the hallway/map oddity system (transparent hallways, world-space light blackouts, doors opening, hallway chaos, gaze-gated blockers and the Void's widened crossing plank). Every ambient effect supplies `SpawnIntervalMin` and `SpawnIntervalMax`; the scheduler samples `math.random(min, max)` directly before each map-wide spawn attempt.
-- API: data table — `Enabled`, `MinDuration`, `MaxDuration`, `MinimumPlayerDistance`, `Effects` (`Transparency`, `MapLightsOut` including `SpawnIntervalMin`, `SpawnIntervalMax`, `ChunkSize`, `ChunkHeight`, `ChunkBelow`, `MinimumLights` and `PickAttempts`, `DoorsOpen`, `HallwayChaos`, `HallwayBlocker`, `HallwayVoid` including `PlankWidth`, `HallwayCrush` including `SpawnIntervalMin`, `SpawnIntervalMax`, `OccupiedChance`, `OccupiedChanceReferencePlayers`, `SafeMargin`, `KillTolerance`, `BackstopDelay`, `TrimOvershoot`, `DoorwayMargin` and `MinimumHRPOverlap`, `ChaosWarning`), plus hallway detection keys `HallwayTransparency`, `HallwayHeightWindow`, `HallwayBelowWindow`, `SpatialPadding`, `MinimumPartHallwayFraction`
+- API: data table — `Enabled`, `MinDuration`, `MaxDuration`, `MinimumPlayerDistance`, `Effects` (`Transparency`, `MapLightsOut` including `SpawnIntervalMin`, `SpawnIntervalMax`, `ChunkSize`, `ChunkHeight`, `ChunkBelow`, `MinimumLights` and `PickAttempts`, `DoorsOpen`, `HallwayChaos`, `HallwayBlocker` including `SpawnIntervalMin` and `SpawnIntervalMax` (120-180s, two thirds of the old 180-270 so roughly 1.5x as many gates stand at once), `DangerWeight`, `SplitClearance`, `MouthClearance`, `MinimumStretch` and `PickAttempts`, `HallwayVoid` including `PlankWidth`, `HallwayCrush` including `SpawnIntervalMin`, `SpawnIntervalMax`, `OccupiedChance`, `OccupiedChanceReferencePlayers`, `SafeMargin`, `KillTolerance`, `BackstopDelay`, `TrimOvershoot`, `DoorwayMargin` and `MinimumHRPOverlap`, `ChaosWarning`), plus hallway detection keys `HallwayTransparency`, `HallwayHeightWindow`, `HallwayBelowWindow`, `SpatialPadding`, `MinimumPartHallwayFraction`
 
 ### MimicConfig.luau
 Behaviour tuning for the Mimic enemy — reaction delays, idle emotes, its reveal sequence, floating, turning and approach distances.
@@ -183,12 +181,8 @@ Tuning for the mirrored connector room's reflections.
 - API: data table — `Tag`, `OpaqueTag` (subjects whose real body is invisible but whose reflection must still render solid, e.g. `MirrorStalker`), `TransparencyAttribute` (per-instance record of what a blanked part's transparency was, so the reflection restores it instead of forcing everything to zero and revealing the HumanoidRootPart), `ViewerAttribute` (a `UserId` on an enemy model limiting its reflection to that one player), `Padding`, `FloorTolerance`, `RetryDelay`, `CastShadow`, `BendLocalLook`, `ReflectEnemies`, `StripClasses`
 
 ### NotificationConfig.luau
-Visual settings for the top-center notification banner used for short player-facing feedback. `TopMargin` places banners below the `TopHud` coins, gems and danger strip.
+Visual settings for the top-center notification banner used for short player-facing feedback.
 - API: data table — `DisplayOrder`, `Width`, `Height`, `TopMargin`, `Gap`, `Duration`, `FadeTime`, `BackgroundColor`, `BackgroundTransparency`, `StrokeColor`, `AccentColor`, `TextColor`, `TextStrokeColor`, `TextSize`
-
-### OverheadNameConfig.luau
-Tag, attribute and styling for the always-on overhead name drawn above players and the Mimic. `VerifiedGlyph` is the private-use codepoint Roblox fonts render as the verified badge. `StudSize` is in studs, so the name shrinks with distance like the character does, and `MaxTextSize` caps it up close. `TowardCamera` pulls the billboard that many studs toward the viewer so hats and other head accessories draw behind it.
-- API: data table — `Tag`, `UserIdAttribute`, `VerifiedGlyph`, `StudSize`, `ExtentsOffset`, `StudsOffsetWorldSpace`, `TowardCamera`, `MaxDistance`, `AlwaysOnTop`, `Font`, `MaxTextSize`, `TextColor`, `StrokeColor`, `StrokeTransparency`
 
 ### ObservedFreezeConfig.luau
 Tag name, attribute name and reconciliation tolerances for the "freeze while observed" enemy movement system. Assembled field-by-field on a named local table rather than as a literal, but returns only that table.
@@ -199,7 +193,7 @@ Point-of-interest tag, discovery, entry and occupancy remote names, the trigger-
 
 ### PerkConfig.luau
 Per-perk settings for the gamepass/perk system, keyed by perk name under a shared attribute prefix. `PlayerLocator.GrantAttribute` names the player flag `/give` sets to unlock the locator without the pass.
-- API: data table — `AttributePrefix`, `Loadout`, `Visor`, `PlayerLocator`, `Camcorder`, `UnlimitedStamina`, `FriendRevive`
+- API: data table — `AttributePrefix`, `Loadout`, `Visor`, `PlayerLocator`, `Camcorder`, `UnlimitedStamina`, `FriendRevive` (`Source` is the `Revived` analytics `Source` a friend-bought revive is attributed to)
 
 ### PhotoConfig.luau
 Every behavior value the tripod Camera photo system uses: the placed-model tag and attribute names, placement raycast limits, body height, the 180-degree model yaw and the ghost placement preview, countdown length, lens offset/FOV and the subject cone, ShadowFigure placement rules, capture flash timings including the figure render warmup, the unseen-despawn rule, countdown pulse rules, and film animation timings. The countdown, shutter flash, and film layout live in `StarterGui.CaptureTemplates.PhotoTimer`, `StarterGui.PhotoFlash`, and `StarterGui.PhotoDevelop`.
@@ -207,7 +201,7 @@ Every behavior value the tripod Camera photo system uses: the placed-model tag a
 - API: data table — `Tag`, `ModelName`, `Attributes`, `Place`, `Countdown`, `Lens`, `Figure`, `Capture`, `Despawn`, `Timer`, `Develop`
 
 ### PlayerLocatorConfig.luau
-Cooldown, marker layout, screen-space focus range, focus animation and colour/font palette for the Player Locator tool's on-screen teammate markers.
+Cooldown, marker layout, focus animation and colour/font palette for the Player Locator tool's on-screen teammate markers.
 - API: data table — `Modes`, `Cooldown`, `CooldownFormat`, `MarkerCooldownFormat`, `ArriveDistance`, `Highlight`, `Marker`, `Focus`, `Press`, `Colors`, `Fonts`
 
 ### PlayerOddityConfig.luau
@@ -218,9 +212,18 @@ Roll timings and effect weights for the player oddity system that randomly resiz
 Per-effect tuning for prop-based oddities — falling lanterns, falling paintings, the painting dweller (whose `Damage` is what each lunge takes off the player), and the scurrying rat — covering arming, approach detection, candidate selection, and either repair rules (the fixture effects) or crossing-site sampling and rat motion (`RatScurry`). `PaintingDweller` carries `StartAnimation` (one-shot burst-out), `ThrashAnimation` (loop that follows it), `AttackAnimation`, `HoleImage` and `RootDrop`, the studs the rig hangs below the canvas centre; its fixture debug highlight is disabled.
 - API: data table — `Enabled`, `Effects` (`LanternFall`, `PaintingFall`, `PaintingDweller`, `RatScurry`)
 
+### RoomsIndexConfig.luau
+The rooms index page: its page id and ScreenGui name, the 3-by-2 grid shape, the locked-card strings (`???`, `UNDISCOVERED` and the not-yet-found blurb), the empty-panel strings, the `n / N FOUND` counter format, pagination colours, the card/button/info animation numbers, and `Entries`: one entry per point of interest whose `Id` is the `POI` part's name (which is also what the discovery remotes send), with a display `Name`, a `Description` shown once found and an `Image` asset id for the photo of that room. `EntriesById` is built at load. Exports type `Entry`.
+- API: data table — `PageId`, `Gui`, `Columns`, `Rows`, `Locked`, `Empty`, `CounterText`, `Pagination`, `Animation`, `Entries`, `EntriesById`
+- Requires: nothing
+
 ### ShopkeeperConfig.luau
 Tag, interaction reach, input bindings, highlight styling and prompt-pill UI settings for the shopkeeper NPC.
 - API: data table — `Tag`, `PageAttribute`, `Targeting`, `Input`, `Highlight`, `UI`, `SmileAnimationId`
+
+### SideButtonConfig.luau
+The four side-bar buttons' labels and keybinds, read by `InterfaceService`. Keyed by the `PageId` attribute the button already carries, so a button with no entry is labelled and bound by nothing.
+- API: data table — `Pages` (`Items` = Items/I, `KitInventory` = Kits/K, `Shop` = Shop/G, `Inventory` = Inventory/E, each `{ Label, Key }`), `Format` (`"%s [%s]"`, the label with its key appended), `Label` (the runtime TextLabel's `Name`, `AnchorPoint`, `Position`, `Size`, `FontFace` Merriweather Bold, `Color`, `MaxTextSize`, stroke colour/thickness/transparency and `ZIndexOffset`)
 
 ### SistersConfig.luau
 Everything the Sisters eye-contact catch shares between client and server: the `Sisters` tag, the `Sisters` remote folder and its `Gaze`/`Gazed` names, the gaze test (`Gaze`: camera range and cone angle, dwell time, the server's extra range slack, the post-warp cooldown, the client's retry delay after a refusal and its reply timeout), the vertigo screen effect numbers (`Vertigo`: lead time before the warp, sting name, shake preset, flash, blur, FOV pull, colour drain, release and stop timings, ring count/stagger/scale/stroke) and the ceiling warp length (`Warp.Duration`, 30 seconds like the Gravity Warper).
@@ -241,7 +244,7 @@ Speed multiplier, stamina economy, camera FOV blend, input bindings and stamina-
 
 ### StatsHUDConfig.luau
 Layout, colour thresholds and sampling intervals for the debug stats HUD panel (FPS, ping, danger level, enemy state rows).
-- API: data table — `ToggleKey` (F5), `EdgeMargin`, `RowHeight`, `CaptionWidth`, `PanelWidth`, `TextSize`, `BackgroundTransparency`, `Colors`, `Enemies`, `Fps`, `Ping`, `Danger` (`Interval`, `Good`, `Fair`)
+- API: data table — `EdgeMargin`, `RowHeight`, `CaptionWidth`, `PanelWidth`, `TextSize`, `BackgroundTransparency`, `Colors`, `Enemies`, `Fps`, `Ping`, `Danger` (`Interval`, `RetryInterval`, `Good`, `Fair`)
 
 ### StoreConfig.luau
 Shared settings for the two Robux store pages, the gamepass `ShopUI` and the gem-pack `GemsUI`, plus the result code the server attaches to a granted gem purchase.
@@ -254,16 +257,10 @@ Corridor-streaming settings — prediction, replication lead times, reconciliati
 ### ToolConfigs.luau
 Per-tool settings keyed by tool name, giving each tool its CollectionService tag plus its own behaviour values (heal amounts, cooldowns, sounds, movement settings and player-oddity effect selections). Exports a `ToolConfig` type.
 - API: data table — one entry per tool: `Flashlight`, `Bandage`, `Medkit`, `SpellBook`, `Trap`, `Ball`, `Shovel`, `Pathfinder`, `Soda`, `Energy Drink`, `Visor`, `Gravity Warper`, `Player Locator`, `Walkie Talkie`, `Big Head`, `Big Character`, `Small Character`, `Transparency`, `Random Oddity`
-- The five colored chips and the White Computer Chip (`ComputerChipConfig.Exit`) are added at load with `Class = "ComputerChip"` and their `ColorKey`.
 - Player oddity entries use `OddityKind`, optional `OddityOverrides`, or `OddityChoices` for the random four-effect item. `Shovel.HoleImmunityDuration` sets the six-second immunity granted when entering a hole.
 
-### TopHUDConfig.luau
-Settings for the top-centre coins, gems and danger strip driven by `TopHUDService`. Danger tiers are ordered by `Threshold`, and the eased danger value uses the last tier it reaches. `Glow` (0-1) is how strongly that tier pulses the red glow ring and track tint, and `PulsePeriod` is the pulse length in seconds.
-- API: data table — `Gui`, `ReferenceHeight`, `MinScale`, `MaxScale`, `Currencies` (`Coins`/`Gems`: `Attribute`, `Flash`), `Roll` (`Time`, `FlashHold`, `FlashFade`, `PopScale`, `PopTime`), `Danger` (`Interval`, `FollowSpeed`, `ColorFollowSpeed`, `GlowFollowSpeed`, `Track`, `Stroke`, `GlowColor`, `GlowMinTransparency`, `TrackTint`, `StrokeTint`, `Unknown`, `Tiers` of `{ Name, Threshold, Fill, FillEdge, Glow, PulsePeriod }`)
-- Type: `Tier`
-
 ### TopbarConfig.luau
-Which interface pages get a TopbarPlus icon, and how those icons look.
+Which interface pages get a TopbarPlus icon (Index, Rooms, Gems, Gallery in that order; the Rooms icon currently reuses the Index image), and how those icons look.
 - API: data table -- `PageGroup`, `Alignment`, `ImageScale`, `Icons` (ordered `{ PageId, Name, Label, Image, Order }` entries; `PageId` keys into `InterfaceService`'s pages)
 
 ### ViewmodelConfig.luau
@@ -299,12 +296,11 @@ Range, angle limits and joint weighting for the Watch class, which makes an NPC'
 ### ComputerChipConfig.luau
 Shared configuration for the five navigation chips: color-to-room mapping, 60-second duration, cubic fade exponent, per-color loot weight (Blue 34, Green 27, Red 21, Purple 16, Yellow 12, with `LootWeight = 12` as the fallback for a color that omits its own), server route checks (0.5 seconds), reroute throttle (3 seconds / 8 studs), connector cache lifetimes, a two-job ComputeAsync concurrency cap, player clearance, and local neon-dot spacing, visibility range and pooling limits. Change Duration here to update tool configuration, the effect HUD countdown and trail lifetime together.
 - Colors: Blue -> Room_357, Red -> Room_419, Green -> Room_466, Yellow -> Room_599, Purple -> Room_998, all under Maze15.Rooms.
-- `Exit` is the White Computer Chip, kept outside `Colors` so the five-computer HUD, exit panel and completion check are unchanged. It routes to `Maze15.ExitElevator`: the route snaps to the hallway at the elevator's `Approach` part and ends at its `Threshold`. `DrawerChance` (0.25) is the chance per drawer a player opens, and it only applies to players who have completed all five computers.
 - Each color entry carries a `LootWeight` ordered by how hard its computer's minigame is: Blue (Memory) 34, Green (Frogger) 27, Red (AimTrainer) 21, Purple (Simon) 16, Yellow (Snake) 12.
 - Attributes: ComputerChipColor on the real computers and chip templates.
 - Remotes: ComputerChip/Route (server-to-owner route, duration, expiry and revision), ComputerChip/Sync (owner requests an active route snapshot).
 - DrawerItemConfig gives each name its own `ComputerChip<Key>` rarity carrying that color's LootWeight, and adds a scaled copy of it to `Hallway.Items` so chips also drop loose in hallways alongside coins and gems; existing stocking targets and refill timers are unchanged. The no-immediate-repeat rule still applies.
-- ToolConfigs adds the five tagged tools plus the White chip with Class = ComputerChip and their ColorKey; EffectsHUDConfig gives each the computer icon, tinted by the active trail's color.
+- ToolConfigs adds the five tagged tools with Class = ComputerChip and their ColorKey; EffectsHUDConfig gives each the computer icon, tinted by the active trail's color.
 
 Kits do not modify jumping. All 24 kits inherit the StarterPlayer jump settings; the current Studio default uses jump height mode at 3 studs. JumpPower is no longer a supported kit stat.
 

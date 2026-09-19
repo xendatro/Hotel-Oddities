@@ -5,6 +5,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local KitConfig = require(ReplicatedStorage.Configs.KitConfig)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local AnalyticsService = require(ServerStorage.Services.AnalyticsService)
 local DataSaveService = require(ServerStorage.Services.DataSaveService)
 local GemService = require(ServerStorage.Services.GemService)
 local KitService = require(ServerStorage.Services.KitService)
@@ -63,7 +64,7 @@ function KitRollService:Roll(player: Player): { [string]: any }
 	rolling[player] = true
 
 	local result
-	if not GemService:Spend(player, ROLL.GemCost) then
+	if not GemService:Spend(player, ROLL.GemCost, ROLL.Sku) then
 		result = { Ok = false, Reason = "InsufficientGems" }
 	else
 		local rarity = pickRarity()
@@ -88,6 +89,11 @@ function KitRollService:Roll(player: Player): { [string]: any }
 				Duplicate = duplicate,
 				Refund = refund,
 			}
+			AnalyticsService:LogEvent(player, "KitRolled", ROLL.GemCost, {
+				Kit = kit.Id,
+				Rarity = kit.Rarity,
+				Duplicate = if duplicate then "Yes" else "No",
+			})
 		end
 	end
 

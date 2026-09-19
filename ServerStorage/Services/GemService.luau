@@ -4,11 +4,15 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
+local AnalyticsConfig = require(ServerStorage.Configs.AnalyticsConfig)
+local AnalyticsService = require(ServerStorage.Services.AnalyticsService)
 local DataSaveService = require(ServerStorage.Services.DataSaveService)
 
 local Sync = CommunicationService.Get("Gems", "Sync") :: RemoteEvent
 
 local ATTRIBUTE = "Gems"
+local CURRENCY = AnalyticsConfig.Economy.Currencies.Gems
+local TRANSACTIONS = AnalyticsConfig.Economy.Transactions
 local DOUBLE_ATTRIBUTE = PerkConfig.AttributePrefix .. "DoubleGems"
 
 local GemService = {}
@@ -45,8 +49,10 @@ function GemService:Award(player: Player, amount: number, multiplied: boolean?):
 	if amount <= 0 then return false end
 
 	local factor = if multiplied == false then 1 else multiplier(player)
-	profile.Data.Gems = read(profile) + amount * factor
+	local balance = read(profile) + amount * factor
+	profile.Data.Gems = balance
 	GemService:Sync(player)
+	AnalyticsService:LogEconomy(player, "Source", CURRENCY, amount * factor, balance, TRANSACTIONS.Award)
 	return true
 end
 
@@ -57,12 +63,14 @@ function GemService:Refund(player: Player, amount: number): boolean
 	amount = math.floor(tonumber(amount) or 0)
 	if amount <= 0 then return false end
 
-	profile.Data.Gems = read(profile) + amount
+	local balance = read(profile) + amount
+	profile.Data.Gems = balance
 	GemService:Sync(player)
+	AnalyticsService:LogEconomy(player, "Source", CURRENCY, amount, balance, TRANSACTIONS.Refund)
 	return true
 end
 
-function GemService:Spend(player: Player, amount: number): boolean
+function GemService:Spend(player: Player, amount: number, sku: string?): boolean
 	local profile = DataSaveService:Get(player)
 	if not profile then return false end
 
@@ -73,6 +81,7 @@ function GemService:Spend(player: Player, amount: number): boolean
 	if gems < amount then return false end
 
 	profile.Data.Gems = gems - amount
+	AnalyticsService:LogEconomy(player, "Sink", CURRENCY, amount, gems - amount, TRANSACTIONS.Purchase, sku)
 	return true
 end
 

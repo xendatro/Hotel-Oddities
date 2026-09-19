@@ -7,6 +7,8 @@ local CommunicationService = require(ReplicatedStorage.Services.CommunicationSer
 local EnemyDiscoveryService = require(ServerStorage.Services.EnemyDiscoveryService)
 local FriendReviveService = require(ServerStorage.Services.FriendReviveService)
 local ReviveService = require(ServerStorage.Services.ReviveService)
+local AnalyticsService = require(ServerStorage.Services.AnalyticsService)
+local EnemyEncounterService = require(ServerStorage.Services.EnemyEncounterService)
 local RoomService = require(ServerStorage.Services.RoomService)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 
@@ -119,6 +121,8 @@ local function watchCharacter(player: Player, character: Model)
 		Show:FireClient(player, cause, token)
 
 		EnemyDiscoveryService:GrantDeath(player, cause)
+		EnemyEncounterService:ResolveDeath(player, killer, cause)
+		AnalyticsService:LogEvent(player, "Death", nil, { Enemy = cause or DeathConfig.UnknownId })
 
 		Records[player] = nil
 		Killers[player] = nil

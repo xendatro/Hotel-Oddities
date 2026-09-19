@@ -214,6 +214,7 @@ function ComputerService:SetHacked(player: Player, model: Model, hacked: boolean
 	if count > 0 then
 		AnalyticsService:LogStep(player, `Computers{count}`)
 	end
+	AnalyticsService:LogEvent(player, "ComputerHacked", (self:GetProgress(player)), { Computer = id })
 end
 
 function ComputerService:ResetProgress(player: Player)

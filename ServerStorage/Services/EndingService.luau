@@ -51,6 +51,7 @@ function EndingService:Begin(player: Player): boolean
 	root.AssemblyAngularVelocity = Vector3.zero
 	root.Anchored = true
 	AnalyticsService:LogStep(player, "Escaped")
+	AnalyticsService:LogEvent(player, "RunEscaped", AnalyticsService:GetRunTime(player))
 	Show:FireClient(player)
 	return true
 end
@@ -61,6 +62,7 @@ function EndingService:Finish(player: Player): boolean
 	Ending[player] = nil
 
 	ComputerService:ResetProgress(player)
+	AnalyticsService:LogEvent(player, "PlayAgain")
 	AnalyticsService:StartRun(player)
 
 	local root = character:FindFirstChild("HumanoidRootPart")

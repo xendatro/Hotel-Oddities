@@ -9,7 +9,10 @@ return {
 
 	Revive = {
 		ForceFieldDuration = 25,
+		SelfSource = "Self",
 	},
+
+	UnknownId = "Hotel",
 
 	Unknown = {
 		Name = "The Hotel",

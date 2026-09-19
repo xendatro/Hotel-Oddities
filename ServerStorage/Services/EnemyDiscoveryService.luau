@@ -121,6 +121,16 @@ local function hasView(eye: Vector3, look: Vector3, character: Model, model: Mod
 	return workspace:Raycast(eye, offset, params) == nil
 end
 
+function EnemyDiscoveryService:HasView(player: Player, model: Model, rule: DiscoveryConfig.SightRule): boolean
+	local character = player.Character
+	if not character or not model:IsDescendantOf(workspace) then return false end
+
+	local eye, look = EnemyObservationService:GetView(player)
+	if not (eye and look) then return false end
+
+	return hasView(eye, look, character, model, rule)
+end
+
 local function activeModels(): { { Id: string, Model: Model } }
 	local entries = {}
 	for _, enemy in EnemyService:GetActive() do

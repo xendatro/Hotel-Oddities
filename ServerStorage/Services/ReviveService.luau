@@ -4,6 +4,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local DeathConfig = require(ReplicatedStorage.Configs.DeathConfig)
 local MarketplaceService = require(ReplicatedStorage.Services.MarketplaceService)
+local AnalyticsService = require(ServerStorage.Services.AnalyticsService)
 local LoadoutService = require(ServerStorage.Services.LoadoutService)
 
 local REVIVE_PRODUCT_ID = MarketplaceService.Products.Revive
@@ -60,9 +61,10 @@ function ReviveService:HasPendingDeath(player: Player): boolean
 	return PendingDeaths[player] ~= nil
 end
 
-function ReviveService:Grant(player: Player)
+function ReviveService:Grant(player: Player, source: string?)
 	local snapshot = PendingDeaths[player]
 	PendingDeaths[player] = nil
+	AnalyticsService:LogEvent(player, "Revived", nil, { Source = source or DeathConfig.Revive.SelfSource })
 
 	local character = loadLivingCharacter(player)
 

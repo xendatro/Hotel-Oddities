@@ -3,11 +3,15 @@
 Server only, self-initializing at require time via `ServerScriptService\Init.legacy.luau`. Never add an `:Init()` method.
 
 ### AnalyticsService.luau
-The one place funnel analytics are reported from. It owns a per-run funnel session (a fresh GUID per attempt) and logs the ten steps of a run through Roblox's `AnalyticsService:LogFunnelStepEvent`, plus the same steps once per player lifetime through `LogOnboardingFunnelStepEvent` so the new-player report is populated too. Steps are monotonic: a step is dropped if the session has already reached it or passed it, so dying and walking back into the elevator never double-counts, and the run's progress survives death exactly as computer progress does. A run session starts on join and again on `EndingService:Finish` (play again), because that is the only point the game wipes computer progress. Every Roblox analytics call is wrapped in `pcall`, and nothing is logged in Studio unless `AnalyticsConfig.LogInStudio` is set. Custom (non-funnel) analytics are deliberately not here.
+The one place Roblox analytics are reported from: the MazeRun funnel, custom events and economy events. It owns a per-run funnel session (a fresh GUID and start time per attempt) and logs the ten steps of a run through Roblox's `AnalyticsService:LogFunnelStepEvent`, plus the same steps once per player lifetime through `LogOnboardingFunnelStepEvent` so the new-player report is populated too. Steps are monotonic: a step is dropped if the session has already reached it or passed it, so dying and walking back into the elevator never double-counts, and the run's progress survives death exactly as computer progress does. A run session starts on join and again on `EndingService:Finish` (play again), because that is the only point the game wipes computer progress. Custom events go through `LogEvent`: the event id must be a key of `AnalyticsConfig.Events`, and the caller's `fields` table is keyed by the field names that entry declares, which are mapped in order onto Roblox's `CustomField01`-`CustomField03`; a declared `Step` field is filled in automatically with the furthest funnel step name of the current run (`None` before the first), so every custom event can be broken down by where in the run it happened. The event catalogue, who fires each one and why the list is kept short live in the `AnalyticsConfig` entry of `Documentation\ServerStorage\Configs.md`. Economy events go through `LogEconomy`, fired only by `GemService` and `CoinService`, so every gem and coin source and sink shows up on the Roblox economy dashboard with the balance after the change. Every Roblox analytics call is wrapped in `pcall`, and nothing is logged in Studio unless `AnalyticsConfig.LogInStudio` is set.
 - API: `AnalyticsService:LogStep(player: Player, stepId: string)` — `stepId` is a key of `AnalyticsConfig.Steps`; warns on an unknown id and never yields
+- API: `AnalyticsService:LogEvent(player: Player, eventId: string, value: number?, fields: { [string]: any }?)` — `eventId` is a key of `AnalyticsConfig.Events`; `value` defaults to 1; field values are `tostring`ed; warns on an unknown id and never yields
+- API: `AnalyticsService:LogEconomy(player: Player, flow: "Source" | "Sink", currency: string, amount: number, balance: number, transactionType: string, sku: string?)` — drops zero or negative amounts; `currency` and `transactionType` come from `AnalyticsConfig.Economy`
 - API: `AnalyticsService:StartRun(player: Player) -> string` — retires the old session and returns the new session id
 - API: `AnalyticsService:GetStep(player: Player) -> number` — the furthest step number reached this run, 0 before the first
-- Fired from: `Players.PlayerAdded`/`CharacterAdded` here (`Joined`, `Spawned`), `ElevatorService` (`EnteredElevator` on touching the lobby elevator, `ReachedMaze` once the destination actually streamed and only for non-instant rides, so `/map` does not count), `ComputerService:SetHacked` (`Computers1`-`Computers5`, counted off the completed chip colours, so `Computers5` is also the exit unlocking), `EndingService:Begin` (`Escaped`)
+- API: `AnalyticsService:GetStepName(player: Player) -> string` — that step's name, `AnalyticsConfig.NoStep` before the first
+- API: `AnalyticsService:GetRunTime(player: Player) -> number` — seconds since the current run session started
+- Fired from: (funnel) `Players.PlayerAdded`/`CharacterAdded` here (`Joined`, `Spawned`), `ElevatorService` (`EnteredElevator` on touching the lobby elevator, `ReachedMaze` once the destination actually streamed and only for non-instant rides, so `/map` does not count), `ComputerService:SetHacked` (`Computers1`-`Computers5`, counted off the completed chip colours, so `Computers5` is also the exit unlocking), `EndingService:Begin` (`Escaped`); (custom) `DeathService` (`Death`), `EnemyEncounterService` (`EnemyEncounter`), `ComputerService:SetHacked` (`ComputerHacked`), `EndingService` (`RunEscaped`, `PlayAgain`), `ItemShopService` (`ItemPurchased`), `KitShopService` (`KitPurchased`), `KitRollService` (`KitRolled`), `ReviveService:Grant` (`Revived`), `PlayerOddityService:Trigger` (`PlayerOddity`); (economy) `GemService`, `CoinService`
 - Requires: `ServerStorage.Configs.AnalyticsConfig`, `DataSaveService` (the persisted `OnboardingStep` that keeps the onboarding funnel to one pass per player)
 
 ### BadgeService.luau
@@ -51,6 +55,15 @@ Initializes each player's `CameraMaxZoomDistance` to `0.5` and registers `/camer
 - API: (no public methods; the module table is empty and exists only for its player initialization and chat-command registration)
 - Requires: `ChatCommandService`
 
+### CoinService.luau
+Owns the coin balance in the player's DataSave profile: reads and normalises it (falling back to `ItemShopConfig.StartingCoins`), mirrors it to a `Coins` player attribute, and applies awards (doubled by the `DoubleCoins` perk unless the caller opts out), refunds and checked, atomic spends. Every balance change is reported to `AnalyticsService:LogEconomy` as a `Coins` source (awards as `Gameplay`, refunds as `Shop`) or sink (`Shop`, with the caller's `sku`).
+- API: `CoinService:Get(player: Player) -> number`
+- API: `CoinService:Sync(player: Player)` — writes the normalised balance back to the profile and the attribute
+- API: `CoinService:Award(player: Player, amount: number, multiplied: boolean?) -> boolean`
+- API: `CoinService:Refund(player: Player, amount: number) -> boolean`
+- API: `CoinService:Spend(player: Player, amount: number, sku: string?) -> boolean` — false and no deduction when the balance is short; `sku` names what was bought for the economy event
+- Requires: `ItemShopConfig`, `PerkConfig`, `DataSaveService`, `AnalyticsConfig.Economy`, `AnalyticsService`
+
 ### ComputerCommandService.luau
 Implements the admin `/hack` chat command: lists every tagged computer with its assigned minigame and hacked state, teleports the caller in front of one, or force-sets computers hacked/locked. Computers are named by cycling a fixed game order per maze, and can be addressed by game name prefix or by `room_<name>`.
 - API: `ComputerCommandService:Execute(sender: Player, argument: string?) -> boolean` — handles `list`, `win <color|game|room|all>`, `reset [color|game|room|all]` (`reset all` goes through `ComputerService:ResetProgress`), or a bare target to teleport to; a target is resolved first as a chip colour (`blue`, `red`, `green`, `yellow`, `purple`, through `ComputerChipConfig.Colors` room names), then as a game name prefix, then as a room
@@ -67,7 +80,7 @@ Tracks each player's hacked computers in memory and in `profile.Data.HackedCompu
 - API: `ComputerService:ResetProgress(player: Player)` — clears every hacked computer from memory and `profile.Data.HackedComputers`, then syncs the player; used by the end screen's play-again path and the `/resetprogress` command
 - Remotes: `ComputerConfig.Remotes.Folder/Complete` (listened), `.../Sync` (fired, and listened for client refresh requests)
 - Tags: applies `ComputerConfig.Tag`
-- Requires: `ComputerConfig`, `ComputerChipConfig`, `DataSaveService`, `AnalyticsService`
+- Requires: `ComputerConfig`, `ComputerChipConfig`, `DataSaveService`, `AnalyticsService` (`Computers1`-`Computers5` funnel steps, and a `ComputerHacked` custom event carrying the computer's id with the hacked count as its value)
 
 ### CrouchService.luau
 Receives crouch state from the client and mirrors it onto the character as the `CrouchConfig.Stealth.Attribute`, rate-limiting reports and coalescing rapid toggles. Clears the attribute on each respawn.
@@ -105,7 +118,7 @@ Owns enemy damage and death causes. `Hit` is the one path every enemy hurt goes 
 - API: `DeathService:ClearCause(player: Player, causeId: string)` — clears only if it is still the current cause
 - API: `DeathService:GetCause(player: Player) -> string?` — nil once older than `DeathConfig.CauseMemory`
 - Remotes: `Death/Kill` (listened and fired to all), `Death/Strike` (fired with the enemy and the damage dealt), `Death/Show` (fired)
-- Requires: `DeathConfig`, `Configs.EnemyConfigs` (per-enemy `Damage`), `ReviveService:Offer`, `FriendReviveService:Offer`, `EnemyDiscoveryService:GrantDeath`, `RoomService`
+- Requires: `DeathConfig`, `Configs.EnemyConfigs` (per-enemy `Damage`), `ReviveService:Offer`, `FriendReviveService:Offer`, `EnemyDiscoveryService:GrantDeath`, `EnemyEncounterService:ResolveDeath` and `AnalyticsService:LogEvent` (on death the open enemy encounter is resolved and a `Death` custom event is logged with the cause id, or `DeathConfig.UnknownId` when nothing was chasing them), `RoomService`
 
 ### DevProductService.luau
 Registers one MarketplaceService receipt handler per entry in `DevProductConfigs`, running the configured grant inside a pcall and only reporting `PurchaseGranted` on success.
@@ -143,7 +156,7 @@ The win. Every `EndingConfig.CheckInterval` it checks each `Elevator` tagged mod
 - API: `EndingService:Cancel(player: Player)` - unfreeze and hide without resetting or teleporting
 - Remotes: `Ending/Show`, `Ending/Hide` (fired), `Ending/PlayAgain` (listened); all created with `.Ensure`
 - Tags: reads `ElevatorConfig.Tag`
-- Requires: `Configs.ElevatorConfig`, `Configs.EndingConfig`, `CharacterService`, `CommunicationService`, `ComputerService`
+- Requires: `Configs.ElevatorConfig`, `Configs.EndingConfig`, `CharacterService`, `CommunicationService`, `ComputerService`, `AnalyticsService` (`Escaped` funnel step and the `RunEscaped` custom event with the run's seconds on `Begin`; `PlayAgain` on `Finish`, logged before the run session restarts)
 
 ### ElevatorService.luau
 Teleports players from the lobby elevator into the maze: on hitbox touch it shows the loading screen, waits for the client fade and a minimum loading time, streams the destination in, then pivots the character to a part tagged with `ElevatorConfig.SpawnTag` (preferring one inside `Maze15`, now inside StartElevator). After a successful pivot it fires the configured arrival remote with that CFrame so the first-person client can align its camera to the map heading, including instant `/map` teleports. Every 0.2 seconds, the exit cabin rejects unauthorized players to its hallway Approach marker using ComputerService:IsExitUnlocked; no win action or teleport follows authorized entry.
@@ -181,8 +194,15 @@ Tracks per-player 0-1 discovery progress for each enemy in the bestiary, gained 
 - API: `EnemyDiscoveryService:Clear(player: Player)` — wipes all progress
 - API: `EnemyDiscoveryService:GrantEvent(player: Player, enemyId: string?)` — the config's Event award
 - API: `EnemyDiscoveryService:GrantDeath(player: Player, enemyId: string?)` — the Death award, queues the reveal
+- API: `EnemyDiscoveryService:HasView(player: Player, model: Model, rule: DiscoveryConfig.SightRule) -> boolean` — the sight test on its own (range, angle and line of sight from the player's reported view), with no dwell and no grant; used by `EnemyEncounterService`
 - Remotes: `Index/Update` (fired and listened as a resync request), `Index/Reveal` (fired)
 - Requires: `ServerStorage.Configs.DiscoveryConfig`, `DataSaveService` (`profile.Data.DiscoveredEnemies`), `EnemyObservationService:GetView`, `EnemyService`
+
+### EnemyEncounterService.luau
+Turns enemy contact into one `EnemyEncounter` custom analytics event per player per enemy instance, so the dashboard can show how often each enemy is met and how often that meeting ends in a death rather than an escape. Every `AnalyticsConfig.Encounter.SweepInterval` it walks `EnemyService:GetActive()` for each living player: an enemy is in contact when any of its models is within `Encounter.Range` studs of the player's root or, for enemies with a `DiscoveryConfig` sight rule, when `EnemyDiscoveryService:HasView` says the player can see it (the same range, angle and line-of-sight test as bestiary discovery, without the dwell). First contact opens an encounter; it ends with outcome `Escaped` when the enemy has been out of contact for `Encounter.Grace` seconds or has left the active list (despawned), and with outcome `Died` when `DeathService` reports a death whose killer model or cause id matches it. A death to an enemy that was never in contact still logs a zero-length `Died` encounter, and any other encounters open at the moment of death are dropped without an outcome, as are all encounters on respawn and on leaving, so a player who dies to the hotel while being chased never counts as an escape. Dead players are not swept, so the grace timer cannot run out while they sit on the death screen. The logged value is the encounter's length in seconds; the fields are `Enemy`, `Outcome` and the funnel `Step`. Does nothing unless `FLAGS.Enemies` and `Encounter.Enabled` are on.
+- API: `EnemyEncounterService:IsEncountering(player: Player, enemyId: string?) -> boolean` — whether an encounter is open, with any enemy or with the given id
+- API: `EnemyEncounterService:ResolveDeath(player: Player, killer: Model?, causeId: string?)` — called by `DeathService` on death; closes the matching encounter as `Died` and drops the rest
+- Requires: `FLAGS.Enemies`, `CharacterService`, `ServerStorage.Configs.AnalyticsConfig` (`Encounter`), `ServerStorage.Configs.DiscoveryConfig` (sight rules), `AnalyticsService:LogEvent`, `EnemyDiscoveryService:HasView`, `EnemyService:GetActive`
 
 ### EnemyObservationService.luau
 Server-side record of what each client reports it can see: validated lists of `Enemy`+`Observable` models plus the camera eye and look vector, rate-limited and treated as stale after 0.2s. Everything else queries it to ask whether an enemy is being watched, or for a player's viewpoint (falling back to the root part when no fresh report exists).
@@ -223,7 +243,7 @@ Registers a chat command for a FixturePool or CrossingPool so a developer can te
 Sells a paid "revive your friend" offer: when a player has a pending death, every friend in the server is offered a prompt, and a claimed offer triggers a developer-product purchase that grants the revive. Friendship results are cached per user-id pair and cleared on leave; the whole service no-ops unless the ReviveFriend product id is configured.
 - API: `FriendReviveService:Offer(target: Player)` — opens a timed offer window and fires it to every friend of `target`
 - Remotes: `Revive/Offer` (fired), `Revive/Withdraw` (fired), `Revive/Request` (listened)
-- Requires: `PerkConfig.FriendRevive`, `MarketplaceService` (`Products.ReviveFriend`, `:CreateReceipt`), `ReviveService` (`:HasPendingDeath`, `:Grant`)
+- Requires: `PerkConfig.FriendRevive`, `MarketplaceService` (`Products.ReviveFriend`, `:CreateReceipt`), `ReviveService` (`:HasPendingDeath`, `:Grant` with `PerkConfig.FriendRevive.Source`, so the `Revived` analytics event is attributed to a friend)
 
 ### GamepassService.luau
 Caches each player's gamepass ownership at join time by querying every id in `GamepassConfigs`, and keeps the cache fresh when a purchase prompt completes. Failed lookups are cached as `false` with a warning.
@@ -231,13 +251,14 @@ Caches each player's gamepass ownership at join time by querying every id in `Ga
 - Requires: `ServerStorage.Configs.GamepassConfigs`, `CharacterService.ForEachPlayer` / `.CleanupOnLeave`
 
 ### GemService.luau
-Owns the gem balance in the player's DataSave profile: reads and normalises it, mirrors it to a `Gems` player attribute, and pushes it to the client over `Gems/Sync` with an optional result code. Spending is checked and atomic, so a failed grant can be refunded by the caller. Gems are the currency for both kit purchases and rolls.
+Owns the gem balance in the player's DataSave profile: reads and normalises it, mirrors it to a `Gems` player attribute, and pushes it to the client over `Gems/Sync` with an optional result code. Spending is checked and atomic, so a failed grant can be refunded by the caller. Gems are the currency for both kit purchases and rolls. Every balance change is reported to `AnalyticsService:LogEconomy` as a `Gems` source (awards as `Gameplay`, refunds as `Shop`) or sink (`Shop`, with the caller's `sku`).
 - API: `GemService:Get(player: Player) -> number`
 - API: `GemService:Award(player: Player, amount: number) -> boolean`
-- API: `GemService:Spend(player: Player, amount: number) -> boolean` - false and no deduction when the balance is short
+- API: `GemService:Refund(player: Player, amount: number) -> boolean`
+- API: `GemService:Spend(player: Player, amount: number, sku: string?) -> boolean` - false and no deduction when the balance is short; `sku` names what was bought for the economy event
 - API: `GemService:Sync(player: Player, result: string?)`
 - Remotes: `Gems/Sync` (listened and fired)
-- Requires: `DataSaveService`, `CommunicationService`
+- Requires: `DataSaveService`, `CommunicationService`, `PerkConfig`, `AnalyticsConfig.Economy`, `AnalyticsService`
 
 ### GazeService.luau
 Server-side line-of-sight library: builds a short-lived cache of living, non-vanished player viewers (eye position and look vector from `EnemyObservationService`) and answers whether a point, part or model falls inside a viewer's cone with a clear raycast. Also provides a small Tracker object that accumulates seen/unseen durations across updates.
@@ -369,14 +390,14 @@ Admin toggle that marks a player's character with the `Vanished` tag, making the
 Coin-and-Robux item shop: it validates a purchase against `ItemShopConfig`, checks voice-chat eligibility for voice-gated items, spends coins from the DataSave profile and grants the tool through `InventoryService`. Robux products get a receipt handler with per-`PurchaseId` deduplication, and coin balances are mirrored to a `Coins` player attribute and to the client.
 - API: `ItemShopService:Sync(player: Player, result: string?, itemId: string?)` — pushes coins plus a result code (`Purchased`, `InsufficientCoins`, `InventoryFull`, `VoiceUnavailable`)
 - Remotes: `Items/Purchase` (listened), `Items/Sync` (fired and listened)
-- Requires: `ItemShopConfig`, `MarketplaceService.Products.Items` / `:CreateReceipt`, `DataSaveService`, `InventoryService`
+- Requires: `ItemShopConfig`, `MarketplaceService.Products.Items` / `:CreateReceipt`, `DataSaveService`, `InventoryService`, `CoinService` (spends pass the item id as the economy sku), `AnalyticsService` (`ItemPurchased` with `Item` and `Currency` = `Coins` or `Robux`, value = the coin price)
 
 ### KitRollService.luau
 The paid-random-items path. Eligibility comes from `PolicyService.ArePaidRandomItemsRestricted`, resolved once on join and published as a `CanRoll` player attribute; a restricted account is refused server-side, not merely hidden in the UI. A roll spends `KitConfig.Roll.GemCost`, picks a rarity by its configured weight and then a kit uniformly inside that rarity, and grants it. Rolling a kit already owned refunds `DuplicateRefundFraction` of that rarity's gem price. Every early exit refunds the cost, and a per-player flag blocks concurrent rolls.
 - API: `KitRollService:CanRoll(player: Player) -> boolean`
 - API: `KitRollService:Roll(player: Player) -> { Ok, Reason?, KitId?, Rarity?, Duplicate?, Refund?, Gems }`
 - Remotes: `Kits/Roll` (RemoteFunction, server invoke)
-- Requires: `Configs.KitConfig`, `GemService`, `KitService`, `DataSaveService`, `CommunicationService`, `PolicyService`
+- Requires: `Configs.KitConfig`, `GemService` (the spend's economy sku is `KitConfig.Roll.Sku`), `KitService`, `DataSaveService`, `CommunicationService`, `PolicyService`, `AnalyticsService` (`KitRolled` with `Kit`, `Rarity` and `Duplicate`, value = the gem cost)
 
 ### KitService.luau
 Owns kit ownership, the equipped kit, and applying a kit to a spawning character. Ownership and the equipped id live in the DataSave profile (`OwnedKits`, `EquippedKit`) and always fall back to `KitConfig.DefaultKit`, which every player owns. On each `CharacterAdded` the equipped kit's stats go onto the Humanoid through `HumanoidStatsService` under the `Kit` source, and its items are granted through `InventoryService`. Because granted tools are persisted by the inventory like any other, the exact counts last granted are recorded in `profile.Data.KitGrant` and removed before the next grant - that is what stops a kit's items from stacking up over sessions. Warns once at startup for every kit that fails `KitConfig.Validate`.
@@ -394,7 +415,7 @@ The non-gambling path: buying a named kit outright for its rarity's gem price. V
 - API: `KitShopService:PriceOf(kitId: string) -> number?`
 - API: `KitShopService:Buy(player: Player, kitId: string) -> string` - `Purchased`, `AlreadyOwned`, `InsufficientGems`, `UnknownKit`, `NotLoaded`, `GrantFailed`
 - Remotes: `Kits/Purchase` (listened)
-- Requires: `Configs.KitConfig`, `GemService`, `KitService`, `DataSaveService`, `CommunicationService`
+- Requires: `Configs.KitConfig`, `GemService` (the spend's economy sku is the kit id), `KitService`, `DataSaveService`, `CommunicationService`, `AnalyticsService` (`KitPurchased` with `Kit` and `Rarity`, value = the gem price)
 
 ### LanternFallService.luau
 Wires the `Prop/LanternFall` oddity class into a `FixturePool` labelled "lantern", which arms nearby lanterns, drops one when a player approaches, and repairs it afterwards. Returns an empty table if the oddity class was never registered.
@@ -563,7 +584,7 @@ Registers the `/oddity` chat command, parsing an optional effect name (size / he
 Randomly afflicts a living player with a `Player`-scope oddity (size, head size, transparency, head stare) on a repeating roll, allowing one at a time per player and clearing it on respawn. Weights come from `PlayerOddityConfig.EffectWeights` and unavailable classes are skipped.
 - API: `PlayerOddityService:IsActive(player: Player) -> boolean` — reports whether that player already has a running player oddity
 - API: `PlayerOddityService:Trigger(player: Player, kind: string?, overrides: {[string]: any}?) -> (boolean, string?, string?)` — returns ok, the chosen kind, and a failure reason; overrides support fixed big/small character sizes for tools
-- Requires: `PlayerOddityConfig`, `OddityService` (scope `"Player"`), `CharacterService`
+- Requires: `PlayerOddityConfig`, `OddityService` (scope `"Player"`), `CharacterService`, `AnalyticsService` (`PlayerOddity` with `Kind` on every successful trigger, ambient roll or command alike)
 
 ### ProfileService.luau
 Vendored third-party datastore session-locking library (loleris' ProfileService); used by DataSaveService — not modified in this project.
@@ -595,8 +616,8 @@ Captures a player's death location and inventory, prompts the Revive developer p
 - API: `ReviveService:Offer(player: Player, character: Model) -> number` — record a death and return its token
 - API: `ReviveService:Prompt(player: Player, token: number)` — prompt the purchase if the token is still current
 - API: `ReviveService:HasPendingDeath(player: Player) -> boolean` — whether a death snapshot is stored
-- API: `ReviveService:Grant(player: Player)` — perform the revive (also called from the receipt handler)
-- Requires: `DeathConfig.Revive`, `MarketplaceService:CreateReceipt`, `LoadoutService` (capture/restore)
+- API: `ReviveService:Grant(player: Player, source: string?)` — perform the revive (also called from the receipt handler); logs the `Revived` analytics event with `Source` = `source`, or `DeathConfig.Revive.SelfSource` when omitted
+- Requires: `DeathConfig.Revive`, `MarketplaceService:CreateReceipt`, `LoadoutService` (capture/restore), `AnalyticsService`
 
 ### RoomService.luau
 Auto-tags `Room_*` models under a `Rooms` folder, gives each an invisible pathfinding blocker part on the `RoomBlocker` collision group that only enemies collide with, and polls every 0.1s to track which room each player is inside. Also exposes doorway lookup and an outside-the-door approach point for enemy navigation.

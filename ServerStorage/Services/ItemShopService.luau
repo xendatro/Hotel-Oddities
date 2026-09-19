@@ -5,6 +5,7 @@ local VoiceChatService = game:GetService("VoiceChatService")
 
 local ItemShopConfig = require(ReplicatedStorage.Configs.ItemShopConfig)
 local MarketplaceService = require(ReplicatedStorage.Services.MarketplaceService)
+local AnalyticsService = require(ServerStorage.Services.AnalyticsService)
 local DataSaveService = require(ServerStorage.Services.DataSaveService)
 local CoinService = require(ServerStorage.Services.CoinService)
 local InventoryService = require(ServerStorage.Services.InventoryService)
@@ -57,7 +58,7 @@ Purchase.OnServerEvent:Connect(function(player: Player, itemId: any)
 		return
 	end
 
-	if not CoinService:Spend(player, entry.CoinPrice) then
+	if not CoinService:Spend(player, entry.CoinPrice, itemId) then
 		ItemShopService:Sync(player, "InsufficientCoins", itemId)
 		return
 	end
@@ -68,6 +69,7 @@ Purchase.OnServerEvent:Connect(function(player: Player, itemId: any)
 		return
 	end
 
+	AnalyticsService:LogEvent(player, "ItemPurchased", entry.CoinPrice, { Item = itemId, Currency = "Coins" })
 	ItemShopService:Sync(player, "Purchased", itemId)
 end)
 
@@ -102,6 +104,7 @@ for _, entry in ItemShopConfig.Entries do
 		end
 
 		profile.Data.ProcessedItemReceipts[receiptId] = true
+		AnalyticsService:LogEvent(player, "ItemPurchased", nil, { Item = entry.Id, Currency = "Robux" })
 		ItemShopService:Sync(player, "Purchased", entry.Id)
 		return Enum.ProductPurchaseDecision.PurchaseGranted
 	end)

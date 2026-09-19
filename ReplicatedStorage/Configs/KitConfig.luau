@@ -177,6 +177,7 @@ local KitConfig = {
 	MaxRefundFraction = 0.5,
 
 	Roll = {
+		Sku = "Roll",
 		GemCost = 400,
 		DuplicateRefundFraction = 0.4,
 

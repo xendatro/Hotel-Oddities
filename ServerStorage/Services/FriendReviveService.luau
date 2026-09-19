@@ -101,7 +101,7 @@ if ENABLED then
 		end
 
 		close(claim.Target)
-		ReviveService:Grant(claim.Target)
+		ReviveService:Grant(claim.Target, CONFIG.Source)
 
 		return Enum.ProductPurchaseDecision.PurchaseGranted
 	end)

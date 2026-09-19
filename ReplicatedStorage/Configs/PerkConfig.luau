@@ -21,6 +21,8 @@ return {
 	UnlimitedStamina = {},
 
 	FriendRevive = {
+		Source = "Friend",
+
 		Window = 15,
 
 		PurchaseGrace = 120,

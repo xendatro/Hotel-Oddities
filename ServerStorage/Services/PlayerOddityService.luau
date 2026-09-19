@@ -4,6 +4,7 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local Config = require(ReplicatedStorage.Configs.PlayerOddityConfig)
+local AnalyticsService = require(ServerStorage.Services.AnalyticsService)
 local OddityService = require(ServerStorage.Services.OddityService)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 
@@ -90,6 +91,7 @@ function PlayerOddityService:Trigger(player: Player, kind: string?, overrides: {
 			active[player] = nil
 		end
 	end)
+	AnalyticsService:LogEvent(player, "PlayerOddity", nil, { Kind = chosen })
 	return true, chosen, nil
 end
 
