@@ -45,5 +45,6 @@ local EffectsHUDConfig = {
 for _, entry in ComputerChipConfig.Colors do
 	EffectsHUDConfig.Icons[entry.ToolName] = ComputerChipConfig.Icon
 end
+EffectsHUDConfig.Icons[ComputerChipConfig.Exit.ToolName] = ComputerChipConfig.Icon
 
 return EffectsHUDConfig

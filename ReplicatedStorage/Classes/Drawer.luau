@@ -19,29 +19,50 @@ local function belongsToDrawerItem(instance: Instance): boolean
 	return false
 end
 
-local function outwardAxis(model: Model): Vector3
+local function axisFromHandle(pivot: CFrame, descendant: Instance): Vector3?
+	local offset = pivot:PointToObjectSpace((descendant :: BasePart).Position)
+	if math.abs(offset.X) >= math.abs(offset.Z) then
+		if math.abs(offset.X) > DrawerConfig.HandleThreshold then
+			return Vector3.new(math.sign(offset.X), 0, 0)
+		end
+	elseif math.abs(offset.Z) > DrawerConfig.HandleThreshold then
+		return Vector3.new(0, 0, math.sign(offset.Z))
+	end
+	return nil
+end
+
+local function isHandle(descendant: Instance, keyword: string): boolean
+	return descendant:IsA("BasePart")
+		and not belongsToDrawerItem(descendant)
+		and descendant.Name:lower():find(keyword, 1, true) ~= nil
+end
+
+local function outwardAxis(model: Model): Vector3?
 	local pivot = model:GetPivot()
 	local keyword = DrawerConfig.HandleKeyword:lower()
 
 	for _, descendant in model:GetDescendants() do
-		if not descendant:IsA("BasePart")
-			or belongsToDrawerItem(descendant)
-			or not descendant.Name:lower():find(keyword, 1, true)
-		then
-			continue
-		end
+		if not isHandle(descendant, keyword) then continue end
 
-		local offset = pivot:PointToObjectSpace(descendant.Position)
-		if math.abs(offset.X) >= math.abs(offset.Z) then
-			if math.abs(offset.X) > DrawerConfig.HandleThreshold then
-				return Vector3.new(math.sign(offset.X), 0, 0)
-			end
-		elseif math.abs(offset.Z) > DrawerConfig.HandleThreshold then
-			return Vector3.new(0, 0, math.sign(offset.Z))
-		end
+		local axis = axisFromHandle(pivot, descendant)
+		if axis then return axis end
 	end
 
-	return DrawerConfig.OutwardAxis.Unit
+	return nil
+end
+
+local function setUpConnections(self)
+	self.Connections = {}
+
+	self.Connections.DescendantAdded = self.Model.DescendantAdded:Connect(function(descendant: Instance)
+		if not isHandle(descendant, self.HandleKeyword) then return end
+
+		local axis = axisFromHandle(self.ClosedPivot, descendant)
+		if not axis then return end
+
+		self.Axis = axis
+		self.Connections.DescendantAdded:Disconnect()
+	end)
 end
 
 function Drawer.new(model: Model)
@@ -49,8 +70,14 @@ function Drawer.new(model: Model)
 
 	self.Model = model
 	self.ClosedPivot = model:GetPivot()
+	self.HandleKeyword = DrawerConfig.HandleKeyword:lower()
 	self.Axis = outwardAxis(model)
 	self.Spring = Spring.new(DrawerConfig.Stiffness, DrawerConfig.DampingRatio, DrawerConfig.MaxStep)
+
+	if not self.Axis then
+		self.Axis = DrawerConfig.OutwardAxis.Unit
+		setUpConnections(self)
+	end
 
 	return self
 end
@@ -95,6 +122,12 @@ function Drawer:Step(deltaTime: number): boolean
 end
 
 function Drawer:Destroy()
+	if self.Connections then
+		for _, connection in self.Connections do
+			connection:Disconnect()
+		end
+		self.Connections = nil
+	end
 	self.Model = nil
 end
 

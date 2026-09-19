@@ -37,8 +37,9 @@ Background loop that flickers the lights in the hallway containing a chased play
 - Requires: `EnemyService:ForEachActive`, `LightService:FlickerHallwayContaining`
 
 ### ChatCommandService.luau
-Shared registry for `/command` chat commands: other modules call `.Register` and this service parses every player's chat, matches the command name or alias, enforces the admin gate and invokes the handler. Handlers receive `(player, argument)` where `argument` is the trimmed remainder of the message or `nil` when empty. Every command, whatever its `AdminOnly` flag says, is allowed only for players whose role in the game's owning group (`game.CreatorId`, so Xenware Studios) is one of `AllowedRoles` - Owner or Developer, matched case-insensitively; roles are looked up once per player on join through `GetRoleInGroup` and cached, a failed lookup counts as no role, and there is no Studio bypass, so a Studio test account without the role is refused too. Registered by `ComputerCommandService` (`/hack`, admin), `EnemyCommandService` (`/spawn`, `/peek`, `/despawn`, `/vent`, `/enemies`, non-admin), plus `InvincibleCommandService`, `MapCommandService`, `MapOddityCommandService`, `LanternSwingCommandService`, `PlayerOddityCommandService`, `ToolCommandService` and `Services.FixtureCommandService`.
-- API: `ChatCommandService.Register(name: string, options: { Aliases: { string }?, AdminOnly: boolean?, Handler: (player: Player, argument: string?) -> () })` — names and aliases are lowercased; registering the same name again adds another handler and every handler for a matched name runs
+Shared registry for `/command` chat commands: other modules call `.Register` and this service parses every player's chat, matches the command name or alias, enforces the admin gate and invokes the handler. Handlers receive `(player, argument)` where `argument` is the trimmed remainder of the message or `nil` when empty. Every command is allowed only for players whose role in the game's owning group (`game.CreatorId`, so Xenware Studios) is one of `AllowedRoles` - Owner or Developer, matched case-insensitively; roles are looked up once per player on join through `GetRoleInGroup` and cached, a failed lookup counts as no role, and there is no Studio bypass, so a Studio test account without the role is refused too. Registered by `ComputerCommandService` (`/hack`), `EnemyCommandService` (`/spawn`, `/peek`, `/despawn`, `/vent`, `/enemies`), plus `InvincibleCommandService`, `MapCommandService`, `MapOddityCommandService`, `LanternSwingCommandService`, `PlayerOddityCommandService`, `ToolCommandService` and `Services.FixtureCommandService`.
+- API: `ChatCommandService.Register(name: string, options: { Aliases: { string }?, Handler: (player: Player, argument: string?) -> () })` — names and aliases are lowercased; registering the same name again adds another handler and every handler for a matched name runs
+- Attributes: sets the Player `Admin` boolean from `IsAllowed` once the role resolves on join, which gates every client `DebugPanel`
 - API: `ChatCommandService.IsAllowed(player: Player) -> boolean` — true when the player's cached group role is in `AllowedRoles`
 - API: `ChatCommandService.GetRole(player: Player) -> string` — the cached group role name, empty when unknown
 - API: `ChatCommandService.FindPlayer(name: string) -> Player?` — matches Name, DisplayName or UserId, case-insensitively
@@ -58,15 +59,15 @@ Implements the admin `/hack` chat command: lists every tagged computer with its 
 - Requires: `ChatCommandService` (registers `/hack` and `/resetprogress`, both admin-only), `ComputerService`, `ComputerConfig`, `Configs.ComputerChipConfig`, `Configs.EndingConfig`
 
 ### ComputerService.luau
-Tracks which computer models each player has hacked, as per-player server state rather than an instance attribute, and replicates the set to that player. Auto-tags every eligible `Computer` model in the workspace, stamps each with a unique `ComputerConfig.IdAttribute` string attribute, and validates client completion reports by distance and rate. Sync payloads are streaming-safe: `{ Hacked = { id, ... }, Total = n, Colors = { [color] = boolean }, ExitUnlocked = boolean }` (ids and a server-counted total, never Instance references, which deserialize to nil for streamed-out models). The per-player hacked set holds strong references to the models (a weak-keyed set let the collector silently drop earlier hacks, so progress read back as only the most recent computer); entries are cleared explicitly when a computer loses the tag. Re-syncs everyone when the tagged set changes, and answers rate-limited client sync requests fired back over the Sync remote.
+Tracks each player's hacked computers in memory and in `profile.Data.HackedComputers`, keyed by each model's `ComputerConfig.IdAttribute` string. When a model has no authored id, the service derives a stable id from its workspace path before tagging it. It restores saved ids after the profile loads, reapplies them to models tagged later, and replicates the set to that player. Sync payloads are streaming-safe: `{ Hacked = { id, ... }, Total = n, Colors = { [color] = boolean }, ExitUnlocked = boolean }` (ids and a server-counted total, never Instance references, which deserialize to nil for streamed-out models). The per-player hacked set holds strong references to the models; entries are cleared from memory and the profile when a computer loses the tag. Re-syncs everyone when the tagged set changes, and answers rate-limited client sync requests fired back over the Sync remote.
 - API: `ComputerService:IsHacked(player: Player, model: Model) -> boolean`
 - API: `ComputerService:IsExitUnlocked(player: Player) -> boolean` — all five configured chip destination computers must be complete for that player.
 - API: `ComputerService:GetProgress(player: Player) -> (number, number)` — hacked count, total tagged computers
 - API: `ComputerService:SetHacked(player: Player, model: Model, hacked: boolean)` — syncs the player on change
-- API: `ComputerService:ResetProgress(player: Player)` — forgets every computer that player has hacked and syncs them; used by the end screen's play-again path and the `/resetprogress` command
+- API: `ComputerService:ResetProgress(player: Player)` — clears every hacked computer from memory and `profile.Data.HackedComputers`, then syncs the player; used by the end screen's play-again path and the `/resetprogress` command
 - Remotes: `ComputerConfig.Remotes.Folder/Complete` (listened), `.../Sync` (fired, and listened for client refresh requests)
 - Tags: applies `ComputerConfig.Tag`
-- Requires: `ComputerConfig`
+- Requires: `ComputerConfig`, `ComputerChipConfig`, `DataSaveService`, `AnalyticsService`
 
 ### CrouchService.luau
 Receives crouch state from the client and mirrors it onto the character as the `CrouchConfig.Stealth.Attribute`, rate-limiting reports and coalescing rapid toggles. Clears the attribute on each respawn.
@@ -74,7 +75,7 @@ Receives crouch state from the client and mirrors it onto the character as the `
 - Requires: `CrouchConfig`
 
 ### DangerDebugService.luau
-Studio-only listener that accepts a whitelist of numeric danger-field overrides from the client debug panel, rebakes the danger map and resets the enemy director. Returns immediately unless `FLAGS.DangerDebug` and running in Studio. The rebake broadcasts the new settings, so every client's readout follows the overrides.
+Studio-only listener that accepts a whitelist of numeric danger-field overrides from the client debug panel, rebakes the danger map and resets the enemy director. Returns immediately unless `FLAGS.DangerDebug` and running in Studio. Requests from players failing `ChatCommandService.IsAllowed` are ignored. The rebake broadcasts the new settings, so every client's readout follows the overrides.
 - Remotes: `Danger/SetConfig` (listened; created here)
 - Requires: `DangerMapService:Rebake`, `EnemyDirectorService:Reset`
 
@@ -91,7 +92,7 @@ Bakes and serves the map-wide "danger" field: measures the extent of all `MazeFl
 - Requires: `Services.DangerFieldService`, `SpawnZoneService`, `DangerConfig`, `CommunicationService`
 
 ### DataSaveService.luau
-ProfileService front-end: loads, reconciles and releases one `PlayerData` profile per player, and lets other code either grab a loaded profile or yield until it arrives. The template holds currency, sword ownership, inventory, processed receipts, discovered enemies, discovered map intervals and `OnboardingStep` (the furthest onboarding funnel step `AnalyticsService` has already reported for this player, so the onboarding pass is logged once per account rather than once per run). Studio sessions load `Studio_Player_<UserId>` keys instead of `Player_<UserId>` (via `RunService:IsStudio()`), so a Studio playtest and a live game client hold separate profiles and never contest the session lock — Studio keeps its own separately saved data.
+ProfileService front-end: loads, reconciles and releases one `PlayerData` profile per player, and lets other code either grab a loaded profile or yield until it arrives. The template holds currency, sword ownership, inventory, processed receipts, discovered enemies, discovered map intervals, hacked computer ids, and `OnboardingStep` (the furthest onboarding funnel step `AnalyticsService` has already reported for this player, so the onboarding pass is logged once per account rather than once per run). Studio sessions load `Studio_Player_<UserId>` keys instead of `Player_<UserId>` (via `RunService:IsStudio()`), so a Studio playtest and a live game client hold separate profiles and never contest the session lock — Studio keeps its own separately saved data.
 - API: `DataSaveService:Get(player: Player) -> Profile?` — nil until the profile finishes loading
 - API: `DataSaveService:Wait(player: Player) -> Profile?` — yields the calling thread until loaded
 - Requires: `ServerStorage.Services.ProfileService` (third-party), `ItemShopConfig`
@@ -118,7 +119,10 @@ Server-authoritative door proximity poll. Every `PollInterval`, it checks all al
 
 ### DrawerItemService.luau
 Populates drawers with pickable item displays: clones a Tool from `ReplicatedStorage.Tools` into a script-free, anchored display model, measures the drawer's bounds and handle direction to seat it on the front surface, and keeps roughly `TargetPercentage` of drawers stocked on a refill timer. It also keeps `Hallway.MaxAlive` loose pickups on hallway floors, spaced and away from players. Handles client pickup requests with reach, debounce and inventory checks, avoiding repeating the last drawer or item.
-- Three weighted rolls, each skipping whatever spawned last: `chooseItemName` for drawer tools (`Rarities` via `Items`), `chooseCurrencyName` for drawer currencies (`Currencies`), and `chooseHallwayName` for loose hallway pickups, which pools `Currencies` with `Hallway.Items` so computer chips drop in hallways as well as drawers.
+- Three weighted rolls, each skipping whatever spawned last: `chooseItemName` for drawer tools (`Rarities` via `Items`), `chooseCurrencyName` for drawer currencies (`Currencies`), and `chooseHallwayName` for loose hallway pickups, which pools `Currencies` with `Hallway.Items` so map-only tools and computer chips drop in hallways while drawer tools stay in drawers.
+- Pickup validation accepts drawer tools, map-only hallway tools and currencies, so a hallway-only tool cannot be rejected after it spawns.
+- Owned displays: `SpawnFor` puts a display in an empty drawer with `OwnerUserId` set. Each player has at most one; a new one replaces the old. Only the owner can pick it up, it does not count toward the drawer stocking target, and it is removed when the owner leaves. Its pickup does not touch the refill timer or the no-repeat state.
+- API: `DrawerItemService:SpawnFor(player: Player, drawer: Model, itemName: string) -> Model?` — nil if the drawer is occupied or unknown
 - Remotes: `DrawerItemConfig.Remotes.Folder/Pickup` (listened)
 - Tags: listens `DrawerConfig.Tag`; applies `DrawerItemConfig.Tag`
 - Requires: `DrawerConfig`, `DrawerItemConfig`, `InventoryService:Wait` / `:Add`, `ReplicatedStorage.Tools`
@@ -126,6 +130,7 @@ Populates drawers with pickable item displays: clones a Tool from `ReplicatedSto
 ### DrawerService.luau
 Owns the open/closed state of drawer models as attributes, plays the open/close sound, and auto-closes drawers left open longer than `AutoCloseDelay`. Client toggle requests are rate-limited and distance-checked.
 - API: `DrawerService:SetOpen(model: Model, open: boolean)` — sets the state attributes and plays the sound
+- API: `DrawerService.Opened: RBXScriptSignal<(Player, Model)>` — fires when a player's toggle request opens a closed drawer
 - Remotes: `Drawer/Toggle` (listened)
 - Tags: reads `DrawerConfig.Tag`
 - Requires: `DrawerConfig`, `AudioService`
@@ -141,15 +146,15 @@ The win. Every `EndingConfig.CheckInterval` it checks each `Elevator` tagged mod
 - Requires: `Configs.ElevatorConfig`, `Configs.EndingConfig`, `CharacterService`, `CommunicationService`, `ComputerService`
 
 ### ElevatorService.luau
-Teleports players from the lobby elevator into the maze: on hitbox touch it shows the loading screen, waits for the client fade and a minimum loading time, streams the destination in, then pivots the character to a part tagged with `ElevatorConfig.SpawnTag` (preferring one inside `Maze15`, now inside StartElevator). Every 0.2 seconds, the exit cabin rejects unauthorized players to its hallway Approach marker using ComputerService:IsExitUnlocked; no win action or teleport follows authorized entry.
+Teleports players from the lobby elevator into the maze: on hitbox touch it shows the loading screen, waits for the client fade and a minimum loading time, streams the destination in, then pivots the character to a part tagged with `ElevatorConfig.SpawnTag` (preferring one inside `Maze15`, now inside StartElevator). After a successful pivot it fires the configured arrival remote with that CFrame so the first-person client can align its camera to the map heading, including instant `/map` teleports. Every 0.2 seconds, the exit cabin rejects unauthorized players to its hallway Approach marker using ComputerService:IsExitUnlocked; no win action or teleport follows authorized entry.
 - API: `ElevatorService:SendToMap(player: Player, instant: boolean?) -> boolean` — returns whether streaming succeeded; `instant` skips the fade, loading screen and cooldown
-- Remotes: `Elevator/Loading` (fired), `Elevator/FadeComplete` (listened) — both optional, looked up with `.Find`
+- Remotes: `Elevator/Loading` (fired), `Elevator/FadeComplete` (listened) — both optional, looked up with `.Find`; `Elevator/<ElevatorConfig.ArrivalRemoteName>` is ensured and fired after a successful arrival pivot
 - Tags: listens `ElevatorConfig.Tag`; reads `ElevatorConfig.SpawnTag`
 - Requires: `ElevatorConfig`, `HallwayStreamingService:PrepareTeleport`
 
 ### EnemyCommandService.luau
 Registers the developer enemy chat commands — `/spawn <id|all>`, `/peek`, `/despawn`, `/vent`, `/enemies` — routing Chaos, Sisters and CeilingDweller to their own placement services and everything else in front of (or behind) the caller. Results are reported via `warn`. Inert unless both `FLAGS.Enemies` and `FLAGS.EnemyCommands`.
-- Requires: `ChatCommandService` (registers all five commands, not admin-only), `EnemyConfigs`, `EnemyService`, `ChaosService:SpawnThrough` / `:CancelPending`, `SistersService:SpawnInHallway`, `StalkerService:SpawnPeeking`, `CeilingVentService:SpawnFromNearest` / `:GetVents`
+- Requires: `ChatCommandService` (registers all five commands), `EnemyConfigs`, `EnemyService`, `ChaosService:SpawnThrough` / `:CancelPending`, `SistersService:SpawnInHallway`, `StalkerService:SpawnPeeking`, `CeilingVentService:SpawnFromNearest` / `:GetVents`
 
 ### EnemyDebugService.luau
 Builds a periodic snapshot of every active enemy's id, state and position and broadcasts it to all players for the stats HUD, along with the director's current Stalker target name.
@@ -348,7 +353,8 @@ Authoritative backpack/hotbar model: it tracks a slot-ordered list of tool names
 - API: `InventoryService:Remove(player: Player, toolName: string, n: number)` — destroys the tool at zero
 - API: `InventoryService:RemoveAll(player: Player, toolName: string) -> number` — returns the amount removed
 - API: `InventoryService:Clear(player: Player)`
-- API: `InventoryService:Move(player: Player, from: number, to: number) -> boolean` — swaps two slots
+- API: `InventoryService:Move(player: Player, from: number, to: number) -> boolean` — swaps two slots and unequips any tool that lands in the bag
+- API: `InventoryService.Moved: RBXScriptSignal` — `(player, from, to)` after a successful `Move`
 - Remotes: `Inventory/Update` (fired and listened), `Inventory/Move` (listened), `Backpack/Delete` (listened)
 - Requires: `InventoryConfig` (`HotbarSlots` + `BackpackSlots` = capacity), `DataSaveService`
 
@@ -441,7 +447,7 @@ Server owner of per-player map discovery. On a fixed tick it projects each livin
 - API: `MapDiscoveryService:Update(player: Player)` — one discovery pass, replicating any hallway that grew
 - API: `MapDiscoveryService:UpdateLandmarks(player: Player, position: Vector3)` — records tagged landmarks inside their radius, firing only the first time each is seen
 - Remotes: `Map/Sync` (fired), `Map/Reveal` (fired), `Map/Landmark` (fired)
-- Tags: reads `MazeFloor`, `HallwayRoomFloor` through `HallwaysService`, plus `RoomFloor` and `ComputerRoomFloor`; reads each `MapConfig.Landmarks` tag (`HackComputer`, `Spawn`, `Exit`)
+- Tags: reads `MazeFloor`, `HallwayRoomFloor` through `HallwaysService`, plus `RoomFloor` and `ComputerRoomFloor`; reads each `MapConfig.Landmarks` tag (`HackComputer`, `Spawn`, `Elevator`) and applies configured name filters, including `ExitElevator` for the exit landmark
 - Requires: `ReplicatedStorage.Configs.MapConfig`, `CharacterService`, `CommunicationService`, `HallwaysService`, `DataSaveService`
 
 ### MapCommandService.luau
@@ -664,13 +670,13 @@ Tunes each player's voice input volume and every nested character voice emitter'
 - Requires: `VoiceChatConfig`, `NoiseService:Emit`
 
 ### VoiceDebugService.luau
-Studio-only debug hook, gated behind `FLAGS.VoiceDebug`: lets a client set any volume entry declared in `VoiceDebugConfig` live and re-applies it to the voice and walkie-talkie chains. Returns immediately without connecting anything when the flag is off or outside Studio.
+Studio-only debug hook, gated behind `FLAGS.VoiceDebug`: lets a client set any volume entry declared in `VoiceDebugConfig` live and re-applies it to the voice and walkie-talkie chains. Requests from players failing `ChatCommandService.IsAllowed` are ignored. Returns immediately without connecting anything when the flag is off or outside Studio.
 - API: data table — empty; the module only wires the remote
 - Remotes: `VoiceDebug/SetVolume` (listened)
 - Requires: `VoiceDebugConfig`, `FLAGS`, `VoiceActivityService:ApplyVolume`, `WalkieTalkieService:ApplyVolumes`
 
 ### WalkieTalkieService.luau
-Authoritative walkie-talkie. A player's radio graph is built when they power it on, not when they equip it, and lives on their Walkie Talkie tool wherever it sits, so a powered radio keeps receiving from the backpack; `Reconcile` rebinds it whenever the tool instance is replaced (respawn, inventory rebuild). One shared DSP chain per sender — compressor, bandpass, EQ, distortion, limiter for voice, and a parallel tagged chain for picked-up sounds — then splits per listener into `RadioVoice_<id>`, `RadioMonster_<id>` and `RadioNoise_<id>` faders feeding that listener's own mixer. Two post-mix global faders split gains above Roblox's per-fader limit before the listener's `AudioDeviceOutput`, which lets every category keep its full configured headroom. Both the voice and tagged paths pass a gate that is open only while the sender's toggle-transmit state is on, so nothing — voice, monster sounds or relayed audio — leaves a radio that is not transmitting, and only transmitting radios can pick up nearby ambient emitters. Tears down a dead player's graph and receiver routes immediately, then builds a fresh graph on the replacement tool after respawn; a transmitting holder still plays the static death burst. Relays client-requested sounds with a rate limit, emits noise so enemies hear radio traffic, applies each category's configured maximum when validating saved volume gains, publishes `WalkiePowered`, `VoiceEligible` and `WalkieTransmitting` as Player attributes for the client roster, and persists category volumes and the All/Friends mode into the player's DataSave profile.
+Authoritative walkie-talkie. A player's radio graph is built when they power it on, not when they equip it, and lives on their Walkie Talkie tool wherever it sits, so a powered radio keeps receiving while it sits unequipped on the hotbar, and is powered off as soon as it is moved into the bag; `Reconcile` rebinds it whenever the tool instance is replaced (respawn, inventory rebuild). One shared DSP chain per sender — compressor, bandpass, EQ, distortion, limiter for voice, and a parallel tagged chain for picked-up sounds — then splits per listener into `RadioVoice_<id>`, `RadioMonster_<id>` and `RadioNoise_<id>` faders feeding that listener's own mixer. Two post-mix global faders split gains above Roblox's per-fader limit before the listener's `AudioDeviceOutput`, which lets every category keep its full configured headroom. Both the voice and tagged paths pass a gate that is open only while the sender's toggle-transmit state is on, so nothing — voice, monster sounds or relayed audio — leaves a radio that is not transmitting, and only transmitting radios can pick up nearby ambient emitters. Tears down a dead player's graph and receiver routes immediately, then builds a fresh graph on the replacement tool after respawn; a transmitting holder still plays the static death burst. Relays client-requested sounds with a rate limit, emits noise so enemies hear radio traffic, applies each category's configured maximum when validating saved volume gains, publishes `WalkiePowered`, `VoiceEligible` and `WalkieTransmitting` as Player attributes for the client roster, and persists category volumes and the All/Friends mode into the player's DataSave profile.
 - API: `WalkieTalkieService:SetPower(player: Player, on: boolean)` — build or tear down the graph; refused when voice chat is unavailable for that user
 - API: `WalkieTalkieService:SetTransmitting(player: Player, active: boolean)` — open/close the transmission gates and the transmit static loop
 - API: `WalkieTalkieService:Reconcile(player: Player)` — rebind the graph to the player's current tool
@@ -683,7 +689,7 @@ Authoritative walkie-talkie. A player's radio graph is built when they power it 
 - API: `WalkieTalkieService:ApplyVolumes()` — re-read config volumes into every live graph
 - Remotes: `WalkieTalkie/SetMode`, `WalkieTalkie/SetPower`, `WalkieTalkie/SetTransmit`, `WalkieTalkie/TransmitSound` (listened), `WalkieTalkie/SetAudio` (listened, and fired once per player with their saved settings); all created with `.Ensure`
 - Tags: reads `WalkieTalkieConfig.RadioAllowedTag` on AudioEmitters/AudioPlayers
-- Requires: `WalkieTalkieConfig`, `DataSaveService`, `NoiseService:Emit`, `VoiceChatService:IsVoiceEnabledForUserIdAsync`
+- Requires: `WalkieTalkieConfig`, `InventoryConfig.HotbarSlots`, `DataSaveService`, `InventoryService.Moved` / `:GetSlot`, `NoiseService:Emit`, `VoiceChatService:IsVoiceEnabledForUserIdAsync`
 
 ### WallstickService.luau
 Server bootstrap for the vendored Wallstick controller: registers the `WallstickCollision`/`WallstickNoCollision` collision groups (non-collidable with every other group; the fake-world group collides only with itself), builds the persistent `workspace.Wallstick` model with its far-away `Origin` part and `StreamingFoci` folder, creates a client-owned streaming-focus part (AlignPosition/AlignOrientation, added as a replication focus under StreamingEnabled) for every player, and starts the replication listener that rebroadcasts each client's stick part/offset to everyone.
@@ -695,15 +701,17 @@ Owns one active navigation-chip effect per player. Validates the held inventory 
 - Routes and expiry are sent only to the owning player via ComputerChip/Route. ComputerChip/Sync is a rate-limited snapshot request; the client never supplies destinations or waypoints.
 - Every 0.5 seconds, cheap position/state checks decide whether work is needed. Recomputations are throttled to 3 seconds, triggered by movement, corridor/room transitions, off-route movement, graph revisions, or connector cache refresh. At most one route request per player runs at a time; stale/expired results are discarded.
 - Hotel-room starts project through RoomService:GetDoorApproach to the connected corridor centerline. Destinations stop on the hallway centerline outside the computer room. No trail segment is added inside those adjacent rooms.
+- The White Computer Chip (`ComputerChipConfig.Exit`) targets `Maze15.ExitElevator` instead of a computer. Activation also requires `ComputerService:IsExitUnlocked`. Its route runs to the hallway point at the elevator's `Approach` part, and one more point at the `Threshold` leads the trail into the doorway.
+- White chip drops: on `DrawerService.Opened`, a player with the exit unlocked who holds no White chip rolls `Exit.DrawerChance`. A success calls `DrawerItemService:SpawnFor`, so the chip only appears in that drawer for that player.
 - Death, leaving, expiration or removal of the destination clears the effect. The workspace-level ComputerModel template is never a target. Computer color labels are refreshed from config; hacking/minigame completion remains independent.
-- Requires: ComputerChipConfig, CharacterService, CommunicationService, InventoryService, RoomService, ComputerChipRouteService.
+- Requires: ComputerChipConfig, CharacterService, CommunicationService, ComputerService, DrawerItemService, DrawerService, InventoryService, RoomService, ComputerChipRouteService.
 
 ### ComputerChipRouteService.luau
 Builds a player navigation graph from HallwayGraphService:BuildCorridors and attaches connector entrances. Authoritative Connectors markers are preferred; legacy rooms infer entrances where real corridor endpoints touch their tagged room floors. Every entrance pair is connected, and source positions inside a connector connect to its exits. Regular hotel/computer rooms attach only through their doorway's outside hallway point.
 - Shortest path: reuses HallwayGraphService:FindPath with distance-only costs, never DangerMapService or patrol danger weights. Unresolved connector edges start with direct-distance lower bounds; edges used by a candidate route are resolved and Dijkstra is repeated until the selected route has current measured lengths.
 - Connector fallback order: player-volume overlap/swept-clearance and ground-support check for direct travel; bounded ComputeAsync to route around furniture (no jumps and no adjacent-room traversal); forced direct entrance-to-exit segment if navigation fails. Pathfinding results leaving the connector bounds are rejected. Forced segments may cross obstacles, as requested.
 - Caches room/entrance-pair results across players, coalesces in-flight requests and caps concurrent ComputeAsync calls at two. Successful results expire after 30 seconds, forced fallbacks after 5; expired cache entries are swept. Floor-tag or connector-part additions/removals invalidate the graph, and periodic route refresh picks up moved obstacles through cache expiration.
-- API: Locate(maze, position, hotelRoom?), GetRoute(maze, origin, targetRoom, aliveCallback), GetRevision(), Invalidate(). All graph instances with temporary source/destination nodes are private to each request.
+- API: Locate(maze, position, hotelRoom?), GetRoute(maze, origin, destination, aliveCallback), GetRevision(), Invalidate(). `destination` is a room Model (anchored at its doorway) or a Vector3 snapped to the nearest hallway within EntranceSnapDistance. All graph instances with temporary source/destination nodes are private to each request.
 
 Computer chip routing follow-up: connector entrance inference uses EntranceSnapDistance to cover gaps and split approach-floor pieces, linking nearby corridor projections. Doorway anchoring uses the room elevation so raised decorative threshold parts do not reject an otherwise valid hallway. Connector path bounds include the entrance approach tolerance. GetDiagnostics(maze) exposes graph entrance summaries, cached segment modes/points, and computation/concurrency counters for runtime inspection. ComputerChipService retains the exact target computer and cancels pending, active, and rerouting work if that computer leaves its room or loses its tag.
 

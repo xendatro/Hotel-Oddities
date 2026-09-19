@@ -34,7 +34,7 @@ Runs a function but gives up after `n` seconds, using Race against a `task.wait`
 - Requires: `Classes.Race`
 
 ### DebugPanel.luau
-Builds a keyboard-toggled developer overlay ScreenGui with labels, buttons, drag sliders and scrolling time graphs. Toggling unlocks the mouse through InterfaceService.
+Builds a keyboard-toggled developer overlay ScreenGui with labels, buttons, drag sliders and scrolling time graphs. Toggling unlocks the mouse through InterfaceService. The toggle key only works for players whose `Admin` attribute, set by the server's `ChatCommandService`, is true.
 - API: `DebugPanel.new(title: string, toggleKey: Enum.KeyCode, width: number?) -> DebugPanel` — creates the hidden panel in PlayerGui; width defaults to 300
 - API: `DebugPanel:SetTitle(title: string)`
 - API: `DebugPanel:IsOpen() -> boolean`
@@ -63,13 +63,13 @@ Spring-driven swinging door leaf: picks a hinge side from who opened it, swings 
 - Requires: `Classes.Spring`, `Configs.DoorConfig`, `Services.AudioService` (uses `GetPlaybackBounds`), `Services.MathService`
 
 ### Drawer.luau
-Spring-driven sliding drawer model. Infers its outward axis from a part whose name contains `DrawerConfig.HandleKeyword`, ignoring parts belonging to tagged drawer items.
+Spring-driven sliding drawer model. Infers its outward axis from a part whose name contains `DrawerConfig.HandleKeyword`, ignoring parts belonging to tagged drawer items. If no handle part has streamed in yet at construction time, falls back to `DrawerConfig.OutwardAxis` and listens on `model.DescendantAdded` to resolve the real axis once the handle actually arrives, guarding against the drawer opening the wrong way on clients where the handle streams in late.
 - API: `Drawer.new(model: Model) -> Drawer`
 - API: `Drawer:IsOpen() -> boolean`
 - API: `Drawer:IsMoving() -> boolean`
 - API: `Drawer:SetOpen(open: boolean, immediate: boolean?)`
 - API: `Drawer:Step(deltaTime: number) -> boolean` — true while still animating
-- API: `Drawer:Destroy()` — drops the model reference only
+- API: `Drawer:Destroy()` — disconnects any pending handle-resolution connection and drops the model reference
 - Tags: reads `DrawerItemConfig.Tag`
 - Requires: `Classes.Spring`, `Configs.DrawerConfig`, `Configs.DrawerItemConfig`
 

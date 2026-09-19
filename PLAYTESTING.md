@@ -194,6 +194,18 @@ script's `Source` from the Edit datamodel. If it's missing, apply the same
 replacements to `Source` there and compare `#Source` with the file's byte count
 (`wc -c`), after subtracting one per line for files saved with CRLF endings.
 
+**`Measured`** — **chat commands can be run from a Client snippet.** On
+2026-09-18, `TextChatService.TextChannels.RBXGeneral:SendAsync("/resetprogress")`
+from the Client datamodel reached `ChatCommandService` through `Player.Chatted`,
+and the server printed its `[resetprogress]` confirmation. Use this to undo
+persistent progress a playtest wrote, since Studio profiles save between runs.
+
+**`Observed`** — **an instance the client destroyed locally does not come back.**
+After a client destroyed its copy of a replicated model, the server removing
+and re-parenting that same model never re-created it on the client. A control
+built that way reads as "hidden" whatever the code does. Build the control from
+a fresh instance.
+
 **`Observed`** — **stopping and starting play is not instant.** Starting
 immediately after stopping can fail with "Stop play hasn't finished yet"; retry.
 Reparenting instances the client is mid-way through using has also dropped the

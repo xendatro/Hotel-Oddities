@@ -4,6 +4,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local Config = require(ReplicatedStorage.Configs.VoiceDebugConfig)
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
+local ChatCommandService = require(ServerStorage.Services.ChatCommandService)
 local VoiceActivityService = require(ServerStorage.Services.VoiceActivityService)
 local WalkieTalkieService = require(ServerStorage.Services.WalkieTalkieService)
 
@@ -24,6 +25,7 @@ task.spawn(function()
 	local setVolume = CommunicationService.Get("VoiceDebug", "SetVolume") :: RemoteEvent
 
 	setVolume.OnServerEvent:Connect(function(player: Player, id: any, value: any)
+		if not ChatCommandService.IsAllowed(player) then return end
 		local entry = type(id) == "string" and EntriesById[id]
 		if not entry or type(value) ~= "number" or value ~= value then return end
 

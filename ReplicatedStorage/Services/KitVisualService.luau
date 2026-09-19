@@ -168,15 +168,17 @@ end
 
 local function formatStat(row): string
 	local stat = row.Stat
+	local direction = if stat.HigherIsBetter then 1 else -1
 
 	if stat.Mode == "Scale" then
 		local ratio = if stat.Base ~= 0 then row.Value / stat.Base - 1 else 0
+		ratio *= direction
 		local percent = MathService.Comma(math.abs(ratio) * 100)
 		local sign = if ratio < 0 then "-" else "+"
 		return `{string.upper(stat.Name)} {sign}{percent}%`
 	end
 
-	local delta = row.Delta
+	local delta = row.Delta * direction
 	local rounded = MathService.Comma(math.abs(delta))
 	local sign = if delta < 0 then "-" else "+"
 	return `{string.upper(stat.Name)} {sign}{rounded}`

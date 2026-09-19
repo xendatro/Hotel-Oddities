@@ -12,11 +12,10 @@ local Roles: { [Player]: string } = {}
 
 type Options = {
 	Aliases: { string }?,
-	AdminOnly: boolean?,
 	Handler: (player: Player, argument: string?) -> (),
 }
 
-type Entry = { Name: string, AdminOnly: boolean, Handler: (player: Player, argument: string?) -> () }
+type Entry = { Name: string, Handler: (player: Player, argument: string?) -> () }
 
 local Commands: { [string]: { Entry } } = {}
 
@@ -58,7 +57,6 @@ end
 function ChatCommandService.Register(name: string, options: Options)
 	local entry: Entry = {
 		Name = name:lower(),
-		AdminOnly = options.AdminOnly == true,
 		Handler = options.Handler,
 	}
 	local names = { entry.Name }
@@ -91,7 +89,9 @@ local function onChatted(player: Player, message: string)
 end
 
 local function watch(player: Player)
-	task.spawn(resolveRole, player)
+	task.spawn(function()
+		player:SetAttribute("Admin", ChatCommandService.IsAllowed(player))
+	end)
 	player.Chatted:Connect(function(message: string)
 		onChatted(player, message)
 	end)

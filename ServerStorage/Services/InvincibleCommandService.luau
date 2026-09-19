@@ -29,7 +29,6 @@ function InvincibleCommandService:Is(player: Player): boolean
 end
 
 ChatCommandService.Register("invincible", {
-	AdminOnly = true,
 	Handler = function(player: Player, argument: string?)
 		local word = argument and argument:lower()
 		if word and ON_WORDS[word] then
@@ -45,7 +44,6 @@ ChatCommandService.Register("invincible", {
 })
 
 ChatCommandService.Register("mortal", {
-	AdminOnly = true,
 	Handler = function(player: Player)
 		InvincibleCommandService:Set(player, false)
 	end,

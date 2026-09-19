@@ -95,6 +95,11 @@ local function roomAnchor(graph, room)
 	return if hallway then { Hallway = hallway, Position = point, Room = room } else nil
 end
 
+local function positionAnchor(graph, position)
+	local hallway, point = nearestHallway(graph, position, Config.EntranceSnapDistance)
+	return if hallway then { Hallway = hallway, Position = point } else nil
+end
+
 function Routes:Locate(maze, position, hotelRoom)
 	local graph = getGraph(maze)
 	if hotelRoom then return roomAnchor(graph, hotelRoom) end
@@ -213,10 +218,10 @@ local function insertAnchor(graph, anchor)
 	return nil
 end
 
-function Routes:GetRoute(maze, origin, targetRoom, alive)
+function Routes:GetRoute(maze, origin, destination, alive)
 	Metrics.Requests += 1
 	local base = getGraph(maze)
-	local target = roomAnchor(base, targetRoom)
+	local target = if typeof(destination) == "Vector3" then positionAnchor(base, destination) else roomAnchor(base, destination)
 	if not target or not origin then return nil end
 	local graph = cloneGraph(base)
 	local from, to = insertAnchor(graph, origin), insertAnchor(graph, target)

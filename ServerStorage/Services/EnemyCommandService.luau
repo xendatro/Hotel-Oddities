@@ -170,7 +170,6 @@ end
 
 for name, handler in Commands do
 	ChatCommandService.Register(name, {
-		AdminOnly = false,
 		Handler = handler,
 	})
 end

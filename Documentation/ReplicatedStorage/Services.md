@@ -131,11 +131,11 @@ Client-only, gated on `FLAGS.Enemies`. For every streamed-in tagged enemy that h
 - Requires: `Configs.ChaseMusicConfig`, `CharacterService`, `MathService`, `TagService`, `AudioService`
 
 ### ChaserCameraService.luau
-Gated on `FLAGS.Enemies`. Drives camera reactions to enemies chasing the local player: a fading FOV offset while a ceiling dweller or mimic is hunting, and per-enemy dynamic rumble shakes scaled by distance to streamed-in enemies from `ChaserCameraConfig.ChaseShakes`. Its active state only reports a live FOV or rumble effect, so distant `AllPlayers` enemies do not suppress walking camera bob. Clears its cached chase FOV state when the local character dies. Also reacts to the server's vent-open and scream phases with one-shot shakes and a scream sound.
+Gated on `FLAGS.Enemies`. Drives camera reactions to enemies chasing the local player: a fading FOV offset while a ceiling dweller or mimic is hunting, and per-enemy dynamic rumble shakes scaled by distance to streamed-in enemies from `ChaserCameraConfig.ChaseShakes`. Its active state only reports a live FOV or rumble effect for consumers that need it; walking camera bob keeps its normal strength during a chase. Clears its cached chase FOV state when the local character dies. Also reacts to the server's vent-open and scream phases with one-shot shakes and a scream sound. The Mad Guest (`ChaserCameraConfig.MadGuest`, EnemyId `Chaser`) gets its own chase treatment while it hunts the local player: a chase-start sting (Jolt shake, a decaying FOV punch and the optional `MadGuestSting` 2D sound, on a cooldown), a `MadGuestChase` FOV offset that widens from `FieldOfView.Far` to `FieldOfView.Near` as it closes in, a slow rolling handheld sway from its `ChaseShakes.Chaser` rumble, and a camera thud on each of its footsteps through `WalkSoundService:OnEnemyStep`, scaled by distance.
 - API: `ChaserCameraService:IsActive() -> boolean` — whether any chase camera effect is currently running (returns `false` when the flag is off)
 - Remotes: `Enemies/CeilingDwellerCamera` (listened; `Open` / `Scream` phases)
 - Tags: reads `Enemy`
-- Requires: `Configs.ChaserCameraConfig`, `CharacterService`, `ShakeService`, `CameraFovService`, `MathService`, `AudioService`
+- Requires: `Configs.ChaserCameraConfig`, `CharacterService`, `ShakeService`, `CameraFovService`, `MathService`, `AudioService`, `WalkSoundService`
 
 ### CommunicationService.luau
 Shared accessor for `ReplicatedStorage.Communication`. On the server it creates the folder if it is missing; on the client it waits for it. All three functions are defined with a dot and return the remote as `any`, so cast at the call site.
@@ -192,7 +192,9 @@ Procedural "danger" heat field over the maze: fractal Brownian noise per floor, 
 - API: `DangerField.MeasureExtent(floors: { BasePart }) -> (number, Vector3)` — largest horizontal span and center
 - API: `DangerField.BakePoints(floors: { BasePart }, spacing: number, settings: FieldSettings) -> { SpawnPoint }` — grid of `{ Position, Danger }` on floor tops
 - API: `DangerField.BuildSettings(startPosition: Vector3, extent: number, overrides: { [string]: any }?) -> FieldSettings` — config values scaled to the map extent
-- Requires: `Configs.DangerConfig`
+- API: `DangerField.GetReplicatedSettings() -> FieldSettings?` — client only: the server's baked settings, or nil until they arrive. The first call starts pulling them over `Danger/GetSettings`, retrying every second, and keeps them current from `Danger/Settings` on every rebake. Always nil on the server
+- Remotes: `Danger/GetSettings` (invoked), `Danger/Settings` (listened), both only after a client calls `GetReplicatedSettings`
+- Requires: `Configs.DangerConfig`, `CommunicationService`
 
 ### DeathScreenService.luau
 Client-only. Builds and drives the glitch death screen: scanlines, a moving sweep, RGB-split name text, glitch slice bursts, a vignette, and a typed-out hint, all faded by blur and colour-correction effects. The server sends the cause and a token; once the screen has been held long enough and faded out, the token is sent back.
@@ -216,7 +218,7 @@ Client renderer for every swinging door part inside a `Doorway`+`RoomDoor` model
 - Requires: `Classes.DoorPart`, `Configs.DoorConfig` (`OpenAttribute`, `OpenFromAttribute`), `CharacterService`, `TagService`
 
 ### DrawerItemService.luau
-Client-only. Registers every `DrawerItem` model, including hallway currency displays, as an interactable pick-up and fires the server when one is activated, with a short cooldown. Successful currency pickups show a `+N Coins` or `+N Gems` notification and play the configured 2D pickup sound when its sound template exists. Newly appearing drawer items also re-sync their parent drawer so the item sits at the drawer's current position.
+Client-only. Registers every `DrawerItem` model, including hallway currency displays, as an interactable pick-up and fires the server when one is activated, with a short cooldown. Successful currency pickups show a `+N Coins` or `+N Gems` notification and play the configured 2D pickup sound when its sound template exists. Newly appearing drawer items also re-sync their parent drawer so the item sits at the drawer's current position. A display whose `OwnerUserId` attribute names another player is destroyed locally and never registered, so only its owner sees it.
 - API: `DrawerItemService:GetFocused() -> Model?` — the item currently under the interaction cursor
 - API: `DrawerItemService:Pickup(model: Model?) -> boolean` — request pickup of the given (or focused) item
 - Remotes: `DrawerItem/Pickup` (fired), `DrawerItem/PickupResult` (listened)
@@ -286,9 +288,9 @@ Renders every `Eye` tagged model client-side each frame: bobs it on its own phas
 - Requires: `Services.AimService`, `Services.BobService`, `Services.SightlineService`, `Services.VanishedService`, `Configs.EyeConfig`, `Configs.FLAGS`, `EyeHitEffectService`, `TagService`
 
 ### FirstPersonCameraService.luau
-Hides the default mouse icon, enables the custom `Cursor` GUI, and adds walking camera bob — a stronger sine sway plus walk-cycle roll whose speed and amplitude scale with horizontal walk speed, fading in and out as the player starts and stops. Strafing adds a reduced, smoothed movement-direction camera tilt. Bob is suppressed entirely while an actual chaser camera effect is active. The bob's translation is also applied to `Camera.Focus`, because first-person CameraRelative facing follows the camera-to-Focus vector, which is only a fraction of a stud horizontally when looking up; moving the camera alone swung the character up to ±26°.
+Hides the default mouse icon, enables the custom `Cursor` GUI, and adds walking camera bob — a stronger sine sway plus walk-cycle roll whose speed and amplitude scale with horizontal walk speed, fading in and out as the player starts and stops. Strafing adds a reduced, smoothed movement-direction camera tilt. Walking bob and strafe tilt stay active at their normal strength during chase camera effects. On a successful elevator arrival it aligns the first-person camera's horizontal look to the server-provided Spawn CFrame while preserving the current pitch, so the character's camera-relative body turns into the map hallway instead of retaining its lobby yaw. The bob's translation is also applied to `Camera.Focus`, because first-person CameraRelative facing follows the camera-to-Focus vector, which is only a fraction of a stud horizontally when looking up; moving the camera alone swung the character up to ±26°.
 - API: data table — empty; the render-step job is bound on require.
-- Requires: `Configs.CameraBobConfig`, `ChaserCameraService`, `MathService`
+- Requires: `Configs.CameraBobConfig`, `Configs.ElevatorConfig`, `CommunicationService`, `MathService`
 
 ### FlashlightDebugService.luau
 F7 panel for tuning the flashlight beam live. One cone is edited at a time through a cycling selector with Angle, Range and Brightness sliders, alongside master brightness, a warmth slider that drives the shared colour, and the three camera-offset axes. Emits the `FlashlightConfig` block to paste. Gated behind `FLAGS.FlashlightDebug`.
@@ -546,7 +548,7 @@ Client-side single source of truth for kits and gems: owns the `Kits/Sync` and `
 - Requires: `Configs.KitConfig`, `CommunicationService`
 
 ### KitVisualService.luau
-The look of a kit, shared by all three kit pages so they cannot drift: fills a portrait container with the kit's `Image` headshot in a `Headshot` ImageLabel it creates beside the container's ViewportFrame (copying the viewport's anchor, position, size and ZIndex, and hiding the viewport), falling back to the showcase item rendered through `ItemPreviewService` when a kit has no picture, picks a kit's showcase item (explicit `Showcase`, else its most expensive item), dresses a card with its rarity stroke, rarity ribbon, name, status line and dim overlay, and fills a details holder with a `BUFFS` section and an `ITEMS` section. The sections stack vertically at the holder's full width rather than sitting side by side - the info column is only ~180px wide, so two columns made every row width-bound and tiny. Row height is the holder divided by the line count (floored at `MINIMUM_LINES` so short kits do not get comically large rows) and rows fade in on a stagger. Rows keep `TextScaled` on and never set `TextWrapped = false` - in Roblox that assignment silently clears `TextScaled` too, which drops every row to the default 8px. Stat rows are green when the change helps and red when it hurts, which is how a lower `DetectionRadius` reads as a gain.
+The look of a kit, shared by all three kit pages so they cannot drift: fills a portrait container with the kit's `Image` headshot in a `Headshot` ImageLabel it creates beside the container's ViewportFrame (copying the viewport's anchor, position, size and ZIndex, and hiding the viewport), falling back to the showcase item rendered through `ItemPreviewService` when a kit has no picture, picks a kit's showcase item (explicit `Showcase`, else its most expensive item), dresses a card with its rarity stroke, rarity ribbon, name, status line and dim overlay, and fills a details holder with a `BUFFS` section and an `ITEMS` section. The sections stack vertically at the holder's full width rather than sitting side by side - the info column is only ~180px wide, so two columns made every row width-bound and tiny. Row height is the holder divided by the line count (floored at `MINIMUM_LINES` so short kits do not get comically large rows) and rows fade in on a stagger. Rows keep `TextScaled` on and never set `TextWrapped = false` - in Roblox that assignment silently clears `TextScaled` too, which drops every row to the default 8px. Stat rows use each stat's player-facing direction for their sign and stay green when the change helps or red when it hurts, so a lower `DetectionRadius` appears as a positive `Stealth` change.
 - API: `KitVisualService.Showcase(kit) -> string?`
 - API: `KitVisualService.BuildPreview(viewport: ViewportFrame, itemName: string?)` — delegates to `ItemPreviewService:Render`
 - API: `KitVisualService.DressCard(button: ImageButton, kit)`
@@ -805,6 +807,7 @@ Progressively reveals a string word by word in a stable pseudo-random order deri
 Client camera-shake front end over the vendored `CameraShaker`. Offers five named presets, keyed sustained shakes, and a `Rumble` handle whose magnitude can be driven continuously (e.g. by proximity). Shake translation is carried onto `Camera.Focus` as well so it never turns the first-person character.
 - API: `ShakeService:Create(shakeData: { ID: string, ShakeType: "Once" | "Sustained", Preset: string })` — presets are `Scare`, `Small`, `Jumpscare`, `Slam`, `Jolt`
 - API: `ShakeService:Delete(ID: string)` — fades out and forgets a sustained shake
+- API: `ShakeService:Impulse(params: ImpulseParams, scale: number?)` — one-shot custom shake from `Magnitude`, `Roughness`, `FadeOutTime` and optional `PositionInfluence` / `RotationInfluence`, with the magnitude multiplied by `scale`
 - API: `ShakeService:CreateDynamicRumble(startValue: number, params: RumbleParams?) -> Rumble` — handle with `:AdjustValue(n)`, `:Stop(fadeOutTime?)`, `:Start()`
 - API: `ShakeService.SustainedShakes` — id → live shake instance
 - Requires: `Classes.CameraShaker` (vendored third-party), `Services.PerfLoggerService`
@@ -893,9 +896,9 @@ Client camera lock for the Stalker: on the remote, smoothly turns the camera to 
 - Requires: `CameraFovService`, `CharacterService.GetAliveHumanoid`
 
 ### StatsHUDService.luau
-Client debug HUD in the bottom-left: FPS, ping, sampled danger-field value at your position, and a live list of enemies (id, state, distance) colour-coded by threat, plus the stalker's current target. The danger value uses the server's baked field settings, pulled over `Danger/GetSettings` at startup and refreshed from `Danger/Settings` on every rebake, so every client reads the same number the spawn director does; it shows `--` until they arrive.
+Client debug HUD in the bottom-left, hidden until toggled with `StatsHUDConfig.ToggleKey` (F5) and only for players whose `Admin` attribute is true: FPS, ping, sampled danger-field value at your position, and a live list of enemies (id, state, distance) colour-coded by threat, plus the stalker's current target. The danger value uses the server's baked field settings from `DangerFieldService.GetReplicatedSettings`, so every client reads the same number the spawn director does; it shows `--` until they arrive.
 - API: none — side-effect only.
-- Remotes: `Enemies/DebugSnapshot` (listened), `Danger/GetSettings` (invoked at startup), `Danger/Settings` (listened)
+- Remotes: `Enemies/DebugSnapshot` (listened)
 - Requires: `Services.DangerFieldService`, `Configs.StatsHUDConfig`, `GuiBuilderService`
 
 ### TagService.luau
@@ -920,6 +923,12 @@ Client bootstrap for tool classes: for every entry in `ToolConfigs` that has a m
 Puts the Index, Gems and Gallery buttons on Roblox's topbar with TopbarPlus (`Classes.Icon`) instead of the sidebar. Each `TopbarConfig.Icons` entry becomes one icon carrying that page's sidebar icon image alongside its name as a visible label, and selecting it opens the matching `InterfaceService` page while deselecting it closes that page. Icons keep `autoDeselect` off and are instead kept in sync from the shared `Main` page controller's `Fired` signal, so a page closed by its own close button, by the escape path or by another tab leaves the topbar showing the right selection without bouncing the interface. The matching `SideGui.Main` buttons (`Enemies`, the gems `Rectangle_1_copy` and `GalleryButton`) are hidden and untagged in StarterGui, so they no longer appear in the sidebar. Client-only.
 - API: `TopbarIconService:GetIcon(pageId: string) -> any?` -- the TopbarPlus icon bound to a page
 - Requires: `Classes.Icon`, `InterfaceService`, `Configs.TopbarConfig`, `Frameworks.xenterface`
+
+### TopHUDService.luau
+Drives the Studio-authored `StarterGui.TopHud` strip centred under the topbar: coin balance on the left, gem balance on the right and a compact danger meter between them. Balances follow the player's `Coins` and `Gems` attributes. On a change the old number slides out and fades while the new one slides in from the other side, upward for a gain and downward for a spend. A gain also tints the new number in the currency's `Flash` colour and pops the icon. The first value arrives without animation. The danger meter samples `DangerField.Sample` at the root part every `Danger.Interval` seconds, reads 0 while the player last stood on the lobby floor, and eases the fill toward it. The tier the eased value falls in sets the label (SAFE, UNEASY, TENSE, DIRE, DEADLY), the fill gradient and the label colour. Higher tiers fade in a red glow ring around the track and a track tint that pulse faster as danger rises. One notch per tier boundary is cloned from the authored `Notch` template. The whole strip scales with viewport height through its `Scale` UIScale. Client-only.
+- API: none — side-effect only.
+- Requires: `Configs.TopHUDConfig`, `CharacterService`, `DangerFieldService`, `GuiBuilderService`, `LobbyService`, `MathService`
+- Studio: `StarterGui.TopHud.Design` holds `Scale`, `Coins` and `Gems` (each an `Icon` with a `Pop` UIScale and layered coin or gem art, plus a clipping `Amount` frame with `Current` and `Next` labels) and `Danger` (`Caption`, `Level`, `Glow.Stroke`, `Track` with `Stroke`, `Fill.Gradient` and `Notches.Notch`)
 
 ### TweenProxyService.luau
 Generic helper for tweening things TweenService cannot touch directly: it creates a throwaway ValueBase, tweens its `Value`, and pushes each change into a callback, cleaning up on completion.
@@ -946,7 +955,7 @@ Client first-person viewmodel: clones the equipped Tool (stripped of scripts, so
 - API: `ViewmodelService:GetPose() -> string?`
 - API: `ViewmodelService:GetRig() -> Model?` — the live viewmodel clone, for services that drive its contents
 - API: `ViewmodelService:Refresh()` — rebuild the rig for the current tool
-- Requires: `Configs.ViewmodelConfig` (`Scale`, `Fit`, `HandOffset`, `Arm`, `Overrides`), `MathService`, `SurfaceCursorService` (face geometry for framed poses)
+- Requires: `Configs.ViewmodelConfig` (`Scale`, `Fit`, `HandOffset`, `SwayAmount`, `Arm`, `Overrides`), `MathService`, `SurfaceCursorService` (face geometry for framed poses)
 
 ### ViewmodelDebugService.luau
 F3 developer panel for live tuning of every equipped first-person tool. It follows the selected tool's override, seeds tools without one from the viewmodel's default fit, and updates the title and selectable generated config entry as tools change. A state button cycles Live (the game drives the pose), Base and each configured pose; it only appears when the selected tool has pose states, and pose overrides are released when another tool is selected. Sliders control scale, tool anchor, fake-hand anchor and all three rotation axes — reading absolute values for the base state and offsets for a pose — plus screen coverage for framed poses, which is the only placement control those have. The selectable text box emits the whole config entry including every pose, so pasting it back cannot drop them. Rotations are read back with `ToEulerAnglesXYZ` to match the `CFrame.Angles` constructor the panel writes and the config stores, so the slider values, the generated text and the saved config all mean the same orientation — decomposing in another order silently corrupted any rotation past a few degrees.
@@ -965,7 +974,7 @@ Client-only debug panel behind `FLAGS.VoiceDebug` with sliders for proximity-voi
 
 ### WalkSoundService.luau
 Client footstep engine for players and tagged enemies. Silences the default Roblox running sound, including any new `Running` sound made when Roblox's character sound script restarts, and keeps its volume at zero. It instead times steps from the character's looping Core-priority locomotion track (falling back to a speed-scaled interval), playing a random emitter from `Sounds.Footsteps`. Enemies get custom distance attenuation out to 45 studs and per-enemy volume; crouching players get quieter, slower, shorter-range steps.
-- API: none — side-effect only.
+- API: `WalkSoundService:OnEnemyStep(callback: (Model) -> ()) -> () -> ()` — calls back with the enemy model on each enemy footstep; returns a disconnect function
 - Tags: listens `Enemy`
 - Requires: `AudioService.Play3DSound`, `CharacterService.ForEachPlayer`, `TagService`, `Configs.WalkSoundConfig`, `Configs.CrouchConfig` (`Stealth`)
 

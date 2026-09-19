@@ -27,6 +27,7 @@ local ItemByDrawer: { [Model]: Model } = {}
 local DrawerByItem: { [Model]: Model } = {}
 local HallwayItems: { [Model]: true } = {}
 local LastPickup: { [Player]: number } = {}
+local OwnedBy: { [Player]: Model } = {}
 local HallwayFolder = Instance.new("Folder")
 HallwayFolder.Name = "HallwayDrawerItems"
 HallwayFolder.Parent = workspace
@@ -229,6 +230,35 @@ local function spawnItem(drawer: Model, itemName: string): Model?
 	return display
 end
 
+local function removeOwned(player: Player)
+	local item = OwnedBy[player]
+	OwnedBy[player] = nil
+	if not item then return end
+
+	local drawer = DrawerByItem[item]
+	if drawer and ItemByDrawer[drawer] == item then
+		ItemByDrawer[drawer] = nil
+	end
+	DrawerByItem[item] = nil
+	item:Destroy()
+end
+
+function DrawerItemService:SpawnFor(player: Player, drawer: Model, itemName: string): Model?
+	if not Drawers[drawer] or not drawer:IsDescendantOf(workspace) or ItemByDrawer[drawer] then return nil end
+
+	local template = templateFor(itemName)
+	local display = template and makeDisplay(template)
+	if not display then return nil end
+
+	removeOwned(player)
+	display:SetAttribute(ItemConfig.OwnerAttribute, player.UserId)
+	placeOnDrawer(drawer, display)
+	ItemByDrawer[drawer] = display
+	DrawerByItem[display] = drawer
+	OwnedBy[player] = display
+	return display
+end
+
 local function surveyDrawers(): (number, number, { Model }, { Model })
 	local itemCount = 0
 	for drawer, item in ItemByDrawer do
@@ -239,7 +269,8 @@ local function surveyDrawers(): (number, number, { Model }, { Model })
 		end
 
 		local itemName = item:GetAttribute(ItemConfig.Attribute)
-		if type(itemName) ~= "string" or not ItemConfig.Currencies[itemName] then
+		local owned = item:GetAttribute(ItemConfig.OwnerAttribute) ~= nil
+		if not owned and (type(itemName) ~= "string" or not ItemConfig.Currencies[itemName]) then
 			itemCount += 1
 		end
 	end
@@ -375,6 +406,43 @@ local function chooseCurrencyName(): string?
 	return pool[#pool].Name
 end
 
+local function chooseHallwayName(): string?
+	local candidates = {}
+	local fallback = {}
+	local totalWeight = 0
+	local fallbackWeight = 0
+
+	local function consider(itemName: any, weight: any)
+		if type(itemName) ~= "string" or type(weight) ~= "number" or weight <= 0 then return end
+		if not templateFor(itemName) then return end
+
+		fallbackWeight += weight
+		table.insert(fallback, { Name = itemName, Weight = weight })
+		if itemName ~= LastItemName then
+			totalWeight += weight
+			table.insert(candidates, { Name = itemName, Weight = weight })
+		end
+	end
+
+	for currencyName, entry in ItemConfig.Currencies do
+		consider(currencyName, if type(entry) == "table" then entry.Weight else nil)
+	end
+	for itemName, weight in ItemConfig.Hallway.Items do
+		consider(itemName, weight)
+	end
+
+	local pool = if #candidates > 0 then candidates else fallback
+	local weight = if #candidates > 0 then totalWeight else fallbackWeight
+	if #pool == 0 or weight <= 0 then return nil end
+
+	local roll = RandomGenerator:NextNumber(0, weight)
+	for _, entry in pool do
+		roll -= entry.Weight
+		if roll <= 0 then return entry.Name end
+	end
+	return pool[#pool].Name
+end
+
 local function floorTarget(position: Vector3, itemCFrame: CFrame, itemSize: Vector3, rotation: CFrame?): CFrame
 	local itemHalfHeight = extentAlong(itemCFrame, itemSize, Vector3.yAxis)
 	return CFrame.new(
@@ -451,15 +519,15 @@ local function trySpawnHallway(): boolean
 	end
 	if activeCount >= ItemConfig.Hallway.MaxAlive then return false end
 
-	local currencyName = chooseCurrencyName()
-	local template = currencyName and templateFor(currencyName)
+	local itemName = chooseHallwayName()
+	local template = itemName and templateFor(itemName)
 	if not template then return false end
 
 	local display = makeDisplay(template)
 	if not display then return false end
 
 	local itemCFrame, itemSize = display:GetBoundingBox()
-	local rotation = ItemConfig.DisplayRotations[currencyName]
+	local rotation = ItemConfig.DisplayRotations[itemName]
 	local point = DangerMapService:PickPoint(0, function(candidate)
 		local surface = hallwaySurface(candidate.Position)
 		if not Hallways.At(candidate.Position)
@@ -486,7 +554,7 @@ local function trySpawnHallway(): boolean
 	display.Parent = HallwayFolder
 	CollectionService:AddTag(display, ItemConfig.Tag)
 	HallwayItems[display] = true
-	LastItemName = currencyName
+	LastItemName = itemName
 	return true
 end
 
@@ -556,7 +624,9 @@ Pickup.OnServerEvent:Connect(function(player: Player, item: any)
 	local itemName = item:GetAttribute(ItemConfig.Attribute)
 	if type(itemName) ~= "string" then return end
 	local currency = ItemConfig.Currencies[itemName]
-	if not ItemConfig.Items[itemName] and not currency then return end
+	local owner = item:GetAttribute(ItemConfig.OwnerAttribute)
+	if owner ~= nil and (owner ~= player.UserId or OwnedBy[player] ~= item) then return end
+	if owner == nil and not ItemConfig.Items[itemName] and not ItemConfig.Hallway.Items[itemName] and not currency then return end
 
 	local now = os.clock()
 	if now - (LastPickup[player] or 0) < PICKUP_DEBOUNCE then return end
@@ -581,6 +651,11 @@ Pickup.OnServerEvent:Connect(function(player: Player, item: any)
 		collected = InventoryService:Add(player, itemName, 1)
 	end
 	if not collected then return end
+
+	if owner ~= nil then
+		removeOwned(player)
+		return
+	end
 
 	if drawer then
 		ItemByDrawer[drawer] = nil
@@ -653,6 +728,7 @@ end)
 
 Players.PlayerRemoving:Connect(function(player: Player)
 	LastPickup[player] = nil
+	removeOwned(player)
 end)
 
 return DrawerItemService

@@ -99,18 +99,18 @@ become Services or Classes.
 - ReplicatedStorage\Services\ChaosWarningSoundService.luau — Plays hallway ambience and an incoming sting whenever a red Chaos lamp is within RedHearingRange of you, from a source on the warned hallway's centre line that follows you along it, with volume left entirely to the emitters' authored rolloff.
 - ReplicatedStorage\Services\CharacterService.luau — Shared nil-safe helpers for humanoids, alive root parts, streamed-in model pivots and player lifecycle cleanup.
 - ReplicatedStorage\Services\ChaseMusicService.luau — Cross-fades layered chase music by proximity to enemies that are hunting.
-- ReplicatedStorage\Services\ChaserCameraService.luau — Drives chase FOV pushes and per-enemy camera rumble, plus vent-open and scream reactions, clearing chase FOV state on death.
+- ReplicatedStorage\Services\ChaserCameraService.luau — Drives chase FOV pushes and per-enemy camera rumble, plus vent-open and scream reactions and the Mad Guest's chase sting, proximity FOV and footstep thuds, clearing chase FOV state on death.
 - ReplicatedStorage\Services\CommunicationService.luau — Shared accessor for the ReplicatedStorage.Communication remote folders.
 - ReplicatedStorage\Services\ComputerHUDService.luau — Drives the right-side computer notepad: one tinted row per chip colour, ticked and struck through as each computer is hacked.
 - ReplicatedStorage\Services\ComputerService.luau — Runs hackable computers: idle screens, fixed-FOV camera sessions and the minigame handoff.
 - ReplicatedStorage\Services\CreepRenderService.luau — Renders the Creep as a camera-facing silhouette against a hallway backdrop, with a parting distortion sweep.
 - ReplicatedStorage\Services\CrouchService.luau — Owns crouch input, speed, camera drop and crouch animations.
 - ReplicatedStorage\Services\DangerDebugService.luau — F4 developer panel for tuning and heatmapping the danger field.
-- ReplicatedStorage\Services\DangerFieldService.luau — Procedural per-floor danger noise field, gated by distance from spawn, with baked spawn points.
+- ReplicatedStorage\Services\DangerFieldService.luau — Procedural per-floor danger noise field, gated by distance from spawn, with baked spawn points and a client accessor for the server's replicated field settings.
 - ReplicatedStorage\Services\DeathScreenService.luau — Builds and drives the glitch death screen and reports back when it finishes.
 - ReplicatedStorage\Services\DeathSoundService.luau — Replaces Roblox's default death sound with the custom one at the character's position.
 - ReplicatedStorage\Services\DoorService.luau — Renders room doors from the server's replicated player proximity state, local enemy reactions, and server map opening regions.
-- ReplicatedStorage\Services\DrawerItemService.luau — Registers drawer and loose hallway displays as interactable pickups, requests them from the server, and shows currency pickup feedback with sound.
+- ReplicatedStorage\Services\DrawerItemService.luau — Registers drawer and loose hallway displays as interactable pickups, removes displays owned by other players, requests pickups from the server, and shows currency pickup feedback with sound.
 - ReplicatedStorage\Services\DrawerService.luau — Animates drawers open and closed with local prediction over the server's attribute.
 - ReplicatedStorage\Services\EffectsHUDService.luau — Right-edge HUD of effect tiles, with draining timers, `inf` for permanent immunity, and hole-hop immunity countdowns.
 - ReplicatedStorage\Services\ElevatorDoorService.luau — Opens lobby and arrival doors by proximity; the exit panel, barrier and doors follow the local player's server-authorized five-color completion state.
@@ -120,7 +120,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\EnemyObservationService.luau — Reports which observable models the local camera can see to the server.
 - ReplicatedStorage\Services\EyeHitEffectService.luau — Blink, blur, flash and gaze-vignette screen effects for the Eye enemy.
 - ReplicatedStorage\Services\EyeRenderService.luau — Bobs and aims tagged Eye models at the camera and computes gaze strength.
-- ReplicatedStorage\Services\FirstPersonCameraService.luau — Walking camera bob, strafing tilt and custom cursor setup for first person, shifting Camera.Focus with the bob so it never turns the character.
+- ReplicatedStorage\Services\FirstPersonCameraService.luau — Walking camera bob, strafing tilt and custom cursor setup for first person, aligning the view to the map Spawn heading after elevator arrival, and shifting Camera.Focus with the bob so it never turns the character.
 - ReplicatedStorage\Services\FlashlightDebugService.luau — F7 panel for tuning the flashlight beam cones, warmth and camera offset live.
 - ReplicatedStorage\Services\FlashlightService.luau — Renders every flashlight beam as stacked spotlight cones, camera-mounted for the local player so the beam centre sits on the crosshair.
 - ReplicatedStorage\Services\FriendAvatarService.luau — Client-only cache that builds character models from the local player's friends' avatars.
@@ -152,7 +152,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\KitRollUIService.luau — The kit roll carousel: server-authoritative result, weighted filler, scaling/tilting tiles, rarity bloom and shake, and a portrait of the won kit above the result text.
 - ReplicatedStorage\Services\KitShopUIService.luau — Straight-purchase kit catalogue for players who cannot roll, sorted most common first.
 - ReplicatedStorage\Services\KitStateService.luau — Client-side owned kits, equipped kit, gem balance and roll eligibility shared by all three kit pages.
-- ReplicatedStorage\Services\KitVisualService.luau — Kit headshot portraits (item viewport fallback), rarity card dressing and the stacked BUFFS/ITEMS list shared by every kit page.
+- ReplicatedStorage\Services\KitVisualService.luau — Kit headshot portraits (item viewport fallback), rarity card dressing and the stacked BUFFS/ITEMS list shared by every kit page, with stat signs shown in each stat's player-facing direction.
 - ReplicatedStorage\Services\LanternSwayService.luau — Physics-hinged swinging for hanging lanterns during the chaos-red state, bound through ChaosLightService's red-changed signal and measured only once the lantern has finished streaming in.
 - ReplicatedStorage\Services\LobbyService.luau — Checks whether a player is standing on the tagged lobby floor.
 - ReplicatedStorage\Services\LookService.luau — Reports local camera pitch/yaw and bends other characters' neck and waist to match.
@@ -186,7 +186,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\PlayerOddityRenderService.luau — Client renderer that turns every other player's head toward you while the stare oddity is active.
 - ReplicatedStorage\Services\RecordPlayerAudioService.luau — Muffles and fades tagged in-world record players while the elevator is loading or the death screen is up.
 - ReplicatedStorage\Services\RedactionService.luau — Progressive seeded word-by-word text reveal with block-glyph redaction.
-- ReplicatedStorage\Services\ShakeService.luau — Client camera-shake front end with named presets, keyed sustained shakes and adjustable rumble handles.
+- ReplicatedStorage\Services\ShakeService.luau — Client camera-shake front end with named presets, custom one-shot impulses, keyed sustained shakes and adjustable rumble handles.
 - ReplicatedStorage\Services\ShopUIService.luau — Gamepass shop page: per-card purchase prompts, live Robux prices, owned state from perk attributes and legacy card-name compatibility for the UnlimitedStamina pass.
 - ReplicatedStorage\Services\ShopkeeperService.luau — Client service binding shopkeeper NPCs to interactions, smile animations and their interface page.
 - ReplicatedStorage\Services\SightlineService.luau — Camera frustum and raycast visibility tests with a self-maintaining per-model part cache.
@@ -199,9 +199,10 @@ become Services or Classes.
 - ReplicatedStorage\Services\SurfaceCursorService.luau — Projects viewport points onto a SurfaceGui canvas so in-world screens stay clickable under the camera.
 - ReplicatedStorage\Services\SprintUIService.luau — The stamina bar itself: eased fill, colour bands, exhaustion pulse and auto-fade.
 - ReplicatedStorage\Services\StalkerCameraService.luau — Locks the camera onto the Stalker, anchoring the player and pushing FOV for kills.
-- ReplicatedStorage\Services\StatsHUDService.luau — Debug HUD showing FPS, ping, the server's danger-field value at your position, and a live enemy list.
+- ReplicatedStorage\Services\StatsHUDService.luau — Admin-only F5 debug HUD showing FPS, ping, the server's danger-field value at your position, and a live enemy list.
 - ReplicatedStorage\Services\TagService.luau — The tag-to-module pipeline: registers apply/unapply callbacks per CollectionService tag and stores the data they return.
 - ReplicatedStorage\Services\ToolClientService.luau — Bootstraps tool classes for the local player's tools and routes server tool events to them.
+- ReplicatedStorage\Services\TopHUDService.luau — Top-centre HUD strip: coin and gem balances that roll to each new value with a flash and icon pop on gains, and a compact danger meter whose colour, label and glowing pulse step up through five tiers.
 - ReplicatedStorage\Services\TopbarIconService.luau — Builds the Index, Gems and Gallery TopbarPlus icons, opens the matching InterfaceService page on select and keeps icon selection in sync with the Main page controller.
 - ReplicatedStorage\Services\TweenProxyService.luau — Tweens arbitrary values through a throwaway ValueBase and a callback, including model scaling.
 - ReplicatedStorage\Services\VanishedService.luau — Checks shared and source-specific immunity tags or a ForceField, with source syncing and an Eye-specific check that skips the exempt tag.
@@ -209,7 +210,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\ViewmodelDebugService.luau — F3 developer panel for tuning every equipped tool, with dynamic titles, per-tool config output and a state button only for tools with multiple poses.
 - ReplicatedStorage\Services\VoiceActivityService.luau — Detects when the local player is speaking from an AudioAnalyzer, reports it to the server, and cuts incoming proximity voice off while the local player is dead.
 - ReplicatedStorage\Services\VoiceDebugService.luau — Debug panel of sliders for local proximity-voice and radio volumes.
-- ReplicatedStorage\Services\WalkSoundService.luau — Footstep engine timing custom steps from locomotion animations while keeping Roblox's default running sound muted, even after it restarts.
+- ReplicatedStorage\Services\WalkSoundService.luau — Footstep engine timing custom steps from locomotion animations while keeping Roblox's default running sound muted, even after it restarts, and signalling each enemy footstep to listeners.
 - ReplicatedStorage\Services\WalkieTalkieService.luau — Walkie-talkie power, toggle transmission, raised mode, per-player mute/volume, voice levels and death-aware roster ordering alongside distance-based selection between proximity voice and radio voice.
 - ReplicatedStorage\Services\WalkieUIService.luau — Draws and drives the walkie-talkie's on-model screen once it has fully replicated: player roster, level colours, dead-player styling, raise-key footer hint, per-player mute and volume, and the audio settings page.
 - ReplicatedStorage\Services\WalkieHudService.luau — Drives the WalkieHud ScreenGui: keybind prompt and the touch power, raise and toggle-talk buttons.
@@ -221,7 +222,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\Breathe.luau — Procedural idle breathing motion for nearby rigs.
 - ReplicatedStorage\Classes\ClientTool.luau — Client tool base class adding limb reveal, tool animations and stock consumption.
 - ReplicatedStorage\Classes\Deadline.luau — Runs a function with a timeout and reports which won.
-- ReplicatedStorage\Classes\DebugPanel.luau — Keyboard-toggled developer overlay with labels, buttons, sliders and time-aligned scrolling graphs, plain or stacked by series.
+- ReplicatedStorage\Classes\DebugPanel.luau — Admin-only keyboard-toggled developer overlay with labels, buttons, sliders and time-aligned scrolling graphs, plain or stacked by series.
 - ReplicatedStorage\Classes\DoorPart.luau — Spring and audio-driven swinging door leaf with oddity and forced-shut modes.
 - ReplicatedStorage\Classes\Drawer.luau — Spring-driven sliding drawer that infers its outward axis from the handle.
 - ReplicatedStorage\Classes\GalleryCard.luau — Clones and fills one Studio-authored gallery tile with a photo or tape-frame thumbnail, badge, capture date and unsaved edge.
@@ -285,7 +286,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\ChaosLightConfig.luau — Red hallway-light warning settings for the Chaos enemy, plus how the client detects Chaos passing a lamp.
 - ReplicatedStorage\Configs\ChaosWarningConfig.luau — Client gating, placement and sound routing for the Chaos warning ambience.
 - ReplicatedStorage\Configs\ChaseMusicConfig.luau — Per-enemy chase music tracks, ranges and fades.
-- ReplicatedStorage\Configs\ChaserCameraConfig.luau — Chase camera FOV changes and per-enemy shake profiles.
+- ReplicatedStorage\Configs\ChaserCameraConfig.luau — Chase camera FOV changes, per-enemy shake profiles and the Mad Guest's sting, proximity FOV and footstep stomp tuning.
 - ReplicatedStorage\Configs\ComputerAssets.luau — Image asset ids for the hackable-computer UI.
 - ReplicatedStorage\Configs\ComputerConfig.luau — Hackable computer objective: interaction, camera, screen and HUD settings.
 - ReplicatedStorage\Configs\CreepConfig.luau — Creep enemy light-killing, backdrop geometry and eye-pair settings.
@@ -294,9 +295,9 @@ become Services or Classes.
 - ReplicatedStorage\Configs\DeathConfig.luau — Death causes, player hints and the killed-by death screen styling.
 - ReplicatedStorage\Configs\DoorConfig.luau — Swinging door physics, replicated player-proximity attributes, and proximity open/close behaviour.
 - ReplicatedStorage\Configs\DrawerConfig.luau — Openable drawer motion, interaction, sound and prompt UI settings.
-- ReplicatedStorage\Configs\DrawerItemConfig.luau — Drawer tool/currency loot rates, hallway placement limits and the hallway item pool (currencies plus scaled chip weights), rarity and currency weights, reward amounts, pickup feedback sounds, display rotations and item tables; clones DrawerConfig's Input/UI at load.
+- ReplicatedStorage\Configs\DrawerItemConfig.luau — Drawer tool/currency loot rates, hallway placement limits, map-only hallway items and scaled chip weights, rarity and currency weights, reward amounts, pickup feedback sounds, display rotations and item tables; clones DrawerConfig's Input/UI at load.
 - ReplicatedStorage\Configs\EffectsHUDConfig.luau — Layout, colours and icons for the HUD effect tiles.
-- ReplicatedStorage\Configs\ElevatorConfig.luau — Elevator types, door motion, proximity, exit access polling and teleport fade settings.
+- ReplicatedStorage\Configs\ElevatorConfig.luau — Elevator types, door motion, proximity, exit access polling, teleport fade settings and the arrival camera remote name.
 - ReplicatedStorage\Configs\EyeConfig.luau — Eye enemy tracking, hit reaction and gaze screen-effect settings.
 - ReplicatedStorage\Configs\EndingConfig.luau — Win-screen strings, beat timings, motion numbers, remote names and the /resetprogress command name.
 - ReplicatedStorage\Configs\FLAGS.luau — Global on/off switches for major systems and debug output.
@@ -315,11 +316,11 @@ become Services or Classes.
 - ReplicatedStorage\Configs\KitConfig.luau — Rarities, the five stat definitions, the point budget economy, roll settings and kit UI animation.
 - ReplicatedStorage\Configs\LanternSwayConfig.luau — Tuning for the swinging hallway lantern simulation.
 - ReplicatedStorage\Configs\LookConfig.luau — Replicated aim/look angle limits and neck-waist blend weights.
-- ReplicatedStorage\Configs\MapConfig.luau — Map discovery radius, canvas resolution, hand-drawn ink style, danger layer and marker tuning.
+- ReplicatedStorage\Configs\MapConfig.luau — Map discovery radius, canvas resolution, hand-drawn ink style, landmark tag and name filters, danger layer and marker tuning.
 - ReplicatedStorage\Configs\MapOddityConfig.luau — Fixed spawn intervals and per-effect tuning for hallway/map oddities, including world-space light-out chunks and player-count targeting for HallwayCrush.
 - ReplicatedStorage\Configs\MirrorRoomConfig.luau — Bounds padding, retry delay, the opaque-reflection tag, saved-transparency and single-viewer attributes, and the instance classes stripped from a mirror-room reflection.
 - ReplicatedStorage\Configs\MimicConfig.luau — Behaviour tuning for the Mimic enemy's reactions, reveal and movement.
-- ReplicatedStorage\Configs\NotificationConfig.luau — Visual settings for the client notification banner.
+- ReplicatedStorage\Configs\NotificationConfig.luau — Visual settings for the client notification banner, placed below the top HUD strip.
 - ReplicatedStorage\Configs\OverheadNameConfig.luau — Tag, identity attribute, verified glyph and styling for overhead names.
 - ReplicatedStorage\Configs\ObservedFreezeConfig.luau — Tag, attribute and tolerances for freeze-when-observed enemies.
 - ReplicatedStorage\Configs\POIConfig.luau — Point-of-interest tag, discovery and occupancy remotes, trigger-box padding, entry sting settings and popup animation timings.
@@ -335,10 +336,11 @@ become Services or Classes.
 - ReplicatedStorage\Configs\SpawnZoneConfig.luau — Tag, poll interval and repel cooldown for the spawn safe zone system.
 - ReplicatedStorage\Configs\SprintBoostConfig.luau — Visual definitions for speed-boost auras on the sprint bar.
 - ReplicatedStorage\Configs\SprintConfig.luau — Sprint speed, stamina economy, input bindings and stamina bar styling.
-- ReplicatedStorage\Configs\StatsHUDConfig.luau — Layout and thresholds for the debug stats HUD panel.
+- ReplicatedStorage\Configs\StatsHUDConfig.luau — Toggle key, layout and thresholds for the debug stats HUD panel.
 - ReplicatedStorage\Configs\StoreConfig.luau — Shop and Gems page text, owned-price layout, gem pack frames and amounts, balance flash and the gem purchase result code.
 - ReplicatedStorage\Configs\StreamingConfig.luau — Corridor streaming prediction, reconciliation and tag settings (currently disabled).
 - ReplicatedStorage\Configs\ToolConfigs.luau — Per-tool tags and behaviour values for every usable tool, including the Shovel's six-second hole immunity duration.
+- ReplicatedStorage\Configs\TopHUDConfig.luau — Currency roll animation, danger meter tiers, colours, glow pulse and scaling for the top-centre HUD strip.
 - ReplicatedStorage\Configs\TopbarConfig.luau — Which interface pages get a topbar icon, plus each icon's image, label, order and alignment.
 - ReplicatedStorage\Configs\ViewmodelConfig.luau — First-person viewmodel placement, sway, bob, per-tool overrides and named poses.
 - ReplicatedStorage\Configs\ViewmodelDebugConfig.luau — F3 walkie-talkie viewmodel tuning panel keybind, slider steps and tunable pose list.
@@ -382,20 +384,20 @@ become Services or Classes.
 - ServerStorage\Services\CeilingVentService.luau — Springs ceiling vents on approaching players and drops a CeilingDweller through them, after a telegraphed ceiling walk-in where the dweller crawls into the vent; walk-in humanoid names stay hidden.
 - ServerStorage\Services\ChaosService.luau — Budgeted longest-path search through unvisited hallway nodes from the best of three far-from-players starts, schedules 15-second-lead light and oddity warnings along the route's own travel direction, each trimmed to the stretch of hallway the route actually travels so a corridor the route only clips is never telegraphed end to end, then spawns Chaos to run it into a wall; retracts every warning it fired if the spawn is abandoned or Chaos despawns.
 - ServerStorage\Services\ChaseFlickerService.luau — Flickers the lights around a player being chased by a CeilingDweller or Mimic.
-- ServerStorage\Services\ChatCommandService.luau — Shared registry and dispatcher for `/` chat commands, gated to the owning group's Owner and Developer roles.
+- ServerStorage\Services\ChatCommandService.luau — Shared registry and dispatcher for `/` chat commands, gated to the owning group's Owner and Developer roles; also sets the Player `Admin` attribute that gates debug panels.
 - ServerStorage\Services\ComputerCommandService.luau — Admin `/hack` command for listing, teleporting to, and force-setting computers by chip colour, game or room, plus `/resetprogress` to wipe a player's computer progress.
-- ServerStorage\Services\ComputerService.luau — Tracks each player's hacked computers, resets them on demand, and replicates streaming-safe color completion and exit eligibility.
+- ServerStorage\Services\ComputerService.luau — Persists each player's hacked computer ids, restores them across sessions, resets them on demand, and replicates streaming-safe color completion and exit eligibility.
 - ServerStorage\Services\CrouchService.luau — Mirrors the client's crouch state onto the character as a stealth attribute.
 - ServerStorage\Services\DangerDebugService.luau — Studio-only hook that rebakes the danger map from the client debug panel.
 - ServerStorage\Services\DangerMapService.luau — Bakes the map-wide danger field, serves weighted spawn points from it, and replicates the baked settings to clients.
-- ServerStorage\Services\DataSaveService.luau — Loads, reconciles and releases per-player ProfileService profiles, keyed separately for Studio sessions so playtests never contest the live game's session lock.
+- ServerStorage\Services\DataSaveService.luau — Loads, reconciles and releases per-player ProfileService profiles, including hacked computer ids, keyed separately for Studio sessions so playtests never contest the live game's session lock.
 - ServerStorage\Services\DeathService.luau — Records the cause of each player's death, applies reported contact kills, and drives the death screen and revive offers.
 - ServerStorage\Services\DevProductService.luau — Wires every developer product in DevProductConfigs to a receipt handler.
 - ServerStorage\Services\DoorService.luau — Polls alive player proximity to swinging room doors and replicates each door's open state and opener position.
-- ServerStorage\Services\DrawerItemService.luau — Stocks drawers with pickable tool/currency displays and hallways with currencies and computer chips, applies currency display rotations, and handles inventory pickups and currency rewards.
-- ServerStorage\Services\DrawerService.luau — Owns drawer open/closed state, sounds, and auto-closing.
+- ServerStorage\Services\DrawerItemService.luau — Stocks drawers with pickable tool/currency displays and hallways with currencies, map-only tools and computer chips, applies currency display rotations, spawns owner-only drawer displays, and handles inventory pickups and currency rewards.
+- ServerStorage\Services\DrawerService.luau — Owns drawer open/closed state, sounds, and auto-closing, and signals when a player opens a drawer.
 - ServerStorage\Services\EndingService.luau — Detects an authorised player inside the exit cabin, freezes them for the end screen, and on play-again resets their computer progress and returns them to the lobby.
-- ServerStorage\Services\ElevatorService.luau — Teleports lobby arrivals to the maze arrival elevator with existing loading and streaming; rejects exit-cabin entry until that player completes all five computers.
+- ServerStorage\Services\ElevatorService.luau — Teleports lobby arrivals to the maze arrival elevator with existing loading and streaming, signals the client to align its first-person view to the map Spawn heading, and rejects exit-cabin entry until that player completes all five computers.
 - ServerStorage\Services\EnemyCommandService.luau — Developer chat commands for spawning, listing and despawning enemies.
 - ServerStorage\Services\EnemyDebugService.luau — Broadcasts a periodic snapshot of active enemies to the stats HUD.
 - ServerStorage\Services\EnemyDirectorService.luau — Manages the live enemy population: spawning, placement scoring and despawning expired enemies unless they are engaged or mid peek sequence.
@@ -420,7 +422,7 @@ become Services or Classes.
 - ServerStorage\Services\HearingService.luau — Registry of "ears" that receive NoiseService noises after a distance-based travel delay.
 - ServerStorage\Services\HideSpotService.luau — Finds a standing spot on the maze floor that breaks line of sight from every enemy eye.
 - ServerStorage\Services\HoleService.luau — Creates and expires linked entry/exit hole pairs for the Shovel's dig and validates six-second hole-hop immunity.
-- ServerStorage\Services\InventoryService.luau — Authoritative slot-ordered hotbar/bag with per-item quantity stacking, duplicate cleanup, client sync, profile persistence and out-of-range restores rerouted to free slots.
+- ServerStorage\Services\InventoryService.luau — Authoritative slot-ordered hotbar/bag with per-item quantity stacking, duplicate cleanup, client sync, profile persistence, out-of-range restores rerouted to free slots, and unequipping tools moved into the bag.
 - ServerStorage\Services\InvincibleCommandService.luau — Admin /invincible toggle that applies permanent immunity while keeping the shared Vanished tag.
 - ServerStorage\Services\ItemShopService.luau — Coin and Robux item shop with voice gating, receipt dedupe, CoinService spending and inventory grants.
 - ServerStorage\Services\KitRollService.luau — Policy-gated gem rolls with weighted rarities and duplicate refunds.
@@ -431,7 +433,7 @@ become Services or Classes.
 - ServerStorage\Services\LightService.luau — Central control of every tagged light model: reference-counted radius, box and hallway blackout claims plus flicker effects.
 - ServerStorage\Services\LoadoutService.luau — Captures and restores a player's tools, quantities and attributes across inventory wipes.
 - ServerStorage\Services\LookService.luau — Stores clamped client camera pitch/yaw on characters and mirrors it onto mimic enemies.
-- ServerStorage\Services\MapDiscoveryService.luau — Server owner of per-player map discovery: persists discovery for everyone, but only replicates the layout and reveals to Map gamepass owners.
+- ServerStorage\Services\MapDiscoveryService.luau — Server owner of per-player map discovery: persists discovery for everyone, filters tagged landmarks by their configured names, and only replicates the layout and reveals to Map gamepass owners.
 - ServerStorage\Services\MapCommandService.luau — Admin /map command that sends the caller straight into the maze.
 - ServerStorage\Services\MapOddityCommandService.luau — /mapoddity chat command mapping friendly words, including blackout, to map oddity kinds.
 - ServerStorage\Services\MapOddityService.luau — Scope wrapper for resolving, starting, warning about and clearing map-scope oddities.
@@ -465,7 +467,7 @@ become Services or Classes.
 - ServerStorage\Services\ToolService.luau — Binds tagged Tools to their server tool classes and routes client tool events to them.
 - ServerStorage\Services\VoiceActivityService.luau — Tunes nested voice emitters, restores microphone input after respawn, and emits noise at whoever is speaking so enemies can hear them.
 - ServerStorage\Services\VoiceDebugService.luau — Studio-only remote for live-tweaking voice and radio volumes behind the VoiceDebug flag.
-- ServerStorage\Services\WalkieTalkieService.luau — Builds the power-gated radio audio graph with per-listener category faders, toggle-transmit gating, privacy modes, automatic power-off and dead markers on death, clean respawn rebuilds, sound relays and radio noise.
+- ServerStorage\Services\WalkieTalkieService.luau — Builds the power-gated radio audio graph with per-listener category faders, toggle-transmit gating, privacy modes, power-off when moved into the bag or on death, dead markers on death, clean respawn rebuilds, sound relays and radio noise.
 - ServerStorage\Services\WallstickService.luau — Server bootstrap for Wallstick: collision groups, the workspace Wallstick model, per-player streaming foci and the replication listener.
 
 ### ServerStorage\Classes
@@ -554,14 +556,14 @@ become Services or Classes.
 
 ## Colored computer chip navigation
 
-- ReplicatedStorage\Configs\ComputerChipConfig.luau — Five computer colors with per-color loot weights, matching drawer loot tools, duration, fade, route cache limits and neon-dot settings.
+- ReplicatedStorage\Configs\ComputerChipConfig.luau — Five computer colors with per-color loot weights, the White exit chip's elevator target and drawer chance, matching drawer loot tools, duration, fade, route cache limits and neon-dot settings.
 - ServerStorage\Classes\Tools\ComputerChip.luau — Shared server tool activation through the existing ToolBase lifecycle.
-- ServerStorage\Services\ComputerChipService.luau — Validated single-use inventory consumption, owner-only route messages, timed effects and rerouting.
+- ServerStorage\Services\ComputerChipService.luau — Validated single-use inventory consumption, owner-only route messages, timed effects and rerouting, plus the White chip that routes to the exit elevator and drops only in drawers, for players who have completed every computer.
 - ServerStorage\Services\ComputerChipRouteService.luau — Distance-only patrol-graph routing with connector entrance/direct/pathfinding/forced-direct fallbacks and hallway-only room endpoints.
 - ReplicatedStorage\Services\ComputerChipTrailService.luau — Local pooled neon dots, continuous expiry fade and the existing right-side effects HUD countdown.
 - HallwayGraphService.BuildCorridors supplies an isolated player corridor graph; EffectsHUDService.ShowTimed/Dismiss supply reusable timed HUD effects. ToolService accepts an optional configured Class so all colors share one implementation.
-- DrawerItemConfig gives each chip its own ComputerChip<Key> rarity at that color's LootWeight (Blue 34, Green 27, Red 21, Purple 16, Yellow 12) and a scaled entry in the hallway pool. ToolConfigs and EffectsHUDConfig derive the five names and duration/icon settings from ComputerChipConfig.
-- Studio assets: five colored clones of ReplicatedStorage.Tools.Computer Chip, five computer nameplates, and Communication.ComputerChip.Route/Sync; see Documentation\ReplicatedStorage\Tools.md.
+- DrawerItemConfig gives drawer tools their rarity weights, keeps the player-oddity tools, Gravity Warper and Key in the map-only hallway pool, and gives each chip its own ComputerChip<Key> rarity at that color's LootWeight (Blue 34, Green 27, Red 21, Purple 16, Yellow 12) plus a scaled hallway entry. ToolConfigs and EffectsHUDConfig derive the five chip names and duration/icon settings from ComputerChipConfig.
+- Studio assets: White Computer Chip, five colored clones of ReplicatedStorage.Tools.Computer Chip, five computer nameplates, and Communication.ComputerChip.Route/Sync; see Documentation\ReplicatedStorage\Tools.md.
 
 Computer chip playtest fixes connect split corridor approaches to connector entrances, tolerate raised doorway anchors, and clear trails when the target computer is removed. Runtime coverage: 865 room/connector-to-color routes resolved; all three connector fallback cases and 60 simultaneous route requests passed. Two-player visibility remains pending.
 

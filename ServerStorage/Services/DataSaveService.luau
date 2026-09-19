@@ -33,6 +33,7 @@ local PROFILE_TEMPLATE = {
 	DiscoveredMap = {},
 	DiscoveredLandmarks = {},
 	DiscoveredPOIs = {},
+	HackedComputers = {},
 }
 
 local ProfileStore = ProfileService.GetProfileStore(PROFILE_STORE_NAME, PROFILE_TEMPLATE)

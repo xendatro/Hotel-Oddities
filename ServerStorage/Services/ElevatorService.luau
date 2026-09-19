@@ -16,6 +16,7 @@ local ElevatorService = {}
 
 local loadingRemote = CommunicationService.Find("Elevator", "Loading")
 local fadeCompleteRemote = CommunicationService.Find("Elevator", "FadeComplete")
+local arrivalRemote = CommunicationService.Ensure("Elevator", ElevatorConfig.ArrivalRemoteName)
 
 type ElevatorState = {
 	Model: Model,
@@ -101,6 +102,7 @@ function ElevatorService:SendToMap(player: Player, instant: boolean?): boolean
 			character:PivotTo(target)
 			local root = character:FindFirstChild("HumanoidRootPart")
 			if root and root:IsA("BasePart") then root.AssemblyLinearVelocity = Vector3.zero end
+			arrivalRemote:FireClient(player, target)
 		end
 	else
 		warn(`[ElevatorService] could not stream the lobby destination for {player.Name}`)

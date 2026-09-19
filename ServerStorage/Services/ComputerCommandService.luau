@@ -200,14 +200,12 @@ function ComputerCommandService:Execute(sender: Player, argument: string?): bool
 end
 
 ChatCommandService.Register("hack", {
-	AdminOnly = true,
 	Handler = function(player: Player, argument: string?)
 		ComputerCommandService:Execute(player, argument)
 	end,
 })
 
 ChatCommandService.Register(EndingConfig.Command, {
-	AdminOnly = true,
 	Handler = function(player: Player, argument: string?)
 		local target = if argument and argument ~= "" then ChatCommandService.FindPlayer(argument) else player
 		if not target then

@@ -56,6 +56,15 @@ for _, child in ReplicatedStorage.Sounds.Footsteps:GetChildren() do
 end
 
 local CharacterStates: {[Model]: CharacterState} = {}
+local EnemyStepListeners: { (Model) -> () } = {}
+
+function WalkSoundService:OnEnemyStep(callback: (Model) -> ()): () -> ()
+	table.insert(EnemyStepListeners, callback)
+	return function()
+		local index = table.find(EnemyStepListeners, callback)
+		if index then table.remove(EnemyStepListeners, index) end
+	end
+end
 
 local function refreshLocomotionTrack(state: CharacterState, now: number)
 	local animator = state.Humanoid:FindFirstChildOfClass("Animator")
@@ -140,7 +149,12 @@ local function playFootstep(state: CharacterState)
 		settings.Volume = (if source then source.Volume else 1) * state.StepVolume
 	end
 	local audioPlayer = AudioService:Play3DSound(template, state.RootPart, false, "SFX", settings)
-	if state.TrackRootMovement then configureEnemyAttenuation(audioPlayer) end
+	if state.TrackRootMovement then
+		configureEnemyAttenuation(audioPlayer)
+		for _, listener in EnemyStepListeners do
+			task.spawn(listener, state.Model)
+		end
+	end
 end
 
 local function stepState(state: CharacterState, deltaTime: number, now: number)

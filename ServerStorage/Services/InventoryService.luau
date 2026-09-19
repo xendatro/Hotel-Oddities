@@ -16,6 +16,9 @@ local SAVED_ATTRIBUTES = { "uses" }
 
 local InventoryService = {}
 
+local moved = Instance.new("BindableEvent")
+InventoryService.Moved = moved.Event
+
 local Order: { [Player]: { [number]: string } } = {}
 local Ready: { [Player]: boolean } = {}
 local AttributeConnections: { [Tool]: { RBXScriptConnection } } = {}
@@ -104,6 +107,18 @@ local function collectTools(player: Player): { [string]: { Tool } }
 	collect(player.Character)
 	collect(player:FindFirstChildOfClass("Backpack"))
 	return grouped
+end
+
+local function stowBagged(player: Player)
+	local character = player.Character
+	local backpack = player:FindFirstChildOfClass("Backpack")
+	if not character or not backpack then return end
+
+	for slot, toolName in getOrder(player) do
+		if slot <= InventoryConfig.HotbarSlots then continue end
+		local tool = character:FindFirstChild(toolName)
+		if tool and tool:IsA("Tool") then tool.Parent = backpack end
+	end
 end
 
 local function findFreeSlot(player: Player): number?
@@ -332,8 +347,10 @@ function InventoryService:Move(player: Player, from: number, to: number): boolea
 	if order[from] == nil then return false end
 
 	order[from], order[to] = order[to], order[from]
+	stowBagged(player)
 	InventoryService:Sync(player)
 	save(player)
+	moved:Fire(player, from, to)
 	return true
 end
 

@@ -184,7 +184,10 @@ local ToolConfigs = {
 	},
 }
 
-for _, entry in ComputerChipConfig.Colors do
+local chipEntries = table.clone(ComputerChipConfig.Colors)
+table.insert(chipEntries, ComputerChipConfig.Exit)
+
+for _, entry in chipEntries do
 	ToolConfigs[entry.ToolName] = {
 		Tag = entry.ToolName,
 		Class = "ComputerChip",
