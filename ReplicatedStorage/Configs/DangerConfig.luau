@@ -54,8 +54,8 @@ return {
 
 	Director = {
 		Residents = {
-			Chaser = { Count = 2 },
-			Blind = { Count = 2 },
+			Chaser = { Count = 3 },
+			Blind = { Count = 3 },
 			Mimic = { Count = 2 },
 			Sisters = { Count = 1 },
 

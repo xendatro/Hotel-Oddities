@@ -8,11 +8,15 @@ export type AnimationSet = {
 	RoomReaction: number?,
 	Listen: number?,
 	Lurk: number?,
+	Sleep: number?,
+	Wake: number?,
 }
 
 local Animations = {
 	ChaserWalk = 124403613879188,
 	ChaserRun = 130456583127042,
+	ChaserSleep = 139045303386232,
+	ChaserWake = 77501062518740,
 	CursedWalk = 131708679301818,
 	CursedAttack = 79774778049507,
 	KnifeSwing = 88999892001033,
@@ -34,6 +38,8 @@ local Sets: { [string]: AnimationSet } = {
 		Run = Animations.ChaserRun,
 		Attacks = { Animations.KnifeSwing },
 		RoomReaction = Animations.DoorKnock,
+		Sleep = Animations.ChaserSleep,
+		Wake = Animations.ChaserWake,
 	},
 
 	CeilingDweller = {

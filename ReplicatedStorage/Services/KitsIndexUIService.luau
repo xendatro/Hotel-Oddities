@@ -243,7 +243,7 @@ equipButton.Activated:Connect(function()
 end)
 
 backButton.Activated:Connect(function()
-	InterfaceService:Open("KitInventory")
+	InterfaceService:Open("Kits")
 end)
 
 KitStateService.KitsChanged:Connect(function()

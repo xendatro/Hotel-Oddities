@@ -275,6 +275,13 @@ Reports to the server, roughly 20 times a second, which `Observable` models the 
 - Tags: listens `Observable`
 - Requires: `Services.SightlineService`, `Configs.ObservedFreezeConfig`, `Configs.FLAGS` (whole module is inert when `FLAGS.Enemies` is off)
 
+### EscapeMusicService.luau
+Client-only escape theme for the exit elevator. Tracks the server-authoritative `ExitUnlocked` flag off the Computers `Sync` payload (requesting a sync every `SyncRetryInterval` seconds until the first one arrives) and, only while every chip colour is complete, plays the looping `EscapeTheme` template on the Music bus with its volume driven by how close the alive local character is to the nearest `Exit` type `Elevator`: silent beyond `Range`, smoothstepped up to `Volume` at `FullVolumeDistance`. Leaving the radius, dying or resetting computer progress fades it back out, and the track is stopped and dropped once it is silent, so a player who resets after winning hears nothing.
+- API: data table — empty; the proximity loop is installed on require.
+- Remotes: `Computers/Sync` (listened and fired)
+- Tags: reads `Elevator` (through `TagService:GetTaggedOfPredicate`)
+- Requires: `Configs.ComputerConfig`, `Configs.ElevatorConfig`, `Configs.EscapeMusicConfig`, `AudioService`, `CharacterService`, `CommunicationService`, `MathService`, `TagService`; expects an `EscapeTheme` template in `ReplicatedStorage.Sounds`
+
 ### EyeHitEffectService.luau
 Full-screen feedback for the Eye enemy: on a hit remote it plays an eyelid blink, a blur pulse, a colour flash, an FOV punch, and a damage sound. Also exposes the continuous "being stared at" effect — vignette edges, a breathing pulse, and camera roll/sway (sway also shifts `Camera.Focus` so it never turns the first-person character) — driven each frame by EyeRenderService.
 - API: `EyeHitEffectService:UpdateGaze(strength: number, deltaTime: number)` — advance the gaze vignette and camera sway toward `strength` (0-1)

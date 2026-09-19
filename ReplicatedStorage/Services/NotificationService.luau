@@ -1,4 +1,3 @@
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -17,6 +16,7 @@ local ShowRemote = CommunicationService.Get("Notifications", "Show")
 local screenGui: ScreenGui? = nil
 local container: Frame? = nil
 local nextOrder = 0
+local random = Random.new()
 
 local function build()
 	if screenGui and screenGui.Parent and container and container.Parent then return end
@@ -26,7 +26,7 @@ local function build()
 	container.Name = "Container"
 	container.BackgroundTransparency = 1
 	container.AnchorPoint = Vector2.new(0.5, 0)
-	container.Position = UDim2.fromOffset(0, Config.TopMargin)
+	container.Position = UDim2.new(0.5, 0, 0, Config.TopMargin)
 	container.Size = UDim2.fromOffset(Config.Width, 0)
 	container.AutomaticSize = Enum.AutomaticSize.Y
 	container.Parent = screenGui
@@ -37,28 +37,19 @@ local function build()
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Padding = UDim.new(0, Config.Gap)
 	layout.Parent = container
-
-	container.Position = UDim2.new(0.5, 0, 0, Config.TopMargin)
 end
 
-local function fadeIn(frame: Frame, label: TextLabel, accent: Frame, stroke: UIStroke)
-	local info = TweenInfo.new(Config.FadeTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	TweenService:Create(frame, info, { BackgroundTransparency = Config.BackgroundTransparency }):Play()
-	TweenService:Create(label, info, { TextTransparency = 0, TextStrokeTransparency = 0.5 }):Play()
-	TweenService:Create(accent, info, { BackgroundTransparency = 0 }):Play()
-	TweenService:Create(stroke, info, { Transparency = 0 }):Play()
-end
-
-local function fadeOut(frame: Frame, label: TextLabel, accent: Frame, stroke: UIStroke)
-	local info = TweenInfo.new(Config.FadeTime, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-	TweenService:Create(frame, info, { BackgroundTransparency = 1 }):Play()
-	TweenService:Create(label, info, { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
-	TweenService:Create(accent, info, { BackgroundTransparency = 1 }):Play()
-	local tween = TweenService:Create(stroke, info, { Transparency = 1 })
-	tween.Completed:Once(function()
-		if frame.Parent then frame:Destroy() end
-	end)
-	tween:Play()
+local function createPaper(name: string, parent: GuiObject, tint: Color3): ImageLabel
+	local paper = Instance.new("ImageLabel")
+	paper.Name = name
+	paper.BackgroundTransparency = 1
+	paper.Image = Config.Paper
+	paper.ImageColor3 = tint
+	paper.ImageTransparency = 1
+	paper.ScaleType = Enum.ScaleType.Stretch
+	paper.Size = UDim2.fromScale(1, 1)
+	paper.Parent = parent
+	return paper
 end
 
 local function show(message: any)
@@ -67,49 +58,81 @@ local function show(message: any)
 	build()
 	nextOrder += 1
 
-	local frame = Instance.new("Frame")
-	frame.Name = "Notification"
-	frame.Size = UDim2.fromOffset(Config.Width, Config.Height)
-	frame.BackgroundColor3 = Config.BackgroundColor
-	frame.BackgroundTransparency = 1
-	frame.LayoutOrder = nextOrder
-	frame.Parent = container
+	local slot = Instance.new("Frame")
+	slot.Name = "Notification"
+	slot.BackgroundTransparency = 1
+	slot.Size = UDim2.fromOffset(Config.Width, Config.Height)
+	slot.LayoutOrder = nextOrder
+	slot.Rotation = if random:NextInteger(0, 1) == 0 then -Config.Tilt else Config.Tilt
+	slot.Parent = container
 
-	local stroke = GuiBuilderService.Stroke(frame, Config.StrokeColor, 1)
-	stroke.Transparency = 1
-	GuiBuilderService.Corner(frame, UDim.new(0, 8))
+	local card = Instance.new("Frame")
+	card.Name = "Card"
+	card.BackgroundTransparency = 1
+	card.Size = UDim2.fromScale(1, 1)
+	card.Position = UDim2.fromOffset(0, -Config.EnterDrop)
+	card.Rotation = if slot.Rotation < 0 then -Config.EnterTilt else Config.EnterTilt
+	card.Parent = slot
 
-	local accent = Instance.new("Frame")
-	accent.Name = "Accent"
-	accent.Size = UDim2.new(0, 4, 1, 0)
-	accent.BackgroundColor3 = Config.AccentColor
-	accent.BackgroundTransparency = 1
-	accent.BorderSizePixel = 0
-	accent.Parent = frame
-	GuiBuilderService.Corner(accent, UDim.new(0, 8))
+	local scale = Instance.new("UIScale")
+	scale.Scale = Config.EnterScale
+	scale.Parent = card
+
+	local shadow = createPaper("Shadow", card, Config.ShadowTint)
+	shadow.Size = UDim2.new(1, Config.ShadowGrow, 1, Config.ShadowGrow)
+	shadow.Position = UDim2.fromOffset(Config.ShadowOffset.X - Config.ShadowGrow / 2, Config.ShadowOffset.Y - Config.ShadowGrow / 2)
+
+	local paper = createPaper("Paper", card, Config.PaperTint)
 
 	local label = Instance.new("TextLabel")
 	label.Name = "Message"
+	label.AnchorPoint = Vector2.new(0.5, 0.5)
 	label.BackgroundTransparency = 1
-	label.Position = UDim2.fromOffset(20, 0)
-	label.Size = UDim2.new(1, -36, 1, 0)
-	label.Font = Enum.Font.GothamMedium
+	label.Position = UDim2.fromScale(0.5, 0.5)
+	label.Size = UDim2.new(1, -Config.SidePadding * 2, 1, -Config.TopPadding * 2)
+	label.Font = Config.Font
 	label.Text = message
 	label.TextColor3 = Config.TextColor
-	label.TextSize = Config.TextSize
-	label.TextStrokeColor3 = Config.TextStrokeColor
-	label.TextStrokeTransparency = 1
+	label.TextScaled = true
 	label.TextTransparency = 1
 	label.TextWrapped = true
-	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.TextYAlignment = Enum.TextYAlignment.Center
-	label.Parent = frame
+	label.Parent = card
 
-	fadeIn(frame, label, accent, stroke)
+	local sizeLimit = Instance.new("UITextSizeConstraint")
+	sizeLimit.MaxTextSize = Config.TextSize
+	sizeLimit.MinTextSize = Config.MinTextSize
+	sizeLimit.Parent = label
+
+	local stroke = Instance.new("UIStroke")
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+	stroke.Color = Config.StrokeColor
+	stroke.Thickness = Config.StrokeThickness
+	stroke.Transparency = 1
+	stroke.Parent = label
+
+	local settle = TweenInfo.new(Config.InTime, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	local fade = TweenInfo.new(Config.InTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	TweenService:Create(card, settle, { Position = UDim2.fromOffset(0, 0), Rotation = 0 }):Play()
+	TweenService:Create(scale, settle, { Scale = 1 }):Play()
+	TweenService:Create(paper, fade, { ImageTransparency = 0 }):Play()
+	TweenService:Create(shadow, fade, { ImageTransparency = Config.ShadowTransparency }):Play()
+	TweenService:Create(label, fade, { TextTransparency = 0 }):Play()
+	TweenService:Create(stroke, fade, { Transparency = 0 }):Play()
+
 	task.delay(Config.Duration, function()
-		if frame.Parent then
-			fadeOut(frame, label, accent, stroke)
-		end
+		if not card.Parent then return end
+
+		local out = TweenInfo.new(Config.OutTime, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+		TweenService:Create(card, out, { Position = UDim2.fromOffset(0, -Config.ExitRise) }):Play()
+		TweenService:Create(paper, out, { ImageTransparency = 1 }):Play()
+		TweenService:Create(shadow, out, { ImageTransparency = 1 }):Play()
+		TweenService:Create(label, out, { TextTransparency = 1 }):Play()
+
+		local last = TweenService:Create(stroke, out, { Transparency = 1 })
+		last.Completed:Once(function()
+			if slot.Parent then slot:Destroy() end
+		end)
+		last:Play()
 	end)
 end
 

@@ -3,7 +3,6 @@ return {
 	BackpackSlots = 25,
 
 	ToggleKeys = {
-		Enum.KeyCode.I,
 		Enum.KeyCode.ButtonY,
 	},
 	HotbarKeys = {

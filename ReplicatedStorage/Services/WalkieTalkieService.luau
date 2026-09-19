@@ -26,6 +26,7 @@ local SetAudio = CommunicationService.Get("WalkieTalkie", "SetAudio") :: RemoteE
 local modeIndex = 1
 local powered = false
 local equipped = false
+local equippedTool: Tool? = nil
 local raised = false
 local transmitting = false
 local emitterConnection: RBXScriptConnection?
@@ -507,9 +508,14 @@ function WalkieTalkieService:TogglePower()
 	self:SetPowered(not powered)
 end
 
-function WalkieTalkieService:SetEquipped(value: boolean)
-	equipped = value == true
-	if not equipped then
+function WalkieTalkieService:SetEquipped(value: boolean, tool: Tool?)
+	if value == true then
+		equippedTool = tool
+		equipped = true
+	else
+		if tool ~= nil and equippedTool ~= nil and tool ~= equippedTool then return end
+		equippedTool = nil
+		equipped = false
 		self:SetTransmitting(false)
 		self:SetRaised(false)
 	end

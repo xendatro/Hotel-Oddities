@@ -426,7 +426,7 @@ rollButton.Activated:Connect(function()
 end)
 
 myKitsButton.Activated:Connect(function()
-	InterfaceService:Open("KitInventory")
+	InterfaceService:Open("Kits")
 end)
 
 KitStateService.GemsChanged:Connect(refreshButton)

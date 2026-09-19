@@ -41,7 +41,7 @@ local pageNames = {
 	Gems = { Gui = "GemsUI", Root = "Design" },
 	Items = { Gui = "ItemsGui", Root = "Design" },
 	Inventory = { Gui = "InventoryGui", Root = "Design" },
-	KitInventory = { Gui = "KitInventory", Root = "Design" },
+	Kits = { Gui = "KitInventory", Root = "Design" },
 	KitsShop = { Gui = "KitsShop", Root = "Design" },
 	RollGui = { Gui = "RollGui", Root = "Main" },
 	Map = { Gui = "Map", Root = "Main" },

@@ -1,12 +1,19 @@
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
+local CrouchConfig = require(ReplicatedStorage.Configs.CrouchConfig)
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
+local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local HallwaysService = require(ReplicatedStorage.Services.HallwaysService)
 local NPC = require(ServerStorage.Classes.NPC)
 local RoomService = require(ServerStorage.Services.RoomService)
+local SpawnZoneService = require(ReplicatedStorage.Services.SpawnZoneService)
 
 local PERCEPTION_INTERVAL = 0.25
+local REST_CHECK_INTERVAL = 0.15
 local CHASE_TARGET_ATTRIBUTE = "ChaseTargetUserId"
+local CROUCH_ATTRIBUTE = CrouchConfig.Stealth.Attribute
 
 local Chaser = NPC.extend("Chaser")
 Chaser.AttackLostState = "Search"
@@ -25,13 +32,99 @@ local function wander(changeState: StateMachine.ChangeState, npc: any)
 	return NPC.SharedStates.Wander(changeState, npc)
 end
 
+local function wantsRest(npc: any): string?
+	local chance = npc.Config.RestChance
+	if not chance or chance <= 0 then return nil end
+	if math.random() >= chance then return nil end
+	return "Rest"
+end
+
 local function patrol(changeState: StateMachine.ChangeState, npc: any)
 	clearChaseTarget(npc)
-	return NPC.SharedStates.Patrol(changeState, npc)
+	npc.Animator:StopOverride()
+	return NPC.SharedStates.Patrol(changeState, npc, wantsRest)
+end
+
+local function restSpot(npc: any): (Vector3?, HallwaysService.Hallway?, Vector3?)
+	local origin = npc.RootPart.Position
+	local hallway = HallwaysService.At(origin)
+	if not hallway or hallway.IsRoomFloor then return nil, nil, nil end
+
+	local offset = hallway.HalfWidth - (npc.Config.RestWallInset or 2)
+	if offset <= 0 then return nil, nil, nil end
+
+	local centre = HallwaysService.PointAt(hallway, HallwaysService.Along(hallway, origin))
+	local side = if math.random() < 0.5 then 1 else -1
+	local spot = centre + hallway.Across * (side * offset)
+	if SpawnZoneService:Contains(spot) then return nil, nil, nil end
+	return spot, hallway, centre
+end
+
+local function passerBy(npc: any, hallway: HallwaysService.Hallway, centre: Vector3, radius: number): Player?
+	local origin = npc.RootPart.Position
+	for _, player in Players:GetPlayers() do
+		local character = player.Character
+		if not character or character:GetAttribute(CROUCH_ATTRIBUTE) == true then continue end
+		local root = CharacterService.GetAliveRoot(player)
+		if not root then continue end
+		if (root.Position - origin).Magnitude > radius then continue end
+		if math.abs((root.Position - centre):Dot(hallway.Across)) > hallway.HalfWidth then continue end
+		return player
+	end
+	return nil
+end
+
+local function rest(_changeState: StateMachine.ChangeState, npc: any)
+	clearChaseTarget(npc)
+	npc.Target = nil
+
+	local spot, hallway, centre = restSpot(npc)
+	if not spot or not hallway or not centre then return "Patrol", npc end
+
+	npc:SetSpeed(npc.Config.WalkSpeed)
+	if not npc:WalkTo(spot) then return "Patrol", npc end
+
+	npc:FaceTowards(centre)
+	npc:StopMoving()
+	npc:SetSpeed(0)
+	npc.Animator:Pause()
+
+	local animations = npc.Config.Animations
+	local sleepId = animations and animations.Sleep
+	if sleepId then npc.Animator:PlayOverride(sleepId) end
+
+	local minimum = npc.Config.RestTimeMin or 20
+	local deadline = os.clock() + minimum + math.random() * ((npc.Config.RestTimeMax or minimum) - minimum)
+	local radius = npc.Config.RestWakeRadius or 16
+	local woken: Player? = nil
+
+	while os.clock() < deadline do
+		task.wait(REST_CHECK_INTERVAL)
+		woken = passerBy(npc, hallway, centre, radius)
+		if woken then break end
+	end
+
+	if sleepId then npc.Animator:StopOverride() end
+
+	if woken then
+		local wakeId = animations and animations.Wake
+		if wakeId then
+			npc.Animator:PlayOverride(wakeId)
+			task.wait(npc.Config.RestWakeTime or 1)
+			npc.Animator:StopOverride()
+		end
+	end
+
+	npc:SetSpeed(npc.Config.WalkSpeed)
+	npc.Animator:Resume()
+
+	if woken then return "Chase", npc, woken end
+	return "Patrol", npc
 end
 
 local function stunned(changeState: StateMachine.ChangeState, npc: any, duration: number)
 	clearChaseTarget(npc)
+	npc.Animator:StopOverride()
 	return NPC.SharedStates.Stunned(changeState, npc, duration)
 end
 
@@ -178,9 +271,10 @@ function Chaser:BuildStateMachine(): StateMachine.StateMachine
 		Search = search,
 		RoomReaction = roomReaction,
 		Stunned = stunned,
+		Rest = rest,
 	}, {
 		Perception = { "Idle", "Wander", "Patrol", "Search" },
-		Impact = { "Idle", "Wander", "Patrol", "Search", "Chase", "Attack", "RoomReaction", "Retreat" },
+		Impact = { "Idle", "Wander", "Patrol", "Search", "Chase", "Attack", "RoomReaction", "Retreat", "Rest" },
 	}, {
 		Perception = npc:MakePerceptionEvaluator(PERCEPTION_INTERVAL, function()
 			return npc:GetNearestVisibleTarget()

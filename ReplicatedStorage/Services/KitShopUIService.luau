@@ -182,7 +182,7 @@ buyButton.Activated:Connect(function()
 end)
 
 inventoryButton.Activated:Connect(function()
-	InterfaceService:Open("KitInventory")
+	InterfaceService:Open("Kits")
 end)
 
 KitStateService.KitsChanged:Connect(function(result: string?)

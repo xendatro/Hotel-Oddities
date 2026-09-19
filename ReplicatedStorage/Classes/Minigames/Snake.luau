@@ -4,7 +4,7 @@ local MinigameBase = require(ReplicatedStorage.Classes.Minigames.MinigameBase)
 
 local COLUMNS = 16
 local ROWS = 12
-local PELLETS_TO_WIN = 15
+local PELLETS_TO_WIN = 12
 local START_LENGTH = 3
 local BASE_TICK = 0.16
 local TICK_PER_PELLET = 0.006

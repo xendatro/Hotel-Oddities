@@ -10,15 +10,15 @@ function WalkieTalkie.new(tool: Tool)
 end
 
 function WalkieTalkie:OnEquipped()
-	WalkieTalkieService:SetEquipped(true)
+	WalkieTalkieService:SetEquipped(true, self.Tool)
 end
 
 function WalkieTalkie:OnUnequipped()
-	WalkieTalkieService:SetEquipped(false)
+	WalkieTalkieService:SetEquipped(false, self.Tool)
 end
 
 function WalkieTalkie:OnDestroy()
-	WalkieTalkieService:SetEquipped(false)
+	WalkieTalkieService:SetEquipped(false, self.Tool)
 end
 
 return WalkieTalkie
