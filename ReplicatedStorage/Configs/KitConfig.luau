@@ -245,6 +245,7 @@ local KitConfig = {
 		Buy = "BUY",
 		CannotAfford = "NOT ENOUGH",
 		BalancePrefix = "BALANCE: ",
+		ChancesTitle = "ROLL CHANCES",
 	},
 }
 

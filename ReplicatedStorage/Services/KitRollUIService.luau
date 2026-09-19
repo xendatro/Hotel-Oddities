@@ -37,6 +37,10 @@ local myKitsButton = main:WaitForChild("MyKitsButton") :: ImageButton
 local costLabel = main:WaitForChild("Cost"):WaitForChild("CostLabel") :: TextLabel
 local balance = main:WaitForChild("background_frame"):WaitForChild("Gems"):WaitForChild("CurrentBalance") :: TextLabel
 local notice = main:WaitForChild("Notice") :: TextLabel
+local chances = main:WaitForChild("Chances") :: Frame
+local chancesTitle = chances:WaitForChild("TitleLabel") :: TextLabel
+local chancesRows = chances:WaitForChild("Rows") :: Frame
+local chancesTemplate = chancesRows:WaitForChild("Template") :: Frame
 
 local shopTemplate = playerGui:WaitForChild("KitsShop"):WaitForChild("Design"):WaitForChild("KitsCanvas"):WaitForChild("Kits"):WaitForChild("Template") :: ImageButton
 
@@ -271,6 +275,60 @@ local function showNotice(text: string)
 	end)
 end
 
+local function formatChance(value: number): string
+	local rounded = math.floor(value * 10 + 0.5) / 10
+	if rounded % 1 == 0 then return `{math.floor(rounded)}%` end
+	return string.format("%.1f%%", rounded)
+end
+
+local function buildChances()
+	local populated, total = {}, 0
+
+	for _, rarity in KitConfig.Rarities do
+		local holds = false
+		for _, kit in KitConfig.Entries do
+			if kit.Rarity == rarity.Id then
+				holds = true
+				break
+			end
+		end
+		if holds then
+			table.insert(populated, rarity)
+			total += rarity.Weight
+		end
+	end
+
+	if total <= 0 then
+		chances.Visible = false
+		return
+	end
+
+	chancesTitle.Text = KitConfig.Text.ChancesTitle
+	chancesTitle.FontFace = KitVisualService.BoldFont
+	chancesTitle.TextColor3 = KitVisualService.Muted
+
+	for _, rarity in populated do
+		local row = chancesTemplate:Clone()
+		row.Name = rarity.Id
+		row.LayoutOrder = rarity.Order
+		row.Visible = true
+		row.Parent = chancesRows
+
+		local nameLabel = row.NameLabel :: TextLabel
+		nameLabel.Text = string.upper(rarity.Name)
+		nameLabel.FontFace = KitVisualService.BoldFont
+		nameLabel.TextColor3 = rarity.Accent
+
+		local percentLabel = row.PercentLabel :: TextLabel
+		percentLabel.Text = formatChance(rarity.Weight / total * 100)
+		percentLabel.FontFace = KitVisualService.Font
+		percentLabel.TextColor3 = KitVisualService.Ink
+
+		local bar = row.Bar :: Frame
+		bar.BackgroundColor3 = rarity.Color
+	end
+end
+
 local function refreshButton()
 	local canRoll = KitStateService:CanRoll()
 	local affordable = KitStateService:GetGems() >= ROLL.GemCost
@@ -383,6 +441,7 @@ gui:GetPropertyChangedSignal("Enabled"):Connect(function()
 	notice.Visible = false
 end)
 
+buildChances()
 InterfaceService.WireMotion(rollButton)
 InterfaceService.WireMotion(myKitsButton)
 refreshButton()
