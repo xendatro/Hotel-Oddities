@@ -2,6 +2,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
+local KitsIndexUIService = {}
+
+if not RunService:IsClient() then
+	return KitsIndexUIService
+end
+
 local KitCard = require(ReplicatedStorage.Classes.KitCard)
 local KitConfig = require(ReplicatedStorage.Configs.KitConfig)
 local KitsIndexConfig = require(ReplicatedStorage.Configs.KitsIndexConfig)
@@ -11,19 +17,15 @@ local KitStateService = require(ReplicatedStorage.Services.KitStateService)
 local KitVisualService = require(ReplicatedStorage.Services.KitVisualService)
 local TweenProxyService = require(ReplicatedStorage.Services.TweenProxyService)
 
-local KitInventoryUIService = {}
-
-if not RunService:IsClient() then
-	return KitInventoryUIService
-end
-
 local CARD = KitConfig.Animation.Card
 local INFO = KitConfig.Animation.Info
 local TEXT = KitConfig.Text
+local HEADER = KitsIndexConfig.Header
+local LOCK = KitsIndexConfig.Lock
 
 local playerGui = GuiBuilderService.GetPlayerGui()
-local gui = playerGui:WaitForChild("KitInventory") :: ScreenGui
-local design = gui:WaitForChild("Design") :: Frame
+local gui = playerGui:WaitForChild(KitsIndexConfig.Gui) :: ScreenGui
+local design = gui:WaitForChild(KitsIndexConfig.Root) :: Frame
 local kitsFrame = design:WaitForChild("KitsCanvas"):WaitForChild("Kits") :: ScrollingFrame
 local template = kitsFrame:WaitForChild("Template") :: ImageButton
 local info = design:WaitForChild("Info") :: Frame
@@ -33,11 +35,11 @@ local infoPreview = info:WaitForChild("Preview") :: ImageLabel
 local infoStats = info:WaitForChild("KitStats") :: Frame
 local equipButton = info:WaitForChild("Equip") :: ImageButton
 local equipLabel = equipButton:WaitForChild("TextLabel") :: TextLabel
-local shopButton = design:WaitForChild("ShopButton") :: ImageButton
-local shopButtonLabel = shopButton:WaitForChild("TextLabel") :: TextLabel
-local indexButton = design:WaitForChild("IndexButton") :: ImageButton
+local backButton = design:WaitForChild("BackButton") :: ImageButton
 
 local cards: { [string]: KitCard.KitCard } = {}
+local ordered: { KitConfig.Kit } = {}
+local headers: { Frame } = {}
 local selectedId: string? = nil
 local dealGeneration = 0
 
@@ -72,6 +74,13 @@ local function paintEquipButton()
 	local kit = selectedId and KitConfig.EntriesById[selectedId]
 	if not kit then return end
 
+	if not KitStateService:IsOwned(kit.Id) then
+		equipLabel.Text = TEXT.Locked
+		equipLabel.TextColor3 = KitVisualService.Muted
+		equipButton.Interactable = false
+		return
+	end
+
 	local isEquipped = KitStateService:GetEquipped() == kit.Id
 	equipLabel.Text = if isEquipped then TEXT.Equipped else TEXT.Equip
 	equipLabel.TextColor3 = if isEquipped then KitVisualService.Good else KitVisualService.Ink
@@ -97,12 +106,15 @@ local function paintCards()
 	local equipped = KitStateService:GetEquipped()
 
 	for id, card in cards do
+		local owned = KitStateService:IsOwned(id)
 		local isEquipped = id == equipped
-		card:SetStatus(
-			if isEquipped then TEXT.Equipped else "",
-			false,
-			if isEquipped then KitVisualService.Good else nil
-		)
+		local status = if isEquipped then TEXT.Equipped elseif owned then TEXT.Owned else TEXT.Locked
+		local color = if isEquipped
+			then KitVisualService.Good
+			elseif owned then KitVisualService.Ink
+			else KitVisualService.Muted
+		card:SetStatus(status, not owned, color)
+		KitVisualService.SetCardLocked(card.Button, not owned, LOCK)
 	end
 end
 
@@ -120,24 +132,87 @@ local function selectKit(kit: KitConfig.Kit)
 	paintInfo(true)
 end
 
-local function rebuild()
+local function addHeader(rarity, order: number)
+	local frame = Instance.new("Frame")
+	frame.Name = rarity.Id .. "Header"
+	frame.BackgroundTransparency = 1
+	frame.Size = UDim2.fromScale(HEADER.Width, HEADER.Height)
+	frame.LayoutOrder = order
+	frame.Parent = kitsFrame
+
+	local label = Instance.new("TextLabel")
+	label.Name = "Label"
+	label.AnchorPoint = Vector2.new(0, 0.5)
+	label.Position = UDim2.fromScale(0, 0.5)
+	label.Size = UDim2.fromScale(0.42, 0.9)
+	label.BackgroundTransparency = 1
+	label.FontFace = KitVisualService.BoldFont
+	label.Text = string.upper(rarity.Name)
+	label.TextColor3 = rarity.Accent
+	label.TextScaled = true
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Parent = frame
+
+	local constraint = Instance.new("UITextSizeConstraint")
+	constraint.MaxTextSize = HEADER.MaxTextSize
+	constraint.Parent = label
+
+	local rule = Instance.new("Frame")
+	rule.Name = "Rule"
+	rule.AnchorPoint = Vector2.new(1, 0.5)
+	rule.Position = UDim2.fromScale(1, 0.58)
+	rule.Size = UDim2.fromScale(0.55, HEADER.RuleHeight)
+	rule.BackgroundColor3 = rarity.Accent
+	rule.BackgroundTransparency = HEADER.RuleTransparency
+	rule.BorderSizePixel = 0
+	rule.Parent = frame
+
+	table.insert(headers, frame)
+end
+
+local function rarityOrder(): { any }
+	local rarities = table.clone(KitConfig.Rarities)
+	table.sort(rarities, function(a, b)
+		return if KitsIndexConfig.RarestFirst then a.Order > b.Order else a.Order < b.Order
+	end)
+	return rarities
+end
+
+local function build()
 	for _, card in cards do
 		card:Destroy()
 	end
-	cards = {}
-
-	local visible = {}
-	for _, kit in KitConfig.Entries do
-		if KitStateService:IsOwned(kit.Id) then table.insert(visible, kit) end
+	for _, header in headers do
+		header:Destroy()
 	end
-	visible = KitVisualService.SortByRarity(visible, true)
+	cards = {}
+	headers = {}
+	table.clear(ordered)
 
-	for order, kit in visible do
-		cards[kit.Id] = KitCard.new(template, kitsFrame, kit, order, selectKit)
+	local order = 0
+	for _, rarity in rarityOrder() do
+		local group = {}
+		for _, kit in KitConfig.Entries do
+			if kit.Rarity == rarity.Id then table.insert(group, kit) end
+		end
+		if #group == 0 then continue end
+
+		table.sort(group, function(a, b)
+			return a.Name < b.Name
+		end)
+
+		order += 1
+		addHeader(rarity, order)
+
+		for _, kit in group do
+			order += 1
+			cards[kit.Id] = KitCard.new(template, kitsFrame, kit, order, selectKit)
+			table.insert(ordered, kit)
+		end
 	end
 
 	if not selectedId or not cards[selectedId] then
-		selectedId = visible[1] and visible[1].Id
+		selectedId = ordered[1] and ordered[1].Id
 	end
 
 	local selected = cards[selectedId or ""]
@@ -151,12 +226,9 @@ local function deal()
 	dealGeneration += 1
 	local generation = dealGeneration
 
-	local order = 0
-	for _, kit in KitVisualService.SortByRarity(KitConfig.Entries, true) do
+	for index, kit in ordered do
 		local card = cards[kit.Id]
-		if not card then continue end
-		order += 1
-		card:Deal((order - 1) * CARD.Stagger)
+		if card then card:Deal((index - 1) * CARD.Stagger) end
 	end
 
 	task.delay(0.05, function()
@@ -166,28 +238,17 @@ local function deal()
 end
 
 equipButton.Activated:Connect(function()
-	if selectedId then KitStateService:Equip(selectedId) end
+	if not selectedId or not KitStateService:IsOwned(selectedId) then return end
+	KitStateService:Equip(selectedId)
 end)
 
-local function destination(): string
-	return if KitStateService:CanRoll() then "RollGui" else "KitsShop"
-end
-
-local function refreshNav()
-	shopButtonLabel.Text = if KitStateService:CanRoll() then "ROLL" else "SHOP"
-end
-
-shopButton.Activated:Connect(function()
-	InterfaceService:Open(destination())
-end)
-
-indexButton.Activated:Connect(function()
-	InterfaceService:Open(KitsIndexConfig.PageId)
+backButton.Activated:Connect(function()
+	InterfaceService:Open("KitInventory")
 end)
 
 KitStateService.KitsChanged:Connect(function()
-	refreshNav()
-	rebuild()
+	paintCards()
+	paintInfo(false)
 end)
 
 gui:GetPropertyChangedSignal("Enabled"):Connect(function()
@@ -195,9 +256,7 @@ gui:GetPropertyChangedSignal("Enabled"):Connect(function()
 end)
 
 InterfaceService.WireMotion(equipButton)
-InterfaceService.WireMotion(shopButton)
-InterfaceService.WireMotion(indexButton)
-refreshNav()
-rebuild()
+InterfaceService.WireMotion(backButton)
+build()
 
-return KitInventoryUIService
+return KitsIndexUIService

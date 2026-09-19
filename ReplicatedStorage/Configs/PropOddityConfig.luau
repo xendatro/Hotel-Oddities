@@ -120,6 +120,10 @@ return {
 			AttackAnimation = 126599509413874,
 			HoleImage = 110897645187028,
 
+			PopSound = "PaintingDwellerPop",
+			ScreamSound = "PaintingDwellerScream",
+			RustleSound = "PaintingDwellerRustle",
+
 			DebugHighlight = false,
 			DebugLog = true,
 		},

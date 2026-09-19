@@ -7,6 +7,7 @@ local ComputerConfig = require(ReplicatedStorage.Configs.ComputerConfig)
 local ComputerChipConfig = require(ReplicatedStorage.Configs.ComputerChipConfig)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local ResetComputersConfig = require(ReplicatedStorage.Configs.ResetComputersConfig)
 local AnalyticsService = require(ServerStorage.Services.AnalyticsService)
 local DataSaveService = require(ServerStorage.Services.DataSaveService)
 
@@ -22,6 +23,10 @@ local LEGACY_ATTRIBUTE = "Hacked"
 
 local Complete = CommunicationService.Ensure(ComputerConfig.Remotes.Folder, ComputerConfig.Remotes.Complete) :: RemoteEvent
 local Sync = CommunicationService.Ensure(ComputerConfig.Remotes.Folder, ComputerConfig.Remotes.Sync) :: RemoteEvent
+local Reset = CommunicationService.Ensure(
+	ResetComputersConfig.Remotes.Folder,
+	ResetComputersConfig.Remotes.Reset
+) :: RemoteEvent
 
 local Hacked: { [Player]: { [Model]: true } } = {}
 local SavedIds: { [Player]: { [string]: true } } = {}
@@ -29,6 +34,7 @@ local Ready: { [Player]: boolean } = {}
 local ResetPending: { [Player]: boolean } = {}
 local LastComplete: { [Player]: number } = {}
 local LastSyncRequest: { [Player]: number } = {}
+local LastReset: { [Player]: number } = {}
 
 local function setOf(player: Player): { [Model]: true }
 	local set = Hacked[player]
@@ -250,6 +256,28 @@ Complete.OnServerEvent:Connect(function(player: Player, model: any)
 	ComputerService:SetHacked(player, model, true)
 end)
 
+Reset.OnServerEvent:Connect(function(player: Player)
+	local now = os.clock()
+	if now - (LastReset[player] or 0) < ResetComputersConfig.Cooldown then return end
+
+	local position = CharacterService.GetPosition(player)
+	if not position then return end
+
+	local reach = ResetComputersConfig.ServerReach
+	local near = false
+	for _, model in CollectionService:GetTagged(ResetComputersConfig.Tag) do
+		if not model:IsA("PVInstance") or not model:IsDescendantOf(workspace) then continue end
+		if (model:GetPivot().Position - position).Magnitude <= reach then
+			near = true
+			break
+		end
+	end
+	if not near then return end
+
+	LastReset[player] = now
+	ComputerService:ResetProgress(player)
+end)
+
 Sync.OnServerEvent:Connect(function(player: Player)
 	local now = os.clock()
 	if now - (LastSyncRequest[player] or 0) < SYNC_REQUEST_INTERVAL then return end
@@ -285,6 +313,7 @@ Players.PlayerRemoving:Connect(function(player: Player)
 	ResetPending[player] = nil
 	LastComplete[player] = nil
 	LastSyncRequest[player] = nil
+	LastReset[player] = nil
 end)
 
 for _, descendant in workspace:GetDescendants() do

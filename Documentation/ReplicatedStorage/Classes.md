@@ -34,7 +34,7 @@ Runs a function but gives up after `n` seconds, using Race against a `task.wait`
 - Requires: `Classes.Race`
 
 ### DebugPanel.luau
-Builds a keyboard-toggled developer overlay ScreenGui with labels, buttons, drag sliders and scrolling time graphs. Toggling unlocks the mouse through InterfaceService. The toggle key only works for players whose `Admin` attribute, set by the server's `ChatCommandService`, is true.
+Builds a keyboard-toggled developer overlay ScreenGui with labels, buttons, drag sliders and scrolling time graphs. Toggling unlocks the mouse through InterfaceService.
 - API: `DebugPanel.new(title: string, toggleKey: Enum.KeyCode, width: number?) -> DebugPanel` — creates the hidden panel in PlayerGui; width defaults to 300
 - API: `DebugPanel:SetTitle(title: string)`
 - API: `DebugPanel:IsOpen() -> boolean`
@@ -63,13 +63,13 @@ Spring-driven swinging door leaf: picks a hinge side from who opened it, swings 
 - Requires: `Classes.Spring`, `Configs.DoorConfig`, `Services.AudioService` (uses `GetPlaybackBounds`), `Services.MathService`
 
 ### Drawer.luau
-Spring-driven sliding drawer model. Infers its outward axis from a part whose name contains `DrawerConfig.HandleKeyword`, ignoring parts belonging to tagged drawer items. If no handle part has streamed in yet at construction time, falls back to `DrawerConfig.OutwardAxis` and listens on `model.DescendantAdded` to resolve the real axis once the handle actually arrives, guarding against the drawer opening the wrong way on clients where the handle streams in late.
+Spring-driven sliding drawer model. Infers its outward axis from a part whose name contains `DrawerConfig.HandleKeyword`, ignoring parts belonging to tagged drawer items. Every drawer model in the workspace also carries `Left Side` and `Right Side` Parts (attribute `DrawerSide`) fitted inside the mesh footprint so the whole box travels when it opens.
 - API: `Drawer.new(model: Model) -> Drawer`
 - API: `Drawer:IsOpen() -> boolean`
 - API: `Drawer:IsMoving() -> boolean`
 - API: `Drawer:SetOpen(open: boolean, immediate: boolean?)`
 - API: `Drawer:Step(deltaTime: number) -> boolean` — true while still animating
-- API: `Drawer:Destroy()` — disconnects any pending handle-resolution connection and drops the model reference
+- API: `Drawer:Destroy()` — drops the model reference only
 - Tags: reads `DrawerItemConfig.Tag`
 - Requires: `Classes.Spring`, `Configs.DrawerConfig`, `Configs.DrawerItemConfig`
 
@@ -84,7 +84,8 @@ Client crawl-hole: attaches a `CrawlPrompt`, and on trigger asks the server for 
 ### Interaction.luau
 Client look-at interaction system: raycasts from the camera each render step over registered models, highlights the hit target, and draws/animates a key-prompt pill cloned from the `Cursor` gui. Handles keyboard, gamepad and touch input through ContextActionService, and supports targets that ignore occlusion. A fresh `Highlight` is parented directly inside each newly selected model, with no `Adornee`, fades in, and is destroyed once its fade-out reaches zero. It is never placed in `workspace` itself or given an `Adornee`, because either costs a synchronous engine pass proportional to the workspace instance count (about 5ms at 33k instances).
 - API: `Interaction.new() -> Interaction` — binds the render step and builds the prompt UI
-- API: `Interaction:Register(model: Model, options: TargetOptions)` — `Prompt` (string or function), `TextWidth`, `CanSelect`, `Reach`, `IgnoreOcclusion`, `OnActivated`
+- API: `Interaction:Register(model: Model, options: TargetOptions)` — `Prompt` (string or function), `TextWidth`, `CanSelect`, `Reach`, `IgnoreOcclusion`, `HoldDuration`, `OnActivated`
+- A target with a `HoldDuration` fires `OnActivated` only once the key has been held that many seconds, with a `Hold` bar filling across the prompt pill behind the key and label; releasing the key, looking away, or the target going unselectable cancels the hold and the bar
 - API: `Interaction:Unregister(model: Model)`
 - API: `Interaction:GetSelected() -> Model?`
 - API: `Interaction.Selected` — event fired with the newly selected model or nil
@@ -132,7 +133,7 @@ One kit tile in the inventory or shop grid: clones the GUI's `Template` ImageBut
 - Requires: `Configs.KitConfig`, `Services.KitVisualService`
 
 ### LocatorMarker.luau
-Per-player billboard marker for the player locator: headshot bubble, halo, name plate and distance readout, all tweened between an idle and a focused state, plus a character Highlight. The name plate only shows while focused, because `OverheadNameService` already draws the name above every player; its text comes from `OverheadNameService:GetName`. Rebinds itself as the player's character spawns, dies and is removed.
+Per-player billboard marker for the player locator: headshot bubble, halo, name plate and distance readout, all tweened between an idle and a focused state, plus a character Highlight. Rebinds itself as the player's character spawns, dies and is removed.
 - API: `LocatorMarker.new(player: Player, parent: Instance, onActivated: (Player) -> ()) -> LocatorMarker`
 - API: `LocatorMarker:SetFocused(focused: boolean)` — expands/collapses the bubble and plate, plays the hover sound
 - API: `LocatorMarker:Pulse(phase: number)` — drives the halo scale while focused
@@ -143,7 +144,7 @@ Per-player billboard marker for the player locator: headshot bubble, halo, name 
 - API: `LocatorMarker:Confirm()` — expand-and-fade confirmation
 - API: `LocatorMarker:GetAnchor() -> BasePart?` — the adorned root part while shown
 - API: `LocatorMarker:Destroy()`
-- Requires: `Configs.PlayerLocatorConfig`, `Services.AudioService`, `Services.OverheadNameService`
+- Requires: `Configs.PlayerLocatorConfig`, `Services.AudioService`
 
 ### MapCanvas.luau
 A software pixel canvas backing an `EditableImage`. Owns an RGBA `buffer` it composites into with a soft round brush, then pushes only the changed rectangle through `WritePixelsBuffer`. Compositing takes the maximum alpha rather than blending over, which makes repeated drawing of the same ink idempotent and removes seams where separately drawn strokes meet.
@@ -201,13 +202,6 @@ Replacement for the default Animate script on NPC rigs: disables `Animate`, load
 - API: `NpcAnimator:Reload()` — reloads locomotion and emote tracks in place
 - API: `NpcAnimator:Destroy()`
 - Requires: `Configs.AnimationConfig`, `Configs.MimicConfig`, the rig's `Animate` script
-
-### OverheadName.luau
-One always-on name billboard above a model's head, showing a player's `DisplayName` with the verified badge glyph appended when `HasVerifiedBadge` is true. It is built on the client, so the text is whatever that client's `Player.DisplayName` reads. The billboard is sized in studs with scaled text, and offset toward the camera so head accessories do not cover it. It forces the model's humanoid `DisplayDistanceType` to `None` and keeps it there, follows head and humanoid replacements (the Mimic swaps both when it applies a description), and hides while the humanoid is dead.
-- API: `OverheadName.new(model: Model, player: Player, parent: Instance) -> OverheadName` — `player` is whose name to show, which for the Mimic is not the model's owner
-- API: `OverheadName.Format(player: Player) -> string` — static; display name plus badge glyph
-- API: `OverheadName:Destroy()`
-- Requires: `Configs.OverheadNameConfig`
 
 ### PathfinderMarker.luau
 One numbered waypoint marker for the pathfinder debug/authoring tool, cloned from `ReplicatedStorage.Props.Other.PathfinderMarker` and scaled in on placement. Returns nil (with a warning) if the template is missing.
@@ -353,7 +347,7 @@ Click-the-target trainer: hit 20 ringed targets before missing 3, with each targ
 - Requires: `Classes\Minigames\MinigameBase`
 
 ### Minigames\Frogger.luau
-Frogger on a 13x9 grid: hop from the bottom row to the goal row twice while six lanes of wrapping traffic sweep across. Getting hit resets crossings to zero, plays a splat and reports a failure; two clean crossings win.
+Frogger on a 13x9 grid: hop from the bottom row to the goal row three times while six lanes of wrapping traffic sweep across. Getting hit resets crossings to zero, plays a splat and reports a failure; three clean crossings in a row win.
 - API: `Frogger.new(root: Frame, api: Api) -> self`
 - API: `Frogger:Start(saved: any?)` — restores `Crossings`, builds board/lanes/chrome, binds keys and D-pad, starts the traffic heartbeat
 - API: `Frogger:Serialize() -> any?` — `{ Crossings }`, or nil at zero
@@ -389,7 +383,7 @@ Simon says with four pads driven by WASD/arrows or clicks: watch the playback, r
 - Requires: `Classes\Minigames\MinigameBase`
 
 ### Minigames\Snake.luau
-Snake on a 16x12 grid: eat 15 pellets to win, with the tick interval speeding up from 0.16s toward 0.106s per pellet eaten. Turns are queued (max 2) so fast inputs are not dropped, and reversing into yourself is rejected; hitting a wall or your own body zeroes the score, respawns and reports a failure. Only the best pellet count survives a save.
+Snake on a 16x12 grid: eat 12 pellets to win, with the tick interval speeding up from 0.16s toward 0.106s per pellet eaten. Turns are queued (max 2) so fast inputs are not dropped, and reversing into yourself is rejected; hitting a wall or your own body zeroes the score, respawns and reports a failure. Only the best pellet count survives a save.
 - API: `Snake.new(root: Frame, api: Api) -> self`
 - API: `Snake:Start(saved: any?)` — restores `Best`, builds board and chrome, spawns the snake, binds keys and D-pad, starts the tick heartbeat
 - API: `Snake:Serialize() -> any?` — `{ Best }`, or nil at zero

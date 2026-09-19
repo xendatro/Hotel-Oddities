@@ -72,6 +72,8 @@ return {
 		PressScale = 0.12,
 		PressDecay = 6,
 
+		HoldFillTransparency = 0.72,
+
 		Colors = {
 			Panel = Color3.fromRGB(18, 18, 22),
 			Stroke = Color3.fromRGB(72, 72, 82),

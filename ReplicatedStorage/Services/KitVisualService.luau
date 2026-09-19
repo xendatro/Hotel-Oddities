@@ -152,6 +152,20 @@ function KitVisualService.FillPortrait(container: GuiObject, kit: KitConfig.Kit)
 	return headshot
 end
 
+function KitVisualService.SetCardLocked(button: ImageButton, locked: boolean, settings: { [string]: any })
+	local lock = ensure(button, "Lock", "ImageLabel") :: ImageLabel
+	lock.AnchorPoint = Vector2.new(0.5, 0.5)
+	lock.Position = UDim2.fromScale(0.5, settings.Position)
+	lock.Size = UDim2.fromScale(settings.Size, settings.Size)
+	lock.SizeConstraint = Enum.SizeConstraint.RelativeXX
+	lock.BackgroundTransparency = 1
+	lock.Image = settings.Image
+	lock.ImageColor3 = settings.Color
+	lock.ImageTransparency = settings.Transparency
+	lock.ZIndex = button.ZIndex + 4
+	lock.Visible = locked
+end
+
 function KitVisualService.SetCardStatus(button: ImageButton, text: string, dimmed: boolean, color: Color3?)
 	local status = button:FindFirstChild("StatusLabel")
 	if status and status:IsA("TextLabel") then

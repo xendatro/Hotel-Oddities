@@ -11,7 +11,9 @@ local DrawerConfig = require(ReplicatedStorage.Configs.DrawerConfig)
 local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local InteractionService = require(ReplicatedStorage.Services.InteractionService)
+local KitsIndexConfig = require(ReplicatedStorage.Configs.KitsIndexConfig)
 local PresetConfig = require(ReplicatedStorage.Frameworks.xenterface.Config.PresetConfig)
+local ResetComputersConfig = require(ReplicatedStorage.Configs.ResetComputersConfig)
 local SideButtonConfig = require(ReplicatedStorage.Configs.SideButtonConfig)
 
 local InterfaceService = {}
@@ -44,6 +46,11 @@ local pageNames = {
 	RollGui = { Gui = "RollGui", Root = "Main" },
 	Map = { Gui = "Map", Root = "Main" },
 	Gallery = { Gui = "GalleryGui", Root = "Design" },
+	[KitsIndexConfig.PageId] = { Gui = KitsIndexConfig.Gui, Root = KitsIndexConfig.Root },
+	[ResetComputersConfig.Page.Id] = {
+		Gui = ResetComputersConfig.Page.Gui,
+		Root = ResetComputersConfig.Page.Root,
+	},
 }
 
 local pageGuis: { [string]: ScreenGui } = {}

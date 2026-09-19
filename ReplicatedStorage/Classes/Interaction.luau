@@ -17,6 +17,7 @@ export type TargetOptions = {
 	CanSelect: ((model: Model) -> boolean)?,
 	Reach: number?,
 	IgnoreOcclusion: boolean?,
+	HoldDuration: number?,
 	OnActivated: ((model: Model) -> boolean)?,
 }
 
@@ -27,6 +28,7 @@ type Target = {
 	CanSelect: ((model: Model) -> boolean)?,
 	Reach: number?,
 	IgnoreOcclusion: boolean?,
+	HoldDuration: number?,
 	OnActivated: ((model: Model) -> boolean)?,
 }
 
@@ -54,6 +56,9 @@ function Interaction.new()
 	self._highlightAlpha = 0
 	self._promptAlpha = 0
 	self._pressFlash = 0
+	self._holdTarget = nil :: Target?
+	self._holdStart = 0
+	self._holdAlpha = 0
 	self._shownText = ""
 	self._shownTextWidth = 0
 	self._shownGamepad = nil
@@ -143,6 +148,23 @@ function Interaction:_buildPrompt()
 		return
 	end
 
+	local fill = Instance.new("Frame")
+	fill.Name = "Hold"
+	fill.AnchorPoint = Vector2.new(0, 0.5)
+	fill.Position = UDim2.fromScale(0, 0.5)
+	fill.Size = UDim2.fromScale(0, 1)
+	fill.BackgroundColor3 = UI.Colors.KeyPressed
+	fill.BackgroundTransparency = UI.HoldFillTransparency
+	fill.BorderSizePixel = 0
+	fill.ZIndex = 0
+	fill.Visible = false
+
+	local fillCorner = pill:FindFirstChildOfClass("UICorner")
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = if fillCorner then fillCorner.CornerRadius else UDim.new(0, 10)
+	corner.Parent = fill
+	fill.Parent = pill
+
 	self._prompt = {
 		Container = container,
 		Scale = scale,
@@ -151,6 +173,7 @@ function Interaction:_buildPrompt()
 		KeyScale = keyScale,
 		KeyLabel = keyLabel,
 		Action = action,
+		Fill = fill,
 	}
 	self:_layout(UI.KeySize, UI.TextWidth)
 end
@@ -194,6 +217,7 @@ function Interaction:Register(model: Model, options: TargetOptions)
 		CanSelect = options.CanSelect,
 		Reach = options.Reach,
 		IgnoreOcclusion = options.IgnoreOcclusion,
+		HoldDuration = options.HoldDuration,
 		OnActivated = options.OnActivated,
 	}
 	self._targetsDirty = true
@@ -395,7 +419,42 @@ function Interaction:_setBound(text: string?)
 	end
 end
 
+function Interaction:_activate(target: Target)
+	if target.OnActivated and target.OnActivated(target.Model) then
+		self._pressFlash = 1
+	end
+end
+
+function Interaction:_cancelHold()
+	self._holdTarget = nil
+	self._holdStart = 0
+	self._holdAlpha = 0
+end
+
+function Interaction:_renderHold()
+	local target = self._holdTarget
+	if not target then return end
+
+	if self._selectedTarget ~= target or not self:_selectable(target, 0) then
+		self:_cancelHold()
+		return
+	end
+
+	local duration = target.HoldDuration or 0
+	self._holdAlpha = if duration > 0
+		then math.clamp((os.clock() - self._holdStart) / duration, 0, 1)
+		else 1
+	if self._holdAlpha < 1 then return end
+
+	self:_cancelHold()
+	self:_activate(target)
+end
+
 function Interaction:_onAction(_action: string, inputState: Enum.UserInputState): Enum.ContextActionResult
+	if inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel then
+		self:_cancelHold()
+		return Enum.ContextActionResult.Pass
+	end
 	if inputState ~= Enum.UserInputState.Begin then return Enum.ContextActionResult.Pass end
 
 	local target = self._selectedTarget
@@ -404,9 +463,13 @@ function Interaction:_onAction(_action: string, inputState: Enum.UserInputState)
 	local selectable = self:_selectable(target, 0)
 	if not selectable then return Enum.ContextActionResult.Pass end
 
-	if target.OnActivated and target.OnActivated(target.Model) then
-		self._pressFlash = 1
+	if target.HoldDuration and target.HoldDuration > 0 then
+		self._holdTarget = target
+		self._holdStart = os.clock()
+		return Enum.ContextActionResult.Pass
 	end
+
+	self:_activate(target)
 	return Enum.ContextActionResult.Pass
 end
 
@@ -476,6 +539,9 @@ function Interaction:_renderPrompt(deltaTime: number, text: string?, target: Tar
 		self:_layout(if #keyText <= 1 then UI.KeySize else UI.KeyWideSize, textWidth)
 	end
 
+	prompt.Fill.Visible = self._holdAlpha > 0
+	prompt.Fill.Size = UDim2.new(self._holdAlpha, 0, 1, 0)
+
 	prompt.Container.GroupTransparency = 1 - self._promptAlpha
 	prompt.Container.Position = UDim2.new(0.5, 0, 0.5, UI.TopMargin + math.round((1 - self._promptAlpha) * UI.Rise))
 	prompt.Scale.Scale = UI.EnterScale + (1 - UI.EnterScale) * self._promptAlpha
@@ -487,6 +553,7 @@ function Interaction:_render(deltaTime: number)
 	self:_ensureHighlight()
 	local target, text = self:_findSelection()
 	self:_setSelected(target)
+	self:_renderHold()
 	self:_renderHighlight(deltaTime)
 	self:_renderPrompt(deltaTime, text, target)
 end
@@ -498,6 +565,7 @@ function Interaction:_reset()
 	self:_destroyHighlight()
 	self._promptAlpha = 0
 	self._pressFlash = 0
+	self:_cancelHold()
 	if wasSelected then
 		self._selectionChanged:Fire(nil)
 	end

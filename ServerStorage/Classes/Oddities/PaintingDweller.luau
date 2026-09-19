@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 local TweenService = game:GetService("TweenService")
 
+local AudioService = require(ReplicatedStorage.Services.AudioService)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local DeathService = require(ServerStorage.Services.DeathService)
 local EnemyDiscoveryService = require(ServerStorage.Services.EnemyDiscoveryService)
@@ -28,6 +29,7 @@ function PaintingDweller.new(config: { [string]: any }?)
 	self.StartTrack = nil :: AnimationTrack?
 	self.ThrashTrack = nil :: AnimationTrack?
 	self.AttackTrack = nil :: AnimationTrack?
+	self.LoopPlayers = {} :: { AudioPlayer }
 	self.PoppedAt = 0
 	self.NextAttack = 0
 	return self
@@ -199,6 +201,17 @@ function PaintingDweller:OnStart(): boolean
 	)
 	pop:Play()
 
+	local popSound = self:Setting("PopSound", "")
+	if popSound ~= "" then
+		AudioService:Play3DSound(popSound, root, false, "SFX")
+	end
+	for _, key in { "ScreamSound", "RustleSound" } do
+		local name = self:Setting(key, "")
+		if name ~= "" then
+			table.insert(self.LoopPlayers, AudioService:Play3DSound(name, root, true, "SFX"))
+		end
+	end
+
 	local shakeRadius = self:Setting("ShakeRadius", 32)
 	for _, player in Players:GetPlayers() do
 		local playerRoot = livingRoot(player)
@@ -286,6 +299,11 @@ function PaintingDweller:OnStop()
 	local model = self.Model
 	local rig = self.Rig
 	self.Rig = nil
+
+	for _, playback in self.LoopPlayers do
+		AudioService:StopSound(playback)
+	end
+	table.clear(self.LoopPlayers)
 
 	if rig and rig.Parent then
 		if self.StartTrack then self.StartTrack:Stop(0.2) end
