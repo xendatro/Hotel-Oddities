@@ -318,7 +318,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\LanternSwayConfig.luau — Tuning for the swinging hallway lantern simulation.
 - ReplicatedStorage\Configs\LookConfig.luau — Replicated aim/look angle limits and neck-waist blend weights.
 - ReplicatedStorage\Configs\MapConfig.luau — Map discovery radius, canvas resolution, hand-drawn ink style, landmark tag and name filters, danger layer and marker tuning.
-- ReplicatedStorage\Configs\MapOddityConfig.luau — Fixed spawn intervals and per-effect tuning for hallway/map oddities, including world-space light-out chunks and player-count targeting for HallwayCrush.
+- ReplicatedStorage\Configs\MapOddityConfig.luau — Fixed spawn intervals and per-effect tuning for hallway/map oddities, including world-space light-out chunks and player-count targeting for HallwayCrush; Transparency and HallwayVoid are disabled.
 - ReplicatedStorage\Configs\MirrorRoomConfig.luau — Bounds padding, retry delay, the opaque-reflection tag, saved-transparency and single-viewer attributes, and the instance classes stripped from a mirror-room reflection.
 - ReplicatedStorage\Configs\MimicConfig.luau — Behaviour tuning for the Mimic enemy's reactions, reveal and movement.
 - ReplicatedStorage\Configs\NotificationConfig.luau — Visual settings for the client notification banner, placed below the top HUD strip.
@@ -331,7 +331,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\PlayerLocatorConfig.luau — Marker layout, screen-space focus range, focus animation and palette for the Player Locator tool.
 - ReplicatedStorage\Configs\PlayerOddityConfig.luau — Roll timings and effect weights for whole-character size, head-size, transparency and head-stare player oddities.
 - ReplicatedStorage\Configs\PropOddityConfig.luau — Per-effect tuning for falling lanterns, falling paintings and the painting dweller; painting-dweller fixture debug highlights are disabled.
-- ReplicatedStorage\Configs\RoomsIndexConfig.luau — Rooms index page settings, locked strings, animation and one entry per point of interest with its name, blurb and photo asset id.
+- ReplicatedStorage\Configs\RoomsIndexConfig.luau — Rooms index page settings, locked strings, animation and one entry per point of interest with its name, blurb and photo asset id (Invisible Hallway and The Hole have no photo yet).
 - ReplicatedStorage\Configs\ShopkeeperConfig.luau — Shopkeeper NPC tag, reach, input bindings and prompt UI styling.
 - ReplicatedStorage\Configs\SistersConfig.luau — Sisters eye-contact gaze test, vertigo effect tuning, remote names and the 30-second ceiling warp length.
 - ReplicatedStorage\Configs\SideButtonConfig.luau — Side-bar button labels, their keybinds and the label's styling.
@@ -487,6 +487,7 @@ become Services or Classes.
 - ServerStorage\Classes\SpeedDrink.luau — Server tool that plays a drink sequence and grants a temporary speed boost.
 - ServerStorage\Classes\SurfaceWalker.luau — Kinematic wall/ceiling locomotion for any humanoid rig or NPC; walks a rig along surface contact points with animation.
 - ServerStorage\Classes\TrapObject.luau — Placeable trap that snaps shut and kills the first non-Ghost NPC to touch it.
+- ServerStorage\Classes\VoidPit.luau — Kill volume for parts tagged `VoidPit`: kills any unprotected player whose root enters it, with cause `HallwayVoid` by default.
 - ServerStorage\Classes\Enemies\Blind.luau — Hearing-driven hunter whose determination builds from noise and decays in silence; investigation and pursuit brake within one second at their search point, blending into listening during the final 0.6 seconds and fading back to locomotion over 0.6 seconds afterward.
 - ServerStorage\Classes\Enemies\CeilingDweller.luau — Chaser that drops from the ceiling onto its victim before hunting normally.
 - ServerStorage\Classes\Enemies\Chaos.luau — Fast hazard that sweeps a precomputed route, killing everything along the segment, and despawns crashing into the wall at the route's end.
@@ -509,7 +510,7 @@ become Services or Classes.
 - ServerStorage\Classes\Oddities\HallwayBlocker.luau — Hallway oddity that drops a gate prop into an unseen corridor to wall it off, standing it in a junction-free stretch of real hallway floor so it never lands in a connector room or faces the wrong way.
 - ServerStorage\Classes\Oddities\HallwayChaos.luau — Hallway oddity combining chaotic light flicker with slamming doors.
 - ServerStorage\Classes\Oddities\HallwayCrush.luau — Hallway oddity that closes both walls of one junction-free stretch of corridor inward until they seal, dragging the pilasters, lanterns, paintings and doors with them and crushing unprotected players whose HRP overlap the lethal volume past the configured threshold.
-- ServerStorage\Classes\Oddities\HallwayVoid.luau — Hallway oddity that cuts a bottomless pit into the corridor floor and kills whoever falls in unless they are protected by immunity.
+- ServerStorage\Classes\Oddities\HallwayVoid.luau — Hallway oddity that cuts a bottomless pit into the corridor floor and kills whoever falls in unless they are protected by immunity; disabled, now baked as The Hole POI.
 - ServerStorage\Classes\Oddities\LanternFall.luau — Fixture-fall oddity that drops a ceiling lantern and kills its light while down.
 - ServerStorage\Classes\Oddities\MapLightsOut.luau — Map oddity that turns off every tagged light inside a large world-space chunk.
 - ServerStorage\Classes\Oddities\PaintingDweller.luau — Prop oddity that bursts a humanoid rig out of a painting canvas and attacks nearby players; presented as the "Painting Lurker" enemy with its own death cause, Index entry and event/death discovery.
@@ -519,7 +520,7 @@ become Services or Classes.
 - ServerStorage\Classes\Oddities\PlayerHeadSize.luau — Player oddity that enlarges a player's head and attached accessories by the configured multiplier for every client.
 - ServerStorage\Classes\Oddities\PlayerSize.luau — Player oddity that rescales the victim's character to a random configured size.
 - ServerStorage\Classes\Oddities\PlayerTransparency.luau — Player oddity that makes the victim's character parts near-invisible while preserving equipped Tool transparency.
-- ServerStorage\Classes\Oddities\Transparency.luau — Hallway oddity that fades out every world part inside a hallway box.
+- ServerStorage\Classes\Oddities\Transparency.luau — Hallway oddity that fades out every world part inside a hallway box; disabled, now baked as the Invisible Hallway POI.
 - ServerStorage\Classes\Tools\Bandage.luau — Server half of the Bandage tool; a plain Healer subclass.
 - ServerStorage\Classes\Tools\Big Character.luau — Server half of the Big Character item; applies the fixed large character oddity.
 - ServerStorage\Classes\Tools\Big Head.luau — Server half of the Big Head item; applies the head-size oddity.
@@ -551,7 +552,7 @@ become Services or Classes.
 
 ### ServerStorage\Modules
 
-- ServerStorage\Modules\Tagger.luau — Server tag bootstrap wiring TrapObject, Sound and Animation tags to their classes.
+- ServerStorage\Modules\Tagger.luau — Server tag bootstrap wiring TrapObject, Sound, VoidPit and Animation tags to their classes.
 
 ### StarterPlayer
 
@@ -576,3 +577,5 @@ Enemy navigation: NPC patrols reuse ConnectorGraph entrance geometry with danger
 - ReplicatedStorage\Services\EnemyDespawnService.luau — Local 1.5x layered dust burst, smoke and powder flecks with a 0.15-second enemy fade and positional despawn audio, triggered centrally by EnemyService for enemies whose config enables the sequence.
 
 Maze arrival/exit construction and placement: `Documentation/Workspace/MazeElevators.md`; reproducible edit-time build: `Tools/BuildMazeElevators.luau`.
+
+Baked oddity POIs (The Hole, Invisible Hallway), their backups under `ServerStorage.POIBackups` and how to revert them: `Documentation/Workspace/POIHallways.md`.

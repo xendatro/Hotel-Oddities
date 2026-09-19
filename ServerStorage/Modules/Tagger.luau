@@ -6,6 +6,7 @@ local TagService = require(ReplicatedStorage.Services.TagService)
 local Classes = ServerStorage.Classes
 local TrapObject = require(Classes.TrapObject)
 local Sound = require(Classes.Sound)
+local VoidPit = require(Classes.VoidPit)
 local Animation = require(ReplicatedStorage.Classes.Animation)
 
 return function()
@@ -14,6 +15,9 @@ return function()
 			if o then o:Destroy() end
 		end, workspace)
 		TagService:Listen("Sound", function(o) return Sound.new(o) end, function(_, o)
+			if o then o:Destroy() end
+		end, workspace)
+		TagService:Listen("VoidPit", function(o) return VoidPit.new(o) end, function(_, o)
 			if o then o:Destroy() end
 		end, workspace)
 		TagService:Listen("Animation", function(o) return Animation.new(o) end, function(_, o)

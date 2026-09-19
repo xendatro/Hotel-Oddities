@@ -73,6 +73,12 @@ local Entries: { Entry } = {
 		Image = "rbxassetid://109440899727298",
 	},
 	{
+		Id = "Invisible Hallway",
+		Name = "Invisible Hallway",
+		Description = "A stretch of corridor the hotel forgot to finish drawing. The walls are there if you touch them.",
+		Image = "",
+	},
+	{
 		Id = "Mess",
 		Name = "Mess",
 		Description = "A flooded hall left in disarray, water and wreckage where the tables used to be.",
@@ -125,6 +131,12 @@ local Entries: { Entry } = {
 		Name = "The Garden",
 		Description = "A rain conservatory where the weather is indoors and the plants have grown used to it.",
 		Image = "rbxassetid://75207471646020",
+	},
+	{
+		Id = "The Hole",
+		Name = "The Hole",
+		Description = "The floor gave out along this hallway and never came back. One plank is left, and it is not level.",
+		Image = "",
 	},
 }
 
