@@ -915,10 +915,10 @@ Client-only stamina bar: builds the CanvasGroup/track/fill GUI, follows the stam
 - Requires: `SprintService` (reads stamina/exhaustion), `Configs.SprintConfig`, `GuiBuilderService`
 
 ### StalkerCameraService.luau
-Client camera lock for the Stalker: on the remote, smoothly turns the camera to face the stalker's UpperTorso over a given time. For kills it also anchors the local root part and tweens a +30 FOV offset, restoring both on release. Disabled when `FLAGS.Enemies` is off.
+Client camera lock for the Stalker: on the remote, smoothly turns the camera to face the stalker's UpperTorso over a given time. For kills it also anchors the local root part, tweens the `StalkerCameraConfig.KillFieldOfViewOffset` FOV offset (restored over `FieldOfViewRestoreTime` on release) and, the instant the kill turn starts, plays the `KillSting` template (`StalkerSting` in `ReplicatedStorage.Sounds`) through `AudioService:Play2D` on the configured sound group, warning instead if the template is missing. Disabled when `FLAGS.Enemies` is off.
 - API: none — side-effect only.
 - Remotes: `Enemies/FaceStalker` (listened; `(model, turnTime, kill)`, a nil model releases)
-- Requires: `CameraFovService`, `CharacterService.GetAliveHumanoid`
+- Requires: `Configs.StalkerCameraConfig`, `AudioService.FindTemplate` / `.Play2D`, `CameraFovService`, `CharacterService.GetAliveHumanoid`
 
 ### StatsHUDService.luau
 Client debug HUD in the bottom-left, hidden until toggled with `StatsHUDConfig.ToggleKey` (F5) and only for players whose `Admin` attribute is true: FPS, ping, sampled danger-field value at your position, and a live list of enemies (id, state, distance) colour-coded by threat, plus the stalker's current target. The danger value uses the server's baked field settings from `DangerFieldService.GetReplicatedSettings`, so every client reads the same number the spawn director does; it shows `--` until they arrive.

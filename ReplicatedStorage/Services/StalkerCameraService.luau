@@ -3,6 +3,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
+local StalkerCameraConfig = require(ReplicatedStorage.Configs.StalkerCameraConfig)
+local AudioService = require(ReplicatedStorage.Services.AudioService)
 local CameraFovService = require(ReplicatedStorage.Services.CameraFovService)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
@@ -18,8 +20,7 @@ local FaceStalker = CommunicationService.Get("Enemies", "FaceStalker") :: Remote
 
 local RENDER_JOB = "StalkerCameraLock"
 local FOV_OFFSET_NAME = "StalkerKill"
-local KILL_FOV_OFFSET = 30
-local FOV_RESTORE_TIME = 0.2
+local KILL_STING = StalkerCameraConfig.KillSting
 local localPlayer = Players.LocalPlayer
 
 type Job = {
@@ -34,6 +35,15 @@ type Job = {
 
 local job = nil :: Job?
 
+local function playKillSting()
+	local template = AudioService:FindTemplate(KILL_STING.Sound)
+	if not template then
+		warn(`StalkerCameraService: no sound template named {KILL_STING.Sound}`)
+		return
+	end
+	AudioService:Play2D(template, false, KILL_STING.SoundGroup)
+end
+
 local function release()
 	local active = job
 	if not active then return end
@@ -44,7 +54,7 @@ local function release()
 		CameraFovService:TweenOffset(
 			FOV_OFFSET_NAME,
 			0,
-			TweenInfo.new(FOV_RESTORE_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+			TweenInfo.new(StalkerCameraConfig.FieldOfViewRestoreTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 		)
 	end
 	local root = active.AnchoredRoot
@@ -89,9 +99,10 @@ FaceStalker.OnClientEvent:Connect(function(model: Model?, turnTime: number?, kil
 		end
 		CameraFovService:TweenOffset(
 			FOV_OFFSET_NAME,
-			KILL_FOV_OFFSET,
+			StalkerCameraConfig.KillFieldOfViewOffset,
 			TweenInfo.new(turnTime :: number, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 		)
+		playKillSting()
 	end
 
 	local camera = workspace.CurrentCamera

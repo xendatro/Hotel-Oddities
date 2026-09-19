@@ -257,6 +257,11 @@ Visual definitions for speed-boost aura overlays drawn around the sprint bar, on
 Speed multiplier, stamina economy, camera FOV blend, input bindings and stamina-bar styling for the sprint system.
 - API: data table — `SpeedMultiplier`, `Stamina`, `Camera`, `Input`, `UI`
 
+### StalkerCameraConfig.luau
+Client tuning for the Stalker's camera seize: `KillFieldOfViewOffset` (the FOV push while the kill turn runs), `FieldOfViewRestoreTime`, and `KillSting` (`Sound`, the `ReplicatedStorage.Sounds` template name played the instant the kill turn starts, and its `SoundGroup`).
+- API: data table - `KillFieldOfViewOffset`, `FieldOfViewRestoreTime`, `KillSting`
+- Requires: nothing
+
 ### StatsHUDConfig.luau
 Layout, colour thresholds and sampling intervals for the debug stats HUD panel (FPS, ping, danger level, enemy state rows).
 - API: data table — `EdgeMargin`, `RowHeight`, `CaptionWidth`, `PanelWidth`, `TextSize`, `BackgroundTransparency`, `Colors`, `Enemies`, `Fps`, `Ping`, `Danger` (`Interval`, `RetryInterval`, `Good`, `Fair`)
