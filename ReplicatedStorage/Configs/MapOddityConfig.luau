@@ -6,6 +6,7 @@ return {
 	MinimumPlayerDistance = 32,
 	Effects = {
 		Transparency = {
+			Enabled = false,
 			SpawnIntervalMin = 180,
 			SpawnIntervalMax = 420,
 		},
@@ -55,6 +56,7 @@ return {
 			BlockerMaterial = Enum.Material.Glass,
 		},
 		HallwayVoid = {
+			Enabled = false,
 			SpawnIntervalMin = 1500,
 			SpawnIntervalMax = 2500,
 			MinDuration = 60,
