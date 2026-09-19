@@ -7,9 +7,12 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local CameraFovService = require(ReplicatedStorage.Services.CameraFovService)
+local DrawerConfig = require(ReplicatedStorage.Configs.DrawerConfig)
 local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
+local InteractionService = require(ReplicatedStorage.Services.InteractionService)
 local PresetConfig = require(ReplicatedStorage.Frameworks.xenterface.Config.PresetConfig)
+local SideButtonConfig = require(ReplicatedStorage.Configs.SideButtonConfig)
 
 local InterfaceService = {}
 
@@ -31,6 +34,7 @@ local blur = Lighting:WaitForChild("InterfaceBlur") :: BlurEffect
 
 local pageNames = {
 	Index = { Gui = "IndexGui", Root = "Design" },
+	Rooms = { Gui = "RoomsGui", Root = "Design" },
 	Shop = { Gui = "ShopUI", Root = "Design" },
 	Gems = { Gui = "GemsUI", Root = "Design" },
 	Items = { Gui = "ItemsGui", Root = "Design" },
@@ -160,10 +164,64 @@ local function getMotionPreset(instance: Instance, fallbackName: string)
 	return preset
 end
 
+local LABEL = SideButtonConfig.Label
+local labelPages: { [TextLabel]: string } = {}
+
+local function labelText(pageId: string): string
+	local page = SideButtonConfig.Pages[pageId]
+	if not page then return "" end
+	if not UserInputService.KeyboardEnabled then return page.Label end
+	return string.format(SideButtonConfig.Format, page.Label, page.Key.Name)
+end
+
+local function refreshLabels()
+	for label, pageId in labelPages do
+		label.Text = labelText(pageId)
+	end
+end
+
+local function addLabel(button: GuiButton, pageId: string)
+	local existing = button:FindFirstChild(LABEL.Name)
+	if existing then return end
+
+	local label = Instance.new("TextLabel")
+	label.Name = LABEL.Name
+	label.AnchorPoint = LABEL.AnchorPoint
+	label.Position = LABEL.Position
+	label.Size = LABEL.Size
+	label.BackgroundTransparency = 1
+	label.FontFace = LABEL.FontFace
+	label.TextColor3 = LABEL.Color
+	label.TextScaled = true
+	label.TextWrapped = false
+	label.ZIndex = button.ZIndex + LABEL.ZIndexOffset
+	label.Text = labelText(pageId)
+
+	local constraint = Instance.new("UITextSizeConstraint")
+	constraint.MaxTextSize = LABEL.MaxTextSize
+	constraint.Parent = label
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = LABEL.StrokeColor
+	stroke.Thickness = LABEL.StrokeThickness
+	stroke.Transparency = LABEL.StrokeTransparency
+	stroke.Parent = label
+
+	label.Parent = button
+	labelPages[label] = pageId
+end
+
 local function wireSideButton(instance: Instance)
 	if not instance:IsA("GuiButton") or not instance:IsDescendantOf(playerGui) then return end
 	wireMotion(instance, instance, getMotionPreset(instance, "HotelSideButton"))
+
+	local pageId = instance:GetAttribute("PageId")
+	if type(pageId) == "string" and SideButtonConfig.Pages[pageId] then
+		addLabel(instance, pageId)
+	end
 end
+
+UserInputService:GetPropertyChangedSignal("KeyboardEnabled"):Connect(refreshLabels)
 
 local function wireCloseButton(instance: Instance)
 	if not instance:IsA("GuiButton") or not instance:IsDescendantOf(playerGui) then return end
@@ -322,6 +380,30 @@ UserInputService.InputBegan:Connect(function(input: InputObject)
 	if input.KeyCode ~= Enum.KeyCode.Q then return end
 	if interfaceOpen or mouseUnlockForced then return end
 	InterfaceService:SetMouseUnlocked(not mouseUnlocked)
+end)
+
+local keyPages: { [Enum.KeyCode]: string } = {}
+for pageId, page in SideButtonConfig.Pages do
+	keyPages[page.Key] = pageId
+end
+
+local function claimedByInteraction(keyCode: Enum.KeyCode): boolean
+	if not table.find(DrawerConfig.Input.Keys, keyCode) then return false end
+	return InteractionService:GetSelected() ~= nil
+end
+
+UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
+	if processed then return end
+
+	local pageId = keyPages[input.KeyCode]
+	if not pageId or not pageGuis[pageId] then return end
+	if claimedByInteraction(input.KeyCode) then return end
+
+	if controller.Active == pageId then
+		InterfaceService:Close()
+	else
+		InterfaceService:Open(pageId)
+	end
 end)
 
 function InterfaceService:Open(pageId: string)
