@@ -94,11 +94,18 @@ type VentState = {
 	WalkIn: "Pending" | "Walking" | "Done",
 	WalkInRig: Model?,
 	WalkInWalker: any?,
+	WalkInAnimator: any?,
+	WalkInThread: thread?,
+	TriggerThread: thread?,
+	ReadyThread: thread?,
+	CueThread: thread?,
 }
 
 local CeilingVentService = {}
 local Accumulator = 0
 local LiveDwellers: { any } = {}
+local PauseCount = 0
+local PausedAt = 0
 
 if not FLAGS.Enemies then
 	return CeilingVentService
@@ -246,6 +253,7 @@ local function isVentVisibleToPlayer(state: VentState, player: Player, root: Bas
 end
 
 local function cleanupWalkIn(state: VentState)
+	if state.WalkInAnimator then state.WalkInAnimator:Destroy(); state.WalkInAnimator = nil end
 	local walker = state.WalkInWalker
 	state.WalkInWalker = nil
 	if walker then
@@ -256,6 +264,42 @@ local function cleanupWalkIn(state: VentState)
 	state.WalkInRig = nil
 	if rig then
 		rig:Destroy()
+	end
+end
+
+local function cancelJobs(state: VentState)
+	for _, key in {"WalkInThread", "TriggerThread", "ReadyThread", "CueThread"} do
+		local thread = state[key]
+		state[key] = nil
+		if thread and coroutine.status(thread) ~= "dead" then pcall(task.cancel, thread) end
+	end
+	cleanupWalkIn(state)
+end
+
+function CeilingVentService:AcquirePause()
+	PauseCount += 1
+	if PauseCount == 1 then
+		PausedAt = os.clock()
+		for _, state in TagService:GetAllApplied(CEILING_VENT_TAG) do
+			cancelJobs(state)
+			if state.Triggered then state.Spent = true else state.WalkIn = "Pending" end
+			if state.Door.Parent then
+				DoorEvent:FireAllClients(state.Door, state.DoorPivot, 0, "Quad")
+				state.Door:PivotTo(state.DoorPivot)
+			end
+		end
+	end
+	local released = false
+	return function()
+		if released then return end
+		released = true
+		PauseCount -= 1
+		if PauseCount == 0 then
+			local now = os.clock()
+			for _, state in TagService:GetAllApplied(CEILING_VENT_TAG) do
+				state.ArmAt = math.max(state.ArmAt + now - PausedAt, now + WALK_IN_LEAD + SPAWN_READY_DELAY)
+			end
+		end
 	end
 end
 
@@ -343,16 +387,17 @@ local function buildWalkInPath(state: VentState): { Vector3 }?
 end
 
 local function runWalkIn(state: VentState)
+	if PauseCount > 0 then return end
 	state.WalkIn = "Walking"
 
-	task.spawn(function()
+	state.WalkInThread = task.spawn(function()
 		local finished = false
 		local function finish(readyDelay: number?)
 			if finished then return end
 			finished = true
 			cleanupWalkIn(state)
 			if readyDelay and readyDelay > 0 then
-				task.delay(readyDelay, function()
+				state.ReadyThread = task.delay(readyDelay, function()
 					if state.Alive then
 						state.WalkIn = "Done"
 					end
@@ -388,6 +433,7 @@ local function runWalkIn(state: VentState)
 		rig.Parent = WalkInFolder
 
 		local animator = NpcAnimator.new(rig, EnemyConfigs.CeilingDweller.Animations)
+		state.WalkInAnimator = animator
 		animator:Start()
 
 		local walker = SurfaceWalker.new(rig, animator, -Vector3.yAxis)
@@ -396,14 +442,12 @@ local function runWalkIn(state: VentState)
 
 		local walked = walker:WalkAlong(points, WALK_IN_SPEED)
 		if not walked or not state.Alive or not state.Vent:IsDescendantOf(workspace) then
-			animator:Destroy()
 			return finish()
 		end
 
 		AudioService:Play3DSound("VentOpen", state.Door, false, "SFX")
 		local opened = moveDoor(state, state.DoorPivot * CFrame.Angles(OPEN_ANGLE, 0, 0), DOOR_OPEN_TIME, "Quad")
 		if not opened or not state.WalkInRig then
-			animator:Destroy()
 			return finish()
 		end
 
@@ -437,7 +481,6 @@ local function runWalkIn(state: VentState)
 			animator:SetMovementSpeed(0)
 		end
 
-		animator:Destroy()
 		finish(SPAWN_READY_DELAY)
 		moveDoor(state, state.DoorPivot, DOOR_MOVE_TIME, "Quad")
 	end)
@@ -481,19 +524,20 @@ local function canSpawn(): boolean
 end
 
 local function trigger(state: VentState, player: Player, forced: boolean?)
+	if PauseCount > 0 then return end
 	if state.Triggered or not state.Alive then return end
 	if not forced and state.WalkIn ~= "Done" then return end
 	if not forced and not canSpawn() then return end
 	if forced and state.WalkIn ~= "Done" then
 		state.WalkIn = "Done"
-		cleanupWalkIn(state)
+		cancelJobs(state)
 	end
 	state.Triggered = true
 
-	task.spawn(function()
+	state.TriggerThread = task.spawn(function()
 		AudioService:Play3DSound("VentOpen", state.Door, false, "SFX")
 		if player.Parent == Players then
-			task.delay(DOOR_OPEN_TIME * OPEN_CUE_POINT, function()
+			state.CueThread = task.delay(DOOR_OPEN_TIME * OPEN_CUE_POINT, function()
 				if player.Parent == Players then
 					CameraEvent:FireClient(player, "Open", DOOR_OPEN_TIME * (1 - OPEN_CUE_POINT))
 				end
@@ -543,6 +587,7 @@ function CeilingVentService:GetVents(): { { Vent: Instance, Floor: Vector3, Trig
 end
 
 function CeilingVentService:SpawnFromNearest(player: Player): boolean
+	if PauseCount > 0 then return false end
 	local root = CharacterService.GetAliveRoot(player)
 	if not root then return false end
 
@@ -618,7 +663,7 @@ TagService:Listen(CEILING_VENT_TAG, function(vent: Instance)
 end, function(_vent: Instance, state: VentState?)
 	if state then
 		state.Alive = false
-		cleanupWalkIn(state)
+		cancelJobs(state)
 	end
 end, workspace)
 
@@ -632,6 +677,7 @@ local TickPlayers: { Player } = {}
 local TickRoots: { [Player]: BasePart? } = {}
 
 RunService.Heartbeat:Connect(function(deltaTime: number)
+	if PauseCount > 0 then return end
 	Accumulator += deltaTime
 	if Accumulator < POLL_INTERVAL then return end
 	Accumulator %= POLL_INTERVAL

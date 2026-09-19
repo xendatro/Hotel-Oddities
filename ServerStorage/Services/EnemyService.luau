@@ -18,6 +18,7 @@ local despawnEffect = CommunicationService.Ensure("Enemies", "DespawnPoof")
 
 local EnemyService = {}
 local ActiveEnemies = {}
+local spawnBlocks = 0
 
 EnemyService.CollisionGroup = "Enemies"
 local PLAYER_COLLISION_GROUP = "Players"
@@ -126,11 +127,12 @@ local function prepare(model: Model)
 	model.DescendantAdded:Connect(prepareDescendant)
 end
 
-function EnemyService:Spawn(enemyId: string, spawnCFrame: CFrame, ...: any)
-	if not FLAGS.Enemies then return nil end
+local function spawnEnemy(self,allowed,enemyId: string, spawnCFrame: CFrame, ...: any)
+	if not FLAGS.Enemies or not allowed() then return nil end
 
 	local config = EnemyConfigs[enemyId]
 	local enemyClass = require(EnemyClasses:FindFirstChild(enemyId))
+	if not allowed() then return nil end
 	local model = EnemyModels:FindFirstChild(config.Model):Clone() :: Model
 
 	model:PivotTo(spawnCFrame)
@@ -141,6 +143,7 @@ function EnemyService:Spawn(enemyId: string, spawnCFrame: CFrame, ...: any)
 	prepare(model)
 
 	local enemy = enemyClass.new(model, config, ...)
+	if not allowed() then enemy:Despawn(); model:Destroy(); return nil end
 	enemy.EnemyId = enemyId
 	local shouldEmitPoof = config.DespawnEffect ~= false
 	local effectSent = false
@@ -174,6 +177,20 @@ function EnemyService:Spawn(enemyId: string, spawnCFrame: CFrame, ...: any)
 	return enemy
 end
 
+function EnemyService:Spawn(enemyId: string, spawnCFrame: CFrame, ...: any)
+	return spawnEnemy(self,function() return spawnBlocks==0 end,enemyId,spawnCFrame,...)
+end
+
+function EnemyService:AcquireSpawnBlock()
+	spawnBlocks += 1
+	local released = false
+	return function()
+		if not released then released = true; spawnBlocks -= 1 end
+	end,function(enemyId,spawnCFrame,...)
+		return spawnEnemy(self,function() return not released and spawnBlocks==1 end,enemyId,spawnCFrame,...)
+	end
+end
+
 function EnemyService:GetActive()
 	return table.clone(ActiveEnemies)
 end
@@ -184,8 +201,9 @@ function EnemyService:ForEachActive(callback: (enemy: any) -> ())
 	end
 end
 
-function EnemyService:DespawnAll()
+function EnemyService:DespawnAll(silent: boolean?)
 	for _, enemy in table.clone(ActiveEnemies) do
+		if silent then enemy.SilentDespawn = true end
 		enemy:Despawn()
 	end
 end

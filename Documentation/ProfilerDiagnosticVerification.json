@@ -1,0 +1,182 @@
+{
+  "valid": true,
+  "scene": {
+    "server": true,
+    "client": true
+  },
+  "hookCleaned": true,
+  "status": "completed",
+  "scriptProfiler": {
+    "client": {
+      "top": [
+        {
+          "source": "unknown",
+          "line": 0,
+          "name": "Init",
+          "totalCpuMs": 221.653
+        },
+        {
+          "source": "ReplicatedStorage.Classes.RigMotion",
+          "line": 26,
+          "name": "anonymous",
+          "totalCpuMs": 120.765
+        },
+        {
+          "source": "unknown",
+          "line": 0,
+          "name": "EyeRenderService",
+          "totalCpuMs": 115.5
+        },
+        {
+          "source": "[C]",
+          "line": 0,
+          "name": "Instance.GetAttribute",
+          "totalCpuMs": 91.134
+        },
+        {
+          "source": "ReplicatedStorage.Services.EyeRenderService",
+          "line": 49,
+          "name": "anonymous",
+          "totalCpuMs": 71.338
+        },
+        {
+          "source": "[C]",
+          "line": 0,
+          "name": "BasePart.CFrame",
+          "totalCpuMs": 66.79599999999999
+        },
+        {
+          "source": "ReplicatedStorage.Services.VanishedService",
+          "line": 43,
+          "name": "Is",
+          "totalCpuMs": 62.84199999999999
+        },
+        {
+          "source": "ReplicatedStorage.Services.TagService",
+          "line": 153,
+          "name": "GetTaggedOfPredicate",
+          "totalCpuMs": 61.61
+        },
+        {
+          "source": "unknown",
+          "line": 0,
+          "name": "GhostRenderService",
+          "totalCpuMs": 59.87
+        },
+        {
+          "source": "ReplicatedStorage.Services.GhostRenderService",
+          "line": 386,
+          "name": "anonymous",
+          "totalCpuMs": 59.87
+        },
+        {
+          "source": "[C]",
+          "line": 0,
+          "name": "Instance.FindFirstChildWhichIsA",
+          "totalCpuMs": 58.372
+        },
+        {
+          "source": "ReplicatedStorage.Classes.RigMotion",
+          "line": 29,
+          "name": "anonymous",
+          "totalCpuMs": 55.028
+        }
+      ],
+      "seconds": 8.38037329999861,
+      "side": "client",
+      "available": true,
+      "semantics": "Sampled CPU; includes setup/warmup for the captured interval; function totals may overlap",
+      "frequency": 1000
+    },
+    "server": {
+      "top": [
+        {
+          "source": "unknown",
+          "line": 0,
+          "name": "EnemyDirectorService",
+          "totalCpuMs": 738.5699999999999
+        },
+        {
+          "source": "[C]",
+          "line": 0,
+          "name": "pcall",
+          "totalCpuMs": 528.865
+        },
+        {
+          "source": "ReplicatedStorage.Classes.Vow",
+          "line": 49,
+          "name": "anonymous",
+          "totalCpuMs": 500.111
+        },
+        {
+          "source": "ReplicatedStorage.Classes.Vow",
+          "line": 50,
+          "name": "anonymous",
+          "totalCpuMs": 500.111
+        },
+        {
+          "source": "unknown",
+          "line": 0,
+          "name": "Main",
+          "totalCpuMs": 315.84499999999997
+        },
+        {
+          "source": "cloud_4500377880.interface-2ools.Main.hooks.utilities.app-updates.use-tick-update",
+          "line": 13,
+          "name": "anonymous",
+          "totalCpuMs": 303.996
+        },
+        {
+          "source": "ServerStorage.Classes.Enemies.Ghost",
+          "line": 98,
+          "name": "drift",
+          "totalCpuMs": 183.787
+        },
+        {
+          "source": "ServerStorage.Classes.Enemies.Ghost",
+          "line": 37,
+          "name": "FloatTo",
+          "totalCpuMs": 183.787
+        },
+        {
+          "source": "ReplicatedStorage.Classes.NpcAnimator",
+          "line": 347,
+          "name": "anonymous",
+          "totalCpuMs": 165.242
+        },
+        {
+          "source": "[C]",
+          "line": 0,
+          "name": "BasePart.CFrame",
+          "totalCpuMs": 151.233
+        },
+        {
+          "source": "ReplicatedStorage.Classes.NpcAnimator",
+          "line": 287,
+          "name": "_update",
+          "totalCpuMs": 146.166
+        },
+        {
+          "source": "ServerStorage.Classes.Enemies.Chaos",
+          "line": 39,
+          "name": "Run",
+          "totalCpuMs": 127.47
+        }
+      ],
+      "seconds": 8.380456999999296,
+      "side": "server",
+      "available": true,
+      "semantics": "Sampled CPU; includes setup/warmup for the captured interval; function totals may overlap",
+      "frequency": 1000
+    }
+  },
+  "microProfiler": {
+    "server": {
+      "available": true
+    },
+    "client": {
+      "frames": 128,
+      "available": true
+    }
+  }
+}

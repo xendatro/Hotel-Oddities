@@ -39,6 +39,17 @@ type Managed = {
 }
 
 local EnemyDirectorService = {}
+local pauseCount = 0
+
+function EnemyDirectorService:AcquirePause()
+	pauseCount += 1
+	local released = false
+	return function()
+		if released then return end
+		released = true
+		pauseCount -= 1
+	end
+end
 
 function EnemyDirectorService:CanAfford(_enemyId: string): boolean
 	return true
@@ -573,6 +584,7 @@ function EnemyDirectorService:Reset()
 end
 
 RunService.Heartbeat:Connect(function(deltaTime: number)
+	if pauseCount > 0 then return end
 	TickAccumulator += deltaTime
 	DespawnAccumulator += deltaTime
 

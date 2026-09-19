@@ -1,6 +1,7 @@
 # ServerScriptService
 
 ### Init.legacy.luau
+Starts `ServerStorage.Profiler.Bootstrap.Start()` before game services. The portable package creates its own runtime and transport.
 The server bootstrap. It requires `POIDiscoveryService` before deferring the remaining child `require`s so the POI remotes and occupancy detector are registered before clients can request their initial state, then calls `ServerStorage.Modules.Tagger` to wire the server-side CollectionService tags to their classes.
 - API: no return value — this is a Script, not a module.
 - Requires: `ServerStorage\Services\POIDiscoveryService.luau`, every other module under `ServerStorage\Services\`, plus `ServerStorage\Modules\Tagger.luau`.

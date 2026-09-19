@@ -1,0 +1,451 @@
+{
+  "scriptDurationUnits": [
+    {
+      "raw": {
+        "Flags": 0,
+        "Name": "EnemyDirectorService",
+        "TotalDuration": 280751
+      },
+      "decoded": {
+        "TotalDuration": 0.280751,
+        "Line": 0,
+        "Name": "EnemyDirectorService"
+      }
+    },
+    {
+      "raw": {
+        "Flags": 0,
+        "Line": 49,
+        "Source": "ReplicatedStorage.Classes.Vow",
+        "TotalDuration": 212327
+      },
+      "decoded": {
+        "TotalDuration": 0.212327,
+        "Line": 49,
+        "Source": "ReplicatedStorage.Classes.Vow"
+      }
+    },
+    {
+      "raw": {
+        "Flags": 0,
+        "Name": "pcall",
+        "Source": "[C]",
+        "TotalDuration": 212327
+      },
+      "decoded": {
+        "TotalDuration": 0.212327,
+        "Line": 0,
+        "Source": "[C]",
+        "Name": "pcall"
+      }
+    }
+  ],
+  "scenarios": [
+    {
+      "valid": true,
+      "serverChecks": [
+        {
+          "passed": true,
+          "name": "full duration: view",
+          "detail": ""
+        },
+        {
+          "passed": true,
+          "name": "character stayed fixed",
+          "detail": ""
+        },
+        {
+          "passed": true,
+          "name": "cleanup",
+          "detail": ""
+        }
+      ],
+      "scenario": "stationary",
+      "warnings": [
+        "Studio/background throttling and device power state can dominate FPS; use fixed foreground conditions for comparisons"
+      ],
+      "id": "0f029e80-869f-4cc4-be57-12484e4c0d68",
+      "clientChecks": [
+        {
+          "name": "camera stayed fixed",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "cleanup",
+          "passed": true,
+          "detail": ""
+        }
+      ],
+      "status": "completed",
+      "clientFrames": 505
+    },
+    {
+      "valid": true,
+      "serverChecks": [
+        {
+          "passed": true,
+          "name": "ambient enemies cleared",
+          "detail": ""
+        },
+        {
+          "passed": true,
+          "name": "full duration: east",
+          "detail": ""
+        },
+        {
+          "passed": true,
+          "name": "full duration: west",
+          "detail": ""
+        },
+        {
+          "passed": true,
+          "name": "subject survived",
+          "detail": ""
+        },
+        {
+          "passed": true,
+          "name": "expected enemy workload",
+          "detail": "active=0"
+        },
+        {
+          "passed": true,
+          "name": "cleanup",
+          "detail": ""
+        }
+      ],
+      "scenario": "hotel.hallway",
+      "warnings": [
+        "Studio/background throttling and device power state can dominate FPS; use fixed foreground conditions for comparisons"
+      ],
+      "id": "8e666994-69bc-4693-832c-34b0140aab17",
+      "clientChecks": [
+        {
+          "name": "floor ready: east",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "floor ready: west",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "character survived",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "floor present at end",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "cleanup",
+          "passed": true,
+          "detail": ""
+        }
+      ],
+      "status": "completed",
+      "clientFrames": 468
+    },
+    {
+      "valid": true,
+      "serverChecks": [
+        {
+          "passed": true,
+          "name": "ambient enemies cleared",
+          "detail": ""
+        },
+        {
+          "passed": true,
+          "name": "full duration: traverse",
+          "detail": ""
+        },
+        {
+          "passed": true,
+          "name": "subject survived",
+          "detail": ""
+        },
+        {
+          "passed": true,
+          "name": "expected enemy workload",
+          "detail": "active=0"
+        },
+        {
+          "passed": true,
+          "name": "route completed",
+          "detail": "40, -19.5, -96.30999755859375"
+        },
+        {
+          "passed": true,
+          "name": "cleanup",
+          "detail": ""
+        }
+      ],
+      "scenario": "hotel.streaming",
+      "warnings": [
+        "Studio/background throttling and device power state can dominate FPS; use fixed foreground conditions for comparisons"
+      ],
+      "id": "96449ca0-0524-43f2-b6f8-fcc19b6b9be8",
+      "clientChecks": [
+        {
+          "name": "floor ready: traverse",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "character survived",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "floor present at end",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "cleanup",
+          "passed": true,
+          "detail": ""
+        }
+      ],
+      "status": "completed",
+      "clientFrames": 397
+    },
+    {
+      "valid": true,
+      "serverChecks": [
+        {
+          "passed": true,
+          "name": "ambient enemies cleared",
+          "detail": ""
+        },
+        {
+          "passed": true,
+          "name": "full duration: encounter",
+          "detail": ""
+        },
+        {
+          "passed": true,
+          "name": "subject survived",
+          "detail": ""
+        },
+        {
+          "passed": true,
+          "name": "expected enemy workload",
+          "detail": "active=1"
+        },
+        {
+          "passed": true,
+          "name": "Chaser actually pursued",
+          "detail": ""
+        },
+        {
+          "passed": true,
+          "name": "Chaser actually moved",
+          "detail": "53.27 studs"
+        },
+        {
+          "passed": true,
+          "name": "cleanup",
+          "detail": ""
+        }
+      ],
+      "scenario": "hotel.enemy",
+      "warnings": [
+        "Studio/background throttling and device power state can dominate FPS; use fixed foreground conditions for comparisons"
+      ],
+      "id": "6ddbe6bf-f7d3-475f-9b69-a20935b44785",
+      "clientChecks": [
+        {
+          "name": "floor ready: encounter",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "character survived",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "floor present at end",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "cleanup",
+          "passed": true,
+          "detail": ""
+        }
+      ],
+      "status": "completed",
+      "clientFrames": 460
+    },
+    {
+      "valid": true,
+      "serverChecks": [
+        {
+          "passed": true,
+          "name": "full duration: Inventory",
+          "detail": ""
+        },
+        {
+          "passed": true,
+          "name": "full duration: Index",
+          "detail": ""
+        },
+        {
+          "passed": true,
+          "name": "full duration: closed",
+          "detail": ""
+        },
+        {
+          "passed": true,
+          "name": "cleanup",
+          "detail": ""
+        }
+      ],
+      "scenario": "hotel.ui",
+      "warnings": [
+        "Studio/background throttling and device power state can dominate FPS; use fixed foreground conditions for comparisons"
+      ],
+      "id": "a392992e-603c-4868-83ca-027c20e2772c",
+      "clientChecks": [
+        {
+          "name": "page shown: Inventory",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "page shown: Index",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "page shown: closed",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "cleanup",
+          "passed": true,
+          "detail": ""
+        }
+      ],
+      "status": "completed",
+      "clientFrames": 494
+    },
+    {
+      "valid": true,
+      "serverChecks": [
+        {
+          "passed": true,
+          "name": "ambient enemies cleared",
+          "detail": ""
+        },
+        {
+          "passed": true,
+          "name": "full duration: maze",
+          "detail": ""
+        },
+        {
+          "passed": true,
+          "name": "full duration: lobby",
+          "detail": ""
+        },
+        {
+          "passed": true,
+          "name": "subject survived",
+          "detail": ""
+        },
+        {
+          "passed": true,
+          "name": "expected enemy workload",
+          "detail": "active=0"
+        },
+        {
+          "passed": true,
+          "name": "cleanup",
+          "detail": ""
+        }
+      ],
+      "scenario": "hotel.reentry",
+      "warnings": [
+        "Studio/background throttling and device power state can dominate FPS; use fixed foreground conditions for comparisons"
+      ],
+      "id": "5e2ee37f-838f-4d93-93ed-4939e522455c",
+      "clientChecks": [
+        {
+          "name": "floor ready: maze",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "floor ready: lobby",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "character survived",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "floor present at end",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "cleanup",
+          "passed": true,
+          "detail": ""
+        }
+      ],
+      "status": "completed",
+      "clientFrames": 490
+    }
+  ],
+  "cancellation": {
+    "status": "cancelled",
+    "anchored": false,
+    "valid": false,
+    "checks": [
+      {
+        "passed": true,
+        "name": "ambient enemies cleared",
+        "detail": ""
+      },
+      {
+        "passed": true,
+        "name": "cleanup",
+        "detail": ""
+      }
+    ]
+  },
+  "date": "2026-09-19",
+  "kind": "Studio functional verification; not an optimization benchmark",
+  "routeScopes": {
+    "counters": [],
+    "semantics": "elapsed wall milliseconds including yields; nested scopes overlap",
+    "droppedNames": 0,
+    "scopes": [
+      {
+        "p50": 0.10340000153519213,
+        "truncated": false,
+        "errors": 0,
+        "p99": 0.26449999859323725,
+        "mean": 0.11132403155695664,
+        "stddev": 0.04939871785640584,
+        "min": 0.035799999750452116,
+        "p95": 0.19949999841628596,
+        "name": "Hotel.Route.Pivot",
+        "totalMs": 155.18569999039755,
+        "retained": 1394,
+        "available": true,
+        "count": 1394,
+        "max": 0.9228000017174054
+      }
+    ]
+  }
+}

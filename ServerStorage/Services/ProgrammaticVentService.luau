@@ -36,6 +36,23 @@ local Managed: { ManagedVent } = {}
 local SpawnAccumulator = 0
 local InitialSpawnAccumulator = 0
 local DespawnAccumulator = 0
+local PauseCount = 0
+local PausedAt = 0
+local ProgrammaticVentService = {}
+
+function ProgrammaticVentService:AcquirePause()
+	PauseCount += 1
+	if PauseCount == 1 then PausedAt = os.clock() end
+	local released = false
+	return function()
+		if released then return end
+		released = true
+		PauseCount -= 1
+		if PauseCount == 0 then
+			for _, entry in Managed do entry.ExpiresAt += os.clock() - PausedAt end
+		end
+	end
+end
 
 local GEOMETRY_CACHE_TTL = 60
 
@@ -286,6 +303,7 @@ local function sweepDespawn(now: number)
 end
 
 RunService.Heartbeat:Connect(function(deltaTime: number)
+	if PauseCount > 0 then return end
 	SpawnAccumulator += deltaTime
 	InitialSpawnAccumulator += deltaTime
 	DespawnAccumulator += deltaTime
@@ -305,4 +323,4 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 	end
 end)
 
-return {}
+return ProgrammaticVentService

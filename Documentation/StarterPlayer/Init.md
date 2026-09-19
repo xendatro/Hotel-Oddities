@@ -1,6 +1,7 @@
 # StarterPlayer
 
 ### StarterPlayerScripts\Init.local.luau
+Also defers `ReplicatedStorage.Profiler.Bootstrap.Start()`. The existing `StaterPlayer` filesystem sync mirror carries the same hook.
 The client bootstrap. It `task.defer`s a `require` of every child of `ReplicatedStorage.Services`, which is what makes every shared/client Service self-initialize, then calls `ReplicatedStorage.Modules.Tagger` to wire the client-side CollectionService tags to their classes.
 - API: no return value — this is a LocalScript, not a module.
 - Requires: every module under `ReplicatedStorage\Services\`, plus `ReplicatedStorage\Modules\Tagger.luau`.

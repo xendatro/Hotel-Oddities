@@ -25,6 +25,7 @@ Wrapper around Roblox's BadgeService that awards only badge ids listed in BadgeC
 Watches players approaching parts tagged `CeilingVent` and, when one walks under an armed vent while uncrouched, looking at it and moving toward it, opens the vent door and drops a CeilingDweller through it. Before a vent arms it now telegraphs: 10 seconds (`WALK_IN_LEAD`) before the vent's `ArmAt` time, a harmless CeilingDweller rig (tags and `EnemyId` stripped) spawns on the ceiling at an out-of-sight hallway-graph node, walks upside-down along the ceiling to the vent via `SurfaceWalker` (the graph route is truncated at the first segment that passes within `WALK_IN_PASS_RADIUS` of the vent door, so the crawler heads straight into the vent instead of overshooting to the nearest node and doubling back), the walk-in humanoid display distance is set to `None`, the door opens, it pitches ~85° while still crawling and climbs through the opening on an eased bezier (in toward the vent centre, then up), and the door closes; the walk-in starts `SPAWN_READY_DELAY` (3s) earlier and the vent cannot trigger until 3 seconds after the crawler is inside, leaving the `ArmAt` jumpscare timing unchanged (skipped gracefully when no path, hidden start point or model is available, and cancelled by a forced spawn). Also culls unengaged, unobserved dwellers and exposes a debug list of vents. Entirely inert unless `FLAGS.Enemies`.
 - API: `CeilingVentService:GetVents() -> { { Vent: Instance, Floor: Vector3, Triggered: boolean } }` — vents with a solved floor drop point, sorted by full name
 - API: `CeilingVentService:SpawnFromNearest(player: Player) -> boolean` — force-triggers the closest untriggered vent, cancelling any in-progress walk-in
+- API: `CeilingVentService:AcquirePause() -> release` cancels walk-in walkers, rigs, animators, pending drops and delayed cues, closes doors, and blocks heartbeat encounters and forced spawns. Counted, idempotent leases; the last release shifts arm times and permits normal encounters again.
 - Remotes: `Enemies/CeilingDwellerCamera` (fired), `Enemies/CeilingVentDoor` (fired)
 - Tags: listens `CeilingVent`; reads `MazeFloor` for the drop raycast
 - Requires: `Services.VanishedService`, `CrouchConfig`, `DangerConfig.ProgrammaticVents`, `DangerMapService`, `EnemyService`, `EnemyDirectorService`, `TagService`, `HallwayGraphService`, `NpcAnimator`, `EnemyConfigs.CeilingDweller`, `Classes.SurfaceWalker`
@@ -176,6 +177,7 @@ Builds a periodic snapshot of every active enemy's id, state and position and br
 - Requires: `StatsHUDConfig.Enemies.Interval`, `EnemyService:GetActive`, `EnemyDirectorService:GetStalkerTarget`
 
 ### EnemyDirectorService.luau
+- API: `EnemyDirectorService:AcquirePause() -> release` suspends the director heartbeat until every caller releases. The returned release is idempotent; existing enemies are not stopped by the pause itself.
 The population manager: on a heartbeat tick it tops up resident enemy counts, schedules Chaos runs, rotates the Stalker across players, spawns Ghosts, and despawns expired enemies that are unengaged and out of sight. Placement scores candidate danger points or hallway-graph nodes by danger, player proximity and enemy spacing, and rejects anything visible from a player's eye. Defines no-op stubs for its whole API first and returns early unless `FLAGS.Enemies` and `FLAGS.Director`.
 - API: `EnemyDirectorService:CanAfford(enemyId: string) -> boolean` — alive count below `MaxAlive`
 - API: `EnemyDirectorService:Adopt(enemy: any, enemyId: string, selfManaged: boolean?)` — take an externally spawned enemy into the population
@@ -223,7 +225,8 @@ The enemy factory and registry: sets up the Enemies/Players/Furniture collision 
 - API: `EnemyService:Spawn(enemyId: string, spawnCFrame: CFrame, ...: any) -> any?` — extra args are forwarded to the enemy class constructor; nil when `FLAGS.Enemies` is off
 - API: `EnemyService:GetActive() -> { any }` — cloned list
 - API: `EnemyService:ForEachActive(callback: (enemy: any) -> ())`
-- API: `EnemyService:DespawnAll()`
+- API: `EnemyService:DespawnAll(silent: boolean?)` suppresses despawn effects when silent; removal may finish on deferred tasks, so callers needing a clear scene must wait for GetActive to empty.
+- API: `EnemyService:AcquireSpawnBlock() -> release, spawnFixture` blocks ordinary Spawn calls until every counted lease is released. The fixture spawn function works only while its sole lease is live; nested blocks and expired capabilities cannot spawn. Release is idempotent.
 - API: `EnemyService.CollisionGroup` — the string `"Enemies"`
 - Tags: reads `Furniture`
 - Requires: `ServerStorage.Classes.Enemies.*`, `EnemyConfigs`, `ReplicatedStorage.Enemies` models, `Services.PerfLoggerService`
@@ -606,7 +609,7 @@ Vendored third-party datastore session-locking library (loleris' ProfileService)
 
 ### ProgrammaticVentService.luau
 Spawns extra ceiling vents at runtime from the `Props.Other.Vent` template, placing them flush under a `CeilingSlab` at danger-map-chosen points that are unseen by enemies, away from players, clear of world geometry and hallway station beams. Sweeps expired or spent vents back out once nobody can see them.
-- API: data table — returns an empty table; everything runs from its Heartbeat loop
+- API: `AcquirePause() -> release` freezes spawning/despawning while any counted lease is held and shifts existing expiry times on final release. Existing vent geometry stays in place.
 - Tags: reads `CeilingVent` (spacing checks and `TagService:GetApplied` trigger/spent state); spawned models are named `ProgrammaticVent` with a `ProgrammaticVent` attribute
 - Requires: `DangerConfig.ProgrammaticVents`, `DangerMapService:PickPoint`, `EnemyObservationService:GetEyes`, `PerfLog`
 

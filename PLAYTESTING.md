@@ -149,11 +149,11 @@ in the right one; `_G` is not shared between them and neither survives
 restarting the play session. Module upvalues last as long as the datamodel,
 which is usually what you want.
 
-**`Measured`** — **`_G` is nil inside an MCP `execute_luau` snippet.** On
-2026-09-16 `_G.WalkieLog = _G.WalkieLog or {}` failed with "attempt to index nil
-with 'WalkieLog'" in the Client datamodel. To carry state between snippets, keep
-it on an instance instead, such as a `StringValue` or an attribute under the
-local player.
+**`Measured`** — **MCP global availability depends on the tool context.** On
+2026-09-19 `typeof(_G)` returned `table` in Edit, Server and Client. The earlier
+2026-09-16 Client observation was `nil`; it is not a current blanket limit.
+Cross-snippet persistence was not established by this check. Instance values
+remain an explicit way to carry state between snippets.
 
 **`Measured`** — **Studio playtests do not reproduce split replication.** A tool
 the server gives on respawn arrived on the client with every descendant already
@@ -164,15 +164,15 @@ then restore the child.
 **`Inferred`** — **never call `WaitForChild` without a timeout in an
 MCP-executed snippet.** An infinite yield hangs the call for its full timeout.
 
-**`Measured`** — **MCP `execute_luau` cannot `require` anything.** On 2026-09-17
-every `require` in a snippet failed with "cannot require 'X' since 'X' has
-additional values for the Capabilities property: LoadUnownedAsset (and 3 more)",
-in Edit, Server and Client alike, including `ReplicatedStorage.Playtest.Wait`
-and a freshly built parentless `ModuleScript`. The snippet thread runs in a
-restricted capability context; whether this is permanent is unconfirmed. So the
-`Playtest` helpers are unreachable from the MCP, and so is the old
-compile-probe trick for syntax-checking a module. Write snippets against
-instances and properties only, and inline any helper logic you need.
+**`Measured`** — **MCP `require` works in the current setup, but its cache can
+differ from game scripts.** On 2026-09-19 requiring existing modules succeeded
+in Edit, Server and Client. The capability failures observed on 2026-09-17 no
+longer justify a blanket prohibition. A self-starting module called from both
+a game script and MCP created two runtime instances: client folders duplicated,
+and the MCP server instance reported an active operation while the client
+queried an idle one. Calling the existing runtime through a BindableFunction
+made both contexts report the same operation. Do not assume a module upvalue
+is shared across these execution contexts.
 
 **`Measured`** — **`MapCommandService:Execute` lands the player inside a spawn
 safe zone.** The character carries `SafeZoneImmunity`, so `Vanished.Is` is true
@@ -199,6 +199,11 @@ replacements to `Source` there and compare `#Source` with the file's byte count
 from the Client datamodel reached `ChatCommandService` through `Player.Chatted`,
 and the server printed its `[resetprogress]` confirmation. Use this to undo
 persistent progress a playtest wrote, since Studio profiles save between runs.
+
+**`Observed`** — On 2026-09-19 another `SendAsync` slash-command call did not
+return after several minutes. Its cause is unconfirmed. Use a bounded spawned
+call or the keyboard tools and inspect the effect; do not assume every chat
+call will return promptly.
 
 **`Observed`** — **an instance the client destroyed locally does not come back.**
 After a client destroyed its copy of a replicated model, the server removing

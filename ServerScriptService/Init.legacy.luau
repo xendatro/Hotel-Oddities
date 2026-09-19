@@ -1,5 +1,7 @@
 local services = game.ServerStorage.Services
 
+require(game.ServerStorage.Profiler.Bootstrap).Start()
+
 require(services.POIDiscoveryService)
 
 for _, service in services:GetChildren() do

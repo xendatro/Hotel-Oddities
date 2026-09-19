@@ -23,6 +23,18 @@ dependencies.
 
 Search the docs before searching the code.
 
+The portable benchmark package lives in `ReplicatedStorage/Profiler` and
+`ServerStorage/Profiler`, each with its own `Core`, `Config` and `Scenarios`.
+See [client/shared modules](Documentation/ReplicatedStorage/Profiler.md) and
+[server modules](Documentation/ServerStorage/Profiler.md). The comment-only
+`UsageGuide` and `AuthoringGuide` ModuleScripts travel with the package.
+Functional test evidence is in [Profiler verification](Documentation/ProfilerVerification.md).
+Profiler commands queue concurrent requests, report throttling explicitly and
+keep panel lookup/report failures recoverable.
+The `/profile` command opens the panel. Runs offer yielding APIs, compact grouped
+summaries and metric deltas. Controlled tests use a replaceable game lifecycle
+that clears enemies and ceiling walk-ins and blocks ambient spawning until cleanup.
+
 PowerShell:
 
 ```powershell
@@ -384,14 +396,14 @@ become Services or Classes.
 
 ### ServerScriptService
 
-- ServerScriptService\Init.legacy.luau — Server bootstrap; starts POIDiscoveryService before requiring the remaining ServerStorage Services and runs the server Tagger.
+- ServerScriptService\Init.legacy.luau — Server bootstrap; starts the portable Profiler and POIDiscoveryService before requiring the remaining ServerStorage Services and runs the server Tagger.
 
 ### ServerStorage\Services
 
 - ServerStorage\Services\AnalyticsService.luau — Reports the ten-step MazeRun funnel (and its once-per-account onboarding mirror), the custom event catalogue and the gem/coin economy events to Roblox analytics, with a fresh session per run, monotonic steps and the funnel step stamped onto every custom event.
 - ServerStorage\Services\CameraCommandService.luau — Initializes each player's maximum camera zoom to 0.5 and registers /camera (alias /cam) to toggle it between 0.5 and 128.
 - ServerStorage\Services\BadgeService.luau — Awards and caches Roblox badges limited to the ids listed in BadgeConfigs.
-- ServerStorage\Services\CeilingVentService.luau — Springs ceiling vents on approaching players and drops a CeilingDweller through them, after a telegraphed ceiling walk-in where the dweller crawls into the vent; walk-in humanoid names stay hidden.
+- ServerStorage\Services\CeilingVentService.luau — Springs ceiling vents after a telegraphed walk-in. AcquirePause cancels walk-ins, pending drops and door cues and blocks new encounters until all leases release.
 - ServerStorage\Services\ChaosService.luau — Budgeted longest-path search through unvisited hallway nodes from the best of three far-from-players starts, schedules 15-second-lead light and oddity warnings along the route's own travel direction, each trimmed to the stretch of hallway the route actually travels so a corridor the route only clips is never telegraphed end to end, then spawns Chaos to run it into a wall; retracts every warning it fired if the spawn is abandoned or Chaos despawns.
 - ServerStorage\Services\ChaseFlickerService.luau — Flickers the lights around a player being chased by a CeilingDweller or Mimic.
 - ServerStorage\Services\ChatCommandService.luau — Shared registry and dispatcher for `/` chat commands, gated to the owning group's Owner and Developer roles; also sets the Player `Admin` attribute that gates debug panels.
@@ -410,11 +422,11 @@ become Services or Classes.
 - ServerStorage\Services\ElevatorService.luau — Teleports lobby arrivals to the maze arrival elevator with existing loading and streaming, signals the client to align its first-person view to the map Spawn heading, and rejects exit-cabin entry until that player completes all five computers, leaving players who are mid end screen alone.
 - ServerStorage\Services\EnemyCommandService.luau — Developer chat commands for spawning, listing and despawning enemies.
 - ServerStorage\Services\EnemyDebugService.luau — Broadcasts a periodic snapshot of active enemies to the stats HUD.
-- ServerStorage\Services\EnemyDirectorService.luau — Manages the live enemy population: spawning, placement scoring and despawning expired enemies unless they are engaged or mid peek sequence.
+- ServerStorage\Services\EnemyDirectorService.luau — Manages the live enemy population; counted AcquirePause/release calls suspend ambient work for isolated scenarios.
 - ServerStorage\Services\EnemyDiscoveryService.luau — Tracks and persists per-player bestiary discovery progress for each enemy, and exposes its sight test as `HasView`.
 - ServerStorage\Services\EnemyEncounterService.luau — Opens an encounter when a player sees or gets near an enemy and logs one `EnemyEncounter` analytics event when it ends as `Died` or `Escaped`, with its length and the funnel step.
 - ServerStorage\Services\EnemyObservationService.luau — Holds each client's validated report of which enemies it can see and from where.
-- ServerStorage\Services\EnemyService.luau — Enemy factory and active-enemy registry, including collision group setup.
+- ServerStorage\Services\EnemyService.luau — Enemy factory and registry, collision groups, counted spawn blocks with scoped fixture spawning, and optional silent despawn.
 - ServerStorage\Services\EscapeService.luau — The escape (win) count: saved in the profile, mirrored to a leaderstats IntValue named Escapes and published to an OrderedDataStore on every change.
 - ServerStorage\Services\EyeHitService.luau — Guarantees the Enemies/EyeHit RemoteEvent exists and returns it.
 - ServerStorage\Services\FixtureCommandService.luau — Registers a chat command to teleport to or force-drop a pool's nearest fixture.
@@ -465,7 +477,7 @@ become Services or Classes.
 - ServerStorage\Services\PlayerOddityCommandService.luau — Registers the /oddity chat command for triggering player oddities by effect and target.
 - ServerStorage\Services\PlayerOddityService.luau — Randomly applies one weighted player-scope oddity at a time to a living player; logs `PlayerOddity`.
 - ServerStorage\Services\ProfileService.luau — Vendored third-party datastore session-locking library (loleris' ProfileService).
-- ServerStorage\Services\ProgrammaticVentService.luau — Spawns and despawns extra ceiling vents at unseen danger-map points at runtime.
+- ServerStorage\Services\ProgrammaticVentService.luau — Spawns and despawns extra ceiling vents at unseen danger-map points; AcquirePause freezes churn and shifts expiry times on release.
 - ServerStorage\Services\RatService.luau — CrossingPool wrapper that arms two hallway crossings and sends a rat scurrying across one on approach, plus its /rat command.
 - ServerStorage\Services\RecordPlayerService.luau — Loops the record (or lobby record) sound on every tagged record player model.
 - ServerStorage\Services\ReviveService.luau — Sells and grants the Revive product, restoring the player's death location, items and a ForceField; logs `Revived` with its source.
@@ -567,7 +579,7 @@ become Services or Classes.
 
 ### StarterPlayer
 
-- StarterPlayer\StarterPlayerScripts\Init.local.luau — Client bootstrap; requires every ReplicatedStorage Service and runs the client Tagger.
+- StarterPlayer\StarterPlayerScripts\Init.local.luau — Client bootstrap; starts the portable Profiler and requires every ReplicatedStorage Service and runs the client Tagger.
 
 ## Colored computer chip navigation
 
