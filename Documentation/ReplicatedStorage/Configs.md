@@ -66,7 +66,7 @@ Swinging door physics, replicated player-proximity state, proximity open/close d
 - API: data table — `DoorwayTags`, `AnchorName` (the purely-translating part a door leaf follows when the doorway is moved; `Threshold`, not `DoorHeader`, which `HallwayCrush` rescales), `OpenAttribute`, `OpenFromAttribute`, `OpenAngle`, NPC door-reaction spacing (`KnockDistance` — how far off the door an NPC stands to knock, `ApproachPadding` and `MinApproachDistance` — the wider stand-off its pathfinding walk targets first, which has to clear the flanking lantern columns), `OpenDistance`, `CloseDistance`, `MaxHeightDifference`, `SwingSpeed`, `EnemyTag`, `EnemyForceDistance`, `EnemyReleaseDistance`, `PollInterval`, spring keys (`Stiffness`, `DampingRatio`, `MaxStep`), settle keys
 
 ### DrawerConfig.luau
-Openable drawers: tag/attribute names, spring motion, auto-close, interaction targeting, highlight, sounds and the prompt UI.
+Openable drawers: tag/attribute names, spring motion, auto-close, interaction targeting, highlight, sounds and the prompt UI. `UI.HoldFillTransparency` is the transparency of the bar that sweeps across the prompt pill while a hold-to-activate target is being held.
 - API: data table — `Tag`, `Attribute`, open/auto-close keys, `OutwardAxis`, handle-detection keys, spring/settle keys, `Targeting`, `Input`, `Highlight`, `Sound`, `UI`
 
 ### DrawerItemConfig.luau
@@ -91,6 +91,11 @@ The Eye enemy: tracking range, the hit flash/blink/blur reaction, gaze-buildup s
 ### EndingConfig.luau
 Everything the win screen and its server half share: the `Ending` remote folder and names, the `EndGui` name, the `/resetprogress` command name, the exit-cabin poll interval and the lift above the lobby SpawnLocation, the on-screen strings (`Text`: title, typewriter subtitle, post-it chapter line and note, button label, the waiting label and the caret), the beat timings (`Timing`: backdrop, card, logo, chip, typing interval and caret blink, post-it, button, fade out) and the motion numbers (`Motion`: card start/end/exit Y and rotations, logo start scale, post-it rotations, button rise), plus the backdrop and ink colours.
 - API: data table - `Remotes`, `Gui`, `Command`, `CheckInterval`, `SpawnLift`, `Text`, `Timing`, `Motion`, `Colors`
+- Requires: nothing
+
+### EscapeConfig.luau
+The escape (win) stat and its lobby leaderboard: `StatName` (the `leaderstats` IntValue name, `Escapes`), the `OrderedStore` name and its Studio prefix, and everything under `Leaderboard`: where the board lives (`Folder`, `Part`, `Face`), the Studio GUI it is built from (`Gui`, `Root`), the `Title` text, the `NameFormat` (`"%s (%s)"`, display name then username), `UnknownName`, the `rbxthumb` `Headshot` URL pattern, `TopCount` rows, `RefreshInterval` and `AwardRefreshDelay` seconds, SurfaceGui `PixelsPerStud`, `LightInfluence` and `Brightness`, the `Templates` (instance names inside the design the board clones: title plate, title text, plank row, headshot, text) and the `Layout` numbers (margins, title width and gap, title text box, row width and vertical stretch, headshot inset and height, name gap, text height, score column edges), all as fractions of the part face or of a row.
+- API: data table - `StatName`, `OrderedStore`, `Leaderboard`
 - Requires: nothing
 
 ### FLAGS.luau
@@ -181,8 +186,8 @@ Tuning for the mirrored connector room's reflections.
 - API: data table — `Tag`, `OpaqueTag` (subjects whose real body is invisible but whose reflection must still render solid, e.g. `MirrorStalker`), `TransparencyAttribute` (per-instance record of what a blanked part's transparency was, so the reflection restores it instead of forcing everything to zero and revealing the HumanoidRootPart), `ViewerAttribute` (a `UserId` on an enemy model limiting its reflection to that one player), `Padding`, `FloorTolerance`, `RetryDelay`, `CastShadow`, `BendLocalLook`, `ReflectEnemies`, `StripClasses`
 
 ### NotificationConfig.luau
-Visual settings for the top-center notification banner used for short player-facing feedback.
-- API: data table — `DisplayOrder`, `Width`, `Height`, `TopMargin`, `Gap`, `Duration`, `FadeTime`, `BackgroundColor`, `BackgroundTransparency`, `StrokeColor`, `AccentColor`, `TextColor`, `TextStrokeColor`, `TextSize`
+Visual settings for the top-center notification banner used for short player-facing feedback, styled as the game's torn paper strip.
+- API: data table — `DisplayOrder`, `Width`, `Height`, `TopMargin`, `Gap`, `Duration`, `InTime`, `OutTime`, `Paper` (the torn strip image the leaderboard rows also use), `PaperTint`, `ShadowTint`, `ShadowTransparency`, `ShadowOffset`, `ShadowGrow`, `Tilt`, `EnterTilt`, `EnterDrop`, `EnterScale`, `ExitRise`, `Font`, `TextColor`, `StrokeColor`, `StrokeThickness`, `TextSize`, `MinTextSize`, `SidePadding`, `TopPadding`
 
 ### ObservedFreezeConfig.luau
 Tag name, attribute name and reconciliation tolerances for the "freeze while observed" enemy movement system. Assembled field-by-field on a named local table rather than as a literal, but returns only that table.
@@ -209,8 +214,13 @@ Roll timings and effect weights for the player oddity system that randomly resiz
 - API: data table — `Enabled`, `RollInterval`, `InitialDelay`, `TriggerChance`, `MinDuration`, `MaxDuration`, `MinimumPlayersForHeadStare`, `EffectWeights`, `SizeOptions`, `HeadSizeMultiplier`, `OddTransparency`, `HeadTurnRate`, `HeadReturnRate`
 
 ### PropOddityConfig.luau
-Per-effect tuning for prop-based oddities — falling lanterns, falling paintings, the painting dweller (whose `Damage` is what each lunge takes off the player), and the scurrying rat — covering arming, approach detection, candidate selection, and either repair rules (the fixture effects) or crossing-site sampling and rat motion (`RatScurry`). `PaintingDweller` carries `StartAnimation` (one-shot burst-out), `ThrashAnimation` (loop that follows it), `AttackAnimation`, `HoleImage` and `RootDrop`, the studs the rig hangs below the canvas centre; its fixture debug highlight is disabled.
+Per-effect tuning for prop-based oddities — falling lanterns, falling paintings, the painting dweller (whose `Damage` is what each lunge takes off the player), and the scurrying rat — covering arming, approach detection, candidate selection, and either repair rules (the fixture effects) or crossing-site sampling and rat motion (`RatScurry`). `PaintingDweller` carries `StartAnimation` (one-shot burst-out), `ThrashAnimation` (loop that follows it), `AttackAnimation`, `HoleImage`, `RootDrop`, the studs the rig hangs below the canvas centre, and the `ReplicatedStorage.Sounds` template names `PopSound` (played once on the pop), `ScreamSound` and `RustleSound` (both looped until it retreats); its fixture debug highlight is disabled.
 - API: data table — `Enabled`, `Effects` (`LanternFall`, `PaintingFall`, `PaintingDweller`, `RatScurry`)
+
+### ResetComputersConfig.luau
+The lobby reset-computers terminal: the `ResetComputers` tag on its model, the `Computer/Reset` remote, the confirm page's id/ScreenGui/root names, the interaction prompt text, width, reach and the seconds the key must be held, the server-side reach and cooldown the reset is validated against, and the notice text with how long it shows and how long after it the page closes.
+- API: data table — `Tag`, `Remotes`, `Page`, `Prompt`, `TextWidth`, `HoldDuration`, `Reach`, `ServerReach`, `Cooldown`, `Notice`, `NoticeTime`, `CloseDelay`
+- Requires: nothing
 
 ### RoomsIndexConfig.luau
 The rooms index page: its page id and ScreenGui name, the 3-by-2 grid shape, the locked-card strings (`???`, `UNDISCOVERED` and the not-yet-found blurb), the empty-panel strings, the `n / N FOUND` counter format, pagination colours, the card/button/info animation numbers, and `Entries`: one entry per point of interest whose `Id` is the `POI` part's name (which is also what the discovery remotes send), with a display `Name`, a `Description` shown once found and an `Image` asset id for the photo of that room. `EntriesById` is built at load. Exports type `Entry`.

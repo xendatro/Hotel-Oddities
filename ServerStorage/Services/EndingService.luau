@@ -10,6 +10,7 @@ local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local ComputerService = require(ServerStorage.Services.ComputerService)
 local AnalyticsService = require(ServerStorage.Services.AnalyticsService)
+local EscapeService = require(ServerStorage.Services.EscapeService)
 
 local Show = CommunicationService.Ensure(EndingConfig.Remotes.Folder, EndingConfig.Remotes.Show) :: RemoteEvent
 local Hide = CommunicationService.Ensure(EndingConfig.Remotes.Folder, EndingConfig.Remotes.Hide) :: RemoteEvent
@@ -52,6 +53,8 @@ function EndingService:Begin(player: Player): boolean
 	root.Anchored = true
 	AnalyticsService:LogStep(player, "Escaped")
 	AnalyticsService:LogEvent(player, "RunEscaped", AnalyticsService:GetRunTime(player))
+	EscapeService:Award(player)
+	ComputerService:ResetProgress(player)
 	Show:FireClient(player)
 	return true
 end

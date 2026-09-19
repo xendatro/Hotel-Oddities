@@ -134,6 +134,14 @@ Base class for map-scope oddities that occupy a hallway span rather than a singl
 - Requires: `ServerStorage.Classes.Oddity`, `ServerStorage.Services.HallwayRegionService`, `ReplicatedStorage.Services.CommunicationService`
 - Notes: class fields `Scope = "Map"`, `ConfigName = "MapOddityConfig"`, `RequiresPlayer`, `IncludeRoomFloors`
 
+### LeaderboardBoard.luau
+Builds the escape leaderboard SurfaceGui on a part from the Studio-authored `LeaderboardUI` design, re-laid to fill the part's face instead of a 16:9 screen. It clones the design's title plate, title label, one plank row, one headshot ImageLabel and the `Scores` label as templates (found by the names in `EscapeConfig.Leaderboard.Templates`, recursively under the design root), strips their constraints, and lays them out in face-relative scale from `EscapeConfig.Leaderboard.Layout`: the title plate centred under `TopMargin` at `TitleWidth`, then `TopCount` plank rows at `RowWidth` (each plank's authored aspect ratio times `RowStretch`) spread evenly between the title and `BottomMargin`. Each row gets a square headshot on the left, a left-aligned name label and a right-aligned score label, with fixed pixel text sizes derived from the row height and `PixelsPerStud` and `TextTruncate.AtEnd`, so long names never wrap. The face size is read from the part, so any part size and any `Face` works.
+- API: `LeaderboardBoard.new(part: BasePart, design: Instance) -> self` — builds and parents the SurfaceGui; errors if a template name is missing
+- API: `LeaderboardBoard:SetEntries(entries: { Entry })` — fills rows top to bottom (`rbxthumb` headshot, `NameFormat` name, comma-grouped escapes) and blanks the rest
+- API: `LeaderboardBoard:Destroy()`
+- Type: `Entry = { UserId: number, DisplayName: string, Username: string, Escapes: number }`
+- Requires: `Configs.EscapeConfig`, `MathService.Comma`
+
 ### ServerTool.luau
 Server-side base class for tools; a thin `ToolBase` subclass whose only addition is inventory consumption. Everything else (equip/unequip/activate lifecycle, cooldown, animation-marker waits, sound, client signalling) is inherited.
 - API: `ServerTool.extend(className: string) -> class`
@@ -367,11 +375,13 @@ Extends `HallwayOddity`. Swings all doors in an occupied hallway span open once 
 
 ### Oddities\HallwayBlocker.luau
 Extends `HallwayOddity`. Clones the `Gate` prop into a hallway span and drops it to the floor so the corridor is walled off, then destroys it on stop. Picking prefers spans nobody is looking at, skips spans already blocked, and keeps clear of junctions with three or more exits.
+
+The gate is no longer stood at the span's own centre, which is what let one land inside an I/L/T connector room and face the wrong corridor: a span is the whole straight run, and its midpoint can fall in a connector the run passes through. Placement now goes through `HallwayWallService`, the same geometry `HallwayCrush` uses — `Frame` trims the run to the contiguous `MazeFloor` covering its centre line, `Closing` cuts out every side opening from either side, and the gate is stood at the middle of the longest remaining stretch after both its ends are pulled in by `MouthClearance`, with a final `Hallways.At` check that the point is hallway floor and not a room floor. Because the stretch is junction-free, the axis it is squared to is that corridor's own, so the gate always spans across the hallway. Stretches shorter than `MinimumStretch` are refused, and `Pick` re-rolls up to `PickAttempts` times, remembering the spans it has already rejected, so a span with nowhere legal to stand is passed over rather than blocking a spawn.
 - API: `HallwayBlocker.new(config: { [string]: any }?)` — adds `self.Blocker`
-- API: `HallwayBlocker.Pick(class: any) -> HallwayRegion.Span?` — weighted-distant span, unseen preferred
-- API: `HallwayBlocker:OnStart() -> boolean` — clones/aligns the gate, records the span as active
+- API: `HallwayBlocker.Pick(class: any) -> HallwayRegion.Span?` — weighted-distant span, unseen preferred, and only one that has a legal placement
+- API: `HallwayBlocker:OnStart() -> boolean` — clones and squares the gate to its junction-free stretch, records the span as active, and refuses to start when the stretch has gone
 - API: `HallwayBlocker:OnStop()` — destroys the gate, frees the span
-- Requires: `Classes\HallwayOddity`, `Services\GazeService`, `Services\HallwayRegionService`, `Services\HallwayGraphService`, `ReplicatedStorage\Services\HallwaysService`, `ReplicatedStorage.Props.Other.Gate`
+- Requires: `Classes\HallwayOddity`, `Services\GazeService`, `Services\HallwayRegionService`, `Services\HallwayWallService`, `Services\HallwayGraphService`, `ReplicatedStorage\Services\HallwaysService`, `ReplicatedStorage.Props.Other.Gate`
 
 ### Oddities\HallwayChaos.luau
 Extends `HallwayOddity`. Full panic event in one hallway: lights flicker chaotically along the span for the whole duration while every door in the box slams open and shut.
@@ -427,15 +437,16 @@ Extends `FixtureFall` (via `PropOddity`). Unanchors a ceiling lantern so it fall
 - Requires: `Classes\FixtureFall`, `Services\LightService`
 
 ### Oddities\PaintingDweller.luau
-Extends `PropOddity`. Spawns a `Painting Dweller` humanoid rig hidden behind a painting's `Canvas`, tweens it forward through a hole decal so it lunges out of the wall, flickers nearby lights and shakes nearby players' cameras, then attacks any living non-vanished player who comes within reach until it retreats and is destroyed on stop. Only paintings whose canvas has empty space (no hallway, no room) behind it are eligible. Presented to players as the "Painting Lurker" enemy: kills record the `PaintingDweller` death cause, popping grants event discovery to every nearby player it shakes, and it has its own Index entry.
+Extends `PropOddity`. Spawns a `Painting Dweller` humanoid rig hidden behind a painting's `Canvas`, tweens it forward through a hole decal so it lunges out of the wall, flickers nearby lights, shakes nearby players' cameras, plays a one-shot pop sound and loops a scream and a rustle from the rig for as long as it is out, then attacks any living non-vanished player who comes within reach until it retreats and is destroyed on stop. Only paintings whose canvas has empty space (no hallway, no room) behind it are eligible. Presented to players as the "Painting Lurker" enemy: kills record the `PaintingDweller` death cause, popping grants event discovery to every nearby player it shakes, and it has its own Index entry.
 - API: `PaintingDweller.new(config: { [string]: any }?)` — adds rig, canvas, decal, GUI and animation state
 - API: `PaintingDweller:IsCandidate(model: Model) -> boolean` — anchored wide canvas with dead space behind it
-- API: `PaintingDweller:OnStart() -> boolean` — builds the rig, hides decals, plays the pop tween with the one-shot `StartAnimation` handing off to the looping `ThrashAnimation`, starts the attack poll
+- API: `PaintingDweller:OnStart() -> boolean` — builds the rig, hides decals, plays the pop tween with the one-shot `StartAnimation` handing off to the looping `ThrashAnimation`, plays `PopSound` once and loops `ScreamSound` and `RustleSound` on the rig root, starts the attack poll
 - API: `PaintingDweller:GroundedFor() -> number` — seconds since the pop
 - API: `PaintingDweller:WhyNotFixed() -> string?` — reason the fixture cannot be reset yet
 - API: `PaintingDweller:IsReadyToFix() -> boolean`
-- API: `PaintingDweller:OnStop()` — retreat tween, destroys the rig, restores decals and clears `OddityBusy`
+- API: `PaintingDweller:OnStop()` — stops the looping sounds, retreat tween, destroys the rig, restores decals and clears `OddityBusy`
 - Remotes: `Oddities/PaintingDwellerPop` (fired to nearby players)
+- Sounds: `PaintingDwellerPop` (one-shot), `PaintingDwellerScream` and `PaintingDwellerRustle` (looped while out), all on the `SFX` bus
 - Tags: reads `Room`
 - Requires: `Classes\PropOddity`, `Classes\FixtureFall` (for `DescribeNotFixed`), `Services\DeathService`, `Services\EnemyDiscoveryService`, `Services\LightService`, `ReplicatedStorage\Services\CommunicationService`, `ReplicatedStorage\Services\CharacterService`, `ReplicatedStorage\Services\HallwaysService`, `ReplicatedStorage\Services\VanishedService`, `ReplicatedStorage.Enemies` rig templates
 

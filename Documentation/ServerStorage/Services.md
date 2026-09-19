@@ -77,8 +77,8 @@ Tracks each player's hacked computers in memory and in `profile.Data.HackedCompu
 - API: `ComputerService:IsExitUnlocked(player: Player) -> boolean` — all five configured chip destination computers must be complete for that player.
 - API: `ComputerService:GetProgress(player: Player) -> (number, number)` — hacked count, total tagged computers
 - API: `ComputerService:SetHacked(player: Player, model: Model, hacked: boolean)` — syncs the player on change
-- API: `ComputerService:ResetProgress(player: Player)` — clears every hacked computer from memory and `profile.Data.HackedComputers`, then syncs the player; used by the end screen's play-again path and the `/resetprogress` command
-- Remotes: `ComputerConfig.Remotes.Folder/Complete` (listened), `.../Sync` (fired, and listened for client refresh requests)
+- API: `ComputerService:ResetProgress(player: Player)` — clears every hacked computer from memory and `profile.Data.HackedComputers`, then syncs the player; used by `EndingService` the moment a player wins (consuming that run) and again on play-again, and by the `/resetprogress` command
+- Remotes: `ComputerConfig.Remotes.Folder/Complete` (listened), `.../Sync` (fired, and listened for client refresh requests), `.../Reset` (listened — the lobby reset terminal; accepted only when the player stands within `ResetComputersConfig.ServerReach` of a model tagged `ResetComputers`, rate-limited by its `Cooldown`, then runs `ResetProgress`)
 - Tags: applies `ComputerConfig.Tag`
 - Requires: `ComputerConfig`, `ComputerChipConfig`, `DataSaveService`, `AnalyticsService` (`Computers1`-`Computers5` funnel steps, and a `ComputerHacked` custom event carrying the computer's id with the hacked count as its value)
 
@@ -105,7 +105,7 @@ Bakes and serves the map-wide "danger" field: measures the extent of all `MazeFl
 - Requires: `Services.DangerFieldService`, `SpawnZoneService`, `DangerConfig`, `CommunicationService`
 
 ### DataSaveService.luau
-ProfileService front-end: loads, reconciles and releases one `PlayerData` profile per player, and lets other code either grab a loaded profile or yield until it arrives. The template holds currency, sword ownership, inventory, processed receipts, discovered enemies, discovered map intervals, hacked computer ids, and `OnboardingStep` (the furthest onboarding funnel step `AnalyticsService` has already reported for this player, so the onboarding pass is logged once per account rather than once per run). Studio sessions load `Studio_Player_<UserId>` keys instead of `Player_<UserId>` (via `RunService:IsStudio()`), so a Studio playtest and a live game client hold separate profiles and never contest the session lock — Studio keeps its own separately saved data.
+ProfileService front-end: loads, reconciles and releases one `PlayerData` profile per player, and lets other code either grab a loaded profile or yield until it arrives. The template holds currency, sword ownership, inventory, processed receipts, discovered enemies, discovered map intervals, hacked computer ids, `Escapes` (the escape count `EscapeService` owns), and `OnboardingStep` (the furthest onboarding funnel step `AnalyticsService` has already reported for this player, so the onboarding pass is logged once per account rather than once per run). Studio sessions load `Studio_Player_<UserId>` keys instead of `Player_<UserId>` (via `RunService:IsStudio()`), so a Studio playtest and a live game client hold separate profiles and never contest the session lock — Studio keeps its own separately saved data.
 - API: `DataSaveService:Get(player: Player) -> Profile?` — nil until the profile finishes loading
 - API: `DataSaveService:Wait(player: Player) -> Profile?` — yields the calling thread until loaded
 - Requires: `ServerStorage.Services.ProfileService` (third-party), `ItemShopConfig`
@@ -149,21 +149,21 @@ Owns the open/closed state of drawer models as attributes, plays the open/close 
 - Requires: `DrawerConfig`, `AudioService`
 
 ### EndingService.luau
-The win. Every `EndingConfig.CheckInterval` it checks each `Elevator` tagged model of type `Exit`: an alive player standing inside its `Hitbox` with `ComputerService:IsExitUnlocked` true is frozen (root anchored, velocity cleared), remembered as ending, and sent `Ending/Show` so the client can play the end screen. `Ending/PlayAgain` from a player who is ending calls `ComputerService:ResetProgress` (only their hacked computers, nothing else), streams the lobby in, pivots the character onto `Workspace.Lobby`'s SpawnLocation (`SpawnLift` above it), unfreezes them and sends `Ending/Hide`. The ending flag drops when the character is removed or the player leaves; `ElevatorService` keeps rejecting unauthorised players, so only authorised entries ever reach here.
+The win. Every `EndingConfig.CheckInterval` it checks each `Elevator` tagged model of type `Exit`: an alive player standing inside its `Hitbox` with `ComputerService:IsExitUnlocked` true is frozen (root anchored, velocity cleared), remembered as ending, awarded the escape through `EscapeService:Award`, has the run consumed by `ComputerService:ResetProgress` right there (so leaving or resetting during the end screen can never earn a second escape from the same run; `ElevatorService` skips ending players so that reset does not eject them), and is sent `Ending/Show` so the client can play the end screen. `Ending/PlayAgain` from a player who is ending calls `ComputerService:ResetProgress` again (harmless, the run was already consumed on `Begin`), streams the lobby in, pivots the character onto `Workspace.Lobby`'s SpawnLocation (`SpawnLift` above it), unfreezes them and sends `Ending/Hide`. The ending flag drops when the character is removed or the player leaves; `ElevatorService` keeps rejecting unauthorised players, so only authorised entries ever reach here.
 - API: `EndingService:IsEnding(player: Player) -> boolean`
 - API: `EndingService:Begin(player: Player) -> boolean` - freeze and show, false if already ending or dead
 - API: `EndingService:Finish(player: Player) -> boolean` - the play-again path: reset, teleport to the lobby, unfreeze, hide
 - API: `EndingService:Cancel(player: Player)` - unfreeze and hide without resetting or teleporting
 - Remotes: `Ending/Show`, `Ending/Hide` (fired), `Ending/PlayAgain` (listened); all created with `.Ensure`
 - Tags: reads `ElevatorConfig.Tag`
-- Requires: `Configs.ElevatorConfig`, `Configs.EndingConfig`, `CharacterService`, `CommunicationService`, `ComputerService`, `AnalyticsService` (`Escaped` funnel step and the `RunEscaped` custom event with the run's seconds on `Begin`; `PlayAgain` on `Finish`, logged before the run session restarts)
+- Requires: `Configs.ElevatorConfig`, `Configs.EndingConfig`, `CharacterService`, `CommunicationService`, `ComputerService`, `AnalyticsService` (`Escaped` funnel step and the `RunEscaped` custom event with the run's seconds on `Begin`; `PlayAgain` on `Finish`, logged before the run session restarts), `EscapeService` (`Award` on `Begin`)
 
 ### ElevatorService.luau
-Teleports players from the lobby elevator into the maze: on hitbox touch it shows the loading screen, waits for the client fade and a minimum loading time, streams the destination in, then pivots the character to a part tagged with `ElevatorConfig.SpawnTag` (preferring one inside `Maze15`, now inside StartElevator). After a successful pivot it fires the configured arrival remote with that CFrame so the first-person client can align its camera to the map heading, including instant `/map` teleports. Every 0.2 seconds, the exit cabin rejects unauthorized players to its hallway Approach marker using ComputerService:IsExitUnlocked; no win action or teleport follows authorized entry.
+Teleports players from the lobby elevator into the maze: on hitbox touch it shows the loading screen, waits for the client fade and a minimum loading time, streams the destination in, then pivots the character to a part tagged with `ElevatorConfig.SpawnTag` (preferring one inside `Maze15`, now inside StartElevator). After a successful pivot it fires the configured arrival remote with that CFrame so the first-person client can align its camera to the map heading, including instant `/map` teleports. Every 0.2 seconds, the exit cabin rejects unauthorized players to its hallway Approach marker using ComputerService:IsExitUnlocked, skipping anyone `EndingService:IsEnding` reports as mid end screen (their computer progress is reset the moment they win, so without the skip the cabin would eject them); the win itself belongs to `EndingService`.
 - API: `ElevatorService:SendToMap(player: Player, instant: boolean?) -> boolean` — returns whether streaming succeeded; `instant` skips the fade, loading screen and cooldown
 - Remotes: `Elevator/Loading` (fired), `Elevator/FadeComplete` (listened) — both optional, looked up with `.Find`; `Elevator/<ElevatorConfig.ArrivalRemoteName>` is ensured and fired after a successful arrival pivot
 - Tags: listens `ElevatorConfig.Tag`; reads `ElevatorConfig.SpawnTag`
-- Requires: `ElevatorConfig`, `HallwayStreamingService:PrepareTeleport`
+- Requires: `ElevatorConfig`, `HallwayStreamingService:PrepareTeleport`, `ComputerService:IsExitUnlocked`, `EndingService:IsEnding`
 
 ### EnemyCommandService.luau
 Registers the developer enemy chat commands — `/spawn <id|all>`, `/peek`, `/despawn`, `/vent`, `/enemies` — routing Chaos, Sisters and CeilingDweller to their own placement services and everything else in front of (or behind) the caller. Results are reported via `warn`. Inert unless both `FLAGS.Enemies` and `FLAGS.EnemyCommands`.
@@ -227,6 +227,14 @@ The enemy factory and registry: sets up the Enemies/Players/Furniture collision 
 - API: `EnemyService.CollisionGroup` — the string `"Enemies"`
 - Tags: reads `Furniture`
 - Requires: `ServerStorage.Classes.Enemies.*`, `EnemyConfigs`, `ReplicatedStorage.Enemies` models, `Services.PerfLoggerService`
+
+### EscapeService.luau
+Owns the escape count. Each escape is one win: `EndingService:Begin` awards it the moment an authorised player is frozen inside the exit cabin. The count lives in `profile.Data.Escapes` (ProfileService, so it shares the session locking and Studio-key separation of everything else in the profile), is mirrored into a `leaderstats` folder on the Player as an IntValue named `EscapeConfig.StatName` (`Escapes`), and every change is published to an OrderedDataStore named `EscapeConfig.OrderedStore.Name` (`Studio_`-prefixed in Studio, mirroring `DataSaveService`'s key prefix, so playtests never pollute the live leaderboard). On profile load the stat is created from the saved count and republished to the ordered store when it is above zero, so a missed write heals itself the next time that player joins. Every store call is pcall-wrapped and warns on failure.
+- API: `EscapeService:Get(player: Player) -> number` — saved escapes, 0 before the profile loads
+- API: `EscapeService:Award(player: Player) -> number?` — increments the profile, updates the leaderstat, publishes to the ordered store and fires `Awarded`; nil when no profile is loaded
+- API: `EscapeService:GetTop(count: number) -> { { UserId: number, Escapes: number } }?` — descending page from the ordered store, nil when the read fails
+- API: `EscapeService.Awarded: RBXScriptSignal` — `(player: Player, escapes: number)` after each award
+- Requires: `Configs.EscapeConfig`, `DataSaveService`
 
 ### EyeHitService.luau
 Only exists to guarantee the `Enemies/EyeHit` RemoteEvent, replacing any wrongly-typed instance of that name. Returns a table holding the remote rather than a service.
@@ -426,6 +434,13 @@ Wires the `Prop/LanternFall` oddity class into a `FixturePool` labelled "lantern
 Handles the `/lantern swing [seconds]` chat command by finding the nearest swayable lantern model to the caller and asking `LightService` to flag it red for the given duration (default 15s). Non-"swing" arguments are ignored so `FixtureCommand` can handle them.
 - API: (no public methods; the module table is empty and exists only for its chat-command registration)
 - Requires: `LanternSwayConfig.SwayModelNames`, `LightService:GetModels` / `:WarnRed`, `ChatCommandService`
+
+### LeaderboardService.luau
+The lobby escape leaderboard. At boot it finds `Workspace.<EscapeConfig.Leaderboard.Folder>.<Part>` (`Lobby.LeaderboardPart`) and the Studio-authored `StarterGui.LeaderboardUI.Design`, and builds one `LeaderboardBoard` (a SurfaceGui on the part's configured face, the side facing the room) from that design. Every `RefreshInterval` seconds (60), and `AwardRefreshDelay` seconds after any escape awarded on this server, it reads the top `TopCount` entries from `EscapeService:GetTop`, resolves each user id to a display name and username (players in the server directly, otherwise `UserService:GetUserInfosByUserIdsAsync`, then `Players:GetNameFromUserIdAsync`, cached for the server's lifetime; unresolved ids show `UnknownName` and the raw id) and fills the board. A failed store read keeps the last good rows. The SurfaceGui is server-built, so it replicates to every client with no remote.
+- API: `LeaderboardService:GetEntries() -> { LeaderboardBoard.Entry }` — the rows currently shown
+- API: `LeaderboardService:Refresh()` — re-read and redraw now
+- Requires: `Configs.EscapeConfig`, `Classes.LeaderboardBoard`, `EscapeService`
+- Studio assets: `Workspace.Lobby.LeaderboardPart` (anchored slab, its `Back` face toward the room) and `StarterGui.LeaderboardUI` (disabled ScreenGui whose `Design` frame holds the title plate, plank row, headshot and text templates the board clones)
 
 ### LightService.luau
 Central authority over every `Floor1Light` model: it captures each lamp's baseline Lights/Neon/ParticleEmitters, then offers reference-counted "disable" claims (by radius, along a hallway, along a straight span with branch and connected-room spill, or a single model) and a family of flicker effects. It also runs a permanent ambient flicker loop that randomly blinks one or two lamps, and can set a `ChaosRed` attribute on a lamp for a duration.

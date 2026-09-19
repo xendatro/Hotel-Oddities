@@ -11,6 +11,7 @@ local HallwayStreamingService = require(ServerStorage.Services.HallwayStreamingS
 
 local ComputerService = require(ServerStorage.Services.ComputerService)
 local AnalyticsService = require(ServerStorage.Services.AnalyticsService)
+local EndingService = require(ServerStorage.Services.EndingService)
 
 local ElevatorService = {}
 
@@ -192,6 +193,7 @@ RunService.Heartbeat:Connect(function(deltaTime)
 		for _, player in Players:GetPlayers() do
 			local root = CharacterService.GetAliveRoot(player)
 			if not root then continue end
+			if EndingService:IsEnding(player) then continue end
 			local p = hitbox.CFrame:PointToObjectSpace(root.Position)
 			local half = hitbox.Size / 2
 			if math.abs(p.X) <= half.X and math.abs(p.Y) <= half.Y and math.abs(p.Z) <= half.Z and not ComputerService:IsExitUnlocked(player) then

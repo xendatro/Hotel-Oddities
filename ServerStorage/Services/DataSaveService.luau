@@ -34,6 +34,7 @@ local PROFILE_TEMPLATE = {
 	DiscoveredLandmarks = {},
 	DiscoveredPOIs = {},
 	HackedComputers = {},
+	Escapes = 0,
 }
 
 local ProfileStore = ProfileService.GetProfileStore(PROFILE_STORE_NAME, PROFILE_TEMPLATE)
