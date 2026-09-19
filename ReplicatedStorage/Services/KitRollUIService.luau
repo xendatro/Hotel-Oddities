@@ -30,6 +30,7 @@ local result = main:WaitForChild("Result") :: Frame
 local rarityLabel = result:WaitForChild("RarityLabel") :: TextLabel
 local kitNameLabel = result:WaitForChild("KitNameLabel") :: TextLabel
 local kitDescLabel = result:WaitForChild("KitDescLabel") :: TextLabel
+local resultPreview = result:WaitForChild("Preview") :: Frame
 local rollButton = main:WaitForChild("RollButton") :: ImageButton
 local rollLabel = rollButton:WaitForChild("TextLabel") :: TextLabel
 local myKitsButton = main:WaitForChild("MyKitsButton") :: ImageButton
@@ -186,8 +187,12 @@ local function setResult(kit: KitConfig.Kit?, duplicate: boolean, refund: number
 		rarityLabel.Text = ""
 		kitNameLabel.Text = ""
 		kitDescLabel.Text = ""
+		resultPreview.Visible = false
 		return
 	end
+
+	resultPreview.Visible = true
+	local portrait = KitVisualService.FillPortrait(resultPreview, kit)
 
 	local rarity = KitConfig.GetRarity(kit)
 	rarityLabel.Text = string.upper(rarity.Name)
@@ -212,6 +217,13 @@ local function setResult(kit: KitConfig.Kit?, duplicate: boolean, refund: number
 			{ TextTransparency = 0 }
 		):Play()
 	end
+
+	portrait.ImageTransparency = 1
+	TweenService:Create(
+		portrait,
+		TweenInfo.new(ROLL.RevealTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		{ ImageTransparency = 0 }
+	):Play()
 end
 
 local function flashWinner(card: ImageButton, rarity: KitConfig.Rarity)
