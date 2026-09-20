@@ -34,6 +34,8 @@ keep panel lookup/report failures recoverable.
 The `/profile` command opens the panel. Runs offer yielding APIs, compact grouped
 summaries and metric deltas. Controlled tests use a replaceable game lifecycle
 that clears enemies and ceiling walk-ins and blocks ambient spawning until cleanup.
+Scenario, focus, mode and report history use drop-down menus with selected choices
+marked. History lists each saved report's scenario, build, timestamp and status.
 
 PowerShell:
 

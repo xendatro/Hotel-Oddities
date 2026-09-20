@@ -94,6 +94,14 @@ panel during measurement invalidates scoring because its UI adds work.
 No launcher button or F6 shortcut. Programmatic Open remains available.
 Repeated opens share one scenario lookup and cache the result. Lookup and report
 errors stay in the panel; a failed first lookup can retry on the next open.
+The four top controls open selectable scenario, focus, mode and report-history
+menus instead of cycling. History loads metadata once per open and lists newest
+reports first; late replies cannot reopen a dismissed menu.
+
+### UI/Dropdown.luau
+Shared single-open menu with highlighted/checkmarked selection, scrollable
+options and panel-bounded placement. Click outside, press Escape or click its
+control again to dismiss. Closing/resizing the panel also closes the menu.
 
 ### Scenarios/Shared/Basic.luau
 Manual observation and fixed-camera stationary scenarios without game services.

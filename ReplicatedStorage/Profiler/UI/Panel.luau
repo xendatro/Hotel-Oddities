@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local Dropdown = require(script.Parent.Dropdown)
 local Panel = {}
 Panel.__index = Panel
 local function create(class,parent,props)
@@ -12,9 +13,10 @@ end
 
 function Panel.new(transport)
 	local self = setmetatable({ transport = transport, scenarioIndex = 1, focusIndex = 1, scenarios = {}, format = "summary", mode = "score" },Panel)
-	local gui = create("ScreenGui",Players.LocalPlayer:WaitForChild("PlayerGui",10),{ Name = "ProfilerUI", ResetOnSpawn = false, DisplayOrder = 10000, Enabled = false })
+	local gui = create("ScreenGui",Players.LocalPlayer:WaitForChild("PlayerGui",10),{ Name = "ProfilerUI", ResetOnSpawn = false, DisplayOrder = 10000, Enabled = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling })
 	self.gui = gui
 	local frame = create("Frame",gui,{ Name = "Panel", AnchorPoint = Vector2.new(0.5,0.5), Position = UDim2.fromScale(0.5,0.5), Size = UDim2.fromScale(0.94,0.88), BackgroundColor3 = Color3.fromRGB(20,24,32), BorderSizePixel = 0 })
+	self.dropdown = Dropdown.new(gui,frame)
 	create("UISizeConstraint",frame,{ MaxSize = Vector2.new(980,820) })
 	create("UICorner",frame,{ CornerRadius = UDim.new(0,10) })
 	create("TextLabel",frame,{ Text = "ROBLOX PROFILER", Font = Enum.Font.GothamBold, TextSize = 18, TextColor3 = Color3.fromRGB(232,240,250), BackgroundTransparency = 1, Position = UDim2.fromOffset(14,8), Size = UDim2.new(1,-80,0,28), TextXAlignment = Enum.TextXAlignment.Left })
@@ -35,22 +37,33 @@ function Panel.new(transport)
 	local function control(name,text,index,callback)
 		local b = button(name,text,(index-1)/4,0,0.25,callback)
 		b.Position = UDim2.new((index-1)/4,8,0,46)
+		b.ZIndex = 10
+		create("UIPadding",b,{PaddingLeft=UDim.new(0,6),PaddingRight=UDim.new(0,22)})
+		for index,rotation in {45,-45} do
+			create("Frame",b,{Name="Chevron" .. index,AnchorPoint=Vector2.new(0.5,0.5),
+				Position=UDim2.new(1,if index==1 then -12 else -8,0.5,0),Size=UDim2.fromOffset(6,2),
+				Rotation=rotation,BackgroundColor3=Color3.fromRGB(220,230,242),BorderSizePixel=0,ZIndex=11})
+		end
 		return b
 	end
 	self.scenarioButton = control("Scenario","Choose scenario",1,function()
-		self.scenarioIndex = self.scenarioIndex % math.max(1,#self.scenarios)+1; self:RefreshChoices()
+		local items = {}
+		for index,scenario in self.scenarios do table.insert(items,{value=index,label=scenario.name}) end
+		self.dropdown:Toggle(self.scenarioButton,items,self.scenarioIndex,function(value) self.scenarioIndex=value; self:RefreshChoices() end)
 	end)
 	self.focuses = { "all","render","memory","server","network","functions" }
 	self.focusButton = control("Focus","Focus: all",2,function()
-		self.focusIndex = self.focusIndex % #self.focuses+1; self:RefreshChoices()
+		local items = {}
+		for index,focus in self.focuses do table.insert(items,{value=index,label=focus}) end
+		self.dropdown:Toggle(self.focusButton,items,self.focusIndex,function(value) self.focusIndex=value; self:RefreshChoices() end)
 	end)
 	self.modeButton = control("Mode","Mode: score",3,function()
-		self.mode = if self.mode == "score" then "diagnostic" else "score"; self:RefreshChoices()
+		self.dropdown:Toggle(self.modeButton,{
+			{value="score",label="Score: measure performance"},
+			{value="diagnostic",label="Diagnostic: find expensive work"},
+		},self.mode,function(value) self.mode=value; self:RefreshChoices() end)
 	end)
-	control("History","Latest report",4,function()
-		local history = self.transport:Command({ action = "history" })
-		self.lastId = history[#history]; assert(self.lastId,"No reports yet"); self:LoadReport()
-	end)
+	self.historyButton = control("History","History",4,function() self:OpenHistory() end)
 	local function field(name,placeholder,value,index)
 		return create("TextBox",frame,{ Name = name, PlaceholderText = placeholder, Text = value, ClearTextOnFocus = false,
 			Position = UDim2.new((index-1)/4,8,0,84),Size = UDim2.new(0.25,-16,0,30), BackgroundColor3 = Color3.fromRGB(32,40,53),
@@ -97,6 +110,7 @@ function Panel.new(transport)
 		self.lastId = result.id; self.baseline = result.id; self:LoadReport()
 	end)
 	local function layout()
+		self.dropdown:Close()
 		local narrow = frame.AbsoluteSize.X < 600 and frame.AbsoluteSize.Y >= 500
 		local columns = if narrow then 2 else 4
 		for i,name in {"Scenario","Focus","Mode","History"} do
@@ -133,6 +147,24 @@ function Panel:RefreshChoices()
 	self.description.Text = if scenario then scenario.description .. " | " .. table.concat(scenario.phases or {"steady"},", ") else "No scenarios"
 end
 
+function Panel:OpenHistory()
+	if self.dropdown.anchor==self.historyButton then self.dropdown:Close(); return end
+	self.dropdown:Open(self.historyButton,{{label="Loading reports...",disabled=true}},nil,function() end)
+	local generation = self.dropdown.generation
+	local ok,history = pcall(function() return self.transport:Command({action="history",details=true}) end)
+	if self.dropdown.generation~=generation then return end
+	if not ok then self.dropdown:Close(); error(history,0) end
+	local items = {}
+	for index=#history,1,-1 do
+		local row = history[index]
+		table.insert(items,{value=row.id,label=row.scenario .. " | " .. row.build .. "\n"
+			.. row.created .. " | " .. row.status .. " | " .. row.id:sub(1,8)})
+	end
+	self.dropdown:Open(self.historyButton,items,self.lastId,function(id)
+		self.lastId=id; self:LoadReport()
+	end)
+end
+
 function Panel:Try(callback)
 	local ok,value = pcall(callback)
 	if not ok then self.status.Text = tostring(value) end
@@ -162,6 +194,7 @@ function Panel:Show()
 end
 
 function Panel:Hide()
+	self.dropdown:Close()
 	self.gui.Enabled = false
 	RunService:UnbindFromRenderStep("ProfilerMouse")
 	if self.mouse then UserInputService.MouseBehavior = self.mouse; UserInputService.MouseIconEnabled = self.icon end
@@ -171,6 +204,7 @@ function Panel:LoadReport()
 	return self:Try(function()
 		assert(self.lastId,"No report selected")
 		self.output.Text = self.transport:Export(self.lastId,self.format)
+		self.historyButton.Text = "Report: " .. self.lastId:sub(1,8)
 		self.status.Text = "Report " .. self.lastId .. " | " .. self.format .. " | select text to copy"
 	end)
 end

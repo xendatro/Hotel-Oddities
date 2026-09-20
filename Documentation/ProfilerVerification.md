@@ -112,3 +112,22 @@ checks. All 44 non-vendor package/service files compiled with luau-compile.
 These are functional checks, not evidence of an FPS gain. Studio was stopped
 and the queue lease released after testing. Physical-device testing is still
 required for performance conclusions about those devices.
+
+## Drop-down controls
+
+Studio UI checks on 2026-09-19 selected diagnostic mode, memory focus and a
+specific scenario through their menu rows and observed the updated controls.
+Menus highlighted the current choice. Empty history displayed No reports yet.
+Two one-second manual reports supplied real history entries; the menu showed
+newest first and selecting the older entry loaded its matching build/report.
+The original history command still returned an ID list; details=true returned
+metadata without report contents.
+
+A 350 by 600 panel kept the scenario menu within its bounds. Mouse scrolling
+revealed the seventh scenario, which could be selected. Clicking another top
+control switched menus; clicking the report area dismissed the open menu.
+Visual checks caught an unsupported arrow glyph, replaced with drawn chevrons
+and verified in a fresh session. Studio virtual input refused Escape because
+it is bound to CoreGui, so that keyboard dismissal path was not verified.
+The three changed code modules compiled and git diff --check passed. Studio
+was stopped and the playtest lease released.

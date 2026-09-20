@@ -54,7 +54,15 @@ function Bootstrap.Start()
 		if action == "status" then return self:Status() end
 		if action == "start" then return { id = self:Start(command.scenario,command.options,player) } end
 		if action == "cancel" or action == "stop" then return self:Cancel(action == "stop") end
-		if action == "history" then return table.clone(store.order) end
+		if action == "history" then
+			if not command.details then return table.clone(store.order) end
+			local history = {}
+			for _,id in store.order do
+				local report = store.reports[id]
+				table.insert(history,{id=id,scenario=report.scenario.id,build=report.options.build,created=report.created or "Imported",status=report.status})
+			end
+			return history
+		end
 		if action == "import" then return { id = store:Import(command.json) } end
 		if action == "compare" then return self:Compare(command.baseline,command.candidate,command.target,command.metric) end
 		if action == "result" then
