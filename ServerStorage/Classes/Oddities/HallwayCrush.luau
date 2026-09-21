@@ -42,6 +42,7 @@ local SEAL_SPAN = 1
 local SEAL_PROUD = 0.008
 local SEAL_REVEAL = 0.02
 local SEAL_KILL_DEPTH = 1.5
+local END_FACES = { Enum.NormalId.Right, Enum.NormalId.Left }
 
 local MapCrush = CommunicationService.Ensure("Oddities", "MapCrush")
 
@@ -206,6 +207,19 @@ local function pieceIntervals(
 	return pieces
 end
 
+local function wallLayer(part: BasePart): string?
+	local attribute = part:GetAttribute("WallLayer")
+	if type(attribute) == "string" and LAYER_NUDGE[attribute] then return attribute end
+
+	local parent = part.Parent
+	if parent and LAYER_NUDGE[parent.Name] then return parent.Name end
+	return if LAYER_NUDGE[part.Name] then part.Name else nil
+end
+
+local function isEndFace(face: Enum.NormalId): boolean
+	return face == Enum.NormalId.Right or face == Enum.NormalId.Left
+end
+
 local function setPiece(
 	part: BasePart,
 	edit: WallEdit,
@@ -214,10 +228,10 @@ local function setPiece(
 	piece: { Minimum: number, Maximum: number, Moving: boolean },
 	previous: { Moving: boolean }?,
 	following: { Moving: boolean }?,
-	trimOvershoot: number
+	trimOvershoot: number,
+	layer: string?
 )
-	local layer = part:GetAttribute("WallLayer")
-	local nudge = if piece.Moving and type(layer) == "string" then LAYER_NUDGE[layer] else nil
+	local nudge = if piece.Moving and layer then LAYER_NUDGE[layer] else nil
 	local sideScale = if wall.Sign > 0 then 1 else FAR_SIDE_OVERSHOOT
 	local overshoot = if nudge then nudge.Length * trimOvershoot * sideScale else 0
 
@@ -252,7 +266,7 @@ local function setPiece(
 
 	local offset = shift * wall.LengthSign * TEXTURE_SIGN
 	for _, texture in part:GetChildren() do
-		if texture:IsA("Texture") then
+		if texture:IsA("Texture") and not isEndFace(texture.Face) then
 			texture.OffsetStudsU += offset
 		end
 	end
@@ -290,6 +304,7 @@ function HallwayCrush.new(config: { [string]: any }?)
 	local self = HallwayOddity.new(config, HallwayCrush)
 	self.Candidate = nil :: Candidate?
 	self.Edits = {} :: { WallEdit }
+	self.Papers = {} :: { Texture }
 	self.Movers = {} :: { Mover }
 	self.Coverage = { {}, {} } :: { { HallwayWall.Interval } }
 	self.Headers = {} :: { Header }
@@ -370,6 +385,33 @@ function HallwayCrush.Pick(class: any): Candidate?
 	return nil
 end
 
+function HallwayCrush:_paperEnds(part: BasePart)
+	local template: Texture? = nil
+	local covered: { [Enum.NormalId]: boolean } = {}
+	for _, child in part:GetChildren() do
+		if not child:IsA("Texture") then continue end
+
+		local texture = child :: Texture
+		covered[texture.Face] = true
+		if not template or texture.Transparency < (template :: Texture).Transparency then
+			template = texture
+		end
+	end
+	if not template then return end
+
+	for _, face in END_FACES do
+		if covered[face] then continue end
+
+		local texture = (template :: Texture):Clone()
+		texture.Face = face
+		texture.Transparency = 0
+		texture.OffsetStudsU = 0
+		texture.OffsetStudsV = 0
+		texture.Parent = part
+		table.insert(self.Papers, texture)
+	end
+end
+
 function HallwayCrush:_collectWalls(frame: HallwayWall.Frame)
 	local cuts = { frame.Minimum, frame.Maximum }
 	local trimOvershoot = math.max(self:Setting("TrimOvershoot", 0.12), 0)
@@ -378,6 +420,7 @@ function HallwayCrush:_collectWalls(frame: HallwayWall.Frame)
 		if #pieces == 0 then continue end
 
 		local part = wall.Part
+		local layer = wallLayer(part)
 		local edit: WallEdit = {
 			Part = part,
 			Parent = part.Parent,
@@ -409,10 +452,13 @@ function HallwayCrush:_collectWalls(frame: HallwayWall.Frame)
 				piece,
 				pieces[index - 1],
 				pieces[index + 1],
-				trimOvershoot
+				trimOvershoot,
+				layer
 			)
 			if index > 1 then target.Parent = edit.Parent end
 			if not piece.Moving then continue end
+
+			self:_paperEnds(target)
 
 			table.insert(self.Movers, {
 				Part = target,
@@ -489,8 +535,7 @@ function HallwayCrush:_sealOpening(
 	for _, wall in walls do
 		if wall.Sign ~= sign then continue end
 
-		local layer = wall.Part:GetAttribute("WallLayer")
-		local slot = if type(layer) == "string" then layer else wall.Part.Name
+		local slot = wallLayer(wall.Part) or wall.Part.Name
 		local group = groups[slot]
 		if not group then
 			group = { Covered = false }
@@ -963,6 +1008,11 @@ function HallwayCrush:OnStart(): boolean
 end
 
 function HallwayCrush:_restore()
+	for _, texture in self.Papers do
+		texture:Destroy()
+	end
+	table.clear(self.Papers)
+
 	for index = #self.Edits, 1, -1 do
 		local edit = self.Edits[index]
 		for _, clone in edit.Clones do clone:Destroy() end
