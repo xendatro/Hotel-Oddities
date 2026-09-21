@@ -72,6 +72,8 @@ local function build(name,kind,position,inward)
 	model:SetAttribute("Type",kind) model:SetAttribute("DoorOffset",3.35)
 	model.ModelStreamingMode=Enum.ModelStreamingMode.Persistent
 	model.Parent=maze CollectionService:AddTag(model,"Elevator")
+	local hitbox=model:FindFirstChild("Hitbox")
+	if hitbox then hitbox.PivotOffset=hitbox.CFrame:ToObjectSpace(model:GetPivot()) model.PrimaryPart=hitbox end
 	local marker=part(model,"Approach",Vector3.new(1,1,1),front*CFrame.new(0,3,-4),Color3.new())
 	marker.Transparency=1 marker.CanCollide=false marker.CanTouch=false marker.CanQuery=false
 	local threshold=part(model,"Threshold",Vector3.new(8.2,0.15,2),front*CFrame.new(0,-0.075,0),Color3.fromRGB(105,88,65))
