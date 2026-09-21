@@ -149,6 +149,20 @@ in the right one; `_G` is not shared between them and neither survives
 restarting the play session. Module upvalues last as long as the datamodel,
 which is usually what you want.
 
+**`Measured`** — **the Glitched Hallway POI is built out of parts at
+`Transparency = 0.02`, and nothing renders correctly against it.** On 2026-09-21
+all 65 such parts in `Maze15` sat inside that POI's footprint (X -451..-437,
+Z -317..-235, pivot -444,-279): walls, ceiling, floor, a carpet runner, 24
+lantern parts, 16 pilasters, 4 ceiling lights. This is intended -- do not
+"fix" it. But anything above 0 transparency stops writing depth in Roblox, so
+lantern flames draw through those walls and coplanar layers sort against each
+other at random. Running a hallway oddity there made correct geometry look
+broken for an hour: the trim vanished into the wainscot and particles came
+through a sealed corridor, and setting those four parts to 0 live made both
+symptoms disappear. Pick a span well away from it -- the junction at
+(245, -22.6, 114) fronts a clean 130-stud run. Check first:
+`for _, d in workspace.Maze15:GetDescendants() do if d:IsA("BasePart") and d.Transparency > 0 then print(d:GetFullName()) end end`.
+
 **`Measured`** — **a minimized Studio window makes `screen_capture` return a
 black 3D scene with the ScreenGui layer still drawn.** On 2026-09-21 six
 captures in a row came back with the HUD intact over pure black; the camera was
