@@ -134,7 +134,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\EndScreenService.luau — The animated win screen: a journal page (aged paper, doodles, grid strip, binder and paper clips) carrying the logo, title chip and typewriter line on the left page and the chapter-two post-it and PLAY AGAIN button on the grid strip.
 - ReplicatedStorage\Services\EnemyDamageService.luau — Client-side enemy touch detection that reports contact kills to the server outside safe rooms.
 - ReplicatedStorage\Services\EnemyObservationService.luau — Reports which observable models the local camera can see to the server.
-- ReplicatedStorage\Services\EscapeMusicService.luau — Fades the looping escape theme up as a player who has hacked all five computers walks toward the exit elevator, and back out when they leave, die or reset.
+- ReplicatedStorage\Services\EscapeMusicService.luau — Fades the looping escape theme up as a player who has hacked all five computers walks toward the exit elevator, and back out when they leave, die or reset; the exit elevator model must have a PrimaryPart or the theme never starts.
 - ReplicatedStorage\Services\EyeHitEffectService.luau — Blink, blur, flash and gaze-vignette screen effects for the Eye enemy.
 - ReplicatedStorage\Services\EyeRenderService.luau — Bobs and aims tagged Eye models at the camera and computes gaze strength.
 - ReplicatedStorage\Services\FirstPersonCameraService.luau — Walking camera bob, strafing tilt and custom cursor setup for first person, aligning the view to the map Spawn heading after elevator arrival, and shifting Camera.Focus with the bob so it never turns the character.

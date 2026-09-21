@@ -288,7 +288,7 @@ Client-only escape theme for the exit elevator. Tracks the server-authoritative 
 - API: data table — empty; the proximity loop is installed on require.
 - Remotes: `Computers/Sync` (listened and fired)
 - Tags: reads `Elevator` (through `TagService:GetTaggedOfPredicate`)
-- Requires: `Configs.ComputerConfig`, `Configs.ElevatorConfig`, `Configs.EscapeMusicConfig`, `AudioService`, `CharacterService`, `CommunicationService`, `MathService`, `TagService`; expects an `EscapeTheme` template in `ReplicatedStorage.Sounds`
+- Requires: `Configs.ComputerConfig`, `Configs.ElevatorConfig`, `Configs.EscapeMusicConfig`, `AudioService`, `CharacterService`, `CommunicationService`, `MathService`, `TagService`; expects an `EscapeTheme` template in `ReplicatedStorage.Sounds` and a PrimaryPart on every `Exit` type `Elevator` model, because `CharacterService.GetStreamedPivot` returns nil without one and the theme then never starts
 
 ### EyeHitEffectService.luau
 Full-screen feedback for the Eye enemy: on a hit remote it plays an eyelid blink, a blur pulse, a colour flash, an FOV punch, and a damage sound. Also exposes the continuous "being stared at" effect — vignette edges, a breathing pulse, and camera roll/sway (sway also shifts `Camera.Focus` so it never turns the first-person character) — driven each frame by EyeRenderService.
