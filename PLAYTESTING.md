@@ -104,6 +104,21 @@ Client-side measurement of what the player actually perceives.
 
 Use these instead of fixed sleeps.
 
+### ServerStorage\Playtest\Quiet.luau
+Silences the map so a long test is not interrupted. Call it once at the top of
+any playtest that scripts the camera or takes screenshots.
+
+- `Quiet.on()` — clears every live enemy, cancels pending Chaos warnings, takes
+  an `EnemyService` spawn block and starts a 0.5 s sweep that keeps clearing.
+  Idempotent; call it again mid-test to read the running totals
+- `Quiet.off()` — stops the sweep and releases the spawn block
+- `Quiet.state()` — `active`, `sweeping`, `tagged` (live enemies by tag),
+  `serviceActive` (what `EnemyService` thinks is alive), `clearedTotal`
+
+It sweeps on the `Enemy` **tag**, not `EnemyService:GetActive()`, and destroys
+the model when the service does not know about it. See the Gotcha below for why.
+`Subject.clearEnemies()` is still the right call for a one-shot clear.
+
 ### ServerStorage\Playtest\Subject.luau
 Turns a player into a stable test subject.
 
@@ -148,6 +163,20 @@ Check it before hand-rolling a spawn call.
 in the right one; `_G` is not shared between them and neither survives
 restarting the play session. Module upvalues last as long as the datamodel,
 which is usually what you want.
+
+**`Measured`** — **an enemy attack rotates a Scriptable camera, and
+`EnemyService:GetActive()` lies to an MCP snippet.** On 2026-09-21 a Stalker's
+attack shake spun a scripted camera right around mid-screenshot, three times in
+one session, producing captures of the wrong wall that looked like a geometry
+bug. `Subject.clearEnemies()` from an MCP snippet did nothing: the snippet's
+`require` had handed it a **second copy of `EnemyService`** whose
+`ActiveEnemies` table was empty and whose `spawnBlocks` counter the real game
+never read, while 15 tagged enemies walked the map. `CollectionService` tags are
+on the models themselves and are shared, so they are the reliable handle from a
+snippet. `Quiet.on()` clears by tag and reported `clearedNow=15` where the
+service had reported 0. Call it before scripting a camera. This is the same
+duplicate-module trap as the `require` Gotcha above, but the symptom is silence
+rather than an error, so it is easy to miss.
 
 **`Measured`** — **the Glitched Hallway POI is built out of parts at
 `Transparency = 0.02`, and nothing renders correctly against it.** On 2026-09-21

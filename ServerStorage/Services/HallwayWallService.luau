@@ -12,6 +12,7 @@ local MAXIMUM_THICKNESS = 3
 local HEIGHT_WINDOW = 24
 local BELOW_WINDOW = 4
 local CUT_MERGE = 0.5
+local END_STUB = 18
 
 local HallwayWallService = {}
 
@@ -292,6 +293,8 @@ function HallwayWallService.Limit(frame: Frame, position: Vector3?, maximumLengt
 		chosen.Maximum - maximumLength
 	)
 	limited.Maximum = limited.Minimum + maximumLength
+	if limited.Minimum - chosen.Minimum < END_STUB then limited.Minimum = chosen.Minimum end
+	if chosen.Maximum - limited.Maximum < END_STUB then limited.Maximum = chosen.Maximum end
 	return limited
 end
 

@@ -342,7 +342,7 @@ Geometry over the **walls** of a straight hallway span, the counterpart to `Hall
 - API: `HallwayWallService.Mouths(frame: Frame) -> { Mouth }` — `{ Minimum, Maximum, Sign }` per side opening
 - API: `HallwayWallService.CutPoints(frame: Frame) -> { number }` — sorted, both-side union, ends included
 - API: `HallwayWallService.Closing(frame: Frame) -> { Interval }` — the span with every mouth, from either side, cut out of it
-- API: `HallwayWallService.Limit(frame: Frame, position: Vector3?, maximumLength: number) -> Frame?` — the junction-free stretch at `position`, or the longest one when it is omitted, capped to `maximumLength`
+- API: `HallwayWallService.Limit(frame: Frame, position: Vector3?, maximumLength: number) -> Frame?` — the junction-free stretch at `position`, or the longest one when it is omitted, capped to `maximumLength`. The cap never leaves a stub shorter than `END_STUB` (18 studs) at either end: a run that stops a few studs short of the junction it was headed for leaves its sealed face at the back of an alcove, which is visible from the crossing corridor, so the cap gives that end up and takes the whole stretch instead. A run can therefore exceed `maximumLength` by up to two stubs
 - API: `HallwayWallService.Walls(frame: Frame) -> { Wall }`
 - API: `HallwayWallService.Fixtures(frame: Frame, tag: string, margin: number?) -> { Instance }` — tagged parts/models inside the frame
 - API: `HallwayWallService.Merge(intervals: { Interval }, gap: number?) -> { Interval }` — sort and coalesce, optionally closing gaps up to `gap`

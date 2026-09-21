@@ -128,11 +128,11 @@ return {
 			-- Seconds a sealed corridor waits before the server kills without a report.
 			BackstopDelay = 1.5,
 			-- Studs each layer is staggered past the end of a closing run so the
-			-- five share no plane and cannot z-fight. The trim is pushed out by
-			-- its own reveal -- half its extra thickness over the wallpaper --
-			-- on top of this, so it stands off the sealed face by as much as it
-			-- stands off the wall it caps.
-			TrimOvershoot = 0.06,
+			-- five share no plane and cannot z-fight. Each layer is separately
+			-- carried out to the crossing corridor's own wall line on top of
+			-- this, which is what makes the sealed run read as solid wall from
+			-- the corridor rather than as an alcove.
+			TrimOvershoot = 0.03,
 		},
 		ChaosWarning = {
 			Ambient = false,
