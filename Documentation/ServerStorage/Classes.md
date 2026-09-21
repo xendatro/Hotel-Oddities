@@ -455,6 +455,7 @@ Extends `PropOddity`. Spawns a `Painting Dweller` humanoid rig hidden behind a p
 - API: `PaintingDweller:OnStop()` — stops the looping sounds, retreat tween, destroys the rig, restores decals and clears `OddityBusy`
 - Remotes: `Oddities/PaintingDwellerPop` (fired to nearby players)
 - Sounds: `PaintingDwellerPop` (one-shot), `PaintingDwellerScream` and `PaintingDwellerRustle` (looped while out), all on the `SFX` bus
+- Settings: `PopSound`, `ScreamSound`, and `RustleSound` are read as string names from `ReplicatedStorage.Sounds`; the pop is one-shot and the other two loop until the dweller stops
 - Tags: reads `Room`
 - Requires: `Classes\PropOddity`, `Classes\FixtureFall` (for `DescribeNotFixed`), `Services\DeathService`, `Services\EnemyDiscoveryService`, `Services\LightService`, `ReplicatedStorage\Services\CommunicationService`, `ReplicatedStorage\Services\CharacterService`, `ReplicatedStorage\Services\HallwaysService`, `ReplicatedStorage\Services\VanishedService`, `ReplicatedStorage.Enemies` rig templates
 

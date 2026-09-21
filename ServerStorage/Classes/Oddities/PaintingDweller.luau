@@ -201,13 +201,13 @@ function PaintingDweller:OnStart(): boolean
 	)
 	pop:Play()
 
-	local popSound = self:Setting("PopSound", "")
-	if popSound ~= "" then
+	local popSound = self.Config.PopSound
+	if type(popSound) == "string" and popSound ~= "" then
 		AudioService:Play3DSound(popSound, root, false, "SFX")
 	end
 	for _, key in { "ScreamSound", "RustleSound" } do
-		local name = self:Setting(key, "")
-		if name ~= "" then
+		local name = self.Config[key]
+		if type(name) == "string" and name ~= "" then
 			table.insert(self.LoopPlayers, AudioService:Play3DSound(name, root, true, "SFX"))
 		end
 	end
