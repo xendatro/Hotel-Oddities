@@ -16,6 +16,9 @@ Controlled scenarios are restricted to Studio/private servers by default.
 
 HUMAN WORKFLOW
 Type /profile. Choose a scenario, focus and score/diagnostic mode. The four
+top controls are drop-downs; the selected choice is marked. History lists
+saved reports newest first with scenario, build, timestamp and status. Select
+a report to load it. Click outside a menu or press Escape to dismiss it. The four
 fields are seconds per phase, repeat count, build label, device label. Run hides
 the panel once at start. It reopens with the report. Reopening with /profile
 during a run keeps it visible so Stop/Cancel remain usable. An open panel adds

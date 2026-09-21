@@ -199,17 +199,17 @@ The population manager: on a heartbeat tick it tops up resident enemy counts, sc
 - Requires: `DangerConfig.Director`, `EnemyConfigs`, `DangerMapService`, `HallwayGraphService`, `EnemyObservationService:GetEyes`, `ChaosService`, `SistersService`, `StalkerService`, `GhostAreaService`
 
 ### EnemyDiscoveryService.luau
-Tracks per-player 0-1 discovery progress for each enemy in the bestiary, gained by looking at an enemy for long enough, standing near one, scripted events, or dying to it. Progress is persisted to the player's profile, replicated in steps, and a reveal is queued for the next respawn after a death-granted gain.
+Tracks per-player 0-1 discovery progress for each enemy in the bestiary, gained by looking at an enemy for long enough, standing near one, scripted events, or dying to it. Progress is persisted to the player's profile and replicated in steps. Each new 25% milestone sends a notification through `Notifications/Show`, using the bestiary name; saved progress does not trigger notices. A reveal is queued for the next respawn after a death-granted gain.
 - API: `EnemyDiscoveryService:Get(player: Player, enemyId: string) -> number`
 - API: `EnemyDiscoveryService:GetAll(player: Player) -> { [string]: number }` — cloned copy
-- API: `EnemyDiscoveryService:Grant(player: Player, enemyId: string?, amount: number) -> (number, number)` — before, after; does not replicate
-- API: `EnemyDiscoveryService:Set(player: Player, enemyId: string, progress: number)` — persists and replicates
+- API: `EnemyDiscoveryService:Grant(player: Player, enemyId: string?, amount: number) -> (number, number)` — before, after; notifies each newly crossed 25% milestone, but does not replicate progress
+- API: `EnemyDiscoveryService:Set(player: Player, enemyId: string, progress: number)` — persists and replicates, notifying newly crossed milestones
 - API: `EnemyDiscoveryService:Clear(player: Player)` — wipes all progress
 - API: `EnemyDiscoveryService:GrantEvent(player: Player, enemyId: string?)` — the config's Event award
 - API: `EnemyDiscoveryService:GrantDeath(player: Player, enemyId: string?)` — the Death award, queues the reveal
 - API: `EnemyDiscoveryService:HasView(player: Player, model: Model, rule: DiscoveryConfig.SightRule) -> boolean` — the sight test on its own (range, angle and line of sight from the player's reported view), with no dwell and no grant; used by `EnemyEncounterService`
-- Remotes: `Index/Update` (fired and listened as a resync request), `Index/Reveal` (fired)
-- Requires: `ServerStorage.Configs.DiscoveryConfig`, `DataSaveService` (`profile.Data.DiscoveredEnemies`), `EnemyObservationService:GetView`, `EnemyService`
+- Remotes: `Index/Update` (fired and listened as a resync request), `Index/Reveal` (fired), `Notifications/Show` (fired)
+- Requires: `ReplicatedStorage.Configs.IndexConfig`, `ServerStorage.Configs.DiscoveryConfig`, `CommunicationService`, `DataSaveService` (`profile.Data.DiscoveredEnemies`), `EnemyObservationService:GetView`, `EnemyService`
 
 ### EnemyEncounterService.luau
 Turns enemy contact into one `EnemyEncounter` custom analytics event per player per enemy instance, so the dashboard can show how often each enemy is met and how often that meeting ends in a death rather than an escape. Every `AnalyticsConfig.Encounter.SweepInterval` it walks `EnemyService:GetActive()` for each living player: an enemy is in contact when any of its models is within `Encounter.Range` studs of the player's root or, for enemies with a `DiscoveryConfig` sight rule, when `EnemyDiscoveryService:HasView` says the player can see it (the same range, angle and line-of-sight test as bestiary discovery, without the dwell). First contact opens an encounter; it ends with outcome `Escaped` when the enemy has been out of contact for `Encounter.Grace` seconds or has left the active list (despawned), and with outcome `Died` when `DeathService` reports a death whose killer model or cause id matches it. A death to an enemy that was never in contact still logs a zero-length `Died` encounter, and any other encounters open at the moment of death are dropped without an outcome, as are all encounters on respawn and on leaving, so a player who dies to the hotel while being chased never counts as an escape. Dead players are not swept, so the grace timer cannot run out while they sit on the death screen. The logged value is the encounter's length in seconds; the fields are `Enemy`, `Outcome` and the funnel `Step`. Does nothing unless `FLAGS.Enemies` and `Encounter.Enabled` are on.

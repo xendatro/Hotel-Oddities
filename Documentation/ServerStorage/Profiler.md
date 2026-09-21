@@ -9,6 +9,8 @@ scenarios require Studio/private servers unless explicitly enabled for public us
 `Start()` returns the runner or a proxy to the existing runtime across require
 contexts. Public methods: `Start`, `Run`, `Await`, `Status`, `Cancel`, `Compare`, `Command`.
 Commands: list, start, status, stop, cancel, history, result, import, compare.
+`history` keeps its ID-list response by default; `details=true` returns bounded
+report metadata for the UI menu without loading or exporting each full report.
 Server-only commands: getReport, attachDiagnostics, await. Owns `/profile` chat command,
 Runtime.Command BindableFunction and Request/Response StringValues.
 Valid remote commands rejected before execution receive a correlated `busy` or
