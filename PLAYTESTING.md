@@ -149,6 +149,16 @@ in the right one; `_G` is not shared between them and neither survives
 restarting the play session. Module upvalues last as long as the datamodel,
 which is usually what you want.
 
+**`Measured`** — **a minimized Studio window makes `screen_capture` return a
+black 3D scene with the ScreenGui layer still drawn.** On 2026-09-21 six
+captures in a row came back with the HUD intact over pure black; the camera was
+in a lit corridor with a `PointLight` a stud away, and `ffmpeg -f gdigrab -i
+title="Hotel Oddities - Roblox Studio"` refused the window with "Invalid
+properties". `IsIconic` on the main window handle returned true. Restore and
+foreground the window (`ShowWindow(h, 9)` then `SetForegroundWindow(h)`) and the
+same capture renders normally. A black capture is not evidence the scene is
+unlit -- check the window first. The gdigrab failure is the cheaper tell.
+
 **`Measured`** — **MCP global availability depends on the tool context.** On
 2026-09-19 `typeof(_G)` returned `table` in Edit, Server and Client. The earlier
 2026-09-16 Client observation was `nil`; it is not a current blanket limit.
