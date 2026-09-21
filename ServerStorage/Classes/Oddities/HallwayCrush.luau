@@ -43,6 +43,7 @@ local SEAL_PROUD = 0.008
 local SEAL_REVEAL = 0.02
 local SEAL_KILL_DEPTH = 1.5
 local END_FACES = { Enum.NormalId.Right, Enum.NormalId.Left }
+local REFERENCE_LAYER = "Wallpaper"
 
 local MapCrush = CommunicationService.Ensure("Oddities", "MapCrush")
 
@@ -229,11 +230,14 @@ local function setPiece(
 	previous: { Moving: boolean }?,
 	following: { Moving: boolean }?,
 	trimOvershoot: number,
-	layer: string?
+	layer: string?,
+	reference: number
 )
 	local nudge = if piece.Moving and layer then LAYER_NUDGE[layer] else nil
 	local sideScale = if wall.Sign > 0 then 1 else FAR_SIDE_OVERSHOOT
-	local overshoot = if nudge then nudge.Length * trimOvershoot * sideScale else 0
+	local separation = if nudge then nudge.Length * trimOvershoot * sideScale else 0
+	local reveal = if piece.Moving then math.max((wall.Thickness - reference) / 2, 0) else 0
+	local overshoot = separation + reveal
 
 	local minimum = piece.Minimum
 	local maximum = piece.Maximum
@@ -393,7 +397,7 @@ function HallwayCrush:_paperEnds(part: BasePart)
 
 		local texture = child :: Texture
 		covered[texture.Face] = true
-		if not template or texture.Transparency < (template :: Texture).Transparency then
+		if not template or (isEndFace((template :: Texture).Face) and not isEndFace(texture.Face)) then
 			template = texture
 		end
 	end
@@ -404,7 +408,6 @@ function HallwayCrush:_paperEnds(part: BasePart)
 
 		local texture = (template :: Texture):Clone()
 		texture.Face = face
-		texture.Transparency = 0
 		texture.OffsetStudsU = 0
 		texture.OffsetStudsV = 0
 		texture.Parent = part
@@ -414,8 +417,19 @@ end
 
 function HallwayCrush:_collectWalls(frame: HallwayWall.Frame)
 	local cuts = { frame.Minimum, frame.Maximum }
-	local trimOvershoot = math.max(self:Setting("TrimOvershoot", 0.12), 0)
-	for _, wall in HallwayWall.Walls(frame) do
+	local trimOvershoot = math.max(self:Setting("TrimOvershoot", 0.06), 0)
+	local walls = HallwayWall.Walls(frame)
+
+	local reference, thinnest = math.huge, math.huge
+	for _, wall in walls do
+		thinnest = math.min(thinnest, wall.Thickness)
+		if wallLayer(wall.Part) == REFERENCE_LAYER then
+			reference = math.min(reference, wall.Thickness)
+		end
+	end
+	if reference == math.huge then reference = thinnest end
+
+	for _, wall in walls do
 		local pieces = pieceIntervals(wall, frame, cuts)
 		if #pieces == 0 then continue end
 
@@ -453,7 +467,8 @@ function HallwayCrush:_collectWalls(frame: HallwayWall.Frame)
 				pieces[index - 1],
 				pieces[index + 1],
 				trimOvershoot,
-				layer
+				layer,
+				reference
 			)
 			if index > 1 then target.Parent = edit.Parent end
 			if not piece.Moving then continue end

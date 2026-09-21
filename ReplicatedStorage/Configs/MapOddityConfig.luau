@@ -127,9 +127,12 @@ return {
 			KillTolerance = 0.75,
 			-- Seconds a sealed corridor waits before the server kills without a report.
 			BackstopDelay = 1.5,
-			-- Studs the wooden trim is pushed past the end of a closing run, so it
-			-- does not z-fight the wall it was never meant to sit flush against.
-			TrimOvershoot = 0.12,
+			-- Studs each layer is staggered past the end of a closing run so the
+			-- five share no plane and cannot z-fight. The trim is pushed out by
+			-- its own reveal -- half its extra thickness over the wallpaper --
+			-- on top of this, so it stands off the sealed face by as much as it
+			-- stands off the wall it caps.
+			TrimOvershoot = 0.06,
 		},
 		ChaosWarning = {
 			Ambient = false,
