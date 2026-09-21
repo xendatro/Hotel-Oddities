@@ -64,6 +64,10 @@ Spring-driven swinging door leaf: picks a hinge side from who opened it, swings 
 
 ### Drawer.luau
 Spring-driven sliding drawer model. Infers its outward axis from a part whose name contains `DrawerConfig.HandleKeyword`, ignoring parts belonging to tagged drawer items. Every drawer model in the workspace also carries `Left Side` and `Right Side` Parts (attribute `DrawerSide`) fitted inside the mesh footprint so the whole box travels when it opens.
+
+Placement is measured from a structural anchor part, not from `Model.WorldPivot`. `Model:PivotTo` is a relative move: it shifts the parts by `target * WorldPivot:Inverse()` and then writes `WorldPivot`. Driving it from the pivot alone assumes `WorldPivot` still matches where the parts actually are, and streaming breaks that assumption, because it restores the parts to the server's CFrame without touching the client's `WorldPivot`. The drawer then animates from a frame one `OpenDistance` out of step and ends up buried that far inside the cabinet, with `GetPivot()` still reporting the correct closed pivot. `Drawer.new` therefore records `Anchor` (the first structural BasePart) and `AnchorOffset` (its CFrame in `ClosedPivot` object space), and `_apply` derives the move from where that part currently is, so any drift corrects itself on the next frame.
+
+Every drawer model also carries `ModelStreamingMode = Atomic`. Under the default non-atomic mode the Model instance stays in `workspace` permanently while only its BaseParts stream, so the client's `WorldPivot` and the `Drawer` object both survive a stream-out and go stale. Set this on any new drawer.
 - API: `Drawer.new(model: Model) -> Drawer`
 - API: `Drawer:IsOpen() -> boolean`
 - API: `Drawer:IsMoving() -> boolean`
@@ -395,7 +399,7 @@ Snake on a 16x12 grid: eat 12 pellets to win, with the tick interval speeding up
 ## Tools
 
 ### Tools\Ball.luau
-Client half of the throwable ball: raycasts through the mouse at Eye-tagged parts, plays the Throw animation while turning the character to face the target, then flies a cloned ball prop toward the Eye's head and tells the server it connected. Consumes one ball per throw and deletes the visible handle when the stack runs out.
+Client half of the throwable ball: finds the nearest Eye within 20 studs (`ToolConfigs.Ball.Range`) that has a clear raycast path from the player's head, regardless of camera direction, plays the Throw animation while turning the character to face the target, then flies a cloned ball prop toward the Eye's head and tells the server it connected. Consumes one ball per throw and deletes the visible handle when the stack runs out.
 - API: `Ball.new(tool: Tool) -> self`
 - API: `Ball:OnEquipped()` — loads the Throw animation track
 - API: `Ball:OnActivated()` — find target, play throw, consume, launch the projectile

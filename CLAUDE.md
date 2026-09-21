@@ -64,6 +64,9 @@ Documentation/<Container>/<Folder>.md
 
 4. GIT
 
+Unless the user explicitly instructs otherwise, always push the changes you make
+to `main`. Follow the sequence below exactly.
+
 Commit only the files you changed. The sequence is always: add only those
 files, commit, `git pull --no-rebase -X ours`, then push to main. Never force
 push. There are no branches - do not create one, do not switch to one.

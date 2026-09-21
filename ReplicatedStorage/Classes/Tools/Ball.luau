@@ -23,24 +23,34 @@ function Ball:OnEquipped()
 end
 
 function Ball:_findTarget(): Model?
-	if not self.Mouse then return nil end
-
-	local start = self.Tool:GetPivot().Position
-	local direction = (self.Mouse.Hit.Position - start)
-	if direction.Magnitude < 1e-3 then return nil end
+	local character = self.Character
+	local head = character and (character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart"))
+	if not character or not head or not head:IsA("BasePart") then return nil end
 
 	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Include
-	params.FilterDescendantsInstances = TagService:GetTaggedOfAncestor(workspace, "Eye")
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { character }
 
-	local result = workspace:Raycast(start, direction.Unit * self.Config.Range, params)
-	if not result then return nil end
+	local target: Model? = nil
+	local nearestDistance = self.Config.Range
+	for _, candidate in TagService:GetTaggedOfAncestor(workspace, "Eye") do
+		if not candidate:IsA("Model") then continue end
 
-	local enemy = result.Instance
-	while enemy and not enemy:HasTag("Eye") do
-		enemy = enemy.Parent
+		local eyeHead = candidate:FindFirstChild("Head")
+		local position = if eyeHead and eyeHead:IsA("BasePart")
+			then eyeHead.Position
+			else candidate:GetPivot().Position
+		local offset = position - head.Position
+		local distance = offset.Magnitude
+		if distance < 1e-3 or distance > nearestDistance then continue end
+
+		local result = workspace:Raycast(head.Position, offset, params)
+		if result and result.Instance:IsDescendantOf(candidate) then
+			target = candidate
+			nearestDistance = distance
+		end
 	end
-	return enemy
+	return target
 end
 
 function Ball:OnActivated()
