@@ -208,6 +208,10 @@ Visual settings for the top-center notification banner used for short player-fac
 Tag name, attribute name and reconciliation tolerances for the "freeze while observed" enemy movement system. Assembled field-by-field on a named local table rather than as a literal, but returns only that table.
 - API: data table — `Tag`, `FrozenAttribute`, `MaxOffset`, `ConfirmationTimeout`, `ReleaseSpeed`, `MinReportGap`
 
+### OverheadNameConfig.luau
+Layout and styling for player overhead names and verified badge glyphs. `StudSize` sets the BillboardGui scale dimensions to 5.4 by 0.54, down 10% from 6 by 0.6. `MaxTextSize` remains 28.
+- API: data table — `Tag`, `UserIdAttribute`, `VerifiedGlyph`, `StudSize`, `ExtentsOffset`, `StudsOffsetWorldSpace`, `TowardCamera`, `MaxDistance`, `AlwaysOnTop`, `Font`, `MaxTextSize`, `TextColor`, `StrokeColor`, `StrokeTransparency`
+
 ### POIConfig.luau
 Point-of-interest tag, discovery, entry and occupancy remote names, the trigger-box padding and sweep interval used by the server, the entry sting's template/bus/cooldown, and every timing and string the discovery popup animates with.
 

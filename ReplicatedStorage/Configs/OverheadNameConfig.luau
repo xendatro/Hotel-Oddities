@@ -4,7 +4,7 @@ return {
 
 	VerifiedGlyph = 0xE000,
 
-	StudSize = Vector2.new(6, 0.6),
+	StudSize = Vector2.new(5.4, 0.54),
 	ExtentsOffset = Vector3.new(0, 1, 0),
 	StudsOffsetWorldSpace = Vector3.new(0, 0.6, 0),
 	TowardCamera = 2,
