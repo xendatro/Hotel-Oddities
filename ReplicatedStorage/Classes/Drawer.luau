@@ -37,6 +37,15 @@ local function isHandle(descendant: Instance, keyword: string): boolean
 		and descendant.Name:lower():find(keyword, 1, true) ~= nil
 end
 
+local function anchorPart(model: Model): BasePart?
+	for _, descendant in model:GetDescendants() do
+		if descendant:IsA("BasePart") and not belongsToDrawerItem(descendant) then
+			return descendant
+		end
+	end
+	return nil
+end
+
 local function outwardAxis(model: Model): Vector3?
 	local pivot = model:GetPivot()
 	local keyword = DrawerConfig.HandleKeyword:lower()
@@ -71,6 +80,8 @@ function Drawer.new(model: Model)
 	self.Model = model
 	self.ClosedPivot = model:GetPivot()
 	self.HandleKeyword = DrawerConfig.HandleKeyword:lower()
+	self.Anchor = anchorPart(model)
+	self.AnchorOffset = if self.Anchor then self.ClosedPivot:ToObjectSpace(self.Anchor.CFrame) else nil
 	self.Axis = outwardAxis(model)
 	self.Spring = Spring.new(DrawerConfig.Stiffness, DrawerConfig.DampingRatio, DrawerConfig.MaxStep)
 
@@ -92,7 +103,16 @@ function Drawer:IsMoving(): boolean
 end
 
 function Drawer:_apply()
-	self.Model:PivotTo(self.ClosedPivot * CFrame.new(self.Axis * self.Spring.Position))
+	local target = self.ClosedPivot * CFrame.new(self.Axis * self.Spring.Position)
+	local anchor = self.Anchor
+
+	if anchor and anchor.Parent then
+		self.Model:PivotTo(target * self.AnchorOffset * anchor.CFrame:Inverse() * self.Model:GetPivot())
+		self.Model.WorldPivot = target
+		return
+	end
+
+	self.Model:PivotTo(target)
 end
 
 function Drawer:SetOpen(open: boolean, immediate: boolean?)
@@ -128,6 +148,7 @@ function Drawer:Destroy()
 		end
 		self.Connections = nil
 	end
+	self.Anchor = nil
 	self.Model = nil
 end
 
