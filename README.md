@@ -128,7 +128,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\DoorService.luau — Renders room doors from the server's replicated player proximity state, local enemy reactions, and server map opening regions.
 - ReplicatedStorage\Services\DrawerItemService.luau — Registers drawer and loose hallway displays as interactable pickups, removes displays owned by other players, requests pickups from the server, and shows currency feedback with sound or bag-item feedback with the shared notification banner.
 - ReplicatedStorage\Services\DrawerService.luau — Animates drawers open and closed with local prediction over the server's attribute.
-- ReplicatedStorage\Services\EffectsHUDService.luau — Right-edge HUD of effect tiles, with draining timers, `inf` for permanent immunity, and hole-hop immunity countdowns.
+- ReplicatedStorage\Services\EffectsHUDService.luau — Right-edge effect tiles stack just above the computer notepad, growing upward with draining timers, `inf` for permanent immunity, and hole-hop immunity countdowns.
 - ReplicatedStorage\Services\ElevatorDoorService.luau — Opens lobby and arrival doors by proximity; the exit panel, barrier and doors follow the local player's server-authorized five-color completion state.
 - ReplicatedStorage\Services\ElevatorLoadingUIService.luau — Fades the elevator loading overlay in and out around a hallway load.
 - ReplicatedStorage\Services\EndScreenService.luau — The animated win screen: a journal page (aged paper, doodles, grid strip, binder and paper clips) carrying the logo, title chip and typewriter line on the left page and the chapter-two post-it and PLAY AGAIN button on the grid strip.
@@ -315,7 +315,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\DangerConfig.luau — Danger-field noise generation and Director enemy population settings.
 - ReplicatedStorage\Configs\DeathConfig.luau — Death causes, player hints and the killed-by death screen styling, plus the analytics cause id for hotel deaths and the self-revive source.
 - ReplicatedStorage\Configs\DoorConfig.luau — Swinging door physics, replicated player-proximity attributes, and proximity open/close behaviour.
-- ReplicatedStorage\Configs\DrawerConfig.luau — Openable drawer motion, interaction, sound and prompt UI settings.
+- ReplicatedStorage\Configs\DrawerConfig.luau — Openable drawer motion, interaction, sound and prompt UI settings, plus the cavity wall part names used to place items.
 - ReplicatedStorage\Configs\DrawerItemConfig.luau — Drawer tool/currency loot rates, hallway placement limits, map-only hallway items and scaled chip weights, rarity and currency weights (coins 60, gems 40, one coin or gem per pickup, currency in 35% of drawers on a 20-second refill, 20 loose hallway pickups on a 15-second refill), pickup feedback sounds, display rotations and item tables; clones DrawerConfig's Input/UI at load.
 - ReplicatedStorage\Configs\EffectsHUDConfig.luau — Layout, colours and icons for the HUD effect tiles.
 - ReplicatedStorage\Configs\ElevatorConfig.luau — Elevator types, door motion, proximity, exit access polling, teleport fade settings and the arrival camera remote name.
@@ -345,7 +345,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\MirrorRoomConfig.luau — Bounds padding, retry delay, the opaque-reflection tag, saved-transparency and single-viewer attributes, and the instance classes stripped from a mirror-room reflection.
 - ReplicatedStorage\Configs\MimicConfig.luau — Behaviour tuning for the Mimic enemy's reactions, reveal and movement.
 - ReplicatedStorage\Configs\NotificationConfig.luau — Paper art, lettering, tilt and timing for the client notification strips, placed below the top HUD strip.
-- ReplicatedStorage\Configs\OverheadNameConfig.luau — Tag, identity attribute, verified glyph and styling for overhead names.
+- ReplicatedStorage\Configs\OverheadNameConfig.luau — Tag, identity attribute, verified glyph and overhead label styling, with the BillboardGui scale size reduced by 10%.
 - ReplicatedStorage\Configs\ObservedFreezeConfig.luau — Tag, attribute and tolerances for freeze-when-observed enemies.
 - ReplicatedStorage\Configs\POIConfig.luau — Point-of-interest tag, discovery and occupancy remotes, trigger-box padding, entry sting settings and popup animation timings.
 - ReplicatedStorage\Configs\PerfGraphConfig.luau — F8 performance graph panel keybind, size, fixed graph maxima, reference lines, FPS thresholds, colours and the instance-churn category list.
@@ -422,7 +422,7 @@ become Services or Classes.
 - ServerStorage\Services\DeathService.luau — Records the cause of each player's death, applies reported contact kills, drives the death screen and revive offers, logs the `Death` event, resolves the open enemy encounter and fires `Died` with the cause.
 - ServerStorage\Services\DevProductService.luau — Wires every developer product in DevProductConfigs to a receipt handler.
 - ServerStorage\Services\DoorService.luau — Polls alive player proximity to swinging room doors and replicates each door's open state and opener position.
-- ServerStorage\Services\DrawerItemService.luau — Stocks drawers with pickable tool/currency displays and hallways with currencies, map-only tools and computer chips, applies currency display rotations, spawns owner-only drawer displays, and reports bag-slot item pickups and currency rewards.
+- ServerStorage\Services\DrawerItemService.luau — Stocks drawers with pickable tool/currency displays and hallways with currencies, map-only tools and computer chips, measures the drawer cavity from its side walls so items centre inside it without clipping the front mesh, rotates each item onto its flattest axis and shrinks anything oversized, applies hallway display rotations, spawns owner-only drawer displays, and reports bag-slot item pickups and currency rewards.
 - ServerStorage\Services\DrawerService.luau — Owns drawer open/closed state, sounds, and auto-closing, and signals when a player opens a drawer.
 - ServerStorage\Services\EndingService.luau — Detects an authorised player inside the exit cabin, freezes them for the end screen, awards the escape and consumes the run by resetting their computer progress on the spot, then on play-again returns them to the lobby; logs `RunEscaped` and `PlayAgain`.
 - ServerStorage\Services\ElevatorService.luau — Teleports lobby arrivals to the maze arrival elevator with existing loading and streaming, signals the client to align its first-person view to the map Spawn heading, and rejects exit-cabin entry until that player completes all five computers, leaving players who are mid end screen alone.
@@ -542,7 +542,7 @@ become Services or Classes.
 - ServerStorage\Classes\Oddities\HallwayVoid.luau — Hallway oddity that cuts a bottomless pit into the corridor floor and kills whoever falls in unless they are protected by immunity; disabled, now baked as The Hole POI.
 - ServerStorage\Classes\Oddities\LanternFall.luau — Fixture-fall oddity that drops a ceiling lantern and kills its light while down.
 - ServerStorage\Classes\Oddities\MapLightsOut.luau — Map oddity that turns off every tagged light inside a large world-space chunk.
-- ServerStorage\Classes\Oddities\PaintingDweller.luau — Prop oddity that bursts a humanoid rig out of a painting canvas with a pop sound and looping scream/rustle, and attacks nearby players; presented as the "Painting Lurker" enemy with its own death cause, Index entry and event/death discovery.
+- ServerStorage\Classes\Oddities\PaintingDweller.luau — Prop oddity that bursts a humanoid rig out of a painting canvas with the configured pop sound and looping scream/rustle, and attacks nearby players; reads sound template names from string settings and is presented as the "Painting Lurker" enemy with its own death cause, Index entry and event/death discovery.
 - ServerStorage\Classes\Oddities\PaintingFall.luau — Fixture-fall oddity that shoves a wall painting off the wall with spin.
 - ServerStorage\Classes\Oddities\RatScurry.luau — Runs a rat across a hallway from one wall to the other and destroys it on the far side.
 - ServerStorage\Classes\Oddities\PlayerHeadStare.luau — Player oddity that runs the client head-stare effect when enough players are alive.
@@ -605,5 +605,9 @@ Enemy navigation: NPC patrols reuse ConnectorGraph entrance geometry with danger
 - ReplicatedStorage\Services\EnemyDespawnService.luau — Local 1.5x layered dust burst, smoke and powder flecks with a 0.15-second enemy fade and positional despawn audio, triggered centrally by EnemyService for enemies whose config enables the sequence.
 
 Maze arrival/exit construction and placement: `Documentation/Workspace/MazeElevators.md`; reproducible edit-time build: `Tools/BuildMazeElevators.luau`.
+
+Maze room door tags, including the `DoorPart` tags on the upside-down rooms' leaves: `Documentation/Workspace/MazeRoomDoors.md`.
+
+Dollhouse connector room miniature scales and drawer tags: `Documentation/Workspace/DollhouseConnectorRoom.md`.
 
 Baked oddity POIs (The Hole, Glitched Hallway, once called Invisible Hallway), their backups under `ServerStorage.POIBackups` and how to revert them: `Documentation/Workspace/POIHallways.md`.

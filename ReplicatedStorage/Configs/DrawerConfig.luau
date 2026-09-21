@@ -10,6 +10,10 @@ return {
 	OutwardAxis = Vector3.new(0, 0, -1),
 	HandleKeyword = "handle",
 	HandleThreshold = 0.25,
+	InteriorWallNames = {
+		["left side"] = true,
+		["right side"] = true,
+	},
 
 	Stiffness = 190,
 	DampingRatio = 0.85,

@@ -39,6 +39,8 @@ local NextRefillAt = 0
 local REFILL_CHECK_INTERVAL = 1
 local REFILL_POLL_INTERVAL = 0.25
 local PICKUP_DEBOUNCE = 0.15
+local MINIMUM_EXTENT = 1e-3
+local AXIS_VECTORS = { Vector3.xAxis, Vector3.yAxis, Vector3.zAxis }
 
 local function isCode(instance: Instance): boolean
 	return instance:IsA("Script") or instance:IsA("LocalScript") or instance:IsA("ModuleScript")
@@ -109,29 +111,20 @@ local function belongsToItem(instance: Instance): boolean
 	return false
 end
 
-local function outwardAxis(drawer: Model): Vector3
-	local pivot = drawer:GetPivot()
-	local keyword = DrawerConfig.HandleKeyword:lower()
-
-	for _, descendant in drawer:GetDescendants() do
-		if not descendant:IsA("BasePart")
-			or belongsToItem(descendant)
-			or not descendant.Name:lower():find(keyword, 1, true)
-		then
-			continue
-		end
-
-		local offset = pivot:PointToObjectSpace(descendant.Position)
-		if math.abs(offset.X) >= math.abs(offset.Z) then
-			if math.abs(offset.X) > DrawerConfig.HandleThreshold then
-				return Vector3.new(math.sign(offset.X), 0, 0)
-			end
-		elseif math.abs(offset.Z) > DrawerConfig.HandleThreshold then
-			return Vector3.new(0, 0, math.sign(offset.Z))
-		end
-	end
-
-	return DrawerConfig.OutwardAxis.Unit
+local function partExtremes(pivot: CFrame, part: BasePart): (Vector3, Vector3)
+	local relative = pivot:ToObjectSpace(part.CFrame)
+	local half = Vector3.new(
+		math.abs(relative.RightVector.X) * part.Size.X / 2
+			+ math.abs(relative.UpVector.X) * part.Size.Y / 2
+			+ math.abs(relative.LookVector.X) * part.Size.Z / 2,
+		math.abs(relative.RightVector.Y) * part.Size.X / 2
+			+ math.abs(relative.UpVector.Y) * part.Size.Y / 2
+			+ math.abs(relative.LookVector.Y) * part.Size.Z / 2,
+		math.abs(relative.RightVector.Z) * part.Size.X / 2
+			+ math.abs(relative.UpVector.Z) * part.Size.Y / 2
+			+ math.abs(relative.LookVector.Z) * part.Size.Z / 2
+	)
+	return relative.Position - half, relative.Position + half
 end
 
 local function drawerBounds(drawer: Model): (CFrame, Vector3)
@@ -148,31 +141,51 @@ local function drawerBounds(drawer: Model): (CFrame, Vector3)
 			continue
 		end
 
-		local part = pivot:ToObjectSpace(descendant.CFrame)
-		local right = part.RightVector * descendant.Size.X / 2
-		local up = part.UpVector * descendant.Size.Y / 2
-		local look = part.LookVector * descendant.Size.Z / 2
-		for x = -1, 1, 2 do
-			for y = -1, 1, 2 do
-				for z = -1, 1, 2 do
-					local corner = part.Position + right * x + up * y + look * z
-					minimum = Vector3.new(
-						math.min(minimum.X, corner.X),
-						math.min(minimum.Y, corner.Y),
-						math.min(minimum.Z, corner.Z)
-					)
-					maximum = Vector3.new(
-						math.max(maximum.X, corner.X),
-						math.max(maximum.Y, corner.Y),
-						math.max(maximum.Z, corner.Z)
-					)
-				end
-			end
+		local low, high = partExtremes(pivot, descendant)
+		minimum = minimum:Min(low)
+		maximum = maximum:Max(high)
+	end
+
+	return pivot * CFrame.new((minimum + maximum) / 2), maximum - minimum
+end
+
+local function drawerInterior(drawer: Model): (CFrame, Vector3)
+	local pivot = drawer:GetPivot()
+	local walls = {}
+	local minimum = Vector3.new(math.huge, math.huge, math.huge)
+	local maximum = Vector3.new(-math.huge, -math.huge, -math.huge)
+
+	for _, descendant in drawer:GetDescendants() do
+		if not descendant:IsA("BasePart")
+			or belongsToItem(descendant)
+			or not DrawerConfig.InteriorWallNames[descendant.Name:lower()]
+		then
+			continue
+		end
+
+		local low, high = partExtremes(pivot, descendant)
+		walls[#walls + 1] = { Low = low, High = high }
+		minimum = minimum:Min(low)
+		maximum = maximum:Max(high)
+	end
+
+	if #walls < 2 then return drawerBounds(drawer) end
+
+	local middle = (minimum.X + maximum.X) / 2
+	local left, right = minimum.X, maximum.X
+	for _, wall in walls do
+		if (wall.Low.X + wall.High.X) / 2 < middle then
+			left = math.max(left, wall.High.X)
+		else
+			right = math.min(right, wall.Low.X)
 		end
 	end
 
-	local center = (minimum + maximum) / 2
-	return pivot * CFrame.new(center), maximum - minimum
+	if right - left <= 0 then return drawerBounds(drawer) end
+
+	local low = Vector3.new(left, minimum.Y, minimum.Z)
+	local high = Vector3.new(right, maximum.Y, maximum.Z)
+	return pivot * CFrame.new((low + high) / 2), high - low
 end
 
 local function extentAlong(cframe: CFrame, size: Vector3, axis: Vector3): number
@@ -181,27 +194,70 @@ local function extentAlong(cframe: CFrame, size: Vector3, axis: Vector3): number
 		+ math.abs(axis:Dot(cframe.LookVector)) * size.Z / 2
 end
 
+local function alignedSize(cframe: CFrame, size: Vector3, frame: CFrame): Vector3
+	return Vector3.new(
+		extentAlong(cframe, size, frame.RightVector),
+		extentAlong(cframe, size, frame.UpVector),
+		extentAlong(cframe, size, frame.LookVector)
+	) * 2
+end
+
+local function descendingAxes(size: Vector3): { number }
+	local components = { size.X, size.Y, size.Z }
+	local order = { 1, 2, 3 }
+	table.sort(order, function(a, b) return components[a] > components[b] end)
+	return order
+end
+
+local function fitRotation(interior: Vector3, item: Vector3): CFrame
+	local from = descendingAxes(item)
+	local to = descendingAxes(interior)
+	local columns = {}
+
+	for index, source in from do
+		columns[source] = AXIS_VECTORS[to[index]]
+	end
+
+	if columns[1]:Cross(columns[2]):Dot(columns[3]) < 0 then
+		columns[3] = -columns[3]
+	end
+	return CFrame.fromMatrix(Vector3.zero, columns[1], columns[2], columns[3])
+end
+
 local function placeOnDrawer(drawer: Model, display: Model)
-	local drawerCFrame, drawerSize = drawerBounds(drawer)
-	local axis = outwardAxis(drawer)
-	local itemName = display:GetAttribute(ItemConfig.Attribute)
-	local rotation = if type(itemName) == "string" then ItemConfig.DisplayRotations[itemName] else nil
+	local interior, interiorSize = drawerInterior(drawer)
+	local padding = ItemConfig.Spawn.SurfacePadding
+	local usable = Vector3.new(
+		math.max(interiorSize.X - padding * 2, MINIMUM_EXTENT),
+		math.max(interiorSize.Y - padding * 2, MINIMUM_EXTENT),
+		math.max(interiorSize.Z - padding * 2, MINIMUM_EXTENT)
+	)
+
 	display.Parent = drawer
-	display:PivotTo(drawerCFrame * (rotation or CFrame.new()))
+	display:PivotTo(interior)
+
+	local _, naturalSize = display:GetBoundingBox()
+	local rotation = fitRotation(usable, naturalSize)
+	display:PivotTo(interior * rotation)
 
 	local itemCFrame, itemSize = display:GetBoundingBox()
-	local itemOffset = drawerCFrame:PointToObjectSpace(itemCFrame.Position)
-	local drawerDepth = if math.abs(axis.X) > 0 then drawerSize.X else drawerSize.Z
-	local itemDepth = extentAlong(itemCFrame, itemSize, drawerCFrame:VectorToWorldSpace(axis))
-	local itemHalfHeight = extentAlong(itemCFrame, itemSize, Vector3.yAxis)
-	local padding = ItemConfig.Spawn.SurfacePadding
-	local floor = if itemHalfHeight * 2 <= drawerSize.Y - padding * 2
-		then -drawerSize.Y / 2 + itemHalfHeight + padding
-		else drawerSize.Y / 2 - itemHalfHeight - padding
-	local depth = drawerDepth / 2 - itemDepth - padding
-	local target = drawerCFrame * CFrame.new(axis * depth + Vector3.yAxis * floor - itemOffset) * (rotation or CFrame.new())
+	local aligned = alignedSize(itemCFrame, itemSize, interior)
+	local scale = math.min(
+		1,
+		usable.X / math.max(aligned.X, MINIMUM_EXTENT),
+		usable.Y / math.max(aligned.Y, MINIMUM_EXTENT),
+		usable.Z / math.max(aligned.Z, MINIMUM_EXTENT)
+	)
 
-	display:PivotTo(target)
+	if scale < 1 then
+		display:ScaleTo(display:GetScale() * scale)
+		itemCFrame, itemSize = display:GetBoundingBox()
+		aligned = alignedSize(itemCFrame, itemSize, interior)
+	end
+
+	local offset = interior:PointToObjectSpace(itemCFrame.Position)
+	local rest = -interiorSize.Y / 2 + aligned.Y / 2 + padding
+	display:PivotTo(interior * CFrame.new(Vector3.new(0, rest, 0) - offset) * rotation)
 	CollectionService:AddTag(display, ItemConfig.Tag)
 end
 

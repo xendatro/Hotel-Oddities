@@ -72,7 +72,8 @@ Swinging door physics, replicated player-proximity state, proximity open/close d
 
 ### DrawerConfig.luau
 Openable drawers: tag/attribute names, spring motion, auto-close, interaction targeting, highlight, sounds and the prompt UI. `UI.HoldFillTransparency` is the transparency of the bar that sweeps across the prompt pill while a hold-to-activate target is being held.
-- API: data table — `Tag`, `Attribute`, open/auto-close keys, `OutwardAxis`, handle-detection keys, spring/settle keys, `Targeting`, `Input`, `Highlight`, `Sound`, `UI`
+- API: data table — `Tag`, `Attribute`, open/auto-close keys, `OutwardAxis`, handle-detection keys, `InteriorWallNames`, spring/settle keys, `Targeting`, `Input`, `Highlight`, `Sound`, `UI`
+- `InteriorWallNames` is the lowercase set of part names that line the drawer cavity (`left side`, `right side`). The drawer body is a single mesh whose bounding box reaches the outer face of the front panel, so item placement measures these parts instead and gets the cavity the panel encloses.
 
 ### DrawerItemConfig.luau
 Items spawned inside drawers and the loose hallway pickups: drawer spawn rates, currency target and refill settings, hallway placement limits and supported surface names, rarity weights, currency weights and reward amounts, pickup feedback labels and sound names, display rotations, plus the item-to-rarity table. Currency sits in 35% of all drawers (`Spawn.CurrencyTargetPercentage`) with a 20-second `Spawn.RefillDelay`, 20 loose hallway pickups stay alive on a 15-second `Hallway.RefillDelay`, coins are weighted 60 to gems 40, and every pickup grants exactly 1 coin or 1 gem. At load time it clones `DrawerConfig.Input` and `DrawerConfig.UI` and overrides a few fields, and reuses `DrawerConfig.Targeting`/`Highlight` by reference.
@@ -82,8 +83,8 @@ Items spawned inside drawers and the loose hallway pickups: drawer spawn rates, 
 - Requires: `Configs/ComputerChipConfig`, `Configs/DrawerConfig`
 
 ### EffectsHUDConfig.luau
-Layout, colours and icon ids for the active-item/effect tiles on the HUD.
-- API: data table — `TileSize`, `TilePadding`, `CornerRadius`, `IconInset`, `EdgeMargin`, `Colors`, `Transparency`, `FlashDuration`, `HoleLifetime`, `FlashItems`, `Icons`
+Layout, colours and icon ids for the active-item/effect tiles on the HUD. `VerticalPosition` sets the stack's bottom edge just above the computer notepad.
+- API: data table — `TileSize`, `TilePadding`, `CornerRadius`, `IconInset`, `EdgeMargin`, `VerticalPosition`, `Colors`, `Transparency`, `FlashDuration`, `HoleLifetime`, `FlashItems`, `Icons`
 
 ### ElevatorConfig.luau
 Elevator instance names, Lobby/Start/Exit types, door motion, proximity thresholds, AccessCheckInterval (0.2 seconds), and the teleport fade/loading sequence.
@@ -207,6 +208,10 @@ Visual settings for the top-center notification banner used for short player-fac
 ### ObservedFreezeConfig.luau
 Tag name, attribute name and reconciliation tolerances for the "freeze while observed" enemy movement system. Assembled field-by-field on a named local table rather than as a literal, but returns only that table.
 - API: data table — `Tag`, `FrozenAttribute`, `MaxOffset`, `ConfirmationTimeout`, `ReleaseSpeed`, `MinReportGap`
+
+### OverheadNameConfig.luau
+Layout and styling for player overhead names and verified badge glyphs. `StudSize` sets the BillboardGui scale dimensions to 5.4 by 0.54, down 10% from 6 by 0.6. `MaxTextSize` remains 28.
+- API: data table — `Tag`, `UserIdAttribute`, `VerifiedGlyph`, `StudSize`, `ExtentsOffset`, `StudsOffsetWorldSpace`, `TowardCamera`, `MaxDistance`, `AlwaysOnTop`, `Font`, `MaxTextSize`, `TextColor`, `StrokeColor`, `StrokeTransparency`
 
 ### POIConfig.luau
 Point-of-interest tag, discovery, entry and occupancy remote names, the trigger-box padding and sweep interval used by the server, the entry sting's template/bus/cooldown, and every timing and string the discovery popup animates with.
