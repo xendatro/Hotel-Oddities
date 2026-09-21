@@ -395,7 +395,7 @@ Snake on a 16x12 grid: eat 12 pellets to win, with the tick interval speeding up
 ## Tools
 
 ### Tools\Ball.luau
-Client half of the throwable ball: raycasts through the mouse at Eye-tagged parts, plays the Throw animation while turning the character to face the target, then flies a cloned ball prop toward the Eye's head and tells the server it connected. Consumes one ball per throw and deletes the visible handle when the stack runs out.
+Client half of the throwable ball: finds the nearest Eye within 20 studs (`ToolConfigs.Ball.Range`) that has a clear raycast path from the player's head, regardless of camera direction, plays the Throw animation while turning the character to face the target, then flies a cloned ball prop toward the Eye's head and tells the server it connected. Consumes one ball per throw and deletes the visible handle when the stack runs out.
 - API: `Ball.new(tool: Tool) -> self`
 - API: `Ball:OnEquipped()` — loads the Throw animation track
 - API: `Ball:OnActivated()` — find target, play throw, consume, launch the projectile

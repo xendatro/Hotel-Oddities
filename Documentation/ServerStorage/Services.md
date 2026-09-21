@@ -705,7 +705,7 @@ Finds a peek spot behind the player and spawns a stalker-type enemy standing the
 - Requires: `PeekSpotService`, `EnemyConfigs`, `ServerStorage.Classes.Enemies.Behaviors.Peek` (find options), `EnemyService:Spawn`, `ReplicatedStorage.Services.SpawnZoneService`
 
 ### StunService.luau
-Puts an enemy NPC or Eye into its `Stunned` state for a duration, and handles the client Ball hit report by re-verifying the thrower is within `ToolConfigs.Ball.ServerRange` of a live Eye before despawning it.
+Puts an enemy NPC or Eye into its `Stunned` state for a duration, and handles the client Ball hit report by re-verifying the thrower is within `ToolConfigs.Ball.ServerRange` of a live Eye with a clear raycast path from the player's head before despawning it.
 - API: `StunService:Stun(model: Instance?, duration: number) -> boolean` — stun the enemy behind that model
 - API: `StunService:KillEye(model: Instance?) -> boolean` — despawn the live Eye behind that model
 - API: `StunService:KillNpc(model: Instance?) -> boolean` — despawn the live NPC behind that model

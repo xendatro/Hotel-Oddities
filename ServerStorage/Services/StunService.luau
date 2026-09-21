@@ -10,6 +10,24 @@ local BALL_CONFIG = ToolConfigs.Ball
 
 local StunService = {}
 
+local function hasClearSight(character: Model, target: Model): boolean
+	local head = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
+	if not head or not head:IsA("BasePart") then return false end
+
+	local targetHead = target:FindFirstChild("Head")
+	local position = if targetHead and targetHead:IsA("BasePart")
+		then targetHead.Position
+		else target:GetPivot().Position
+	local offset = position - head.Position
+	if offset.Magnitude < 1e-3 then return false end
+
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { character }
+	local result = workspace:Raycast(head.Position, offset, params)
+	return result ~= nil and result.Instance:IsDescendantOf(target)
+end
+
 function StunService:Stun(model: Instance?, duration: number): boolean
 	local enemy = NPC.FromModel(model) or Eye.FromModel(model)
 	if not enemy or not enemy.Active then return false end
@@ -51,6 +69,7 @@ Hit.OnServerEvent:Connect(function(player: Player, model: any)
 		then eye.RootPart.Position
 		else model:GetPivot().Position
 	if (targetPosition - root.Position).Magnitude > BALL_CONFIG.ServerRange then return end
+	if not hasClearSight(character, model) then return end
 
 	StunService:KillEye(model)
 end)

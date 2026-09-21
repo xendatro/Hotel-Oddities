@@ -278,7 +278,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\Minigames\Minesweeper.luau — 8x8 Minesweeper minigame with flag mode and a safe first click.
 - ReplicatedStorage\Classes\Minigames\Simon.luau — Simon-says minigame; repeat a growing four-pad sequence up to length seven.
 - ReplicatedStorage\Classes\Minigames\Snake.luau — Snake minigame on a 16x12 grid; eat twelve pellets as the tick speeds up.
-- ReplicatedStorage\Classes\Tools\Ball.luau — Client ball tool; throws a ball prop at a targeted Eye and reports the hit to the server.
+- ReplicatedStorage\Classes\Tools\Ball.luau — Client ball tool; targets the nearest Eye within 20 studs and clear sight from the player's head, throws a ball prop and reports the hit to the server.
 - ReplicatedStorage\Classes\Tools\Camcorder.luau — Client camcorder; suppresses its viewmodel while the Studio-authored REC/STOP HUD runs, calls the engine stop directly on unequip, reports recording completion, then offers keep or burn before reporting the final decision.
 - ReplicatedStorage\Classes\Tools\Camera.luau — Client camera tool; shows a ghost placement preview and asks the server to stand the tripod where you aim.
 - ReplicatedStorage\Classes\Tools\Pathfinder.luau — Client pathfinder tool; drops limited, shaded breadcrumb markers on the floor.
@@ -366,7 +366,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\StatsHUDConfig.luau — Toggle key, layout and thresholds for the debug stats HUD panel.
 - ReplicatedStorage\Configs\StoreConfig.luau — Shop and Gems page text, owned-price layout, gem pack frames and amounts, balance flash and the gem purchase result code.
 - ReplicatedStorage\Configs\StreamingConfig.luau — Corridor streaming prediction, reconciliation and tag settings (currently disabled).
-- ReplicatedStorage\Configs\ToolConfigs.luau — Per-tool tags and behaviour values for every usable tool, including the Shovel's six-second hole immunity duration.
+- ReplicatedStorage\Configs\ToolConfigs.luau — Per-tool tags and behaviour values for every usable tool, including the Ball's 20-stud target range and the Shovel's six-second hole immunity duration.
 - ReplicatedStorage\Configs\TopHUDConfig.luau — Currency roll animation, danger meter tiers, colours, glow pulse and scaling for the top-centre HUD strip.
 - ReplicatedStorage\Configs\TopbarConfig.luau — Which interface pages get a topbar icon, plus each icon's image, label, order and alignment.
 - ReplicatedStorage\Configs\ViewmodelConfig.luau — First-person viewmodel placement, sway, bob, per-tool overrides and named poses.
@@ -493,7 +493,7 @@ become Services or Classes.
 - ServerStorage\Services\SpawnZoneGuardService.luau — Applies source-specific permanent immunity to players inside the spawn safe zone, repels NPC enemies that touch it back to patrol, and builds the zone's translucent runtime border walls.
 - ServerStorage\Services\SpeedBoostService.luau — Central WalkSpeed arbiter for named, expiring speed boosts and optional multipliers.
 - ServerStorage\Services\StalkerService.luau — Spawns stalker-type enemies at a peek spot found behind the player.
-- ServerStorage\Services\StunService.luau — Stuns enemy NPCs and Eyes, kills NPCs caught by traps and Eyes hit by the Ball, and validates client ball-hit reports by range.
+- ServerStorage\Services\StunService.luau — Stuns enemy NPCs and Eyes, kills NPCs caught by traps and Eyes hit by the Ball, and validates client ball-hit reports by range and clear sight.
 - ServerStorage\Services\ToolCommandService.luau — Admin-only /give chat command for handing out tools by name and amount; giving the Player Locator unlocks it without the gamepass.
 - ServerStorage\Services\ToolService.luau — Binds tagged Tools to their server tool classes and routes client tool events to them.
 - ServerStorage\Services\VoiceActivityService.luau — Tunes nested voice emitters, restores microphone input after respawn, and emits noise at whoever is speaking so enemies can hear them.
