@@ -1,12 +1,12 @@
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
-local ServerStorage = game:GetService("ServerStorage")
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
 
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local HallwayGridService = require(ServerStorage.Services.HallwayGridService)
 local MathService = require(ReplicatedStorage.Services.MathService)
+local PeekPoseConfig = require(ServerStorage.Configs.PeekPoseConfig)
 local SpawnZoneService = require(ReplicatedStorage.Services.SpawnZoneService)
 
 local horizontal = MathService.Horizontal
@@ -14,19 +14,20 @@ local horizontal = MathService.Horizontal
 local ENEMY_TAG = "Enemy"
 
 local EYE_OFFSET = 1.5
-local ROOT_HEIGHT = 3
+local PLAYER_ROOT_HEIGHT = 3
 local RIG_SIZE = Vector3.new(1.4, 5.2, 1.0)
 local STANDING_CLEARANCE = 0.5
 local FLOOR_PROBE_UP = 8
 local FLOOR_PROBE_DOWN = 20
 local MAX_FLOOR_DROP = 3
-
-local LEAN_ANGLES = { 68, 60, 52, 45, 28 }
-local LEAN_ARC_STEPS = 4
-local ARC_RADIUS = 0.6
-local STAND_OFFSETS = { 2.3, 2.9, 3.5, 1.5, 0.8, 0 }
-local LEAN_STEPS = { 2.9, 2.2, 1.5, 0.8, 0 }
+local MAX_YAW = 25
+local DEFAULT_EXPOSURE = 1.6
+local MIN_EXPOSURE = 0.5
+local EXPOSURE_TRIES = { 0, 0.5, -0.5, 1 }
+local SWEEP_FLOOR_CLEARANCE = 0.1
 local ENOUGH_SPOTS = 6
+local PEEK_VISIBLE_SAMPLES = 2
+local SIDE_PENALTY = 1
 
 local HIDE_SAMPLES = {
 	{ 4.4, 0 },
@@ -39,22 +40,16 @@ local HIDE_SAMPLES = {
 	{ 0.8, 1.0 },
 	{ 0.8, -1.0 },
 }
-local LEAN_SAMPLES = {
-	{ 4.4, 0 },
-	{ 4.0, 0.9 },
-	{ 4.0, -0.9 },
-	{ 3.2, 0.7 },
-	{ 3.2, -0.7 },
-}
-local LEAN_VISIBLE_SAMPLES = 2
-local SIDE_PENALTY = 1
 
 export type PeekSpot = {
 	Stand: Vector3,
-	Step: number,
+	Root: CFrame,
+	HiddenRoot: CFrame,
+	Side: "Left" | "Right",
+	Scale: number,
+	RootHeight: number,
 	Lateral: Vector3,
 	Facing: Vector3,
-	LeanAngle: number,
 }
 
 export type FindOptions = {
@@ -63,9 +58,14 @@ export type FindOptions = {
 	RearArc: number,
 	ViewCone: number,
 	FogFraction: number?,
+	Exposure: number?,
+	Scale: number?,
+	RootHeight: number?,
 }
 
 export type Corner = HallwayGridService.Corner
+
+type Frame = { Time: number, Points: { { number } } }
 
 type Search = {
 	Params: RaycastParams,
@@ -76,6 +76,8 @@ type Search = {
 	MaxDistance: number,
 	Views: { EnemyObservationService.View },
 	Options: FindOptions,
+	Scale: number,
+	RootHeight: number,
 }
 
 local PeekSpotService = {}
@@ -99,60 +101,45 @@ local function isClear(params: RaycastParams, from: Vector3, to: Vector3): boole
 	return workspace:Raycast(from, direction, params) == nil
 end
 
-local function leanAxes(lateral: Vector3, angle: number): (Vector3, Vector3)
-	local radians = math.rad(angle)
-	local cosine, sine = math.cos(radians), math.sin(radians)
-	local up = Vector3.yAxis * cosine + lateral * sine
-	local across = lateral * cosine - Vector3.yAxis * sine
-	return up, across
-end
-
-local function footAt(spot: PeekSpot, lean: number): Vector3
-	return spot.Stand + spot.Lateral * (spot.Step * lean)
-end
-
-local function bodyPoints(samples: { { number } }, spot: PeekSpot, lean: number): { Vector3 }
-	local up, across = leanAxes(spot.Lateral, spot.LeanAngle * lean)
-	local foot = footAt(spot, lean)
-
-	local points = table.create(#samples)
-	for index, sample in samples do
-		points[index] = foot + up * sample[1] + across * sample[2]
+local function hiddenPoints(spot: PeekSpot): { Vector3 }
+	local across = spot.HiddenRoot.RightVector
+	local points = table.create(#HIDE_SAMPLES)
+	for index, sample in HIDE_SAMPLES do
+		points[index] = spot.Stand + Vector3.yAxis * (sample[1] * spot.Scale) + across * (sample[2] * spot.Scale)
 	end
 	return points
 end
 
-local ARC_SAMPLES = {
-	{ 5.0, 0 },
-	{ 4.6, 0.6 },
-	{ 4.6, -0.6 },
-	{ 4.2, 1.1 },
-	{ 4.2, -1.1 },
-	{ 3.6, 2.1 },
-	{ 3.6, -2.1 },
-	{ 2.8, 1.8 },
-	{ 2.8, -1.8 },
-	{ 2.0, 1.2 },
-	{ 2.0, -1.2 },
-}
+local function framePoints(spot: PeekSpot, frame: Frame): { Vector3 }
+	local mirror = if spot.Side == "Right" then 1 else -1
+	local points = table.create(#frame.Points)
+	for index, offset in frame.Points do
+		points[index] = spot.Root:PointToWorldSpace(Vector3.new(offset[1] * mirror, offset[2], offset[3]) * spot.Scale)
+	end
+	return points
+end
 
-local function findStanding(search: Search, position: Vector3, facing: Vector3): Vector3?
+local function peekPoints(spot: PeekSpot): { Vector3 }
+	return framePoints(spot, PeekPoseConfig.Frames[1])
+end
+
+local function probeFloor(search: Search, position: Vector3): Vector3?
 	local from = Vector3.new(position.X, search.FloorY + FLOOR_PROBE_UP, position.Z)
 	local drop = Vector3.new(0, -(FLOOR_PROBE_UP + FLOOR_PROBE_DOWN), 0)
 	local result = workspace:Raycast(from, drop, search.Params)
 	if not result or math.abs(result.Position.Y - search.FloorY) > MAX_FLOOR_DROP then return nil end
-
-	local centre = result.Position + Vector3.new(0, RIG_SIZE.Y / 2 + STANDING_CLEARANCE, 0)
-	local frame = CFrame.lookAt(centre, centre + facing)
-	if #workspace:GetPartBoundsInBox(frame, RIG_SIZE, search.Overlap) > 0 then return nil end
 	return result.Position
 end
 
-local function hasFloorAt(search: Search, position: Vector3): boolean
-	local from = Vector3.new(position.X, search.FloorY + FLOOR_PROBE_UP, position.Z)
-	local drop = Vector3.new(0, -(FLOOR_PROBE_UP + FLOOR_PROBE_DOWN), 0)
-	local result = workspace:Raycast(from, drop, search.Params)
-	return result ~= nil and math.abs(result.Position.Y - search.FloorY) <= MAX_FLOOR_DROP
+local function findStanding(search: Search, position: Vector3, facing: Vector3): Vector3?
+	local floor = probeFloor(search, position)
+	if not floor then return nil end
+
+	local size = RIG_SIZE * search.Scale
+	local centre = floor + Vector3.new(0, size.Y / 2 + STANDING_CLEARANCE, 0)
+	local frame = CFrame.lookAt(centre, centre + facing)
+	if #workspace:GetPartBoundsInBox(frame, size, search.Overlap) > 0 then return nil end
+	return floor
 end
 
 local function countVisible(params: RaycastParams, eye: Vector3, points: { Vector3 }): (number, boolean)
@@ -160,7 +147,7 @@ local function countVisible(params: RaycastParams, eye: Vector3, points: { Vecto
 	for index, point in points do
 		if isClear(params, eye, point) then
 			count += 1
-			if index == 1 then
+			if index == PeekPoseConfig.Head then
 				head = true
 			end
 		end
@@ -210,17 +197,34 @@ local function isWithinArc(origin: Vector3, facing: Vector3, point: Vector3, arc
 	return angle <= arc / 2
 end
 
-local function isArcClear(search: Search, spot: PeekSpot): boolean
-	local previous = bodyPoints(ARC_SAMPLES, spot, 0)
+local function liftAboveFloor(spot: PeekSpot, point: Vector3, radius: number): Vector3
+	local minimum = spot.Root.Position.Y - spot.RootHeight + radius + SWEEP_FLOOR_CLEARANCE
+	return if point.Y < minimum then Vector3.new(point.X, minimum, point.Z) else point
+end
 
-	for step = 1, LEAN_ARC_STEPS do
-		local current = bodyPoints(ARC_SAMPLES, spot, step / LEAN_ARC_STEPS)
+local function isPoseClear(search: Search, spot: PeekSpot): boolean
+	local radius = PeekPoseConfig.SweepRadius * spot.Scale
+	local frames = PeekPoseConfig.Frames
+	local origin = spot.Root.Position
+
+	local previous = framePoints(spot, frames[1])
+	for index, point in previous do
+		point = liftAboveFloor(spot, point, radius)
+		previous[index] = point
+		local direction = point - origin
+		if direction.Magnitude >= 1e-3 and workspace:Spherecast(origin, radius, direction, search.Params) ~= nil then
+			return false
+		end
+	end
+
+	for frameIndex = 2, #frames do
+		local current = framePoints(spot, frames[frameIndex])
 		for index, point in current do
+			point = liftAboveFloor(spot, point, radius)
+			current[index] = point
 			local from = previous[index]
 			local direction = point - from
-			if direction.Magnitude >= 1e-3
-				and workspace:Spherecast(from, ARC_RADIUS, direction, search.Params) ~= nil
-			then
+			if direction.Magnitude >= 1e-3 and workspace:Spherecast(from, radius, direction, search.Params) ~= nil then
 				return false
 			end
 		end
@@ -229,101 +233,133 @@ local function isArcClear(search: Search, spot: PeekSpot): boolean
 	return true
 end
 
-local function isLeanVisible(search: Search, spot: PeekSpot): (boolean, number, boolean)
-	local out = bodyPoints(LEAN_SAMPLES, spot, 1)
-	local visible, headVisible = countVisible(search.Params, search.Eye, out)
-	return headVisible and visible >= LEAN_VISIBLE_SAMPLES, visible, headVisible
-end
-
-local function isLeanWorthwhile(search: Search, spot: PeekSpot, diagnostic: ((any) -> ())?): boolean
-	local seen, visible, headVisible = isLeanVisible(search, spot)
-	if not seen then
-		if diagnostic then diagnostic({ reason = "lean_visibility", visible = visible, head = headVisible }) end
-		return false
-	end
-
-	for step = 1, LEAN_ARC_STEPS do
-		if not isOutOfView(search, bodyPoints(LEAN_SAMPLES, spot, step / LEAN_ARC_STEPS)) then
-			if diagnostic then diagnostic({ reason = "lean_view", progress = step / LEAN_ARC_STEPS }) end
-			return false
-		end
+local function hasFloorUnderFeet(search: Search, spot: PeekSpot): boolean
+	local points = peekPoints(spot)
+	for _, index in PeekPoseConfig.Feet do
+		if not probeFloor(search, points[index]) then return false end
 	end
 	return true
 end
 
-local function placeOn(search: Search, corner: Corner, diagnostic: ((any) -> ())?): PeekSpot?
-	local function reject(reason: string, depth: number, offset: number, angle: number?, step: number?)
-		if diagnostic then
-			diagnostic({
-				reason = reason,
-				depth = depth,
-				offset = offset,
-				angle = angle,
-				step = step,
-			})
+local function isPeekVisible(search: Search, spot: PeekSpot): (boolean, number, boolean)
+	local visible, headVisible = countVisible(search.Params, search.Eye, peekPoints(spot))
+	return headVisible and visible >= PEEK_VISIBLE_SAMPLES, visible, headVisible
+end
+
+local function isPeekWorthwhile(search: Search, spot: PeekSpot, diagnostic: ((any) -> ())?): boolean
+	local seen, visible, headVisible = isPeekVisible(search, spot)
+	if not seen then
+		if diagnostic then diagnostic({ reason = "peek_visibility", visible = visible, head = headVisible }) end
+		return false
+	end
+	if not isOutOfView(search, peekPoints(spot)) then
+		if diagnostic then diagnostic({ reason = "peek_view" }) end
+		return false
+	end
+	return true
+end
+
+local function aimRoot(position: Vector3, facing: Vector3, eye: Vector3): CFrame
+	local look = facing
+	local toEye = horizontal(eye - position)
+	if toEye.Magnitude > 1e-3 then
+		toEye = toEye.Unit
+		local angle = math.deg(math.acos(math.clamp(facing:Dot(toEye), -1, 1)))
+		if angle <= MAX_YAW then
+			look = toEye
+		else
+			local sign = if facing:Cross(toEye).Y >= 0 then 1 else -1
+			look = CFrame.Angles(0, math.rad(MAX_YAW * sign), 0) * facing
 		end
 	end
+	return CFrame.lookAt(position, position + look)
+end
+
+local function exposures(search: Search): { number }
+	local base = search.Options.Exposure or DEFAULT_EXPOSURE
+	local list = {}
+	for _, delta in EXPOSURE_TRIES do
+		local exposure = base + delta
+		if exposure >= MIN_EXPOSURE then
+			table.insert(list, exposure)
+		end
+	end
+	return list
+end
+
+local function placeOn(search: Search, corner: Corner, diagnostic: ((any) -> ())?): PeekSpot?
+	local function reject(reason: string, depth: number, exposure: number)
+		if diagnostic then
+			diagnostic({ reason = reason, depth = depth, exposure = exposure })
+		end
+	end
+
 	local facing = -corner.Axis
 	facing = horizontal(facing - corner.Lateral * facing:Dot(corner.Lateral))
 	if facing.Magnitude < 1e-3 then return nil end
 	facing = facing.Unit
 
+	local lateral = corner.Lateral
+	local scale, rootHeight = search.Scale, search.RootHeight
+
 	for _, depth in corner.Depths do
 		local base = corner.Position + corner.Axis * depth
 
-		for _, offset in STAND_OFFSETS do
-			local stand = findStanding(search, base - corner.Lateral * offset, facing)
-			if not stand then
-				reject("stand", depth, offset)
+		for _, exposure in exposures(search) do
+			local offset = PeekPoseConfig.HeadReach * scale - exposure
+			local peekFoot = probeFloor(search, base - lateral * offset)
+			if not peekFoot then
+				reject("peek_floor", depth, exposure)
 				continue
 			end
 
-			local upright: PeekSpot = {
+			local root = aimRoot(peekFoot + Vector3.yAxis * rootHeight, facing, search.Eye)
+			local side: "Left" | "Right" = if lateral:Dot(root.RightVector) < 0 then "Right" else "Left"
+			local mirror = if side == "Right" then 1 else -1
+			local hiddenCentre = root:PointToWorldSpace(Vector3.new(PeekPoseConfig.Shift * mirror * scale, 0, 0))
+			local stand = findStanding(search, hiddenCentre, root.LookVector)
+			if not stand then
+				reject("stand", depth, exposure)
+				continue
+			end
+
+			local spot: PeekSpot = {
 				Stand = stand,
-				Step = 0,
-				Lateral = corner.Lateral,
+				Root = root,
+				HiddenRoot = root.Rotation + (stand + Vector3.yAxis * rootHeight),
+				Side = side,
+				Scale = scale,
+				RootHeight = rootHeight,
+				Lateral = lateral,
 				Facing = facing,
-				LeanAngle = 0,
 			}
-			local waiting = bodyPoints(HIDE_SAMPLES, upright, 0)
+
+			local waiting = hiddenPoints(spot)
 			if not isConcealedFrom(search, waiting) then
-				reject("upright_exposed", depth, offset)
+				reject("upright_exposed", depth, exposure)
 				continue
 			end
 			if not isHiddenFromEveryone(search, waiting) then
-				reject("upright_visible", depth, offset)
+				reject("upright_visible", depth, exposure)
 				continue
 			end
-
-			for _, angle in LEAN_ANGLES do
-				for _, step in LEAN_STEPS do
-					if step > 0 and not hasFloorAt(search, stand + corner.Lateral * step) then
-						reject("step_floor", depth, offset, angle, step)
-						continue
-					end
-
-					local spot: PeekSpot = {
-						Stand = stand,
-						Step = step,
-						Lateral = corner.Lateral,
-						Facing = facing,
-						LeanAngle = angle,
-					}
-					if not isArcClear(search, spot) then
-						reject("arc", depth, offset, angle, step)
-						continue
-					end
-					if not isLeanWorthwhile(search, spot, function(result)
-							reject(result.reason, depth, offset, angle, step)
-					end) then
-						continue
-					end
-					if diagnostic then
-						diagnostic({ reason = "success", depth = depth, offset = offset, angle = angle, step = step })
-					end
-					return spot
-				end
+			if not hasFloorUnderFeet(search, spot) then
+				reject("peek_feet", depth, exposure)
+				continue
 			end
+			if not isPoseClear(search, spot) then
+				reject("arc", depth, exposure)
+				continue
+			end
+			if not isPeekWorthwhile(search, spot, function(result)
+					reject(result.reason, depth, exposure)
+			end) then
+				continue
+			end
+			if diagnostic then
+				diagnostic({ reason = "success", depth = depth, exposure = exposure, side = side })
+			end
+			return spot
 		end
 	end
 	return nil
@@ -356,16 +392,19 @@ local function buildSearch(player: Player, options: FindOptions): Search?
 	local reportedEye, reportedLook = EnemyObservationService:GetView(player)
 	local eye = reportedEye or root.Position + Vector3.new(0, EYE_OFFSET, 0)
 	local facing = reportedLook or root.CFrame.LookVector
+	local scale = options.Scale or 1
 
 	return {
 		Params = params,
 		Overlap = overlap,
 		Eye = eye,
 		Back = -horizontal(facing),
-		FloorY = root.Position.Y - ROOT_HEIGHT,
+		FloorY = root.Position.Y - PLAYER_ROOT_HEIGHT,
 		MaxDistance = PeekSpotService:GetMaxDistance(player, options),
 		Views = EnemyObservationService:GetViews(),
 		Options = options,
+		Scale = scale,
+		RootHeight = options.RootHeight or PLAYER_ROOT_HEIGHT * scale,
 	}
 end
 
@@ -420,7 +459,7 @@ function PeekSpotService:IsInSight(spot: PeekSpot, player: Player, options: Find
 	local search = buildSearch(player, options)
 	if not search then return false end
 	if horizontal(spot.Stand - search.Eye).Magnitude > search.MaxDistance then return false end
-	return (isLeanVisible(search, spot))
+	return (isPeekVisible(search, spot))
 end
 
 function PeekSpotService:DebugCorner(player: Player, options: FindOptions, position: Vector3): any
@@ -454,38 +493,16 @@ function PeekSpotService:IsStillValid(spot: PeekSpot, player: Player, options: F
 	local search = buildSearch(player, options)
 	if not search then return false end
 
-	local waiting = bodyPoints(HIDE_SAMPLES, spot, 0)
+	local waiting = hiddenPoints(spot)
 	if not isConcealedFrom(search, waiting) then return false end
 	if not isHiddenFromEveryone(search, waiting) then return false end
-	if not isArcClear(search, spot) then return false end
+	if not isPoseClear(search, spot) then return false end
 
-	return isLeanWorthwhile(search, spot)
+	return isPeekWorthwhile(search, spot)
 end
 
-function PeekSpotService.LeanPoints(spot: PeekSpot, lean: number): { Vector3 }
-	return bodyPoints(LEAN_SAMPLES, spot, lean)
-end
-
-function PeekSpotService.PoseAt(spot: PeekSpot, lean: number, lookAt: Vector3?): CFrame
-	local up = leanAxes(spot.Lateral, spot.LeanAngle * lean)
-	local foot = footAt(spot, lean)
-	local position = foot + up * ROOT_HEIGHT
-
-	local frame: CFrame
-	for _ = 1, 6 do
-		local target = lookAt and Vector3.new(lookAt.X, position.Y, lookAt.Z) or position + spot.Facing
-		if (target - position).Magnitude < 1e-3 then
-			target = position + spot.Facing
-		end
-		frame = CFrame.lookAt(position, target, up)
-		position = foot + frame.UpVector * ROOT_HEIGHT
-	end
-
-	local target = lookAt and Vector3.new(lookAt.X, position.Y, lookAt.Z) or position + spot.Facing
-	if (target - position).Magnitude < 1e-3 then
-		target = position + spot.Facing
-	end
-	return CFrame.lookAt(position, target, up)
+function PeekSpotService.PeekPoints(spot: PeekSpot): { Vector3 }
+	return peekPoints(spot)
 end
 
 return PeekSpotService

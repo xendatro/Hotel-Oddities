@@ -39,6 +39,8 @@ export type NpcAnimator = typeof(setmetatable(
 		Rate: number,
 		MovementSpeedOverride: number?,
 	MovementTrackOverride: "Walk" | "Run"?,
+		Pose: AnimationTrack?,
+		PoseTracks: { [number]: AnimationTrack },
 		Paused: boolean,
 		_stoppedSince: number?,
 		_connections: { [string]: RBXScriptConnection? },
@@ -99,6 +101,8 @@ function NpcAnimator.new(model: Model, set: AnimationConfig.AnimationSet?)
 	self.Hold = nil :: AnimationTrack?
 	self.HoldAssetId = nil :: number?
 	self.HoldTracks = {} :: { [number]: AnimationTrack }
+	self.Pose = nil :: AnimationTrack?
+	self.PoseTracks = {} :: { [number]: AnimationTrack }
 	self.Set = set or {}
 
 	self.Animate = model.Animate
@@ -242,6 +246,60 @@ function NpcAnimator:StopHold()
 	track:Stop(TRANSITION_TIME)
 end
 
+function NpcAnimator:_poseTrack(assetId: number): AnimationTrack
+	local track = self.PoseTracks[assetId]
+	if not track then
+		track = self.Animator:LoadAnimation(makeAnimation(assetId))
+		track.Priority = Enum.AnimationPriority.Action
+		track.Looped = false
+		self.PoseTracks[assetId] = track
+	end
+	return track
+end
+
+function NpcAnimator:PreloadPose(assetId: number)
+	self:_poseTrack(assetId)
+end
+
+function NpcAnimator:HoldPose(assetId: number, time: number?): AnimationTrack
+	self:EndPose(0)
+	local track = self:_poseTrack(assetId)
+	self.Pose = track
+	track:Play(0)
+	track:AdjustSpeed(0)
+	track.TimePosition = time or 0
+	return track
+end
+
+function NpcAnimator:PlayPose(fromTime: number?)
+	local track = self.Pose
+	if not track then return end
+	if fromTime then
+		track.TimePosition = fromTime
+	end
+	track:AdjustSpeed(1)
+end
+
+function NpcAnimator:FreezePose()
+	local track = self.Pose
+	if track then
+		track:AdjustSpeed(0)
+	end
+end
+
+function NpcAnimator:PoseTime(): (number?, number?)
+	local track = self.Pose
+	if not track or not track.IsPlaying then return nil, nil end
+	return track.TimePosition, track.Length
+end
+
+function NpcAnimator:EndPose(fadeTime: number?)
+	local track = self.Pose
+	if not track then return end
+	self.Pose = nil
+	track:Stop(fadeTime or TRANSITION_TIME)
+end
+
 function NpcAnimator:ClearForeignTracks()
 	local mine = {}
 	for _, track in self.Tracks do mine[track] = true end
@@ -249,6 +307,7 @@ function NpcAnimator:ClearForeignTracks()
 	for _, track in self.Attacks do mine[track] = true end
 	for _, track in self.OverrideTracks do mine[track] = true end
 	for _, track in self.HoldTracks do mine[track] = true end
+	for _, track in self.PoseTracks do mine[track] = true end
 
 	for _, track in self.Animator:GetPlayingAnimationTracks() do
 		if not mine[track] then
@@ -421,6 +480,9 @@ function NpcAnimator:Destroy()
 	self.OverrideAssetId = nil
 	unload(self.OverrideTracks)
 	self.OverrideTracks = {}
+	self.Pose = nil
+	unload(self.PoseTracks)
+	self.PoseTracks = {}
 	unload(self.Tracks)
 	unload(self.Emotes)
 	unload(self.Attacks)

@@ -316,7 +316,7 @@ The server half of a gravity warp, shared by the Gravity Warper tool and the Sis
 
 ### HallwayGridService.luau
 Finds hallway "corner mouths" near a viewer — graph nodes with a side branch roughly perpendicular to the line of sight — and returns the physical corner position derived from the widths of the crossing and branching hallways. Used to place things just out of view around a corner.
-- API: `HallwayGridService:GetCorners(eye: Vector3, floorY: number, minDistance: number, maxDistance: number) -> { Corner }` — each corner carries `Position`, `Axis` (eye-to-corner), `Lateral` (into the branch) and fixed `Depths = { 0, 2 }`
+- API: `HallwayGridService:GetCorners(eye: Vector3, floorY: number, minDistance: number, maxDistance: number) -> { Corner }` — each corner carries `Position`, `Axis` (eye-to-corner), `Lateral` (out of the branch, the lean direction) and fixed `Depths = { 2, 3, 4 }` (studs past the corner edge, shallowest first; 0 is gone because the corner-peek clip reaches its hands forward into the wall's end cap)
 - Requires: `HallwayGraphService`, `ReplicatedStorage.Services.HallwaysService`, `MathService.Horizontal`
 
 ### HallwayRegionService.luau
@@ -561,15 +561,15 @@ Same pattern as PaintingDwellerService but for the `Prop/PaintingFall` oddity �
 - Requires: `ServerStorage.Classes.FixturePool`, `ServerStorage.Services.FixtureCommandService`, `OddityService`; registers chat command `/painting` (alias `/paintings`)
 
 ### PeekSpotService.luau
-Geometry search that finds a corner a stalker enemy can stand behind hidden from the player, then lean out of into view. Raycasts a sampled body rig against standing room, floor continuity, lean-arc clearance and every enemy's view cone.
-- API: `PeekSpotService:Find(player: Player, options: FindOptions) -> PeekSpot?` — nearest valid peek spot
+Geometry search that finds a corner mouth a stalker enemy can hide inside and peek out of with the `PeekLeft`/`PeekRight` corner-peek clips. For each corner from `HallwayGridService` it tries each depth past the corner edge and a few head exposures around the enemy's `PeekExposure`: the peek root goes `HeadReach * scale - exposure` studs inside the branch from the crossing hallway's wall line, so the clip's tilted head reaches `exposure` studs past the corner, aimed at the player's eye but clamped to 25 degrees off the corridor facing; the side is `Right` when the lean must go to the rig's left (the `PeekRight` clip leans that way), else `Left`. The hidden stand is where the clip's root motion leaves the body: `Shift * scale` studs further into the branch along the rig's own right axis. A candidate must have standing room and floor at the hidden stand, floor under both animated feet, the hidden upright body concealed from the audience and outside everyone's view cone, every sampled body point of every clip frame sweep-clear of walls (spherecasts from the root to the first frame and between consecutive frames, lifted above the floor by the sweep radius), and the peek pose visible to the audience (head plus two more samples) yet currently outside every view cone. Rig scale and root height arrive in the find options, so the samples baked in `PeekPoseConfig` at scale 1 are scaled per enemy.
+- API: `PeekSpotService:Find(player: Player, options: FindOptions) -> PeekSpot?` — nearest valid peek spot; a `PeekSpot` carries `Stand` (hidden foot), `Root` (peek root CFrame), `HiddenRoot`, `Side`, `Scale`, `RootHeight`, `Lateral` and `Facing`
+- API: `PeekSpotService:IsInSight(spot: PeekSpot, player: Player, options: FindOptions) -> boolean` — whether the peek pose would be visible from the player's eye inside the fog-capped range
 - API: `PeekSpotService:IsStillValid(spot: PeekSpot, player: Player, options: FindOptions) -> boolean` — re-run the checks on an existing spot
-- API: `PeekSpotService:DebugCorner(player: Player, options: FindOptions, position: Vector3) -> any` — per-check rejection trace for the corner near a position
-- API: `PeekSpotService.LeanPoints(spot: PeekSpot, lean: number) -> {Vector3}` — sampled body points at a lean fraction
-- API: `PeekSpotService.PoseAt(spot: PeekSpot, lean: number, lookAt: Vector3?) -> CFrame` — root CFrame for a lean fraction
+- API: `PeekSpotService:DebugCorner(player: Player, options: FindOptions, position: Vector3) -> any` — per-check rejection trace (reason, depth, exposure) for the corner near a position
+- API: `PeekSpotService.PeekPoints(spot: PeekSpot) -> {Vector3}` — world positions of the peek pose samples
+- API: `PeekSpotService:GetMaxDistance(player: Player, options: FindOptions) -> number` — fog-capped search range
 - Tags: reads `Enemy` (raycast filter)
-- Requires: `HallwayGridService` (corner list), `EnemyObservationService` (enemy eyes/view cones), `MathService`
-
+- Requires: `HallwayGridService` (corner list), `EnemyObservationService` (enemy eyes/view cones), `MathService`, `Configs.PeekPoseConfig`, `ReplicatedStorage.Services.SpawnZoneService`
 ### PerkService.luau
 Resolves each player's gamepass ownership once on join, mirrors it to `Perk*` player attributes, and applies the perks on every spawn: double speed, the Visor tool, the Camcorder tool (granted to everyone while `CaptureConfig.RequireGamepass` is off), and restoring items kept through death.
 - API: `PerkService:Owns(player: Player, passName: string) -> boolean` — cached gamepass ownership

@@ -74,9 +74,8 @@ export type EnemyConfig = {
 	RearArc: number?,
 	ViewCone: number?,
 	PeekWaitTime: number?,
-	LeanTime: number?,
-	RetreatTime: number?,
 	SeenHoldTime: number?,
+	PeekExposure: number?,
 	HoldTimeMin: number?,
 	HoldTimeMax: number?,
 	RestTimeMin: number?,
@@ -476,9 +475,8 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		ViewCone = 140,
 		PeekWaitTime = 12,
 
-		LeanTime = 1.1,
-		RetreatTime = 0.3,
-		SeenHoldTime = 0.4,
+		SeenHoldTime = 0,
+		PeekExposure = 1.6,
 
 		HoldTimeMin = 4,
 		HoldTimeMax = 7,

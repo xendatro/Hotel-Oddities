@@ -6,12 +6,16 @@ local ServerStorage = game:GetService("ServerStorage")
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local MathService = require(ReplicatedStorage.Services.MathService)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
+local PeekPoseConfig = require(ServerStorage.Configs.PeekPoseConfig)
 local PeekSpotService = require(ServerStorage.Services.PeekSpotService)
 
 local POLL = 0.1
 local ABANDON_DISTANCE_SCALE = 0.6
 local FLOOR_PROBE_UP = 2
 local FLOOR_PROBE_DEPTH = 12
+local DEFAULT_ROOT_HEIGHT = 3
+local WITHDRAW_GRACE = 0.5
+local POSE_KEYS = { "PeekLeft", "PeekRight" }
 
 local Peek = {}
 
@@ -29,21 +33,43 @@ local function getAliveRoot(player: Player?): BasePart?
 	return nil
 end
 
+local function rigMetrics(config): (number, number)
+	local enemies = ReplicatedStorage:FindFirstChild("Enemies")
+	local template = enemies and enemies:FindFirstChild(config.Model)
+	if not template or not template:IsA("Model") then return 1, DEFAULT_ROOT_HEIGHT end
+
+	local humanoid = template:FindFirstChildOfClass("Humanoid")
+	local root = template:FindFirstChild("HumanoidRootPart")
+	local rootHeight = if humanoid and root and root:IsA("BasePart")
+		then humanoid.HipHeight + root.Size.Y / 2
+		else DEFAULT_ROOT_HEIGHT
+	return template:GetScale(), rootHeight
+end
+
 function Peek.GetFindOptions(config): PeekSpotService.FindOptions
+	local scale, rootHeight = rigMetrics(config)
 	return {
 		MinDistance = config.MinPeekDistance,
 		MaxDistance = config.MaxPeekDistance,
 		RearArc = config.RearArc,
 		ViewCone = config.ViewCone,
 		FogFraction = config.PeekFogFraction,
+		Exposure = config.PeekExposure,
+		Scale = scale,
+		RootHeight = rootHeight,
 	}
+end
+
+local function poseId(npc: any, side: string): number?
+	local set = npc.Config.Animations
+	local id = if set then set[if side == "Right" then "PeekRight" else "PeekLeft"] else nil
+	return if type(id) == "number" then id else nil
 end
 
 function Peek.Enter(npc: any)
 	if npc.Peeking then return end
 	npc.Peeking = true
 	npc.Target = nil
-	npc.Lean = 0
 	npc.PeeksLeft = math.random(npc.Config.PeekCountMin, npc.Config.PeekCountMax)
 
 	npc:StopMoving()
@@ -51,6 +77,15 @@ function Peek.Enter(npc: any)
 	npc.Animator:SetMovementTrack(nil)
 	npc.Humanoid.EvaluateStateMachine = false
 	npc.RootPart.Anchored = true
+
+	local set = npc.Config.Animations
+	if set then
+		for _, key in POSE_KEYS do
+			if type(set[key]) == "number" then
+				npc.Animator:PreloadPose(set[key])
+			end
+		end
+	end
 end
 
 local function standUpright(npc: any)
@@ -78,9 +113,9 @@ end
 function Peek.Exit(npc: any)
 	if not npc.Peeking then return end
 	npc.Peeking = false
-	npc.Lean = 0
 	npc.Spot, npc.Audience = nil, nil
 
+	npc.Animator:EndPose(0)
 	standUpright(npc)
 	npc.RootPart.Anchored = false
 	npc.Humanoid.EvaluateStateMachine = true
@@ -93,64 +128,48 @@ local function finish(npc: any, reason: string, player: Player?)
 	return npc:OnPeekFinished(reason, player)
 end
 
-local function placeAt(npc: any, spot: PeekSpotService.PeekSpot, player: Player, lean: number)
-	local target = getAliveRoot(player)
-	npc.RootPart.CFrame = PeekSpotService.PoseAt(spot, lean, target and target.Position)
-	npc.Lean = lean
+local function placeHidden(npc: any, spot: PeekSpotService.PeekSpot)
+	npc.RootPart.CFrame = spot.HiddenRoot
 end
 
-local function slide(
-	npc: any,
-	spot: PeekSpotService.PeekSpot,
-	player: Player,
-	duration: number,
-	targetLean: number,
-	shouldStop: (() -> boolean)?
-): boolean
-	local startLean = npc.Lean or 0
-	local travel = math.abs(targetLean - startLean)
-	if travel < 1e-3 then
-		placeAt(npc, spot, player, targetLean)
-		return true
-	end
-
-	local startedAt = os.clock()
-	local scaled = duration * travel
-
-	while true do
-		local alpha = math.clamp((os.clock() - startedAt) / scaled, 0, 1)
-		placeAt(npc, spot, player, startLean + (targetLean - startLean) * alpha)
-		if alpha >= 1 then return true end
-		if shouldStop and shouldStop() then return false end
-		RunService.Heartbeat:Wait()
-	end
+local function placePeeking(npc: any, spot: PeekSpotService.PeekSpot): boolean
+	local id = poseId(npc, spot.Side)
+	npc.RootPart.CFrame = spot.Root
+	if not id then return false end
+	npc.Animator:HoldPose(id, 0)
+	return true
 end
 
-local function hold(
-	npc: any,
-	spot: PeekSpotService.PeekSpot,
-	player: Player,
-	duration: number,
-	shouldStop: (() -> boolean)?
-): boolean
+local function withdraw(npc: any, spot: PeekSpotService.PeekSpot, stare: boolean)
+	if npc.Animator:PoseTime() then
+		npc.Animator:PlayPose(if stare then nil else PeekPoseConfig.MotionStart)
+		local deadline = os.clock() + PeekPoseConfig.Length + WITHDRAW_GRACE
+		while os.clock() < deadline do
+			local time = npc.Animator:PoseTime()
+			if not time or time >= PeekPoseConfig.Settled then break end
+			RunService.Heartbeat:Wait()
+		end
+	end
+	placeHidden(npc, spot)
+	npc.Animator:EndPose(0)
+end
+
+local function hold(duration: number, shouldStop: (() -> boolean)?): boolean
 	local expiresAt = os.clock() + duration
 
 	while os.clock() < expiresAt do
 		if shouldStop and shouldStop() then return false end
-		placeAt(npc, spot, player, 1)
 		RunService.Heartbeat:Wait()
 	end
 	return true
 end
 
-local function isArcOnScreen(npc: any, spot: PeekSpotService.PeekSpot): boolean
+local function isPeekOnScreen(npc: any, spot: PeekSpotService.PeekSpot): boolean
 	local views = EnemyObservationService:GetViews()
-	for _, lean in { 0.5, 1 } do
-		for _, point in PeekSpotService.LeanPoints(spot, lean) do
-			for _, view in views do
-				if EnemyObservationService.IsWithinCone(view, point, npc.Config.ViewCone) then
-					return true
-				end
+	for _, point in PeekSpotService.PeekPoints(spot) do
+		for _, view in views do
+			if EnemyObservationService.IsWithinCone(view, point, npc.Config.ViewCone) then
+				return true
 			end
 		end
 	end
@@ -211,7 +230,7 @@ local function seek(_changeState: StateMachine.ChangeState, npc: any)
 		return "Follow", npc, player, 0
 	end
 
-	placeAt(npc, spot, player, 0)
+	placeHidden(npc, spot)
 	return "Lurk", npc, spot, player
 end
 
@@ -237,7 +256,7 @@ local function follow(_changeState: StateMachine.ChangeState, npc: any, player: 
 		if now >= searchAt then
 			local spot = PeekSpotService:Find(player, options)
 			if spot and not npc:IsObserved() then
-				placeAt(npc, spot, player, 0)
+				placeHidden(npc, spot)
 				return "Lurk", npc, spot, player
 			end
 			searchAt = os.clock() + config.FollowRetryInterval
@@ -273,9 +292,9 @@ local function lurk(
 			return "Follow", npc, player, config.FollowDelay
 		end
 
-		if not isArcOnScreen(npc, spot) then break end
+		if not isPeekOnScreen(npc, spot) then break end
 
-		placeAt(npc, spot, player, 0)
+		placeHidden(npc, spot)
 		task.wait(POLL)
 	end
 
@@ -312,13 +331,10 @@ local function peek(
 		return lost
 	end
 
-	local leanedOut = slide(npc, spot, player, npc.Config.LeanTime, 1, shouldStop)
-	if leanedOut then
-		local duration = randomBetween(npc.Config.HoldTimeMin, npc.Config.HoldTimeMax)
-		hold(npc, spot, player, duration, shouldStop)
-	end
+	local posed = placePeeking(npc, spot)
+	hold(randomBetween(npc.Config.HoldTimeMin, npc.Config.HoldTimeMax), shouldStop)
 
-	return "Retreat", npc, spot, player, caught, walkedUp, lost, leanedOut
+	return "Retreat", npc, spot, player, caught, walkedUp, lost, posed
 end
 
 local function retreat(
@@ -329,18 +345,18 @@ local function retreat(
 	caught: boolean,
 	walkedUp: boolean,
 	lost: boolean,
-	leanedOut: boolean
+	posed: boolean
 )
 	if caught then
 		if not walkedUp then
 			task.wait(npc.Config.SeenHoldTime or 0)
 		end
-		slide(npc, spot, player, npc.Config.RetreatTime, 0)
+		withdraw(npc, spot, not walkedUp)
 		return finish(npc, "Seen", player)
 	end
-	slide(npc, spot, player, npc.Config.RetreatTime, 0)
+	withdraw(npc, spot, false)
 
-	if leanedOut then
+	if posed then
 		npc.PeeksLeft -= 1
 	end
 	if npc.PeeksLeft <= 0 then

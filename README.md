@@ -256,7 +256,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\MapCanvas.luau — Soft-brush pixel canvas over an EditableImage with max-alpha stamping and dirty-rect flushing.
 - ReplicatedStorage\Classes\MirrorRoom.luau — Renders upside-down reflections of every player and enemy standing in a mirrored connector room, solid ones for `MirrorOpaque` subjects whose real body is invisible, skipping enemies whose `MirrorViewer` is another player.
 - ReplicatedStorage\Classes\MotionTrail.luau — Rolling buffer of a humanoid's recent motion samples.
-- ReplicatedStorage\Classes\NpcAnimator.luau — Replaces the default Animate script for NPC locomotion, emotes and overrides, with optional per-animation fade-in timing.
+- ReplicatedStorage\Classes\NpcAnimator.luau — Replaces the default Animate script for NPC locomotion, emotes and overrides, with optional per-animation fade-in timing, plus a frozen-frame pose slot for clips such as the Stalker's corner peeks.
 - ReplicatedStorage\Classes\OverheadName.luau — One always-on name billboard above a model's head that also keeps the default humanoid name display off.
 - ReplicatedStorage\Classes\PathfinderMarker.luau — Numbered waypoint marker model for the pathfinder tool.
 - ReplicatedStorage\Classes\Race.luau — Runs functions concurrently and returns the key of the first to finish.
@@ -299,7 +299,7 @@ become Services or Classes.
 ### ReplicatedStorage\Configs
 
 - ReplicatedStorage\Configs\AmbienceConfig.luau — Distance falloff and fade timing for ambient sound emitters, plus POI altered-layer volume, pitch, distortion and tremolo tuning.
-- ReplicatedStorage\Configs\AnimationConfig.luau — Animation asset ids and per-enemy animation sets.
+- ReplicatedStorage\Configs\AnimationConfig.luau — Animation asset ids and per-enemy animation sets, including the Stalker's PeekLeft/PeekRight corner-peek clips.
 - ReplicatedStorage\Configs\BadgeConfig.luau — Every badge id the game awards, by role: joined, escaped, three escapes, one per room, one per computer colour and one per killer, plus icon fetch tuning.
 - ReplicatedStorage\Configs\BreatheConfig.luau — Idle breathing joint motion settings.
 - ReplicatedStorage\Configs\CameraBobConfig.luau — Walk-cycle camera bob amplitude, cadence and smoothed strafing tilt.
@@ -444,7 +444,7 @@ become Services or Classes.
 - ServerStorage\Services\GazeService.luau — Server line-of-sight library for cone and raycast visibility checks, with a seen/unseen tracker.
 - ServerStorage\Services\GhostAreaService.luau — Picks area-weighted hover points over hallways for the Ghost, avoiding nearby players.
 - ServerStorage\Services\GravityWarpService.luau — Shared server half of a gravity warp: validates, gates, tags the character and cues the client tween for both the Gravity Warper tool and the Sisters catch.
-- ServerStorage\Services\HallwayGridService.luau — Finds hallway corner mouths near a viewer for placing things just out of sight.
+- ServerStorage\Services\HallwayGridService.luau — Finds hallway corner mouths near a viewer for placing things just out of sight; corners carry depths 2, 3 and 4 studs past the edge.
 - ServerStorage\Services\HallwayRegionService.luau — Straight-hallway span helpers for matching, bounding, occupancy and weighted random picks.
 - ServerStorage\Services\HallwayWallService.luau — Wall-level geometry for a straight hallway: junction mouths per side, the junction-free stretches between them, and the tagged wall strips flanking the span.
 - ServerStorage\Services\HallwayStreamingService.luau — Custom per-player streaming: slices the maze into hallway chunks and gates teleports on them.
@@ -473,7 +473,7 @@ become Services or Classes.
 - ServerStorage\Services\OddityService.luau — Registry, config merging, direct min/max interval scheduling and lifecycle for every ambient oddity class.
 - ServerStorage\Services\PaintingDwellerService.luau — FixturePool wrapper that arms and triggers the painting dweller oddity, plus its /dweller command.
 - ServerStorage\Services\PaintingFallService.luau — FixturePool wrapper that arms and drops falling paintings, plus its /painting command.
-- ServerStorage\Services\PeekSpotService.luau — Fog-capped geometry search for corners behind the player an enemy can hide behind and lean out of into view, plus whether a spot is still in the player's sight.
+- ServerStorage\Services\PeekSpotService.luau — Fog-capped geometry search for corner mouths behind the player an enemy can hide in and peek out of with the corner-peek clips: places the peek root so the animated head clears the corner by PeekExposure, takes the hidden stand from the clip's root motion, checks clearance, concealment and visibility, and reports whether a spot is still in the player's sight.
 - ServerStorage\Services\PerkService.luau — Resolves gamepass ownership and applies unlimited stamina, visor, permanent Player Locator, permanent Camcorder, DoubleCoins, DoubleGems and keep-items perks on spawn or purchase.
 - ServerStorage\Services\PhotoCameraService.luau — Runs placed tripod cameras: countdown, subject detection, ShadowFigure placement, snap broadcast and unseen despawn.
 - ServerStorage\Services\PhotoCommandService.luau — /photo chat command for placing a test camera, snapping it early and forcing the ShadowFigure into frame.
@@ -529,7 +529,7 @@ become Services or Classes.
 - ServerStorage\Classes\Enemies\Sisters.luau — Twinned translucent, harmless figures that patrol the hallway ceilings forever via SurfaceWalker, heads tracking the nearest player.
 - ServerStorage\Classes\Enemies\Stalker.luau — Peeks at a player from corner to corner, then tails them from behind unseen at their own pace with a catch-up boost until it closes to striking range, flees to cover when observed, and snaps right behind them to seize the camera and kill. Wears its own `Enemies.Stalker` rig: the Ceiling Dweller's all-black skin with neon red eyes, the same model the Index shows.
 - ServerStorage\Classes\Enemies\WeepingAngel.luau — Chaser that freezes solid whenever any player is observing it.
-- ServerStorage\Classes\Enemies\Behaviors\Peek.luau — Shared state functions for hiding at a spot, leaning into view, pulling back, teleporting unseen to the next corner whenever the player leaves the spot's sight, and standing the rig upright on release.
+- ServerStorage\Classes\Enemies\Behaviors\Peek.luau — Shared state functions for hiding inside a corner mouth, snapping into the corner-peek clip's first frame while unwatched, withdrawing with the clip when seen, teleporting unseen to the next corner whenever the player leaves the spot's sight, and standing the rig upright on release.
 - ServerStorage\Classes\Oddity.luau — Root oddity class: token, merged settings, timed start/stop lifecycle and subclass factory.
 - ServerStorage\Classes\PropOddity.luau — Intermediate oddity base whose context is a prop Model in the workspace.
 - ServerStorage\Classes\PlayerOddity.luau — Intermediate oddity base whose context is a Player, auto-stopping on death.
@@ -577,6 +577,7 @@ become Services or Classes.
 - ServerStorage\Configs\EnemyConfigs.luau — Master per-enemy stat table for models, movement, senses, damage and spawn budgeting.
 - ServerStorage\Configs\HealthRegenConfig.luau — Player health regeneration rate, tick step and post-damage delay.
 - ServerStorage\Configs\GamepassConfigs.luau — Empty placeholder table for gamepass definitions.
+- ServerStorage\Configs\PeekPoseConfig.luau — Baked per-frame body samples, timings and root-motion shift of the Stalker's corner-peek clips, measured from PeekRight at rig scale 1.
 
 ### ServerStorage\Modules
 

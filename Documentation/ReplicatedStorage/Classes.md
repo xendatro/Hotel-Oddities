@@ -190,7 +190,7 @@ Rolling buffer of a humanoid's recent position, move vector, look vector and jum
 - API: `MotionTrail:Destroy()`
 
 ### NpcAnimator.luau
-Replacement for the default Animate script on NPC rigs: disables `Animate`, loads idle/walk/run plus emotes and attacks, and each Heartbeat picks the right track and scales its playback rate to the rig's actual travel speed. Also supports looping override and hold animations by asset id, pausing, and clearing tracks it does not own.
+Replacement for the default Animate script on NPC rigs: disables `Animate`, loads idle/walk/run plus emotes and attacks, and each Heartbeat picks the right track and scales its playback rate to the rig's actual travel speed. Also supports looping override and hold animations by asset id, a frozen-frame pose slot for clips such as the Stalker's corner peeks, pausing, and clearing tracks it does not own.
 - API: `NpcAnimator.new(model: Model, set: AnimationConfig.AnimationSet?) -> NpcAnimator`
 - API: `NpcAnimator:Start()` / `NpcAnimator:Stop()` — connect/disconnect the Heartbeat update
 - API: `NpcAnimator:Pause()` / `NpcAnimator:Resume()`
@@ -200,6 +200,7 @@ Replacement for the default Animate script on NPC rigs: disables `Animate`, load
 - API: `NpcAnimator:PreloadOverride(assetId: number)`
 - API: `NpcAnimator:PlayOverride(assetId: number, fadeTime: number?): AnimationTrack` / `NpcAnimator:StopOverride(fadeTime: number?)` — looping Action-priority override; optional fade-in and fade-out seconds default to 0.2; returns the track so callers can read its length
 - API: `NpcAnimator:PlayHold(assetId: number)` / `NpcAnimator:StopHold()` — second looping Action-priority slot
+- API: `NpcAnimator:PreloadPose(assetId: number)` / `NpcAnimator:HoldPose(assetId: number, time: number?): AnimationTrack` / `NpcAnimator:PlayPose(fromTime: number?)` / `NpcAnimator:FreezePose()` / `NpcAnimator:PoseTime(): (number?, number?)` / `NpcAnimator:EndPose(fadeTime: number?)` — a non-looping Action-priority pose slot: `HoldPose` plays a clip frozen at a time (default 0), `PlayPose` lets it run (jumping first when given a time), `FreezePose` stops it in place, `PoseTime` returns position and length while it plays, `EndPose` stops it (fade defaults to 0.2); tracks are cached per asset id and unloaded on `Destroy`
 - API: `NpcAnimator:SetMovementSpeed(speed: number)` — drive gait from a value instead of the rig's velocity
 - API: `NpcAnimator:SetMovementTrack(trackName: "Walk" | "Run"?)` — force a locomotion track
 - API: `NpcAnimator:ClearForeignTracks()` — stops any playing track this animator did not load

@@ -10,6 +10,8 @@ export type AnimationSet = {
 	Lurk: number?,
 	Sleep: number?,
 	Wake: number?,
+	PeekLeft: number?,
+	PeekRight: number?,
 }
 
 local Animations = {
@@ -28,6 +30,8 @@ local Animations = {
 	Fly = 124677133774216,
 	GhostIdle = 124615244478417,
 	DoorKnock = 111875087243338,
+	PeekLeft = 135000980950954,
+	PeekRight = 116106210940082,
 
 	ToolHold = 507768375,
 }
@@ -60,6 +64,8 @@ local Sets: { [string]: AnimationSet } = {
 		Walk = Animations.SneakyWalk,
 		UseRigIdle = true,
 		Attacks = { Animations.Punch1, Animations.Punch2 },
+		PeekLeft = Animations.PeekLeft,
+		PeekRight = Animations.PeekRight,
 	},
 
 	Mimic = {

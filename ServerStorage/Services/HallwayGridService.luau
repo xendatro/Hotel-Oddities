@@ -9,7 +9,7 @@ local MAX_ALONG_SIGHT = 0.5
 local MAX_BRANCH_ALIGNMENT = 0.5
 local MAX_FLOOR_GAP = 10
 local CONNECTION_EPSILON = 0.5
-local DEPTHS = { 0, 2 }
+local DEPTHS = { 2, 3, 4 }
 
 export type Corner = {
 	Position: Vector3,
