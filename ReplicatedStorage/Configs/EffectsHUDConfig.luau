@@ -6,6 +6,7 @@ local EffectsHUDConfig = {
 	CornerRadius = 8,
 	IconInset = 6,
 	EdgeMargin = 16,
+	VerticalPosition = 0.36,
 
 	Colors = {
 		Text = Color3.fromRGB(236, 236, 240),

@@ -244,7 +244,7 @@ Client-only. Wraps every `Drawer` model in a `Drawer` class instance, registers 
 - Requires: `Classes.Drawer`, `Configs.DrawerConfig`, `InteractionService`
 
 ### EffectsHUDService.luau
-Client HUD that stacks effect tiles down the right edge of the screen, each with a dimmed icon and a bright fill. Timed effects drain with a tenths-of-a-second countdown; command and spawn-safe-zone immunity stays full and reads `inf`. Tiles are raised by speed-boost attributes on the player, SpellBook and hole immunity source tags, a freshly dug hole in workspace (Shovel), a drop in an inventory item count, and a `uses` decrease on a held Pathfinder tool.
+Client HUD that stacks effect tiles down the right edge of the screen just above the computer notepad, with the stack growing upward. Each tile has a dimmed icon and a bright fill. Timed effects drain with a tenths-of-a-second countdown; command and spawn-safe-zone immunity stays full and reads `inf`. Tiles are raised by speed-boost attributes on the player, SpellBook and hole immunity source tags, a freshly dug hole in workspace (Shovel), a drop in an inventory item count, and a `uses` decrease on a held Pathfinder tool.
 - API: data table — empty; the whole HUD is built and wired at require time.
 - Remotes: `Inventory/Update` (listened)
 - Tags: listens `Ignore`, `InfiniteImmunity`, `SafeZoneImmunity`, `SpellBookImmunity`, `HoleImmunity` on the local character

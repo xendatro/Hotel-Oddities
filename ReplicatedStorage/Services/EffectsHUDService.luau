@@ -28,8 +28,8 @@ local function build()
 	panel = Instance.new("Frame")
 	panel.Name = "Effects"
 	panel.BackgroundTransparency = 1
-	panel.AnchorPoint = Vector2.new(1, 0.5)
-	panel.Position = UDim2.new(1, -EffectsHUDConfig.EdgeMargin, 0.5, 0)
+	panel.AnchorPoint = Vector2.new(1, 1)
+	panel.Position = UDim2.new(1, -EffectsHUDConfig.EdgeMargin, EffectsHUDConfig.VerticalPosition, 0)
 	panel.Size = UDim2.fromOffset(EffectsHUDConfig.TileSize, 0)
 	panel.AutomaticSize = Enum.AutomaticSize.Y
 	panel.Parent = screenGui
