@@ -155,7 +155,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\HearingRenderService.luau — Flies glowing motes from a noise source to an enemy's ear.
 - ReplicatedStorage\Services\HeartbeatService.luau — Proximity heartbeat audio that swells and quickens near a pursuing enemy.
 - ReplicatedStorage\Services\HumanoidStatsService.luau — Named-source stat stack applied to any humanoid, restoring untouched stats to their spawn values.
-- ReplicatedStorage\Services\IndexUIService.luau — Paginated bestiary UI with viewport headshots, progressive text reveals and shared cursor unlocking for death reveals.
+- ReplicatedStorage\Services\IndexUIService.luau — Paginated bestiary UI with viewport headshots, progressive text reveals, 25% discovery milestone notifications and shared cursor unlocking for death reveals.
 - ReplicatedStorage\Services\InteractionService.luau — Singleton crosshair interaction target registry, highlight and key prompt.
 - ReplicatedStorage\Services\InterfaceService.luau — Main menu page switching (Index, Rooms, Shop, Gems, Items, Inventory, kits, roll, map, gallery), blur, FOV pull-back and mouse unlocking, including Q toggling through the mouse blocker and enforced system-cursor hiding after relock; direct page-root close buttons animate themselves instead of rotating the full menu frame; side buttons carry a name-and-keybind label and their keys toggle their own page.
 - ReplicatedStorage\Services\InventoryPageUIService.luau — The Inventory page: bag grid, in-page hotbar row, item info, TO HOTBAR / TO BAG button and drag-and-drop between them, toggled by keybind or side button.
@@ -425,7 +425,7 @@ become Services or Classes.
 - ServerStorage\Services\EnemyCommandService.luau — Developer chat commands for spawning, listing and despawning enemies.
 - ServerStorage\Services\EnemyDebugService.luau — Broadcasts a periodic snapshot of active enemies to the stats HUD.
 - ServerStorage\Services\EnemyDirectorService.luau — Manages the live enemy population; counted AcquirePause/release calls suspend ambient work for isolated scenarios.
-- ServerStorage\Services\EnemyDiscoveryService.luau — Tracks and persists per-player bestiary discovery progress for each enemy, and exposes its sight test as `HasView`.
+- ServerStorage\Services\EnemyDiscoveryService.luau — Tracks and persists per-player bestiary discovery progress, notifies at each 25% milestone and exposes its sight test as `HasView`.
 - ServerStorage\Services\EnemyEncounterService.luau — Opens an encounter when a player sees or gets near an enemy and logs one `EnemyEncounter` analytics event when it ends as `Died` or `Escaped`, with its length and the funnel step.
 - ServerStorage\Services\EnemyObservationService.luau — Holds each client's validated report of which enemies it can see and from where.
 - ServerStorage\Services\EnemyService.luau — Enemy factory and registry, collision groups, counted spawn blocks with scoped fixture spawning, and optional silent despawn.

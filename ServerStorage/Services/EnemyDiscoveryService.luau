@@ -4,6 +4,7 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local FLAGS = require(ReplicatedStorage.Configs.FLAGS)
+local IndexConfig = require(ReplicatedStorage.Configs.IndexConfig)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local DiscoveryConfig = require(ServerStorage.Configs.DiscoveryConfig)
@@ -13,6 +14,7 @@ local EnemyService = require(ServerStorage.Services.EnemyService)
 
 local Update = CommunicationService.Get("Index", "Update") :: RemoteEvent
 local Reveal = CommunicationService.Get("Index", "Reveal") :: RemoteEvent
+local ShowNotification = CommunicationService.Ensure("Notifications", "Show") :: RemoteEvent
 
 local EnemyDiscoveryService = {}
 
@@ -20,6 +22,11 @@ local Progress: { [Player]: { [string]: number } } = {}
 local Dwell: { [Player]: { [string]: number } } = {}
 local Replicated: { [Player]: { [string]: number } } = {}
 local PendingReveal: { [Player]: { Id: string, Before: number, After: number } } = {}
+local EnemyNames: { [string]: string } = {}
+
+for _, entry in IndexConfig.Entries do
+	EnemyNames[entry.Id] = entry.Name
+end
 
 local accumulator = 0
 
@@ -46,6 +53,21 @@ local function persist(player: Player)
 	profile.Data.DiscoveredEnemies = table.clone(Progress[player] or {})
 end
 
+local function notifyProgressMilestones(player: Player, enemyId: string, before: number, after: number)
+	local enemyName = EnemyNames[enemyId]
+	if not enemyName then return end
+
+	for milestone = 1, 4 do
+		local threshold = milestone * 0.25
+		if before >= threshold or after < threshold then continue end
+
+		local message = if milestone == 4
+			then `Discovered {enemyName}`
+			else `{milestone * 25}% toward discovering {enemyName}`
+		ShowNotification:FireClient(player, message)
+	end
+end
+
 function EnemyDiscoveryService:Grant(player: Player, enemyId: string?, amount: number): (number, number)
 	if not enemyId or amount <= 0 then return 0, 0 end
 
@@ -58,6 +80,7 @@ function EnemyDiscoveryService:Grant(player: Player, enemyId: string?, amount: n
 	local after = math.clamp(before + amount, 0, 1)
 	set[enemyId] = after
 	persist(player)
+	notifyProgressMilestones(player, enemyId, before, after)
 	return before, after
 end
 
@@ -65,10 +88,12 @@ function EnemyDiscoveryService:Set(player: Player, enemyId: string, progress: nu
 	local set = Progress[player]
 	if not set then return end
 
+	local before = set[enemyId] or 0
 	local value = math.clamp(progress, 0, 1)
 	set[enemyId] = value > 0 and value or nil
 	persist(player)
 	replicate(player)
+	notifyProgressMilestones(player, enemyId, before, value)
 end
 
 function EnemyDiscoveryService:Clear(player: Player)
