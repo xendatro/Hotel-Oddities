@@ -10,6 +10,7 @@ end
 
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local ItemConfig = require(ReplicatedStorage.Configs.DrawerItemConfig)
+local ItemShopConfig = require(ReplicatedStorage.Configs.ItemShopConfig)
 local AudioService = require(ReplicatedStorage.Services.AudioService)
 local DrawerService = require(ReplicatedStorage.Services.DrawerService)
 local Interaction = require(ReplicatedStorage.Services.InteractionService)
@@ -79,6 +80,13 @@ end)
 TagService:Listen(ItemConfig.Tag, register, unregister, workspace)
 
 PickupResultRemote.OnClientEvent:Connect(function(currency: any, amount: any)
+	if currency == "Item" then
+		if type(amount) ~= "string" then return end
+		local entry = ItemShopConfig.EntriesById[amount]
+		local itemName = if entry then entry.Name else amount
+		NotificationService:Show(`Added {itemName} to your bag`)
+		return
+	end
 	if type(currency) ~= "string" or type(amount) ~= "number" or amount <= 0 then return end
 
 	local label = ItemConfig.Feedback.Labels[currency]

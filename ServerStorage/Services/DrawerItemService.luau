@@ -6,6 +6,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local DrawerConfig = require(ReplicatedStorage.Configs.DrawerConfig)
 local ItemConfig = require(ReplicatedStorage.Configs.DrawerItemConfig)
+local InventoryConfig = require(ReplicatedStorage.Configs.InventoryConfig)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local Hallways = require(ReplicatedStorage.Services.HallwaysService)
@@ -649,6 +650,12 @@ Pickup.OnServerEvent:Connect(function(player: Player, item: any)
 	else
 		if not InventoryService:Wait(player, 10) then return end
 		collected = InventoryService:Add(player, itemName, 1)
+		if collected then
+			local slot = InventoryService:GetSlot(player, itemName)
+			if slot and slot > InventoryConfig.HotbarSlots then
+				PickupResult:FireClient(player, "Item", itemName)
+			end
+		end
 	end
 	if not collected then return end
 
