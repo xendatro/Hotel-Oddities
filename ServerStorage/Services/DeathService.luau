@@ -26,6 +26,9 @@ type Record = {
 local Records: { [Player]: Record } = {}
 local Killers: { [Player]: Model } = {}
 local LastHit: { [Player]: { [Model]: number } } = {}
+local died = Instance.new("BindableEvent")
+
+DeathService.Died = died.Event
 
 local function damageOf(enemy: Model): number
 	local enemyId = enemy:GetAttribute("EnemyId")
@@ -123,6 +126,7 @@ local function watchCharacter(player: Player, character: Model)
 		EnemyDiscoveryService:GrantDeath(player, cause)
 		EnemyEncounterService:ResolveDeath(player, killer, cause)
 		AnalyticsService:LogEvent(player, "Death", nil, { Enemy = cause or DeathConfig.UnknownId })
+		died:Fire(player, cause, killer)
 
 		Records[player] = nil
 		Killers[player] = nil

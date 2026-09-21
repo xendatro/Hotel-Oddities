@@ -24,6 +24,9 @@ local Parts: { [Instance]: string } = {}
 local Discovered: { [Player]: { [string]: boolean } } = {}
 local Entered: { [Player]: { [string]: number } } = {}
 local Occupied: { [Player]: { [string]: boolean } } = {}
+local discovered = Instance.new("BindableEvent")
+
+POIDiscoveryService.Discovered = discovered.Event
 
 local accumulator = 0
 
@@ -97,6 +100,7 @@ function POIDiscoveryService:Grant(player: Player, name: string): boolean
 	set[name] = true
 	persist(player)
 	DiscoveredRemote:FireClient(player, name, POIDiscoveryService:GetCount(player), POIDiscoveryService:GetTotal())
+	discovered:Fire(player, name)
 	return true
 end
 

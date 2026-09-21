@@ -2,6 +2,15 @@
 
 Server only, self-initializing at require time via `ServerScriptService\Init.legacy.luau`. Never add an `:Init()` method.
 
+### AchievementService.luau
+Owns every badge rule: which in-game moment awards which badge id from `ReplicatedStorage.Configs.BadgeConfig`, always through `BadgeService:AwardBadge`. On join it awards `Joined`, then, once the profile loads, catches the player up on anything earned before the badge existed: the escape badges from `EscapeService:Get` and one room badge per name in `profile.Data.DiscoveredPOIs`. Afterwards it listens: `POIDiscoveryService.Discovered` awards `Rooms[name]`, `ComputerService.Hacked` awards `Computers[color]` from the hacked model's chip colour, `EscapeService.Awarded` awards `Escaped` on every escape and `Escapes.Badge` once the count reaches `Escapes.Count`, and `DeathService.Died` awards `Deaths[cause]` (Stalker, CeilingDweller, Mimic and Chaser). Ids left at 0 in the config are skipped silently, so a badge can be wired before it exists on the Creator Dashboard.
+- API: `AchievementService:AwardJoined(player: Player) -> boolean`
+- API: `AchievementService:AwardRoom(player: Player, name: string) -> boolean`
+- API: `AchievementService:AwardComputer(player: Player, color: string?) -> boolean`
+- API: `AchievementService:AwardEscapes(player: Player, escapes: number) -> boolean` — every escape badge that count qualifies for
+- API: `AchievementService:AwardDeath(player: Player, cause: string?) -> boolean`
+- Requires: `ReplicatedStorage.Configs.BadgeConfig`, `BadgeService`, `ComputerService.Hacked`, `DataSaveService:Wait`, `DeathService.Died`, `EscapeService` (`Get`, `Awarded`), `POIDiscoveryService.Discovered`
+
 ### AnalyticsService.luau
 The one place Roblox analytics are reported from: the MazeRun funnel, custom events and economy events. It owns a per-run funnel session (a fresh GUID and start time per attempt) and logs the ten steps of a run through Roblox's `AnalyticsService:LogFunnelStepEvent`, plus the same steps once per player lifetime through `LogOnboardingFunnelStepEvent` so the new-player report is populated too. Steps are monotonic: a step is dropped if the session has already reached it or passed it, so dying and walking back into the elevator never double-counts, and the run's progress survives death exactly as computer progress does. A run session starts on join and again on `EndingService:Finish` (play again), because that is the only point the game wipes computer progress. Custom events go through `LogEvent`: the event id must be a key of `AnalyticsConfig.Events`, and the caller's `fields` table is keyed by the field names that entry declares, which are mapped in order onto Roblox's `CustomField01`-`CustomField03`; a declared `Step` field is filled in automatically with the furthest funnel step name of the current run (`None` before the first), so every custom event can be broken down by where in the run it happened. The event catalogue, who fires each one and why the list is kept short live in the `AnalyticsConfig` entry of `Documentation\ServerStorage\Configs.md`. Economy events go through `LogEconomy`, fired only by `GemService` and `CoinService`, so every gem and coin source and sink shows up on the Roblox economy dashboard with the balance after the change. Every Roblox analytics call is wrapped in `pcall`, and nothing is logged in Studio unless `AnalyticsConfig.LogInStudio` is set.
 - API: `AnalyticsService:LogStep(player: Player, stepId: string)` — `stepId` is a key of `AnalyticsConfig.Steps`; warns on an unknown id and never yields
@@ -15,11 +24,11 @@ The one place Roblox analytics are reported from: the MazeRun funnel, custom eve
 - Requires: `ServerStorage.Configs.AnalyticsConfig`, `DataSaveService` (the persisted `OnboardingStep` that keeps the onboarding funnel to one pass per player)
 
 ### BadgeService.luau
-Wrapper around Roblox's BadgeService that awards only badge ids listed in BadgeConfigs and keeps a per-player ownership cache. Ownership is prefetched asynchronously when a player joins and cleared when they leave.
+Wrapper around Roblox's BadgeService that awards only badge ids found in `ReplicatedStorage.Configs.BadgeConfig` (every non-zero id under `Joined`, `Escaped`, `Escapes.Badge`, `Rooms`, `Computers` and `Deaths`, collected once at load) and keeps a per-player ownership cache. Ownership is prefetched asynchronously when a player joins and cleared when they leave. `AchievementService` decides when a badge is earned; this service only validates and awards.
 - API: `BadgeService:AwardBadge(player: Player, id: number) -> boolean` — refuses unknown ids and already-owned badges
 - API: `BadgeService:GetBadges(player: Player) -> { [number]: boolean }` — cached ownership map
 - API: `BadgeService:OwnsBadge(player: Player, id: number) -> boolean` — cache lookup only, never yields
-- Requires: `ServerStorage.Configs.BadgeConfigs`, `CharacterService.ForEachPlayer` / `.CleanupOnLeave`
+- Requires: `ReplicatedStorage.Configs.BadgeConfig`, `CharacterService.ForEachPlayer` / `.CleanupOnLeave`
 
 ### CeilingVentService.luau
 Watches players approaching parts tagged `CeilingVent` and, when one walks under an armed vent while uncrouched, looking at it and moving toward it, opens the vent door and drops a CeilingDweller through it. Before a vent arms it now telegraphs: 10 seconds (`WALK_IN_LEAD`) before the vent's `ArmAt` time, a harmless CeilingDweller rig (tags and `EnemyId` stripped) spawns on the ceiling at an out-of-sight hallway-graph node, walks upside-down along the ceiling to the vent via `SurfaceWalker` (the graph route is truncated at the first segment that passes within `WALK_IN_PASS_RADIUS` of the vent door, so the crawler heads straight into the vent instead of overshooting to the nearest node and doubling back), the walk-in humanoid display distance is set to `None`, the door opens, it pitches ~85° while still crawling and climbs through the opening on an eased bezier (in toward the vent centre, then up), and the door closes; the walk-in starts `SPAWN_READY_DELAY` (3s) earlier and the vent cannot trigger until 3 seconds after the crawler is inside, leaving the `ArmAt` jumpscare timing unchanged (skipped gracefully when no path, hidden start point or model is available, and cancelled by a forced spawn). Also culls unengaged, unobserved dwellers and exposes a debug list of vents. Entirely inert unless `FLAGS.Enemies`.
@@ -77,7 +86,8 @@ Tracks each player's hacked computers in memory and in `profile.Data.HackedCompu
 - API: `ComputerService:IsHacked(player: Player, model: Model) -> boolean`
 - API: `ComputerService:IsExitUnlocked(player: Player) -> boolean` — all five configured chip destination computers must be complete for that player.
 - API: `ComputerService:GetProgress(player: Player) -> (number, number)` — hacked count, total tagged computers
-- API: `ComputerService:SetHacked(player: Player, model: Model, hacked: boolean)` — syncs the player on change
+- API: `ComputerService:SetHacked(player: Player, model: Model, hacked: boolean)` — syncs the player on change and fires `Hacked` when the computer becomes hacked
+- API: `ComputerService.Hacked: RBXScriptSignal` — `(player: Player, model: Model, color: string?)` after a computer is newly hacked, with the model's `ComputerChipConfig.ColorAttribute` value
 - API: `ComputerService:ResetProgress(player: Player)` — clears every hacked computer from memory and `profile.Data.HackedComputers`, then syncs the player; used by `EndingService` the moment a player wins (consuming that run) and again on play-again, and by the `/resetprogress` command
 - Remotes: `ComputerConfig.Remotes.Folder/Complete` (listened), `.../Sync` (fired, and listened for client refresh requests), `.../Reset` (listened — the lobby reset terminal; accepted only when the player stands within `ResetComputersConfig.ServerReach` of a model tagged `ResetComputers`, rate-limited by its `Cooldown`, then runs `ResetProgress`)
 - Tags: applies `ComputerConfig.Tag`
@@ -118,6 +128,7 @@ Owns enemy damage and death causes. `Hit` is the one path every enemy hurt goes 
 - API: `DeathService:Strike(player: Player, enemy: Model, causeId: string?)` — a lethal `Hit`, kept for hazards that must kill outright
 - API: `DeathService:ClearCause(player: Player, causeId: string)` — clears only if it is still the current cause
 - API: `DeathService:GetCause(player: Player) -> string?` — nil once older than `DeathConfig.CauseMemory`
+- API: `DeathService.Died: RBXScriptSignal` — `(player: Player, cause: string?, killer: Model?)` after every death, once the death screen, revive offers, discovery, encounter and analytics have been handled
 - Remotes: `Death/Kill` (listened and fired to all), `Death/Strike` (fired with the enemy and the damage dealt), `Death/Show` (fired)
 - Requires: `DeathConfig`, `Configs.EnemyConfigs` (per-enemy `Damage`), `ReviveService:Offer`, `FriendReviveService:Offer`, `EnemyDiscoveryService:GrantDeath`, `EnemyEncounterService:ResolveDeath` and `AnalyticsService:LogEvent` (on death the open enemy encounter is resolved and a `Death` custom event is logged with the cause id, or `DeathConfig.UnknownId` when nothing was chasing them), `RoomService`
 
@@ -581,6 +592,19 @@ Owns every placed tripod camera. Builds the world model out of the Camera tool's
 Registers the `/photo` chat command for testing the tripod camera: bare `/photo` (or `/photo place`) stands a camera on the floor in front of the caller without spending a tool, `/photo now` snaps every camera that has not fired yet, and `/photo figure [on|off|<rig name>]` toggles `PhotoCameraService.ForceFigure` so the figure is guaranteed to be dead centre in frame, optionally swapping `PhotoCameraService.FigureName` to any rig under `ReplicatedStorage.Enemies` (matched case-insensitively) for testing before the real ShadowFigure exists.
 - API: none — registers its command on require.
 - Requires: `ChatCommandService`, `PhotoCameraService`, `CharacterService`, `Configs.PhotoConfig`
+
+### POIDiscoveryService.luau
+Server owner of point-of-interest discovery. Every part tagged `POIConfig.Tag` (`POI`) is a discovery volume named after its room; a sweep every `Detection.Interval` seconds tests each alive player's root against the part's box grown by `Detection.Padding` sideways (plus the part's own `Radius` attribute), `HeightWindow` above and `BelowWindow` below. Standing inside grants that name once per player, persisted in `profile.Data.DiscoveredPOIs`, replicated over `POI/Discovered` with the running count and total, and announced on the `Discovered` signal; entering plays the `POI/Enter` cue again only after `Sound.Cooldown`. `POI/Occupancy` tells the client whether it is inside any point of interest, and `POI/Sync` sends the whole set on load or on request. `Init.legacy` requires it first so its remotes exist before anything else starts.
+- API: `POIDiscoveryService:GetTotal() -> number` — distinct tagged names in the workspace
+- API: `POIDiscoveryService:GetAll(player: Player) -> { [string]: boolean }` — copy of the discovered set
+- API: `POIDiscoveryService:Has(player: Player, name: string) -> boolean`
+- API: `POIDiscoveryService:GetCount(player: Player) -> number`
+- API: `POIDiscoveryService:Grant(player: Player, name: string) -> boolean` — false when already discovered or not loaded
+- API: `POIDiscoveryService:Clear(player: Player)` — wipes the set and resyncs the client
+- API: `POIDiscoveryService.Discovered: RBXScriptSignal` — `(player: Player, name: string)` after each new discovery
+- Remotes: `POI/Discovered` (fired), `POI/Enter` (fired), `POI/Occupancy` (fired, and listened for refresh requests), `POI/Sync` (fired, and listened for resync requests)
+- Tags: listens `POI`
+- Requires: `POIConfig`, `CharacterService.GetAliveRoot`, `CommunicationService.Ensure`, `TagService:Listen`, `DataSaveService` (`Get`, `Wait`)
 
 ### PlayerCharacterStreamingService.luau
 Sets every player character's `ModelStreamingMode` to `Persistent` so characters are never streamed out on other clients.

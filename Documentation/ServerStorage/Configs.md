@@ -10,10 +10,6 @@ Everything `AnalyticsService` reports to Roblox analytics: whether analytics run
 - Economy: `Enabled`, `Currencies` (`Gems`, `Coins` — the currency names on the economy dashboard), `Transactions` (`Award` = `Gameplay`, `Purchase` = `Shop`, `Refund` = `Shop`, all Roblox `AnalyticsEconomyTransactionType` names); only `GemService` and `CoinService` log economy events, and Robux purchases are not logged here because Roblox records them itself
 - Adding an event: add an `Events` entry, call `AnalyticsService:LogEvent` from the one service that owns the moment, and extend the list above; never log from the client, and never make an event name out of something with many values — that belongs in a field
 
-### BadgeConfigs.luau
-Placeholder table for badge award settings; currently empty, so nothing is configured.
-- API: data table — empty
-
 ### DevProductConfigs.luau
 Placeholder table for developer product definitions; currently empty, so nothing is configured.
 - API: data table — empty

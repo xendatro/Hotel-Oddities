@@ -1,4 +1,0 @@
-local BadgeConfigs = {
-}
-
-return BadgeConfigs

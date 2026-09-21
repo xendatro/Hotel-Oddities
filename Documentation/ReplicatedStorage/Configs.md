@@ -10,6 +10,11 @@ Distance-based volume falloff and fade timing for ambient sound emitters, plus t
 Animation asset ids plus per-enemy animation sets (walk/run/idle/attack/room-reaction/listen/lurk/sleep/wake) used by enemy rigs and tools.
 - API: data table — `Animations` (id lookup), `Sets` (per-enemy `AnimationSet`); exports type `AnimationSet`. A set's optional `RoomReaction` id replaces the cheer emote at safe-room doors (Chaser knocks with `DoorKnock`); a set's optional `Listen` id is a looping override played while standing at a search point (Blind uses `BlindListen`); a set's optional `Lurk` id is the standing idle GhostRenderService plays while the ghost holds a lurk spot (`GhostIdle`). A set's optional `Sleep` and `Wake` ids are the sit-against-the-wall doze and the startled get-up the Chaser's `Rest` state plays (`ChaserSleep`, `ChaserWake`). The `Sisters` set makes the sisters walk with `GhostIdle`.
 
+### BadgeConfig.luau
+Every Roblox badge the game awards, by role, as Creator Dashboard badge ids: `Joined` (first join), `Escaped` (any escape), `Escapes` (`Count` 3 and its `Badge`), `Rooms` (one id per point of interest, keyed by the `POI` part name, which is also the `RoomsIndexConfig` entry id), `Computers` (keyed by `ComputerChipConfig` colour key: Blue, Red, Green, Yellow, Purple) and `Deaths` (keyed by death cause id: Stalker, CeilingDweller, Mimic, Chaser). An id of 0 means the badge has not been created yet and is skipped everywhere. Shared rather than server-only because the client's rooms index reads `Rooms` to fetch each room's badge icon, the one source of the room photos. `Icon` tunes `BadgeIconService`: `Retries`, `RetryDelay` and `PrefetchGap` seconds. Exports type `Ids`.
+- API: data table — `Joined`, `Escaped`, `Escapes`, `Rooms`, `Computers`, `Deaths`, `Icon`
+- Requires: nothing
+
 ### BreatheConfig.luau
 Idle breathing motion applied to character joints.
 - API: data table — `Period`, `InhaleFraction`, `Waist`, `Neck`, `Shoulder`, `Root`, `Smoothing`, `MaxDistance`
@@ -233,7 +238,7 @@ The lobby reset-computers terminal: the `ResetComputers` tag on its model, the `
 - Requires: nothing
 
 ### RoomsIndexConfig.luau
-The rooms index page: its page id and ScreenGui name, the 3-by-2 grid shape, the locked-card strings (`???`, `UNDISCOVERED` and the not-yet-found blurb), the empty-panel strings, the `n / N FOUND` counter format, pagination colours, the card/button/info animation numbers, and `Entries`: one entry per point of interest whose `Id` is the `POI` part's name (which is also what the discovery remotes send), with a display `Name`, a `Description` shown once found and an `Image` asset id for the photo of that room. `Invisible Hallway` and `The Hole` have an empty `Image` until their photos are uploaded. `EntriesById` is built at load. Exports type `Entry`.
+The rooms index page: its page id and ScreenGui name, the 3-by-2 grid shape, the locked-card strings (`???`, `UNDISCOVERED` and the not-yet-found blurb), the empty-panel strings, the `n / N FOUND` counter format, pagination colours, the card/button/info animation numbers, and `Entries`: one entry per point of interest whose `Id` is the `POI` part's name (which is also what the discovery remotes send and the key of that room's badge in `BadgeConfig.Rooms`), with a display `Name` and a `Description` shown once found. Entries carry no image: each room's photo is its badge icon, resolved through `BadgeIconService`, so the badge on the Creator Dashboard is the single source of that picture. `EntriesById` is built at load. Exports type `Entry`.
 - API: data table — `PageId`, `Gui`, `Columns`, `Rows`, `Locked`, `Empty`, `CounterText`, `Pagination`, `Animation`, `Entries`, `EntriesById`
 - Requires: nothing
 

@@ -32,6 +32,14 @@ Central sound playback helper covering both the new `AudioPlayer`/`AudioEmitter`
 - Tags: reads `RadioAllowed`
 - Requires: `Configs.WalkieTalkieConfig`; lazily requires `ServerStorage.Services.WalkieTalkieService` on the server
 
+### BadgeIconService.luau
+Resolves a badge id to the image its icon actually is, `rbxassetid://<IconImageId>` from `BadgeService:GetBadgeInfoAsync`, and caches it for the session. Roblox stores badge icons as 150x150 circular images with transparent corners, so anything drawn from here is round. Works on the client and the server; the rooms index uses it so each room photo has one source, the room's badge. A failed fetch retries `BadgeConfig.Icon.Retries` times, `RetryDelay` seconds apart and growing, then resolves to an empty string that is not cached, so a later call tries again. Ids that are not positive numbers resolve to an empty string at once.
+- API: `BadgeIconService:Peek(badgeId: number?) -> string?` — cached icon, `""` for an invalid id, nil when not fetched yet; never yields
+- API: `BadgeIconService:Fetch(badgeId: number?, callback: (string) -> ())` — calls back with the icon (or `""`), at once when cached, sharing one request per id
+- API: `BadgeIconService:Get(badgeId: number?) -> string` — yielding form of `Fetch`
+- API: `BadgeIconService:Prefetch(ids: { number })` — background fetch of every unfetched id, `PrefetchGap` seconds apart
+- Requires: `Configs.BadgeConfig`
+
 ### BobService.luau
 Sine-wave vertical bobbing helper: pick a random phase once, then sample a Y offset each frame.
 - API: `Bob.NewPhase() -> number` — random phase in [0, 2pi)
@@ -823,7 +831,7 @@ Client owner of the lobby reset-computers terminal. Registers every model tagged
 - Requires: `ResetComputersConfig`, `CommunicationService`, `GuiBuilderService`, `InteractionService`, `InterfaceService`, `TagService`, `PlayerGui.ResetComputersUI`
 
 ### RoomsIndexUIService.luau
-Drives the `RoomsGui` page, the rooms counterpart of the enemy Index: a 3-by-2 grid of polaroid-style cards, one per `RoomsIndexConfig` entry (each entry is a point of interest, keyed by the `POI` part's name), paged with the Prev/Next chrome cloned from the Index and a `Counter` reading `n / N FOUND`. A card shows the room's photo (`ImageLabel`, 3:2, `Crop`) and its name once that point of interest is discovered, and a dark `?` placeholder with `???` until then; selecting a card pins it (`Pin`) and fills the right-hand post-it `Photo`, `RoomName` and `RoomDescription`, which show `UNDISCOVERED` and the locked blurb for rooms not yet found. Discovery comes straight from the point-of-interest remotes: the `POI/Sync` set on join (requested on require) and each `POI/Discovered` name afterwards. Cards deal in with a stagger whenever the page opens and on every page change, with hover, press and selected motion mirroring the item shop. The `RoomsGui` ScreenGui is a Studio-authored clone of `ItemsGui` (same paper background, chip, binder and close button) with the shop's grid, coins and buy buttons replaced by `Cards` (`UIGridLayout` + `Template`), `Pagination`, `Counter` and the trimmed `Info` panel.
+Drives the `RoomsGui` page, the rooms counterpart of the enemy Index: a 3-by-2 grid of polaroid-style cards, one per `RoomsIndexConfig` entry (each entry is a point of interest, keyed by the `POI` part's name), paged with the Prev/Next chrome cloned from the Index and a `Counter` reading `n / N FOUND`. A card shows the room's photo (`ImageLabel`, 3:2, `Fit`: the photo is the room's badge icon, `BadgeConfig.Rooms[Id]` resolved through `BadgeIconService`, a round 150x150 image, prefetched for every entry at build and painted in as each one resolves) and its name once that point of interest is discovered, and a dark `?` placeholder with `???` until then; selecting a card pins it (`Pin`) and fills the right-hand post-it `Photo`, `RoomName` and `RoomDescription`, which show `UNDISCOVERED` and the locked blurb for rooms not yet found. Discovery comes straight from the point-of-interest remotes: the `POI/Sync` set on join (requested on require) and each `POI/Discovered` name afterwards. Cards deal in with a stagger whenever the page opens and on every page change, with hover, press and selected motion mirroring the item shop. The `RoomsGui` ScreenGui is a Studio-authored clone of `ItemsGui` (same paper background, chip, binder and close button) with the shop's grid, coins and buy buttons replaced by `Cards` (`UIGridLayout` + `Template`), `Pagination`, `Counter` and the trimmed `Info` panel.
 - API: `RoomsIndexUIService:IsDiscovered(id: string) -> boolean`
 - API: `RoomsIndexUIService:GetDiscoveredCount() -> number` — discovered entries among the configured ones
 - API: `RoomsIndexUIService:Select(id: string?)` — select a card and animate the info panel
@@ -833,6 +841,7 @@ Drives the `RoomsGui` page, the rooms counterpart of the enemy Index: a 3-by-2 g
 - API: `RoomsIndexUIService:MarkDiscovered(name: string)` — mark one room found and repaint
 - API: `RoomsIndexUIService:Refresh()` — repaint every card, the info panel and the counter
 - Remotes: `POI/Discovered` (listened), `POI/Sync` (listened and fired as a resync request)
+- Requires: `Configs.BadgeConfig`, `BadgeIconService`, `Configs.RoomsIndexConfig`, `Configs.POIConfig`, `CommunicationService`, `GuiBuilderService`, `TweenProxyService`
 - Requires: `CommunicationService`, `GuiBuilderService`, `TweenProxyService`, `Configs.POIConfig`, `Configs.RoomsIndexConfig`, `StarterGui.RoomsGui`
 
 ### ShakeService.luau

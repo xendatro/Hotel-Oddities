@@ -8,6 +8,8 @@ if not RunService:IsClient() then
 	return RoomsIndexUIService
 end
 
+local BadgeConfig = require(ReplicatedStorage.Configs.BadgeConfig)
+local BadgeIconService = require(ReplicatedStorage.Services.BadgeIconService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local POIConfig = require(ReplicatedStorage.Configs.POIConfig)
@@ -115,10 +117,28 @@ local function poseCard(card: Card, override: TweenInfo?)
 	card.Tween:Play()
 end
 
+local function roomPhoto(entry: RoomsIndexConfig.Entry): string
+	local badgeId = BadgeConfig.Rooms[entry.Id]
+	local icon = BadgeIconService:Peek(badgeId)
+	if icon then return icon end
+
+	BadgeIconService:Fetch(badgeId, function(resolved: string)
+		if resolved == "" or not Discovered[entry.Id] then return end
+		local card = Cards[entry.Id]
+		if card then
+			card.Photo.Image = resolved
+		end
+		if selectedId == entry.Id then
+			infoPhoto.Image = resolved
+		end
+	end)
+	return ""
+end
+
 local function paintCard(card: Card)
 	local entry = EntriesById[card.Id]
 	local discovered = Discovered[card.Id] == true
-	card.Photo.Image = if discovered then entry.Image else ""
+	card.Photo.Image = if discovered then roomPhoto(entry) else ""
 	card.Hidden.Visible = not discovered
 	card.Caption.Text = if discovered then string.upper(entry.Name) else RoomsIndexConfig.Locked.CardName
 	card.Pin.Visible = card.Id == selectedId
@@ -159,7 +179,7 @@ local function paintInfo(animate: boolean)
 	end
 
 	local discovered = Discovered[entry.Id] == true
-	infoPhoto.Image = if discovered then entry.Image else ""
+	infoPhoto.Image = if discovered then roomPhoto(entry) else ""
 	infoHidden.Visible = not discovered
 	infoName.Text = if discovered then string.upper(entry.Name) else RoomsIndexConfig.Locked.Name
 	infoDescription.Text = if discovered then entry.Description else RoomsIndexConfig.Locked.Description
@@ -391,9 +411,12 @@ local function buildCard(index: number, entry: RoomsIndexConfig.Entry)
 end
 
 local function build()
+	local badgeIds = {}
 	for index, entry in Entries do
+		table.insert(badgeIds, BadgeConfig.Rooms[entry.Id])
 		buildCard(index, entry)
 	end
+	BadgeIconService:Prefetch(badgeIds)
 	cardTemplate.Visible = false
 
 	prevChrome = wireChrome(prevButton)

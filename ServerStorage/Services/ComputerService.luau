@@ -35,6 +35,9 @@ local ResetPending: { [Player]: boolean } = {}
 local LastComplete: { [Player]: number } = {}
 local LastSyncRequest: { [Player]: number } = {}
 local LastReset: { [Player]: number } = {}
+local hackedEvent = Instance.new("BindableEvent")
+
+ComputerService.Hacked = hackedEvent.Event
 
 local function setOf(player: Player): { [Model]: true }
 	local set = Hacked[player]
@@ -221,6 +224,7 @@ function ComputerService:SetHacked(player: Player, model: Model, hacked: boolean
 		AnalyticsService:LogStep(player, `Computers{count}`)
 	end
 	AnalyticsService:LogEvent(player, "ComputerHacked", (self:GetProgress(player)), { Computer = id })
+	hackedEvent:Fire(player, model, model:GetAttribute(ComputerChipConfig.ColorAttribute))
 end
 
 function ComputerService:ResetProgress(player: Player)

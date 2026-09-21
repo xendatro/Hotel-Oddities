@@ -16,7 +16,7 @@ The pit sits in the east-west hallway centred on (458.99, -22.632, -380.81), run
 
 The north-south hallway centred on (-443.964, -22.632, -279.280) is 90.39 studs long with no doors and no rooms. Every part that `Transparency` would have claimed now has a permanent `Transparency` of 0.02 (`HallwayTransparency`). That is 65 parts in `Maze15.Floors`, `Runners`, `Ceiling`, `CeilingLights`, `Stations` and the wall trim folders. Long wall parts that sit mostly outside the hallway box are untouched, as with the oddity. Parts added to that hallway at runtime, like loot displays, are not faded. The oddity used to fade them through `DescendantAdded`.
 
-- `Workspace.POIs.Invisible Hallway` is the discovery part: 15.73 x 50 x 90.39.
+- `Workspace.POIs.Glitched Hallway` is the discovery part: 15.73 x 50 x 90.39. The part, the `RoomsIndexConfig` entry and the `BadgeConfig.Rooms` key all use the name `Glitched Hallway`.
 
 ## Backups and reverting
 
@@ -36,6 +36,6 @@ To revert the Invisible Hallway:
 
 1. For each part clone, set `Source.Value.Transparency` to the clone's `Transparency`.
 2. Destroy `AddedPOI.Value`.
-3. Remove `Enabled = false` from `Effects.Transparency` in `MapOddityConfig`, and remove the Invisible Hallway entry from `RoomsIndexConfig`.
+3. Remove `Enabled = false` from `Effects.Transparency` in `MapOddityConfig`, and remove the Glitched Hallway entry from `RoomsIndexConfig` and `BadgeConfig.Rooms`.
 
-Delete the matching `POIBackups` folder once a revert is done. Both new `RoomsIndexConfig` entries have an empty `Image` until someone uploads photos of the rooms.
+Delete the matching `POIBackups` folder once a revert is done. Both rooms have a badge like every other point of interest, and the rooms index draws their photos from those badge icons through `BadgeConfig.Rooms`.

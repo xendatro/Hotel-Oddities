@@ -4,21 +4,35 @@ local _BadgeService = game:GetService("BadgeService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
-local BadgeConfigs = require(ServerStorage.Configs.BadgeConfigs)
+local BadgeConfig = require(ReplicatedStorage.Configs.BadgeConfig)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 
 local BadgeCache = {}
+local ValidIds: { [number]: true } = {}
+local AllIds: { number } = {}
 
-function BadgeService:AwardBadge(player: Player, id: number)
-	local isValidBadge = false
-	for _, badgeId in ipairs(BadgeConfigs) do
-		if badgeId == id then
-			isValidBadge = true
-			break
+local function collect(value: any)
+	if type(value) == "number" then
+		if value > 0 and not ValidIds[value] then
+			ValidIds[value] = true
+			table.insert(AllIds, value)
+		end
+	elseif type(value) == "table" then
+		for _, nested in value do
+			collect(nested)
 		end
 	end
+end
 
-	if not isValidBadge then
+collect(BadgeConfig.Joined)
+collect(BadgeConfig.Escaped)
+collect(BadgeConfig.Escapes.Badge)
+collect(BadgeConfig.Rooms)
+collect(BadgeConfig.Computers)
+collect(BadgeConfig.Deaths)
+
+function BadgeService:AwardBadge(player: Player, id: number)
+	if not ValidIds[id] then
 		warn("Attempted to award badge " .. id .. " which is not in BadgeConfigs")
 		return false
 	end
@@ -61,7 +75,7 @@ end
 local function loadPlayerBadges(player: Player)
 	BadgeCache[player] = {}
 
-	for _, badgeId in ipairs(BadgeConfigs) do
+	for _, badgeId in AllIds do
 		task.spawn(function()
 			local success, ownsBadge = pcall(function()
 				return _BadgeService:UserHasBadgeAsync(player.UserId, badgeId)
