@@ -20,6 +20,12 @@ return {
 	SlotPadding = 6,
 	CornerRadius = 8,
 
+	HUD = {
+		ReferenceSize = Vector2.new(900, 600),
+		MinScale = 0.65,
+		MaxScale = 1,
+	},
+
 	Colors = {
 		Slot = Color3.fromRGB(28, 28, 32),
 		SlotEmpty = Color3.fromRGB(20, 20, 24),

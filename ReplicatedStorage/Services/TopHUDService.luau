@@ -183,7 +183,10 @@ end
 local function render(deltaTime: number)
 	local camera = workspace.CurrentCamera
 	if camera then
-		scale.Scale = math.clamp(camera.ViewportSize.Y / TopHUDConfig.ReferenceHeight, TopHUDConfig.MinScale, TopHUDConfig.MaxScale)
+		local viewport = camera.ViewportSize
+		local widthScale = viewport.X / TopHUDConfig.ReferenceWidth
+		local heightScale = viewport.Y / TopHUDConfig.ReferenceHeight
+		scale.Scale = math.clamp(math.min(widthScale, heightScale), TopHUDConfig.MinScale, TopHUDConfig.MaxScale)
 	end
 
 	accumulator += deltaTime

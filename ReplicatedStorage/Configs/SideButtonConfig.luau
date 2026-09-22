@@ -15,6 +15,7 @@ return {
 		Size = UDim2.fromScale(0.94, 0.19),
 		FontFace = Font.new("rbxasset://fonts/families/Merriweather.json", Enum.FontWeight.Bold),
 		Color = Color3.fromRGB(64, 48, 32),
+		MinTextSize = 7,
 		MaxTextSize = 13,
 		StrokeColor = Color3.fromRGB(247, 240, 222),
 		StrokeThickness = 1.5,

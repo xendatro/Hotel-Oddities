@@ -199,12 +199,13 @@ local function addLabel(button: GuiButton, pageId: string)
 	label.BackgroundTransparency = 1
 	label.FontFace = LABEL.FontFace
 	label.TextColor3 = LABEL.Color
-	label.TextScaled = true
 	label.TextWrapped = false
+	label.TextScaled = true
 	label.ZIndex = button.ZIndex + LABEL.ZIndexOffset
 	label.Text = labelText(pageId)
 
 	local constraint = Instance.new("UITextSizeConstraint")
+	constraint.MinTextSize = LABEL.MinTextSize
 	constraint.MaxTextSize = LABEL.MaxTextSize
 	constraint.Parent = label
 

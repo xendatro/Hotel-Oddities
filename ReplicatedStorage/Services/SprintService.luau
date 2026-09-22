@@ -303,6 +303,19 @@ if UserInputService.TouchEnabled then
 	local button = ContextActionService:GetButton(TOUCH_ACTION)
 	if button then
 		button.Size = INPUT.TouchButtonSize
+		for _, descendant in button:GetDescendants() do
+			if not descendant:IsA("TextLabel") then continue end
+			descendant.TextWrapped = false
+			descendant.TextScaled = true
+
+			local constraint = descendant:FindFirstChildOfClass("UITextSizeConstraint")
+			if not constraint then
+				constraint = Instance.new("UITextSizeConstraint")
+				constraint.Parent = descendant
+			end
+			constraint.MinTextSize = INPUT.TouchButtonMinTextSize
+			constraint.MaxTextSize = INPUT.TouchButtonMaxTextSize
+		end
 	end
 end
 

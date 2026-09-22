@@ -233,9 +233,15 @@ local function buildTouchButton(parent: Instance): TextButton
 	button.BorderSizePixel = 0
 	button.AutoButtonColor = false
 	button.Text = TOUCH.Text
-	button.TextSize = TOUCH.TextSize
+	button.TextWrapped = false
+	button.TextScaled = true
 	button.FontFace = Font.fromEnum(Enum.Font.GothamMedium)
 	button.Parent = screenGui
+
+	local textSize = Instance.new("UITextSizeConstraint")
+	textSize.MinTextSize = TOUCH.MinTextSize
+	textSize.MaxTextSize = TOUCH.MaxTextSize
+	textSize.Parent = button
 
 	GuiBuilderService.Corner(button, UDim.new(0, TOUCH.CornerRadius))
 

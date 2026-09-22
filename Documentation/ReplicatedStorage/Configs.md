@@ -55,7 +55,7 @@ The Creep enemy: light-killing radius, floating backdrop geometry, glowing eye p
 - API: data table — `LightRange`, `ConnectedHallwayLightRange`, `DarkDistance`, `TurnRate`, `Backdrop*` group, `DistortionSpeed`, `EyeColors`, `PairSpacing`, `PairPlacementTries`, `Variants`
 
 ### CrouchConfig.luau
-Crouch movement, camera drop, crouch animations, stealth/noise effects and the crouch touch button.
+Crouch movement, camera drop, crouch animations, stealth/noise effects and the crouch touch button, including its minimum and maximum scaled text size.
 - API: data table — `SpeedMultiplier`, `BlocksSprint`, `Camera`, `Body`, `Stealth`, `Input`, `Touch`
 
 ### DangerConfig.luau
@@ -105,7 +105,7 @@ Everything the win screen and its server half share: the `Ending` remote folder 
 - Requires: nothing
 
 ### EscapeConfig.luau
-The escape (win) stat and its lobby leaderboard: `StatName` (the `leaderstats` IntValue name, `Escapes`), the `OrderedStore` name and its Studio prefix, and everything under `Leaderboard`: where the board lives (`Folder`, `Part`, `Face`), the Studio GUI it is built from (`Gui`, `Root`), the `Title` text, the `NameFormat` (`"%s (%s)"`, display name then username), `UnknownName`, the `rbxthumb` `Headshot` URL pattern, `TopCount` rows, `RefreshInterval` and `AwardRefreshDelay` seconds, SurfaceGui `PixelsPerStud`, `LightInfluence` and `Brightness`, the `Templates` (instance names inside the design the board clones: title plate, title text, plank row, headshot, text) and the `Layout` numbers (margins, title width and gap, title text box, row width and vertical stretch, headshot inset and height, name gap, text height, score column edges), all as fractions of the part face or of a row.
+The escape (win) stat and its lobby leaderboard: `StatName` (the `leaderstats` IntValue name, `Escapes`), the canonical `OrderedStore` name and its Studio prefix for environment-scoped award writes, and everything under `Leaderboard`: where the board lives (`Folder`, `Part`, `Face`), the Studio GUI it is built from (`Gui`, `Root`), the `Title` text, the `NameFormat` (`"%s (%s)"`, display name then username), `UnknownName`, the `rbxthumb` `Headshot` URL pattern, `TopCount` rows, `RefreshInterval` and `AwardRefreshDelay` seconds, SurfaceGui `PixelsPerStud`, `LightInfluence` and `Brightness`, the `Templates` (instance names inside the design the board clones: title plate, title text, plank row, headshot, text) and the `Layout` numbers (margins, title width and gap, title text box, row width and vertical stretch, headshot inset and height, name gap, text height, score column edges), all as fractions of the part face or of a row. `EscapeService:GetTop` always reads the canonical unprefixed store.
 - API: data table - `StatName`, `OrderedStore`, `Leaderboard`
 - Requires: nothing
 
@@ -142,8 +142,8 @@ The enemy Index (bestiary) UI: pagination, locked/undiscovered styling, the disc
 - API: data table — `EntriesPerPage`, `TemplateFolder`, `StartProgress`, `Locked`, `Discovery`, `Empty`, `HideUndiscovered`, `Pagination`, `Animation`, `Headshot`, `Entries`; exports types `StandinPart`, `Headshot`, `Entry`
 
 ### InventoryConfig.luau
-The inventory's shape on every device: a fixed 5-slot hotbar (`HotbarSlots`, keys 1-5 in `HotbarKeys`) plus a 25-slot bag (`BackpackSlots`), the `ToggleKeys` that open the Inventory page (Y on gamepad; the keyboard key moved to `SideButtonConfig`, which owns E), drag thresholds and the code-built hotbar slot styling. `Page` carries everything the Inventory page needs that is not authored in the GUI: its page id and ScreenGui name, the name and display order of the ScreenGui the drag ghost rides in, the drag ghost ZIndex, the drop-target and selection strokes, the notice hold time, ink/bad colours for the quantity badge and refusals, and the `Text` table (`ToHotbar`, `ToBag`, `HotbarFull`, `BagFull`, `Empty`, `EmptyDescription`). Item quantities stack by name; the InventoryService separately maintains one required Walkie Talkie.
-- API: data table — `HotbarSlots`, `BackpackSlots`, `ToggleKeys`, `HotbarKeys`, `DragThreshold`, `TouchDragThreshold`, `SlotSize`, `SlotPadding`, `CornerRadius`, `Colors`, `Transparency`, `PlaceholderIcon`, `Page`
+The inventory's shape on every device: a 5-slot hotbar (`HotbarSlots`, keys 1-5 in `HotbarKeys`) that scales down against `HUD.ReferenceSize` on small viewports, plus a 25-slot bag (`BackpackSlots`), the `ToggleKeys` that open the Inventory page (Y on gamepad; the keyboard key moved to `SideButtonConfig`, which owns E), drag thresholds and the code-built hotbar slot styling. `Page` carries everything the Inventory page needs that is not authored in the GUI: its page id and ScreenGui name, the name and display order of the ScreenGui the drag ghost rides in, the drag ghost ZIndex, the drop-target and selection strokes, the notice hold time, ink/bad colours for the quantity badge and refusals, and the `Text` table (`ToHotbar`, `ToBag`, `HotbarFull`, `BagFull`, `Empty`, `EmptyDescription`). Item quantities stack by name; the InventoryService separately maintains one required Walkie Talkie.
+- API: data table — `HotbarSlots`, `BackpackSlots`, `ToggleKeys`, `HotbarKeys`, `DragThreshold`, `TouchDragThreshold`, `SlotSize`, `SlotPadding`, `CornerRadius`, `HUD`, `Colors`, `Transparency`, `PlaceholderIcon`, `Page`
 
 ### ItemPreviewConfig.luau
 How every item ViewportFrame in the game frames its tool - the shop cards, the shop info panel, the inventory hotbar and all three kit pages read this one table through `ItemPreviewService`, so an item looks the same wherever it appears. `Default` is the framing every item starts from; `Items` holds only the per-item fields that differ from it. `FieldOfView` is global because it changes the perspective of every preview at once. The lighting trio is not decoration - without an explicit `Ambient`/`LightColor`/`LightDirection` tool models render as near-black silhouettes. Entries are written by hand or generated by the F2 item preview debug panel.
@@ -252,8 +252,8 @@ Tag, interaction reach, input bindings, highlight styling and prompt-pill UI set
 - API: data table — `Tag`, `PageAttribute`, `Targeting`, `Input`, `Highlight`, `UI`, `SmileAnimationId`
 
 ### SideButtonConfig.luau
-The four side-bar buttons' labels and keybinds, read by `InterfaceService`. Keyed by the `PageId` attribute the button already carries, so a button with no entry is labelled and bound by nothing.
-- API: data table — `Pages` (`Items` = Items/I, `KitInventory` = Kits/K, `Shop` = Shop/G, `Inventory` = Inventory/E, each `{ Label, Key }`), `Format` (`"%s [%s]"`, the label with its key appended), `Label` (the runtime TextLabel's `Name`, `AnchorPoint`, `Position`, `Size`, `FontFace` Merriweather Bold, `Color`, `MaxTextSize`, stroke colour/thickness/transparency and `ZIndexOffset`)
+The four side-bar buttons' labels and keybinds, read by `InterfaceService`. Keyed by the `PageId` attribute the button already carries, so a button with no entry is labelled and bound by nothing. The label uses `TextScaled` between `MinTextSize` and `MaxTextSize` so long names stay inside the paper button.
+- API: data table — `Pages` (`Items` = Items/I, `KitInventory` = Kits/K, `Shop` = Shop/G, `Inventory` = Inventory/E, each `{ Label, Key }`), `Format` (`"%s [%s]"`, the label with its key appended), `Label` (the runtime TextLabel's `Name`, `AnchorPoint`, `Position`, `Size`, `FontFace` Merriweather Bold, `Color`, `MinTextSize`, `MaxTextSize`, stroke colour/thickness/transparency and `ZIndexOffset`)
 
 ### SistersConfig.luau
 Everything the Sisters eye-contact catch shares between client and server: the `Sisters` tag, the `Sisters` remote folder and its `Gaze`/`Gazed` names, the gaze test (`Gaze`: camera range and cone angle, dwell time, the server's extra range slack, the post-warp cooldown, the client's retry delay after a refusal and its reply timeout), the vertigo screen effect numbers (`Vertigo`: lead time before the warp, sting name, shake preset, flash, blur, FOV pull, colour drain, release and stop timings, ring count/stagger/scale/stroke) and the ceiling warp length (`Warp.Duration`, 30 seconds like the Gravity Warper).
@@ -269,7 +269,7 @@ Visual definitions for speed-boost aura overlays drawn around the sprint bar, on
 - API: data table — `TimerGap`, `AuraInset`, `AuraCorner`, `Boosts` (`Soda`, `Energy Drink`)
 
 ### SprintConfig.luau
-Speed multiplier, stamina economy, camera FOV blend, input bindings and stamina-bar styling for the sprint system.
+Speed multiplier, stamina economy, camera FOV blend, input bindings, bounded touch-button text and viewport-based stamina-bar scaling for the sprint system.
 - API: data table — `SpeedMultiplier`, `Stamina`, `Camera`, `Input`, `UI`
 
 ### StalkerCameraConfig.luau
@@ -296,8 +296,12 @@ Per-tool settings keyed by tool name, giving each tool its CollectionService tag
 - Player oddity entries use `OddityKind`, optional `OddityOverrides`, or `OddityChoices` for the random four-effect item. `Shovel.HoleImmunityDuration` sets the six-second immunity granted when entering a hole.
 
 ### TopbarConfig.luau
-Which interface pages get a TopbarPlus icon (Index, Rooms, Gems, Gallery in that order; the Rooms icon currently reuses the Index image), and how those icons look.
-- API: data table -- `PageGroup`, `Alignment`, `ImageScale`, `Icons` (ordered `{ PageId, Name, Label, Image, Order }` entries; `PageId` keys into `InterfaceService`'s pages)
+Which interface pages get a TopbarPlus icon (Index, Rooms, Gems, Gallery in that order; the Rooms icon currently reuses the Index image), how those icons look and the viewport width below which their text labels hide.
+- API: data table -- `PageGroup`, `Alignment`, `ImageScale`, `CompactWidth`, `Icons` (ordered `{ PageId, Name, Label, Image, Order }` entries; `PageId` keys into `InterfaceService`'s pages)
+
+### TopHUDConfig.luau
+Currency roll timing, coin and gem flash colours, danger meter tiers and the width-and-height reference size used to scale the top-centre HUD on small screens.
+- API: data table -- `Gui`, `ReferenceWidth`, `ReferenceHeight`, `MinScale`, `MaxScale`, `Currencies`, `Roll`, `Danger`; exports type `Tier`
 
 ### ViewmodelConfig.luau
 Placement, scale, sway/bob and per-tool orientation overrides for the first-person viewmodel and its fake arm. `Overrides.Camera` anchors the tripod by its handle, while `Overrides["Walkie Talkie"]` separately positions the radio and fake hand with `Anchor` and `ArmAnchor`, then scales and rolls the radio so its screen stays visible. An override may also carry `Poses` — variants selected by `ViewmodelService:SetPose` and blended in at `PoseSpeed`. A pose offsets the base (`AnchorOffset`/`ArmAnchorOffset`/`RotateOffset`), replaces it (`Anchor`/`ArmAnchor`/`Rotate`), or declares `Framing` (`Part`, `Element`, `Coverage`) and is solved from the rig's geometry instead. The walkie defines `Talk`, which offsets the base so hand tuning carries into it, and `Raised`, which is framed on the screen's `Main` element so it stays centred and square whatever the base pose and scale are.
