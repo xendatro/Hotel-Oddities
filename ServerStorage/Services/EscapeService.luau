@@ -12,6 +12,7 @@ local EscapeService = {}
 local STORE_NAME = (if RunService:IsStudio() then EscapeConfig.OrderedStore.StudioPrefix else "")
 	.. EscapeConfig.OrderedStore.Name
 local Store = DataStoreService:GetOrderedDataStore(STORE_NAME)
+local LeaderboardStore = DataStoreService:GetOrderedDataStore(EscapeConfig.OrderedStore.Name)
 local Stats: { [Player]: IntValue } = {}
 local awarded = Instance.new("BindableEvent")
 
@@ -79,7 +80,7 @@ function EscapeService:Award(player: Player): number?
 end
 
 function EscapeService:GetTop(count: number): { { UserId: number, Escapes: number } }?
-	local ok, pages = pcall(Store.GetSortedAsync, Store, false, count)
+	local ok, pages = pcall(LeaderboardStore.GetSortedAsync, LeaderboardStore, false, count)
 	if not ok then
 		warn(`EscapeService: failed to read the escape leaderboard: {pages}`)
 		return nil
