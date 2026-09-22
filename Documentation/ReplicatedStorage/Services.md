@@ -133,7 +133,7 @@ Shared client/server helper for the common "is this player's character usable ri
 - API: `CharacterService.CleanupOnLeave(map: { [Player]: any }) -> RBXScriptConnection` — clears the player's entry from a table on `PlayerRemoving`
 
 ### ChaseMusicService.luau
-Client-only, gated on `FLAGS.Enemies`. For every streamed-in tagged enemy that has a chase target, looks up its layered music entry in `ChaseMusicConfig`, and cross-fades the corresponding looping 2D tracks by proximity to the camera. Warns once per template name that is missing from `ReplicatedStorage.Sounds` and then stays silent.
+Client-only, gated on `FLAGS.Enemies`. For every streamed-in tagged enemy that has a chase target, looks up its layered music entry in `ChaseMusicConfig`, and cross-fades the corresponding looping 2D tracks by proximity to the camera. A template can name one sound or a folder; for a folder, it plays every descendant `AudioEmitter` together and fades them as one track. Warns once per template name with no playable source in `ReplicatedStorage.Sounds` and then stays silent.
 - API: no public methods — runs entirely from its Heartbeat connection.
 - Tags: reads `Enemy`
 - Requires: `Configs.ChaseMusicConfig`, `CharacterService`, `MathService`, `TagService`, `AudioService`

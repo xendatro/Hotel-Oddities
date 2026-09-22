@@ -32,7 +32,7 @@ Client gating and placement for the Chaos warning ambience: how often to re-eval
 - API: data table — `CheckInterval`, `AmbienceBus`, `AmbienceFolder`, `IncomingSound`, `RedHearingRange`, `RedFadeBand`, `RedReleaseRate`, `StingLifetime`, `FadeInSpeed`, `FadeOutSpeed`, `AnchorLerpSpeed`, `AnchorSnapDistance`, `ReleaseDelay`, `GainSnap`
 
 ### ChaseMusicConfig.luau
-Per-enemy chase music tracks with range, volume and fade rates.
+Per-enemy chase music templates with range, volume and fade rates. A template can name one sound or a folder of `AudioEmitter` instances, all of which play together.
 - API: data table — `FadeInSpeed`, `FadeOutSpeed`, `Enemies` (Chaser, CeilingDweller, Mimic)
 
 ### ChaserCameraConfig.luau

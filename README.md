@@ -114,7 +114,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\ChaosLightService.luau — Turns tagged floor lights red while the server-set ChaosRed attribute is on, re-reddens lights that stream back in, and clears each one the instant Chaos passes it rather than on the server's timer.
 - ReplicatedStorage\Services\ChaosWarningSoundService.luau — Plays hallway ambience and an incoming sting whenever a red Chaos lamp is within RedHearingRange of you, from a source on the warned hallway's centre line that follows you along it, with volume left entirely to the emitters' authored rolloff.
 - ReplicatedStorage\Services\CharacterService.luau — Shared nil-safe helpers for humanoids, alive root parts, streamed-in model pivots and player lifecycle cleanup.
-- ReplicatedStorage\Services\ChaseMusicService.luau — Cross-fades layered chase music by proximity to enemies that are hunting.
+- ReplicatedStorage\Services\ChaseMusicService.luau — Cross-fades layered chase music by proximity to hunting enemies; named folders play all descendant audio emitters together.
 - ReplicatedStorage\Services\ChaserCameraService.luau — Drives chase FOV pushes and per-enemy camera rumble, plus vent-open and scream reactions and the Mad Guest's chase sting, proximity FOV and footstep thuds, clearing chase FOV state on death.
 - ReplicatedStorage\Services\CommunicationService.luau — Shared accessor for the ReplicatedStorage.Communication remote folders.
 - ReplicatedStorage\Services\ComputerHUDService.luau — Drives the right-side computer notepad: one tinted row per chip colour, ticked and struck through as each computer is hacked.
@@ -306,7 +306,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\CaptureConfig.luau — Camcorder timing and stop key, gallery access rules, capture date formats and capture-flow strings; visual settings live in StarterGui.
 - ReplicatedStorage\Configs\ChaosLightConfig.luau — Red hallway-light warning settings for the Chaos enemy, plus how the client detects Chaos passing a lamp.
 - ReplicatedStorage\Configs\ChaosWarningConfig.luau — Client gating, placement and sound routing for the Chaos warning ambience.
-- ReplicatedStorage\Configs\ChaseMusicConfig.luau — Per-enemy chase music tracks, ranges and fades.
+- ReplicatedStorage\Configs\ChaseMusicConfig.luau — Per-enemy chase music templates (single sounds or folders of audio emitters), ranges and fades.
 - ReplicatedStorage\Configs\ChaserCameraConfig.luau — Chase camera FOV changes, per-enemy shake profiles and the Mad Guest's sting, proximity FOV and footstep stomp tuning.
 - ReplicatedStorage\Configs\ComputerAssets.luau — Image asset ids for the hackable-computer UI.
 - ReplicatedStorage\Configs\ComputerConfig.luau — Hackable computer objective: interaction, camera, screen and HUD settings.
