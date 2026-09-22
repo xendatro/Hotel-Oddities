@@ -81,7 +81,7 @@ Server tool that restores health on activation. Consumes one unit from the inven
 - Requires: `ServerStorage.Classes.ServerTool`; `ToolConfigs[toolName].HealAmount` / `.Sound`
 
 ### FixtureFall.luau
-Prop oddity that unanchors a fixture so it falls: it welds every part to the largest one, moves them to a non-colliding group, and remembers original CFrames/collision groups so `OnStop` can restore them exactly. Also provides the shared "is it safe to fix yet" test used by repair interactions (ground timer, player distance, and nobody looking).
+Prop oddity that unanchors a fixture so it falls: it welds every part to the largest one, moves them to a non-colliding group, and remembers original CFrames/collision groups so `OnStop` can restore them exactly. After release, it plays the configured 3D sound once when a part hits an upward-facing surface at its bottom. It disconnects the touch listeners on impact or restore. Also provides the shared "is it safe to fix yet" test used by repair interactions (ground timer, player distance, and nobody looking).
 - API: `FixtureFall.new(config: { [string]: any }?, class: any?) -> self`
 - API: `FixtureFall:OnStart() -> boolean` — drops the fixture; false if there are no parts or the model is already `OddityBusy`.
 - API: `FixtureFall:OnStop()` — destroys welds, re-anchors and restores every part, clears `OddityBusy`.
@@ -89,8 +89,8 @@ Prop oddity that unanchors a fixture so it falls: it welds every part to the lar
 - API: `FixtureFall.DescribeNotFixed(oddity, pivot: Vector3, gazeTarget, timerLabel: string, gazeIgnore: { Instance }?) -> string?` — reusable reason string, or nil when fixable.
 - API: `FixtureFall:WhyNotFixed() -> string?` — the above applied to this model.
 - API: `FixtureFall:IsReadyToFix() -> boolean`
-- Requires: `ServerStorage.Classes.PropOddity`, `ServerStorage.Services.GazeService`; optional subclass hooks `OnFall`, `OnLoose`, `OnRestore`
-- Notes: settings read via `Oddity:Setting` — `CollisionGroup`, `MinGroundTime`, `FixClearDistance`, `FixViewCone`, `FixViewDistance`
+- Requires: `ServerStorage.Classes.PropOddity`, `ServerStorage.Services.GazeService`, `ReplicatedStorage.Services.AudioService`; optional subclass hooks `OnFall`, `OnLoose`, `OnRestore`
+- Notes: settings read via `Oddity:Setting` — `CollisionGroup`, `MinGroundTime`, `FixClearDistance`, `FixViewCone`, `FixViewDistance`; `ImpactSound` names the 3D sound template.
 
 ### FixturePool.luau
 Class that keeps a rolling set of tagged hallway fixture models "armed" near living players, drops one as an oddity when a player walks back toward it after leaving the arm radius, and stops the oddity once it is ready to be fixed. Only runs its heartbeat loop if `OddityService:IsEnabled` for the class's scope; all distances and chances come from the owning class's `Settings`.

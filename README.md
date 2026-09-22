@@ -353,7 +353,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\PhotoConfig.luau — Placement, countdown, lens, ShadowFigure, capture, despawn and film animation timing for the tripod camera; film layout lives in StarterGui.
 - ReplicatedStorage\Configs\PlayerLocatorConfig.luau — Marker layout, screen-space focus range, focus animation and palette for the Player Locator tool.
 - ReplicatedStorage\Configs\PlayerOddityConfig.luau — Roll timings and effect weights for whole-character size, head-size, transparency and head-stare player oddities.
-- ReplicatedStorage\Configs\PropOddityConfig.luau — Per-effect tuning for falling lanterns, falling paintings and the painting dweller; painting-dweller fixture debug highlights are disabled.
+- ReplicatedStorage\Configs\PropOddityConfig.luau — Per-effect tuning for falling lanterns, falling paintings and the painting dweller; both falling fixtures use `ObjectFalling` on impact, and painting-dweller fixture debug highlights are disabled.
 - ReplicatedStorage\Configs\ResetComputersConfig.luau — Lobby reset-computers terminal: tag, remote, confirm page names, prompt and hold seconds, server reach and cooldown, and the notice timings.
 - ReplicatedStorage\Configs\RoomsIndexConfig.luau — Rooms index page settings, locked strings, animation and one entry per point of interest with its name and blurb; the photo is the room's badge icon.
 - ReplicatedStorage\Configs\ShopkeeperConfig.luau — Shopkeeper NPC tag, reach, input bindings and prompt UI styling.
@@ -508,7 +508,7 @@ become Services or Classes.
 - ServerStorage\Classes\CrossingPool.luau — Keeps sampled hallway crossing points armed near players and starts an oddity there on approach.
 - ServerStorage\Classes\NPC.luau — Full humanoid-enemy base: pathfinding, pursuit that walks the hallway graph while a path computes, joins paths computed while moving and force-charges the straight line with no floor check when nothing else can move it, sight and observation checks, targeting, and shared Idle/Wander/Patrol states, including the patrol stall watchdog that despawns an NPC stuck in place for 20 seconds while it should be walking.
 - ServerStorage\Classes\Healer.luau — Server tool that consumes a charge and heals the holder.
-- ServerStorage\Classes\FixtureFall.luau — Prop oddity that unanchors and drops a fixture, with the shared "safe to repair yet" test and exact restore.
+- ServerStorage\Classes\FixtureFall.luau — Prop oddity that unanchors and drops a fixture, plays its configured 3D sound once on floor impact, and provides the shared "safe to repair yet" test and exact restore.
 - ServerStorage\Classes\HallwayOddity.luau — Base class for map-scope oddities that occupy a hallway span.
 - ServerStorage\Classes\LeaderboardBoard.luau — Lays the LeaderboardUI design out as a SurfaceGui on any part face and fills its rows with headshots, names and escape counts.
 - ServerStorage\Classes\ServerTool.luau — Server-side tool base class; ToolBase plus inventory consumption.

@@ -38,6 +38,7 @@ return {
 			PollInterval = 0.2,
 
 			CollisionGroup = "FallenProp",
+			ImpactSound = "ObjectFalling",
 
 			DebugHighlight = false,
 
@@ -67,6 +68,7 @@ return {
 			FixViewDistance = 160,
 			PollInterval = 0.2,
 			CollisionGroup = "FallenProp",
+			ImpactSound = "ObjectFalling",
 
 			ShoveSpeed = 14,
 			ShoveLift = 4,
