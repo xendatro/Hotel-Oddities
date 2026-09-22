@@ -611,4 +611,6 @@ Maze room door tags, including the `DoorPart` tags on the upside-down rooms' lea
 
 Dollhouse connector room miniature scales and drawer tags: `Documentation/Workspace/DollhouseConnectorRoom.md`.
 
+Rotunda connector room segment naming, the merged wallpaper columns and their backup: `Documentation/Workspace/RotundaConnectorRoom.md`.
+
 Baked oddity POIs (The Hole, Glitched Hallway, once called Invisible Hallway), their backups under `ServerStorage.POIBackups` and how to revert them: `Documentation/Workspace/POIHallways.md`.
