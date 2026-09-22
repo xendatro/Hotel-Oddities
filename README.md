@@ -460,7 +460,7 @@ become Services or Classes.
 - ServerStorage\Services\KitShopService.luau — Buying a named kit outright for its rarity's gem price; logs `KitPurchased`.
 - ServerStorage\Services\LanternFallService.luau — Fixture pool that arms lanterns and drops one when a player approaches.
 - ServerStorage\Services\LanternSwingCommandService.luau — /lantern swing command that flags the nearest swayable lantern red for a duration.
-- ServerStorage\Services\LeaderboardService.luau — Builds the lobby escape leaderboard SurfaceGui from the Studio-authored LeaderboardUI and refreshes its top four from the ordered store every 60 seconds.
+- ServerStorage\Services\LeaderboardService.luau — Builds the lobby escape leaderboard SurfaceGui from the Studio-authored LeaderboardUI and refreshes its top four from the canonical ordered store every 60 seconds.
 - ServerStorage\Services\LightService.luau — Central control of every tagged light model: reference-counted radius, box and hallway blackout claims plus flicker effects.
 - ServerStorage\Services\LoadoutService.luau — Captures and restores a player's tools, quantities and attributes across inventory wipes.
 - ServerStorage\Services\LookService.luau — Stores clamped client camera pitch/yaw on characters and mirrors it onto mimic enemies.
