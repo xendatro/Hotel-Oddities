@@ -63,6 +63,10 @@ local function render(deltaTime: number)
 	local state = characterState
 	local camera = workspace.CurrentCamera
 	if not state or not camera then return end
+	if camera.CameraType == Enum.CameraType.Scriptable then
+		weight = 0
+		return
+	end
 
 	local velocity = state.Root.AssemblyLinearVelocity
 	local horizontalSpeed = MathService.HorizontalMagnitude(velocity)

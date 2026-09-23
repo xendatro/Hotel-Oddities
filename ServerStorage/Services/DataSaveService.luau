@@ -28,6 +28,7 @@ local PROFILE_TEMPLATE = {
 	WalkieMode = "All",
 
 	OnboardingStep = 0,
+	IntroVersion = 0,
 
 	DiscoveredEnemies = {},
 	DiscoveredMap = {},

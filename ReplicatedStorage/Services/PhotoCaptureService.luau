@@ -1,7 +1,6 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local StarterGui = game:GetService("StarterGui")
 local TweenService = game:GetService("TweenService")
 
 local PhotoCaptureService = {}
@@ -10,25 +9,26 @@ if not RunService:IsClient() then
 	return PhotoCaptureService
 end
 
+local IntroCutsceneConfig = require(ReplicatedStorage.Configs.IntroCutsceneConfig)
 local PhotoConfig = require(ReplicatedStorage.Configs.PhotoConfig)
 local CaptureGalleryService = require(ReplicatedStorage.Services.CaptureGalleryService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local InterfaceHideService = require(ReplicatedStorage.Services.InterfaceHideService)
 local NotificationService = require(ReplicatedStorage.Services.NotificationService)
 local PhotoDevelopService = require(ReplicatedStorage.Services.PhotoDevelopService)
 
 local Snap = CommunicationService.Get("Photo", "Snap")
 
 local BIND_NAME = "PhotoCaptureCamera"
-local CORE_TYPES = {}
-for _, coreType in Enum.CoreGuiType:GetEnumItems() do
-	if coreType ~= Enum.CoreGuiType.All then
-		table.insert(CORE_TYPES, coreType)
-	end
-end
+local INTRO_ATTRIBUTE = IntroCutsceneConfig.PlayingAttribute
 
 local player = Players.LocalPlayer
 local busy = false
 local flash: Frame? = nil
+
+local function introPlaying(): boolean
+	return player:GetAttribute(INTRO_ATTRIBUTE) == true
+end
 
 local function getFlash(): Frame
 	if flash and flash.Parent then return flash end
@@ -39,55 +39,6 @@ local function getFlash(): Frame
 	local frame = gui:WaitForChild("Flash", 10) :: Frame
 	flash = frame
 	return frame
-end
-
-type HiddenGui = { Gui: LayerCollector, Parent: Instance, Enabled: boolean, Detached: boolean }
-
-local function hideInterface(): (() -> (), () -> ())
-	local hidden: { HiddenGui } = {}
-	for _, gui in player.PlayerGui:GetDescendants() do
-		if gui:IsA("LayerCollector") and gui.Parent then
-			table.insert(hidden, { Gui = gui, Parent = gui.Parent, Enabled = gui.Enabled, Detached = false })
-			gui.Enabled = false
-		end
-	end
-
-	local core: { [Enum.CoreGuiType]: boolean } = {}
-	for _, coreType in CORE_TYPES do
-		local ok, enabled = pcall(StarterGui.GetCoreGuiEnabled, StarterGui, coreType)
-		if ok and enabled then
-			core[coreType] = true
-			pcall(StarterGui.SetCoreGuiEnabled, StarterGui, coreType, false)
-		end
-	end
-	pcall(StarterGui.SetCore, StarterGui, "TopbarEnabled", false)
-
-	local function hold()
-		for _, entry in hidden do
-			if entry.Detached or not entry.Gui.Parent then continue end
-			if entry.Gui.Enabled then
-				entry.Gui.Enabled = false
-				entry.Gui.Parent = nil
-				entry.Detached = true
-			end
-		end
-	end
-
-	return hold, function()
-		for _, entry in hidden do
-			if entry.Detached and entry.Parent.Parent then
-				entry.Gui.Parent = entry.Parent
-				entry.Detached = false
-			end
-			if entry.Gui.Parent then
-				entry.Gui.Enabled = entry.Enabled
-			end
-		end
-		for coreType in core do
-			pcall(StarterGui.SetCoreGuiEnabled, StarterGui, coreType, true)
-		end
-		pcall(StarterGui.SetCore, StarterGui, "TopbarEnabled", true)
-	end
 end
 
 local function showSelf(): (() -> (), () -> ())
@@ -242,7 +193,7 @@ local function capture(): (CaptureGalleryService.Media?, string?)
 end
 
 function PhotoCaptureService:Take(lens: CFrame, fieldOfView: number, figure: CFrame?, figureName: string?)
-	if busy then return end
+	if busy or introPlaying() then return end
 	busy = true
 
 	local settings = PhotoConfig.Capture
@@ -252,6 +203,14 @@ function PhotoCaptureService:Take(lens: CFrame, fieldOfView: number, figure: CFr
 		BackgroundTransparency = 0,
 	}):Play()
 	task.wait(settings.FlashIn + settings.FlashHold)
+
+	if introPlaying() then
+		TweenService:Create(sheet, TweenInfo.new(settings.FlashOut, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			BackgroundTransparency = 1,
+		}):Play()
+		busy = false
+		return
+	end
 
 	local holdInterface: (() -> ())? = nil
 	local restoreInterface: (() -> ())? = nil
@@ -271,7 +230,7 @@ function PhotoCaptureService:Take(lens: CFrame, fieldOfView: number, figure: CFr
 			waitForFrame(settings.FrameTimeout)
 		end
 
-		holdInterface, restoreInterface = hideInterface()
+		holdInterface, restoreInterface = InterfaceHideService.Capture()
 		restoreViewmodel = hideViewmodel()
 
 		for _ = 1, settings.HoldFrames do

@@ -14,6 +14,7 @@ local OBSERVABLE_TAG = "Observable"
 local EnemyObservationService = {}
 
 if not FLAGS.Enemies then
+	function EnemyObservationService:SetSuspended(_key: string, _suspended: boolean) end
 	return EnemyObservationService
 end
 
@@ -25,10 +26,13 @@ local localPlayer = Players.LocalPlayer
 local accumulator = REPORT_INTERVAL
 local lastSentAt = -math.huge
 local pending = false
+local suspensions: { [string]: true } = {}
+local suspendedReportPending = false
 
 local Overrides: { [Model]: boolean } = {}
 local ObservableModels: { Model } = {}
 local ObservableIndices: { [Model]: number } = {}
+local NO_MODELS: { Model } = {}
 
 local function addObservable(instance: Instance)
 	if not instance:IsA("Model") or ObservableIndices[instance] then return end
@@ -71,7 +75,8 @@ local function send(force: boolean?)
 
 	table.clear(observed)
 	local changed = false
-	for _, model in ObservableModels do
+	local candidates = if next(suspensions) then NO_MODELS else ObservableModels
+	for _, model in candidates do
 		local override = Overrides[model]
 		local seen = if override ~= nil then override else Sightline.CanSee(camera, frustum, character, model)
 		if seen then
@@ -112,6 +117,7 @@ local function send(force: boolean?)
 
 	lastSentAt = os.clock()
 	pending = false
+	suspendedReportPending = false
 
 	UpdateView:FireServer(observed, position, look, fogStart, fogEnd)
 end
@@ -121,6 +127,7 @@ function EnemyObservationService:SetSeen(model: Model, seen: boolean?)
 end
 
 function EnemyObservationService:Report()
+	if next(suspensions) then return end
 	if os.clock() - lastSentAt < ObservedFreezeConfig.MinReportGap then
 		pending = true
 		return
@@ -128,8 +135,31 @@ function EnemyObservationService:Report()
 	send(true)
 end
 
+function EnemyObservationService:SetSuspended(key: string, suspended: boolean)
+	local wasSuspended = next(suspensions) ~= nil
+	suspensions[key] = if suspended then true else nil
+	local isSuspended = next(suspensions) ~= nil
+	if isSuspended == wasSuspended then return end
+
+	if isSuspended then
+		pending = false
+		suspendedReportPending = true
+		return
+	end
+
+	suspendedReportPending = false
+	self:Report()
+end
+
 RunService.RenderStepped:Connect(function(deltaTime: number)
 	if not localPlayer.Character then return end
+
+	if next(suspensions) then
+		if suspendedReportPending and os.clock() - lastSentAt >= ObservedFreezeConfig.MinReportGap then
+			send(true)
+		end
+		return
+	end
 
 	if pending and os.clock() - lastSentAt >= ObservedFreezeConfig.MinReportGap then
 		send(true)

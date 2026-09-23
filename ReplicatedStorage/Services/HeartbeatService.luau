@@ -11,6 +11,12 @@ local TagService = require(ReplicatedStorage.Services.TagService)
 
 local HeartbeatService = {}
 
+local suppressions: { [string]: true } = {}
+
+function HeartbeatService:SetSuppressed(key: string, on: boolean)
+	suppressions[key] = if on then true else nil
+end
+
 if not RunService:IsClient() or not FLAGS.Enemies then
 	return HeartbeatService
 end
@@ -31,6 +37,7 @@ local function isHeartbeatEnemy(instance: Instance): boolean
 end
 
 local function getNearness(): (number, boolean)
+	if next(suppressions) then return 0, false end
 	local root = CharacterService.GetAliveRoot(localPlayer)
 	if not root then return 0, false end
 

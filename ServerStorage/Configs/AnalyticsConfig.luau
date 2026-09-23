@@ -42,6 +42,7 @@ return {
 		KitRolled = { Name = "KitRolled", Fields = { "Kit", "Rarity", "Duplicate" } },
 		Revived = { Name = "Revived", Fields = { "Source" } },
 		PlayerOddity = { Name = "PlayerOddity", Fields = { "Kind" } },
+		IntroCutscene = { Name = "IntroCutscene", Fields = { "Outcome", "Trigger" } },
 	} :: { [string]: Event },
 
 	Encounter = {

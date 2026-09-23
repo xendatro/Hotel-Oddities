@@ -39,10 +39,11 @@ local crouched = false
 local weight = 0
 local touchButton: TextButton? = nil
 local touchStroke: UIStroke? = nil
+local blocks: { [string]: true } = {}
 
 local function canCrouch(): boolean
 	local state = characterState
-	return state ~= nil and state.Humanoid.Health > 0
+	return state ~= nil and state.Humanoid.Health > 0 and next(blocks) == nil
 end
 
 local function paintTouchButton()
@@ -148,6 +149,20 @@ end
 
 function CrouchService:Stand()
 	setCrouched(false)
+end
+
+function CrouchService:SetCrouched(value: boolean)
+	setCrouched(value)
+end
+
+function CrouchService:SetBlocked(key: string, blocked: boolean)
+	blocks[key] = if blocked then true else nil
+	if touchButton then
+		touchButton.Visible = next(blocks) == nil
+	end
+	if blocked then
+		self:Stand()
+	end
 end
 
 local function unbindCharacter()

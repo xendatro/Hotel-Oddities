@@ -11,6 +11,8 @@ if not RunService:IsClient() then
 	return VoiceActivityService
 end
 
+local INCOMING_SWEEP_INTERVAL = 0.25
+
 local player = Players.LocalPlayer
 local VoiceActivity = CommunicationService.Get("WalkieTalkie", "VoiceActivity") :: RemoteEvent
 local analyzerConnection: RBXScriptConnection?
@@ -21,10 +23,16 @@ local lastActivitySentAt = -math.huge
 local voiceCutoffActive = false
 local voiceMuteGroup = `VoiceDead_{player.UserId}`
 local mutedVoiceEmitters: { [AudioEmitter]: string } = {}
+local incomingMutes: { [string]: true } = {}
+local incomingConnections: { [string]: RBXScriptConnection } = {}
+
+local function isIncomingMuted(): boolean
+	return voiceCutoffActive or next(incomingMutes) ~= nil
+end
 
 local function muteRemoteVoiceEmitter(instance: Instance)
 	local character = player.Character
-	if not voiceCutoffActive
+	if not isIncomingMuted()
 		or not instance:IsA("AudioEmitter")
 		or instance.Name ~= "AudioEmitter"
 		or (character and instance:IsDescendantOf(character))
@@ -38,10 +46,11 @@ local function muteRemoteVoiceEmitter(instance: Instance)
 	instance.AudioInteractionGroup = voiceMuteGroup
 end
 
-local function refreshMutedVoiceEmitters()
+local function refreshMutedVoiceEmitters(onlyNew: boolean?)
 	for _, other in Players:GetPlayers() do
 		if other == player or not other.Character then continue end
 		for _, descendant in other.Character:GetDescendants() do
+			if onlyNew and mutedVoiceEmitters[descendant :: any] ~= nil then continue end
 			muteRemoteVoiceEmitter(descendant)
 		end
 	end
@@ -143,8 +152,63 @@ local function setVoiceCutoff(active: boolean)
 		stopAnalyzer()
 		refreshMutedVoiceEmitters()
 	else
-		restoreMutedVoiceEmitters()
+		if next(incomingMutes) == nil then
+			restoreMutedVoiceEmitters()
+		end
 		startAnalyzer()
+	end
+end
+
+local function isRemoteCharacterDescendant(instance: Instance): boolean
+	for _, other in Players:GetPlayers() do
+		local character = other.Character
+		if other ~= player and character and instance:IsDescendantOf(character) then
+			return true
+		end
+	end
+	return false
+end
+
+local function stopIncomingWatch()
+	for _, connection in incomingConnections do
+		connection:Disconnect()
+	end
+	table.clear(incomingConnections)
+end
+
+local function startIncomingWatch()
+	stopIncomingWatch()
+
+	local elapsed = 0
+	incomingConnections.Sweep = RunService.Heartbeat:Connect(function(deltaTime: number)
+		elapsed += deltaTime
+		if elapsed < INCOMING_SWEEP_INTERVAL then return end
+		elapsed = 0
+		refreshMutedVoiceEmitters(true)
+	end)
+	incomingConnections.Added = workspace.DescendantAdded:Connect(function(descendant: Instance)
+		if descendant.Name ~= "AudioEmitter" or not descendant:IsA("AudioEmitter") then return end
+		if mutedVoiceEmitters[descendant] == nil and isRemoteCharacterDescendant(descendant) then
+			muteRemoteVoiceEmitter(descendant)
+		end
+	end)
+end
+
+function VoiceActivityService:SetIncomingMuted(key: string, muted: boolean)
+	local wasMuted = next(incomingMutes) ~= nil
+	incomingMutes[key] = if muted then true else nil
+	local isMuted = next(incomingMutes) ~= nil
+	if isMuted == wasMuted then return end
+
+	if isMuted then
+		startIncomingWatch()
+		refreshMutedVoiceEmitters(true)
+		return
+	end
+
+	stopIncomingWatch()
+	if not voiceCutoffActive then
+		restoreMutedVoiceEmitters()
 	end
 end
 
@@ -187,7 +251,7 @@ player.ChildRemoved:Connect(function(child)
 end)
 
 Players.DescendantAdded:Connect(function(descendant)
-	if voiceCutoffActive then muteRemoteVoiceEmitter(descendant) end
+	if isIncomingMuted() then muteRemoteVoiceEmitter(descendant) end
 end)
 
 player.CharacterAdded:Connect(function(character)

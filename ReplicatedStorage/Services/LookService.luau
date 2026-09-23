@@ -15,6 +15,7 @@ end
 
 local PITCH_ATTRIBUTE = "LookPitch"
 local YAW_ATTRIBUTE = "LookYaw"
+local SUSPENDED_RESEND = 0.5
 
 local player = Players.LocalPlayer
 
@@ -22,6 +23,8 @@ local Update = CommunicationService.Get("Look", "Update") :: RemoteEvent
 
 local lastSentPitch, lastSentYaw = 0, 0
 local nextSendAt = 0
+local suspensions: { [string]: true } = {}
+local suspendedSentAt = -math.huge
 
 function LookService.Local(root: BasePart?): (number, number)
 	local camera = workspace.CurrentCamera
@@ -47,6 +50,15 @@ local function report()
 	if now < nextSendAt then return end
 	nextSendAt = now + LookConfig.SendInterval
 
+	if next(suspensions) then
+		if lastSentPitch ~= 0 or lastSentYaw ~= 0 or now - suspendedSentAt >= SUSPENDED_RESEND then
+			lastSentPitch, lastSentYaw = 0, 0
+			suspendedSentAt = now
+			Update:FireServer(0, 0)
+		end
+		return
+	end
+
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	if not root or not root:IsA("BasePart") or not workspace.CurrentCamera then return end
@@ -60,6 +72,10 @@ local function report()
 	end
 	lastSentPitch, lastSentYaw = pitch, yaw
 	Update:FireServer(pitch, yaw)
+end
+
+function LookService:SetSuspended(key: string, suspended: boolean)
+	suspensions[key] = if suspended then true else nil
 end
 
 type Applied = {

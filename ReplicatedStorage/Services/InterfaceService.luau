@@ -256,6 +256,7 @@ CollectionService:GetInstanceAddedSignal("InterfaceCloseButton"):Connect(wireClo
 
 local blurTween: Tween? = nil
 local interfaceOpen = false
+local closingUntil = 0
 
 local function tweenEffects(open: boolean)
 	if interfaceOpen == open then return end
@@ -293,6 +294,7 @@ controller.Fired:Connect(function(data)
 	end
 
 	if inactiveGui and inactiveGui ~= activeGui then
+		closingUntil = math.max(closingUntil, os.clock() + CLOSE_TIME + 0.2)
 		task.delay(CLOSE_TIME + 0.04, function()
 			if controller.Active ~= inactiveId then
 				inactiveGui.Enabled = false
@@ -383,9 +385,19 @@ function InterfaceService:IsMouseUnlocked(): boolean
 	return mouseUnlocked
 end
 
+function InterfaceService:IsMouseUnlockForced(): boolean
+	return mouseUnlockForced
+end
+
+local quickUnlockBlocks: { [string]: true } = {}
+
+function InterfaceService:SetQuickUnlockBlocked(key: string, blocked: boolean)
+	quickUnlockBlocks[key] = if blocked then true else nil
+end
+
 UserInputService.InputBegan:Connect(function(input: InputObject)
 	if input.KeyCode ~= Enum.KeyCode.Q then return end
-	if interfaceOpen or mouseUnlockForced then return end
+	if interfaceOpen or mouseUnlockForced or next(quickUnlockBlocks) then return end
 	InterfaceService:SetMouseUnlocked(not mouseUnlocked)
 end)
 
@@ -430,6 +442,11 @@ end
 
 function InterfaceService:GetActive(): string?
 	return controller.Active
+end
+
+function InterfaceService:IsSettled(): boolean
+	local active = controller.Active
+	return (active == nil or active == "") and os.clock() >= closingUntil
 end
 
 player:GetAttributeChangedSignal(MAP_ATTRIBUTE):Connect(function()

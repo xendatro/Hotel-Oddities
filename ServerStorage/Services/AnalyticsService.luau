@@ -112,13 +112,13 @@ function AnalyticsService:LogStep(player: Player, stepId: string)
 	logOnboarding(player, step)
 end
 
-function AnalyticsService:LogEvent(player: Player, eventId: string, value: number?, fields: { [string]: any }?)
+function AnalyticsService:LogEvent(player: Player, eventId: string, value: number?, fields: { [string]: any }?, leaving: boolean?)
 	local event = AnalyticsConfig.Events[eventId]
 	if not event then
 		warn(`[analytics] no custom event named "{eventId}"`)
 		return
 	end
-	if not recording() or player.Parent == nil then return end
+	if not recording() or (player.Parent == nil and not leaving) then return end
 
 	local custom = customFields(player, event, fields)
 	local amount = if type(value) == "number" then value else 1

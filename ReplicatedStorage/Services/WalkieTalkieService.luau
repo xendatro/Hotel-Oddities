@@ -47,6 +47,7 @@ local knownDead: { [Player]: boolean } = {}
 local lastRosterOrder: { [Player]: number } = {}
 local lastRosterCount = 0
 local selfLevel = 0
+local incomingMutes: { [string]: true } = {}
 
 type VoiceRoute = {
 	Target: Player,
@@ -286,7 +287,7 @@ local function ensureRadioRoute(sender: Player, output: AudioDeviceOutput)
 	if not source then return end
 	local fader = Instance.new("AudioFader")
 	fader.Name = "WalkieVoiceDistanceVolume"
-	fader.Volume = 1
+	fader.Volume = if next(incomingMutes) then 0 else 1
 	fader.Parent = output
 	local analyzer = Instance.new("AudioAnalyzer")
 	analyzer.Name = "WalkieLevelAnalyzer"
@@ -327,13 +328,14 @@ local function updateRouteVolumes(deltaTime: number)
 	if not listenerPosition then return end
 	local radioLevel = math.max(Config.VoiceVolume, 0)
 	local blend = math.max(Config.ProximityRadioBlend, 0.001)
+	local silenced = next(incomingMutes) ~= nil
 
 	for emitter, route in voiceRoutes do
 		local emitterPosition = getWorldPosition(emitter)
 		if emitterPosition then
 			local directLevel = getProximityAttenuation((emitterPosition - listenerPosition).Magnitude)
 			local radioWeight = math.clamp((radioLevel + blend - directLevel) / (2 * blend), 0, 1)
-			route.Fader.Volume = 1 - radioWeight
+			route.Fader.Volume = if silenced then 0 else 1 - radioWeight
 		end
 	end
 
@@ -346,7 +348,7 @@ local function updateRouteVolumes(deltaTime: number)
 			local directLevel = getProximityAttenuation((emitterPosition - listenerPosition).Magnitude)
 			weight = math.clamp((radioLevel + blend - directLevel) / (2 * blend), 0, 1)
 		end
-		route.Fader.Volume = weight * getPlayerGain(route.Sender)
+		route.Fader.Volume = if silenced then 0 else weight * getPlayerGain(route.Sender)
 
 		levels[route.Sender] = smooth(
 			levels[route.Sender] or 0,
@@ -551,6 +553,10 @@ end
 
 function WalkieTalkieService:SetMuted(target: Player, value: boolean)
 	playerMuted[target.UserId] = if value then true else nil
+end
+
+function WalkieTalkieService:SetIncomingMuted(key: string, muted: boolean)
+	incomingMutes[key] = if muted then true else nil
 end
 
 function WalkieTalkieService:GetPlayerVolume(target: Player): number

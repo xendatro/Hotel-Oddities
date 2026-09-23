@@ -14,6 +14,19 @@ RigMotion subclass that adds a subtle idle breathing offset to a rig's Root, Wai
 - API: `Breathe:RemoveApplied()` — undoes last frame's joint transforms
 - Requires: `Classes.RigMotion`, `Configs.BreatheConfig`, `Services.MathService`
 
+### CameraTrack.luau
+Keyframed camera and grade spline evaluator, built for the intro cutscene but free of it. A track is a list of keyframes `{ Time, ... }`: every other number, `Vector3` or `Color3` field becomes a channel, sampled with a C1-continuous cubic Hermite curve (per-key `Tension` and optional `Tangents`), and a string value names an entry of `options.Anchors`, so keyframes can point at positions computed at run time. `Ease` on a key sets the easing of the segment arriving at it; leave it out for a smooth spline, or use one of the named eases, including `Step`, `Punch` and `Whip`. For a camera, `Position`, `Focus`, `Fov` and `Roll` (degrees) build the frame with `CFrame.lookAt(position, focus)` plus roll, and `Handheld` scales layered `math.noise` shake on yaw, pitch, roll and position; the noise is driven by time, never by frame rate. `SetEntry` layers a decaying spring offset from a live camera state (position, rotation, FOV, velocity and angular velocity) over the track from a given time, so the first frame equals the player's camera and the camera leaves it without a hitch; the offset clears itself once it has settled. Pure maths: creates no instances.
+- API: `CameraTrack.new(keyframes: { Keyframe }, options: { Handheld: HandheldOptions?, FocusDistance: number?, Anchors: { [string]: any }? }?) -> CameraTrack`
+- API: `CameraTrack:Sample(name: string, time: number) -> any?` — one channel at a time, for grade tracks
+- API: `CameraTrack:EvaluateBase(time: number) -> (CFrame, number)` — frame and FOV without handheld or entry blend
+- API: `CameraTrack:Evaluate(time: number, noiseTime: number?) -> (CFrame, number)` — the full frame and FOV
+- API: `CameraTrack:SetEntry(state: { CFrame: CFrame, Fov: number?, Velocity: Vector3?, AngularVelocity: Vector3? }, at: number, rates: { Position: number?, Rotation: number?, Fov: number? }?, noiseTime: number?)` / `:ClearEntry()`
+- API: `CameraTrack:GetAngularSpeed(time: number) -> number` — degrees per second, used for motion blur
+- API: `CameraTrack:GetFocus(frame: CFrame) -> CFrame` — `Camera.Focus` at `FocusDistance` along the look
+- API: `CameraTrack:Destroy()`
+- Exports types `Keyframe`, `HandheldOptions`, `Options`, `EntryState`, `EntryRates`, `CameraTrack`
+- Requires: `Services.MathService` (the named eases other than `Step`, `Punch` and `Whip`, rotation vectors, smoothstep)
+
 ### ClientTool.luau
 Client-side base class for tools, extending ToolBase with limb-reveal in first person, tool animation lookup and stock consumption. Limb reveal is refcounted globally across tools and drives `LocalTransparencyModifier` on a render-step bind.
 - API: `ClientTool.extend(className: string) -> class` — makes a subclass of ClientTool
@@ -126,6 +139,16 @@ One tile in the Gallery grid. Clones the complete Studio-authored `GalleryGui.De
 - API: `GalleryCard:Destroy()`
 - Requires: `Configs.CaptureConfig`, `CaptureGalleryService`; expects the authored gallery card template
 
+### KeyPill.luau
+Drives one Studio-authored key-prompt pill (a `CanvasGroup` shaped like `StarterGui.Cursor.Interact`: `Scale`, `Pill` with `Key.Scale`/`Key.Label`, `Action` and a `Hold` fill, plus a `Hit` button) with the same look and motion as the interaction prompt in `Interaction.luau`, using the `DrawerConfig.UI` constants: fade in 0.1 s and out 0.16 s, scale 0.92 to 1, an 8 px rise, a key-press flash, a hold fill whose width is the hold alpha, and a key cap sized to its label (measured with TextService). While the pill is held, the key cap also tints toward `DrawerConfig.UI.Colors.KeyPressed` by up to 45 % of the hold, in every input mode including gamepad, so the key itself reads as pressed. A dimmed pill fades to 42 % opacity. The key label follows `UserInputService.LastInputTypeChanged` between keyboard and gamepad; on touch-only devices the key cap is hidden and the touch action text shown. A fully hidden pill is set `Visible = false` so its `Hit` button cannot catch taps. Used for the intro cutscene's Skip and Replay pills.
+- API: `KeyPill.new(root: CanvasGroup, options: { KeyboardLabel: string, GamepadLabel: string, Action: string, TouchAction: string? }) -> KeyPill`
+- API: `KeyPill:SetVisible(visible: boolean)`
+- API: `KeyPill:SetAction(text: string, touchText: string?)`
+- API: `KeyPill:SetHold(alpha: number)` / `:Flash()` / `:SetDimmed(dimmed: boolean)`
+- API: `KeyPill:GetHitButton() -> GuiButton?` — hook touch or click activation here
+- API: `KeyPill:Destroy()`
+- Requires: `Configs.DrawerConfig`, `Services.MathService`
+
 ### KitCard.luau
 One kit tile in the inventory or shop grid: clones the GUI's `Template` ImageButton into a layout holder, dresses it with its rarity stroke, rarity ribbon, kit name, status line and dim overlay through `KitVisualService`, fills its portrait through `KitVisualService.FillPortrait` (the kit's `Image` headshot, or its showcase item in the tile's ViewportFrame when it has none), and owns the hover/press/select/deal motion. Used by both kit pages so the two grids cannot drift apart.
 - API: `KitCard.new(template: ImageButton, parent: Instance, kit, order: number, onSelect: (kit) -> ()) -> KitCard`
@@ -135,6 +158,15 @@ One kit tile in the inventory or shop grid: clones the GUI's `Template` ImageBut
 - API: `KitCard:Deal(delay: number)` - drop-in entrance used when a page opens
 - API: `KitCard:Destroy()`
 - Requires: `Configs.KitConfig`, `Services.KitVisualService`
+
+### LocalOverride.luau
+Reversible local property overrides that survive replication. The first `Set` on an instance and property records its current value as the authoritative value and listens with `GetPropertyChangedSignal`; any later change it did not write itself (replication, another script) is taken as a new authoritative value, remembered, and the override is applied again at once. `Release` puts the latest authoritative value back, so a light the server switched on or off during a cutscene ends in the server's state rather than the one recorded at the start. Signals in this place are deferred and written values come back float32-rounded, so it tells its own writes apart by comparing against the value it read back after each write, not with a flag, and `Set` also checks for an outside change whose handler has not run yet. A change that was not processed yet when `Release` runs is left in place. Destroyed instances stop being tracked through `Destroying` and are skipped silently; an unreadable or read-only property warns and is rolled back. Use one LocalOverride per instance and property: two of them on the same property fight each other, so the intro cutscene creates one and hands it to `LightSweep` and `Isolation`. Each tracked instance keeps its own `Connections` table (keyed by property name, plus `Destroying`), built by a local `setUpConnections`, because the set of connections changes at run time. Limitation: when the server sets a property to exactly the value being overridden, the client sees no change event, so `Release` restores the older value; `LightSweep:Restore` corrects this afterwards for lamps the server has switched off.
+- API: `LocalOverride.new() -> LocalOverride`
+- API: `LocalOverride:Set(instance: Instance, property: string, value: any)` — start or update an override; ignored after `Destroy`
+- API: `LocalOverride:Release(instance: Instance, property: string?)` — restore one property, or every overridden property of the instance, and stop tracking
+- API: `LocalOverride:Restore()` — release everything
+- API: `LocalOverride:Destroy()` — `Restore`, then refuse further `Set` calls
+- Requires: nothing
 
 ### LocatorMarker.luau
 Per-player billboard marker for the player locator: headshot bubble, halo, name plate and distance readout, all tweened between an idle and a focused state, plus a character Highlight. Rebinds itself as the player's character spawns, dies and is removed.
@@ -312,6 +344,50 @@ Vendored third-party camera shake library (Sleitnick's CameraShaker); used throu
 Vendored TopbarPlus v3.4.0 (ForeverHD): builds and themes icons on Roblox's topbar, with its own container ScreenGui, caption, dropdown, menu and gamepad support. Not modified in this project. Drive it through `Services.TopbarIconService` rather than constructing directly.
 - API: `Icon.new() -> Icon`, then chainable `:setImage`, `:setLabel`, `:setCaption`, `:setOrder`, `:setImageScale`, `:align`, `:autoDeselect`, `:oneClick`, `:select`, `:deselect`, `:bindEvent`, `:bindToggleKey`, `:destroy`
 - API: `Icon.getIcon(nameOrUID)`, `Icon.setTopbarEnabled(bool)`, `Icon.modifyBaseTheme(modifications)`, `Icon.setDisplayOrder(int)`
+
+## IntroCutscene
+
+Staging classes for `Services.IntroCutsceneService`. All are client-only and config-free: the orchestrator passes every number in through the options table from `IntroCutsceneConfig`. Staged instances are parented to the one client-created `IntroCutsceneStage` Model the orchestrator puts under `workspace`, carry no CollectionService tags, and are anchored and non-colliding, non-queryable, non-touching and shadowless (the Stalker rig anchors only its root). Effects are cloned by name from `ReplicatedStorage.Effects.IntroCutscene`, passed in as `options.Effects`. Every class cleans up on its own if the stage model is destroyed first, but each should still get `:Destroy()`.
+
+### IntroCutscene\StagedStalker.luau
+A local, untagged clone of `ReplicatedStorage.Enemies.Stalker` holding the corner-peek clip's fully leaned-out first frame at `PeekCFrame`, exactly like the server's Peek behaviour. The clone loses its `Enemy` tag, scripts and `Animate`, runs with `EvaluateStateMachine = false` and no display name, and starts hidden, appearing two frames after the animation has loaded and posed. Each frame it breathes (a bob and sway of at most 0.05 studs on a 3.6 s period, relative to `PeekCFrame`) and pulses the red `EyeGlow` halos on `Head.LeftEye`/`Head.RightEye` (0.55x the template size, 0.4 studs toward the camera). The dip sets the clip's time itself every frame from 0.5 to 0.95 rather than playing it, so a hitch can never carry it to the clip's end at 0.983 while visible; the glow fades over the first 0.12 s and a `DarkWisp` puff drifts toward `HiddenCFrame`, then the rig freezes at 0.95 and is hidden. If the track ever stops while visible the rig is hidden at once.
+- API: `StagedStalker.new(options: { Parent: Instance, Template: Model, Effects: Folder?, AnimationId: number, PeekCFrame: CFrame, HiddenCFrame: CFrame, BreathAmplitude: number?, EyeGlowColor: Color3? }) -> StagedStalker`
+- API: `StagedStalker:IsReady() -> boolean` — the track has a length; `:WaitReady(timeout: number) -> boolean` — preloads the Animation with `ContentProvider:PreloadAsync`, then polls
+- API: `StagedStalker:Update(deltaTime: number)` — breathing and glow, timed with `os.clock`
+- API: `StagedStalker:Notice()` — the "it sees you" eye flare; the pose is never touched
+- API: `StagedStalker:DipAsync(duration: number?)` — returns at once and sets `.Dipped = true` when hidden
+- API: `StagedStalker:GetHeadPosition() -> Vector3` / `:GetEyePositions() -> (Vector3, Vector3)` (left, then right)
+- API: `StagedStalker:Destroy()`
+- Fields: `.Model`, `.Dipped`, `.State`, `.Visible`
+- Requires: `Services.MathService`
+
+### IntroCutscene\StagedCreep.luau
+A local, untagged clone of `ReplicatedStorage.Enemies.Creep` with a black Neon backdrop behind it (like `CreepRenderService`'s `CreepBackdrop`), transparent until the eyes open. Roblox cannot squash a cylinder part vertically, so the eyes and pupils are turned into flattened-sphere meshes that close to a slit and are hidden when shut; the whole eye group turns toward the camera at `CreepConfig.TurnRate` (16) with a subtle idle drift, and each eye's glow sits 0.35 studs behind it so it forms a halo round the rim with the pupil still black. Opening cracks each eye, pauses, then opens it fully with a Back Out overshoot (the right eye 45 ms later, overshoots of about 7 % and 13 %) while the pupils start wide and narrow, the glow fades in over 0.55 s, the backdrop fades in over 0.7 s and `DarkWisp` wisps breathe round the eyes. A faint red light cast by the eyes can be tuned with `EyeLight` (default 0.6, 0 turns it off). The intro cutscene opens the eyes, blinks once and launches the distortion, but no longer calls `Close`, so the eyes stay open until the smash cut; `Close` remains for other callers.
+- API: `StagedCreep.new(options: { Parent: Instance, Template: Model, Effects: Folder?, RootCFrame: CFrame, BackdropCFrame: CFrame, BackdropSize: Vector3, EyeColor: Color3?, Distortion: BasePart?, EyeLight: number? }) -> StagedCreep` — `Distortion` defaults to `ReplicatedStorage.Effects.CreepDistortion`
+- API: `StagedCreep:Update(deltaTime: number, cameraPosition: Vector3)` — must run every frame: eyelids, pupils, glow, light and wisps only draw here
+- API: `StagedCreep:Open(duration: number?)` (0.35 s) / `:Blink()` (close 0.07 s, hold 0.02 s, open 0.12 s; nothing when closed) / `:Close(duration: number?)` (0.14 s)
+- API: `StagedCreep:LaunchDistortion(towards: Vector3, speed: number) -> number` — sends a distortion sized like the backdrop from the Creep toward `towards` at `speed` studs per second and returns the travel time; it carries on 0.35 s past the point, then removes itself
+- API: `StagedCreep:Destroy()`
+- Fields: `.Model`, `.Backdrop`, `.Opened`
+- Requires: `Configs.CreepConfig`, `Services.AimService`, `Services.MathService`, `Services.TweenProxyService`
+
+### IntroCutscene\LightSweep.luau
+Kills real hallway lamps locally, far to near, and darkens the scene, all through a shared `LocalOverride` so everything comes back exactly and any change the server made meanwhile wins. `Collect` finds streamed-in light models tagged with any of `Tags` whose pivot lies inside `Region` (corners in any order) and remembers their `PointLight`/`SpotLight`/`SurfaceLight`s, Neon parts (and parts tagged `NeonOff`, which the server's light service uses for a lamp it has switched off), ParticleEmitters, Fire, Smoke, Sparkles and Beams; it can be called again to pick up lamps that streamed in late, and parts added to a tracked lamp later are picked up too. A kill starts the `Flicker` cue on the lamp and runs a short seeded irregular flicker (enabled toggling and brightness wobble); when the flicker ends it stops that cue, plays the `Out` cue, switches the lights, beams and emitters off and lets the Neon parts cool through a dim amber for 0.3 s before they are left as darkened SmoothPlastic. Both cues are whole `AudioEmitter` templates cloned onto the lamp's PrimaryPart (or the part holding its light) through `AudioService:Play3DSound` on the SFX bus, at the template's Volume times the sweep's gain, with PlaybackSpeed varied by 5 % (`Flicker`) or 8 % (`Out`); `SetGain` rescales every cue still playing and every later one, so the intro fades them with the rest of its audio during a skip. `Restore` releases every override and then defers to the server for any lamp it has switched off meanwhile: when one of the lamp's Neon parts carries `NeonOff`, it writes the lights `Enabled = false`, the Neon parts `SmoothPlastic` and the ParticleEmitters `Enabled = false` directly (the same properties the server's light service writes, leaving colour, brightness, beams, Fire, Smoke and Sparkles alone), because the server's darkening wrote the values the override already held locally, fired no change event, and would otherwise be undone by the release.
+- API: `LightSweep.new(options: { Region: { Min: Vector3, Max: Vector3 }, Tags: { string }, Override: LocalOverride, Sounds: { Flicker: Instance?, Out: Instance? }?, Ambient: { Color3 }? }) -> LightSweep` — `Ambient[1]` is the `Lighting.Ambient` target and `Ambient[2]` (or `[1]`) the `OutdoorAmbient` target, default (3, 3, 5)
+- API: `LightSweep:Collect() -> number` / `:Ordered(from: Vector3) -> { Model }` (far to near)
+- API: `LightSweep:Kill(model: Model, flickerTime: number?) -> number` — returns at once with the seconds until dark (default flicker 0.4 s)
+- API: `LightSweep:KillAll(order: { Model }, schedule: { number }?, flickerTime: number?) -> number` — `schedule[i]` is seconds from now; without one the gaps shrink from 0.9 s to 0.45 s
+- API: `LightSweep:SetAmbient(alpha: number)` — lerps both ambients toward the dark target
+- API: `LightSweep:SetGain(gain: number)` — 0 to 1 multiplier on the `Flicker` and `Out` cue volumes, applied to cues already playing and to new ones (default 1)
+- API: `LightSweep:Restore()` / `:Destroy()` — `Restore` leaves lamps the server has tagged `NeonOff` dark
+- Requires: `Services.AudioService`
+
+### IntroCutscene\Isolation.luau
+Hides, locally and every frame, everything that must never appear in the cutscene: every other player's character, everything under `workspace.Enemies` (real enemies and client visuals), `workspace` children named `CreepBackdrop` and `CreepDistortion` (real Creep visuals), `EnemyDespawnPoof`, `HearingMotes` (also under the camera), `CeilingWalkIns` (ceiling-dweller walk-in rigs), `BookEffects` and `VFXDummy` (Spell Book casts), `Trap` (placed traps) and `RadioDeathBursts`, and the spawn safe-zone part with its `SpawnZoneBorder` walls; by default the local character too. BaseParts and Decals/Textures get `LocalTransparencyModifier = 1`; Lights, ParticleEmitters, Beams, Trails, BillboardGuis, SurfaceGuis, Highlights, ProximityPrompts, Fire, Smoke and Sparkles are disabled, emitters and trails made fully transparent, and `Sound`/`AudioPlayer` volumes inside hidden objects muted, all through the shared `LocalOverride`. Characters, enemies and descendants that appear mid-cutscene are picked up as they arrive. Other players' flashlight beams live in their tool handles, so hiding the character covers them; overhead names are PlayerGui billboards and are hidden by `InterfaceHideService` instead. On stop each part's transparency modifier goes back to the last value something else set (not a hard 0, so the ghost renderer keeps its 0.5 and 1).
+- API: `Isolation.new(options: { Override: LocalOverride, HideLocalCharacter: boolean? }) -> Isolation`
+- API: `Isolation:Start()` — binds `IntroCutsceneIsolation` at `Enum.RenderPriority.Last.Value + 5`
+- API: `Isolation:Stop()` / `:Destroy()`
+- Requires: `Configs.SpawnZoneConfig`
 
 ## Minigames
 
