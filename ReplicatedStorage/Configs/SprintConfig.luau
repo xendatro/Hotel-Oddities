@@ -22,6 +22,8 @@ return {
 		TouchButtonTitle = "SPRINT",
 		TouchButtonPosition = UDim2.new(1, -150, 1, -60),
 		TouchButtonSize = UDim2.fromOffset(74, 74),
+		TouchButtonMinTextSize = 8,
+		TouchButtonMaxTextSize = 16,
 	},
 
 	UI = {
@@ -30,6 +32,9 @@ return {
 		CornerRadius = 5,
 		Padding = 3,
 		BottomMargin = 88,
+		ReferenceSize = Vector2.new(900, 600),
+		MinScale = 0.65,
+		MaxScale = 1,
 
 		Colors = {
 			Track = Color3.fromRGB(12, 12, 16),

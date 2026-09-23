@@ -37,6 +37,7 @@ local Slots: { InventorySlot.InventorySlot } = {}
 local Snapshot: { [number]: Entry } = {}
 
 local screenGui, hotbar
+local hotbarScale: UIScale
 local drag = nil :: {
 	Slot: any,
 	Origin: Vector2,
@@ -60,6 +61,9 @@ local function build()
 	hotbar.Size = UDim2.fromOffset(HOTBAR * slotSize + (HOTBAR - 1) * padding, slotSize)
 	hotbar.Parent = screenGui
 
+	hotbarScale = Instance.new("UIScale")
+	hotbarScale.Parent = hotbar
+
 	local hotbarLayout = Instance.new("UIListLayout")
 	hotbarLayout.FillDirection = Enum.FillDirection.Horizontal
 	hotbarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
@@ -72,6 +76,19 @@ local function build()
 		slot.Frame.Parent = hotbar
 		Slots[index] = slot
 	end
+end
+
+local function updateHotbarScale()
+	local camera = workspace.CurrentCamera
+	if not camera then return end
+
+	local viewport = camera.ViewportSize
+	local hud = InventoryConfig.HUD
+	hotbarScale.Scale = math.clamp(
+		math.min(viewport.X / hud.ReferenceSize.X, viewport.Y / hud.ReferenceSize.Y),
+		hud.MinScale,
+		hud.MaxScale
+	)
 end
 
 local function findTool(toolName: string): Tool?
@@ -367,6 +384,8 @@ StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
 build()
 setUpConnections()
 InventoryUIService:Refresh()
+RunService.RenderStepped:Connect(updateHotbarScale)
+updateHotbarScale()
 
 Update:FireServer()
 

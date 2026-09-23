@@ -59,6 +59,7 @@ return {
 			Stroke = 0.5,
 		},
 
-		TextSize = 13,
+		MinTextSize = 8,
+		MaxTextSize = 13,
 	},
 }

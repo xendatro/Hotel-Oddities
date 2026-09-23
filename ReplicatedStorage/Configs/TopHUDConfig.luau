@@ -9,8 +9,9 @@ export type Tier = {
 
 return {
 	Gui = "TopHud",
+	ReferenceWidth = 960,
 	ReferenceHeight = 1080,
-	MinScale = 0.7,
+	MinScale = 0.5,
 	MaxScale = 1.3,
 
 	Currencies = {

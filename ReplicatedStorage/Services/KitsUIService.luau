@@ -11,10 +11,10 @@ local KitStateService = require(ReplicatedStorage.Services.KitStateService)
 local KitVisualService = require(ReplicatedStorage.Services.KitVisualService)
 local TweenProxyService = require(ReplicatedStorage.Services.TweenProxyService)
 
-local KitInventoryUIService = {}
+local KitsUIService = {}
 
 if not RunService:IsClient() then
-	return KitInventoryUIService
+	return KitsUIService
 end
 
 local CARD = KitConfig.Animation.Card
@@ -22,7 +22,7 @@ local INFO = KitConfig.Animation.Info
 local TEXT = KitConfig.Text
 
 local playerGui = GuiBuilderService.GetPlayerGui()
-local gui = playerGui:WaitForChild("KitInventory") :: ScreenGui
+local gui = playerGui:WaitForChild("Kits") :: ScreenGui
 local design = gui:WaitForChild("Design") :: Frame
 local kitsFrame = design:WaitForChild("KitsCanvas"):WaitForChild("Kits") :: ScrollingFrame
 local template = kitsFrame:WaitForChild("Template") :: ImageButton
@@ -200,4 +200,4 @@ InterfaceService.WireMotion(indexButton)
 refreshNav()
 rebuild()
 
-return KitInventoryUIService
+return KitsUIService

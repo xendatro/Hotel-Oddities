@@ -2,6 +2,7 @@ local TopbarConfig = {
 	PageGroup = "Main",
 	Alignment = "Left",
 	ImageScale = 0.65,
+	CompactWidth = 900,
 	Icons = {
 		{
 			PageId = "Index",

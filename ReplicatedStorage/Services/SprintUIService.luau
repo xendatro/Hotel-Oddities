@@ -22,6 +22,7 @@ local track: Frame
 local stroke: UIStroke
 local fill: Frame
 local gradient: UIGradient
+local groupScale: UIScale
 
 local function build()
 	local screenGui = GuiBuilderService.CreateScreenGui("SprintGui", 9)
@@ -34,6 +35,9 @@ local function build()
 	group.BackgroundTransparency = 1
 	group.GroupTransparency = 1
 	group.Parent = screenGui
+
+	groupScale = Instance.new("UIScale")
+	groupScale.Parent = group
 
 	track = Instance.new("Frame")
 	track.Name = "Track"
@@ -102,6 +106,17 @@ function SprintUIService:GetBar()
 end
 
 local function render(deltaTime: number)
+	local camera = workspace.CurrentCamera
+	if camera then
+		local viewport = camera.ViewportSize
+		local reference = UI.ReferenceSize
+		groupScale.Scale = math.clamp(
+			math.min(viewport.X / reference.X, viewport.Y / reference.Y),
+			UI.MinScale,
+			UI.MaxScale
+		)
+	end
+
 	local fraction = SprintService:GetStaminaFraction()
 	local exhausted = SprintService:IsExhausted()
 

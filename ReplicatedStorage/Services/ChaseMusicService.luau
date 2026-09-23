@@ -21,9 +21,12 @@ local ENEMY_ID_ATTRIBUTE = "EnemyId"
 local MUSIC_BUS = "Music"
 local SILENCE_EPSILON = 0.005
 
+type Playback = AudioPlayer | Sound
+type Track = { Players: { Playback }, Volume: number }
+
 local localPlayer = Players.LocalPlayer
 
-local Tracks: { [string]: { Player: AudioPlayer, Volume: number } } = {}
+local Tracks: { [string]: Track } = {}
 local WarnedMissing: { [string]: boolean } = {}
 
 local function isHunting(instance: Instance): boolean
@@ -58,18 +61,40 @@ local function getTargetVolumes(position: Vector3): { [string]: number }
 	return targets
 end
 
-local function startTrack(template: string): boolean
+local function getTrackSources(template: string): { Instance }?
+	local sounds = ReplicatedStorage:FindFirstChild("Sounds")
+	local folder = sounds and sounds:FindFirstChild(template)
+	if folder and folder:IsA("Folder") then
+		local emitters: { Instance } = {}
+		for _, descendant in folder:GetDescendants() do
+			if descendant:IsA("AudioEmitter") then
+				table.insert(emitters, descendant)
+			end
+		end
+		if #emitters > 0 then return emitters end
+	end
+
 	local source = AudioService:FindTemplate(template)
-	if not source then
+	return if source then { source } else nil
+end
+
+local function startTrack(template: string): boolean
+	local sources = getTrackSources(template)
+	if not sources then
 		if not WarnedMissing[template] then
 			WarnedMissing[template] = true
-			warn(`ChaseMusicService: no template "{template}" in ReplicatedStorage.Sounds; staying silent`)
+			warn(`ChaseMusicService: no playable template "{template}" in ReplicatedStorage.Sounds; staying silent`)
 		end
 		return false
 	end
 
+	local players: { Playback } = {}
+	for _, source in sources do
+		table.insert(players, AudioService:Play2D(source, true, MUSIC_BUS, { Volume = 0 }))
+	end
+
 	Tracks[template] = {
-		Player = AudioService:Play2D(source, true, MUSIC_BUS, { Volume = 0 }),
+		Players = players,
 		Volume = 0,
 	}
 	return true
@@ -94,9 +119,13 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 
 		if goal <= 0 and track.Volume < SILENCE_EPSILON then
 			Tracks[template] = nil
-			AudioService:StopSound(track.Player)
+			for _, player in track.Players do
+				AudioService:StopSound(player)
+			end
 		else
-			track.Player.Volume = track.Volume * bus.Volume
+			for _, player in track.Players do
+				player.Volume = track.Volume * bus.Volume
+			end
 		end
 	end
 end)

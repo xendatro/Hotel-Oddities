@@ -14,6 +14,7 @@ local xenterface = require(ReplicatedStorage.Frameworks.xenterface)
 
 local controller = xenterface:Controller(TopbarConfig.PageGroup)
 local icons: { [string]: any } = {}
+local compact: boolean? = nil
 
 local function buildIcon(entry)
 	local icon = Icon.new()
@@ -56,6 +57,22 @@ end
 for _, entry in TopbarConfig.Icons do
 	buildIcon(entry)
 end
+
+local function refreshLayout()
+	local camera = workspace.CurrentCamera
+	if not camera then return end
+
+	local nextCompact = camera.ViewportSize.X < TopbarConfig.CompactWidth
+	if nextCompact == compact then return end
+	compact = nextCompact
+
+	for _, entry in TopbarConfig.Icons do
+		icons[entry.PageId]:setLabel(if compact then "" else entry.Label)
+	end
+end
+
+RunService.RenderStepped:Connect(refreshLayout)
+refreshLayout()
 
 controller.Fired:Connect(function(data)
 	syncSelection(data.ActiveId)

@@ -1,7 +1,9 @@
 local PhysicsService = game:GetService("PhysicsService")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
+local AudioService = require(ReplicatedStorage.Services.AudioService)
 local Gaze = require(ServerStorage.Services.GazeService)
 local PropOddity = require(ServerStorage.Classes.PropOddity)
 
@@ -36,8 +38,39 @@ function FixtureFall.new(config: { [string]: any }?, class: any?)
 	self.Welds = {} :: { WeldConstraint }
 	self.Root = nil :: BasePart?
 	self.FellAt = 0
+	self.Connections = {} :: { RBXScriptConnection }
+	self.ImpactPlayed = false
 
 	return self
+end
+
+local function setUpConnections(self, model: Model, parts: { BasePart })
+	for _, part in parts do
+		table.insert(self.Connections, part.Touched:Connect(function(hit: BasePart)
+			if self.ImpactPlayed or not self.Active or hit:IsDescendantOf(model) or not hit.CanCollide then return end
+
+			local halfHeight = math.abs(part.CFrame.RightVector.Y) * part.Size.X / 2
+				+ math.abs(part.CFrame.UpVector.Y) * part.Size.Y / 2
+				+ math.abs(part.CFrame.LookVector.Y) * part.Size.Z / 2
+			local params = RaycastParams.new()
+			params.FilterType = Enum.RaycastFilterType.Include
+			params.FilterDescendantsInstances = { hit }
+			local origin = part.Position + Vector3.yAxis * (halfHeight + 1)
+			local ground = workspace:Raycast(origin, -Vector3.yAxis * (halfHeight * 2 + 2), params)
+			if not ground or ground.Normal.Y < 0.65 then return end
+			if math.abs(part.Position.Y - halfHeight - ground.Position.Y) > 1.5 then return end
+
+			self.ImpactPlayed = true
+			for _, connection in self.Connections do
+				connection:Disconnect()
+			end
+			table.clear(self.Connections)
+			local sound = self.Config.ImpactSound
+			if type(sound) == "string" and AudioService:FindTemplate(sound) then
+				AudioService:Play3DSound(sound, part, false, "SFX")
+			end
+		end))
+	end
 end
 
 function FixtureFall:OnStart(): boolean
@@ -91,6 +124,7 @@ function FixtureFall:OnStart(): boolean
 	self.Root = root
 	self.FellAt = os.clock()
 
+	setUpConnections(self, model, parts)
 	if self.OnLoose then self:OnLoose(model, root) end
 	return true
 end
@@ -151,6 +185,11 @@ function FixtureFall:IsReadyToFix(): boolean
 end
 
 function FixtureFall:OnStop()
+	for _, connection in self.Connections do
+		connection:Disconnect()
+	end
+	table.clear(self.Connections)
+
 	for _, weld in self.Welds do
 		weld:Destroy()
 	end
