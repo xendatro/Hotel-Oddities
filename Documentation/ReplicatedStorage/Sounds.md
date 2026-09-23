@@ -1,6 +1,16 @@
 # ReplicatedStorage / Sounds
 
-Sound templates, found by name and played through `AudioService`. Most templates are described with the service that plays them; this page covers the folders that need a sheet of their own. So far that is only `IntroCutscene`.
+Sound templates, found by name and played through `AudioService`. Most templates are described with the service that plays them; this page covers folders that need their own setup notes.
+
+## LocationAmbience
+
+Add one child folder for each POI name, then put its ambient templates in that folder. The client plays every template in the matching folder while the player is near a tagged POI with the same name. It fades each sound up over `AmbienceConfig.LocationAmbience.FadeDistance` studs before the POI bounds and fades it out while the player leaves. Multiple POIs with the same name share the folder, and only the closest matching POI sets the volume. Multiple templates in a folder play together as loops.
+
+The template's `PlaybackRegion` stays intact when the service clones it, so an authored region loops as the location ambience. Supported templates are `AudioEmitter` with a child `AudioPlayer` named `Player`, a standalone `AudioPlayer` or a legacy `Sound`.
+
+## ExtraAmbience
+
+Put any one-shot templates in this folder. The client picks one at random every 45 to 90 seconds, using the `Ambience` bus. It skips an interval while ambience is suppressed, on the lobby floor or on the death screen. Supported templates are `AudioEmitter` with a child `AudioPlayer` named `Player`, a standalone `AudioPlayer` or a legacy `Sound`.
 
 ## IntroCutscene
 

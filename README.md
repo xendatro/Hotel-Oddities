@@ -108,6 +108,7 @@ become Services or Classes.
 
 - ReplicatedStorage\Services\AimService.luau — Look-at rotation and frame-rate-independent rotational easing.
 - ReplicatedStorage\Services\AmbienceService.luau — Plays the looping ambience playlist, ducking it by distance to the nearest enemy, muting it while a Suppress key is held, swapping to death ambience, and cross-fading into a full-volume distorted, pitch-shifted, tremolo layer inside POIs.
+- ReplicatedStorage\Services\AmbienceExtrasService.luau — Fades named location ambience around matching POIs and randomly plays ExtraAmbience templates every 45-90 seconds.
 - ReplicatedStorage\Services\AudioService.luau — Central sound playback helper for 2D and positional audio, bus volumes and walkie-talkie relaying.
 - ReplicatedStorage\Services\BadgeIconService.luau — Resolves and caches a badge's icon image so the rooms index can draw each room's badge as its photo.
 - ReplicatedStorage\Services\BobService.luau — Random phase plus sine-wave vertical bob offset.
@@ -312,7 +313,7 @@ become Services or Classes.
 
 ### ReplicatedStorage\Configs
 
-- ReplicatedStorage\Configs\AmbienceConfig.luau — Distance falloff and fade timing for ambient sound emitters, plus POI altered-layer volume, pitch, distortion and tremolo tuning.
+- ReplicatedStorage\Configs\AmbienceConfig.luau — Distance falloff and fade timing for ambient sound emitters, POI altered-layer settings, location ambience fades and ExtraAmbience intervals.
 - ReplicatedStorage\Configs\AnimationConfig.luau — Animation asset ids and per-enemy animation sets, including the Stalker's PeekLeft/PeekRight corner-peek clips.
 - ReplicatedStorage\Configs\BadgeConfig.luau — Every badge id the game awards, by role: joined, escaped, three escapes, one per room, one per computer colour and one per killer, plus icon fetch tuning.
 - ReplicatedStorage\Configs\BreatheConfig.luau — Idle breathing joint motion settings.

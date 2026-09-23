@@ -11,4 +11,13 @@ return {
 		TremoloDepth = 0.32,
 		TremoloFrequency = 0.8,
 	},
+	LocationAmbience = {
+		FadeDistance = 40,
+		FadeTime = 1.25,
+		Volume = 1,
+	},
+	ExtraAmbience = {
+		MinInterval = 45,
+		MaxInterval = 90,
+	},
 }

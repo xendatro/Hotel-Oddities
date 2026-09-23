@@ -10,10 +10,17 @@ Tiny math helper for pointing something at a target and easing a rotation toward
 ### AmbienceService.luau
 Client-only. Cycles the AudioPlayers under `ReplicatedStorage.Sounds.Ambience` one after another through an `AmbienceDuck` fader and `AmbienceMixer`, fading that fader down as the walking distance to the nearest streamed-in tagged enemy shrinks. While the server reports occupancy in any POI, each current ambience track cross-fades from its dry `POIDryFader` path into a full-volume `AudioPitchShifter`, `AudioDistortion`, `AudioTremolo` and `AudioFader` branch, so the altered sound is immediately audible and stays active until occupancy ends; its temporary graph is destroyed when the track ends. Swaps to a looping `DeathAmbience` track while the death screen is up, and goes silent entirely on the lobby floor.
 - API: `AmbienceService:Suppress(key: string, suppressed: boolean)` — hold the playlist muted while any key is set; `ChaosWarningSoundService` uses it so the ordinary ambience gets out of the way of a Chaos warning. Defined above the client guard, so the call is safe from shared code.
+- API: `AmbienceService:IsSuppressed() -> boolean` — reports whether any suppression key is active
 - API: `AmbienceService:SetPOIActive(active: boolean)` — sets whether the altered ambience branch should fade up or down
-- API: otherwise no public methods — runs entirely from its own Heartbeat connection.
+- API: otherwise no public methods — playback runs from its own Heartbeat connection.
 - Tags: reads `Enemy`
 - Requires: `Configs.AmbienceConfig`, `Services.HallwayGraphService`, `DeathScreenService`, `LobbyService`, `AudioService`, `CharacterService`
+
+### AmbienceExtrasService.luau
+Client-only. Plays looping templates under `ReplicatedStorage.Sounds.LocationAmbience.<POI name>` when the local player nears any tagged POI with that name. Each location sound fades in over the configured distance, reaches full level inside the POI bounds and fades out on the way back out; duplicate POI names use the strongest nearby gain rather than stacking. Randomly plays one template from `ReplicatedStorage.Sounds.ExtraAmbience` every configured interval from the ambience bus. Both folders accept `AudioEmitter`, `AudioPlayer` and legacy `Sound` templates. Location playback keeps the template's playback region.
+- API: none — runs from its own Heartbeat connection.
+- Tags: reads `POI`
+- Requires: `Configs.AmbienceConfig`, `Configs.POIConfig`, `AmbienceService`, `AudioService`, `CharacterService`, `DeathScreenService`, `LobbyService`
 
 ### AudioService.luau
 Central sound playback helper covering both the new `AudioPlayer`/`AudioEmitter` API and legacy `Sound` instances. Clones templates out of `ReplicatedStorage.Sounds`, wires them to named `AudioFader` buses under `workspace.Sounds`, keeps their volume tied to the bus, and destroys them when they end. Client playback of a `RadioAllowed` template is also relayed to the server so walkie-talkies can rebroadcast it.

@@ -17,6 +17,10 @@ function AmbienceService:Suppress(key: string, suppressed: boolean)
 	Suppressors[key] = if suppressed then true else nil
 end
 
+function AmbienceService:IsSuppressed(): boolean
+	return next(Suppressors) ~= nil
+end
+
 if not RunService:IsClient() then
 	return AmbienceService
 end
