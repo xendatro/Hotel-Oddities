@@ -1,3 +1,5 @@
+local CollectionService = game:GetService("CollectionService")
+local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -10,6 +12,11 @@ local MAX_BRANCH_ALIGNMENT = 0.5
 local MAX_FLOOR_GAP = 10
 local CONNECTION_EPSILON = 0.5
 local DEPTHS = { 2, 3, 4 }
+local ENEMY_TAG = "Enemy"
+local WALL_PROBE_HEIGHT = 2.5
+local WALL_PROBE_INSET = 3
+local WALL_PROBE_MARGIN = 2
+local MOUTH_PROBE_OUTSET = 1
 
 export type Corner = {
 	Position: Vector3,
@@ -39,7 +46,32 @@ local function isMouth(branches: { Vector3 }, branch: Vector3): boolean
 	return false
 end
 
-local function physicalCorner(nodePosition: Vector3, branch: Vector3, viewerPosition: Vector3): Vector3?
+local function wallParams(): RaycastParams
+	local filter = {}
+	for _, player in Players:GetPlayers() do
+		if player.Character then table.insert(filter, player.Character) end
+	end
+	for _, model in CollectionService:GetTagged(ENEMY_TAG) do
+		table.insert(filter, model)
+	end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = filter
+	params.RespectCanCollide = true
+	return params
+end
+
+local function surfaceDistance(params: RaycastParams, origin: Vector3, direction: Vector3, reach: number): number?
+	local result = workspace:Raycast(origin, direction * reach, params)
+	return if result then result.Distance else nil
+end
+
+local function physicalCorner(
+	nodePosition: Vector3,
+	branch: Vector3,
+	viewerPosition: Vector3,
+	params: RaycastParams
+): Vector3?
 	local crossingHalfWidth = math.huge
 	local branchHalfWidth = math.huge
 	local across = Vector3.new(-branch.Z, 0, branch.X)
@@ -64,7 +96,23 @@ local function physicalCorner(nodePosition: Vector3, branch: Vector3, viewerPosi
 	if crossingHalfWidth == math.huge or branchHalfWidth == math.huge then return nil end
 
 	local side = if (viewerPosition - nodePosition):Dot(across) >= 0 then 1 else -1
-	return nodePosition + branch * crossingHalfWidth + across * branchHalfWidth * side
+	local sideways = across * side
+	local probe = nodePosition + Vector3.yAxis * WALL_PROBE_HEIGHT
+
+	local wall = surfaceDistance(
+		params,
+		probe + branch * (crossingHalfWidth + WALL_PROBE_INSET),
+		sideways,
+		branchHalfWidth + WALL_PROBE_MARGIN
+	) or branchHalfWidth
+	local mouth = surfaceDistance(
+		params,
+		probe + sideways * (wall + MOUTH_PROBE_OUTSET),
+		branch,
+		crossingHalfWidth + WALL_PROBE_MARGIN
+	) or crossingHalfWidth
+
+	return nodePosition + branch * mouth + sideways * wall
 end
 
 function HallwayGridService:GetCorners(
@@ -74,6 +122,7 @@ function HallwayGridService:GetCorners(
 	maxDistance: number
 ): { Corner }
 	local corners = {}
+	local params = wallParams()
 
 	for _, node in HallwayGraph:Get() do
 		if math.abs(node.Position.Y - floorY) > MAX_FLOOR_GAP then continue end
@@ -88,7 +137,7 @@ function HallwayGridService:GetCorners(
 			if not isMouth(branches, branch) then continue end
 			if math.abs(branch:Dot(sight)) > MAX_ALONG_SIGHT then continue end
 
-			local position = physicalCorner(node.Position, branch, eye)
+			local position = physicalCorner(node.Position, branch, eye, params)
 			if not position then continue end
 
 			local cornerSight = horizontal(position - eye)

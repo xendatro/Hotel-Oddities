@@ -586,6 +586,7 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 
 	Chaos = {
 		Model = "Chaos",
+		DespawnEffect = false,
 
 		WalkSpeed = 70,
 		Damage = 100,
