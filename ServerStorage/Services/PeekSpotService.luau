@@ -351,9 +351,11 @@ local function placeOn(search: Search, corner: Corner, diagnostic: ((any) -> ())
 				reject("arc", depth, exposure)
 				continue
 			end
-			if not isPeekWorthwhile(search, spot, function(result)
-					reject(result.reason, depth, exposure)
-			end) then
+			local seen, visible, headVisible = isPeekVisible(search, spot)
+			if not seen then
+				if diagnostic then
+					diagnostic({ reason = "peek_visibility", depth = depth, exposure = exposure, visible = visible, head = headVisible })
+				end
 				continue
 			end
 			if diagnostic then
