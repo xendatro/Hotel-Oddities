@@ -6,6 +6,7 @@ local Workspace = game:GetService("Workspace")
 
 local FlashlightConfig = require(ReplicatedStorage.Configs.FlashlightConfig)
 local ToolConfigs = require(ReplicatedStorage.Configs.ToolConfigs)
+local VfxConfig = require(ReplicatedStorage.Configs.VfxConfig)
 
 local FlashlightService = {}
 
@@ -13,11 +14,14 @@ if not RunService:IsClient() then
 	return FlashlightService
 end
 
+local VfxService = require(ReplicatedStorage.Services.VfxService)
+
 type Rig = {
 	Tool: Tool,
 	IsLocal: boolean,
 	Part: BasePart?,
 	Lights: { SpotLight },
+	Dust: any?,
 }
 
 local TAG = ToolConfigs.Flashlight.Tag
@@ -82,6 +86,9 @@ local function stepLocal()
 	if not part or not camera then return end
 
 	part.CFrame = camera.CFrame * CFrame.new(FlashlightConfig.CameraOffset)
+	if rig.Dust then
+		rig.Dust:SetCFrame(part.CFrame * CFrame.new(0, 0, -VfxConfig.Flashlight.Distance))
+	end
 end
 
 local function setStepping(active: boolean)
@@ -99,6 +106,10 @@ local function destroyRig(tool: Tool)
 	rigs[tool] = nil
 	for _, light in rig.Lights do
 		light:Destroy()
+	end
+	if rig.Dust then
+		rig.Dust:Stop()
+		rig.Dust = nil
 	end
 	if rig.Part then
 		rig.Part:Destroy()
@@ -128,6 +139,7 @@ local function createLocalRig(tool: Tool): Rig
 		IsLocal = true,
 		Part = part,
 		Lights = buildLights(part, Enum.NormalId.Front),
+		Dust = VfxService:Create(VfxConfig.Templates.FlashlightDust, part.CFrame),
 	}
 	localRig = rig
 	setStepping(true)

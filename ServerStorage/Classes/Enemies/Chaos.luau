@@ -7,6 +7,8 @@ local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local MathService = require(ReplicatedStorage.Services.MathService)
 local Vanished = require(ReplicatedStorage.Services.VanishedService)
+local VfxConfig = require(ReplicatedStorage.Configs.VfxConfig)
+local VfxService = require(ReplicatedStorage.Services.VfxService)
 local DeathService = require(ServerStorage.Services.DeathService)
 local EnemyDiscoveryService = require(ServerStorage.Services.EnemyDiscoveryService)
 local EnemyBase = require(ServerStorage.Classes.EnemyBase)
@@ -67,6 +69,21 @@ function Chaos:_killAlong(origin: Vector3, destination: Vector3)
 	end
 end
 
+function Chaos:_crash(position: Vector3, heading: Vector3)
+	if heading.Magnitude < MINIMUM_LEG then return end
+	local direction = heading.Unit
+
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { self.Model }
+	params.RespectCanCollide = true
+	local hit = workspace:Raycast(position, direction * VfxConfig.Chaos.WallProbe, params)
+
+	local point = if hit then hit.Position else position
+	local normal = if hit then hit.Normal else -direction
+	VfxService:Play(VfxConfig.Templates.ChaosCrash, CFrame.lookAt(point, point + normal))
+end
+
 function Chaos:TravelRoute()
 	local points = { self.Route[1] }
 	local lengths = { 0 }
@@ -107,7 +124,10 @@ function Chaos:TravelRoute()
 		self:_killAlong(previous, position)
 		previous = position
 
-		if travelled >= total then return end
+		if travelled >= total then
+			self:_crash(position, destination - origin)
+			return
+		end
 	end
 end
 

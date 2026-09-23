@@ -39,6 +39,7 @@ return {
 
 			CollisionGroup = "FallenProp",
 			ImpactSound = "ObjectFalling",
+			ImpactVfx = "LanternShatter",
 
 			DebugHighlight = false,
 
@@ -69,6 +70,7 @@ return {
 			PollInterval = 0.2,
 			CollisionGroup = "FallenProp",
 			ImpactSound = "ObjectFalling",
+			ImpactVfx = "PaintingThud",
 
 			ShoveSpeed = 14,
 			ShoveLift = 4,

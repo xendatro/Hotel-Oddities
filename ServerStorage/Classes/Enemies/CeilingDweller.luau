@@ -7,6 +7,8 @@ local NPC = require(ServerStorage.Classes.NPC)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local TweenProxyService = require(ReplicatedStorage.Services.TweenProxyService)
+local VfxConfig = require(ReplicatedStorage.Configs.VfxConfig)
+local VfxService = require(ReplicatedStorage.Services.VfxService)
 
 local DROP_SPEED = 22
 local DROP_TIME_MIN = 0.2
@@ -93,6 +95,7 @@ local function dropToFloor(self)
 
 	if not self.Model.Parent then return false end
 	self.Model:PivotTo(target)
+	VfxService:Play(VfxConfig.Templates.DwellerLanding, CFrame.lookAt(floorPosition, floorPosition + floorNormal.Unit))
 	for part, canCollide in collisionStates do
 		if part.Parent then
 			part.CanCollide = canCollide

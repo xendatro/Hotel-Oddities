@@ -14,6 +14,8 @@ local LightService = require(ServerStorage.Services.LightService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local PropOddity = require(ServerStorage.Classes.PropOddity)
 local Vanished = require(ReplicatedStorage.Services.VanishedService)
+local VfxConfig = require(ReplicatedStorage.Configs.VfxConfig)
+local VfxService = require(ReplicatedStorage.Services.VfxService)
 local EnemySizeService = require(ServerStorage.Services.EnemySizeService)
 
 local PopRemote = CommunicationService.Ensure("Oddities", "PaintingDwellerPop")
@@ -200,6 +202,9 @@ function PaintingDweller:OnStart(): boolean
 		{ CFrame = hidden + outward * self:Setting("PopDepth", 7) }
 	)
 	pop:Play()
+	VfxService:Play(VfxConfig.Templates.PaintingBurst, canvas.CFrame, {
+		Size = Vector3.new(canvas.Size.X, canvas.Size.Y, 0.2),
+	})
 
 	local popSound = self.Config.PopSound
 	if type(popSound) == "string" and popSound ~= "" then

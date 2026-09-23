@@ -5,6 +5,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local MathService = require(ReplicatedStorage.Services.MathService)
+local VfxConfig = require(ReplicatedStorage.Configs.VfxConfig)
 local EnemyObservationService = require(ServerStorage.Services.EnemyObservationService)
 local PeekPoseConfig = require(ServerStorage.Configs.PeekPoseConfig)
 local PeekSpotService = require(ServerStorage.Services.PeekSpotService)
@@ -349,9 +350,13 @@ local function retreat(
 )
 	if caught then
 		if not walkedUp then
+			npc.Model:SetAttribute(VfxConfig.Stalker.SpottedAttribute, workspace:GetServerTimeNow())
 			task.wait(npc.Config.SeenHoldTime or 0)
 		end
 		withdraw(npc, spot, not walkedUp)
+		if not walkedUp then
+			npc.Model:SetAttribute(VfxConfig.Stalker.WithdrawnAttribute, workspace:GetServerTimeNow())
+		end
 		return finish(npc, "Seen", player)
 	end
 	withdraw(npc, spot, false)

@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local AudioService = require(ReplicatedStorage.Services.AudioService)
+local VfxService = require(ReplicatedStorage.Services.VfxService)
 local Gaze = require(ServerStorage.Services.GazeService)
 local PropOddity = require(ServerStorage.Classes.PropOddity)
 
@@ -68,6 +69,10 @@ local function setUpConnections(self, model: Model, parts: { BasePart })
 			local sound = self.Config.ImpactSound
 			if type(sound) == "string" and AudioService:FindTemplate(sound) then
 				AudioService:Play3DSound(sound, part, false, "SFX")
+			end
+			local vfx = self.Config.ImpactVfx
+			if type(vfx) == "string" and vfx ~= "" then
+				VfxService:Play(vfx, CFrame.lookAt(ground.Position, ground.Position + ground.Normal))
 			end
 		end))
 	end
