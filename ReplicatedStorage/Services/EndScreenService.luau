@@ -2,7 +2,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
+local IntroCutsceneConfig = require(ReplicatedStorage.Configs.IntroCutsceneConfig)
 local EndingConfig = require(ReplicatedStorage.Configs.EndingConfig)
+local AudioService = require(ReplicatedStorage.Services.AudioService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local InterfaceService = require(ReplicatedStorage.Services.InterfaceService)
@@ -16,6 +18,20 @@ end
 local TEXT = EndingConfig.Text
 local TIMING = EndingConfig.Timing
 local MOTION = EndingConfig.Motion
+local INTRO_SOUNDS = IntroCutsceneConfig.Sounds
+local TYPE_CUE = INTRO_SOUNDS.Cues.Type
+local TYPE_EVERY = IntroCutsceneConfig.Captions.TickEvery
+
+local typeTemplate: AudioEmitter? = nil
+local typeSource: AudioPlayer? = nil
+local sounds = ReplicatedStorage:FindFirstChild("Sounds")
+local introSounds = sounds and sounds:FindFirstChild(INTRO_SOUNDS.Folder)
+local candidateTemplate = introSounds and introSounds:FindFirstChild(TYPE_CUE.Name)
+local candidateSource = candidateTemplate and candidateTemplate:FindFirstChild("Player")
+if candidateTemplate and candidateTemplate:IsA("AudioEmitter") and candidateSource and candidateSource:IsA("AudioPlayer") then
+	typeTemplate = candidateTemplate
+	typeSource = candidateSource
+end
 
 local Show = CommunicationService.Get(EndingConfig.Remotes.Folder, EndingConfig.Remotes.Show) :: RemoteEvent
 local Hide = CommunicationService.Get(EndingConfig.Remotes.Folder, EndingConfig.Remotes.Hide) :: RemoteEvent
@@ -55,6 +71,8 @@ local generation = 0
 local visible = false
 local sending = false
 local tweens: { Tween } = {}
+local random = Random.new()
+local lastTypeTick = 0
 
 local function play(object: Instance, info: TweenInfo, goal: { [string]: any }): Tween
 	local tween = TweenService:Create(object, info, goal)
@@ -83,6 +101,7 @@ end
 
 local function reset()
 	cancelTweens()
+	lastTypeTick = 0
 	main.BackgroundColor3 = EndingConfig.Colors.Backdrop
 	main.BackgroundTransparency = 1
 	card.Position = UDim2.fromScale(0.5, MOTION.CardStartY)
@@ -102,10 +121,24 @@ local function reset()
 	sending = false
 end
 
+local function playTypeTick()
+	if not typeTemplate or not typeSource then return end
+
+	local now = os.clock()
+	if now - lastTypeTick < TYPE_CUE.Interval then return end
+	lastTypeTick = now
+
+	AudioService:Play2D(typeTemplate, false, TYPE_CUE.Bus, {
+		Volume = typeSource.Volume * (TYPE_CUE.Gain or 1),
+		PlaybackSpeed = typeSource.PlaybackSpeed * random:NextNumber(TYPE_CUE.PitchMin, TYPE_CUE.PitchMax),
+	})
+end
+
 local function typeOut(text: string, current: number)
 	for index = 1, #text do
 		if generation ~= current then return end
 		subtitle.Text = text:sub(1, index) .. TEXT.Caret
+		if index % TYPE_EVERY == 0 then playTypeTick() end
 		task.wait(TIMING.TypeInterval)
 	end
 

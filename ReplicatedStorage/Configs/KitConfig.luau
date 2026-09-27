@@ -178,7 +178,7 @@ local KitConfig = {
 
 	Roll = {
 		Sku = "Roll",
-		GemCost = 5,
+		GemCost = 8,
 		DuplicateRefundFraction = 0.4,
 
 		ReelLength = 42,
@@ -256,7 +256,7 @@ end
 function KitConfig.ItemPoints(itemId: string): number
 	local entry = ItemShopConfig.EntriesById[itemId]
 	if not entry then return 0 end
-	return entry.CoinPrice / KitConfig.ItemPointDivisor
+	return (entry.KitPointPrice or entry.CoinPrice) / KitConfig.ItemPointDivisor
 end
 
 function KitConfig.StatPoints(statId: string, value: number): number

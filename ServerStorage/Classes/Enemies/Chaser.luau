@@ -236,6 +236,13 @@ local function applyVariant(model: Model, config)
 		bodyColors.RightLegColor3 = variant.SkinColor
 	end
 
+	for _, partName in { "Head", "FakeHead" } do
+		local part = model:FindFirstChild(partName)
+		if part and part:IsA("BasePart") then
+			part.Color = variant.SkinColor
+		end
+	end
+
 	if hairs then
 		local hair = hairs:FindFirstChild(variant.Hair)
 		local humanoid = model:FindFirstChildOfClass("Humanoid")

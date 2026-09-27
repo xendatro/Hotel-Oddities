@@ -88,3 +88,16 @@ The lamp count in a live server depends on what has streamed in by 10.7 s; with 
 - `Whip` is the only sound on its event, but the camera whip is keyed separately in `Camera.Keys` (9.6-10.2).
 - `Blackout` must hit on its first frame: trim any leading silence with the region's start.
 - `Notice` shares 6.1 with the camera shake, so a slow-attack replacement arrives after the punch.
+
+## Menu and kit roll
+
+Four direct children of `ReplicatedStorage.Sounds` are blank `AudioEmitter` templates with a `Player` `AudioPlayer` wired to the emitter. Set each `Player.Asset` in Studio when its sound is ready:
+
+| Template | Use |
+| --- | --- |
+| `UIOpen` | 2D SFX when a main interface page opens. |
+| `UIClose` | 2D SFX when the last open page closes. |
+| `KitRollTick` | 2D SFX whenever a new reel entry crosses the center marker. |
+| `KitRollLand` | 2D SFX after the reel finishes settling on the result. |
+
+`EndScreenService` reuses `IntroCutscene.Type` for its typewriter text, with the intro cue's tick interval, pitch range, gain and bus; it does not need another sound template.

@@ -8,9 +8,11 @@ local UserInputService = game:GetService("UserInputService")
 
 local CameraFovService = require(ReplicatedStorage.Services.CameraFovService)
 local DrawerConfig = require(ReplicatedStorage.Configs.DrawerConfig)
+local IntroCutsceneConfig = require(ReplicatedStorage.Configs.IntroCutsceneConfig)
 local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local InteractionService = require(ReplicatedStorage.Services.InteractionService)
+local AudioService = require(ReplicatedStorage.Services.AudioService)
 local KitsIndexConfig = require(ReplicatedStorage.Configs.KitsIndexConfig)
 local PresetConfig = require(ReplicatedStorage.Frameworks.xenterface.Config.PresetConfig)
 local ResetComputersConfig = require(ReplicatedStorage.Configs.ResetComputersConfig)
@@ -27,6 +29,9 @@ local PAGE_PRESET = PresetConfig.HotelPage
 local EFFECT_PRESET = PresetConfig.HotelEffects
 local CLOSE_TIME = PAGE_PRESET.CloseTime
 local MAP_ATTRIBUTE = PerkConfig.AttributePrefix .. "Map"
+local INTRO_CUTSCENE_ATTRIBUTE = IntroCutsceneConfig.PlayingAttribute
+local UI_OPEN_SOUND = "UIOpen"
+local UI_CLOSE_SOUND = "UIClose"
 
 local player = Players.LocalPlayer
 local playerGui = GuiBuilderService.GetPlayerGui()
@@ -259,6 +264,11 @@ local blurTween: Tween? = nil
 local interfaceOpen = false
 local closingUntil = 0
 
+local function playInterfaceSound(templateName: string)
+	if not AudioService:FindTemplate(templateName) then return end
+	AudioService:Play2DSound(templateName, false, "SFX")
+end
+
 local function tweenEffects(open: boolean)
 	if interfaceOpen == open then return end
 	interfaceOpen = open
@@ -303,6 +313,11 @@ controller.Fired:Connect(function(data)
 		end)
 	end
 
+	if activeGui then
+		playInterfaceSound(UI_OPEN_SOUND)
+	elseif inactiveGui then
+		playInterfaceSound(UI_CLOSE_SOUND)
+	end
 	tweenEffects(activeGui ~= nil)
 	InterfaceService:SetMouseUnlocked(activeGui ~= nil)
 end)
@@ -412,8 +427,10 @@ local function claimedByInteraction(keyCode: Enum.KeyCode): boolean
 	return InteractionService:GetSelected() ~= nil
 end
 
-UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
-	if processed then return end
+UserInputService.InputBegan:Connect(function(input: InputObject)
+	if UserInputService:GetFocusedTextBox() then return end
+	if mouseUnlockForced then return end
+	if player:GetAttribute(INTRO_CUTSCENE_ATTRIBUTE) == true then return end
 
 	local pageId = keyPages[input.KeyCode]
 	if not pageId or not pageGuis[pageId] then return end

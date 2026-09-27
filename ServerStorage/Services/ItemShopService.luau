@@ -26,7 +26,7 @@ function ItemShopService:Sync(player: Player, result: string?, itemId: string?)
 end
 
 local function grant(player: Player, itemId: string): boolean
-	if not ItemShopConfig.EntriesById[itemId] then return false end
+	if not ItemShopConfig.ShopEntriesById[itemId] then return false end
 	return InventoryService:Add(player, itemId, 1)
 end
 
@@ -43,7 +43,7 @@ Purchase.OnServerEvent:Connect(function(player: Player, itemId: any)
 	if type(itemId) ~= "string" then return end
 	if not InventoryService:Wait(player, 10) then return end
 
-	local entry = ItemShopConfig.EntriesById[itemId]
+	local entry = ItemShopConfig.ShopEntriesById[itemId]
 	if not entry then return end
 	if entry.RequiresVoice and not voiceEligible(player) then
 		ItemShopService:Sync(player, "VoiceUnavailable", itemId)
@@ -77,7 +77,7 @@ Sync.OnServerEvent:Connect(function(player: Player)
 	ItemShopService:Sync(player)
 end)
 
-for _, entry in ItemShopConfig.Entries do
+for _, entry in ItemShopConfig.ShopEntries do
 	local productId = MarketplaceService.Products.Items[entry.Product]
 	if type(productId) ~= "number" or productId <= 0 then continue end
 
