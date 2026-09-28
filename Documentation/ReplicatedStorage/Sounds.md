@@ -2,6 +2,10 @@
 
 Sound templates, found by name and played through `AudioService`. Most templates are described with the service that plays them; this page covers folders that need their own setup notes.
 
+## Mad Guest door knock
+
+`ReplicatedStorage.Sounds.MadGuestDoorKnock` is a direct-child `AudioEmitter` with a `Player` `AudioPlayer` and `Wire`. Its `Player.Asset` is blank for the sound designer to fill in Studio; the template uses the same 10–35 stud inverse attenuation as `DoorOpen`, whole-file playback and volume 1. `NPC:ReactAtRoomDoor` plays it in 3D from the room door leaf whenever the animated right fist reaches the leaf. Save or publish the Studio place after filling the asset.
+
 ## LocationAmbience
 
 Add one child folder for each POI name, then put its ambient templates in that folder. The client plays every template in the matching folder while the player is near a tagged POI with the same name. It fades each sound up over `AmbienceConfig.LocationAmbience.FadeDistance` studs before the POI bounds and fades it out while the player leaves. Multiple POIs with the same name share the folder, and only the closest matching POI sets the volume. Multiple templates in a folder play together as loops.

@@ -6,6 +6,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local AudioService = require(ReplicatedStorage.Services.AudioService)
 local MathService = require(ReplicatedStorage.Services.MathService)
 local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
 local DangerMapService = require(ServerStorage.Services.DangerMapService)
@@ -46,6 +47,8 @@ local GRAPH_NODE_REACH = 4
 local FALLBACK_FIELD_OF_VIEW = 100
 local ROOM_REACTION_DURATION = 3.5
 local ROOM_REACTION_TURN_TIME = 0.45
+local ROOM_REACTION_CONTACT_DISTANCE = 0.5
+local ROOM_REACTION_RESET_DISTANCE = 0.85
 local FORCED_DOORWAY_ATTRIBUTE = "ForcedDoorway"
 local STATE_ATTRIBUTE = "State"
 
@@ -416,23 +419,70 @@ function NPC:ReactAtRoomDoor(
 
 	local animations = self.Config.Animations
 	local reactionId = animations and animations.RoomReaction
+	local reactionSound = animations and animations.RoomReactionSound
+	local soundTemplate = if reactionSound then ReplicatedStorage.Sounds:FindFirstChild(reactionSound) else nil
+	local soundPlayer = if soundTemplate then soundTemplate:FindFirstChild("Player") else nil
+	local canPlaySound = soundPlayer and soundPlayer:IsA("AudioPlayer") and soundPlayer.Asset ~= ""
+	local hand = if reactionSound then self.Model:FindFirstChild("RightHand") else nil
+	local fist: BasePart? = if hand and hand:IsA("BasePart") then hand else nil
+	local doorPart: BasePart? = nil
+	if fist and doorway then
+		for _, descendant in doorway:GetDescendants() do
+			if descendant:IsA("BasePart") and descendant:HasTag("DoorPart") then
+				doorPart = descendant
+				break
+			end
+		end
+	end
+	local reactionTrack: AnimationTrack? = nil
 	if reactionId then
-		self.Animator:PlayOverride(reactionId)
+		reactionTrack = self.Animator:PlayOverride(reactionId)
 	else
 		self.Animator:PlayEmote("cheer")
 	end
-	local reactionWinner = if shouldCancel
-		then Race.new({
-			Finished = function()
-				task.wait(ROOM_REACTION_DURATION)
-			end,
+	local function finishReaction()
+		if not canPlaySound or not fist or not doorPart then
+			task.wait(ROOM_REACTION_DURATION)
+			return
+		end
+		local elapsed = 0
+		local previousDistance: number? = nil
+		local armed = false
+		while elapsed < ROOM_REACTION_DURATION do
+			elapsed += RunService.Heartbeat:Wait()
+			if doorPart.Parent then
+				local localPosition = doorPart.CFrame:PointToObjectSpace(fist.Position)
+				local halfSize = doorPart.Size * 0.5
+				local outside = Vector3.new(
+					math.max(math.abs(localPosition.X) - halfSize.X, 0),
+					math.max(math.abs(localPosition.Y) - halfSize.Y, 0),
+					math.max(math.abs(localPosition.Z) - halfSize.Z, 0)
+				)
+				local distance = outside.Magnitude
+				if reactionTrack and reactionTrack.TimePosition > 0.05
+					and distance >= ROOM_REACTION_RESET_DISTANCE then armed = true end
+				if armed and previousDistance and previousDistance > distance
+					and distance <= ROOM_REACTION_CONTACT_DISTANCE then
+					AudioService:Play3DSound(reactionSound, doorPart, false, "SFX")
+					armed = false
+				end
+				previousDistance = distance
+			end
+		end
+	end
+	local reactionWinner = "Finished"
+	if shouldCancel then
+		reactionWinner = Race.new({
+			Finished = finishReaction,
 			Cancelled = function()
 				while not shouldCancel() do
 					RunService.Heartbeat:Wait()
 				end
 			end,
 		}):Fire()
-		else "Finished"
+	else
+		finishReaction()
+	end
 	if reactionWinner ~= "Finished" then
 		if reactionId then
 			self.Animator:StopOverride()

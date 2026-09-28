@@ -175,6 +175,10 @@ export type EnemyConfig = {
 	StalkCatchUpSpeed: number?,
 	StalkCatchUpDistance: number?,
 	StalkPaceResponse: number?,
+	StalkProgressDistance: number?,
+	StalkProgressTime: number?,
+	StalkTargetMovement: number?,
+	StalkMaxTime: number?,
 	FleeTime: number?,
 	FleeCoverRange: number?,
 	FleeCoverMinDistance: number?,
@@ -462,6 +466,10 @@ local EnemyConfigs: { [string]: EnemyConfig } = {
 		StalkCatchUpSpeed = 12,
 		StalkCatchUpDistance = 20,
 		StalkPaceResponse = 4,
+		StalkProgressDistance = 4,
+		StalkProgressTime = 20,
+		StalkTargetMovement = 12,
+		StalkMaxTime = 60,
 
 		FleeTime = 15,
 

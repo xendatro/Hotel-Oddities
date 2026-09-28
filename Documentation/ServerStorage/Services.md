@@ -586,6 +586,7 @@ Geometry search that finds a corner mouth a stalker enemy can hide inside and pe
 - API: `PeekSpotService:Find(player: Player, options: FindOptions) -> PeekSpot?` — nearest valid peek spot; a `PeekSpot` carries `Stand` (hidden foot), `Root` (peek root CFrame), `HiddenRoot`, `Side`, `Scale`, `RootHeight`, `Lateral` and `Facing`
 - API: `PeekSpotService:IsInSight(spot: PeekSpot, player: Player, options: FindOptions) -> boolean` — whether the peek pose would be visible from the player's eye inside the fog-capped range
 - API: `PeekSpotService:IsStillValid(spot: PeekSpot, player: Player, options: FindOptions) -> boolean` — re-run the checks on an existing spot, including that the peek pose is outside every view cone
+- API: `PeekSpotService:IsHidden(spot: PeekSpot, player: Player, options: FindOptions) -> boolean` — recheck the waiting stance's concealment as players move toward the corner
 - API: `PeekSpotService:DebugCorner(player: Player, options: FindOptions, position: Vector3) -> any` — per-check rejection trace (reason, depth, exposure) for the corner near a position
 - API: `PeekSpotService.PeekPoints(spot: PeekSpot) -> {Vector3}` — world positions of the peek pose samples
 - API: `PeekSpotService:GetMaxDistance(player: Player, options: FindOptions) -> number` — fog-capped search range

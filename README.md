@@ -168,7 +168,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\IndexUIService.luau — Paginated bestiary UI with viewport headshots, progressive text reveals, 25% discovery milestone notifications and shared cursor unlocking for death reveals.
 - ReplicatedStorage\Services\InteractionService.luau — Singleton crosshair interaction target registry, highlight and key prompt.
 - ReplicatedStorage\Services\InterfaceHideService.luau — Hides every PlayerGui LayerCollector, core GUI type and the topbar and restores them exactly, detaching guis that re-enable themselves, leaving on guis another handler enabled in the same batch, and counting nested captures so the topbar and core GUIs return only with the last one.
-- ReplicatedStorage\Services\InterfaceService.luau — Main menu page switching (Index, Rooms, Shop, Gems, Items, Inventory, kits, roll, map, gallery), blur, FOV pull-back and mouse unlocking, including Q toggling through the mouse blocker (blockable by key) and enforced system-cursor hiding after relock; direct page-root close buttons animate themselves instead of rotating the full menu frame; side-button keys toggle their own page even when Roblox marks the key processed, with text fields, cutscenes, forced cursor prompts and active drawer interactions protected; page transitions play `UIOpen`/`UIClose` sound templates.
+- ReplicatedStorage\Services\InterfaceService.luau — Main menu page switching (Index, Rooms, Shop, Gems, Items, Inventory, kits, roll, map, gallery), blur, FOV pull-back and mouse unlocking, including Q toggling through the mouse blocker (blockable by key) and enforced system-cursor hiding after relock; direct page-root close buttons animate themselves instead of rotating the full menu frame; side-button keys use a high-priority context action, while text fields, cutscenes, forced cursor prompts and active drawer interactions retain their inputs; page transitions play `UIOpen`/`UIClose` sound templates.
 - ReplicatedStorage\Services\IntroCutsceneService.luau — The first-time intro cutscene played on walking out of the maze arrival elevator: replay pill during the loading screen, admin-queued replays, local take-over of camera, HUD, input, audio and hooks, the staged Stalker and Creep timeline, hold-to-skip and an exact restore; flags the local player `IntroCutscenePlaying` while it runs.
 - ReplicatedStorage\Services\InventoryPageUIService.luau — The Inventory page: bag grid, in-page hotbar row, item info, TO HOTBAR / TO BAG button and drag-and-drop between them, toggled by keybind or side button.
 - ReplicatedStorage\Services\InventoryUIService.luau — Responsive five-slot hotbar HUD with equipping and drag reordering, plus the client's slot-ordered inventory snapshot and move API.
@@ -320,7 +320,7 @@ become Services or Classes.
 ### ReplicatedStorage\Configs
 
 - ReplicatedStorage\Configs\AmbienceConfig.luau — Distance falloff and fade timing for ambient sound emitters, POI altered-layer settings, location ambience fades and ExtraAmbience intervals.
-- ReplicatedStorage\Configs\AnimationConfig.luau — Animation asset ids and per-enemy animation sets, including the Stalker's PeekLeft/PeekRight corner-peek clips.
+- ReplicatedStorage\Configs\AnimationConfig.luau — Animation asset ids and per-enemy animation sets, including the Mad Guest's door-impact sound name and the Stalker's PeekLeft/PeekRight corner-peek clips.
 - ReplicatedStorage\Configs\BadgeConfig.luau — Every badge id the game awards, by role: joined, escaped, three escapes, one per room, one per computer colour and one per killer, plus icon fetch tuning.
 - ReplicatedStorage\Configs\BreatheConfig.luau — Idle breathing joint motion settings.
 - ReplicatedStorage\Configs\CameraBobConfig.luau — Walk-cycle camera bob amplitude, cadence and smoothed strafing tilt.
@@ -380,7 +380,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\RoomsIndexConfig.luau — Rooms index page settings, locked strings, animation and one entry per point of interest with its name and blurb; the photo is the room's badge icon.
 - ReplicatedStorage\Configs\ShopkeeperConfig.luau — Shopkeeper NPC tag, reach, input bindings and prompt UI styling.
 - ReplicatedStorage\Configs\SistersConfig.luau — Sisters eye-contact gaze test, vertigo effect tuning, remote names and the 30-second ceiling warp length.
-- ReplicatedStorage\Configs\SideButtonConfig.luau — Side-bar button labels, their keybinds and bounded scaled-text styling.
+- ReplicatedStorage\Configs\SideButtonConfig.luau — Side-bar button labels and keybinds (Items J, Kits K, Shop B, Inventory E) with bounded scaled-text styling.
 - ReplicatedStorage\Configs\SpawnZoneConfig.luau — Tag, poll interval and repel cooldown for the spawn safe zone system.
 - ReplicatedStorage\Configs\SprintBoostConfig.luau — Visual definitions for speed-boost auras on the sprint bar.
 - ReplicatedStorage\Configs\SprintConfig.luau — Sprint speed, stamina economy, input bindings, mobile text bounds and low-resolution stamina-bar scaling.
@@ -498,7 +498,7 @@ become Services or Classes.
 - ServerStorage\Services\OddityService.luau — Registry, config merging, direct min/max interval scheduling and lifecycle for every ambient oddity class.
 - ServerStorage\Services\PaintingDwellerService.luau — FixturePool wrapper that arms and triggers the painting dweller oddity, plus its /dweller command.
 - ServerStorage\Services\PaintingFallService.luau — FixturePool wrapper that arms and drops falling paintings, plus its /painting command.
-- ServerStorage\Services\PeekSpotService.luau — Fog-capped geometry search for corner mouths behind the player an enemy can hide in and peek out of with the corner-peek clips: places the peek root so the animated head clears the corner by PeekExposure, takes the hidden stand from the clip's root motion, checks clearance, concealment and visibility, and reports whether a spot is still in the player's sight.
+- ServerStorage\Services\PeekSpotService.luau — Fog-capped geometry search for corner mouths behind the player an enemy can hide in and peek out of with the corner-peek clips: places the peek root so the animated head clears the corner by PeekExposure, takes the hidden stand from the clip's root motion, checks clearance, concealment and visibility, and rechecks hidden-stance concealment as players approach.
 - ServerStorage\Services\PerkService.luau — Resolves gamepass ownership and applies unlimited stamina, visor, permanent Player Locator, permanent Camcorder, DoubleCoins, DoubleGems and keep-items perks on spawn or purchase.
 - ServerStorage\Services\PhotoCameraService.luau — Runs placed tripod cameras: countdown, subject detection, ShadowFigure placement, snap broadcast and unseen despawn.
 - ServerStorage\Services\PhotoCommandService.luau — /photo chat command for placing a test camera, snapping it early and forcing the ShadowFigure into frame.
@@ -531,7 +531,7 @@ become Services or Classes.
 - ServerStorage\Classes\EnemyBase.luau — Minimal base class for non-humanoid enemies, owning tags, the active flag and a lingering despawn.
 - ServerStorage\Classes\FixturePool.luau — Keeps tagged hallway fixtures armed near players and drops them as oddities on approach.
 - ServerStorage\Classes\CrossingPool.luau — Keeps sampled hallway crossing points armed near players and starts an oddity there on approach.
-- ServerStorage\Classes\NPC.luau — Full humanoid-enemy base: pathfinding, pursuit that walks the hallway graph while a path computes, joins paths computed while moving and force-charges the straight line with no floor check when nothing else can move it, sight and observation checks, targeting, and shared Idle/Wander/Patrol states, including the patrol stall watchdog that despawns an NPC stuck in place for 20 seconds while it should be walking.
+- ServerStorage\Classes\NPC.luau — Full humanoid-enemy base: pathfinding, pursuit that walks the hallway graph while a path computes, joins paths computed while moving and force-charges the straight line with no floor check when nothing else can move it, sight and observation checks, targeting, shared Idle/Wander/Patrol states, room-door reaction fist-contact sounds, and the patrol stall watchdog that despawns an NPC stuck in place for 20 seconds while it should be walking.
 - ServerStorage\Classes\Healer.luau — Server tool that consumes a charge and heals the holder.
 - ServerStorage\Classes\FixtureFall.luau — Prop oddity that unanchors and drops a fixture, plays its configured 3D sound and impact effect once on floor impact, and provides the shared "safe to repair yet" test and exact restore.
 - ServerStorage\Classes\HallwayOddity.luau — Base class for map-scope oddities that occupy a hallway span.
@@ -552,9 +552,9 @@ become Services or Classes.
 - ServerStorage\Classes\Enemies\Mimic.luau — Copies a player's appearance and acts out odd encounter modes before revealing and chasing; its hit is a one-shot kill and it walks and chases slightly slower than the other pursuers to pay for it.
 - ServerStorage\Classes\Enemies\MirrorStalker.luau — Harmless stalker whose invisible body walks the mirror room's floor so only its target ever sees it, as a ceiling reflection, until they look behind them with the reflection out of view or leave the room.
 - ServerStorage\Classes\Enemies\Sisters.luau — Twinned translucent, harmless figures that patrol the hallway ceilings forever via SurfaceWalker, heads tracking the nearest player.
-- ServerStorage\Classes\Enemies\Stalker.luau — Peeks at a player from corner to corner, then tails them from behind unseen at their own pace with a catch-up boost until it closes to striking range, flees to cover when observed, and snaps right behind them to seize the camera and kill. Wears its own `Enemies.Stalker` rig: the Ceiling Dweller's all-black skin with neon red eyes, the same model the Index shows.
+- ServerStorage\Classes\Enemies\Stalker.luau — Peeks at a player from corner to corner, then tails them from behind unseen at their own pace with a catch-up boost until it closes to striking range, despawning if a route traps it without progress; it flees to cover when observed and snaps right behind them to seize the camera and kill. Wears its own `Enemies.Stalker` rig: the Ceiling Dweller's all-black skin with neon red eyes, the same model the Index shows.
 - ServerStorage\Classes\Enemies\WeepingAngel.luau — Chaser that freezes solid whenever any player is observing it.
-- ServerStorage\Classes\Enemies\Behaviors\Peek.luau — Shared state functions for hiding inside a corner mouth, snapping into the corner-peek clip's first frame while unwatched, withdrawing with the clip when seen (flagging the spotted and withdrawn moments for the client eye flare), teleporting unseen to the next corner whenever the player leaves the spot's sight, and standing the rig upright on release.
+- ServerStorage\Classes\Enemies\Behaviors\Peek.luau — Shared state functions for hiding inside a corner mouth, immediately leaving if the hidden stance becomes exposed, snapping into the corner-peek clip's first frame while unwatched, withdrawing with the clip when seen (flagging the spotted and withdrawn moments for the client eye flare), teleporting unseen to the next corner whenever the player leaves the spot's sight, and standing the rig upright on release.
 - ServerStorage\Classes\Oddity.luau — Root oddity class: token, merged settings, timed start/stop lifecycle and subclass factory.
 - ServerStorage\Classes\PropOddity.luau — Intermediate oddity base whose context is a prop Model in the workspace.
 - ServerStorage\Classes\PlayerOddity.luau — Intermediate oddity base whose context is a Player, auto-stopping on death.
@@ -599,7 +599,7 @@ become Services or Classes.
 - ServerStorage\Configs\AnalyticsConfig.luau — Funnel name, on/off switches, the ten ordered funnel steps of one run, the custom event catalogue (names, fields, values, who fires them), the enemy encounter rules and the economy names; read its doc entry before adding any analytics.
 - ServerStorage\Configs\DevProductConfigs.luau — Empty placeholder table for developer product definitions.
 - ServerStorage\Configs\DiscoveryConfig.luau — Sight, proximity, event and death discovery gain rates per enemy, with a defaults resolver.
-- ServerStorage\Configs\EnemyConfigs.luau — Master per-enemy stat table for models, movement, senses, damage and spawn budgeting.
+- ServerStorage\Configs\EnemyConfigs.luau — Master per-enemy stat table for models, movement, senses, damage, spawn budgeting and Stalker pursuit limits.
 - ServerStorage\Configs\HealthRegenConfig.luau — Player health regeneration rate, tick step and post-damage delay.
 - ServerStorage\Configs\GamepassConfigs.luau — Empty placeholder table for gamepass definitions.
 - ServerStorage\Configs\PeekPoseConfig.luau — Baked per-frame body samples, timings and root-motion shift of the Stalker's corner-peek clips, measured from PeekRight at rig scale 1.
@@ -641,3 +641,5 @@ Rotunda connector room segment naming, the merged wallpaper columns and their ba
 Baked oddity POIs (The Hole, Glitched Hallway, once called Invisible Hallway), their backups under `ServerStorage.POIBackups` and how to revert them: `Documentation/Workspace/POIHallways.md`.
 
 Intro cutscene: its Studio guis and effect templates (`StarterGui.IntroCutsceneGui`, `StarterGui.IntroCutscenePills`, `ReplicatedStorage.Effects.IntroCutscene`) are in [Documentation/Workspace/IntroCutscene.md](Documentation/Workspace/IntroCutscene.md), the swap sheet for its twelve sound cues in `ReplicatedStorage.Sounds.IntroCutscene`, with the exact second each one plays, is in [Documentation/ReplicatedStorage/Sounds.md](Documentation/ReplicatedStorage/Sounds.md), and the story it tells, with what the team decided and what was invented for it, is in [Documentation/Lore.md](Documentation/Lore.md).
+
+Mad Guest door-impact audio uses the blank Studio template `ReplicatedStorage.Sounds.MadGuestDoorKnock`; setup is in [Documentation/ReplicatedStorage/Sounds.md](Documentation/ReplicatedStorage/Sounds.md).

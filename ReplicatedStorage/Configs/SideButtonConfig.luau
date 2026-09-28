@@ -1,8 +1,8 @@
 return {
 	Pages = {
-		Items = { Label = "Items", Key = Enum.KeyCode.I },
+		Items = { Label = "Items", Key = Enum.KeyCode.J },
 		Kits = { Label = "Kits", Key = Enum.KeyCode.K },
-		Shop = { Label = "Shop", Key = Enum.KeyCode.G },
+		Shop = { Label = "Shop", Key = Enum.KeyCode.B },
 		Inventory = { Label = "Inventory", Key = Enum.KeyCode.E },
 	},
 

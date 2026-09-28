@@ -273,11 +273,15 @@ local function lurk(
 	player: Player
 )
 	local config = npc.Config
+	local options = Peek.GetFindOptions(config)
 	local expiresAt = os.clock() + config.PeekWaitTime
 	local abandonDistance = config.MinPeekDistance * ABANDON_DISTANCE_SCALE
 	local isLost = watchSight(npc, spot, player)
 
 	while true do
+		if not PeekSpotService:IsHidden(spot, player, options) then
+			return finish(npc, "Seen", player)
+		end
 		if npc:IsObserved() then
 			return finish(npc, "Seen", player)
 		end
@@ -380,10 +384,14 @@ local function rest(
 	player: Player
 )
 	local config = npc.Config
+	local options = Peek.GetFindOptions(config)
 	local expiresAt = os.clock() + randomBetween(config.RestTimeMin, config.RestTimeMax)
 	local isLost = watchSight(npc, spot, player)
 
 	while os.clock() < expiresAt do
+		if not PeekSpotService:IsHidden(spot, player, options) then
+			return finish(npc, "Seen", player)
+		end
 		if npc:IsObserved() then
 			return finish(npc, "Seen", player)
 		end
