@@ -150,18 +150,66 @@ Turns a player into a stable test subject.
   **nothing at all** when called from an MCP snippet. Use `Quiet.on()` instead
 - `Subject.first()` for the first player, which in a solo playtest is the subject
 
+### ReplicatedStorage\Playtest\Bridge.client.luau and ServerBridge.server.luau
+The way to call any Playtest module from an MCP snippet now that snippets cannot
+`require` (see Gotchas). Both are Studio-only Scripts (`Bridge` has RunContext
+Client, `ServerBridge` RunContext Server) that do nothing until a snippet writes
+a call:
+
+```lua
+-- Client snippet
+LocalPlayer:SetAttribute("PlaytestCall", HttpService:JSONEncode({
+    id = "c1", module = "Trailer.Director", fn = "Play", args = { "Arrival" } }))
+-- result: LocalPlayer:GetAttribute("PlaytestResult_c1")  (JSON: ok, value | error)
+
+-- Server snippet
+ServerStorage:SetAttribute("PlaytestCall", HttpService:JSONEncode({
+    id = "s1", module = "TrailerServer", fn = "Prepare", args = { "@player" } }))
+-- result: ServerStorage:GetAttribute("PlaytestResult_s1")
+```
+
+Module paths are relative to `ReplicatedStorage.Playtest` (the server also looks
+in `ServerStorage.Playtest` first). `"@player"` in server args becomes the first
+player. Calls run inside the real game VM, so the modules they touch are the
+game's own copies: `Quiet.on()` through `ServerBridge` takes a spawn block that
+actually works.
+
+### ReplicatedStorage\Playtest\Trailer
+The trailer shoot (see `Trailer/README.md`). `Director` plays one shot from
+`Shots` on the client: hides every interface, parks and hides the character,
+preloads the stage's assets, holds the first frame for a lighting warm-up, then
+runs the shot's camera keys, events and staging. `Director.Sequence({...})` plays
+several back to back for one continuous capture. `Timecode` burns the shot clock
+and shot id into the left margin of every frame for `Trailer/tools/conform.py`.
+`Lens` builds smooth camera keys (yaw, pitch and roll splines). `Stage` stages
+local rigs, avatars, lamp sweeps and flicker, VFX and property overrides that
+undo themselves. `Shots/Scout` is a still camera for scouting a pose with in-game
+lighting: `Director.Play("Scout", { Pos = {x, y, z}, Look = {x, y, z}, HoldAt = 0 })`.
+
+### ServerStorage\Playtest\TrailerServer.luau
+- `TrailerServer.Prepare(player)` clears enemies (`Quiet.on`), makes the player
+  invincible, pauses the enemy director, programmatic and ceiling vents, and
+  stops any ambient oddity that starts (set the workspace attribute
+  `TrailerAllowOddities` to let them run)
+- `TrailerServer.Release()` undoes all of it; `TrailerServer.State()` reports it
+- `TrailerServer.Place(player, x, y, z)` pivots the character
+
 ---
 
 ## Gotchas
 
-**`Measured`** — **an MCP snippet gets its own copy of every module it
-requires.** `require` works in Edit, Server and Client, and the copy is shared
-between MCP snippets: the same module returned the same table address across
-separate calls. It is not the copy the game scripts hold, and nothing warns you.
-Measured on 2026-09-22: `EnemyService:GetActive()` returned 0 while 22 models
-carried the `Enemy` tag, and `Subject.clearEnemies()` returned `despawned = 0`
-and left all 16 live enemies walking. The symptom is silence, not an error, so it
-is easy to miss. Consequences:
+**`Measured`** — **an MCP snippet cannot `require` anything; go through the
+Bridge.** On 2026-10-01 `require(ReplicatedStorage.Classes.CameraTrack)` and
+`require(ReplicatedStorage.Playtest.Wait)` both failed with "cannot require ...
+has additional values for the Capabilities property" in Edit and in a Client
+play session. Call Playtest modules through `Bridge` / `ServerBridge` instead;
+they run in the game's own VM.
+
+When `require` did work (measured 2026-09-22) it handed the snippet **its own
+copy** of every module, shared between snippets but not with the game scripts:
+`EnemyService:GetActive()` returned 0 while 22 models carried the `Enemy` tag,
+and `Subject.clearEnemies()` returned `despawned = 0` and left all 16 live
+enemies walking. If that ever comes back, the same rules hold:
 
 - `CollectionService` tags and instance properties are on the instances
   themselves and are shared, so they are the reliable handle from a snippet.
@@ -309,6 +357,37 @@ returns one 23.1 studs away. 20 of the graph's 361 nodes are not well connected.
 `Patrol` passes `wellConnectedOnly`, and spawning a Chaser on that pocket now
 walks it off within a second and 387 studs across the map in 40 s. If patrol ever
 freezes again, print that flag for the enemy's nearest node first.
+
+**`Measured`** — **new script files on disk do not appear in Studio, and new
+Studio scripts are not written to disk.** On 2026-10-01 a new `.luau` file in
+`ReplicatedStorage\Playtest` was still missing from Studio after 25 seconds, and
+a ModuleScript created in Studio never produced a file. Only scripts that are
+already linked sync. Create a new script with the MCP `multi_edit` tool (it can
+create inside `ReplicatedStorage.Playtest`, while `execute_luau` cannot parent
+anything there), then set its `Source` from `execute_luau` and compare `#Source`
+with the file's byte count. Mirror every later edit the same way.
+
+**`Measured`** — **Roblox's own top-bar buttons stay on screen in a playtest even
+with `TopbarEnabled` false.** A desktop capture on 2026-10-01 showed the Roblox
+logo, menu and microphone buttons in the viewport's top-left corner while every
+game gui and core gui was hidden; `screen_capture` does not show them. Anything
+recorded for publishing has to be cropped below them.
+
+**`Measured`** — **Studio renders about 100-110 fps when focused and 15 fps when
+not.** The burned-in timecode measured 100-111 fps for focused takes and 15 fps
+for unfocused ones on 2026-10-01. Unfocused takes are fine for checking a shot;
+anything that must look smooth needs the window focused.
+
+**`Measured`** — **`Model:PivotTo` places an enemy rig by its pivot, not its
+root.** On 2026-10-01 a `Stalker` clone moved with `PivotTo(rootCFrame)` ended
+with its `HumanoidRootPart` 3.45 studs higher than asked, because the model's
+pivot sits at its feet. Offset by `root.CFrame:Inverse() * model:GetPivot()` or
+set the root's `CFrame` directly.
+
+**`Observed`** — **CPU-heavy work on the same machine wrecks the playtest's frame
+rate.** A 16-process video render run while a playtest was open on 2026-10-02
+dropped Studio's frame rate badly and crashed the Claude desktop app. Stop the
+playtest before rendering and keep batch jobs at idle priority.
 
 ---
 

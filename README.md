@@ -630,6 +630,10 @@ Enemy navigation: NPC patrols reuse ConnectorGraph entrance geometry with danger
 - ReplicatedStorage\Configs\EnemyDespawnConfig.luau — Powdery white enemy despawn puff texture, size, lifetime and distance settings.
 - ReplicatedStorage\Services\EnemyDespawnService.luau — Local 1.5x layered dust burst, smoke and powder flecks with a 0.15-second enemy fade and positional despawn audio, triggered centrally by EnemyService for enemies whose config enables the sequence.
 
+Game trailer: the scripted shots live in `ReplicatedStorage\Playtest\Trailer`
+(see `PLAYTESTING.md`), and the capture, edit, sound and render pipeline is in
+`Trailer\` (see `Trailer\README.md`).
+
 Maze arrival/exit construction and placement: `Documentation/Workspace/MazeElevators.md`; reproducible edit-time build: `Tools/BuildMazeElevators.luau`.
 
 Maze room door tags, including the `DoorPart` tags on the upside-down rooms' leaves: `Documentation/Workspace/MazeRoomDoors.md`.
