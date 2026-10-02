@@ -188,6 +188,9 @@ local function render(run: Run, time: number, dt: number)
 	if run.Shot.Camera then
 		frame, fov = run.Shot.Camera(run.Stage, run.Context, time, frame, fov)
 	end
+	if camera.CameraType ~= Enum.CameraType.Scriptable then
+		camera.CameraType = Enum.CameraType.Scriptable
+	end
 	camera.CFrame = frame
 	camera.Focus = run.Track:GetFocus(frame)
 	camera.FieldOfView = fov

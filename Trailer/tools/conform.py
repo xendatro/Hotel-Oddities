@@ -148,7 +148,8 @@ def plan(stamps, fps, shutter, start, end, shot_id=None):
     return selection, {
         "frames": len(stamps), "running": len(running), "unique": len(unique),
         "span": [float(first), float(last)], "render_fps": float(1 / np.median(gaps)) if len(gaps) else 0,
-        "worst_gap_ms": float(gaps.max() * 1000) if len(gaps) else 0, "output_frames": count, "start": float(start),
+        "worst_gap_ms": float(gaps.max() * 1000) if len(gaps) else 0,
+        "worst_gap_at": float(times[int(np.argmax(gaps))]) if len(gaps) else 0, "output_frames": count, "start": float(start),
     }
 
 

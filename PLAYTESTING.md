@@ -181,9 +181,11 @@ preloads the stage's assets, holds the first frame for a lighting warm-up, then
 runs the shot's camera keys, events and staging. `Director.Sequence({...})` plays
 several back to back for one continuous capture. `Timecode` burns the shot clock
 and shot id into the left margin of every frame for `Trailer/tools/conform.py`.
-`Lens` builds smooth camera keys (yaw, pitch and roll splines). `Stage` stages
-local rigs, avatars, lamp sweeps and flicker, VFX and property overrides that
-undo themselves. `Shots/Scout` is a still camera for scouting a pose with in-game
+`Lens` builds smooth camera keys (yaw, pitch and roll splines) and
+`Lens.Impulses` adds decaying camera shake, FOV kicks and push/recoil on a
+shot's `Camera` hook. `Stage` stages local rigs, avatars, lamp sweeps and
+flicker, VFX and property overrides that undo themselves; `Rig:Bend` offsets a
+joint for both Motor6D and AnimationConstraint rigs. `Shots/Scout` is a still camera for scouting a pose with in-game
 lighting: `Director.Play("Scout", { Pos = {x, y, z}, Look = {x, y, z}, HoldAt = 0 })`.
 
 ### ServerStorage\Playtest\TrailerServer.luau
@@ -366,6 +368,9 @@ already linked sync. Create a new script with the MCP `multi_edit` tool (it can
 create inside `ReplicatedStorage.Playtest`, while `execute_luau` cannot parent
 anything there), then set its `Source` from `execute_luau` and compare `#Source`
 with the file's byte count. Mirror every later edit the same way.
+Later on 2026-10-02 a new `Shots\Mimic.luau` did appear in Studio on its own
+after the folder had been committed, so check `#Source` before creating a
+script by hand; `multi_edit` reports not-found edits when sync got there first.
 
 **`Measured`** — **Roblox's own top-bar buttons stay on screen in a playtest even
 with `TopbarEnabled` false.** A desktop capture on 2026-10-01 showed the Roblox
@@ -383,6 +388,21 @@ root.** On 2026-10-01 a `Stalker` clone moved with `PivotTo(rootCFrame)` ended
 with its `HumanoidRootPart` 3.45 studs higher than asked, because the model's
 pivot sits at its feet. Offset by `root.CFrame:Inverse() * model:GetPivot()` or
 set the root's `CFrame` directly.
+
+**`Measured`** — **avatars built from a `HumanoidDescription` use
+AnimationConstraint joints, not Motor6D.** On 2026-10-02 the `hythe55` and
+`HustleOnPoint` rigs from `CreateHumanoidModelFromDescriptionAsync` had `Neck`
+and `Waist` as kinematic `AnimationConstraint`s with ball sockets beside them,
+so code that looked for a `Motor6D` named `Neck` found nothing and every head
+turn silently did nothing. Offset the constraint's `Attachment0.CFrame`
+instead; it plays the role of `C0`.
+
+**`Measured`** — **this place's hallways are lit mostly by ambient, not the
+lanterns.** `Lighting.Ambient` and `OutdoorAmbient` are (70, 70, 70) and the
+lanterns are 1-brightness, 8-stud PointLights, so killing lanterns barely
+changes a frame. Lower the ambient for mood. A red PointLight on a face needs
+about 1.6 brightness and 9 studs of range; 3.5 and 16 turned the whole hallway
+red.
 
 **`Observed`** — **CPU-heavy work on the same machine wrecks the playtest's frame
 rate.** A 16-process video render run while a playtest was open on 2026-10-02

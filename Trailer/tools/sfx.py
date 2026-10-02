@@ -262,7 +262,24 @@ def crackle(seconds=14.0):
     return normalize(out, 0.6)
 
 
+def crack(seconds=0.9):
+    t = timeline(seconds)
+    out = np.zeros_like(t)
+    for offset, gain in ((0.0, 1.0), (0.035, 0.7), (0.06, 0.85), (0.11, 0.5), (0.135, 0.65)):
+        start = int(offset * RATE)
+        length = int(0.012 * RATE)
+        burst = highpass(noise(0.012), 1800) * np.exp(-np.arange(length) / (length / 5)) * gain
+        out[start:start + length] += burst[: len(out[start:start + length])]
+        body = np.sin(2 * np.pi * rng.uniform(380, 620) * t[: int(0.05 * RATE)]) * np.exp(-t[: int(0.05 * RATE)] / 0.012) * gain * 0.5
+        out[start:start + len(body)] += body[: len(out[start:start + len(body)])]
+    thud = lowpass(noise(seconds), 180) * env_exp(t, 0.002, 0.08) * 0.9
+    out = stereo(out + thud, width=0.15)
+    out = board(out, Distortion(drive_db=6), Reverb(room_size=0.35, wet_level=0.15, dry_level=0.95))
+    return normalize(out, 0.9)
+
+
 SOUNDS = {
+    "crack": crack,
     "crackle": crackle,
     "braam": braam,
     "impact": impact,

@@ -193,15 +193,29 @@ local function assemble(model: Model)
 	model.Parent = nil
 end
 
-function Stage:Avatar(username: string, cframe: CFrame, clean: ((Model) -> ())?)
+function Stage:Avatar(username: string, cframe: CFrame, options: { Remove: { number }?, Adjust: { [number]: { [string]: any } }? }?)
 	local userId = Players:GetUserIdFromNameAsync(username)
 	local description = Players:GetHumanoidDescriptionFromUserIdAsync(userId)
+	if options then
+		local removed = {}
+		for _, id in options.Remove or {} do
+			removed[id] = true
+		end
+		local kept = {}
+		for _, accessory in description:GetAccessories(true) do
+			if not removed[accessory.AssetId] then
+				local adjust = options.Adjust and options.Adjust[accessory.AssetId]
+				for key, value in adjust or {} do
+					accessory[key] = value
+				end
+				table.insert(kept, accessory)
+			end
+		end
+		description:SetAccessories(kept, true)
+	end
 	local model = Players:CreateHumanoidModelFromDescriptionAsync(description, Enum.HumanoidRigType.R15)
 	model.Name = username
 	assemble(model)
-	if clean then
-		clean(model)
-	end
 	return self:Rig(model, cframe)
 end
 
@@ -257,21 +271,36 @@ function Rig:GetCFrame(): CFrame
 	return if self.Root then self.Root.CFrame else self.Model:GetPivot()
 end
 
-function Rig:Joint(name: string): Motor6D?
-	local joint = self.Model:FindFirstChild(name, true)
-	return if joint and joint:IsA("Motor6D") then joint else nil
+-- Avatars built from a HumanoidDescription use AnimationConstraint joints
+-- instead of Motor6D; Bend rotates Attachment0 for those, the same frame C0 is.
+function Rig:Joint(name: string): Instance?
+	self.Joints = self.Joints or {}
+	local cached = self.Joints[name]
+	if cached then return cached end
+	for _, joint in self.Model:GetDescendants() do
+		if joint.Name == name and (joint:IsA("Motor6D") or joint:IsA("AnimationConstraint")) then
+			self.Joints[name] = joint
+			return joint
+		end
+	end
+	return nil
 end
 
 function Rig:Bend(name: string, rotation: CFrame)
 	local joint = self:Joint(name)
 	if not joint then return end
 	self.Bases = self.Bases or {}
-	local base = self.Bases[joint]
-	if not base then
-		base = joint.C0
+	if joint:IsA("Motor6D") then
+		local base = self.Bases[joint] or joint.C0
 		self.Bases[joint] = base
+		joint.C0 = base * rotation
+	else
+		local attachment = (joint :: AnimationConstraint).Attachment0
+		if not attachment then return end
+		local base = self.Bases[attachment] or attachment.CFrame
+		self.Bases[attachment] = base
+		attachment.CFrame = base * rotation
 	end
-	joint.C0 = base * rotation
 end
 
 function Stage:Flicker(min: Vector3, max: Vector3, seed: number?)

@@ -67,7 +67,7 @@ return {
 	end,
 
 	Setup = function(stage)
-		local friend = stage:Avatar(FRIEND, facing(at(FRIEND_SIDE, FRIEND_START, 3)))
+		local friend = stage:Avatar(FRIEND, facing(at(FRIEND_SIDE, FRIEND_START, 3)), { Remove = { 5731053584 } })
 		local guest = stage:Enemy("Chaser", facing(at(GUEST_SIDE, GUEST_START, 3)))
 		local hairs = guest.Model:FindFirstChild("Hairs")
 		if hairs then
