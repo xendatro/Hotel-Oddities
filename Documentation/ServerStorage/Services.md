@@ -431,13 +431,13 @@ Admin toggle that marks a player's character with the `Vanished` tag, making the
 - Requires: `ReplicatedStorage.Services.VanishedService`, `ChatCommandService` (registers admin-only `/invincible [on|off]` and `/mortal`)
 
 ### ItemShopService.luau
-Coin-and-Robux item shop: it validates a purchase against `ItemShopConfig`, checks voice-chat eligibility for voice-gated items, spends coins from the DataSave profile and grants the tool through `InventoryService`. Robux products get a receipt handler with per-`PurchaseId` deduplication, and coin balances are mirrored to a `Coins` player attribute and to the client.
+Coin-and-Robux item shop: it validates purchases and registers receipt handlers against `ItemShopConfig.ShopEntries`, checks voice-chat eligibility for voice-gated items, spends coins from the DataSave profile and grants the tool through `InventoryService`. The required Walkie Talkie remains in the full item catalog but is not purchasable. Robux products get a receipt handler with per-`PurchaseId` deduplication, and coin balances are mirrored to a `Coins` player attribute and to the client.
 - API: `ItemShopService:Sync(player: Player, result: string?, itemId: string?)` — pushes coins plus a result code (`Purchased`, `InsufficientCoins`, `InventoryFull`, `VoiceUnavailable`)
 - Remotes: `Items/Purchase` (listened), `Items/Sync` (fired and listened)
 - Requires: `ItemShopConfig`, `MarketplaceService.Products.Items` / `:CreateReceipt`, `DataSaveService`, `InventoryService`, `CoinService` (spends pass the item id as the economy sku), `AnalyticsService` (`ItemPurchased` with `Item` and `Currency` = `Coins` or `Robux`, value = the coin price)
 
 ### KitRollService.luau
-The paid-random-items path. Eligibility comes from `PolicyService.ArePaidRandomItemsRestricted`, resolved once on join and published as a `CanRoll` player attribute; a restricted account is refused server-side, not merely hidden in the UI. A roll spends `KitConfig.Roll.GemCost`, picks a rarity by its configured weight and then a kit uniformly inside that rarity, and grants it. Rolling a kit already owned refunds `DuplicateRefundFraction` of that rarity's gem price. Every early exit refunds the cost, and a per-player flag blocks concurrent rolls.
+The paid-random-items path. Eligibility comes from `PolicyService.ArePaidRandomItemsRestricted`, resolved once on join and published as a `CanRoll` player attribute; a restricted account is refused server-side, not merely hidden in the UI. A roll spends 8 gems via `KitConfig.Roll.GemCost`, picks a rarity by its configured weight and then a kit uniformly inside that rarity, and grants it. Rolling a kit already owned refunds `DuplicateRefundFraction` of that rarity's gem price. Every early exit refunds the cost, and a per-player flag blocks concurrent rolls.
 - API: `KitRollService:CanRoll(player: Player) -> boolean`
 - API: `KitRollService:Roll(player: Player) -> { Ok, Reason?, KitId?, Rarity?, Duplicate?, Refund?, Gems }`
 - Remotes: `Kits/Roll` (RemoteFunction, server invoke)
@@ -586,6 +586,7 @@ Geometry search that finds a corner mouth a stalker enemy can hide inside and pe
 - API: `PeekSpotService:Find(player: Player, options: FindOptions) -> PeekSpot?` — nearest valid peek spot; a `PeekSpot` carries `Stand` (hidden foot), `Root` (peek root CFrame), `HiddenRoot`, `Side`, `Scale`, `RootHeight`, `Lateral` and `Facing`
 - API: `PeekSpotService:IsInSight(spot: PeekSpot, player: Player, options: FindOptions) -> boolean` — whether the peek pose would be visible from the player's eye inside the fog-capped range
 - API: `PeekSpotService:IsStillValid(spot: PeekSpot, player: Player, options: FindOptions) -> boolean` — re-run the checks on an existing spot, including that the peek pose is outside every view cone
+- API: `PeekSpotService:IsHidden(spot: PeekSpot, player: Player, options: FindOptions) -> boolean` — recheck the waiting stance's concealment as players move toward the corner
 - API: `PeekSpotService:DebugCorner(player: Player, options: FindOptions, position: Vector3) -> any` — per-check rejection trace (reason, depth, exposure) for the corner near a position
 - API: `PeekSpotService.PeekPoints(spot: PeekSpot) -> {Vector3}` — world positions of the peek pose samples
 - API: `PeekSpotService:GetMaxDistance(player: Player, options: FindOptions) -> number` — fog-capped search range
@@ -616,8 +617,8 @@ Registers the `/photo` chat command for testing the tripod camera: bare `/photo`
 - Requires: `ChatCommandService`, `PhotoCameraService`, `CharacterService`, `Configs.PhotoConfig`
 
 ### POIDiscoveryService.luau
-Server owner of point-of-interest discovery. Every part tagged `POIConfig.Tag` (`POI`) is a discovery volume named after its room; a sweep every `Detection.Interval` seconds tests each alive player's root against the part's box grown by `Detection.Padding` sideways (plus the part's own `Radius` attribute), `HeightWindow` above and `BelowWindow` below. Standing inside grants that name once per player, persisted in `profile.Data.DiscoveredPOIs`, replicated over `POI/Discovered` with the running count and total, and announced on the `Discovered` signal; entering plays the `POI/Enter` cue again only after `Sound.Cooldown`. `POI/Occupancy` tells the client whether it is inside any point of interest, and `POI/Sync` sends the whole set on load or on request. `Init.legacy` requires it first so its remotes exist before anything else starts.
-- API: `POIDiscoveryService:GetTotal() -> number` — distinct tagged names in the workspace
+Server owner of point-of-interest discovery. Every part tagged `POIConfig.Tag` (`POI`) is a discovery volume named after its room; a sweep every `Detection.Interval` seconds tests each alive player's root against the part's box grown by `Detection.Padding` sideways (plus the part's own `Radius` attribute), `HeightWindow` above and `BelowWindow` below. Standing inside grants that name once per player, persisted in `profile.Data.DiscoveredPOIs`, replicated over `POI/Discovered` with the running count and total, and announced on the `Discovered` signal; entering plays the `POI/Enter` cue again only after `Sound.Cooldown`. `POI/Occupancy` tells the client whether it is inside any point of interest, and `POI/Sync` sends the whole set on load or on request. Counts use distinct names for currently tagged parts, so duplicate names count once and obsolete saved names cannot exceed the live total; saved profile keys are preserved. `Init.legacy` requires it first so its remotes exist before anything else starts.
+- API: `POIDiscoveryService:GetTotal() -> number` — distinct currently tagged names in the workspace
 - API: `POIDiscoveryService:GetAll(player: Player) -> { [string]: boolean }` — copy of the discovered set
 - API: `POIDiscoveryService:Has(player: Player, name: string) -> boolean`
 - API: `POIDiscoveryService:GetCount(player: Player) -> number`

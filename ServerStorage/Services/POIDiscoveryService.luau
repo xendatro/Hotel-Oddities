@@ -58,14 +58,20 @@ local function contains(instance: Instance, position: Vector3): boolean
 	return true
 end
 
-function POIDiscoveryService:GetTotal(): number
+local function currentNames(): { [string]: boolean }
 	local names = {}
-	local total = 0
-	for _, name in Parts do
-		if not names[name] then
+	for instance, name in Parts do
+		if instance:IsDescendantOf(workspace) then
 			names[name] = true
-			total += 1
 		end
+	end
+	return names
+end
+
+function POIDiscoveryService:GetTotal(): number
+	local total = 0
+	for _ in currentNames() do
+		total += 1
 	end
 	return total
 end
@@ -80,9 +86,12 @@ function POIDiscoveryService:Has(player: Player, name: string): boolean
 end
 
 function POIDiscoveryService:GetCount(player: Player): number
+	local names = currentNames()
 	local count = 0
-	for _ in Discovered[player] or {} do
-		count += 1
+	for name in Discovered[player] or {} do
+		if names[name] then
+			count += 1
+		end
 	end
 	return count
 end

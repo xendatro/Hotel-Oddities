@@ -503,6 +503,13 @@ function PeekSpotService:IsStillValid(spot: PeekSpot, player: Player, options: F
 	return isPeekWorthwhile(search, spot)
 end
 
+function PeekSpotService:IsHidden(spot: PeekSpot, player: Player, options: FindOptions): boolean
+	local search = buildSearch(player, options)
+	if not search then return false end
+	local waiting = hiddenPoints(spot)
+	return isConcealedFrom(search, waiting) and isHiddenFromEveryone(search, waiting)
+end
+
 function PeekSpotService.PeekPoints(spot: PeekSpot): { Vector3 }
 	return peekPoints(spot)
 end

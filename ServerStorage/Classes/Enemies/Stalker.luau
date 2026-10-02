@@ -233,6 +233,10 @@ local function stalk(_changeState: StateMachine.ChangeState, npc: any, target: P
 
 	local ending = nil :: string?
 	local pace, pacedAt = nil :: number?, os.clock()
+	local bestDistance = math.huge
+	local lastProgressAt = os.clock()
+	local startedAt = lastProgressAt
+	local targetAnchor = nil :: Vector3?
 
 	local function matchPace(behind: Vector3)
 		local root = (target.Character :: Model).HumanoidRootPart :: BasePart
@@ -258,10 +262,28 @@ local function stalk(_changeState: StateMachine.ChangeState, npc: any, target: P
 			return nil
 		end
 
-		if flatten(npc.RootPart.Position - (position :: Vector3)).Magnitude <= config.StrikeDistance then
+		local distance = flatten(npc.RootPart.Position - (position :: Vector3)).Magnitude
+		if distance <= config.StrikeDistance then
 			ending = "Strike"
 			return nil
 		end
+		if targetAnchor and flatten((position :: Vector3) - targetAnchor).Magnitude >= config.StalkTargetMovement then
+			bestDistance = math.huge
+			lastProgressAt = os.clock()
+			targetAnchor = position
+		end
+		targetAnchor = targetAnchor or position
+		if distance < bestDistance - config.StalkProgressDistance then
+			bestDistance = distance
+			lastProgressAt = os.clock()
+		end
+		if os.clock() - lastProgressAt >= config.StalkProgressTime
+			or os.clock() - startedAt >= config.StalkMaxTime
+		then
+			ending = "Stuck"
+			return nil
+		end
+
 		matchPace(behind)
 		return behind
 	end

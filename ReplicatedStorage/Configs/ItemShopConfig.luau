@@ -6,6 +6,8 @@ export type Entry = {
 	RobuxPrice: number,
 	Product: string,
 	RequiresVoice: boolean?,
+	Purchasable: boolean?,
+	KitPointPrice: number?,
 }
 
 local Entries: { Entry } = {
@@ -13,121 +15,136 @@ local Entries: { Entry } = {
 		Id = "Ball",
 		Name = "Ball",
 		Description = "Throw it to stun an enemy long enough to make your escape.",
-		CoinPrice = 2,
+		CoinPrice = 3,
 		RobuxPrice = 5,
 		Product = "Ball",
+		KitPointPrice = 2,
 	},
 	{
 		Id = "Bandage",
 		Name = "Bandage",
 		Description = "Patch up a small amount of damage when the hotel gets its claws into you.",
-		CoinPrice = 3,
+		CoinPrice = 4,
 		RobuxPrice = 5,
 		Product = "Bandage",
+		KitPointPrice = 3,
 	},
 	{
 		Id = "Camcorder",
 		Name = "Camcorder",
 		Description = "Record a run and keep the tape, or burn it and forget what you saw.",
-		CoinPrice = 1,
+		CoinPrice = 12,
 		RobuxPrice = 1,
 		Product = "Camcorder",
+		KitPointPrice = 1,
 	},
 	{
 		Id = "Camera",
 		Name = "Camera",
 		Description = "Stand a tripod camera where you need a second pair of eyes.",
-		CoinPrice = 1,
+		CoinPrice = 8,
 		RobuxPrice = 1,
 		Product = "Camera",
+		KitPointPrice = 1,
 	},
 	{
 		Id = "Energy Drink",
 		Name = "Energy Drink",
 		Description = "A short, violent burst of speed for emergencies that are already too close.",
-		CoinPrice = 6,
+		CoinPrice = 8,
 		RobuxPrice = 9,
 		Product = "EnergyDrink",
+		KitPointPrice = 6,
 	},
 	{
 		Id = "Flashlight",
 		Name = "Flashlight",
 		Description = "Carry a dependable light when the hotel decides the ceiling lights are optional.",
-		CoinPrice = 5,
+		CoinPrice = 6,
 		RobuxPrice = 7,
 		Product = "Flashlight",
+		KitPointPrice = 5,
 	},
 	{
 		Id = "Gravity Warper",
 		Name = "Gravity Warper",
 		Description = "Fall upward for a while and watch the halls from the ceiling.",
-		CoinPrice = 1,
+		CoinPrice = 18,
 		RobuxPrice = 1,
 		Product = "GravityWarper",
+		KitPointPrice = 1,
 	},
 	{
 		Id = "Key",
 		Name = "Key",
 		Description = "Open a door the hotel would rather keep shut.",
-		CoinPrice = 1,
+		CoinPrice = 6,
 		RobuxPrice = 1,
 		Product = "Key",
+		KitPointPrice = 1,
 	},
 	{
 		Id = "Medkit",
 		Name = "Medkit",
 		Description = "Recover from serious injuries without waiting for the hotel to finish the job.",
-		CoinPrice = 9,
+		CoinPrice = 11,
 		RobuxPrice = 12,
 		Product = "Medkit",
+		KitPointPrice = 9,
 	},
 	{
 		Id = "Pathfinder",
 		Name = "Pathfinder",
 		Description = "Place up to 20 glowing markers so the halls cannot turn you around twice.",
-		CoinPrice = 12,
+		CoinPrice = 15,
 		RobuxPrice = 15,
 		Product = "Pathfinder",
+		KitPointPrice = 12,
 	},
 	{
 		Id = "Shovel",
 		Name = "Shovel",
 		Description = "Dig through suitable floors and open a way beneath the hotel.",
-		CoinPrice = 8,
+		CoinPrice = 10,
 		RobuxPrice = 10,
 		Product = "Shovel",
+		KitPointPrice = 8,
 	},
 	{
 		Id = "Soda",
 		Name = "Soda",
 		Description = "Drink for a steady speed boost when a brisk walk is no longer enough.",
-		CoinPrice = 4,
+		CoinPrice = 5,
 		RobuxPrice = 7,
 		Product = "Soda",
+		KitPointPrice = 4,
 	},
 	{
 		Id = "SpellBook",
 		Name = "Spell Book",
 		Description = "Read the forbidden passage to disappear from an enemy's attention for a moment.",
-		CoinPrice = 18,
+		CoinPrice = 23,
 		RobuxPrice = 20,
 		Product = "SpellBook",
+		KitPointPrice = 18,
 	},
 	{
 		Id = "Trap",
 		Name = "Trap",
 		Description = "Set a steel trap that snaps shut and holds an enemy in place.",
-		CoinPrice = 10,
+		CoinPrice = 13,
 		RobuxPrice = 12,
 		Product = "Trap",
+		KitPointPrice = 10,
 	},
 	{
 		Id = "Visor",
 		Name = "Visor",
 		Description = "Wear it to shield your eyes from things that punish a direct look.",
-		CoinPrice = 15,
+		CoinPrice = 19,
 		RobuxPrice = 18,
 		Product = "Visor",
+		KitPointPrice = 15,
 	},
 	{
 		Id = "Walkie Talkie",
@@ -137,12 +154,18 @@ local Entries: { Entry } = {
 		RobuxPrice = 1,
 		Product = "WalkieTalkie",
 		RequiresVoice = true,
+		Purchasable = false,
 	},
 }
 
 local EntriesById: { [string]: Entry } = {}
+local ShopEntries: { Entry } = {}
+local ShopEntriesById: { [string]: Entry } = {}
 for _, entry in Entries do
 	EntriesById[entry.Id] = entry
+	if entry.Purchasable == false then continue end
+	table.insert(ShopEntries, entry)
+	ShopEntriesById[entry.Id] = entry
 end
 
 return {
@@ -150,6 +173,8 @@ return {
 	RobuxIcon = utf8.char(0xE002),
 	Entries = Entries,
 	EntriesById = EntriesById,
+	ShopEntries = ShopEntries,
+	ShopEntriesById = ShopEntriesById,
 
 	Animation = {
 		Card = {
