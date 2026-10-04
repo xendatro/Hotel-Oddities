@@ -36,6 +36,7 @@ local function getFlash(): Frame
 	local playerGui = player:WaitForChild("PlayerGui")
 	local gui = playerGui:WaitForChild("PhotoFlash", 20) :: ScreenGui?
 	assert(gui, "PhotoCaptureService: PhotoFlash did not replicate")
+	gui.Enabled = true
 	local frame = gui:WaitForChild("Flash", 10) :: Frame
 	flash = frame
 	return frame

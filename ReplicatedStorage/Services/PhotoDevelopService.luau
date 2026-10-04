@@ -86,6 +86,7 @@ local busy = false
 preview.Visible = false
 backdrop.Visible = false
 actions.Visible = false
+screen.Enabled = true
 save.Text = CaptureConfig.Prompt.SaveText
 discard.Text = CaptureConfig.Prompt.DiscardText
 
