@@ -16,7 +16,9 @@ local localPlayer = Players.LocalPlayer
 local arrivalRemote = CommunicationService.Get("Elevator", ElevatorConfig.ArrivalRemoteName) :: RemoteEvent
 
 UserInputService.MouseIconEnabled = false
-localPlayer.PlayerGui:WaitForChild("Cursor").Enabled = true
+local cursorGui = localPlayer.PlayerGui:WaitForChild("Cursor") :: ScreenGui
+cursorGui.Enabled = true
+local crosshair = cursorGui:FindFirstChild("Frame") :: GuiObject?
 
 type CharacterState = {
 	Humanoid: Humanoid,
@@ -43,6 +45,11 @@ local function alignToArrival(target: CFrame)
 	local position = camera.CFrame.Position
 	camera.CFrame = CFrame.lookAt(position, position + look)
 	camera.Focus = CFrame.new(position + look)
+end
+
+local function updateCrosshair()
+	if not crosshair then return end
+	crosshair.Visible = UserInputService.PreferredInput ~= Enum.PreferredInput.Touch
 end
 
 local function bindCharacter(character: Model)
@@ -123,6 +130,9 @@ end
 arrivalRemote.OnClientEvent:Connect(function(target: any)
 	if typeof(target) == "CFrame" then alignToArrival(target) end
 end)
+
+UserInputService:GetPropertyChangedSignal("PreferredInput"):Connect(updateCrosshair)
+updateCrosshair()
 
 RunService:BindToRenderStep(RENDER_JOB, Enum.RenderPriority.Camera.Value + 2, render)
 
