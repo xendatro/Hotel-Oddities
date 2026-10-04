@@ -455,7 +455,7 @@ Click-the-target trainer: hit 20 ringed targets before missing 3, with each targ
 ### Minigames\Frogger.luau
 Frogger on a 13x9 grid: hop from the bottom row to the goal row three times while six lanes of wrapping traffic sweep across. Getting hit resets crossings to zero, plays a splat and reports a failure; three clean crossings in a row win.
 - API: `Frogger.new(root: Frame, api: Api) -> self`
-- API: `Frogger:Start(saved: any?)` — restores `Crossings`, builds board/lanes/chrome, binds keys and D-pad, starts the traffic heartbeat
+- API: `Frogger:Start(saved: any?)` — restores `Crossings`, builds board/lanes/chrome, binds keys, D-pad and touch swipes (one hop per swipe, with a "SWIPE ANYWHERE TO HOP" hint on touch), starts the traffic heartbeat
 - API: `Frogger:Serialize() -> any?` — `{ Crossings }`, or nil at zero
 - API: `Frogger:Reset()` — clears crossings, re-phases every lane, returns the frog to start
 - API: `Frogger:IdleMessage()` — restores the "REACH THE TOP" prompt
