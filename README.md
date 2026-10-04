@@ -293,13 +293,13 @@ become Services or Classes.
 - ReplicatedStorage\Classes\IntroCutscene\StagedCreep.luau — Local untagged Creep with a black backdrop, camera-facing eyes that open, blink and can close (the intro keeps them open to the smash cut), glow halos, dark wisps and a launched distortion.
 - ReplicatedStorage\Classes\IntroCutscene\LightSweep.luau — Collects tagged hallway lamps in a region and kills them locally far to near with a flicker and a breaker sound whose volume a gain can fade, darkens the ambient, and restores it all through a LocalOverride, leaving dark any lamp the server switched off meanwhile.
 - ReplicatedStorage\Classes\IntroCutscene\Isolation.luau — Hides other players, everything under workspace.Enemies, creep backdrops and distortions, ceiling walk-ins, Spell Book effects, placed traps, radio death bursts and the safe-zone walls locally every frame, including anything that appears mid-cutscene, and restores them.
-- ReplicatedStorage\Classes\Minigames\MinigameBase.luau — Base class every terminal minigame extends, providing themed GUI builders, input helpers, heartbeat and win/fail plumbing.
+- ReplicatedStorage\Classes\Minigames\MinigameBase.luau — Base class every terminal minigame extends, providing themed GUI builders, input helpers (keys, D-pad, touch swipes and a touch-only swipe hint), heartbeat and win/fail plumbing.
 - ReplicatedStorage\Classes\Minigames\AimTrainer.luau — Click-the-target minigame; 20 hits on shrinking timers, 3 misses wipe the run.
 - ReplicatedStorage\Classes\Minigames\Frogger.luau — Frogger minigame; cross six lanes of traffic three times in a row without being hit.
 - ReplicatedStorage\Classes\Minigames\Memory.luau — 4x4 emoji pair-matching minigame with a 20-move limit.
 - ReplicatedStorage\Classes\Minigames\Minesweeper.luau — 8x8 Minesweeper minigame with flag mode and a safe first click.
 - ReplicatedStorage\Classes\Minigames\Simon.luau — Simon-says minigame; repeat a growing four-pad sequence up to length seven.
-- ReplicatedStorage\Classes\Minigames\Snake.luau — Snake minigame on a 16x12 grid; eat twelve pellets as the tick speeds up.
+- ReplicatedStorage\Classes\Minigames\Snake.luau — Snake minigame on a 16x12 grid; eat twelve pellets as the tick speeds up; steer with keys, the D-pad or swipes.
 - ReplicatedStorage\Classes\Tools\Ball.luau — Client ball tool; targets the nearest Eye within 20 studs and clear sight from the player's head, throws a ball prop and reports the hit to the server.
 - ReplicatedStorage\Classes\Tools\Camcorder.luau — Client camcorder; suppresses its viewmodel while the Studio-authored REC/STOP HUD runs, calls the engine stop directly on unequip, reports recording completion, then offers keep or burn before reporting the final decision.
 - ReplicatedStorage\Classes\Tools\Camera.luau — Client camera tool; shows a ghost placement preview and asks the server to stand the tripod where you aim.

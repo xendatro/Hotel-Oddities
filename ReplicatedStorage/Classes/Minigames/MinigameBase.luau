@@ -34,6 +34,8 @@ MinigameBase.Directions = {
 	[Enum.KeyCode.Right] = { 1, 0 },
 } :: { [Enum.KeyCode]: { number } }
 
+local SWIPE_DISTANCE = 0.06
+
 local PAD_LAYOUT = {
 	{ Text = "W", Column = 1, Row = 0, X = 0, Y = -1 },
 	{ Text = "A", Column = 0, Row = 1, X = -1, Y = 0 },
@@ -202,6 +204,57 @@ function MinigameBase:ConnectDirectionalKeys(callback: (x: number, y: number) ->
 			callback(direction[1], direction[2])
 		end
 	end))
+end
+
+function MinigameBase:ConnectSwipes(callback: (x: number, y: number) -> (), continuous: boolean?)
+	local origins: { [InputObject]: Vector2 } = {}
+
+	self:Track(UserInputService.TouchStarted:Connect(function(input: InputObject)
+		origins[input] = Vector2.new(input.Position.X, input.Position.Y)
+	end))
+
+	self:Track(UserInputService.TouchMoved:Connect(function(input: InputObject)
+		local origin = origins[input]
+		if not origin then return end
+
+		local camera = workspace.CurrentCamera
+		if not camera then return end
+
+		local position = Vector2.new(input.Position.X, input.Position.Y)
+		local delta = position - origin
+		local viewport = camera.ViewportSize
+		if delta.Magnitude < math.min(viewport.X, viewport.Y) * SWIPE_DISTANCE then return end
+
+		origins[input] = if continuous then position else nil
+		if math.abs(delta.X) >= math.abs(delta.Y) then
+			callback(if delta.X > 0 then 1 else -1, 0)
+		else
+			callback(0, if delta.Y > 0 then 1 else -1)
+		end
+	end))
+
+	self:Track(UserInputService.TouchEnded:Connect(function(input: InputObject)
+		origins[input] = nil
+	end))
+end
+
+function MinigameBase:BuildSwipeHint(text: string): TextLabel
+	local hint = self:NewLabel(self.Root, text, 22)
+	hint.Name = "SwipeHint"
+	hint.AnchorPoint = Vector2.new(0, 0.5)
+	hint.Position = UDim2.fromScale(0.04, 0.885)
+	hint.Size = UDim2.fromScale(0.29, 0.16)
+	hint.TextColor3 = self.Theme.TextDim
+	hint.TextWrapped = true
+	hint.TextXAlignment = Enum.TextXAlignment.Left
+
+	local function refresh()
+		hint.Visible = UserInputService.PreferredInput == Enum.PreferredInput.Touch
+	end
+	self:Track(UserInputService:GetPropertyChangedSignal("PreferredInput"):Connect(refresh))
+	refresh()
+
+	return hint
 end
 
 function MinigameBase:ConnectKeys(map: { [Enum.KeyCode]: any }, callback: (value: any) -> ())

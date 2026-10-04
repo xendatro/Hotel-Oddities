@@ -76,6 +76,7 @@ function Snake:_buildChrome()
 	self:BuildDirectionalPad(function(x: number, y: number)
 		self:_turn(x, y)
 	end)
+	self:BuildSwipeHint("SWIPE ANYWHERE TO STEER")
 end
 
 function Snake:_draw()
@@ -275,6 +276,9 @@ function Snake:Start(saved: any?)
 	self:ConnectDirectionalKeys(function(x: number, y: number)
 		self:_turn(x, y)
 	end)
+	self:ConnectSwipes(function(x: number, y: number)
+		self:_turn(x, y)
+	end, true)
 
 	self:StartHeartbeat(function(deltaTime: number)
 		self:_step(deltaTime)

@@ -428,6 +428,8 @@ Shared base class every terminal minigame extends: it owns the root frame, theme
 - API: `MinigameBase:BuildStatusBar(leftName: string, initialMessage: string) -> (TextLabel, TextLabel)` — top bar; right label becomes `self.MessageLabel`
 - API: `MinigameBase:BuildDirectionalPad(callback: (x: number, y: number) -> ())` — on-screen WASD pad
 - API: `MinigameBase:ConnectDirectionalKeys(callback: (x: number, y: number) -> ())` — WASD/arrow keyboard input
+- API: `MinigameBase:ConnectSwipes(callback: (x: number, y: number) -> (), continuous: boolean?)` — touch swipes anywhere on the screen as `{x, y}` steps on the dominant axis, once a finger travels 6% of the viewport's shorter side; `continuous` keeps the same finger firing a new step every further 6% so a drag can steer repeatedly, otherwise each touch gives one step
+- API: `MinigameBase:BuildSwipeHint(text: string) -> TextLabel` — dim label left of the D-pad, shown only while `UserInputService.PreferredInput` is `Touch`
 - API: `MinigameBase:ConnectKeys(map: {[Enum.KeyCode]: any}, callback: (value: any) -> ())` — arbitrary key map
 - API: `MinigameBase:PlaySound(name: string, pitch: number?)` — routed through `Api.Sound` if present
 - API: `MinigameBase:FailRun(reason: string?)` — routed through `Api.Fail` if present
@@ -489,7 +491,7 @@ Simon says with four pads driven by WASD/arrows or clicks: watch the playback, r
 ### Minigames\Snake.luau
 Snake on a 16x12 grid: eat 12 pellets to win, with the tick interval speeding up from 0.16s toward 0.106s per pellet eaten. Turns are queued (max 2) so fast inputs are not dropped, and reversing into yourself is rejected; hitting a wall or your own body zeroes the score, respawns and reports a failure. Only the best pellet count survives a save.
 - API: `Snake.new(root: Frame, api: Api) -> self`
-- API: `Snake:Start(saved: any?)` — restores `Best`, builds board and chrome, spawns the snake, binds keys and D-pad, starts the tick heartbeat
+- API: `Snake:Start(saved: any?)` — restores `Best`, builds board and chrome, spawns the snake, binds keys, D-pad and continuous touch swipes (with a "SWIPE ANYWHERE TO STEER" hint on touch), starts the tick heartbeat
 - API: `Snake:Serialize() -> any?` — `{ Best }`, or nil at zero
 - API: `Snake:Reset()` — banks the score into `Best`, respawns the snake
 - API: `Snake:IdleMessage()` — shows the best score, or the "EAT FIFTEEN" prompt
