@@ -11,6 +11,12 @@ local AudioService = require(ReplicatedStorage.Services.AudioService)
 
 local ChaseMusicService = {}
 
+local Suppressed: { [string]: true } = {}
+
+function ChaseMusicService:SetSuppressed(key: string, suppressed: boolean)
+	Suppressed[key] = if suppressed then true else nil
+end
+
 if not RunService:IsClient() or not FLAGS.Enemies then
 	return ChaseMusicService
 end
@@ -40,7 +46,7 @@ end
 local function getTargetVolumes(position: Vector3): { [string]: number }
 	local targets: { [string]: number } = {}
 
-	if not CharacterService.GetAliveHumanoid(localPlayer) then return targets end
+	if next(Suppressed) or not CharacterService.GetAliveHumanoid(localPlayer) then return targets end
 
 	for _, instance in TagService:GetTaggedOfPredicate(ENEMY_TAG, isHunting) do
 		local model = instance :: Model

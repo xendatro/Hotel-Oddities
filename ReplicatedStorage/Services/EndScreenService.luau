@@ -67,6 +67,7 @@ local chipScale = scaleOf(chip, "RevealScale")
 local postItScale = scaleOf(postIt, "RevealScale")
 
 local buttonBase = button.Position
+local prelude: ((done: () -> ()) -> boolean)? = nil
 local generation = 0
 local visible = false
 local sending = false
@@ -196,6 +197,32 @@ function EndScreenService:IsVisible(): boolean
 	return visible
 end
 
+function EndScreenService:SetPrelude(callback: ((done: () -> ()) -> boolean)?)
+	prelude = callback
+end
+
+function EndScreenService:Begin()
+	local current = prelude
+	if not current then
+		EndScreenService:Show()
+		return
+	end
+
+	local shown = false
+	local function done()
+		if shown then return end
+		shown = true
+		EndScreenService:Show()
+	end
+	local ok, took = pcall(current, done)
+	if not ok then
+		warn(`[EndScreenService] the prelude failed: {took}`)
+	end
+	if not ok or not took then
+		done()
+	end
+end
+
 function EndScreenService:Show()
 	generation += 1
 	local current = generation
@@ -236,7 +263,7 @@ button.Activated:Connect(function()
 end)
 
 Show.OnClientEvent:Connect(function()
-	EndScreenService:Show()
+	EndScreenService:Begin()
 end)
 
 Hide.OnClientEvent:Connect(function()

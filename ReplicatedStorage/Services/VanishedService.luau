@@ -6,6 +6,7 @@ Vanished.InfiniteTag = "InfiniteImmunity"
 Vanished.SafeZoneTag = "SafeZoneImmunity"
 Vanished.SpellBookTag = "SpellBookImmunity"
 Vanished.HoleTag = "HoleImmunity"
+Vanished.EndingTag = "EndingImmunity"
 Vanished.SpellBookEndsAtAttribute = "SpellBookImmunityEndsAt"
 Vanished.HoleEndsAtAttribute = "HoleImmunityEndsAt"
 
@@ -14,6 +15,7 @@ local SOURCE_TAGS = {
 	[Vanished.SafeZoneTag] = true,
 	[Vanished.SpellBookTag] = true,
 	[Vanished.HoleTag] = true,
+	[Vanished.EndingTag] = true,
 }
 
 function Vanished.SetSource(character: Instance?, sourceTag: string, enabled: boolean)

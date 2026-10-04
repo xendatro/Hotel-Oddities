@@ -25,6 +25,7 @@ local receivedProgress = false
 local track: AudioPlayer? = nil
 local volume = 0
 local warnedMissing = false
+local ducks: { [string]: true } = {}
 
 local function isExitElevator(instance: Instance): boolean
 	return instance:IsA("Model") and instance:GetAttribute(ElevatorConfig.TypeAttribute) == ElevatorConfig.ExitType
@@ -43,6 +44,7 @@ end
 
 local function targetVolume(): number
 	if not exitUnlocked and not ending then return 0 end
+	if next(ducks) then return 0 end
 
 	local position = CharacterService.GetPosition(localPlayer)
 	if not position or not CharacterService.GetAliveHumanoid(localPlayer) then return 0 end
@@ -75,6 +77,10 @@ local function stopTrack()
 	AudioService:StopSound(track)
 	track = nil
 	volume = 0
+end
+
+function EscapeMusicService:SetDucked(key: string, ducked: boolean)
+	ducks[key] = if ducked then true else nil
 end
 
 RunService.Heartbeat:Connect(function(deltaTime: number)

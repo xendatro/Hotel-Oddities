@@ -25,6 +25,8 @@ type ElevatorState = {
 	Closed1: CFrame?,
 	Closed2: CFrame?,
 	Opened: boolean,
+	Held: boolean,
+	Openness: number,
 	Tweens: { Tween },
 	DescendantConnection: RBXScriptConnection?,
 }
@@ -112,6 +114,7 @@ end
 local function setOpen(state: ElevatorState, open: boolean)
 	if state.Opened == open then return end
 	state.Opened = open
+	state.Openness = if open then 1 else 0
 	cancelTweens(state)
 
 	local soundParent = state.Part1 or state.Part2
@@ -162,6 +165,8 @@ local function register(model: Instance)
 		Closed1 = nil,
 		Closed2 = nil,
 		Opened = false,
+		Held = false,
+		Openness = 0,
 		Tweens = {},
 		DescendantConnection = nil,
 	}
@@ -197,6 +202,7 @@ RunService.Heartbeat:Connect(function(deltaTime)
 			unregister(model)
 			continue
 		end
+		if state.Held then continue end
 		local kind = model:GetAttribute(ElevatorConfig.TypeAttribute)
 		if kind ~= ElevatorConfig.LobbyType and kind ~= ElevatorConfig.StartType and (kind ~= ElevatorConfig.ExitType or not exitUnlocked) then
 			setOpen(state, false)
@@ -210,6 +216,32 @@ RunService.Heartbeat:Connect(function(deltaTime)
 		setOpen(state, shouldOpen)
 	end
 end)
+
+function ElevatorDoorService:Hold(model: Model, held: boolean)
+	local state = states[model]
+	if not state or state.Held == held then return end
+	state.Held = held
+	cancelTweens(state)
+	if not held then
+		state.Opened = state.Openness > 0.01
+	end
+end
+
+function ElevatorDoorService:SetOpenness(model: Model, openness: number)
+	local state = states[model]
+	if not state or not state.Held then return end
+	refreshDoors(state)
+
+	local alpha = math.clamp(openness, 0, 1)
+	local offset = model:GetAttribute("DoorOffset") or ElevatorConfig.DoorOffset
+	state.Openness = alpha
+	if state.Part1 and state.Closed1 then
+		state.Part1.CFrame = state.Closed1 * CFrame.new(-offset * alpha, 0, 0)
+	end
+	if state.Part2 and state.Closed2 then
+		state.Part2.CFrame = state.Closed2 * CFrame.new(offset * alpha, 0, 0)
+	end
+end
 
 task.spawn(function()
 	local sync = CommunicationService.Get(ComputerConfig.Remotes.Folder, ComputerConfig.Remotes.Sync)
