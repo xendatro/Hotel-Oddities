@@ -23,6 +23,7 @@ local PROFILE_TEMPLATE = {
 	EquippedKit = "",
 	KitGrant = {},
 	ProcessedKitReceipts = {},
+	PendingRobuxKits = {},
 
 	WalkieAudio = {},
 	WalkieMode = "All",

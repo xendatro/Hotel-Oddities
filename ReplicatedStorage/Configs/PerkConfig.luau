@@ -20,6 +20,14 @@ return {
 
 	UnlimitedStamina = {},
 
+	Health = {
+		Source = "HealthPasses",
+		Bonus = {
+			MoreHealth = 50,
+			MegaHealth = 100,
+		},
+	},
+
 	FriendRevive = {
 		Source = "Friend",
 

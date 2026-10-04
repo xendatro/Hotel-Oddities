@@ -38,7 +38,7 @@ return {
 		RunEscaped = { Name = "RunEscaped", Fields = {} },
 		PlayAgain = { Name = "PlayAgain", Fields = {} },
 		ItemPurchased = { Name = "ItemPurchased", Fields = { "Item", "Currency" } },
-		KitPurchased = { Name = "KitPurchased", Fields = { "Kit", "Rarity" } },
+		KitPurchased = { Name = "KitPurchased", Fields = { "Kit", "Rarity", "Currency" } },
 		KitRolled = { Name = "KitRolled", Fields = { "Kit", "Rarity", "Duplicate" } },
 		Revived = { Name = "Revived", Fields = { "Source" } },
 		PlayerOddity = { Name = "PlayerOddity", Fields = { "Kind" } },

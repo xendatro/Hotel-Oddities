@@ -15,6 +15,7 @@ local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local InterfaceService = require(ReplicatedStorage.Services.InterfaceService)
 local KitStateService = require(ReplicatedStorage.Services.KitStateService)
 local KitVisualService = require(ReplicatedStorage.Services.KitVisualService)
+local MathService = require(ReplicatedStorage.Services.MathService)
 local TweenProxyService = require(ReplicatedStorage.Services.TweenProxyService)
 
 local CARD = KitConfig.Animation.Card
@@ -35,6 +36,7 @@ local infoPreview = info:WaitForChild("Preview") :: ImageLabel
 local infoStats = info:WaitForChild("KitStats") :: Frame
 local equipButton = info:WaitForChild("Equip") :: ImageButton
 local equipLabel = equipButton:WaitForChild("TextLabel") :: TextLabel
+local equipImage = equipButton.Image
 local backButton = design:WaitForChild("BackButton") :: ImageButton
 
 local cards: { [string]: KitCard.KitCard } = {}
@@ -75,12 +77,18 @@ local function paintEquipButton()
 	if not kit then return end
 
 	if not KitStateService:IsOwned(kit.Id) then
-		equipLabel.Text = TEXT.Locked
-		equipLabel.TextColor3 = KitVisualService.Muted
-		equipButton.Interactable = false
+		local purchasable = KitStateService:GetRobuxProduct(kit.Id) ~= nil
+		local price = KitStateService:GetRobuxPrice(kit.Id)
+		equipButton.Image = if purchasable then KitsIndexConfig.RobuxButtonImage else equipImage
+		equipLabel.Text = if not purchasable then TEXT.Locked
+			elseif price then TEXT.RobuxPrefix .. MathService.Comma(price)
+			else TEXT.Robux
+		equipLabel.TextColor3 = if purchasable then KitVisualService.Ink else KitVisualService.Muted
+		equipButton.Interactable = purchasable
 		return
 	end
 
+	equipButton.Image = equipImage
 	local isEquipped = KitStateService:GetEquipped() == kit.Id
 	equipLabel.Text = if isEquipped then TEXT.Equipped else TEXT.Equip
 	equipLabel.TextColor3 = if isEquipped then KitVisualService.Good else KitVisualService.Ink
@@ -238,8 +246,12 @@ local function deal()
 end
 
 equipButton.Activated:Connect(function()
-	if not selectedId or not KitStateService:IsOwned(selectedId) then return end
-	KitStateService:Equip(selectedId)
+	if not selectedId then return end
+	if KitStateService:IsOwned(selectedId) then
+		KitStateService:Equip(selectedId)
+	else
+		KitStateService:BuyWithRobux(selectedId)
+	end
 end)
 
 backButton.Activated:Connect(function()

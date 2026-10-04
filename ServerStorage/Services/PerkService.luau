@@ -3,6 +3,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
+local HumanoidStatsService = require(ReplicatedStorage.Services.HumanoidStatsService)
+local KitConfig = require(ReplicatedStorage.Configs.KitConfig)
 local MarketplaceService = require(ReplicatedStorage.Services.MarketplaceService)
 local InventoryService = require(ServerStorage.Services.InventoryService)
 local LoadoutService = require(ServerStorage.Services.LoadoutService)
@@ -12,6 +14,7 @@ local ATTRIBUTE_PREFIX = PerkConfig.AttributePrefix
 local VISOR_TOOL = PerkConfig.Visor.ToolName
 local PLAYER_LOCATOR_TOOL = PerkConfig.PlayerLocator.ToolName
 local CAMCORDER_TOOL = PerkConfig.Camcorder.ToolName
+local HEALTH = PerkConfig.Health
 
 local OWNERSHIP_TIMEOUT = 20
 
@@ -68,6 +71,28 @@ local function applyCamcorder(player: Player)
 	InventoryService:Add(player, CAMCORDER_TOOL, 1)
 end
 
+local function applyHealth(player: Player)
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
+
+	local bonus = 0
+	for passName, amount in HEALTH.Bonus do
+		if PerkService:Owns(player, passName) then
+			bonus += amount
+		end
+	end
+
+	if bonus <= 0 then
+		HumanoidStatsService:ClearSource(humanoid, HEALTH.Source)
+		return
+	end
+
+	HumanoidStatsService:SetSource(humanoid, HEALTH.Source, {
+		MaxHealth = KitConfig.StatsById.MaxHealth.Base + bonus,
+	}, true)
+end
+
 local function applyKeptItems(player: Player)
 	local snapshot = Kept[player]
 	Kept[player] = nil
@@ -88,6 +113,7 @@ local function onCharacterAdded(player: Player, character: Model)
 	if not PerkService:WaitForPasses(player) then return end
 	if character.Parent == nil or player.Character ~= character then return end
 
+	applyHealth(player)
 	applyKeptItems(player)
 	applyVisor(player)
 	applyPlayerLocator(player)
@@ -120,6 +146,7 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player: Playe
 	if not wasPurchased then return end
 	task.spawn(function()
 		resolvePasses(player)
+		applyHealth(player)
 		applyPlayerLocator(player)
 		applyCamcorder(player)
 	end)

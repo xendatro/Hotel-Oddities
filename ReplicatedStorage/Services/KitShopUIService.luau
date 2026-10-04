@@ -37,6 +37,7 @@ local buyLabel = buyButton:WaitForChild("TextLabel") :: TextLabel
 local balance = design:WaitForChild("background_frame"):WaitForChild("Gems"):WaitForChild("CurrentBalance") :: TextLabel
 local inventoryButton = design:WaitForChild("InventoryButton") :: ImageButton
 local robuxButton = info:WaitForChild("RobuxBuyButton") :: ImageButton
+local robuxLabel = robuxButton:WaitForChild("TextLabel") :: TextLabel
 
 local cards: { [string]: KitCard.KitCard } = {}
 local ordered: { KitConfig.Kit } = {}
@@ -89,6 +90,16 @@ local function paintBuyButton()
 	end
 
 	buyButton.Interactable = not owned and affordable
+
+	local purchasable = not owned and KitStateService:GetRobuxProduct(kit.Id) ~= nil
+	local price = KitStateService:GetRobuxPrice(kit.Id)
+	robuxLabel.Text = if owned then TEXT.Owned
+		elseif price then TEXT.RobuxPrefix .. MathService.Comma(price)
+		else TEXT.Robux
+	robuxLabel.TextColor3 = if owned then KitVisualService.Good
+		elseif purchasable then KitVisualService.Ink
+		else KitVisualService.Muted
+	robuxButton.Interactable = purchasable
 end
 
 local function paintInfo(animate: boolean)
@@ -179,6 +190,10 @@ end
 
 buyButton.Activated:Connect(function()
 	if selectedId then KitStateService:Buy(selectedId) end
+end)
+
+robuxButton.Activated:Connect(function()
+	if selectedId then KitStateService:BuyWithRobux(selectedId) end
 end)
 
 inventoryButton.Activated:Connect(function()
