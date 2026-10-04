@@ -1,0 +1,26 @@
+ffmpeg: "%LOCALAPPDATA%/TrailerTools/ffmpeg-n8.1-latest-win64-gpl-8.1/bin/ffmpeg.exe"
+ffprobe: "%LOCALAPPDATA%/TrailerTools/ffmpeg-n8.1-latest-win64-gpl-8.1/bin/ffprobe.exe"
+
+capture:
+  output_idx: 1
+  region: { x: 2, y: 50, w: 2556, h: 1390 }
+  max_fps: 240
+  encoder: [-c:v, hevc_nvenc, -preset, p1, -tune, ll, -rc, constqp, -qp, "12", -bf, "0"]
+
+viewport:
+  size: [2568, 1400]
+  crop: { x: 150, y: 62, w: 2268, h: 1276 }
+
+timecode:
+  x: 6
+  y: 60
+  w: 24
+  h: 20
+  gap: 4
+  bits: 20
+  id_bits: 6
+
+output:
+  width: 1920
+  height: 1080
+  fps: 60

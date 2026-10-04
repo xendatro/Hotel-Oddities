@@ -14,6 +14,8 @@ local HallwayGraphService = require(ReplicatedStorage.Services.HallwayGraphServi
 local NpcAnimator = require(ReplicatedStorage.Classes.NpcAnimator)
 local TagService = require(ReplicatedStorage.Services.TagService)
 local Vanished = require(ReplicatedStorage.Services.VanishedService)
+local VfxConfig = require(ReplicatedStorage.Configs.VfxConfig)
+local VfxService = require(ReplicatedStorage.Services.VfxService)
 local DangerMapService = require(ServerStorage.Services.DangerMapService)
 local EnemyConfigs = require(ServerStorage.Configs.EnemyConfigs)
 local EnemyDirectorService = require(ServerStorage.Services.EnemyDirectorService)
@@ -523,6 +525,18 @@ local function canSpawn(): boolean
 	return EnemyDirectorService:CanAfford(ENEMY_ID)
 end
 
+local function playVentDust(state: VentState)
+	local size = state.Door.Size
+	local sides = { size.X, size.Y, size.Z }
+	table.sort(sides)
+	local span = sides[2]
+	local position = state.DoorPivot.Position
+	VfxService:Play(VfxConfig.Templates.VentDust, CFrame.lookAt(position, position - Vector3.yAxis, Vector3.zAxis), {
+		Size = Vector3.new(span, span, 0.2),
+		Duration = VfxConfig.Vent.DustDuration,
+	})
+end
+
 local function trigger(state: VentState, player: Player, forced: boolean?)
 	if PauseCount > 0 then return end
 	if state.Triggered or not state.Alive then return end
@@ -536,6 +550,7 @@ local function trigger(state: VentState, player: Player, forced: boolean?)
 
 	state.TriggerThread = task.spawn(function()
 		AudioService:Play3DSound("VentOpen", state.Door, false, "SFX")
+		playVentDust(state)
 		if player.Parent == Players then
 			state.CueThread = task.delay(DOOR_OPEN_TIME * OPEN_CUE_POINT, function()
 				if player.Parent == Players then

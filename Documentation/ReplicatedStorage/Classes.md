@@ -130,6 +130,14 @@ One inventory hotbar slot: an ImageButton with a ViewportFrame preview of the to
 - API: `InventorySlot:Destroy()`
 - Requires: `Configs.InventoryConfig`, `ItemPreviewService`
 
+### EyeGlow.luau
+One camera-facing halo on an eye part, cloned from a `BillboardGui` template that has a `Glow` ImageLabel (the intro's `ReplicatedStorage.Effects.IntroCutscene.EyeGlow`), plus the shared "it sees you" flare curve. `new` scales the template, adorns it to the part a little toward the camera and starts it disabled; `Render` shows or hides it and sets its size, brightness and image transparency for one frame. The intro's `StagedStalker` and the live `StalkerGlowService` both use it, so the two flares match.
+- API: `EyeGlow.new(template: Instance?, part: BasePart, options: { Scale: number, TowardCamera: number, Tint: Color3? }) -> EyeGlow?` (nil when the template is not a BillboardGui with a `Glow` ImageLabel)
+- API: `EyeGlow.Flare(elapsed: number, attack: number, sustain: number, decay: number) -> number`: an OutQuad rise over `attack`, then an exponential decay toward `sustain`
+- API: `EyeGlow:Render(strength: number, growth: number, brightness: number)`: `strength` 0..1 is opacity (hidden below 0.01), `growth` scales the size and `brightness` multiplies the template brightness
+- API: `EyeGlow:Destroy()`
+- Requires: `Services.MathService`
+
 ### GalleryCard.luau
 One tile in the Gallery grid. Clones the complete Studio-authored `GalleryGui.Design.MediaCanvas.Media.Template` frame, then fills its `Card` with a cropped photo or first-frame tape thumbnail, a `TAPE`/`STILL` badge, the capture date, and a green edge while the capture awaits a keep-or-burn choice. Tape tiles use `ImageLabel.ImageContent` rather than one live `VideoFrame` per card.
 - API: `GalleryCard.new(template: Frame, parent: Instance, media: any, order: number, onSelect: (any) -> ()) -> GalleryCard`
@@ -315,6 +323,14 @@ Bottom-right ScreenGui readout showing a caption and a remaining/total count, or
 - API: `ToolCounter:Destroy()`
 - Requires: `Configs.InventoryConfig`
 
+### VfxEffect.luau
+One live particle effect cloned from a template BasePart. The holder is anchored, invisible, non-colliding, non-queryable, non-touching and shadowless, takes the caller's CFrame and optional `Size`, and is parented where `VfxService` says. Template attributes drive it. On a ParticleEmitter, `EmitCount` is a burst on creation, `EmitPerStud` adds that many per stud of the holder's X size, `EmitDelay` postpones the burst, and `RatePerStud` sets `Rate` from the holder's X size. An emitter left `Enabled` in the template is sustained: it runs until `Stop`, or for `options.Duration`, or for the holder's `Duration` attribute. A `Light` with a `FlashTime` attribute tweens its brightness to zero over that time. An effect with nothing sustained stops itself at once, and a stopped effect destroys its holder once the last burst and the longest particle lifetime have passed.
+- API: `VfxEffect.new(template: BasePart, cframe: CFrame, parent: Instance, options: { Size: Vector3?, Duration: number? }?) -> VfxEffect`
+- API: `VfxEffect:SetCFrame(cframe: CFrame)` / `:SetSize(size: Vector3)`: move or resize a running effect; sustained emitters follow it, particles already out stay in the world
+- API: `VfxEffect:Stop()`: turns sustained emitters off and schedules cleanup; `:Destroy()` removes it at once
+- Fields: `.Holder`, `.Stopped`, `.Destroyed`
+- Requires: `Configs.VfxConfig`
+
 ### Vow.luau
 Runs one function on its own thread and lets the caller be resumed early. The function receives a `cancel` closure it can call to hand a result back and suspend itself; the owner can also `Cancel` or `Destroy` from outside. Backs StateMachine's states and evaluators.
 - API: `Vow.new(func: (cancel: Cancel, ...any) -> ...any) -> Vow`
@@ -359,7 +375,7 @@ A local, untagged clone of `ReplicatedStorage.Enemies.Stalker` holding the corne
 - API: `StagedStalker:GetHeadPosition() -> Vector3` / `:GetEyePositions() -> (Vector3, Vector3)` (left, then right)
 - API: `StagedStalker:Destroy()`
 - Fields: `.Model`, `.Dipped`, `.State`, `.Visible`
-- Requires: `Services.MathService`
+- Requires: `Classes.EyeGlow` (halo and flare curve, shared with `StalkerGlowService`), `Services.MathService`
 
 ### IntroCutscene\StagedCreep.luau
 A local, untagged clone of `ReplicatedStorage.Enemies.Creep` with a black Neon backdrop behind it (like `CreepRenderService`'s `CreepBackdrop`), transparent until the eyes open. Roblox cannot squash a cylinder part vertically, so the eyes and pupils are turned into flattened-sphere meshes that close to a slit and are hidden when shut; the whole eye group turns toward the camera at `CreepConfig.TurnRate` (16) with a subtle idle drift, and each eye's glow sits 0.35 studs behind it so it forms a halo round the rim with the pupil still black. Opening cracks each eye, pauses, then opens it fully with a Back Out overshoot (the right eye 45 ms later, overshoots of about 7 % and 13 %) while the pupils start wide and narrow, the glow fades in over 0.55 s, the backdrop fades in over 0.7 s and `DarkWisp` wisps breathe round the eyes. A faint red light cast by the eyes can be tuned with `EyeLight` (default 0.6, 0 turns it off). The intro cutscene opens the eyes, blinks once and launches the distortion, but no longer calls `Close`, so the eyes stay open until the smash cut; `Close` remains for other callers.

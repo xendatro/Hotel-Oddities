@@ -3,6 +3,7 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local KitConfig = require(ReplicatedStorage.Configs.KitConfig)
+local AudioService = require(ReplicatedStorage.Services.AudioService)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local InterfaceService = require(ReplicatedStorage.Services.InterfaceService)
 local KitStateService = require(ReplicatedStorage.Services.KitStateService)
@@ -114,6 +115,13 @@ local function clearReel()
 	end
 end
 
+local function playSound(name: string)
+	local template = AudioService:FindTemplate(name)
+	if not template then return end
+
+	AudioService:Play2D(template, false, "SFX")
+end
+
 local function kickMarker()
 	markerScale.Scale = 1.35
 	TweenService:Create(markerScale, TweenInfo.new(0.09, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
@@ -153,7 +161,10 @@ local function startCarousel()
 		end
 
 		if nearest ~= lastNearest then
-			if lastNearest ~= -1 then kickMarker() end
+			if lastNearest ~= -1 then
+				kickMarker()
+				playSound("KitRollTick")
+			end
 			lastNearest = nearest
 		end
 	end)
@@ -388,6 +399,7 @@ local function spin(kit: KitConfig.Kit, duplicate: boolean, refund: number)
 	settle.Completed:Wait()
 
 	RunService:UnbindFromRenderStep(CAROUSEL_JOB)
+	playSound("KitRollLand")
 
 	local rarity = KitConfig.GetRarity(kit)
 	if winner then flashWinner(winner, rarity) end

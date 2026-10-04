@@ -1,0 +1,8 @@
+.venv/
+takes/
+clips/
+out/
+audio/game/
+audio/gen/
+audio/cache/
+__pycache__/

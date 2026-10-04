@@ -2,6 +2,7 @@ local ContentProvider = game:GetService("ContentProvider")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local EyeGlow = require(ReplicatedStorage.Classes.EyeGlow)
 local MathService = require(ReplicatedStorage.Services.MathService)
 
 local StagedStalker = {}
@@ -12,7 +13,6 @@ local ROOT_NAME = "HumanoidRootPart"
 local HEAD_NAME = "Head"
 local EYE_NAMES = { "LeftEye", "RightEye" }
 local GLOW_NAME = "EyeGlow"
-local GLOW_IMAGE_NAME = "Glow"
 local WISP_NAME = "DarkWisp"
 local WISP_EMITTER_NAME = "Wisp"
 
@@ -30,7 +30,6 @@ local GLOW_IDLE = 0.45
 local GLOW_PULSE_PERIOD = 2.3
 local GLOW_TOWARD_CAMERA = 0.4
 local GLOW_SCALE = 0.55
-local GLOW_VISIBLE = 0.01
 local FLARE_ATTACK = 0.07
 local FLARE_DECAY = 0.4
 local FLARE_SUSTAIN = 0.3
@@ -48,18 +47,10 @@ local WISP_LIFT = 0.35
 
 type State = "Loading" | "Posing" | "Holding" | "Dipping" | "Hidden"
 
-type Glow = {
-	Gui: BillboardGui,
-	Image: ImageLabel,
-	Size: UDim2,
-	Transparency: number,
-	Brightness: number,
-}
-
 type Eye = {
 	Part: BasePart,
 	Color: Color3,
-	Glow: Glow?,
+	Glow: EyeGlow.EyeGlow?,
 }
 
 export type Options = {
@@ -140,35 +131,6 @@ local function sanitize(rig: Model, anchor: Instance?): ({ BasePart }, { Decal }
 	return parts, overlays
 end
 
-local function attachGlow(template: Instance?, part: BasePart, tint: Color3?): Glow?
-	if not template or not template:IsA("BillboardGui") then return nil end
-
-	local gui = template:Clone()
-	local image = gui:FindFirstChild(GLOW_IMAGE_NAME)
-	if not image or not image:IsA("ImageLabel") then
-		gui:Destroy()
-		return nil
-	end
-
-	if tint then
-		image.ImageColor3 = tint
-	end
-	local size = gui.Size
-	gui.Size = UDim2.new(size.X.Scale * GLOW_SCALE, size.X.Offset, size.Y.Scale * GLOW_SCALE, size.Y.Offset)
-	gui.Adornee = part
-	gui.Enabled = false
-	gui.StudsOffset = Vector3.new(0, 0, GLOW_TOWARD_CAMERA)
-	gui.Parent = part
-
-	return {
-		Gui = gui,
-		Image = image,
-		Size = gui.Size,
-		Transparency = image.ImageTransparency,
-		Brightness = gui.Brightness,
-	}
-end
-
 local function findWisp(effects: Folder?): Attachment?
 	local template = effects and effects:FindFirstChild(WISP_NAME)
 	if not template or not template:IsA("Attachment") then return nil end
@@ -229,7 +191,11 @@ function StagedStalker.new(options: Options): StagedStalker
 			table.insert(eyes, {
 				Part = part,
 				Color = part.Color,
-				Glow = attachGlow(glowTemplate, part, options.EyeGlowColor),
+				Glow = EyeGlow.new(glowTemplate, part, {
+					Scale = GLOW_SCALE,
+					TowardCamera = GLOW_TOWARD_CAMERA,
+					Tint = options.EyeGlowColor,
+				}),
 			})
 		end
 	end
@@ -348,12 +314,7 @@ function StagedStalker:_flare(now: number): number
 	local noticedAt = self.NoticedAt
 	if not noticedAt then return 0 end
 
-	local elapsed = now - noticedAt
-	if elapsed <= 0 then return 0 end
-	if elapsed < FLARE_ATTACK then
-		return MathService.Eases.OutQuad(elapsed / FLARE_ATTACK)
-	end
-	return FLARE_SUSTAIN + (1 - FLARE_SUSTAIN) * math.exp(-(elapsed - FLARE_ATTACK) / FLARE_DECAY)
+	return EyeGlow.Flare(now - noticedAt, FLARE_ATTACK, FLARE_SUSTAIN, FLARE_DECAY)
 end
 
 function StagedStalker:_renderGlow(now: number)
@@ -376,18 +337,8 @@ function StagedStalker:_renderGlow(now: number)
 			part.Color = eye.Color:Lerp(HOT_EYE, flare * FLARE_EYE_HEAT * fade)
 		end
 
-		local glow = eye.Glow
-		if not glow or not glow.Gui.Parent then continue end
-
-		local shown = strength > GLOW_VISIBLE
-		if glow.Gui.Enabled ~= shown then
-			glow.Gui.Enabled = shown
-		end
-		if shown then
-			local size = glow.Size
-			glow.Gui.Size = UDim2.new(size.X.Scale * growth, size.X.Offset, size.Y.Scale * growth, size.Y.Offset)
-			glow.Gui.Brightness = glow.Brightness * (1 + FLARE_BRIGHTNESS * flare)
-			glow.Image.ImageTransparency = 1 - (1 - glow.Transparency) * strength
+		if eye.Glow then
+			eye.Glow:Render(strength, growth, 1 + FLARE_BRIGHTNESS * flare)
 		end
 	end
 end

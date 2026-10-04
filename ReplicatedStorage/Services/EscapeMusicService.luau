@@ -4,6 +4,7 @@ local RunService = game:GetService("RunService")
 
 local ComputerConfig = require(ReplicatedStorage.Configs.ComputerConfig)
 local ElevatorConfig = require(ReplicatedStorage.Configs.ElevatorConfig)
+local EndingConfig = require(ReplicatedStorage.Configs.EndingConfig)
 local EscapeMusicConfig = require(ReplicatedStorage.Configs.EscapeMusicConfig)
 local AudioService = require(ReplicatedStorage.Services.AudioService)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
@@ -19,6 +20,7 @@ end
 
 local localPlayer = Players.LocalPlayer
 local exitUnlocked = false
+local ending = false
 local receivedProgress = false
 local track: AudioPlayer? = nil
 local volume = 0
@@ -40,7 +42,7 @@ local function nearestExitDistance(position: Vector3): number?
 end
 
 local function targetVolume(): number
-	if not exitUnlocked then return 0 end
+	if not exitUnlocked and not ending then return 0 end
 
 	local position = CharacterService.GetPosition(localPlayer)
 	if not position or not CharacterService.GetAliveHumanoid(localPlayer) then return 0 end
@@ -105,6 +107,17 @@ task.spawn(function()
 		sync:FireServer()
 		task.wait(EscapeMusicConfig.SyncRetryInterval)
 	until receivedProgress
+end)
+
+local endingShow = CommunicationService.Get(EndingConfig.Remotes.Folder, EndingConfig.Remotes.Show)
+local endingHide = CommunicationService.Get(EndingConfig.Remotes.Folder, EndingConfig.Remotes.Hide)
+
+endingShow.OnClientEvent:Connect(function()
+	ending = true
+end)
+
+endingHide.OnClientEvent:Connect(function()
+	ending = false
 end)
 
 return EscapeMusicService

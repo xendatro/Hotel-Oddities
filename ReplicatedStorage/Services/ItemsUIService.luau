@@ -106,7 +106,7 @@ end
 
 local function paintInfo(animate: boolean)
 	if not selectedId then return end
-	local entry = ItemShopConfig.EntriesById[selectedId]
+	local entry = ItemShopConfig.ShopEntriesById[selectedId]
 	if not entry then return end
 
 	infoName.Text = string.upper(entry.Name)
@@ -261,7 +261,7 @@ coinButton.Activated:Connect(function()
 end)
 
 robuxButton.Activated:Connect(function()
-	local entry = ItemShopConfig.EntriesById[selectedId]
+	local entry = ItemShopConfig.ShopEntriesById[selectedId]
 	if not entry then return end
 	local productId = MarketplaceService.Products.Items[entry.Product]
 	if type(productId) == "number" and productId > 0 then
@@ -300,7 +300,7 @@ end
 
 task.spawn(function()
 	local voiceEligible = isVoiceEligible()
-	for _, entry in ItemShopConfig.Entries do
+	for _, entry in ItemShopConfig.ShopEntries do
 		if not entry.RequiresVoice or voiceEligible then
 			table.insert(visibleEntries, entry)
 		end

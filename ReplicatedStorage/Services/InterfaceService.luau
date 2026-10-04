@@ -1,4 +1,5 @@
 local CollectionService = game:GetService("CollectionService")
+local ContextActionService = game:GetService("ContextActionService")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -8,9 +9,11 @@ local UserInputService = game:GetService("UserInputService")
 
 local CameraFovService = require(ReplicatedStorage.Services.CameraFovService)
 local DrawerConfig = require(ReplicatedStorage.Configs.DrawerConfig)
+local IntroCutsceneConfig = require(ReplicatedStorage.Configs.IntroCutsceneConfig)
 local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local InteractionService = require(ReplicatedStorage.Services.InteractionService)
+local AudioService = require(ReplicatedStorage.Services.AudioService)
 local KitsIndexConfig = require(ReplicatedStorage.Configs.KitsIndexConfig)
 local PresetConfig = require(ReplicatedStorage.Frameworks.xenterface.Config.PresetConfig)
 local ResetComputersConfig = require(ReplicatedStorage.Configs.ResetComputersConfig)
@@ -27,6 +30,10 @@ local PAGE_PRESET = PresetConfig.HotelPage
 local EFFECT_PRESET = PresetConfig.HotelEffects
 local CLOSE_TIME = PAGE_PRESET.CloseTime
 local MAP_ATTRIBUTE = PerkConfig.AttributePrefix .. "Map"
+local INTRO_CUTSCENE_ATTRIBUTE = IntroCutsceneConfig.PlayingAttribute
+local UI_OPEN_SOUND = "UIOpen"
+local UI_CLOSE_SOUND = "UIClose"
+local PAGE_ACTION = "InterfacePageToggle"
 
 local player = Players.LocalPlayer
 local playerGui = GuiBuilderService.GetPlayerGui()
@@ -259,6 +266,11 @@ local blurTween: Tween? = nil
 local interfaceOpen = false
 local closingUntil = 0
 
+local function playInterfaceSound(templateName: string)
+	if not AudioService:FindTemplate(templateName) then return end
+	AudioService:Play2DSound(templateName, false, "SFX")
+end
+
 local function tweenEffects(open: boolean)
 	if interfaceOpen == open then return end
 	interfaceOpen = open
@@ -303,6 +315,11 @@ controller.Fired:Connect(function(data)
 		end)
 	end
 
+	if activeGui then
+		playInterfaceSound(UI_OPEN_SOUND)
+	elseif inactiveGui then
+		playInterfaceSound(UI_CLOSE_SOUND)
+	end
 	tweenEffects(activeGui ~= nil)
 	InterfaceService:SetMouseUnlocked(activeGui ~= nil)
 end)
@@ -412,19 +429,36 @@ local function claimedByInteraction(keyCode: Enum.KeyCode): boolean
 	return InteractionService:GetSelected() ~= nil
 end
 
-UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
-	if processed then return end
-
+local function onPageAction(_actionName: string, inputState: Enum.UserInputState, input: InputObject): Enum.ContextActionResult
 	local pageId = keyPages[input.KeyCode]
-	if not pageId or not pageGuis[pageId] then return end
-	if claimedByInteraction(input.KeyCode) then return end
+	if not pageId or not pageGuis[pageId] then return Enum.ContextActionResult.Pass end
+	if UserInputService:GetFocusedTextBox() or mouseUnlockForced then return Enum.ContextActionResult.Pass end
+	if player:GetAttribute(INTRO_CUTSCENE_ATTRIBUTE) == true then return Enum.ContextActionResult.Pass end
+	if claimedByInteraction(input.KeyCode) then return Enum.ContextActionResult.Pass end
 
-	if controller.Active == pageId then
-		InterfaceService:Close()
-	else
-		InterfaceService:Open(pageId)
+	if inputState == Enum.UserInputState.Begin then
+		if controller.Active == pageId then
+			InterfaceService:Close()
+		else
+			InterfaceService:Open(pageId)
+		end
 	end
-end)
+
+	return Enum.ContextActionResult.Sink
+end
+
+local pageKeys = {}
+for keyCode in keyPages do
+	table.insert(pageKeys, keyCode)
+end
+
+ContextActionService:BindActionAtPriority(
+	PAGE_ACTION,
+	onPageAction,
+	false,
+	Enum.ContextActionPriority.High.Value + 2,
+	table.unpack(pageKeys)
+)
 
 function InterfaceService:Open(pageId: string)
 	if pageId == "Map" and player:GetAttribute(MAP_ATTRIBUTE) ~= true then

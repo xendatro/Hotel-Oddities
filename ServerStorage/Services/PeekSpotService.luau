@@ -351,9 +351,11 @@ local function placeOn(search: Search, corner: Corner, diagnostic: ((any) -> ())
 				reject("arc", depth, exposure)
 				continue
 			end
-			if not isPeekWorthwhile(search, spot, function(result)
-					reject(result.reason, depth, exposure)
-			end) then
+			local seen, visible, headVisible = isPeekVisible(search, spot)
+			if not seen then
+				if diagnostic then
+					diagnostic({ reason = "peek_visibility", depth = depth, exposure = exposure, visible = visible, head = headVisible })
+				end
 				continue
 			end
 			if diagnostic then
@@ -499,6 +501,13 @@ function PeekSpotService:IsStillValid(spot: PeekSpot, player: Player, options: F
 	if not isPoseClear(search, spot) then return false end
 
 	return isPeekWorthwhile(search, spot)
+end
+
+function PeekSpotService:IsHidden(spot: PeekSpot, player: Player, options: FindOptions): boolean
+	local search = buildSearch(player, options)
+	if not search then return false end
+	local waiting = hiddenPoints(spot)
+	return isConcealedFrom(search, waiting) and isHiddenFromEveryone(search, waiting)
 end
 
 function PeekSpotService.PeekPoints(spot: PeekSpot): { Vector3 }
