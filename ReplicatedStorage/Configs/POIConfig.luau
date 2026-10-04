@@ -30,6 +30,8 @@ return {
 		ScreenGui = "POIGui",
 		Card = "Card",
 		Thought = "Thought",
+		Photo = "Photo",
+		PhotoImage = "Image",
 	},
 
 	Popup = {

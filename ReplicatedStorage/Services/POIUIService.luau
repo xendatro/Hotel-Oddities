@@ -2,7 +2,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
+local BadgeConfig = require(ReplicatedStorage.Configs.BadgeConfig)
 local POIConfig = require(ReplicatedStorage.Configs.POIConfig)
+local BadgeIconService = require(ReplicatedStorage.Services.BadgeIconService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local TweenProxyService = require(ReplicatedStorage.Services.TweenProxyService)
@@ -31,6 +33,8 @@ local title = frame:FindFirstChild("Title") :: TextLabel
 local rule = frame:FindFirstChild("Rule") :: Frame
 local counter = frame:FindFirstChild("Counter") :: TextLabel
 local thought = gui:FindFirstChild(POIConfig.Gui.Thought) :: TextLabel?
+local photo = gui:FindFirstChild(POIConfig.Gui.Photo) :: CanvasGroup?
+local photoImage = photo and photo:FindFirstChild(POIConfig.Gui.PhotoImage) :: ImageLabel?
 
 if not (eyebrow and title and rule and counter) then
 	warn("[POIUIService] POIGui is missing Eyebrow, Title, Rule or Counter")
@@ -51,6 +55,9 @@ local lines: { Line } = {
 }
 if thought then
 	table.insert(lines, { Object = thought, Transparency = Popup.ThoughtTransparency, Order = 4, Base = thought.Position })
+end
+if photo and photoImage then
+	table.insert(lines, { Object = photo, Transparency = 0, Order = 1, Base = photo.Position })
 end
 local ruleHeight = rule.Size.Y.Offset
 
@@ -82,6 +89,8 @@ end
 local function fade(object: GuiObject, transparency: number, info: TweenInfo, delay: number?)
 	if object:IsA("TextLabel") then
 		play(object, info, { TextTransparency = transparency }, delay)
+	elseif object:IsA("CanvasGroup") then
+		play(object, info, { GroupTransparency = transparency }, delay)
 	else
 		play(object, info, { BackgroundTransparency = transparency }, delay)
 	end
@@ -108,6 +117,8 @@ local function reset()
 		line.Object.Position = line.Base + UDim2.fromOffset(0, Popup.Rise)
 		if line.Object:IsA("TextLabel") then
 			line.Object.TextTransparency = 1
+		elseif line.Object:IsA("CanvasGroup") then
+			line.Object.GroupTransparency = 1
 		else
 			line.Object.BackgroundTransparency = 1
 		end
@@ -124,6 +135,20 @@ local function animateIn(entry: { Name: string, Count: number, Total: number })
 	title.MaxVisibleGraphemes = 0
 	counter.Text = counterText(shownCount, entry.Total)
 	gui.Enabled = true
+
+	if photo and photoImage then
+		local badgeId = BadgeConfig.Rooms[entry.Name]
+		local icon = BadgeIconService:Peek(badgeId) or ""
+		photoImage.Image = icon
+		photo.Visible = icon ~= ""
+		if icon == "" then
+			BadgeIconService:Fetch(badgeId, function(resolved: string)
+				if resolved == "" or title.Text ~= entry.Name then return end
+				photoImage.Image = resolved
+				photo.Visible = true
+			end)
+		end
+	end
 
 	for _, line in lines do
 		local delay = stagger * line.Order
@@ -242,6 +267,12 @@ SyncRemote.OnClientEvent:Connect(function(_discovered: any, count: any)
 		shownCount = count
 	end
 end)
+
+local roomBadges = {}
+for _, badgeId in BadgeConfig.Rooms do
+	table.insert(roomBadges, badgeId)
+end
+BadgeIconService:Prefetch(roomBadges)
 
 reset()
 gui.Enabled = false
