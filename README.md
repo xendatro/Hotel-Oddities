@@ -326,7 +326,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\ComputerConfig.luau — Hackable computer objective: interaction, camera, screen and HUD settings.
 - ReplicatedStorage\Configs\CreepConfig.luau — Creep enemy light-killing, backdrop geometry and eye-pair settings.
 - ReplicatedStorage\Configs\CrouchConfig.luau — Crouch movement, camera drop, stealth and bounded touch-button text settings.
-- ReplicatedStorage\Configs\DangerConfig.luau — Danger-field noise generation and Director enemy population settings.
+- ReplicatedStorage\Configs\DangerConfig.luau — Danger-field noise generation, randomized danger-leaning patrol tuning and Director enemy population settings.
 - ReplicatedStorage\Configs\DeathConfig.luau — Death causes, player hints and the killed-by death screen styling, plus the analytics cause id for hotel deaths and the self-revive source.
 - ReplicatedStorage\Configs\DoorConfig.luau — Swinging door physics, replicated player-proximity attributes, and proximity open/close behaviour.
 - ReplicatedStorage\Configs\DrawerConfig.luau — Openable drawer motion, interaction, sound and prompt UI settings, plus the cavity wall part names used to place items.
@@ -617,7 +617,7 @@ become Services or Classes.
 
 Computer chip playtest fixes connect split corridor approaches to connector entrances, tolerate raised doorway anchors, and clear trails when the target computer is removed. Runtime coverage: 865 room/connector-to-color routes resolved; all three connector fallback cases and 60 simultaneous route requests passed. Two-player visibility remains pending.
 
-Enemy navigation: NPC patrols reuse ConnectorGraph entrance geometry with danger-weighted route costs. Connector traversal tries clear direct movement, bounded pathfinding, then a floor-supported forced direct attempt. GroundSupport samples direct movement and overshoots to reject void routes. NpcNavigationConfig controls support spacing, width, drops, graph refresh and the patrol stall despawn window.
+Enemy navigation: NPC patrols reuse ConnectorGraph entrance geometry with randomized, length-based, danger-leaning route costs. Connector traversal tries clear direct movement, bounded pathfinding, then a floor-supported forced direct attempt. GroundSupport samples direct movement and overshoots to reject void routes. NpcNavigationConfig controls support spacing, width, drops, graph refresh and the patrol stall despawn window.
 
 - ReplicatedStorage\Configs\EnemyDespawnConfig.luau — Powdery white enemy despawn puff texture, size, lifetime and distance settings.
 - ReplicatedStorage\Services\EnemyDespawnService.luau — Local 1.5x layered dust burst, smoke and powder flecks with a 0.15-second enemy fade and positional despawn audio, triggered centrally by EnemyService for enemies whose config enables the sequence.

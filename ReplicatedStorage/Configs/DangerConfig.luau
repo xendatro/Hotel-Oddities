@@ -52,6 +52,11 @@ return {
 
 	PatrolCarpetWidth = 6.75,
 
+	PatrolDangerBias = 1,
+	PatrolCostNoise = { Min = 0.6, Max = 1.4 },
+	PatrolDestinationFloor = 0.25,
+	PatrolDestinationExponent = 1,
+
 	Director = {
 		Residents = {
 			Chaser = { Count = 3 },

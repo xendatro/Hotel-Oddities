@@ -6,6 +6,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local StateMachine = require(ReplicatedStorage.Classes.StateMachine)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
+local AudioService = require(ReplicatedStorage.Services.AudioService)
 local MathService = require(ReplicatedStorage.Services.MathService)
 local DangerConfig = require(ReplicatedStorage.Configs.DangerConfig)
 local DangerMapService = require(ServerStorage.Services.DangerMapService)
@@ -46,6 +47,8 @@ local GRAPH_NODE_REACH = 4
 local FALLBACK_FIELD_OF_VIEW = 100
 local ROOM_REACTION_DURATION = 3.5
 local ROOM_REACTION_TURN_TIME = 0.45
+local ROOM_REACTION_CONTACT_DISTANCE = 0.5
+local ROOM_REACTION_RESET_DISTANCE = 0.85
 local FORCED_DOORWAY_ATTRIBUTE = "ForcedDoorway"
 local STATE_ATTRIBUTE = "State"
 
@@ -59,7 +62,6 @@ local PATROL_EMERGENCY_WALK = 0.6
 local PATROL_STEP = 10
 local PATROL_STEP_TIME_FACTOR = 2
 local PATROL_STEP_TIME_SLACK = 1
-local PATROL_DANGER_COST_OFFSET = 0.1
 
 local ENEMY_TAG = "Enemy"
 local OBSERVABLE_TAG = "Observable"
@@ -416,23 +418,70 @@ function NPC:ReactAtRoomDoor(
 
 	local animations = self.Config.Animations
 	local reactionId = animations and animations.RoomReaction
+	local reactionSound = animations and animations.RoomReactionSound
+	local soundTemplate = if reactionSound then ReplicatedStorage.Sounds:FindFirstChild(reactionSound) else nil
+	local soundPlayer = if soundTemplate then soundTemplate:FindFirstChild("Player") else nil
+	local canPlaySound = soundPlayer and soundPlayer:IsA("AudioPlayer") and soundPlayer.Asset ~= ""
+	local hand = if reactionSound then self.Model:FindFirstChild("RightHand") else nil
+	local fist: BasePart? = if hand and hand:IsA("BasePart") then hand else nil
+	local doorPart: BasePart? = nil
+	if fist and doorway then
+		for _, descendant in doorway:GetDescendants() do
+			if descendant:IsA("BasePart") and descendant:HasTag("DoorPart") then
+				doorPart = descendant
+				break
+			end
+		end
+	end
+	local reactionTrack: AnimationTrack? = nil
 	if reactionId then
-		self.Animator:PlayOverride(reactionId)
+		reactionTrack = self.Animator:PlayOverride(reactionId)
 	else
 		self.Animator:PlayEmote("cheer")
 	end
-	local reactionWinner = if shouldCancel
-		then Race.new({
-			Finished = function()
-				task.wait(ROOM_REACTION_DURATION)
-			end,
+	local function finishReaction()
+		if not canPlaySound or not fist or not doorPart then
+			task.wait(ROOM_REACTION_DURATION)
+			return
+		end
+		local elapsed = 0
+		local previousDistance: number? = nil
+		local armed = false
+		while elapsed < ROOM_REACTION_DURATION do
+			elapsed += RunService.Heartbeat:Wait()
+			if doorPart.Parent then
+				local localPosition = doorPart.CFrame:PointToObjectSpace(fist.Position)
+				local halfSize = doorPart.Size * 0.5
+				local outside = Vector3.new(
+					math.max(math.abs(localPosition.X) - halfSize.X, 0),
+					math.max(math.abs(localPosition.Y) - halfSize.Y, 0),
+					math.max(math.abs(localPosition.Z) - halfSize.Z, 0)
+				)
+				local distance = outside.Magnitude
+				if reactionTrack and reactionTrack.TimePosition > 0.05
+					and distance >= ROOM_REACTION_RESET_DISTANCE then armed = true end
+				if armed and previousDistance and previousDistance > distance
+					and distance <= ROOM_REACTION_CONTACT_DISTANCE then
+					AudioService:Play3DSound(reactionSound, doorPart, false, "SFX")
+					armed = false
+				end
+				previousDistance = distance
+			end
+		end
+	end
+	local reactionWinner = "Finished"
+	if shouldCancel then
+		reactionWinner = Race.new({
+			Finished = finishReaction,
 			Cancelled = function()
 				while not shouldCancel() do
 					RunService.Heartbeat:Wait()
 				end
 			end,
 		}):Fire()
-		else "Finished"
+	else
+		finishReaction()
+	end
 	if reactionWinner ~= "Finished" then
 		if reactionId then
 			self.Animator:StopOverride()
@@ -1478,7 +1527,8 @@ local function chooseDestination(current: any, memory: any, minimumDistance: num
 			end
 		end
 
-		total += DangerMapService:GetDanger(node.Position)
+		total += DangerConfig.PatrolDestinationFloor
+			+ math.clamp(DangerMapService:GetDanger(node.Position), 0, 1) ^ DangerConfig.PatrolDestinationExponent
 		table.insert(candidates, node)
 		table.insert(cumulative, total)
 	end
@@ -1500,10 +1550,29 @@ local function chooseDestination(current: any, memory: any, minimumDistance: num
 	return candidates[low]
 end
 
-local function patrolEdgeCost(from: any, to: any): number
-	local danger = (DangerMapService:GetDanger(from.Position)
-		+ DangerMapService:GetDanger(to.Position)) / 2
-	return (1 - math.clamp(danger, 0, 1)) + PATROL_DANGER_COST_OFFSET
+local function makePatrolEdgeCost(): (any, any) -> number
+	local bias = DangerConfig.PatrolDangerBias
+	local noiseMin = DangerConfig.PatrolCostNoise.Min
+	local noiseRange = DangerConfig.PatrolCostNoise.Max - noiseMin
+	local noise = {}
+
+	return function(from: any, to: any): number
+		local fromNoise = noise[from]
+		if not fromNoise then
+			fromNoise = {}
+			noise[from] = fromNoise
+		end
+		local factor = fromNoise[to]
+		if not factor then
+			factor = noiseMin + math.random() * noiseRange
+			fromNoise[to] = factor
+		end
+
+		local danger = math.clamp((DangerMapService:GetDanger(from.Position)
+			+ DangerMapService:GetDanger(to.Position)) / 2, 0, 1)
+		local length = horizontal(to.Position - from.Position).Magnitude
+		return length * (1 + bias * (1 - danger)) * factor
+	end
 end
 
 local function emergencyEscape(npc: any, graph): any
@@ -1574,7 +1643,7 @@ function NPC.SharedStates.Patrol(
 			or chooseDestination(current, memory, 0, graph)
 		if not destination then return "Idle", npc end
 
-		local route = HallwayGraphService:FindPath(current, destination, patrolEdgeCost)
+		local route = HallwayGraphService:FindPath(current, destination, makePatrolEdgeCost())
 		if not route then
 			memory.Blocked[destination] = os.clock() + PATROL_BLOCKED_MEMORY
 			continue
