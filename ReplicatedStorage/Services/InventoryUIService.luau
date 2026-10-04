@@ -37,6 +37,8 @@ local Slots: { InventorySlot.InventorySlot } = {}
 local Snapshot: { [number]: Entry } = {}
 
 local screenGui, hotbar
+local hotbarShown = true
+local hiddenBy: { [string]: boolean } = {}
 local hotbarScale: UIScale
 local drag = nil :: {
 	Slot: any,
@@ -126,7 +128,8 @@ function InventoryUIService:Refresh()
 	end
 end
 
-function InventoryUIService:SetHotbarVisible(visible: boolean)
+local function applyHotbarVisible()
+	local visible = hotbarShown and next(hiddenBy) == nil
 	if not visible and drag then
 		if drag.Ghost then drag.Ghost:Destroy() end
 		if drag.Target and drag.Target ~= drag.Slot then drag.Target:SetDropTarget(false) end
@@ -135,6 +138,16 @@ function InventoryUIService:SetHotbarVisible(visible: boolean)
 	end
 	screenGui.Enabled = visible
 	if visible then InventoryUIService:Refresh() end
+end
+
+function InventoryUIService:SetHotbarVisible(visible: boolean)
+	hotbarShown = visible
+	applyHotbarVisible()
+end
+
+function InventoryUIService:SetHotbarHidden(key: string, hidden: boolean)
+	hiddenBy[key] = if hidden then true else nil
+	applyHotbarVisible()
 end
 
 function InventoryUIService:GetSnapshot(): { [number]: Entry }
@@ -340,6 +353,7 @@ local function setUpConnections()
 
 	UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
 		if processed or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+		if next(hiddenBy) ~= nil then return end
 
 		for index, keyCode in InventoryConfig.HotbarKeys do
 			if input.KeyCode == keyCode and Slots[index] then

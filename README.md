@@ -125,7 +125,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\ChaserCameraService.luau — Drives chase FOV pushes and per-enemy camera rumble, plus vent-open and scream reactions and the Mad Guest's chase sting, proximity FOV and footstep thuds, clearing chase FOV state on death.
 - ReplicatedStorage\Services\CommunicationService.luau — Shared accessor for the ReplicatedStorage.Communication remote folders.
 - ReplicatedStorage\Services\ComputerHUDService.luau — Drives the right-side computer notepad: one tinted row per chip colour, ticked and struck through as each computer is hacked.
-- ReplicatedStorage\Services\ComputerService.luau — Runs hackable computers: idle screens, fixed-FOV camera sessions and the minigame handoff.
+- ReplicatedStorage\Services\ComputerService.luau — Runs hackable computers: idle screens, fixed-FOV camera sessions with the hotbar hidden, and the minigame handoff.
 - ReplicatedStorage\Services\CreepRenderService.luau — Renders the Creep as a camera-facing silhouette against a hallway backdrop, with a parting distortion sweep.
 - ReplicatedStorage\Services\CrouchService.luau — Owns crouch input, speed, camera drop and crouch animations, can be blocked by key to hold the player standing, and can set the crouch state directly.
 - ReplicatedStorage\Services\DangerDebugService.luau — F4 developer panel for tuning and heatmapping the danger field.
