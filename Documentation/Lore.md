@@ -7,6 +7,7 @@ Every item below carries one of three marks:
 - **Team decision** — the team chose it.
 - **Existing text** — something the game already says to players, with the file it lives in.
 - **Invented for the intro, canon for now** — made up while building the intro cutscene, because the cutscene had to say something. These items stand until the team decides otherwise; change them freely, then update this page and the strings in `ReplicatedStorage\Configs\IntroCutsceneConfig.luau` (`Text`).
+- **Invented for the ending, canon for now** — made up the same way for the ending cutscene; its strings live in `ReplicatedStorage\Configs\EndingCutsceneConfig.luau` (`Text`).
 
 Open questions for the team are at the end.
 
@@ -31,7 +32,7 @@ Open questions for the team are at the end.
 
 **Invented for the intro, canon for now.** The speaker is the hotel itself: not a receptionist, not a manager, not a recording. It appears as typed text in the SpecialElite typewriter face, the same hand as the win screen's typed line. It is polite, brief and hospitable, and never threatens anyone. The threat is in what the intro shows while it talks. It knows the guest's display name without being told.
 
-It has three lines, plus a variant of the first for returning guests:
+In the intro it has three lines, plus a variant of the first for returning guests (the ending adds two more, below):
 
 | When | Line |
 | --- | --- |
@@ -62,6 +63,35 @@ It has three lines, plus a variant of the first for returning guests:
 
 **Invented for the intro, canon for now.** The intro shows only the Stalker and the Creep, never Ghosts or any other enemy, so the first thing a guest learns is two rules: something watches from the corners, and the dark is not empty. The lights going out are the hotel's own doing as much as the Creep's, matching the shop's line about the hotel deciding the ceiling lights are optional.
 
+## Invented for the ending, canon for now
+
+### What the ending shows
+
+**Invented for the ending, canon for now.** The ending plays when a guest with all five computers steps into the Exit elevator, before the win screen. It never leaves the elevator. The guest sees the corridor they escaped from through the closing doors, rides, and then watches themselves walk out into daylight, while something wearing their face stays in the cabin. It is built to say the stay is not over without saying it: the win screen's "THIS IS NOT THE END" comes straight after.
+
+### The hotel's voice at checkout
+
+**Invented for the ending, canon for now.** The hotel speaks twice more, in the same typed hand and the same polite register as the intro:
+
+| When | Line |
+| --- | --- |
+| During the ride, once the doors have sealed | "Thank you for staying with us, {DisplayName}." |
+| In the dark after the doors slam on the double, before the win screen | "We'll keep your room ready." |
+
+"Staying" is meant both ways. "We'll keep your room ready" answers the intro's "Your room is ready" / "Your room is still ready": the hotel expects the guest back.
+
+### Seen off by the guests who never left
+
+**Invented for the ending, canon for now; consistent with the Index.** As the doors close the guest sees two things in the corridor. At the far end the Sisters stand side by side, unhurried, watching the guest go ("They have all the time there is"). Then the lamps die far to near, and each time one dies the Sisters are closer, never seen taking a step, until one of them stands in the last slit of the doors under the red light of the EXIT sign with the other just behind her. Once the doors are shut, something hits them from outside.
+
+### The double
+
+**Invented for the ending, canon for now; consistent with the Mimic's Index text.** During the ride the cabin lamp flickers. In one flicker a second guest stands in the back corner facing the wall, wearing the player's own avatar; in the next it is right behind the player, head tilted, looking at the camera. When the doors open on daylight the player's avatar walks out into the light and is gone. The other one is still in the cabin. It stands facing the back wall, then spins all the way round to face the camera, lifts its head, twitches in quick jerks, snaps its neck sideways and floats up off the floor as the doors close: the Mimic's own spin, twitch and reveal float. Which of the two walked out is left open on purpose: either the guest left and the hotel kept a copy, or the copy left and the guest is still inside. Both fit the win screen's "You walked out of the hotel. The hotel is not finished with you."
+
+### Only these two
+
+**Invented for the ending, canon for now.** The ending uses the Sisters and the Mimic, chosen for what they do in play: the Sisters for watching and following at their own pace, the Mimic for wearing a guest's face. The Stalker and the Creep belong to the intro.
+
 ## Open questions for the team
 
 - **Who is the voice?** The hotel itself, as written now, or someone who works there? Does it speak again later, when a computer is hacked, at the exit or on death, and in the same typed style?
@@ -70,4 +100,6 @@ It has three lines, plus a variant of the first for returning guests:
 - **Why does the exit need all five, and does the hotel really let guests go?** The card says "One way out", and the win screen says the hotel is not finished with you. How does Chapter Two pick this up?
 - **How did the guest come to be here?** A booking, an invitation, no memory of arriving? Why do guests reach the floors by elevator rather than through a front door?
 - **What are the Stalker and the Creep to the hotel?** Staff, other guests, or parts of the building?
+- **Who walked out of the Exit elevator?** The ending leaves it open between the guest and the Mimic's copy. Does Chapter Two pick one?
+- **Where do the Exit elevator's doors open?** The ending only ever shows white daylight. Is it outside the hotel, the lobby, or somewhere the hotel wants the guest to think is outside?
 - **Should returning guests hear something else?** For example, a line for players who have already escaped. Raising `IntroCutsceneConfig.Version` replays the intro once for everyone, which is the way to ship a rewritten intro.

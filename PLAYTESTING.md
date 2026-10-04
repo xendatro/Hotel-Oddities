@@ -196,6 +196,26 @@ lighting: `Director.Play("Scout", { Pos = {x, y, z}, Look = {x, y, z}, HoldAt = 
 - `TrailerServer.Release()` undoes all of it; `TrailerServer.State()` reports it
 - `TrailerServer.Place(player, x, y, z)` pivots the character
 
+### ReplicatedStorage\Playtest\EndingShots.luau
+Freezes the ending cutscene's clock so a shot can be screenshotted (it calls
+`EndingCutsceneService:GetTime` and `:SetRate` in the game's own VM, so call it
+through `Bridge`).
+- `EndingShots.PauseAt(time, timeout?)` waits for the track to reach `time`
+  (track seconds), then holds it; returns the held time, or nil if no cutscene
+  is running. The camera, grade and text hold; animations and particles keep
+  moving
+- `EndingShots.Rate(rate)` sets the clock rate (1 resumes); `EndingShots.Time()`
+- Shoot a whole pass by alternating `PauseAt(t)`, `screen_capture`, `Rate(1)`.
+  The watchdog only counts time while the clock runs, so a long pause is safe
+
+### ServerStorage\Playtest\EndingServer.luau
+- `EndingServer.Preview(player)` runs exactly what `/ending` runs
+  (`EndingService:Preview`) without the chat command's group-role gate; call it
+  through `ServerBridge` with `"@player"`. Run `TrailerServer.Prepare` first so
+  nothing wanders into the shots
+- `EndingServer.Finish(player)` is the PLAY AGAIN path;
+  `EndingServer.IsEnding(player)`
+
 ---
 
 ## Gotchas
@@ -403,6 +423,21 @@ lanterns are 1-brightness, 8-stud PointLights, so killing lanterns barely
 changes a frame. Lower the ambient for mood. A red PointLight on a face needs
 about 1.6 brightness and 9 studs of range; 3.5 and 16 turned the whole hallway
 red.
+
+**`Observed`** — **the Studio test player was not an admin on 2026-10-04.**
+`Players.LocalPlayer:GetAttribute("Admin")` read false for the playtest account,
+so `ChatCommandService` would refuse admin commands such as `/ending` from it.
+Reach the same code through a `ServerStorage\Playtest` helper instead (as
+`EndingServer` does). Whether the account changed since the 2026-09-22 chat
+measurement above is unconfirmed.
+
+**`Observed`** — **the MCP can put the camera back to `Scriptable` after a
+snippet.** On 2026-10-04 a Client snippet that waited through the ending
+cutscene's restore read `CameraType` `Custom`, and the output then logged the
+assistant "Resetting from Enum.CameraType.Custom back to
+Enum.CameraType.Scriptable". It did not happen on a later run of the same
+check. Read camera state from a fresh snippet after the change, not from one
+that spans it; the mechanism is unconfirmed.
 
 **`Observed`** — **CPU-heavy work on the same machine wrecks the playtest's frame
 rate.** A 16-process video render run while a playtest was open on 2026-10-02

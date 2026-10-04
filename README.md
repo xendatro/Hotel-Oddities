@@ -16,7 +16,7 @@ Documentation\
   ServerScriptService\Init.md
   ServerStorage\Services.md   Classes.md   Configs.md   Modules.md
   StarterPlayer\Init.md
-  Workspace\IntroCutscene.md   MazeElevators.md   MazeRoomDoors.md   DollhouseConnectorRoom.md   POIHallways.md   VfxTemplates.md
+  Workspace\IntroCutscene.md   EndingCutscene.md   MazeElevators.md   MazeRoomDoors.md   DollhouseConnectorRoom.md   POIHallways.md   VfxTemplates.md
 ```
 
 Every script has a `### FileName.luau` heading with a description, its public
@@ -121,7 +121,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\ChaosLightService.luau — Turns tagged floor lights red while the server-set ChaosRed attribute is on, re-reddens lights that stream back in, and clears each one the instant Chaos passes it rather than on the server's timer.
 - ReplicatedStorage\Services\ChaosWarningSoundService.luau — Plays hallway ambience and an incoming sting whenever a red Chaos lamp is within RedHearingRange of you, from a source on the warned hallway's centre line that follows you along it, with volume left entirely to the emitters' authored rolloff.
 - ReplicatedStorage\Services\CharacterService.luau — Shared nil-safe helpers for humanoids, alive root parts, streamed-in model pivots and player lifecycle cleanup.
-- ReplicatedStorage\Services\ChaseMusicService.luau — Cross-fades layered chase music by proximity to hunting enemies; named folders play all descendant audio emitters together.
+- ReplicatedStorage\Services\ChaseMusicService.luau — Cross-fades layered chase music by proximity to hunting enemies; named folders play all descendant audio emitters together; can be suppressed by key.
 - ReplicatedStorage\Services\ChaserCameraService.luau — Drives chase FOV pushes and per-enemy camera rumble, plus vent-open and scream reactions and the Mad Guest's chase sting, proximity FOV and footstep thuds, clearing chase FOV state on death.
 - ReplicatedStorage\Services\CommunicationService.luau — Shared accessor for the ReplicatedStorage.Communication remote folders.
 - ReplicatedStorage\Services\ComputerHUDService.luau — Drives the right-side computer notepad: one tinted row per chip colour, ticked and struck through as each computer is hacked.
@@ -136,12 +136,13 @@ become Services or Classes.
 - ReplicatedStorage\Services\DrawerItemService.luau — Registers drawer and loose hallway displays as interactable pickups, removes displays owned by other players, requests pickups from the server, and shows currency feedback with sound or bag-item feedback with the shared notification banner.
 - ReplicatedStorage\Services\DrawerService.luau — Animates drawers open and closed with local prediction over the server's attribute.
 - ReplicatedStorage\Services\EffectsHUDService.luau — Right-edge effect tiles stack just above the computer notepad, growing upward with draining timers, `inf` for permanent immunity, and hole-hop immunity countdowns.
-- ReplicatedStorage\Services\ElevatorDoorService.luau — Opens lobby and arrival doors by proximity; the exit panel, barrier and doors follow the local player's server-authorized five-color completion state.
+- ReplicatedStorage\Services\ElevatorDoorService.luau — Opens lobby and arrival doors by proximity; the exit panel, barrier and doors follow the local player's server-authorized five-color completion state; an elevator can be held out of the poll and its doors set to any openness.
 - ReplicatedStorage\Services\ElevatorLoadingUIService.luau — Fades the elevator loading overlay in and out around a hallway load.
-- ReplicatedStorage\Services\EndScreenService.luau — The animated win screen: a journal page (aged paper, doodles, grid strip, binder and paper clips) carrying the logo, title chip and typewriter line on the left page and the chapter-two post-it and PLAY AGAIN button on the grid strip; its typewriter uses the intro's `Type` cue.
+- ReplicatedStorage\Services\EndingCutsceneService.luau — The ending cutscene in and around the exit elevator: the Sisters closing in through the dying corridor as the doors close, the ride with the Mimic copying the player in the flickering cabin, and the player walking out into daylight while the copy stays behind, spins round, twitches and floats; plays before the win screen through its prelude hook, with hold-to-skip.
+- ReplicatedStorage\Services\EndScreenService.luau — The animated win screen, behind an optional prelude (the ending cutscene): a journal page (aged paper, doodles, grid strip, binder and paper clips) carrying the logo, title chip and typewriter line on the left page and the chapter-two post-it and PLAY AGAIN button on the grid strip; its typewriter uses the intro's `Type` cue.
 - ReplicatedStorage\Services\EnemyDamageService.luau — Client-side enemy touch detection that reports contact kills to the server outside safe rooms.
 - ReplicatedStorage\Services\EnemyObservationService.luau — Reports which observable models the local camera can see to the server, and can be suspended by key to report an empty view.
-- ReplicatedStorage\Services\EscapeMusicService.luau — Fades the looping escape theme up as a player who has hacked all five computers walks toward the exit elevator, keeps it eligible through the ending after progress resets, and fades it out on ending hide, leaving or death; the exit elevator model must have a PrimaryPart or the theme never starts.
+- ReplicatedStorage\Services\EscapeMusicService.luau — Fades the looping escape theme up as a player who has hacked all five computers walks toward the exit elevator, keeps it eligible through the ending after progress resets, and fades it out on ending hide, leaving or death; can be ducked by key; the exit elevator model must have a PrimaryPart or the theme never starts.
 - ReplicatedStorage\Services\EyeHitEffectService.luau — Blink, blur, flash and gaze-vignette screen effects for the Eye enemy.
 - ReplicatedStorage\Services\EyeRenderService.luau — Bobs and aims tagged Eye models at the camera and computes gaze strength.
 - ReplicatedStorage\Services\FirstPersonCameraService.luau — Walking camera bob and strafing tilt (off while the camera is Scriptable) and custom cursor setup for first person, aligning the view to the map Spawn heading after elevator arrival, and shifting Camera.Focus with the bob so it never turns the character.
@@ -236,7 +237,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\TopHUDService.luau — Width-and-height responsive top-centre HUD strip with scaled coin, gem and danger text, rolling balances, gain flashes and five danger tiers.
 - ReplicatedStorage\Services\TopbarIconService.luau — Builds the Index, Rooms, Gems and Gallery TopbarPlus icons, drops their labels on narrow screens, opens the matching page and keeps selection in sync.
 - ReplicatedStorage\Services\TweenProxyService.luau — Tweens arbitrary values through a throwaway ValueBase and a callback, including model scaling.
-- ReplicatedStorage\Services\VanishedService.luau — Checks shared and source-specific immunity tags or a ForceField, with source syncing and an Eye-specific check that skips the exempt tag.
+- ReplicatedStorage\Services\VanishedService.luau — Checks shared and source-specific immunity tags (admin, safe zone, Spell Book, hole, ending) or a ForceField, with source syncing and an Eye-specific check that skips the exempt tag.
 - ReplicatedStorage\Services\VfxService.luau — Plays named particle templates from `ReplicatedStorage.Effects`: server calls fire every client, clients build them with distance culling.
 - ReplicatedStorage\Services\ViewmodelService.luau — First-person viewmodel that clones the equipped tool under the camera with sway, bob and named per-tool poses, can suppress the live viewmodel for captures, and exposes its equipped tool and default fit anchor to debug panels.
 - ReplicatedStorage\Services\ViewmodelDebugService.luau — F3 developer panel for tuning every equipped tool, with dynamic titles, per-tool config output and a state button only for tools with multiple poses.
@@ -291,6 +292,9 @@ become Services or Classes.
 - ReplicatedStorage\Classes\IntroCutscene\StagedStalker.luau — Local untagged Stalker clone holding the corner-peek pose, with breathing, an eye-glow notice flare and a dip that never lets the clip reach its end while visible.
 - ReplicatedStorage\Classes\IntroCutscene\StagedCreep.luau — Local untagged Creep with a black backdrop, camera-facing eyes that open, blink and can close (the intro keeps them open to the smash cut), glow halos, dark wisps and a launched distortion.
 - ReplicatedStorage\Classes\IntroCutscene\LightSweep.luau — Collects tagged hallway lamps in a region and kills them locally far to near with a flicker and a breaker sound whose volume a gain can fade, darkens the ambient, and restores it all through a LocalOverride, leaving dark any lamp the server switched off meanwhile.
+- ReplicatedStorage\Classes\EndingCutscene\StagedRig.luau — Local actor from a cloned character or enemy: stripped, anchored at the root, hidden until shown, looped animations and eased joint bends on Motor6D or AnimationConstraint rigs.
+- ReplicatedStorage\Classes\EndingCutscene\CabinStage.luau — The ending's stage props pivoted onto the exit elevator (cabin lamp, floor dial, EXIT glow, daylight wall, dust) and the door-space frame every ending position uses.
+- ReplicatedStorage\Classes\EndingCutscene\Cast.luau — The ending's actors: the player's stand-in and double (with the Mimic's spin, head twitches and reveal float) and the Sisters, and what each does on cue.
 - ReplicatedStorage\Classes\IntroCutscene\Isolation.luau — Hides other players, everything under workspace.Enemies, creep backdrops and distortions, ceiling walk-ins, Spell Book effects, placed traps, radio death bursts and the safe-zone walls locally every frame, including anything that appears mid-cutscene, and restores them.
 - ReplicatedStorage\Classes\Minigames\MinigameBase.luau — Base class every terminal minigame extends, providing themed GUI builders, input helpers, heartbeat and win/fail plumbing.
 - ReplicatedStorage\Classes\Minigames\AimTrainer.luau — Click-the-target minigame; 20 hits on shrinking timers, 3 misses wipe the run.
@@ -342,6 +346,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\ElevatorConfig.luau — Elevator types, door motion, proximity, exit access polling, teleport fade settings and the arrival camera remote name.
 - ReplicatedStorage\Configs\EscapeMusicConfig.luau — Template, bus, distance band and fade speeds for the exit elevator's escape theme.
 - ReplicatedStorage\Configs\EyeConfig.luau — Eye enemy tracking, hit reaction and gaze screen-effect settings.
+- ReplicatedStorage\Configs\EndingCutsceneConfig.luau — The ending cutscene's command, gui and asset names, cues, shakes, lamp bands, cast positions, camera and grade keyframes and event timeline, all in door space.
 - ReplicatedStorage\Configs\EndingConfig.luau — Win-screen strings, beat timings, motion numbers, remote names and the /resetprogress command name.
 - ReplicatedStorage\Configs\EscapeConfig.luau — Escape stat name, canonical ordered store name, Studio award-write prefix, and the lobby leaderboard's part, source GUI, templates, refresh timing and layout.
 - ReplicatedStorage\Configs\FLAGS.luau — Global on/off switches for major systems and debug output.
@@ -447,7 +452,8 @@ become Services or Classes.
 - ServerStorage\Services\DoorService.luau — Polls alive player proximity to swinging room doors and replicates each door's open state and opener position.
 - ServerStorage\Services\DrawerItemService.luau — Stocks drawers with pickable tool/currency displays and hallways with currencies, map-only tools and computer chips, measures the drawer cavity from its side walls so items centre inside it without clipping the front mesh, rotates each item onto its flattest axis and shrinks anything oversized, applies hallway display rotations, spawns owner-only drawer displays, and reports bag-slot item pickups and currency rewards.
 - ServerStorage\Services\DrawerService.luau — Owns drawer open/closed state, sounds, and auto-closing, and signals when a player opens a drawer.
-- ServerStorage\Services\EndingService.luau — Detects an authorised player inside the exit cabin, freezes them for the end screen, awards the escape and consumes the run by resetting their computer progress on the spot, then on play-again returns them to the lobby; logs `RunEscaped` and `PlayAgain`.
+- ServerStorage\Services\EndingCommandService.luau — Admin `/ending` (alias `/outro`) that plays the ending cutscene and win screen for the caller or a named player as a preview: no escape, no progress reset, no analytics.
+- ServerStorage\Services\EndingService.luau — Detects an authorised player inside the exit cabin, freezes and shields them for the ending cutscene and end screen, awards the escape and consumes the run by resetting their computer progress on the spot, then on play-again returns them to the lobby; logs `RunEscaped` and `PlayAgain`; also runs the `/ending` preview.
 - ServerStorage\Services\ElevatorService.luau — Teleports lobby arrivals to the maze arrival elevator with existing loading and streaming, signals the client to align its first-person view to the map Spawn heading, and rejects exit-cabin entry until that player completes all five computers, leaving players who are mid end screen alone.
 - ServerStorage\Services\EnemyCommandService.luau — Developer chat commands for spawning, listing and despawning enemies.
 - ServerStorage\Services\EnemyDebugService.luau — Broadcasts a periodic snapshot of active enemies to the stats HUD.
@@ -645,5 +651,7 @@ Rotunda connector room segment naming, the merged wallpaper columns and their ba
 Baked oddity POIs (The Hole, Glitched Hallway, once called Invisible Hallway), their backups under `ServerStorage.POIBackups` and how to revert them: `Documentation/Workspace/POIHallways.md`.
 
 Intro cutscene: its Studio guis and effect templates (`StarterGui.IntroCutsceneGui`, `StarterGui.IntroCutscenePills`, `ReplicatedStorage.Effects.IntroCutscene`) are in [Documentation/Workspace/IntroCutscene.md](Documentation/Workspace/IntroCutscene.md), the swap sheet for its twelve sound cues in `ReplicatedStorage.Sounds.IntroCutscene`, with the exact second each one plays, is in [Documentation/ReplicatedStorage/Sounds.md](Documentation/ReplicatedStorage/Sounds.md), and the story it tells, with what the team decided and what was invented for it, is in [Documentation/Lore.md](Documentation/Lore.md).
+
+Ending cutscene: its Studio gui, stage props, grade templates and animations (`StarterGui.EndingCutsceneGui`, `ReplicatedStorage.Effects.EndingCutscene`) are in [Documentation/Workspace/EndingCutscene.md](Documentation/Workspace/EndingCutscene.md), its sixteen cues in `ReplicatedStorage.Sounds.EndingCutscene` with the second each plays in [Documentation/ReplicatedStorage/Sounds.md](Documentation/ReplicatedStorage/Sounds.md), and what it says about the hotel in [Documentation/Lore.md](Documentation/Lore.md). Admins can play it anywhere with `/ending`.
 
 Mad Guest door-impact audio uses the blank Studio template `ReplicatedStorage.Sounds.MadGuestDoorKnock`; setup is in [Documentation/ReplicatedStorage/Sounds.md](Documentation/ReplicatedStorage/Sounds.md).

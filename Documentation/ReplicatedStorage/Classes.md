@@ -405,6 +405,40 @@ Hides, locally and every frame, everything that must never appear in the cutscen
 - API: `Isolation:Stop()` / `:Destroy()`
 - Requires: `Configs.SpawnZoneConfig`
 
+`LightSweep` and `Isolation` are also used by the ending cutscene (`EndingCutsceneService`), which builds its own instances of both.
+
+## Ending cutscene
+
+### EndingCutscene\StagedRig.luau
+A local actor built from a model the caller already cloned: a copy of the local character or an enemy template. It strips scripts, tools, force fields, sounds and audio instances, billboards, highlights, prompts and body movers, removes every tag, anchors only the root, turns off collision, query and touch, and hides every part and decal through `LocalTransparencyModifier` until shown. The Humanoid stops evaluating states and shows no name or health. Joint bends work on both `Motor6D` rigs (rotating `C0`) and `AnimationConstraint` rigs (rotating `Attachment0.CFrame`), eased over a duration on its own clock.
+- API: `StagedRig.CloneCharacter(character: Model) -> Model?` — clones a character with `Archivable` switched on just for the clone
+- API: `StagedRig.new(model: Model, parent: Instance) -> StagedRig`
+- API: `StagedRig:RootHeight() -> number` (R15: `HipHeight` plus half the root), `:Place(rootCFrame)`, `:GetCFrame()`
+- API: `StagedRig:SetFade(fade: number)` (0 shown, 1 hidden), `:SetVisible(visible: boolean)`, `:IsVisible() -> boolean`
+- API: `StagedRig:Play(animation: Animation?, priority?, fade?) -> AnimationTrack?` (looped), `:Stop(animation?, fade?)`
+- API: `StagedRig:Bend(jointName: string, pitch, yaw, roll, duration?)` — degrees from the joint's original pose; `0` duration snaps
+- API: `StagedRig:SetOffset(jointName: string, offset: CFrame)` — an extra rotation layered on top of the joint's bend, applied at once (used for twitches; `CFrame.identity` clears it)
+- API: `StagedRig:Update(deltaTime)`, `:Destroy()`
+- Requires: `MathService`
+
+### EndingCutscene\CabinStage.luau
+The cloned `ReplicatedStorage.Effects.EndingCutscene.Stage`, pivoted onto the exit elevator, plus the door-space frame every ending position is written in: origin at the centre of the exit's `Threshold` at floor height, `LookVector` out of the cabin along the exit's pivot, `RightVector` to the right when facing out. It drives the stage props by level: the cabin lamp (neon fades to `LampOff`, lights scale and switch off below 2%), the daylight wall (transparency follows the level, its lights also scale with how far the doors are open), the EXIT glow, the dial needle (swept between `NeedleSweep` degrees around the `Hub` part's face normal) and the particle volumes.
+- API: `CabinStage.new(options) -> CabinStage` — options name the template, exit, threshold, parent, stage name, the lamp, daylight, glow, needle and hub parts, the sweep and the lamp's off colour
+- API: `CabinStage:ToWorld(point: Vector3) -> Vector3`, `:Direction(direction) -> Vector3`, `:Frame(point, facing, height) -> CFrame`, `:Forward(position) -> number`, `:Lateral(position) -> number`
+- API: `CabinStage:SetLamp(level)`, `:SetDaylight(level, opening)`, `:SetGlow(level)`, `:SetNeedle(alpha)`
+- API: `CabinStage:Burst(name: string)` — emits each `ParticleEmitter` under the named part by its `Burst` attribute (10 without one)
+- API: `CabinStage:SetEmitting(name: string, emitting: boolean)` — enables or disables the named part's emitters, emitting each one's `Prewarm` attribute when switched on
+- API: `CabinStage:Destroy()`
+- Requires: nothing
+
+### EndingCutscene\Cast.luau
+Who is on stage in the ending and what they do. Builds a stand-in and a double from two clones of the local character (the stand-in plays the character's own `Animate` idle and walk animations when it has them, otherwise the `Idle` and `Walk` assets in the stage folder), and two Sisters from `ReplicatedStorage.Enemies.Sister` with their heads tilted toward each other. A missing enemy template is warned about once and left out. All placements come from `EndingCutsceneConfig.Cast` in door space.
+- API: `Cast.new(options) -> Cast`
+- API: `Cast:Opening()` (stand-in and Sisters shown, stand-in idles), `:SistersStep(index)` (both Sisters moved to the step's pair of places), `:ClearCorridor()`
+- API: `Cast:Look(bend)` (the stand-in's neck), `:DoubleAt(placeName)` (with the place's optional `Tilt`), `:HideDouble()`, `:StartWalk()` (eases up to walking speed out through the doors, scaling the walk animation's speed by `StrideScale` and fading out between `FadeFrom` and `FadeTo`), `:Kept()` (stand-in gone, double in its last place facing the back wall, head bowed), `:DoubleNeck(name)` (`Rise`, `Snap`), `:SpinDouble()` (turns the double from `Kept.Facing` to `Spin.Facing` the short way plus `ExtraTurns` full turns over `Spin.Time`, eased in and out), `:Twitch(duration)` (random neck jerks within `Twitch` every `Gap` seconds, cleared at the end), `:FloatDouble()` (lifts the double by `Float.Rise` over `RiseTime`, then bobs by `Bob` every `BobPeriod`)
+- API: `Cast:Update(deltaTime)`, `:Destroy()`
+- Requires: `MathService`, `Classes.EndingCutscene.CabinStage`, `Classes.EndingCutscene.StagedRig`
+
 ## Minigames
 
 ### Minigames\MinigameBase.luau

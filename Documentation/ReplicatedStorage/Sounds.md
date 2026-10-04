@@ -93,6 +93,50 @@ The lamp count in a live server depends on what has streamed in by 10.7 s; with 
 - `Blackout` must hit on its first frame: trim any leading silence with the region's start.
 - `Notice` shares 6.1 with the camera shake, so a slow-attack replacement arrives after the punch.
 
+## EndingCutscene
+
+The ending cutscene's sixteen cues, at `ReplicatedStorage.Sounds.EndingCutscene.<Cue>`. They have the same shape as the IntroCutscene cues (an `AudioEmitter` holding an `AudioPlayer` named `Player` and a `Wire`, a `Cue` attribute for the team, never the `RadioAllowed` tag) and exist only in Studio, so a swap is kept only once the place is saved or published. `EndingCutsceneService` plays every cue as 2D sound except that `LightSweep` plays `Flicker` and `LightOut` in 3D on each dying corridor lamp (the cabin lamp's flickers play them in 2D). Effective volume is template `Volume` × `EndingCutsceneConfig.Sounds.Cues.<Cue>.Gain` (all 1, `Type` 0.8) × bus volume; the loops are also multiplied every frame by their grade curve (eased at 8/s). Asset loading and loudness were checked in Studio Edit; nothing was listened to.
+
+| Cue | Asset id | Asset, creator | Loop | Volume | Region (s) | Bus |
+| --- | --- | --- | --- | --- | --- | --- |
+| `Drone` | 9112795571 | Hollow Rumble 2 (SFX), ProSoundEffects (same as the intro) | yes | 0.6 | whole | Music |
+| `Heartbeat` | 9116795681 | Heart Beat, puszak (same as the intro) | yes | 0.25 | whole | SFX |
+| `Muzak` | 1841647093 | Life in an Elevator, APMOfficial | yes | 0.35 | whole (211 s file) | Music |
+| `Ride` | 9114203832 | Dumbwaiter 1 (SFX), ProSoundEffects: a start lurch at about 1 s, then a steady motor to about 14 s | yes | 0.5 | whole (17.3 s file) | SFX |
+| `Outside` | 9112771314 | Distant City Traffic 2 (SFX), ProSoundEffects: wind, birds, distant traffic | yes | 0.6 | whole | SFX |
+| `Type` | 9120300134 | Typewriter Key 2 (SFX), ProSoundEffects (same as the intro) | no | 0.12 | 0.04-0.32 | SFX |
+| `Doors` | 6431334087 | the lobby `Elevator` door sound | no | 1.4 | whole (3.05 s) | SFX |
+| `Whip` | 9120698415 | Whoosh By Howling Wind Light Rumbling 12 (SFX), ProSoundEffects (the intro's `Whip`) | no | 0.55 | 0.85-3.6 | SFX |
+| `Bang` | 9119630452 | Steel Door 6 (SFX), ProSoundEffects | no | 1.2 | whole (2.1 s) | SFX |
+| `Flicker` | 166047422 | Light Flicker (same as the intro) | no | 5 | whole | SFX |
+| `LightOut` | 9113808115 | Circuit Breaker 1 (SFX), ProSoundEffects (same as the intro) | no | 1.6 | 0.12-0.85 | SFX |
+| `Notice` | 9043342495 | DARK BRAAM 05, APMOfficial (the intro's `Notice`, quieter) | no | 0.3 | whole | SFX |
+| `Ding` | 9119643158 | Store Entry Bell 3 (SFX), ProSoundEffects | no | 0.6 | whole (3.8 s) | SFX |
+| `Crack` | 9113542208 | Bone Cracks 8 (SFX), ProSoundEffects | no | 1.2 | whole (0.6 s) | SFX |
+| `Sting` | 107188631758923 | the Mimic's own `MimicSting`; also played a second time as `StingSub` at 0.472x speed and 4x gain, the Mimic reveal's slowed sub layer | no | 0.4 | whole | SFX |
+| `Impact` | 9043338193 | BIG IMPACT HIT 14, APMOfficial (the intro's `Blackout`, quieter) | no | 0.55 | 0.07 to the end | SFX |
+
+When each plays, in track seconds from the moment the player is frozen in the exit cabin:
+
+| Cue | Plays |
+| --- | --- |
+| `Drone` | Loop from the start. Level 0 until 2.2, 1.0 by 4.5, 1.25 by 7.9 and held to 8.55, 0.25 by 8.9, 0 by 9.6; back to 0.5 by 26.3, 1.0 by 28.25, 0.45 by 29.4 and 0 by 33.2 |
+| `Heartbeat` | Loop from the start. 0.55 by 6.2 at 1.15x, held to 8.55, 0 by 8.9; cut at 17.15, 0.7 by 17.4 at 1.15x, full at 18.6 at 1.3x, held to 19.9, 0 by 22.4 |
+| `Doors` | 2.0 (closing on the corridor), 19.9 (opening on the daylight), 25.0 (closing on the double) |
+| `Flicker`, `LightOut` | Each corridor lamp by distance out of the doors: beyond 60 studs at 2.6, 45-60 at 3.3, 30-45 at 4.0, 14-30 at 4.8, nearer at 5.6, 0.07 s apart within a band; `LightOut` 0.38 s after its flicker (0.45 s for the nearest band). The cabin lamp: `Flicker` at 15.6 and 18.4, `LightOut` at 18.6 |
+| `Bang` | 8.55, with the camera shake and the ceiling dust |
+| `Ride` | Loop from 9.2; full by 9.8, held to 18.6, silent by 19.1 |
+| `Muzak` | Loop from 9.4; full by 11.0; slows to 0.93x by 16.2 and 0.88x by 17.5; held to 18.4, then winds down to 0.35x and silence by 18.75 |
+| `Type` | The caption from 9.8 at 26 characters a second, the card from 30.4 at 17 |
+| `Notice` | 17.15, when the lamp comes back on with the double in the corner |
+| `Ding` | 19.45, in the dark before the doors open |
+| `Outside` | Loop from 19.9; full by 21.0, held to 25.0, fading out with the doors by 29.2 |
+| `Whip` | 25.7, the double spins round from the back wall |
+| `Crack`, `Sting`, `StingSub` | 28.25, the double's neck snaps toward the camera and it floats up |
+| `Impact` | 29.25, the doors slam on the double |
+
+A skip fades every cue out over 0.35 s. Swap a cue the same way as an intro cue (keep the emitter's name, the `Player` child and the `Wire`, retrim `PlaybackRegion` for the new file). `Ride` must start with its lurch within the first second or so, and `Crack` and `Impact` must hit on their first frame.
+
 ## Menu and kit roll
 
 Four direct children of `ReplicatedStorage.Sounds` are blank `AudioEmitter` templates with a `Player` `AudioPlayer` wired to the emitter. Set each `Player.Asset` in Studio when its sound is ready:

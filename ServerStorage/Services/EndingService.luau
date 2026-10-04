@@ -8,9 +8,11 @@ local ElevatorConfig = require(ReplicatedStorage.Configs.ElevatorConfig)
 local EndingConfig = require(ReplicatedStorage.Configs.EndingConfig)
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local VanishedService = require(ReplicatedStorage.Services.VanishedService)
 local ComputerService = require(ServerStorage.Services.ComputerService)
 local AnalyticsService = require(ServerStorage.Services.AnalyticsService)
 local EscapeService = require(ServerStorage.Services.EscapeService)
+local HallwayStreamingService = require(ServerStorage.Services.HallwayStreamingService)
 
 local Show = CommunicationService.Ensure(EndingConfig.Remotes.Folder, EndingConfig.Remotes.Show) :: RemoteEvent
 local Hide = CommunicationService.Ensure(EndingConfig.Remotes.Folder, EndingConfig.Remotes.Hide) :: RemoteEvent
@@ -18,7 +20,9 @@ local PlayAgain = CommunicationService.Ensure(EndingConfig.Remotes.Folder, Endin
 
 local EndingService = {}
 
-local Ending: { [Player]: Model } = {}
+type Ending = { Character: Model, Preview: boolean }
+
+local Ending: { [Player]: Ending } = {}
 
 local function lobbySpawn(): SpawnLocation?
 	local lobby = workspace:FindFirstChild("Lobby")
@@ -37,38 +41,85 @@ local function insideHitbox(hitbox: BasePart, position: Vector3): boolean
 	return math.abs(local_.X) <= half.X and math.abs(local_.Y) <= half.Y and math.abs(local_.Z) <= half.Z
 end
 
+local function exitHitbox(): (Model?, BasePart?)
+	for _, model in CollectionService:GetTagged(ElevatorConfig.Tag) do
+		if model:GetAttribute(ElevatorConfig.TypeAttribute) ~= ElevatorConfig.ExitType or not model:IsA("Model") then continue end
+		local hitbox = model:FindFirstChild(ElevatorConfig.HitboxName)
+		if hitbox and hitbox:IsA("BasePart") then return model, hitbox end
+	end
+	return nil, nil
+end
+
+local function release(character: Model)
+	VanishedService.SetSource(character, VanishedService.EndingTag, false)
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if root and root:IsA("BasePart") then
+		root.Anchored = false
+		root.AssemblyLinearVelocity = Vector3.zero
+	end
+end
+
 function EndingService:IsEnding(player: Player): boolean
 	return Ending[player] ~= nil
 end
 
-function EndingService:Begin(player: Player): boolean
+function EndingService:Begin(player: Player, preview: boolean?): boolean
 	if Ending[player] then return false end
 
 	local root = CharacterService.GetAliveRoot(player)
 	if not root then return false end
 
-	Ending[player] = root.Parent :: Model
+	local character = root.Parent :: Model
+	Ending[player] = { Character = character, Preview = preview == true }
 	root.AssemblyLinearVelocity = Vector3.zero
 	root.AssemblyAngularVelocity = Vector3.zero
 	root.Anchored = true
-	AnalyticsService:LogStep(player, "Escaped")
-	AnalyticsService:LogEvent(player, "RunEscaped", AnalyticsService:GetRunTime(player))
-	EscapeService:Award(player)
-	ComputerService:ResetProgress(player)
+	VanishedService.SetSource(character, VanishedService.EndingTag, true)
+	if not preview then
+		AnalyticsService:LogStep(player, "Escaped")
+		AnalyticsService:LogEvent(player, "RunEscaped", AnalyticsService:GetRunTime(player))
+		EscapeService:Award(player)
+		ComputerService:ResetProgress(player)
+	end
 	Show:FireClient(player)
 	return true
 end
 
+function EndingService:Preview(player: Player): boolean
+	if Ending[player] then return false end
+
+	local humanoid = CharacterService.GetAliveHumanoid(player)
+	local root = CharacterService.GetAliveRoot(player)
+	local exit, hitbox = exitHitbox()
+	if not humanoid or not root or not exit or not hitbox then return false end
+
+	local floor = hitbox.Position - Vector3.yAxis * (hitbox.Size.Y / 2)
+	local look = exit:GetPivot().LookVector
+	local stand = floor + Vector3.yAxis * (humanoid.HipHeight + root.Size.Y / 2)
+	local target = CFrame.lookAt(stand, stand + Vector3.new(look.X, 0, look.Z))
+	pcall(HallwayStreamingService.PrepareTeleport, HallwayStreamingService, player, target.Position)
+
+	if Ending[player] or CharacterService.GetAliveRoot(player) ~= root then return false end
+	if not self:Begin(player, true) then return false end
+	local character = player.Character
+	if character then
+		character:PivotTo(target)
+	end
+	return true
+end
+
 function EndingService:Finish(player: Player): boolean
-	local character = Ending[player]
-	if not character then return false end
+	local ending = Ending[player]
+	if not ending then return false end
 	Ending[player] = nil
 
-	ComputerService:ResetProgress(player)
-	AnalyticsService:LogEvent(player, "PlayAgain")
-	AnalyticsService:StartRun(player)
+	local character = ending.Character
+	if not ending.Preview then
+		ComputerService:ResetProgress(player)
+		AnalyticsService:LogEvent(player, "PlayAgain")
+		AnalyticsService:StartRun(player)
+	end
 
-	local root = character:FindFirstChild("HumanoidRootPart")
 	local spawn = lobbySpawn()
 	if spawn and character.Parent then
 		local target = spawn.CFrame + Vector3.yAxis * (spawn.Size.Y / 2 + EndingConfig.SpawnLift)
@@ -80,22 +131,17 @@ function EndingService:Finish(player: Player): boolean
 		end
 	end
 
-	if root and root:IsA("BasePart") then
-		root.Anchored = false
-		root.AssemblyLinearVelocity = Vector3.zero
-	end
-
+	release(character)
 	Hide:FireClient(player)
 	return true
 end
 
 function EndingService:Cancel(player: Player)
-	local character = Ending[player]
-	if not character then return end
+	local ending = Ending[player]
+	if not ending then return end
 	Ending[player] = nil
 
-	local root = character:FindFirstChild("HumanoidRootPart")
-	if root and root:IsA("BasePart") then root.Anchored = false end
+	release(ending.Character)
 	Hide:FireClient(player)
 end
 
