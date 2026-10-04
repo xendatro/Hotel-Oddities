@@ -28,6 +28,8 @@ local talkButton = touch:WaitForChild("Talk") :: TextButton
 local promptStroke = prompt:FindFirstChildOfClass("UIStroke")
 local idleBackground = powerButton.BackgroundColor3
 
+gui.Enabled = true
+
 powerButton.Activated:Connect(function()
 	WalkieTalkieService:TogglePower()
 end)

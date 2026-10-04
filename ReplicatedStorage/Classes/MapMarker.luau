@@ -22,7 +22,6 @@ export type MapMarker = typeof(setmetatable({} :: {
 	_ringClock: number,
 	_flashClock: number,
 	_stroke: UIStroke,
-	_extent: number,
 	_complete: boolean,
 }, MapMarker))
 
@@ -47,8 +46,8 @@ local function setUpConnections(self: MapMarker): { RBXScriptConnection }
 					self._ring.Visible = false
 				else
 					local eased = 1 - (1 - progress) ^ 3
-					local size = self._extent * (1 + eased * Markers.PingSize)
-					self._ring.Size = UDim2.fromOffset(size, size)
+					local size = 1 + eased * Markers.PingSize
+					self._ring.Size = UDim2.fromScale(size, size)
 					self._ring.BackgroundTransparency = 1
 					self._stroke.Transparency = eased
 				end
@@ -68,7 +67,7 @@ local function setUpConnections(self: MapMarker): { RBXScriptConnection }
 	}
 end
 
-function MapMarker.new(parent: GuiObject, kind: string, userId: number?, size: number?): MapMarker
+function MapMarker.new(parent: GuiObject, kind: string, extent: number, userId: number?): MapMarker
 	local self = setmetatable({}, MapMarker)
 
 	self.Kind = kind
@@ -76,7 +75,6 @@ function MapMarker.new(parent: GuiObject, kind: string, userId: number?, size: n
 	local frame = Instance.new("Frame")
 	frame.Name = kind .. "Marker"
 	frame.AnchorPoint = Vector2.new(0.5, 0.5)
-	local extent = size or Markers.Size
 	frame.Size = UDim2.fromOffset(extent, extent)
 	frame.BackgroundTransparency = 1
 	frame.ZIndex = 15
@@ -89,7 +87,7 @@ function MapMarker.new(parent: GuiObject, kind: string, userId: number?, size: n
 	ring.Name = "Ping"
 	ring.AnchorPoint = Vector2.new(0.5, 0.5)
 	ring.Position = UDim2.fromScale(0.5, 0.5)
-	ring.Size = UDim2.fromOffset(extent, extent)
+	ring.Size = UDim2.fromScale(1, 1)
 	ring.BackgroundTransparency = 1
 	ring.Visible = false
 	ring.ZIndex = 14
@@ -113,7 +111,7 @@ function MapMarker.new(parent: GuiObject, kind: string, userId: number?, size: n
 	glyph.Name = "Glyph"
 	glyph.AnchorPoint = Vector2.new(0.5, 0.5)
 	glyph.Position = UDim2.fromScale(0.5, 0.5)
-	glyph.Size = UDim2.new(1, -Markers.GlyphInset, 1, -Markers.GlyphInset)
+	glyph.Size = UDim2.fromScale(1 - Markers.GlyphInset, 1 - Markers.GlyphInset)
 	glyph.BackgroundTransparency = 1
 	glyph.Font = Enum.Font.Kalam
 	glyph.Text = GLYPHS[kind] or GLYPHS.Default
@@ -144,7 +142,6 @@ function MapMarker.new(parent: GuiObject, kind: string, userId: number?, size: n
 	self._ring = ring
 	self._scale = scale
 	self._stroke = GuiBuilderService.Stroke(ring, MapConfig.Ink.Color, Markers.StrokeWidth)
-	self._extent = extent
 	self._spring = Spring.new(190, 0.5, 1 / 120)
 	self._spring:Snap(1)
 	self._spring.Target = 1
@@ -159,6 +156,10 @@ end
 
 function MapMarker:SetPosition(position: UDim2)
 	self.Frame.Position = position
+end
+
+function MapMarker:SetExtent(extent: number)
+	self.Frame.Size = UDim2.fromOffset(extent, extent)
 end
 
 function MapMarker:SetComplete(complete: boolean)

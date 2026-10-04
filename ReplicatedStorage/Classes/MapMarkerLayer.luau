@@ -18,12 +18,17 @@ export type Options = {
 	FriendSize: number?,
 	LandmarkSize: number?,
 	PlayerParent: GuiObject?,
+	Reference: GuiBase2d?,
 }
 
 export type MapMarkerLayer = typeof(setmetatable({} :: {
 	Frame: Frame,
 	Connections: { RBXScriptConnection },
 	_options: Options,
+	_reference: GuiBase2d,
+	_playerSize: number,
+	_friendSize: number,
+	_landmarkSize: number,
 	_landmarks: { [string]: MapMarker.MapMarker },
 	_friends: { [Player]: MapMarker.MapMarker },
 	_facings: { [Player]: ImageLabel },
@@ -41,13 +46,12 @@ local function toScale(worldX: number, worldZ: number): UDim2
 	return UDim2.fromScale(canvas.X / resolution, canvas.Y / resolution)
 end
 
-local function attachArrow(parent: GuiObject, size: number): ImageLabel
-	local extent = size * Markers.ArrowScale
+local function attachArrow(parent: GuiObject): ImageLabel
 	local arrow = Instance.new("ImageLabel")
 	arrow.Name = "Facing"
 	arrow.AnchorPoint = Vector2.new(0.5, 0.5)
 	arrow.Position = UDim2.fromScale(0.5, 0.5)
-	arrow.Size = UDim2.fromOffset(extent, extent)
+	arrow.Size = UDim2.fromScale(Markers.ArrowScale, Markers.ArrowScale)
 	arrow.BackgroundTransparency = 1
 	arrow.ScaleType = Enum.ScaleType.Stretch
 	arrow.ImageContent = MapInkService:GetArrow().Content
@@ -56,11 +60,11 @@ local function attachArrow(parent: GuiObject, size: number): ImageLabel
 	return arrow
 end
 
-local function buildPlayerMarker(parent: Frame, size: number): Frame
+local function buildPlayerMarker(parent: GuiObject, extent: number): Frame
 	local marker = Instance.new("Frame")
 	marker.Name = "You"
 	marker.AnchorPoint = Vector2.new(0.5, 0.5)
-	marker.Size = UDim2.fromOffset(size, size)
+	marker.Size = UDim2.fromOffset(extent, extent)
 	marker.BackgroundColor3 = MapConfig.Ink.Color
 	marker.BorderSizePixel = 0
 	marker.ZIndex = 25
@@ -79,6 +83,9 @@ local function setUpConnections(self: MapMarkerLayer): { RBXScriptConnection }
 		Players.PlayerRemoving:Connect(function(player: Player)
 			self:ClearFriend(player)
 		end),
+		self._reference:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+			self:_resize()
+		end),
 	}
 end
 
@@ -86,6 +93,10 @@ function MapMarkerLayer.new(parent: GuiObject, options: Options?): MapMarkerLaye
 	local self = setmetatable({}, MapMarkerLayer)
 
 	self._options = options or {}
+	self._reference = self._options.Reference or parent
+	self._playerSize = self._options.PlayerSize or Markers.PlayerSize
+	self._friendSize = self._options.FriendSize or Markers.FriendSize
+	self._landmarkSize = self._options.LandmarkSize or Markers.Size
 	self._landmarks = {}
 	self._friends = {}
 	self._facings = {}
@@ -99,11 +110,10 @@ function MapMarkerLayer.new(parent: GuiObject, options: Options?): MapMarkerLaye
 	frame.Parent = parent
 	self.Frame = frame
 
-	local playerSize = self._options.PlayerSize or Markers.PlayerSize
 	local pinned = self._options.PlayerParent
 	self._pinned = pinned ~= nil
-	self._player = buildPlayerMarker(pinned or frame, playerSize)
-	self._playerFacing = attachArrow(self._player, playerSize)
+	self._player = buildPlayerMarker(pinned or frame, self:_extent(self._playerSize))
+	self._playerFacing = attachArrow(self._player)
 
 	if pinned then
 		self._player.Position = UDim2.fromScale(0.5, 0.5)
@@ -115,13 +125,32 @@ function MapMarkerLayer.new(parent: GuiObject, options: Options?): MapMarkerLaye
 	return self
 end
 
+function MapMarkerLayer:_extent(fraction: number): number
+	return math.round(fraction * self._reference.AbsoluteSize.Y)
+end
+
+function MapMarkerLayer:_resize()
+	local player = self:_extent(self._playerSize)
+	self._player.Size = UDim2.fromOffset(player, player)
+
+	local landmark = self:_extent(self._landmarkSize)
+	for _, marker in self._landmarks do
+		marker:SetExtent(landmark)
+	end
+
+	local friend = self:_extent(self._friendSize)
+	for _, marker in self._friends do
+		marker:SetExtent(friend)
+	end
+end
+
 function MapMarkerLayer:PlaceLandmark(kind: string, key: string): boolean
 	if self._landmarks[key] or not MapLayoutService:IsLoaded() then return false end
 
 	local x, z = key:match("^(-?%d+),(-?%d+)$")
 	if not x then return false end
 
-	local marker = MapMarker.new(self.Frame, kind, nil, self._options.LandmarkSize)
+	local marker = MapMarker.new(self.Frame, kind, self:_extent(self._landmarkSize))
 	marker:SetPosition(toScale(tonumber(x) :: number, tonumber(z) :: number))
 	marker.Frame.Rotation = self._upright
 	self._landmarks[key] = marker
@@ -197,11 +226,10 @@ function MapMarkerLayer:Update()
 		end
 
 		if not marker then
-			local size = self._options.FriendSize or Markers.FriendSize
-			marker = MapMarker.new(self.Frame, "Friend", other.UserId, size)
+			marker = MapMarker.new(self.Frame, "Friend", self:_extent(self._friendSize), other.UserId)
 			marker.Frame.Rotation = self._upright
 			self._friends[other] = marker
-			self._facings[other] = attachArrow(marker.Frame, size)
+			self._facings[other] = attachArrow(marker.Frame)
 		end
 
 		marker.Frame.Visible = true

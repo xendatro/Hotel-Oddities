@@ -55,12 +55,12 @@ The Creep enemy: light-killing radius, floating backdrop geometry, glowing eye p
 - API: data table — `LightRange`, `ConnectedHallwayLightRange`, `DarkDistance`, `TurnRate`, `Backdrop*` group, `DistortionSpeed`, `EyeColors`, `PairSpacing`, `PairPlacementTries`, `Variants`
 
 ### CrouchConfig.luau
-Crouch movement, camera drop, crouch animations, stealth/noise effects and the crouch touch button, including its minimum and maximum scaled text size.
+Crouch movement, camera drop, crouch animations, stealth/noise effects and the crouch touch button's `Touch.Text`; its look and place live in `TouchButtonConfig`.
 - API: data table — `SpeedMultiplier`, `BlocksSprint`, `Camera`, `Body`, `Stealth`, `Input`, `Touch`
 
 ### DangerConfig.luau
 Danger-field noise generation over the map plus the Director's enemy population, spawn placement weights and tick intervals.
-- API: data table — noise/field keys (`Seed`, `FeatureScaleFraction`, `Octaves`, `Persistence`, `NoiseGain`, `Contrast`, `FloorHeight`, `FloorSeparation`, `SafeRadiusFraction`, `RampLengthFraction`, `PointSpacing`), `PathDangerWeight`, `ProgrammaticVents`, patrol/route keys (`PatrolMinTripFraction`, `PatrolCarpetWidth`, `PatrolDangerBias` — how much more a fully safe edge costs per stud than a fully dangerous one, `PatrolCostNoise` — the Min/Max random multiplier rolled per edge per trip, `PatrolDestinationFloor` and `PatrolDestinationExponent` — destination weight is `floor + danger^exponent`), `Director`; exports type `FieldSettings`
+- API: data table — noise/field keys (`Seed`, `FeatureScaleFraction`, `Octaves`, `Persistence`, `NoiseGain`, `Contrast`, `FloorHeight`, `FloorSeparation`, `SafeRadiusFraction`, `RampLengthFraction`, `PointSpacing`), `PathDangerWeight`, `ProgrammaticVents`, patrol/route keys (`PatrolMinTripFraction`, `PatrolCarpetWidth`, `PatrolDangerBias` — how much more a fully safe edge costs per stud than a fully dangerous one, `PatrolCostNoise` — the Min/Max random multiplier rolled per edge per trip, `PatrolDestinationFloor` and `PatrolDestinationExponent` — destination weight is `floor + danger^exponent`), `Director` (`Director.StalkerRotationInterval` is 180 seconds, divided by the living player count, between one Stalker leaving and the next one spawning); exports type `FieldSettings`
 
 ### DeathConfig.luau
 Death-cause names and player-facing hints per enemy (including the `PaintingDweller` cause shown as "Painting Lurker"), plus the full styling and timing of the glitchy "killed by" death screen.
@@ -199,6 +199,8 @@ Settings for the look-direction system that replicates each player's aim to neck
 
 ### MapConfig.luau
 Everything tuning the discoverable map: remote names, the `Map` ScreenGui paths, discovery radius and tick rate, canvas resolution and margin, hand-drawn ink style (colour, opacity, width and its variance, wobble amplitude and frequency, overshoot, bleed), the room floor tags, the landmark tags and their discovery radii, line-of-sight sampling, pan and zoom limits, room and computer-room stroke weights and hatch settings, danger layer colours, and marker sizing and effect timings.
+- `Markers.Size`, `Markers.PlayerSize`, `Markers.FriendSize` and `Minimap.PlayerSize`, `FriendSize`, `LandmarkSize` are fractions of the screen height, not pixels; `Markers.GlyphInset` is the fraction of the marker the glyph leaves clear.
+- `Legend.Width`, `Height`, `TextSize`, `SwatchSize`, `Spacing` and `Padding` are pixels at a `Legend.ReferenceHeight` (1080) pixel-tall screen; the legend is scaled by screen height over that, clamped to `Legend.MinScale` and `Legend.MaxScale`.
 
 ### MapOddityConfig.luau
 Spawn intervals, durations and per-effect tuning for the hallway/map oddity system (transparent hallways, world-space light blackouts, doors opening, hallway chaos, gaze-gated blockers and the Void's widened crossing plank). Every ambient effect supplies `SpawnIntervalMin` and `SpawnIntervalMax`; the scheduler samples `math.random(min, max)` directly before each map-wide spawn attempt. `Transparency` and `HallwayVoid` carry `Enabled = false`, which stops both their ambient spawning and manual starts; they now exist only as the baked Invisible Hallway and The Hole points of interest.
@@ -281,7 +283,7 @@ Visual definitions for speed-boost aura overlays drawn around the sprint bar, on
 - API: data table — `TimerGap`, `AuraInset`, `AuraCorner`, `Boosts` (`Soda`, `Energy Drink`)
 
 ### SprintConfig.luau
-Speed multiplier, stamina economy, camera FOV blend, input bindings, bounded touch-button text and viewport-based stamina-bar scaling for the sprint system.
+Speed multiplier, stamina economy, camera FOV blend, input bindings (including the touch button's `TouchButtonTitle`; its look and place live in `TouchButtonConfig`) and viewport-based stamina-bar scaling for the sprint system.
 - API: data table — `SpeedMultiplier`, `Stamina`, `Camera`, `Input`, `UI`
 
 ### StalkerCameraConfig.luau
@@ -306,6 +308,10 @@ Per-tool settings keyed by tool name, giving each tool its CollectionService tag
 - `Ball.Range` sets eye targeting to 20 studs; `Ball.ServerRange` is the server hit-report limit.
 - API: data table — one entry per tool: `Flashlight`, `Bandage`, `Medkit`, `SpellBook`, `Trap`, `Ball`, `Shovel`, `Pathfinder`, `Soda`, `Energy Drink`, `Visor`, `Gravity Warper`, `Player Locator`, `Walkie Talkie`, `Big Head`, `Big Character`, `Small Character`, `Transparency`, `Random Oddity`
 - Player oddity entries use `OddityKind`, optional `OddityOverrides`, or `OddityChoices` for the random four-effect item. `Shovel.HoleImmunityDuration` sets the six-second immunity granted when entering a hole.
+
+### TouchButtonConfig.luau
+The shared touch action buttons drawn by `TouchButtonService`: ScreenGui name and `DisplayOrder`, button `Size` in screen heights with `MinPixels`/`MaxPixels` clamps, corner radius, stroke, font and text bounds, idle/active colours and transparencies, and `Slots` — each slot's button centre as a `Vector2` offset from the bottom-right corner in screen heights (`Sprint` left of the jump button, `Crouch` up and to its left).
+- API: data table — `Gui`, `DisplayOrder`, `Size`, `MinPixels`, `MaxPixels`, `CornerRadius`, `StrokeThickness`, `Font`, `MinTextSize`, `MaxTextSize`, `TextPadding`, `Slots`, `Colors`, `Transparency`
 
 ### TopbarConfig.luau
 Which interface pages get a TopbarPlus icon (Index, Rooms, Gems, Gallery in that order; the Rooms icon currently reuses the Index image), how those icons look and the viewport width below which their text labels hide.

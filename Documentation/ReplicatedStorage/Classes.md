@@ -202,12 +202,19 @@ A software pixel canvas backing an `EditableImage`. Owns an RGBA `buffer` it com
 
 ### MapMarker.luau
 One symbol on the discoverable map: an inked disc with a handwriting-font glyph, a spring-driven pop scale, an expanding ping ring and a short glyph flash. Used for landmarks such as computers; a freshly discovered one pops, a restored one simply appears.
-- API: `MapMarker.new(parent: GuiObject, kind: string, userId: number?) -> MapMarker` — kind selects the glyph; a `userId` swaps it for that player's circular headshot
+- API: `MapMarker.new(parent: GuiObject, kind: string, extent: number, userId: number?) -> MapMarker` — kind selects the glyph; `extent` is the marker's width and height in pixels; a `userId` swaps the glyph for that player's circular headshot. The glyph inset and the ping ring are fractions of the marker, so only the extent ever needs changing
 - API: `MapMarker:SetPosition(position: UDim2)`
+- API: `MapMarker:SetExtent(extent: number)` — resizes the marker in pixels
 - API: `MapMarker:SetFaded(faded: boolean)` — dims the glyph and disc
 - API: `MapMarker:Pop()` — plays the discovery pop, ping ring and flash together
 - API: `MapMarker:Destroy()`
 - Requires: `Configs.MapConfig`, `Services.GuiBuilderService`, `Classes.Spring`
+
+### MapMarkerLayer.luau
+The marker overlay one map view draws: the landmark markers, other players' headshot markers with facing chevrons, and the local player's dot. The full map and the minimap each build one. Every size is a fraction of a reference GuiBase2d's height (by default the layer's parent; both map views pass their ScreenGui), turned into pixels and re-applied whenever that reference resizes, so the markers keep the same proportion of the screen on a phone as on a monitor. The facing chevrons are sized by scale off the marker they sit on.
+- API: `MapMarkerLayer.new(parent: GuiObject, options: Options?) -> MapMarkerLayer` — options: `PlayerSize`, `FriendSize`, `LandmarkSize` (fractions of the reference height; default `MapConfig.Markers.PlayerSize`, `FriendSize` and `Size`), `PlayerParent` (pins the local dot to the centre of that frame instead of moving it), `Reference`
+- API: `MapMarkerLayer:PlaceLandmark(kind: string, key: string) -> boolean`, `:Pop(key)`, `:SetComplete(key, complete)`, `:ClearLandmarks()`, `:ClearFriend(player)`, `:SetUpright(degrees)`, `:Update()`, `:Destroy()`
+- Requires: `Configs.MapConfig`, `Classes.MapMarker`, `CharacterService`, `MapInkService`, `MapLayoutService`, `MathService`
 
 ### MirrorRoom.luau
 Client-only reflection renderer for a connector room whose upper half is a mirrored duplicate of its lower half. The mirror plane is read from the room's own geometry — midway between the `Floor` part's top and the `Ceiling` part's bottom — and the horizontal bounds come from the floor's own rotated box plus `Padding`, so nothing has to be authored twice. While the local player stands inside, every player character and every `Enemy` model inside gets an anchored, uncollidable, untagged clone parented to a workspace folder, and each render step copies every source part's world CFrame and transparency onto its twin through the mirror transform. A true reflection across a horizontal plane is not a rigid motion, so the transform used is the rotation by 180 degrees about the horizontal line through the subject's root at mirror height, aligned with the subject's own facing. That differs from a real mirror only by a reflection across the subject's sagittal plane, which for a roughly symmetric character is invisible apart from swapping its left and right sides, and it costs one CFrame multiply per part. Clones are twinned by a temporary id attribute rather than by walking both trees in step, because `Clone` does not reproduce runtime-only children such as an Animator's tracks. Characters are not archivable, so their `Archivable` flag (and every locked descendant's) is flipped for the duration of the clone and restored immediately. The local player is the one subject whose real neck and waist are never bent by `LookService`, so its reflection applies the same pitch and yaw itself, conjugating the joint angles into world space and rotating the head and upper-body part sets. Rig joints are read as `Motor6D`, `Weld`, `WeldConstraint`, `AnimationConstraint` and `RigidConstraint` and walked undirected, because this game's avatars are constraint rigs with no Motor6D at all. `LocalTransparencyModifier` is zeroed on the clone so a first-person player still sees their own reflection, while real transparency changes still copy through. The clone keeps its `Humanoid` — stripping it renders the avatar naked and white-headed, because classic `Shirt`/`Pants` and `Body Colors` are only composited onto a model that has one — so it is neutered instead: no name or health display, no state machine, no neck requirement.
@@ -455,6 +462,8 @@ Shared base class every terminal minigame extends: it owns the root frame, theme
 - API: `MinigameBase:BuildStatusBar(leftName: string, initialMessage: string) -> (TextLabel, TextLabel)` — top bar; right label becomes `self.MessageLabel`
 - API: `MinigameBase:BuildDirectionalPad(callback: (x: number, y: number) -> ())` — on-screen WASD pad
 - API: `MinigameBase:ConnectDirectionalKeys(callback: (x: number, y: number) -> ())` — WASD/arrow keyboard input
+- API: `MinigameBase:ConnectSwipes(callback: (x: number, y: number) -> (), continuous: boolean?)` — touch swipes anywhere on the screen as `{x, y}` steps on the dominant axis, once a finger travels 6% of the viewport's shorter side; `continuous` keeps the same finger firing a new step every further 6% so a drag can steer repeatedly, otherwise each touch gives one step
+- API: `MinigameBase:BuildSwipeHint(text: string) -> TextLabel` — dim label left of the D-pad, shown only while `UserInputService.PreferredInput` is `Touch`
 - API: `MinigameBase:ConnectKeys(map: {[Enum.KeyCode]: any}, callback: (value: any) -> ())` — arbitrary key map
 - API: `MinigameBase:PlaySound(name: string, pitch: number?)` — routed through `Api.Sound` if present
 - API: `MinigameBase:FailRun(reason: string?)` — routed through `Api.Fail` if present
@@ -480,7 +489,7 @@ Click-the-target trainer: hit 20 ringed targets before missing 3, with each targ
 ### Minigames\Frogger.luau
 Frogger on a 13x9 grid: hop from the bottom row to the goal row three times while six lanes of wrapping traffic sweep across. Getting hit resets crossings to zero, plays a splat and reports a failure; three clean crossings in a row win.
 - API: `Frogger.new(root: Frame, api: Api) -> self`
-- API: `Frogger:Start(saved: any?)` — restores `Crossings`, builds board/lanes/chrome, binds keys and D-pad, starts the traffic heartbeat
+- API: `Frogger:Start(saved: any?)` — restores `Crossings`, builds board/lanes/chrome, binds keys, D-pad and touch swipes (one hop per swipe, with a "SWIPE ANYWHERE TO HOP" hint on touch), starts the traffic heartbeat
 - API: `Frogger:Serialize() -> any?` — `{ Crossings }`, or nil at zero
 - API: `Frogger:Reset()` — clears crossings, re-phases every lane, returns the frog to start
 - API: `Frogger:IdleMessage()` — restores the "REACH THE TOP" prompt
@@ -516,7 +525,7 @@ Simon says with four pads driven by WASD/arrows or clicks: watch the playback, r
 ### Minigames\Snake.luau
 Snake on a 16x12 grid: eat 12 pellets to win, with the tick interval speeding up from 0.16s toward 0.106s per pellet eaten. Turns are queued (max 2) so fast inputs are not dropped, and reversing into yourself is rejected; hitting a wall or your own body zeroes the score, respawns and reports a failure. Only the best pellet count survives a save.
 - API: `Snake.new(root: Frame, api: Api) -> self`
-- API: `Snake:Start(saved: any?)` — restores `Best`, builds board and chrome, spawns the snake, binds keys and D-pad, starts the tick heartbeat
+- API: `Snake:Start(saved: any?)` — restores `Best`, builds board and chrome, spawns the snake, binds keys, D-pad and continuous touch swipes (with a "SWIPE ANYWHERE TO STEER" hint on touch), starts the tick heartbeat
 - API: `Snake:Serialize() -> any?` — `{ Best }`, or nil at zero
 - API: `Snake:Reset()` — banks the score into `Best`, respawns the snake
 - API: `Snake:IdleMessage()` — shows the best score, or the "EAT FIFTEEN" prompt

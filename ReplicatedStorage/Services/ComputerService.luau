@@ -19,6 +19,7 @@ local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local InterfaceService = require(ReplicatedStorage.Services.InterfaceService)
 local CameraFovService = require(ReplicatedStorage.Services.CameraFovService)
+local InventoryUIService = require(ReplicatedStorage.Services.InventoryUIService)
 
 local INPUT = ComputerConfig.Input
 local CAMERA = ComputerConfig.Camera
@@ -461,6 +462,7 @@ function restore()
 	if cursor and UI.HideCursorInSession then
 		cursor.Enabled = current.SavedCursorEnabled
 	end
+	InventoryUIService:SetHotbarHidden(SESSION_JOB, false)
 
 	setControlsEnabled(true)
 
@@ -575,6 +577,7 @@ function ComputerService:Activate(model: Model?): boolean
 	if cursor and UI.HideCursorInSession then
 		cursor.Enabled = false
 	end
+	InventoryUIService:SetHotbarHidden(SESSION_JOB, true)
 	local state = States[target]
 	if state and state.Gui then
 		state.Gui.Enabled = false

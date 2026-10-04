@@ -24,6 +24,7 @@ local Player = Players.LocalPlayer
 local MAP_ATTRIBUTE = PerkConfig.AttributePrefix .. "Map"
 local Paper: ImageLabel? = nil
 local LegendPlaque: any = nil
+local LegendScale: UIScale? = nil
 local Layers: { MapMarkerLayer.MapMarkerLayer } = {}
 local Layer: MapMarkerLayer.MapMarkerLayer? = nil
 local LandmarkKinds: { [string]: string } = {}
@@ -115,6 +116,15 @@ local function buildSwatch(parent: Frame, kind: string): CanvasGroup
 	return swatch
 end
 
+local function fitLegend()
+	local scale = LegendScale
+	local screen = Paper and Paper:FindFirstAncestorWhichIsA("LayerCollector")
+	if not (scale and screen) then return end
+
+	local legend = MapConfig.Legend
+	scale.Scale = math.clamp(screen.AbsoluteSize.Y / legend.ReferenceHeight, legend.MinScale, legend.MaxScale)
+end
+
 local function buildLegend(paper: ImageLabel): Frame
 	local legend = Instance.new("Frame")
 	legend.Name = Gui.LegendName
@@ -125,6 +135,11 @@ local function buildLegend(paper: ImageLabel): Frame
 	legend.BorderSizePixel = 0
 	legend.ZIndex = 30
 	legend.Parent = paper
+
+	local scale = Instance.new("UIScale")
+	scale.Parent = legend
+	LegendScale = scale
+	fitLegend()
 
 	if LegendPlaque then LegendPlaque:Destroy() end
 	LegendPlaque = MapInkService:CreatePlaque(MapConfig.Legend.Width, MapConfig.Legend.Height, "legend")
@@ -300,7 +315,7 @@ local function onSync(layout: { any }, store: { [string]: { number } }, landmark
 
 	MapInkService:Attach(content)
 
-	local marks = MapMarkerLayer.new(content)
+	local marks = MapMarkerLayer.new(content, { Reference = paper:FindFirstAncestorWhichIsA("LayerCollector") })
 	Layer = marks
 	MapService:RegisterLayer(marks)
 
@@ -383,6 +398,13 @@ local function unbindMapInput()
 end
 
 bindMapInput()
+
+task.spawn(function()
+	local screen = getPaper():FindFirstAncestorWhichIsA("LayerCollector")
+	if screen then
+		screen:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitLegend)
+	end
+end)
 
 Player:GetAttributeChangedSignal(MAP_ATTRIBUTE):Connect(function()
 	if ownsMap() then

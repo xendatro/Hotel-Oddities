@@ -20,10 +20,6 @@ return {
 			Enum.KeyCode.ButtonL2,
 		},
 		TouchButtonTitle = "SPRINT",
-		TouchButtonPosition = UDim2.new(1, -150, 1, -60),
-		TouchButtonSize = UDim2.fromOffset(74, 74),
-		TouchButtonMinTextSize = 8,
-		TouchButtonMaxTextSize = 16,
 	},
 
 	UI = {

@@ -2,13 +2,13 @@ local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 
 local CameraFovService = require(ReplicatedStorage.Services.CameraFovService)
 local MathService = require(ReplicatedStorage.Services.MathService)
 local HumanoidStatsService = require(ReplicatedStorage.Services.HumanoidStatsService)
 local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
 local SprintConfig = require(ReplicatedStorage.Configs.SprintConfig)
+local TouchButtonService = require(ReplicatedStorage.Services.TouchButtonService)
 local WallstickService = require(ReplicatedStorage.Services.WallstickService)
 
 local SprintService = {}
@@ -20,7 +20,6 @@ end
 local STAMINA = SprintConfig.Stamina
 local CAMERA = SprintConfig.Camera
 local HOLD_ACTION = "SprintHold"
-local TOUCH_ACTION = "SprintToggle"
 local STEP_JOB = "SprintStep"
 local MOVEMENT_THRESHOLD = 0.05
 local SPEED_BOOST_SPEED_ATTRIBUTE = "SpeedBoostSpeed"
@@ -44,6 +43,7 @@ local stamina = STAMINA.Max
 local held = false
 local toggled = false
 local sprinting = false
+local touchButton: TextButton? = nil
 local exhausted = false
 local idleTime = 0
 local weight = 0
@@ -189,6 +189,10 @@ local function step(deltaTime: number)
 		end
 	end
 
+	if touchButton then
+		TouchButtonService:SetActive(touchButton, toggled)
+	end
+
 	local target = if sprinting then 1 else 0
 	weight += (target - weight) * MathService.ExpAlpha(CAMERA.BlendSpeed, deltaTime)
 	if weight < 1e-3 then weight = 0 end
@@ -284,39 +288,15 @@ local function onHold(_action: string, inputState: Enum.UserInputState): Enum.Co
 	return Enum.ContextActionResult.Pass
 end
 
-local function onToggle(_action: string, inputState: Enum.UserInputState): Enum.ContextActionResult
-	if inputState == Enum.UserInputState.Begin then
-		if next(sprintBlocks) ~= nil then return Enum.ContextActionResult.Pass end
-		toggled = not toggled
-	end
-	return Enum.ContextActionResult.Pass
-end
-
 ContextActionService:BindAction(HOLD_ACTION, onHold, false, table.unpack(SprintConfig.Input.HoldKeys))
 
-if UserInputService.TouchEnabled then
-	local INPUT = SprintConfig.Input
-	ContextActionService:BindAction(TOUCH_ACTION, onToggle, true)
-	ContextActionService:SetTitle(TOUCH_ACTION, INPUT.TouchButtonTitle)
-	ContextActionService:SetPosition(TOUCH_ACTION, INPUT.TouchButtonPosition)
-
-	local button = ContextActionService:GetButton(TOUCH_ACTION)
-	if button then
-		button.Size = INPUT.TouchButtonSize
-		for _, descendant in button:GetDescendants() do
-			if not descendant:IsA("TextLabel") then continue end
-			descendant.TextWrapped = false
-			descendant.TextScaled = true
-
-			local constraint = descendant:FindFirstChildOfClass("UITextSizeConstraint")
-			if not constraint then
-				constraint = Instance.new("UITextSizeConstraint")
-				constraint.Parent = descendant
-			end
-			constraint.MinTextSize = INPUT.TouchButtonMinTextSize
-			constraint.MaxTextSize = INPUT.TouchButtonMaxTextSize
-		end
-	end
+if TouchButtonService:IsAvailable() then
+	local button = TouchButtonService:Create("Sprint", SprintConfig.Input.TouchButtonTitle)
+	button.Activated:Connect(function()
+		if next(sprintBlocks) ~= nil then return end
+		toggled = not toggled
+	end)
+	touchButton = button
 end
 
 player.CharacterAdded:Connect(bindCharacter)
