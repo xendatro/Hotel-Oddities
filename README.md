@@ -269,6 +269,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\LocalOverride.luau — Reversible local property overrides that re-apply over replicated changes and restore the latest authoritative value on release.
 - ReplicatedStorage\Classes\LocatorMarker.luau — Per-player billboard marker with headshot bubble, focus-only name plate and highlight.
 - ReplicatedStorage\Classes\MapMarker.luau — One inked map symbol with a spring pop, ping ring and flash for the moment it is discovered.
+- ReplicatedStorage\Classes\MapMarkerLayer.luau — One map view's landmark, friend and local-player markers, sized as fractions of the screen height and refitted on resize.
 - ReplicatedStorage\Classes\MapCanvas.luau — Soft-brush pixel canvas over an EditableImage with max-alpha stamping and dirty-rect flushing.
 - ReplicatedStorage\Classes\MirrorRoom.luau — Renders upside-down reflections of every player and enemy standing in a mirrored connector room, solid ones for `MirrorOpaque` subjects whose real body is invisible, skipping enemies whose `MirrorViewer` is another player.
 - ReplicatedStorage\Classes\MotionTrail.luau — Rolling buffer of a humanoid's recent motion samples.

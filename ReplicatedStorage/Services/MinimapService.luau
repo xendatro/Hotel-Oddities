@@ -100,6 +100,7 @@ local function build()
 		FriendSize = Minimap.FriendSize,
 		LandmarkSize = Minimap.LandmarkSize,
 		PlayerParent = viewport,
+		Reference = screen,
 	})
 	MapService:RegisterLayer(Layer :: MapMarkerLayer.MapMarkerLayer)
 end

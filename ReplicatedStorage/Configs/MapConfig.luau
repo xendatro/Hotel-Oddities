@@ -42,9 +42,9 @@ return {
 		Inset = 0.055,
 		Studs = 125,
 		BoundsPadding = 40,
-		PlayerSize = 16,
-		FriendSize = 16,
-		LandmarkSize = 22,
+		PlayerSize = 0.014,
+		FriendSize = 0.014,
+		LandmarkSize = 0.019,
 	},
 
 	Controls = {
@@ -120,6 +120,9 @@ return {
 		Height = 92,
 		Spacing = 8,
 		Padding = 12,
+		ReferenceHeight = 1080,
+		MinScale = 0.5,
+		MaxScale = 1,
 		Rows = {
 			{ Kind = "Hatch", Label = "computer room" },
 			{ Kind = "Done", Label = "hacked" },
@@ -135,12 +138,12 @@ return {
 
 	Markers = {
 		Fill = Color3.fromRGB(247, 241, 186),
-		Size = 34,
-		GlyphInset = 7,
+		Size = 0.028,
+		GlyphInset = 0.2,
 		FillTransparency = 0.2,
 		StrokeWidth = 2.5,
-		PlayerSize = 22,
-		FriendSize = 24,
+		PlayerSize = 0.019,
+		FriendSize = 0.021,
 		-- Facing chevron, sized as a multiple of the marker it sits on.
 		ArrowScale = 1.9,
 		ArrowResolution = 128,

@@ -683,12 +683,13 @@ Client-only front end for the Map gamepass. Waits for the `Map` ScreenGui's pape
 - API: `MapService:GetPaper() -> ImageLabel?`
 - API: `MapService:ToPaperScale(worldX: number, worldZ: number) -> UDim2` — world position as a scale offset inside the paper
 - Builds a clipped `Viewport` holding a pannable `Content` frame; the ink, markers, local player dot and other players' headshot markers all live inside it so they pan and zoom together
+- Markers are sized from the `Map` ScreenGui's height through `MapMarkerLayer`, and the legend (the map key) carries a `UIScale` set to the screen height over `MapConfig.Legend.ReferenceHeight`, clamped, and refitted whenever the screen resizes
 - A computer room discovered while the map is shut is queued, then draws itself on with its marker popping shortly after, the next time the `Map` page is opened; one discovered while the map is already open plays immediately
 - Remotes: `Map/Sync` (listened), `Map/Reveal` (listened), `Map/Landmark` (listened)
-- Requires: `Configs.MapConfig`, `Configs.PerkConfig`, `Classes.MapMarker`, `CharacterService`, `CommunicationService`, `MapControlService`, `MapInkService`, `MapLayoutService`
+- Requires: `Configs.MapConfig`, `Configs.PerkConfig`, `Classes.MapMarkerLayer`, `CharacterService`, `CommunicationService`, `MapControlService`, `MapInkService`, `MapLayoutService`
 
 ### MinimapService.luau
-Client-only minimap front end for the Map gamepass. Builds the minimap viewport from the shared map layout, shows it only while the player is in the maze and no main page is open, and hides it immediately when Map ownership is absent. Rebuilds after the ownership attribute changes to true.
+Client-only minimap front end for the Map gamepass. Builds the minimap viewport from the shared map layout, shows it only while the player is in the maze and no main page is open, and hides it immediately when Map ownership is absent. Its markers are sized from the `Minimap` ScreenGui's height. Rebuilds after the ownership attribute changes to true.
 - API: `MinimapService:IsShowing() -> boolean`
 - Requires: `Configs.MapConfig`, `Configs.PerkConfig`, `MapMarkerLayer`, `CharacterService`, `MapInkService`, `MapLayoutService`, `MapService`
 

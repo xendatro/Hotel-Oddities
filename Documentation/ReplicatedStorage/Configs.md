@@ -194,6 +194,8 @@ Settings for the look-direction system that replicates each player's aim to neck
 
 ### MapConfig.luau
 Everything tuning the discoverable map: remote names, the `Map` ScreenGui paths, discovery radius and tick rate, canvas resolution and margin, hand-drawn ink style (colour, opacity, width and its variance, wobble amplitude and frequency, overshoot, bleed), the room floor tags, the landmark tags and their discovery radii, line-of-sight sampling, pan and zoom limits, room and computer-room stroke weights and hatch settings, danger layer colours, and marker sizing and effect timings.
+- `Markers.Size`, `Markers.PlayerSize`, `Markers.FriendSize` and `Minimap.PlayerSize`, `FriendSize`, `LandmarkSize` are fractions of the screen height, not pixels; `Markers.GlyphInset` is the fraction of the marker the glyph leaves clear.
+- `Legend.Width`, `Height`, `TextSize`, `SwatchSize`, `Spacing` and `Padding` are pixels at a `Legend.ReferenceHeight` (1080) pixel-tall screen; the legend is scaled by screen height over that, clamped to `Legend.MinScale` and `Legend.MaxScale`.
 
 ### MapOddityConfig.luau
 Spawn intervals, durations and per-effect tuning for the hallway/map oddity system (transparent hallways, world-space light blackouts, doors opening, hallway chaos, gaze-gated blockers and the Void's widened crossing plank). Every ambient effect supplies `SpawnIntervalMin` and `SpawnIntervalMax`; the scheduler samples `math.random(min, max)` directly before each map-wide spawn attempt. `Transparency` and `HallwayVoid` carry `Enabled = false`, which stops both their ambient spawning and manual starts; they now exist only as the baked Invisible Hallway and The Hole points of interest.
