@@ -32,6 +32,12 @@ type Target = {
 	OnActivated: ((model: Model) -> boolean)?,
 }
 
+type Candidate = {
+	Target: Target,
+	Distance: number,
+	Score: number,
+}
+
 local TARGETING = DrawerConfig.Targeting
 local INPUT = DrawerConfig.Input
 local HIGHLIGHT = DrawerConfig.Highlight
@@ -61,15 +67,17 @@ function Interaction.new()
 	self._holdAlpha = 0
 	self._shownText = ""
 	self._shownTextWidth = 0
-	self._shownGamepad = nil
-	self._shownTouchTitle = ""
+	self._shownKey = ""
 	self._touching = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 	self._usingGamepad = UserInputService.GamepadEnabled and not UserInputService.KeyboardEnabled
 	self._bound = false
-	self._boundTouching = nil
 	self._targetsDirty = false
 	self._cachedCharacter = nil :: Model?
 	self._cachedHumanoid = nil :: Humanoid?
+	self._touchTarget = nil :: Target?
+	self._touchScanAt = 0
+	self._touchScreen = nil :: Vector2?
+	self._tapInput = nil :: InputObject?
 
 	self._selectionChanged = Instance.new("BindableEvent")
 	self.Selected = self._selectionChanged.Event
@@ -99,6 +107,17 @@ function Interaction.new()
 			self._touching = false
 			self._usingGamepad = false
 		end
+	end)
+
+	self._tapConnection = UserInputService.TouchTapInWorld:Connect(function(position: Vector2, processedByUI: boolean)
+		if processedByUI or not self._touching then return end
+		self:_tapWorld(position)
+	end)
+
+	self._releaseConnection = UserInputService.InputEnded:Connect(function(input: InputObject)
+		if input ~= self._tapInput then return end
+		self._tapInput = nil
+		self:_cancelHold()
 	end)
 
 	self._characterRemoving = player.CharacterRemoving:Connect(function()
@@ -165,8 +184,29 @@ function Interaction:_buildPrompt()
 	corner.Parent = fill
 	fill.Parent = pill
 
+	local tap = Instance.new("TextButton")
+	tap.Name = "Tap"
+	tap.Size = UDim2.fromScale(1, 1)
+	tap.BackgroundTransparency = 1
+	tap.Text = ""
+	tap.ZIndex = 10
+	tap.Visible = false
+	tap.Parent = container
+
+	tap.InputBegan:Connect(function(input: InputObject)
+		if input.UserInputType ~= Enum.UserInputType.Touch
+			and input.UserInputType ~= Enum.UserInputType.MouseButton1
+		then
+			return
+		end
+		if self:_begin() then
+			self._tapInput = input
+		end
+	end)
+
 	self._prompt = {
 		Container = container,
+		Anchor = container.AnchorPoint,
 		Scale = scale,
 		Pill = pill,
 		Key = key,
@@ -174,6 +214,7 @@ function Interaction:_buildPrompt()
 		KeyLabel = keyLabel,
 		Action = action,
 		Fill = fill,
+		Tap = tap,
 	}
 	self:_layout(UI.KeySize, UI.TextWidth)
 end
@@ -229,6 +270,10 @@ function Interaction:Unregister(model: Model)
 	self._targets[model] = nil
 	self._targetsDirty = true
 
+	if self._touchTarget and self._touchTarget.Model == model then
+		self._touchTarget = nil
+	end
+
 	if self._selected == model then
 		self:_setSelected(nil, true)
 	end
@@ -258,37 +303,16 @@ function Interaction:_targetAt(instance: Instance): Target?
 	return nil
 end
 
-function Interaction:_findSelection(): (Target?, string?)
-	if self._targetsDirty then
-		self._targetsDirty = false
-		self:_refreshIncludeFilter()
-		self:_refreshReach()
-	end
-
-	local camera = workspace.CurrentCamera
-	local character = player.Character
-	if character ~= self._cachedCharacter then
-		self._cachedCharacter = character
-		self._cachedHumanoid = nil
-	end
-	if character and not self._cachedHumanoid then
-		self._cachedHumanoid = character:FindFirstChildOfClass("Humanoid")
-	end
-	local humanoid = self._cachedHumanoid
-	if not camera or not character or not humanoid or humanoid.Health <= 0 then
-		return nil, nil
-	end
-
+function Interaction:_resetIgnored(character: Model)
 	local ignored = self._ignored
 	if ignored[1] ~= character or #ignored > 1 then
 		table.clear(ignored)
 		ignored[1] = character
 		self._raycastParams.FilterDescendantsInstances = ignored
 	end
+end
 
-	local origin = camera.CFrame.Position
-	local direction = camera.CFrame.LookVector * self._reach
-
+function Interaction:_castFrom(origin: Vector3, direction: Vector3): (Target?, string?)
 	for _ = 1, TARGETING.MaxPassthrough + 1 do
 		local result = workspace:Raycast(origin, direction, self._raycastParams)
 		if not result then break end
@@ -316,6 +340,134 @@ function Interaction:_findSelection(): (Target?, string?)
 	local selectable, text = self:_selectable(target, result.Distance)
 	if selectable then return target, text end
 	return nil, nil
+end
+
+function Interaction:_touchPoint(target: Target): (Vector3, number)
+	local cframe, size = target.Model:GetBoundingBox()
+	return cframe.Position, math.max(size.X, size.Y, size.Z) / 2
+end
+
+function Interaction:_inSight(origin: Vector3, point: Vector3, target: Target): boolean
+	local direction = point - origin
+	for _ = 1, TARGETING.MaxPassthrough + 1 do
+		local result = workspace:Raycast(origin, direction, self._raycastParams)
+		if not result then return true end
+		if self:_targetAt(result.Instance) == target then return true end
+		if result.Instance.CanCollide or result.Instance.Transparency < 1 then return false end
+		table.insert(self._ignored, result.Instance)
+		self._raycastParams.FilterDescendantsInstances = self._ignored
+	end
+	return false
+end
+
+function Interaction:_scanTouch(camera: Camera): Target?
+	local origin = camera.CFrame.Position
+	local look = camera.CFrame.LookVector
+	local candidates: { Candidate } = {}
+
+	for model, target in self._targets do
+		if not model:IsDescendantOf(workspace) then continue end
+
+		local reach = target.Reach or TARGETING.Reach
+		if (model:GetPivot().Position - origin).Magnitude > reach + TARGETING.TouchScanMargin then continue end
+
+		local point, radius = self:_touchPoint(target)
+		local offset = point - origin
+		local distance = math.max(offset.Magnitude - radius, 0)
+		if distance > reach then continue end
+
+		local _, onScreen = camera:WorldToViewportPoint(point)
+		if not onScreen then continue end
+
+		local facing = if offset.Magnitude > 1e-3 then offset.Unit:Dot(look) else 1
+		table.insert(candidates, {
+			Target = target,
+			Distance = distance,
+			Score = distance * (2 - facing),
+		})
+	end
+
+	table.sort(candidates, function(a: Candidate, b: Candidate)
+		return a.Score < b.Score
+	end)
+
+	for _, candidate in candidates do
+		local target = candidate.Target
+		if not self:_selectable(target, candidate.Distance) then continue end
+		if target.IgnoreOcclusion then return target end
+
+		local point = self:_touchPoint(target)
+		if self:_inSight(origin, point, target) then return target end
+	end
+
+	return nil
+end
+
+function Interaction:_findTouchSelection(camera: Camera): (Target?, string?)
+	local now = os.clock()
+	if now >= self._touchScanAt then
+		self._touchScanAt = now + TARGETING.TouchRefresh
+		self._touchTarget = self:_scanTouch(camera)
+	end
+
+	local target = self._touchTarget
+	if not target then return nil, nil end
+
+	local selectable, text = self:_selectable(target, 0)
+	if not selectable then
+		self._touchTarget = nil
+		return nil, nil
+	end
+	return target, text
+end
+
+function Interaction:_findSelection(): (Target?, string?)
+	if self._targetsDirty then
+		self._targetsDirty = false
+		self:_refreshIncludeFilter()
+		self:_refreshReach()
+	end
+
+	local camera = workspace.CurrentCamera
+	local character = player.Character
+	if character ~= self._cachedCharacter then
+		self._cachedCharacter = character
+		self._cachedHumanoid = nil
+	end
+	if character and not self._cachedHumanoid then
+		self._cachedHumanoid = character:FindFirstChildOfClass("Humanoid")
+	end
+	local humanoid = self._cachedHumanoid
+	if not camera or not character or not humanoid or humanoid.Health <= 0 then
+		return nil, nil
+	end
+
+	self:_resetIgnored(character)
+
+	if self._touching then
+		return self:_findTouchSelection(camera)
+	end
+
+	return self:_castFrom(camera.CFrame.Position, camera.CFrame.LookVector * self._reach)
+end
+
+function Interaction:_tapWorld(position: Vector2)
+	local camera = workspace.CurrentCamera
+	local character = player.Character
+	local humanoid = self._cachedHumanoid
+	if not camera or not character or character ~= self._cachedCharacter or not humanoid or humanoid.Health <= 0 then
+		return
+	end
+
+	self:_resetIgnored(character)
+	local ray = camera:ScreenPointToRay(position.X, position.Y)
+	local target = self:_castFrom(ray.Origin, ray.Direction * self._reach)
+	if not target then return end
+
+	self._touchTarget = target
+	self._touchScanAt = os.clock() + TARGETING.TouchRefresh
+	if target.HoldDuration and target.HoldDuration > 0 then return end
+	self:_activate(target)
 end
 
 function Interaction:_applyHighlightAlpha()
@@ -382,41 +534,22 @@ end
 
 function Interaction:_setBound(text: string?)
 	local shouldBind = text ~= nil
-	if shouldBind == self._bound and self._boundTouching == self._touching then
-		if shouldBind and self._touching and text ~= self._shownTouchTitle then
-			self._shownTouchTitle = text :: string
-			ContextActionService:SetTitle(ACTION_NAME, (text :: string):upper())
-		end
+	if shouldBind == self._bound then return end
+	self._bound = shouldBind
+
+	if not shouldBind then
+		ContextActionService:UnbindAction(ACTION_NAME)
 		return
 	end
-
-	if self._bound then
-		ContextActionService:UnbindAction(ACTION_NAME)
-	end
-
-	self._bound = shouldBind
-	self._boundTouching = if shouldBind then self._touching else nil
-	self._shownTouchTitle = ""
-	if not shouldBind then return end
 
 	ContextActionService:BindAction(
 		ACTION_NAME,
 		function(action: string, inputState: Enum.UserInputState)
 			return self:_onAction(action, inputState)
 		end,
-		self._touching,
+		false,
 		table.unpack(INPUT.Keys)
 	)
-
-	if not self._touching then return end
-
-	self._shownTouchTitle = text :: string
-	ContextActionService:SetTitle(ACTION_NAME, (text :: string):upper())
-	ContextActionService:SetPosition(ACTION_NAME, INPUT.TouchButtonPosition)
-	local button = ContextActionService:GetButton(ACTION_NAME)
-	if button then
-		button.Size = INPUT.TouchButtonSize
-	end
 end
 
 function Interaction:_activate(target: Target)
@@ -450,6 +583,21 @@ function Interaction:_renderHold()
 	self:_activate(target)
 end
 
+function Interaction:_begin(): boolean
+	local target = self._selectedTarget
+	if not target then return false end
+	if not self:_selectable(target, 0) then return false end
+
+	if target.HoldDuration and target.HoldDuration > 0 then
+		self._holdTarget = target
+		self._holdStart = os.clock()
+		return true
+	end
+
+	self:_activate(target)
+	return true
+end
+
 function Interaction:_onAction(_action: string, inputState: Enum.UserInputState): Enum.ContextActionResult
 	if inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel then
 		self:_cancelHold()
@@ -457,19 +605,7 @@ function Interaction:_onAction(_action: string, inputState: Enum.UserInputState)
 	end
 	if inputState ~= Enum.UserInputState.Begin then return Enum.ContextActionResult.Pass end
 
-	local target = self._selectedTarget
-	if not target then return Enum.ContextActionResult.Pass end
-
-	local selectable = self:_selectable(target, 0)
-	if not selectable then return Enum.ContextActionResult.Pass end
-
-	if target.HoldDuration and target.HoldDuration > 0 then
-		self._holdTarget = target
-		self._holdStart = os.clock()
-		return Enum.ContextActionResult.Pass
-	end
-
-	self:_activate(target)
+	self:_begin()
 	return Enum.ContextActionResult.Pass
 end
 
@@ -496,13 +632,33 @@ function Interaction:_renderHighlight(deltaTime: number)
 	end
 end
 
+function Interaction:_keyText(target: Target?): string
+	if self._touching then
+		if not target then
+			return if self._shownKey ~= "" then self._shownKey else INPUT.TouchLabel
+		end
+		return if target.HoldDuration and target.HoldDuration > 0 then INPUT.TouchHoldLabel else INPUT.TouchLabel
+	end
+	return if self._usingGamepad then INPUT.GamepadLabel else INPUT.KeyboardLabel
+end
+
+function Interaction:_touchScreenPoint(target: Target?): Vector2?
+	local camera = workspace.CurrentCamera
+	if not (target and camera) then return nil end
+
+	local point = self:_touchPoint(target)
+	local screen, onScreen = camera:WorldToViewportPoint(point)
+	if not onScreen then return nil end
+	return Vector2.new(screen.X, screen.Y)
+end
+
 function Interaction:_renderPrompt(deltaTime: number, text: string?, target: Target?)
 	self:_setBound(text)
 
 	local prompt = self._prompt
 	if not prompt then return end
 
-	local alphaTarget = if text and not self._touching then 1 else 0
+	local alphaTarget = if text then 1 else 0
 	if self._promptAlpha < alphaTarget then
 		self._promptAlpha = math.min(self._promptAlpha + deltaTime / UI.FadeInTime, alphaTarget)
 	elseif self._promptAlpha > alphaTarget then
@@ -513,6 +669,7 @@ function Interaction:_renderPrompt(deltaTime: number, text: string?, target: Tar
 	if self._pressFlash < 1e-3 then self._pressFlash = 0 end
 
 	prompt.Container.Visible = self._promptAlpha > 0
+	prompt.Tap.Visible = self._touching and text ~= nil
 	if self._promptAlpha <= 0 then return end
 
 	local shownText = text or self._shownText
@@ -524,17 +681,11 @@ function Interaction:_renderPrompt(deltaTime: number, text: string?, target: Tar
 		self._shownText = shownText
 		prompt.Action.Text = shownText
 	end
-	if textWidth ~= self._shownTextWidth then
-		self._shownTextWidth = textWidth
-		local keyWidth = if self._usingGamepad
-			then (if #INPUT.GamepadLabel <= 1 then UI.KeySize else UI.KeyWideSize)
-			else UI.KeySize
-		self:_layout(keyWidth, textWidth)
-	end
 
-	if self._usingGamepad ~= self._shownGamepad then
-		self._shownGamepad = self._usingGamepad
-		local keyText = if self._usingGamepad then INPUT.GamepadLabel else INPUT.KeyboardLabel
+	local keyText = self:_keyText(target)
+	if textWidth ~= self._shownTextWidth or keyText ~= self._shownKey then
+		self._shownTextWidth = textWidth
+		self._shownKey = keyText
 		prompt.KeyLabel.Text = keyText
 		self:_layout(if #keyText <= 1 then UI.KeySize else UI.KeyWideSize, textWidth)
 	end
@@ -542,8 +693,20 @@ function Interaction:_renderPrompt(deltaTime: number, text: string?, target: Tar
 	prompt.Fill.Visible = self._holdAlpha > 0
 	prompt.Fill.Size = UDim2.new(self._holdAlpha, 0, 1, 0)
 
+	local rise = math.round((1 - self._promptAlpha) * UI.Rise)
+	if self._touching then
+		self._touchScreen = self:_touchScreenPoint(target) or self._touchScreen
+	end
+	local anchored = self._touching and self._touchScreen
+	if anchored then
+		prompt.Container.AnchorPoint = Vector2.new(0.5, 0.5)
+		prompt.Container.Position = UDim2.fromOffset(anchored.X, anchored.Y + rise)
+	else
+		prompt.Container.AnchorPoint = prompt.Anchor
+		prompt.Container.Position = UDim2.new(0.5, 0, 0.5, UI.TopMargin + rise)
+	end
+
 	prompt.Container.GroupTransparency = 1 - self._promptAlpha
-	prompt.Container.Position = UDim2.new(0.5, 0, 0.5, UI.TopMargin + math.round((1 - self._promptAlpha) * UI.Rise))
 	prompt.Scale.Scale = UI.EnterScale + (1 - UI.EnterScale) * self._promptAlpha
 	prompt.KeyScale.Scale = 1 - UI.PressScale * self._pressFlash
 	prompt.Key.BackgroundColor3 = UI.Colors.Key:Lerp(UI.Colors.KeyPressed, self._pressFlash)
@@ -562,6 +725,9 @@ function Interaction:_reset()
 	local wasSelected = self._selected ~= nil
 	self._selected = nil
 	self._selectedTarget = nil
+	self._touchTarget = nil
+	self._touchScreen = nil
+	self._tapInput = nil
 	self:_destroyHighlight()
 	self._promptAlpha = 0
 	self._pressFlash = 0
@@ -581,6 +747,8 @@ function Interaction:Destroy()
 		ContextActionService:UnbindAction(ACTION_NAME)
 	end
 	self._inputConnection:Disconnect()
+	self._tapConnection:Disconnect()
+	self._releaseConnection:Disconnect()
 	self._characterRemoving:Disconnect()
 	self._characterAdded:Disconnect()
 	self._selectionChanged:Destroy()

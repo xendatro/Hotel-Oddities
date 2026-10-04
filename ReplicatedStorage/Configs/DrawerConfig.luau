@@ -25,6 +25,8 @@ return {
 		Reach = 10,
 		ServerReach = 16,
 		MaxPassthrough = 4,
+		TouchRefresh = 0.1,
+		TouchScanMargin = 8,
 	},
 
 	Input = {
@@ -35,8 +37,8 @@ return {
 		KeyboardLabel = "E",
 		GamepadLabel = "RT",
 		TouchAction = "DrawerToggle",
-		TouchButtonPosition = UDim2.new(1, -150, 1, -150),
-		TouchButtonSize = UDim2.fromOffset(74, 74),
+		TouchLabel = "TAP",
+		TouchHoldLabel = "HOLD",
 	},
 
 	Highlight = {
