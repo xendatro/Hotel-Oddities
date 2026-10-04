@@ -1,13 +1,12 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local CrouchConfig = require(ReplicatedStorage.Configs.CrouchConfig)
-local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local MathService = require(ReplicatedStorage.Services.MathService)
 local SprintService = require(ReplicatedStorage.Services.SprintService)
+local TouchButtonService = require(ReplicatedStorage.Services.TouchButtonService)
 
 local CrouchService = {}
 
@@ -38,7 +37,6 @@ local characterState = nil :: CharacterState?
 local crouched = false
 local weight = 0
 local touchButton: TextButton? = nil
-local touchStroke: UIStroke? = nil
 local blocks: { [string]: true } = {}
 
 local function canCrouch(): boolean
@@ -47,15 +45,9 @@ local function canCrouch(): boolean
 end
 
 local function paintTouchButton()
-	local button, stroke = touchButton, touchStroke
-	if not button or not stroke then return end
-
-	local colors = TOUCH.Colors
-	button.BackgroundColor3 = if crouched then colors.ActiveBackground else colors.Background
-	button.TextColor3 = if crouched then colors.ActiveText else colors.Text
-	button.BackgroundTransparency = if crouched then 0 else TOUCH.Transparency.Background
-	stroke.Color = if crouched then colors.ActiveStroke else colors.Stroke
-	stroke.Transparency = if crouched then 0 else TOUCH.Transparency.Stroke
+	if touchButton then
+		TouchButtonService:SetActive(touchButton, crouched)
+	end
 end
 
 local function setCrouched(value: boolean)
@@ -232,44 +224,6 @@ local function bindCharacter(character: Model)
 	end
 end
 
-local function buildTouchButton(parent: Instance): TextButton
-	local screenGui = Instance.new("ScreenGui")
-	screenGui.Name = "CrouchGui"
-	screenGui.ResetOnSpawn = false
-	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	screenGui.DisplayOrder = 9
-	screenGui.Parent = parent
-
-	local button = Instance.new("TextButton")
-	button.Name = "Crouch"
-	button.AnchorPoint = Vector2.new(1, 1)
-	button.Position = TOUCH.Position
-	button.Size = TOUCH.Size
-	button.BorderSizePixel = 0
-	button.AutoButtonColor = false
-	button.Text = TOUCH.Text
-	button.TextWrapped = false
-	button.TextScaled = true
-	button.FontFace = Font.fromEnum(Enum.Font.GothamMedium)
-	button.Parent = screenGui
-
-	local textSize = Instance.new("UITextSizeConstraint")
-	textSize.MinTextSize = TOUCH.MinTextSize
-	textSize.MaxTextSize = TOUCH.MaxTextSize
-	textSize.Parent = button
-
-	GuiBuilderService.Corner(button, UDim.new(0, TOUCH.CornerRadius))
-
-	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = 1
-	stroke.Parent = button
-
-	touchButton = button
-	touchStroke = stroke
-	paintTouchButton()
-	return button
-end
-
 local function buildInput()
 	local playerScripts = player:FindFirstChildOfClass("PlayerScripts")
 		or player:WaitForChild("PlayerScripts")
@@ -290,10 +244,15 @@ local function buildInput()
 		binding.Parent = action
 	end
 
-	if UserInputService.TouchEnabled then
+	if TouchButtonService:IsAvailable() then
+		local button = TouchButtonService:Create("Crouch", TOUCH.Text)
+		button.Visible = next(blocks) == nil
+		touchButton = button
+		paintTouchButton()
+
 		local binding = Instance.new("InputBinding")
 		binding.Name = "Touch"
-		binding.UIButton = buildTouchButton(player:WaitForChild("PlayerGui"))
+		binding.UIButton = button
 		binding.Parent = action
 	end
 

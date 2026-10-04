@@ -127,7 +127,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\ComputerHUDService.luau — Drives the right-side computer notepad: one tinted row per chip colour, ticked and struck through as each computer is hacked.
 - ReplicatedStorage\Services\ComputerService.luau — Runs hackable computers: idle screens, fixed-FOV camera sessions with the hotbar hidden, and the minigame handoff.
 - ReplicatedStorage\Services\CreepRenderService.luau — Renders the Creep as a camera-facing silhouette against a hallway backdrop, with a parting distortion sweep.
-- ReplicatedStorage\Services\CrouchService.luau — Owns crouch input, speed, camera drop and crouch animations, can be blocked by key to hold the player standing, and can set the crouch state directly.
+- ReplicatedStorage\Services\CrouchService.luau — Owns crouch input (with a TouchButtonService button on touch), speed, camera drop and crouch animations, can be blocked by key to hold the player standing, and can set the crouch state directly.
 - ReplicatedStorage\Services\DangerDebugService.luau — F4 developer panel for tuning and heatmapping the danger field.
 - ReplicatedStorage\Services\DangerFieldService.luau — Procedural per-floor danger noise field, gated by distance from spawn, with baked spawn points and a client accessor for the server's replicated field settings.
 - ReplicatedStorage\Services\DeathScreenService.luau — Builds and drives the glitch death screen and reports back when it finishes.
@@ -225,7 +225,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\SpawnZoneService.luau — Shared registry of tagged spawn-safe-zone parts with vertically padded point and segment queries against their boxes.
 - ReplicatedStorage\Services\SpeedBoostRenderService.luau — Tweens the FOV offset and colour-correction screen effect for speed boosts.
 - ReplicatedStorage\Services\SprintBoostUIService.luau — Decorated overlay drawn over the stamina bar while a speed boost is running.
-- ReplicatedStorage\Services\SprintService.luau — Client sprint state machine owning stamina, exhaustion, WalkSpeed and the sprint FOV blend, including a no-wrap scaled mobile button, unlimited stamina pass handling and surface-stuck movement.
+- ReplicatedStorage\Services\SprintService.luau — Client sprint state machine owning stamina, exhaustion, WalkSpeed and the sprint FOV blend, including its touch toggle button from TouchButtonService, unlimited stamina pass handling and surface-stuck movement.
 - ReplicatedStorage\Services\SurfaceCursorService.luau — Projects viewport points onto a SurfaceGui canvas so in-world screens stay clickable under the camera.
 - ReplicatedStorage\Services\SprintUIService.luau — The responsive stamina bar itself: eased fill, colour bands, exhaustion pulse and auto-fade.
 - ReplicatedStorage\Services\StalkerCameraService.luau — Locks the camera onto the Stalker, anchoring the player, pushing FOV and playing the kill sting the instant a kill turn starts.
@@ -234,6 +234,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\TagService.luau — The tag-to-module pipeline: registers apply/unapply callbacks per CollectionService tag and stores the data they return.
 - ReplicatedStorage\Services\ToolClientService.luau — Bootstraps tool classes for the local player's tools and routes server tool events to them.
 - ReplicatedStorage\Services\TopHUDService.luau — Width-and-height responsive top-centre HUD strip with scaled coin, gem and danger text, rolling balances, gain flashes and five danger tiers.
+- ReplicatedStorage\Services\TouchButtonService.luau — Shared on-screen touch action buttons (sprint, crouch) in screen-height-scaled slots around the jump button, shown only for touch input.
 - ReplicatedStorage\Services\TopbarIconService.luau — Builds the Index, Rooms, Gems and Gallery TopbarPlus icons, drops their labels on narrow screens, opens the matching page and keeps selection in sync.
 - ReplicatedStorage\Services\TweenProxyService.luau — Tweens arbitrary values through a throwaway ValueBase and a callback, including model scaling.
 - ReplicatedStorage\Services\VanishedService.luau — Checks shared and source-specific immunity tags or a ForceField, with source syncing and an Eye-specific check that skips the exempt tag.
@@ -333,7 +334,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\ComputerAssets.luau — Image asset ids for the hackable-computer UI.
 - ReplicatedStorage\Configs\ComputerConfig.luau — Hackable computer objective: interaction, camera, screen and HUD settings.
 - ReplicatedStorage\Configs\CreepConfig.luau — Creep enemy light-killing, backdrop geometry and eye-pair settings.
-- ReplicatedStorage\Configs\CrouchConfig.luau — Crouch movement, camera drop, stealth and bounded touch-button text settings.
+- ReplicatedStorage\Configs\CrouchConfig.luau — Crouch movement, camera drop, stealth and touch-button label settings.
 - ReplicatedStorage\Configs\DangerConfig.luau — Danger-field noise generation, randomized danger-leaning patrol tuning and Director enemy population settings.
 - ReplicatedStorage\Configs\DeathConfig.luau — Death causes, player hints and the killed-by death screen styling, plus the analytics cause id for hotel deaths, the self-revive source, and the revive card's window, keybinds, prompt text and positions.
 - ReplicatedStorage\Configs\DoorConfig.luau — Swinging door physics, replicated player-proximity attributes, and proximity open/close behaviour.
@@ -384,13 +385,14 @@ become Services or Classes.
 - ReplicatedStorage\Configs\SideButtonConfig.luau — Side-bar button labels and keybinds (Items J, Kits K, Shop B, Inventory E) with bounded scaled-text styling.
 - ReplicatedStorage\Configs\SpawnZoneConfig.luau — Tag, poll interval and repel cooldown for the spawn safe zone system.
 - ReplicatedStorage\Configs\SprintBoostConfig.luau — Visual definitions for speed-boost auras on the sprint bar.
-- ReplicatedStorage\Configs\SprintConfig.luau — Sprint speed, stamina economy, input bindings, mobile text bounds and low-resolution stamina-bar scaling.
+- ReplicatedStorage\Configs\SprintConfig.luau — Sprint speed, stamina economy, input bindings, touch-button label and low-resolution stamina-bar scaling.
 - ReplicatedStorage\Configs\StalkerCameraConfig.luau — Stalker kill camera: FOV push and restore time, and the sting sound played the instant the kill turn starts.
 - ReplicatedStorage\Configs\StatsHUDConfig.luau — Toggle key, layout and thresholds for the debug stats HUD panel.
 - ReplicatedStorage\Configs\StoreConfig.luau — Shop and Gems page text, owned-price layout, gem pack frames and amounts, balance flash and the gem purchase result code.
 - ReplicatedStorage\Configs\StreamingConfig.luau — Corridor streaming prediction, reconciliation and tag settings (currently disabled).
 - ReplicatedStorage\Configs\ToolConfigs.luau — Per-tool tags and behaviour values for every usable tool, including the Ball's 20-stud target range and the Shovel's six-second hole immunity duration.
 - ReplicatedStorage\Configs\TopHUDConfig.luau — Currency roll animation, danger meter tiers, colours, glow pulse and width-and-height scaling for the top-centre HUD strip.
+- ReplicatedStorage\Configs\TouchButtonConfig.luau — Touch action button size, clamps, colours and the slot positions around the jump button.
 - ReplicatedStorage\Configs\TopbarConfig.luau — Which interface pages get a topbar icon, each icon's image, label, order and alignment, and the compact-width cutoff.
 - ReplicatedStorage\Configs\VfxConfig.luau — VFX template folder, remote, cull distance and template names, plus placement tuning for the Chaos crash, vent dust, crush dust, flashlight dust and the Stalker eye flare.
 - ReplicatedStorage\Configs\ViewmodelConfig.luau — First-person viewmodel placement, sway, bob, per-tool overrides and named poses.

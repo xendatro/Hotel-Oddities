@@ -41,25 +41,5 @@ return {
 
 	Touch = {
 		Text = "CROUCH",
-		Position = UDim2.new(1, -18, 1, -150),
-		Size = UDim2.fromOffset(74, 74),
-		CornerRadius = 12,
-
-		Colors = {
-			Background = Color3.fromRGB(12, 12, 16),
-			Stroke = Color3.fromRGB(72, 72, 82),
-			Text = Color3.fromRGB(232, 232, 238),
-			ActiveBackground = Color3.fromRGB(158, 176, 208),
-			ActiveStroke = Color3.fromRGB(232, 232, 238),
-			ActiveText = Color3.fromRGB(12, 12, 16),
-		},
-
-		Transparency = {
-			Background = 0.35,
-			Stroke = 0.5,
-		},
-
-		MinTextSize = 8,
-		MaxTextSize = 13,
 	},
 }

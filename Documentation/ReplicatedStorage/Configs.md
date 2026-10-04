@@ -55,7 +55,7 @@ The Creep enemy: light-killing radius, floating backdrop geometry, glowing eye p
 - API: data table — `LightRange`, `ConnectedHallwayLightRange`, `DarkDistance`, `TurnRate`, `Backdrop*` group, `DistortionSpeed`, `EyeColors`, `PairSpacing`, `PairPlacementTries`, `Variants`
 
 ### CrouchConfig.luau
-Crouch movement, camera drop, crouch animations, stealth/noise effects and the crouch touch button, including its minimum and maximum scaled text size.
+Crouch movement, camera drop, crouch animations, stealth/noise effects and the crouch touch button's `Touch.Text`; its look and place live in `TouchButtonConfig`.
 - API: data table — `SpeedMultiplier`, `BlocksSprint`, `Camera`, `Body`, `Stealth`, `Input`, `Touch`
 
 ### DangerConfig.luau
@@ -278,7 +278,7 @@ Visual definitions for speed-boost aura overlays drawn around the sprint bar, on
 - API: data table — `TimerGap`, `AuraInset`, `AuraCorner`, `Boosts` (`Soda`, `Energy Drink`)
 
 ### SprintConfig.luau
-Speed multiplier, stamina economy, camera FOV blend, input bindings, bounded touch-button text and viewport-based stamina-bar scaling for the sprint system.
+Speed multiplier, stamina economy, camera FOV blend, input bindings (including the touch button's `TouchButtonTitle`; its look and place live in `TouchButtonConfig`) and viewport-based stamina-bar scaling for the sprint system.
 - API: data table — `SpeedMultiplier`, `Stamina`, `Camera`, `Input`, `UI`
 
 ### StalkerCameraConfig.luau
@@ -303,6 +303,10 @@ Per-tool settings keyed by tool name, giving each tool its CollectionService tag
 - `Ball.Range` sets eye targeting to 20 studs; `Ball.ServerRange` is the server hit-report limit.
 - API: data table — one entry per tool: `Flashlight`, `Bandage`, `Medkit`, `SpellBook`, `Trap`, `Ball`, `Shovel`, `Pathfinder`, `Soda`, `Energy Drink`, `Visor`, `Gravity Warper`, `Player Locator`, `Walkie Talkie`, `Big Head`, `Big Character`, `Small Character`, `Transparency`, `Random Oddity`
 - Player oddity entries use `OddityKind`, optional `OddityOverrides`, or `OddityChoices` for the random four-effect item. `Shovel.HoleImmunityDuration` sets the six-second immunity granted when entering a hole.
+
+### TouchButtonConfig.luau
+The shared touch action buttons drawn by `TouchButtonService`: ScreenGui name and `DisplayOrder`, button `Size` in screen heights with `MinPixels`/`MaxPixels` clamps, corner radius, stroke, font and text bounds, idle/active colours and transparencies, and `Slots` — each slot's button centre as a `Vector2` offset from the bottom-right corner in screen heights (`Sprint` left of the jump button, `Crouch` up and to its left).
+- API: data table — `Gui`, `DisplayOrder`, `Size`, `MinPixels`, `MaxPixels`, `CornerRadius`, `StrokeThickness`, `Font`, `MinTextSize`, `MaxTextSize`, `TextPadding`, `Slots`, `Colors`, `Transparency`
 
 ### TopbarConfig.luau
 Which interface pages get a TopbarPlus icon (Index, Rooms, Gems, Gallery in that order; the Rooms icon currently reuses the Index image), how those icons look and the viewport width below which their text labels hide.

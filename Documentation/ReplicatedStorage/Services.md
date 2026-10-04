@@ -184,14 +184,14 @@ Gated on `FLAGS.Enemies`. Renders the Creep enemy: turns every part of the model
 - Requires: `Services.AimService`, `Services.HallwaysService`, `Configs.CreepConfig`, `Configs.FLAGS`, `TagService`; clones `ReplicatedStorage.Effects.CreepDistortion`
 
 ### CrouchService.luau
-Client-only. Owns crouching: binds the crouch keys (and a touch button with bounded `TextScaled` text on mobile) through an `InputContext`, tells the server, applies the sprint speed factor, blends the camera and hip-height drop over time, and plays the configured crouch idle/walk animations.
+Client-only. Owns crouching: binds the crouch keys (and, on touch devices, a CROUCH button from `TouchButtonService` in slot `Crouch`, painted active while crouched) through an `InputContext`, tells the server, applies the sprint speed factor, blends the camera and hip-height drop over time, and plays the configured crouch idle/walk animations.
 - API: `CrouchService:IsCrouching() -> boolean` — current crouch state
 - API: `CrouchService:GetWeight() -> number` — 0-1 blend weight of the crouch pose
 - API: `CrouchService:Stand()` — force the player out of crouch
 - API: `CrouchService:SetCrouched(value: boolean)` — set the crouch state as a key press would (server update, speed factor, sprint block); crouching is refused while any block is held, with no character or when dead. `IntroCutsceneService` uses it to crouch a player again who walked out crouched
-- API: `CrouchService:SetBlocked(key: string, blocked: boolean)` — while any key is held every crouch input is refused (including the `CrouchContext` input action), the per-frame step keeps the player standing, and the touch button is hidden with `Visible = false` (not by disabling `CrouchGui`, so it does not fight a HUD hide and restore); blocking also calls `:Stand()` at once. Used by `IntroCutsceneService`.
+- API: `CrouchService:SetBlocked(key: string, blocked: boolean)` — while any key is held every crouch input is refused (including the `CrouchContext` input action), the per-frame step keeps the player standing, and the touch button is hidden with `Visible = false` (not by disabling its ScreenGui, so it does not fight a HUD hide and restore); blocking also calls `:Stand()` at once. Used by `IntroCutsceneService`.
 - Remotes: `Crouch/Update` (fired on every state change)
-- Requires: `Configs.CrouchConfig`, `SprintService`, `GuiBuilderService`, `MathService`
+- Requires: `Configs.CrouchConfig`, `SprintService`, `TouchButtonService`, `MathService`
 
 ### DangerDebugService.luau
 Client-only developer tool, gated on `FLAGS.DangerDebug`. Pulls the server's baked danger-field settings and map extent over `Danger/GetSettings` (retrying every second until they exist), then opens an F4 debug panel with a live readout at the player's position plus sliders for every field parameter. Sliders redraw a local heatmap of coloured markers; one button pushes the same numbers to the server. Re-pulls and redraws whenever the server rebakes. `MazeFloor` parts are read only to place heatmap markers, never to derive the settings.
@@ -970,14 +970,14 @@ Maps a viewport point onto a `SurfaceGui` canvas by intersecting the camera ray 
 - Requires: nothing
 
 ### SprintService.luau
-Client sprint state machine: binds hold-to-sprint keys plus a touch toggle button whose title uses no-wrap `TextScaled` text with configured size bounds, drains and regenerates stamina with an exhaustion lockout, and owns the humanoid's `WalkSpeed`. Players with the `UnlimitedStamina` gamepass keep stamina full and never drain or exhaust while sprinting. Maximum stamina and the sprint speed multiplier are per-character rather than fixed: both are read every time they are needed from the `Stamina` and `SprintMultiplier` character attributes through `HumanoidStatsService.ReadAttribute`, falling back to `SprintConfig` when unset, which is how a kit raises a player's stamina pool or sprint speed. It watches external WalkSpeed writes to re-derive the base speed and respects the server's speed-boost attributes, drives the sprint FOV offset, and uses Wallstick's movement source while the local character is surface-stuck.
+Client sprint state machine: binds hold-to-sprint keys plus, on touch devices, a SPRINT toggle button from `TouchButtonService` (slot `Sprint`, painted active while the toggle is on), drains and regenerates stamina with an exhaustion lockout, and owns the humanoid's `WalkSpeed`. Players with the `UnlimitedStamina` gamepass keep stamina full and never drain or exhaust while sprinting. Maximum stamina and the sprint speed multiplier are per-character rather than fixed: both are read every time they are needed from the `Stamina` and `SprintMultiplier` character attributes through `HumanoidStatsService.ReadAttribute`, falling back to `SprintConfig` when unset, which is how a kit raises a player's stamina pool or sprint speed. It watches external WalkSpeed writes to re-derive the base speed and respects the server's speed-boost attributes, drives the sprint FOV offset, and uses Wallstick's movement source while the local character is surface-stuck.
 - API: `SprintService:GetStaminaFraction() -> number` — 0..1
 - API: `SprintService:IsSprinting() -> boolean`
 - API: `SprintService:IsExhausted() -> boolean`
 - API: `SprintService:GetWeight() -> number` — eased 0..1 sprint blend, used for camera effects
 - API: `SprintService:SetSpeedFactor(name: string, factor: number?)` — named multiplicative modifiers; `nil` removes
 - API: `SprintService:SetSprintBlocked(name: string, blocked: boolean)` — named blockers; blocking also drops held/toggled state
-- Requires: `Configs.SprintConfig`, `CameraFovService`, `WallstickService`; reads the `SpeedBoostSpeed` / `SpeedBoostBaseSpeed` player attributes
+- Requires: `Configs.SprintConfig`, `CameraFovService`, `TouchButtonService`, `WallstickService`; reads the `SpeedBoostSpeed` / `SpeedBoostBaseSpeed` player attributes
 
 ### SprintUIService.luau
 Client-only stamina bar: builds the CanvasGroup/track/fill GUI, scales it from the smaller viewport ratio within configured bounds, follows the stamina fraction with an eased lerp, recolours through fill → low → empty bands, pulses the track while exhausted, and auto-fades the bar out once stamina has been full for a while.
@@ -1020,6 +1020,13 @@ Client bootstrap for tool classes: for every entry in `ToolConfigs` that has a m
 - Remotes: `Tools/Signal` (listened; dispatched to the first instance whose Tool name matches)
 - Tags: listens each `ToolConfigs[name].Tag`
 - Requires: `Configs.ToolConfigs`, `Classes.Tools.*`, `TagService`
+
+### TouchButtonService.luau
+Client-only. Owns the on-screen touch action buttons (SPRINT, CROUCH) so they share one look and one layout. Builds a `TouchButtons` ScreenGui (`DeviceSafeInsets`, `DisplayOrder` 13, above the computer notepad that used to cover the crouch button) holding a bottom-right `Area` frame that is one screen-height square (`SizeConstraint.RelativeYY`). Each named slot in `TouchButtonConfig.Slots` is a button centre measured from the bottom-right corner in screen heights, laid out around Roblox's jump button, and every button is `TouchButtonConfig.Size` screen heights across, clamped to `MinPixels`/`MaxPixels`, so the layout keeps its shape on any phone or tablet. The area is shown only while `UserInputService.PreferredInput` is `Touch`.
+- API: `TouchButtonService:IsAvailable() -> boolean` — whether the device has touch, i.e. whether callers should create a button
+- API: `TouchButtonService:Create(slot: string, text: string) -> TextButton` — builds a styled button in that slot; callers connect `Activated` or bind it as an `InputBinding.UIButton`
+- API: `TouchButtonService:SetActive(button: TextButton, active: boolean)` — swaps between the idle and active colours
+- Requires: `Configs.TouchButtonConfig`, `GuiBuilderService`
 
 ### TopbarIconService.luau
 Puts the Index, Rooms, Gems and Gallery buttons on Roblox's topbar with TopbarPlus (`Classes.Icon`) instead of the sidebar. Each `TopbarConfig.Icons` entry becomes one icon carrying that page's sidebar icon image alongside its name as a visible label; below `CompactWidth`, the labels hide and leave four compact image buttons. Selecting one opens the matching `InterfaceService` page while deselecting it closes that page. Icons keep `autoDeselect` off and are instead kept in sync from the shared `Main` page controller's `Fired` signal, so a page closed by its own close button, by the escape path or by another tab leaves the topbar showing the right selection without bouncing the interface. The matching `SideGui.Main` buttons (`Enemies`, the gems `Rectangle_1_copy` and `GalleryButton`) are hidden and untagged in StarterGui, so they no longer appear in the sidebar. Client-only.
