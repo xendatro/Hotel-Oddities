@@ -29,6 +29,7 @@ return {
 	Gui = {
 		ScreenGui = "POIGui",
 		Card = "Card",
+		Thought = "Thought",
 	},
 
 	Popup = {
@@ -53,5 +54,32 @@ return {
 		EyebrowText = "POINT OF INTEREST",
 		CounterText = "%d / %d DISCOVERED",
 		CounterTextUnknownTotal = "%d DISCOVERED",
+		ThoughtTransparency = 0.05,
+		ThoughtCharTime = 0.035,
+	},
+
+	Thoughts = {
+		["Bell"] = "A bell this big, and no rope. Who is meant to ring it?",
+		["Chairs"] = "All these chairs, all facing that door. What are they waiting for?",
+		["Circle Bridge"] = "Don't look down. There's nothing down there to look at anyway.",
+		["Endless Bridges"] = "How far down does this go? ...How far up?",
+		["Endless Paintings"] = "I could swear that one just moved.",
+		["Endless Pillars"] = "Every row looks like the last one. Am I going in circles?",
+		["Endless Room"] = "Didn't I just walk through this room?",
+		["Endless Stairs"] = "I've climbed these stairs before. I'm sure of it.",
+		["Floating"] = "The floor doesn't feel like it wants me standing on it.",
+		["Glitched Hallway"] = "The walls are there. I can feel them. I just can't see them.",
+		["Hallway"] = "The carpet runs straight into the rubble. Something came through here.",
+		["Hallways"] = "Somebody forgot to build a floor. Or something took it.",
+		["Mess"] = "Water everywhere. What happened to the people who ate here?",
+		["Mirror"] = "My reflection is on the ceiling. ...Is it looking back?",
+		["Paintings"] = "They're all watching the door. Or me.",
+		["Pendulum"] = "It's keeping time. Just not any time I know.",
+		["Pit"] = "That railing isn't going to stop anyone.",
+		["Pool"] = "I can't see the bottom. I don't want to.",
+		["Rooms"] = "Rooms inside rooms. Who were these built for?",
+		["Stairs"] = "Another floor? ...It was there a second ago.",
+		["The Garden"] = "It's raining. Indoors. And the plants don't seem to mind.",
+		["The Hole"] = "One plank left. I'm not testing it.",
 	},
 }

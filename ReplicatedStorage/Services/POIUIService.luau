@@ -30,6 +30,7 @@ local eyebrow = frame:FindFirstChild("Eyebrow") :: TextLabel
 local title = frame:FindFirstChild("Title") :: TextLabel
 local rule = frame:FindFirstChild("Rule") :: Frame
 local counter = frame:FindFirstChild("Counter") :: TextLabel
+local thought = gui:FindFirstChild(POIConfig.Gui.Thought) :: TextLabel?
 
 if not (eyebrow and title and rule and counter) then
 	warn("[POIUIService] POIGui is missing Eyebrow, Title, Rule or Counter")
@@ -48,6 +49,9 @@ local lines: { Line } = {
 	{ Object = rule, Transparency = Popup.RuleTransparency, Order = 2, Base = rule.Position },
 	{ Object = counter, Transparency = Popup.CounterTransparency, Order = 3, Base = counter.Position },
 }
+if thought then
+	table.insert(lines, { Object = thought, Transparency = Popup.ThoughtTransparency, Order = 4, Base = thought.Position })
+end
 local ruleHeight = rule.Size.Y.Offset
 
 local tweens: { Tween } = {}
@@ -96,6 +100,9 @@ local function reset()
 	frame.Position = basePosition
 	rule.Size = UDim2.fromOffset(0, ruleHeight)
 	title.MaxVisibleGraphemes = 0
+	if thought then
+		thought.MaxVisibleGraphemes = 0
+	end
 
 	for _, line in lines do
 		line.Object.Position = line.Base + UDim2.fromOffset(0, Popup.Rise)
@@ -144,6 +151,26 @@ local function animateIn(entry: { Name: string, Count: number, Total: number })
 		),
 		stagger
 	)
+
+	local line = POIConfig.Thoughts[entry.Name]
+	if thought then
+		thought.Text = line or ""
+	end
+	if thought and line then
+		local length = utf8.len(line) or #line
+		queueProxy(
+			TweenProxyService.Proxy(
+				"NumberValue",
+				0,
+				length,
+				TweenInfo.new(length * Popup.ThoughtCharTime, Enum.EasingStyle.Linear),
+				function(value: number)
+					thought.MaxVisibleGraphemes = math.floor(value)
+				end
+			),
+			stagger * 4 + Popup.TypeTime
+		)
+	end
 
 	if entry.Count > shownCount then
 		queueProxy(

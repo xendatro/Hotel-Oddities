@@ -227,7 +227,7 @@ Layout and styling for player overhead names and verified badge glyphs. `StudSiz
 - API: data table — `Tag`, `UserIdAttribute`, `VerifiedGlyph`, `StudSize`, `ExtentsOffset`, `StudsOffsetWorldSpace`, `TowardCamera`, `MaxDistance`, `AlwaysOnTop`, `Font`, `MaxTextSize`, `TextColor`, `StrokeColor`, `StrokeTransparency`
 
 ### POIConfig.luau
-Point-of-interest tag, discovery, entry and occupancy remote names, the trigger-box padding and sweep interval used by the server, the entry sting's template/bus/cooldown, and every timing and string the discovery popup animates with.
+Point-of-interest tag, discovery, entry and occupancy remote names, the trigger-box padding and sweep interval used by the server, the entry sting's template/bus/cooldown, and every timing and string the discovery popup animates with. `Thoughts` maps each POI name to the inner-monologue line typed under the popup (`Popup.ThoughtCharTime` seconds per character, settling at `Popup.ThoughtTransparency`); a new POI needs a line here to get one.
 
 ### PerkConfig.luau
 Per-perk settings for the gamepass/perk system, keyed by perk name under a shared attribute prefix. `PlayerLocator.GrantAttribute` names the player flag `/give` sets to unlock the locator without the pass.

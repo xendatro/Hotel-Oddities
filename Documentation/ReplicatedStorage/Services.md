@@ -852,9 +852,10 @@ Plays the `POIDiscovered` sting whenever the server reports the local player ent
 
 ### POIUIService.luau
 Client point-of-interest popup. Drives the Studio-authored `POIGui`, whose three text labels use `TextScaled` with size caps: on a discovery each of the four lines fades in and rises on its own stagger, the name typing itself out a grapheme at a time, the hairline rule growing from zero width, and the counter ticking up from the previous total; it holds, then fades out with the rule collapsing again. The counter animates up from the previous total. Overlapping discoveries are queued and played one at a time.
+Under the card, the italic `POIGui.Thought` label (a sibling of `Card`, centred 64px below the card's centre) then types out the player's own reaction to the place, a first-person line looked up by POI name in `POIConfig.Thoughts`, one grapheme every `Popup.ThoughtCharTime` seconds once the title has finished typing; it fades in and out with the card. A POI with no line leaves it empty. The label is optional — a gui without it simply shows no thought.
 - API: `POIUIService:Show(name: string, count: number?, total: number?)` — queues a popup
 - Remotes: `POI/Discovered` (listened), `POI/Sync` (listened and fired as a resync request)
-- Requires: `POIConfig`, `GuiBuilderService`, `TweenProxyService`, `StarterGui.POIGui`
+- Requires: `POIConfig`, `GuiBuilderService`, `TweenProxyService`, `StarterGui.POIGui` (`Card`, optional `Thought`)
 
 ### PlayerLocatorService.luau
 Client-only teleport-to-player HUD for the Player Locator gamepass: keeps a `LocatorMarker` per eligible player (all players, or friends only, depending on the toggled mode), highlights whichever marker is nearest the crosshair each frame, and fires the teleport remote on click. The HUD remains disabled until the ownership attribute or the `/give` grant attribute (`PerkConfig.PlayerLocator.GrantAttribute`) is true, including when an old saved tool is equipped. Renders the shared cooldown readout. If the `PlayerLocator` GUI is missing its expected children it degrades to a disabled stub exposing only `SetEnabled`/`IsEnabled`.
