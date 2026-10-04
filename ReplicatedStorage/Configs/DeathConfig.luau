@@ -10,6 +10,15 @@ return {
 	Revive = {
 		ForceFieldDuration = 25,
 		SelfSource = "Self",
+
+		Window = 15,
+		Key = Enum.KeyCode.V,
+		KeyLabel = "V",
+		GamepadKey = Enum.KeyCode.ButtonL3,
+		GamepadLabel = "L3",
+		SelfPrompt = "You're down. Revive where you fell?",
+		Position = UDim2.fromScale(0.985, 0.95),
+		TouchPosition = UDim2.new(0.985, 0, 1, -200),
 	},
 
 	UnknownId = "Hotel",

@@ -7,6 +7,7 @@ export type Stats = { [string]: number }
 type State = {
 	Humanoid: Humanoid,
 	Sources: { [string]: Stats },
+	Uncapped: { [string]: boolean },
 	Applied: Stats,
 	Defaults: { MaxHealth: number, WalkSpeed: number, JumpPower: number, UseJumpPower: boolean },
 	Connection: RBXScriptConnection,
@@ -27,6 +28,13 @@ local function clampStat(statId: string, value: number): number
 	return math.clamp(value, stat.Minimum, stat.Maximum)
 end
 
+local function combine(stat: KitConfig.Stat, value: number, contribution: number): number
+	if stat.Mode == "Scale" then
+		return value * contribution / stat.Base
+	end
+	return value + contribution - stat.Base
+end
+
 local function resolve(state: State): Stats
 	local resolved: Stats = {}
 
@@ -34,20 +42,28 @@ local function resolve(state: State): Stats
 		local value = stat.Base
 		local touched = false
 
-		for _, source in state.Sources do
+		for name, source in state.Sources do
 			local contribution = source[stat.Id]
-			if contribution == nil then continue end
+			if contribution == nil or state.Uncapped[name] then continue end
 
 			touched = true
-			if stat.Mode == "Scale" then
-				value *= contribution / stat.Base
-			else
-				value += contribution - stat.Base
-			end
+			value = combine(stat, value, contribution)
 		end
 
 		if touched then
-			resolved[stat.Id] = clampStat(stat.Id, value)
+			value = clampStat(stat.Id, value)
+		end
+
+		for name, source in state.Sources do
+			local contribution = source[stat.Id]
+			if contribution == nil or not state.Uncapped[name] then continue end
+
+			touched = true
+			value = combine(stat, value, contribution)
+		end
+
+		if touched then
+			resolved[stat.Id] = value
 		end
 	end
 
@@ -128,6 +144,7 @@ local function getState(humanoid: Humanoid): State
 	state = {
 		Humanoid = humanoid,
 		Sources = {},
+		Uncapped = {},
 		Applied = {},
 		Defaults = {
 			MaxHealth = humanoid.MaxHealth,
@@ -143,7 +160,7 @@ local function getState(humanoid: Humanoid): State
 	return state
 end
 
-function HumanoidStatsService:SetSource(humanoid: Humanoid, source: string, stats: Stats?)
+function HumanoidStatsService:SetSource(humanoid: Humanoid, source: string, stats: Stats?, uncapped: boolean?)
 	if not humanoid or not humanoid.Parent then return end
 
 	local state = getState(humanoid)
@@ -160,6 +177,7 @@ function HumanoidStatsService:SetSource(humanoid: Humanoid, source: string, stat
 	end
 
 	state.Sources[source] = copy
+	state.Uncapped[source] = if copy and uncapped then true else nil
 	apply(state)
 end
 
@@ -168,6 +186,7 @@ function HumanoidStatsService:ClearSource(humanoid: Humanoid, source: string)
 	if not state or not state.Sources[source] then return end
 
 	state.Sources[source] = nil
+	state.Uncapped[source] = nil
 	apply(state)
 end
 

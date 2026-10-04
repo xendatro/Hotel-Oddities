@@ -116,7 +116,7 @@ Bakes and serves the map-wide "danger" field: measures the extent of all `MazeFl
 - Requires: `Services.DangerFieldService`, `SpawnZoneService`, `DangerConfig`, `CommunicationService`
 
 ### DataSaveService.luau
-ProfileService front-end: loads, reconciles and releases one `PlayerData` profile per player, and lets other code either grab a loaded profile or yield until it arrives. The template holds currency, sword ownership, inventory, processed receipts, discovered enemies, discovered map intervals, hacked computer ids, `Escapes` (the escape count `EscapeService` owns), `OnboardingStep` (the furthest onboarding funnel step `AnalyticsService` has already reported for this player, so the onboarding pass is logged once per account rather than once per run), and `IntroVersion` (0 by default; the intro cutscene version this player has seen, owned by `IntroCutsceneService`, seen when it is at least `IntroCutsceneConfig.Version`). Studio sessions load `Studio_Player_<UserId>` keys instead of `Player_<UserId>` (via `RunService:IsStudio()`), so a Studio playtest and a live game client hold separate profiles and never contest the session lock — Studio keeps its own separately saved data.
+ProfileService front-end: loads, reconciles and releases one `PlayerData` profile per player, and lets other code either grab a loaded profile or yield until it arrives. The template holds currency, sword ownership, inventory, processed receipts, discovered enemies, discovered map intervals, hacked computer ids, `PendingRobuxKits` (rarity to the kit id last requested through a Robux kit product, owned by `KitShopService`), `Escapes` (the escape count `EscapeService` owns), `OnboardingStep` (the furthest onboarding funnel step `AnalyticsService` has already reported for this player, so the onboarding pass is logged once per account rather than once per run), and `IntroVersion` (0 by default; the intro cutscene version this player has seen, owned by `IntroCutsceneService`, seen when it is at least `IntroCutsceneConfig.Version`). Studio sessions load `Studio_Player_<UserId>` keys instead of `Player_<UserId>` (via `RunService:IsStudio()`), so a Studio playtest and a live game client hold separate profiles and never contest the session lock — Studio keeps its own separately saved data.
 - API: `DataSaveService:Get(player: Player) -> Profile?` — nil until the profile finishes loading
 - API: `DataSaveService:Wait(player: Player) -> Profile?` — yields the calling thread until loaded
 - Requires: `ServerStorage.Services.ProfileService` (third-party), `ItemShopConfig`
@@ -455,11 +455,12 @@ Owns kit ownership, the equipped kit, and applying a kit to a spawning character
 - Requires: `Configs.KitConfig`, `HumanoidStatsService`, `DataSaveService`, `InventoryService`, `CommunicationService`
 
 ### KitShopService.luau
-The non-gambling path: buying a named kit outright for its rarity's gem price. Validates the kit, refuses one already owned, spends the gems and grants it, refunding if the grant fails, then syncs both the gem balance and the kit list with the result code.
+The non-gambling path: buying a named kit outright for its rarity's gem price. Validates the kit, refuses one already owned, spends the gems and grants it, refunding if the grant fails, then syncs both the gem balance and the kit list with the result code. It also sells kits for Robux through one developer product per rarity (`MarketplaceService.Products.Kits`). `Kits/RobuxPurchase` records the requested kit in the profile's `PendingRobuxKits[rarity]` and prompts that rarity's product. The receipt grants the pending kit. If that kit is gone or already owned it grants a random unowned kit of the same rarity, and if the player owns the whole rarity it awards the rarity's gem price. `ProcessedKitReceipts` deduplicates receipts. A rarity whose product id is `0` registers no receipt.
 - API: `KitShopService:PriceOf(kitId: string) -> number?`
+- API: `KitShopService:ProductOf(kitId: string) -> number?` - the kit's rarity product, nil while it is `0`
 - API: `KitShopService:Buy(player: Player, kitId: string) -> string` - `Purchased`, `AlreadyOwned`, `InsufficientGems`, `UnknownKit`, `NotLoaded`, `GrantFailed`
-- Remotes: `Kits/Purchase` (listened)
-- Requires: `Configs.KitConfig`, `GemService` (the spend's economy sku is the kit id), `KitService`, `DataSaveService`, `CommunicationService`, `AnalyticsService` (`KitPurchased` with `Kit` and `Rarity`, value = the gem price)
+- Remotes: `Kits/Purchase` (listened), `Kits/RobuxPurchase` (listened; ensured at runtime)
+- Requires: `Configs.KitConfig`, `GemService` (the spend's economy sku is the kit id), `KitService`, `DataSaveService`, `CommunicationService`, `MarketplaceService` (prompts and receipts), `AnalyticsService` (`KitPurchased` with `Kit`, `Rarity` and `Currency`, value = the gem price or the Robux spent)
 
 ### LanternFallService.luau
 Wires the `Prop/LanternFall` oddity class into a `FixturePool` labelled "lantern", which arms nearby lanterns, drops one when a player approaches, and repairs it afterwards. Returns an empty table if the oddity class was never registered.
@@ -593,10 +594,10 @@ Geometry search that finds a corner mouth a stalker enemy can hide inside and pe
 - Tags: reads `Enemy` (raycast filter)
 - Requires: `HallwayGridService` (corner list), `EnemyObservationService` (enemy eyes/view cones), `MathService`, `Configs.PeekPoseConfig`, `ReplicatedStorage.Services.SpawnZoneService`
 ### PerkService.luau
-Resolves each player's gamepass ownership once on join, mirrors it to `Perk*` player attributes, and applies the perks on every spawn: double speed, the Visor tool, the Camcorder tool (granted to everyone while `CaptureConfig.RequireGamepass` is off), and restoring items kept through death.
+Resolves each player's gamepass ownership once on join, mirrors it to `Perk*` player attributes, and applies the perks on every spawn: the stacking health passes (`PerkConfig.Health.Bonus`: +50 for `MoreHealth`, +100 for `MegaHealth`) as an uncapped `HumanoidStatsService` source named `PerkConfig.Health.Source`, also applied right after a purchase, double speed, the Visor tool, the Camcorder tool (granted to everyone while `CaptureConfig.RequireGamepass` is off), and restoring items kept through death.
 - API: `PerkService:Owns(player: Player, passName: string) -> boolean` — cached gamepass ownership
 - API: `PerkService:WaitForPasses(player: Player) -> boolean` — yields up to 20s until ownership is resolved
-- Requires: `PerkConfig`, `MarketplaceService.Gamepasses`, `InventoryService`, `LoadoutService` (death snapshot/restore), `SpeedBoostService` (sets the DoubleSpeed multiplier)
+- Requires: `PerkConfig`, `KitConfig` (the health base), `HumanoidStatsService`, `MarketplaceService.Gamepasses`, `InventoryService`, `LoadoutService` (death snapshot/restore), `SpeedBoostService` (sets the DoubleSpeed multiplier)
 
 ### PhotoCameraService.luau
 Owns every placed tripod camera. Builds the world model out of the Camera tool's parts (anchored, joints, welds and scripts stripped), turns it by `Place.ModelYaw` so the body faces away from the placer, parents it before tagging it so clients never see the tag before the parts, stamps it with the owner and a server-time `SnapAt`, and after the countdown works out the shot: which living players sit inside the lens cone with a clear ray that ignores every player character (so standing behind a teammate still counts), where the figure should stand behind them (clamped to the tripod's own floor level when the ray finds a surface more than `Figure.MaxFloorRise` above or below it, so it never ends up hovering in a lift shaft), and which clients to fire `Photo/Snap` at — the subjects plus the owner. Afterwards a GazeService tracker watches the model and destroys it once nobody has looked at it for `Despawn.UnseenFor`.
@@ -681,8 +682,9 @@ Captures a player's death location and inventory, prompts the Revive developer p
 - API: `ReviveService:Offer(player: Player, character: Model) -> number` — record a death and return its token
 - API: `ReviveService:Prompt(player: Player, token: number)` — prompt the purchase if the token is still current
 - API: `ReviveService:HasPendingDeath(player: Player) -> boolean` — whether a death snapshot is stored
-- API: `ReviveService:Grant(player: Player, source: string?)` — perform the revive (also called from the receipt handler); logs the `Revived` analytics event with `Source` = `source`, or `DeathConfig.Revive.SelfSource` when omitted
-- Requires: `DeathConfig.Revive`, `MarketplaceService:CreateReceipt`, `LoadoutService` (capture/restore), `AnalyticsService`
+- API: `ReviveService:Grant(player: Player, source: string?)` — perform the revive (also called from the receipt handler); fires `Revive/Withdraw` to every client so all revive cards for that player close; logs the `Revived` analytics event with `Source` = `source`, or `DeathConfig.Revive.SelfSource` when omitted
+- Remotes: `Revive/Prompt` (ensured and listened; the client sends its death token and `Prompt` runs), `Revive/Withdraw` (fired)
+- Requires: `DeathConfig.Revive`, `CommunicationService`, `MarketplaceService:CreateReceipt`, `LoadoutService` (capture/restore), `AnalyticsService`
 
 ### RoomService.luau
 Auto-tags `Room_*` models under a `Rooms` folder, gives each an invisible pathfinding blocker part on the `RoomBlocker` collision group that only enemies collide with, and polls every 0.1s to track which room each player is inside. Also exposes doorway lookup and an outside-the-door approach point for enemy navigation.
