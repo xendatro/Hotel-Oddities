@@ -64,7 +64,7 @@ Danger-field noise generation over the map plus the Director's enemy population,
 
 ### DeathConfig.luau
 Death-cause names and player-facing hints per enemy (including the `PaintingDweller` cause shown as "Painting Lurker"), plus the full styling and timing of the glitchy "killed by" death screen.
-- API: data table — `CauseMemory`, `HitCooldown` (seconds one enemy must wait before it can hurt the same player again, shared by server attacks and client contact reports), `Revive` (`ForceFieldDuration`, and `SelfSource`, the `Revived` analytics `Source` for a self-bought revive), `UnknownId` (the cause id analytics report when nothing was chasing the player), `Unknown`, `Causes`, `Screen`; exports type `Cause`
+- API: data table — `CauseMemory`, `HitCooldown` (seconds one enemy must wait before it can hurt the same player again, shared by server attacks and client contact reports), `Revive` (`ForceFieldDuration`, and `SelfSource`, the `Revived` analytics `Source` for a self-bought revive, `Window` seconds your own revive card stays up, `Key`/`KeyLabel` and `GamepadKey`/`GamepadLabel` for the revive keybind and its chip, `SelfPrompt` text, and the card stack's `Position` and touch-device `TouchPosition`), `UnknownId` (the cause id analytics report when nothing was chasing the player), `Unknown`, `Causes`, `Screen`; exports type `Cause`
 
 ### DoorConfig.luau
 Swinging door physics, replicated player-proximity state, proximity open/close distances and enemy forced-open behaviour.

@@ -3,9 +3,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local DeathConfig = require(ReplicatedStorage.Configs.DeathConfig)
+local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local MarketplaceService = require(ReplicatedStorage.Services.MarketplaceService)
 local AnalyticsService = require(ServerStorage.Services.AnalyticsService)
 local LoadoutService = require(ServerStorage.Services.LoadoutService)
+
+local Prompt = CommunicationService.Ensure("Revive", "Prompt") :: RemoteEvent
+local Withdraw = CommunicationService.Get("Revive", "Withdraw") :: RemoteEvent
 
 local REVIVE_PRODUCT_ID = MarketplaceService.Products.Revive
 local FORCE_FIELD_DURATION = DeathConfig.Revive.ForceFieldDuration
@@ -64,6 +68,7 @@ end
 function ReviveService:Grant(player: Player, source: string?)
 	local snapshot = PendingDeaths[player]
 	PendingDeaths[player] = nil
+	Withdraw:FireAllClients(player)
 	AnalyticsService:LogEvent(player, "Revived", nil, { Source = source or DeathConfig.Revive.SelfSource })
 
 	local character = loadLivingCharacter(player)
@@ -103,6 +108,11 @@ MarketplaceService:CreateReceipt(REVIVE_PRODUCT_ID, function(receiptInfo)
 
 	ReviveService:Grant(player)
 	return Enum.ProductPurchaseDecision.PurchaseGranted
+end)
+
+Prompt.OnServerEvent:Connect(function(player: Player, token: any)
+	if type(token) ~= "number" then return end
+	ReviveService:Prompt(player, token)
 end)
 
 Players.PlayerRemoving:Connect(function(player: Player)

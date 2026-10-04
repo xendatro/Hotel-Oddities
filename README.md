@@ -148,7 +148,6 @@ become Services or Classes.
 - ReplicatedStorage\Services\FlashlightDebugService.luau — F7 panel for tuning the flashlight beam cones, warmth and camera offset live.
 - ReplicatedStorage\Services\FlashlightService.luau — Renders every flashlight beam as stacked spotlight cones, camera-mounted for the local player so the beam centre sits on the crosshair, with faint dust specks drifting in the local beam.
 - ReplicatedStorage\Services\FriendAvatarService.luau — Client-only cache that builds character models from the local player's friends' avatars.
-- ReplicatedStorage\Services\FriendReviveUIService.luau — Timed revive-offer cards for downed teammates.
 - ReplicatedStorage\Services\GalleryUIService.luau — Studio-authored Gallery page: direct user-triggered device-capture permission and save prompts, tape thumbnails, autoplay previews, click-to-full-screen viewing and per-item reel removal.
 - ReplicatedStorage\Services\GemsUIService.luau — Gem-pack page: pack amounts, Robux product prompts and prices, and a gem balance that flashes on purchase.
 - ReplicatedStorage\Services\GhostMotionService.luau — Ghost drift leg math and the model-attribute protocol the server and clients share.
@@ -215,6 +214,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\RecordPlayerAudioService.luau — Muffles and fades tagged in-world record players while the elevator is loading or the death screen is up.
 - ReplicatedStorage\Services\RedactionService.luau — Progressive seeded word-by-word text reveal with block-glyph redaction.
 - ReplicatedStorage\Services\ResetComputersService.luau — Lobby reset-computers terminal: a five-second hold on the model opens the paper confirm panel and Yes asks the server to wipe computer progress.
+- ReplicatedStorage\Services\ReviveUIService.luau — Bottom-right timed revive cards for your own death and for downed friends, each with a button that opens the product prompt and a keybind chip (hidden on touch).
 - ReplicatedStorage\Services\RoomsIndexUIService.luau — The rooms index page: a paged 3-by-2 grid of room photo cards locked until that point of interest is discovered, with a post-it info panel and a found counter fed by the POI remotes; each photo is the room's badge icon.
 - ReplicatedStorage\Services\ShakeService.luau — Client camera-shake front end with named presets, custom one-shot impulses, keyed sustained shakes and adjustable rumble handles.
 - ReplicatedStorage\Services\ShopUIService.luau — Gamepass shop page: per-card purchase prompts, live Robux prices, owned state from perk attributes and legacy card-name compatibility for the UnlimitedStamina pass.
@@ -334,7 +334,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\CreepConfig.luau — Creep enemy light-killing, backdrop geometry and eye-pair settings.
 - ReplicatedStorage\Configs\CrouchConfig.luau — Crouch movement, camera drop, stealth and bounded touch-button text settings.
 - ReplicatedStorage\Configs\DangerConfig.luau — Danger-field noise generation, randomized danger-leaning patrol tuning and Director enemy population settings.
-- ReplicatedStorage\Configs\DeathConfig.luau — Death causes, player hints and the killed-by death screen styling, plus the analytics cause id for hotel deaths and the self-revive source.
+- ReplicatedStorage\Configs\DeathConfig.luau — Death causes, player hints and the killed-by death screen styling, plus the analytics cause id for hotel deaths, the self-revive source, and the revive card's window, keybinds, prompt text and positions.
 - ReplicatedStorage\Configs\DoorConfig.luau — Swinging door physics, replicated player-proximity attributes, and proximity open/close behaviour.
 - ReplicatedStorage\Configs\DrawerConfig.luau — Openable drawer motion, interaction, sound and prompt UI settings, plus the cavity wall part names used to place items.
 - ReplicatedStorage\Configs\DrawerItemConfig.luau — Drawer tool/currency loot rates, hallway placement limits, map-only hallway items and scaled chip weights, rarity and currency weights (coins 60, gems 40, one coin or gem per pickup, currency in 35% of drawers on a 20-second refill, 20 loose hallway pickups on a 15-second refill), pickup feedback sounds, display rotations and item tables; clones DrawerConfig's Input/UI at load.
@@ -511,7 +511,7 @@ become Services or Classes.
 - ServerStorage\Services\ProgrammaticVentService.luau — Spawns and despawns extra ceiling vents at unseen danger-map points; AcquirePause freezes churn and shifts expiry times on release.
 - ServerStorage\Services\RatService.luau — CrossingPool wrapper that arms two hallway crossings and sends a rat scurrying across one on approach, plus its /rat command.
 - ServerStorage\Services\RecordPlayerService.luau — Loops the record (or lobby record) sound on every tagged record player model.
-- ServerStorage\Services\ReviveService.luau — Sells and grants the Revive product, restoring the player's death location, items and a ForceField; logs `Revived` with its source.
+- ServerStorage\Services\ReviveService.luau — Sells and grants the Revive product from the `Revive/Prompt` remote, closing every revive card on grant, restoring the player's death location, items and a ForceField; logs `Revived` with its source.
 - ServerStorage\Services\RoomService.luau — Tags rooms, gives them enemy-only pathfinding blockers, and tracks which room each player is in.
 - ServerStorage\Services\SistersService.luau — Picks a danger-weighted hallway start point and spawns the Sisters ceiling patrol there.
 - ServerStorage\Services\SistersGazeService.luau — Validates client eye-contact reports against the Sisters and starts the 30-second ceiling warp after the vertigo lead time, with a per-player cooldown.

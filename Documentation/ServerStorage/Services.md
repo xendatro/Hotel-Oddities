@@ -681,8 +681,9 @@ Captures a player's death location and inventory, prompts the Revive developer p
 - API: `ReviveService:Offer(player: Player, character: Model) -> number` — record a death and return its token
 - API: `ReviveService:Prompt(player: Player, token: number)` — prompt the purchase if the token is still current
 - API: `ReviveService:HasPendingDeath(player: Player) -> boolean` — whether a death snapshot is stored
-- API: `ReviveService:Grant(player: Player, source: string?)` — perform the revive (also called from the receipt handler); logs the `Revived` analytics event with `Source` = `source`, or `DeathConfig.Revive.SelfSource` when omitted
-- Requires: `DeathConfig.Revive`, `MarketplaceService:CreateReceipt`, `LoadoutService` (capture/restore), `AnalyticsService`
+- API: `ReviveService:Grant(player: Player, source: string?)` — perform the revive (also called from the receipt handler); fires `Revive/Withdraw` to every client so all revive cards for that player close; logs the `Revived` analytics event with `Source` = `source`, or `DeathConfig.Revive.SelfSource` when omitted
+- Remotes: `Revive/Prompt` (ensured and listened; the client sends its death token and `Prompt` runs), `Revive/Withdraw` (fired)
+- Requires: `DeathConfig.Revive`, `CommunicationService`, `MarketplaceService:CreateReceipt`, `LoadoutService` (capture/restore), `AnalyticsService`
 
 ### RoomService.luau
 Auto-tags `Room_*` models under a `Rooms` folder, gives each an invisible pathfinding blocker part on the `RoomBlocker` collision group that only enemies collide with, and polls every 0.1s to track which room each player is inside. Also exposes doorway lookup and an outside-the-door approach point for enemy navigation.
