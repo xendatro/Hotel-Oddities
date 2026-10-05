@@ -27,6 +27,7 @@ return {
 		MaxPassthrough = 4,
 		TouchRefresh = 0.1,
 		TouchScanMargin = 8,
+		TouchDragCancel = 0.03,
 	},
 
 	Input = {
