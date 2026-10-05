@@ -5,6 +5,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Config = require(ReplicatedStorage.Configs.WalkieTalkieConfig)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
+local TouchButtonService = require(ReplicatedStorage.Services.TouchButtonService)
 local WalkieTalkieService = require(ReplicatedStorage.Services.WalkieTalkieService)
 
 local WalkieHudService = {}
@@ -20,27 +21,33 @@ local playerGui = GuiBuilderService.GetPlayerGui()
 local gui = playerGui:WaitForChild("WalkieHud") :: ScreenGui
 local main = gui:WaitForChild("Main") :: Frame
 local prompt = main:WaitForChild("Prompt") :: TextLabel
-local touch = main:WaitForChild("Touch") :: Frame
-local powerButton = touch:WaitForChild("Power") :: TextButton
-local raiseButton = touch:WaitForChild("Raise") :: TextButton
-local talkButton = touch:WaitForChild("Talk") :: TextButton
 
 local promptStroke = prompt:FindFirstChildOfClass("UIStroke")
-local idleBackground = powerButton.BackgroundColor3
 
 gui.Enabled = true
 
-powerButton.Activated:Connect(function()
-	WalkieTalkieService:TogglePower()
-end)
+local powerButton: TextButton? = nil
+local raiseButton: TextButton? = nil
+local talkButton: TextButton? = nil
 
-raiseButton.Activated:Connect(function()
-	WalkieTalkieService:ToggleRaised()
-end)
+if TouchButtonService:IsAvailable() then
+	local labels = TOUCH.Labels
+	powerButton = TouchButtonService:Create("WalkiePower", labels.Power)
+	raiseButton = TouchButtonService:Create("WalkieRaise", labels.Raise)
+	talkButton = TouchButtonService:Create("WalkieTalk", labels.Talk)
 
-talkButton.Activated:Connect(function()
-	WalkieTalkieService:ToggleTransmitting()
-end)
+	powerButton.Activated:Connect(function()
+		WalkieTalkieService:TogglePower()
+	end)
+
+	raiseButton.Activated:Connect(function()
+		WalkieTalkieService:ToggleRaised()
+	end)
+
+	talkButton.Activated:Connect(function()
+		WalkieTalkieService:ToggleTransmitting()
+	end)
+end
 
 local promptShown = false
 local promptTweens: { Tween } = {}
@@ -65,29 +72,26 @@ local function setPromptVisible(visible: boolean)
 	end
 end
 
-local function background(active: boolean): Color3
-	return if active then TOUCH.ActiveBackground else idleBackground
-end
-
 local function step()
 	local equipped = WalkieTalkieService:IsEquipped()
 	local powered = WalkieTalkieService:IsPowered()
 	local raised = WalkieTalkieService:IsRaised()
-	local isTouch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local isTouch = UserInputService.PreferredInput == Enum.PreferredInput.Touch
 
 	prompt.Text = if isTouch
 		then PROMPT.TouchText
 		else string.format(PROMPT.Text, Config.Keys.Power.Name)
 	setPromptVisible(equipped and not powered)
 
-	touch.Visible = isTouch and equipped
-	powerButton.Visible = touch.Visible
-	raiseButton.Visible = touch.Visible and powered
-	talkButton.Visible = touch.Visible and powered and not raised
+	if not (powerButton and raiseButton and talkButton) then return end
 
-	powerButton.BackgroundColor3 = background(powered)
-	raiseButton.BackgroundColor3 = background(raised)
-	talkButton.BackgroundColor3 = background(WalkieTalkieService:IsTransmitting())
+	powerButton.Visible = equipped
+	raiseButton.Visible = equipped and powered
+	talkButton.Visible = equipped and powered and not raised
+
+	TouchButtonService:SetActive(powerButton, powered)
+	TouchButtonService:SetActive(raiseButton, raised)
+	TouchButtonService:SetActive(talkButton, WalkieTalkieService:IsTransmitting())
 end
 
 RunService.Heartbeat:Connect(step)

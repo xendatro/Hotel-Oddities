@@ -83,7 +83,11 @@ return {
 	},
 
 	Touch = {
-		ActiveBackground = Color3.fromRGB(40, 90, 58),
+		Labels = {
+			Power = "PWR",
+			Raise = "RADIO",
+			Talk = "TALK",
+		},
 	},
 
 	Effects = {

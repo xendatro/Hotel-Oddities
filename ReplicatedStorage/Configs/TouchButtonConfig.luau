@@ -16,6 +16,9 @@ return {
 	Slots = {
 		Sprint = Vector2.new(-0.37, -0.14),
 		Crouch = Vector2.new(-0.41, -0.33),
+		WalkieTalk = Vector2.new(-0.58, -0.16),
+		WalkieRaise = Vector2.new(-0.62, -0.35),
+		WalkiePower = Vector2.new(-0.48, -0.52),
 	},
 
 	Colors = {
