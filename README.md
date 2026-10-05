@@ -387,7 +387,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\RoomsIndexConfig.luau — Rooms index page settings, locked strings, animation and one entry per point of interest with its name and blurb; the photo is the room's badge icon.
 - ReplicatedStorage\Configs\ShopkeeperConfig.luau — Shopkeeper NPC tag, reach, input bindings and prompt UI styling.
 - ReplicatedStorage\Configs\SistersConfig.luau — Sisters eye-contact gaze test, vertigo effect tuning, remote names and the 30-second ceiling warp length.
-- ReplicatedStorage\Configs\SideButtonConfig.luau — Side-bar button labels and keybinds (Items J, Kits K, Shop B, Inventory E) with bounded scaled-text styling.
+- ReplicatedStorage\Configs\SideButtonConfig.luau — Side-bar button labels and keybinds (Items J, Kits K, Shop B, Inventory I) with bounded scaled-text styling.
 - ReplicatedStorage\Configs\SpawnZoneConfig.luau — Tag, poll interval and repel cooldown for the spawn safe zone system.
 - ReplicatedStorage\Configs\SprintBoostConfig.luau — Visual definitions for speed-boost auras on the sprint bar.
 - ReplicatedStorage\Configs\SprintConfig.luau — Sprint speed, stamina economy, input bindings, touch-button label and low-resolution stamina-bar scaling.

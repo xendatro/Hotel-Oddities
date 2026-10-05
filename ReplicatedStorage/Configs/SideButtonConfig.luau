@@ -3,7 +3,7 @@ return {
 		Items = { Label = "Items", Key = Enum.KeyCode.J },
 		Kits = { Label = "Kits", Key = Enum.KeyCode.K },
 		Shop = { Label = "Shop", Key = Enum.KeyCode.B },
-		Inventory = { Label = "Inventory", Key = Enum.KeyCode.E },
+		Inventory = { Label = "Inventory", Key = Enum.KeyCode.I },
 	},
 
 	Format = "%s [%s]",
