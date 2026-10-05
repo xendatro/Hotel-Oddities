@@ -213,7 +213,7 @@ function AimTrainer:_build()
 		piece.Parent = target
 	end
 
-	self:Track(target.MouseButton1Click:Connect(function()
+	self:Track(target.MouseButton1Down:Connect(function()
 		self:_hit()
 	end))
 end

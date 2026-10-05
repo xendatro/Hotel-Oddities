@@ -439,6 +439,20 @@ Enum.CameraType.Scriptable". It did not happen on a later run of the same
 check. Read camera state from a fresh snippet after the change, not from one
 that spans it; the mechanism is unconfirmed.
 
+**`Measured`** — **`user_mouse_input` coordinates are below the top-bar inset.**
+On 2026-10-05 a `moveTo` at y=628 read back as `GetMouseLocation()` y=686 with
+`GuiService:GetGuiInset()` at (0, 58), so every click landed 58 px low and missed
+its button. Take a point from `Camera:WorldToViewportPoint` or
+`GetMouseLocation` and subtract the inset's Y before passing it to the tool.
+To click a SurfaceGui button, project its canvas point onto the adornee's face
+and convert that; a clean `ClickTestGui` with buttons at the centre and corners
+is a quick control for the mapping.
+
+**`Observed`** — **`screen_capture` does not draw PlayerGui SurfaceGuis during
+play.** On 2026-10-05 the minigame `SurfaceGui` was enabled, adorned and taking
+clicks, but the capture showed the bare screen part. Check SurfaceGui state from a
+Client snippet, not from a capture; the cause is unconfirmed.
+
 **`Observed`** — **CPU-heavy work on the same machine wrecks the playtest's frame
 rate.** A 16-process video render run while a playtest was open on 2026-10-02
 dropped Studio's frame rate badly and crashed the Claude desktop app. Stop the

@@ -113,7 +113,7 @@ function Snake:IdleMessage()
 	if self.Best > 0 then
 		self.MessageLabel.Text = string.format("BEST %d", self.Best)
 	else
-		self.MessageLabel.Text = "EAT FIFTEEN"
+		self.MessageLabel.Text = `EAT {PELLETS_TO_WIN}`
 	end
 	self.MessageLabel.TextColor3 = self.Theme.TextDim
 end
