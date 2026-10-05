@@ -480,7 +480,7 @@ Shared base class every terminal minigame extends: it owns the root frame, theme
 - API: `MinigameBase:Destroy()` — stops heartbeat, disconnects tracked connections, runs `OnDestroy`, clears `Root`
 
 ### Minigames\AimTrainer.luau
-Click-the-target trainer: hit 20 ringed targets before missing 3, with each target's lifetime shrinking from 5s to 1.875s as hits climb. Timing out counts as a miss; the third miss wipes the run back to zero hits and reports a failure. Placement retries up to 24 times to keep targets at least 200px from the last one.
+Click-the-target trainer: hit 20 ringed targets before missing 3, with each target's lifetime shrinking from 5s to 1.875s as hits climb. Timing out counts as a miss; the third miss wipes the run back to zero hits and reports a failure. A hit counts on press, not release, so a click that is still moving off the target lands. Placement retries up to 24 times to keep targets at least 200px from the last one.
 - API: `AimTrainer.new(root: Frame, api: Api) -> self`
 - API: `AimTrainer:Start(saved: any?)` — builds header/timer bar/target area, restores saved `Hits`, starts the countdown heartbeat
 - API: `AimTrainer:Serialize() -> any?` — `{ Hits }`, or nil when finished or at zero
@@ -529,7 +529,7 @@ Snake on a 16x12 grid: eat 12 pellets to win, with the tick interval speeding up
 - API: `Snake:Start(saved: any?)` — restores `Best`, builds board and chrome, spawns the snake, binds keys, D-pad and continuous touch swipes (with a "SWIPE ANYWHERE TO STEER" hint on touch), starts the tick heartbeat
 - API: `Snake:Serialize() -> any?` — `{ Best }`, or nil at zero
 - API: `Snake:Reset()` — banks the score into `Best`, respawns the snake
-- API: `Snake:IdleMessage()` — shows the best score, or the "EAT FIFTEEN" prompt
+- API: `Snake:IdleMessage()` — shows the best score, or the `EAT <PELLETS_TO_WIN>` prompt
 - API: `Snake:OnDestroy()` — drops segment frame references
 - Requires: `Classes\Minigames\MinigameBase`
 
