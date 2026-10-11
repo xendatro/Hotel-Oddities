@@ -22,7 +22,10 @@ return {
 	Keys = {
 		Power = Enum.KeyCode.G,
 		Raise = Enum.KeyCode.R,
+		GamepadRaise = Enum.KeyCode.ButtonX,
+		GamepadTalk = Enum.KeyCode.ButtonR2,
 	},
+	GamepadPowerHold = 0.6,
 
 	Modes = {
 		{ Id = "All", Label = "ALL", Friends = false },
@@ -66,6 +69,7 @@ return {
 		},
 		Hints = {
 			Talk = "CLICK LMB - TOGGLE TALK",
+			TalkGamepad = "%s - TOGGLE TALK",
 			Talking = "TRANSMITTING",
 			Raised = "%s - LOWER RADIO",
 			Lowered = "%s - RAISE RADIO",
@@ -74,11 +78,13 @@ return {
 		HintCycle = 2.5,
 		OffPrompt = "PRESS %s",
 		OffPromptTouch = "TAP POWER",
+		OffPromptGamepad = "HOLD %s",
 	},
 
 	Prompt = {
 		Text = "[%s] TURN ON WALKIE-TALKIE",
 		TouchText = "TAP THE POWER BUTTON TO USE YOUR WALKIE-TALKIE",
+		GamepadText = "[HOLD %s] TURN ON WALKIE-TALKIE",
 		FadeTime = 0.25,
 	},
 

@@ -6,6 +6,7 @@ local IntroCutsceneConfig = require(ReplicatedStorage.Configs.IntroCutsceneConfi
 local EndingConfig = require(ReplicatedStorage.Configs.EndingConfig)
 local AudioService = require(ReplicatedStorage.Services.AudioService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local GamepadUIService = require(ReplicatedStorage.Services.GamepadUIService)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local InterfaceService = require(ReplicatedStorage.Services.InterfaceService)
 
@@ -98,6 +99,11 @@ local function setButtonShown(shown: boolean)
 	button.ImageTransparency = transparency
 	buttonLabel.TextTransparency = transparency
 	button.Interactable = shown
+	if shown then
+		GamepadUIService:Focus(paper, { Replace = true, OnBack = function() end })
+	else
+		GamepadUIService:Release(paper)
+	end
 end
 
 local function reset()

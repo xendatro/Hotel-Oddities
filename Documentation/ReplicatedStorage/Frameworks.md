@@ -36,7 +36,7 @@ Owns the active page id for one page group and drives the transition between pag
 - Requires: `ReplicatedStorage.Services.TagService`; internal `Classes.Signal`, `Classes.Sequence`
 
 ### xenterface\Classes\Hover.luau
-`Toggle` subclass bound to a GuiObject's `MouseEnter`/`MouseLeave`, playing the Active sequence on enter and the Inactive sequence on leave.
+`Toggle` subclass bound to a GuiObject's `MouseEnter`/`MouseLeave` and `SelectionGained`/`SelectionLost`, playing the Active sequence on enter or gamepad selection and the Inactive sequence on leave.
 - API: `Hover.new(hover: GuiObject, source: Configuration?) -> Hover` — `source` defaults to the GuiObject
 - API: `Hover:Entered()` — activates
 - API: `Hover:Left()` — deactivates
@@ -69,7 +69,7 @@ Wraps a `BindableEvent` in a table so the event and the signal both appear as me
 - Requires: `ReplicatedStorage.Modules.extend`
 
 ### xenterface\Classes\Tab.luau
-`Toggle` subclass for clickable tabs; reads `PageGroup` and `PageId` from the source (erroring if either is missing) and fires its controller on `MouseButton1Click`. With a `Toggle` attribute set to true, clicking the already-active tab fires an empty page id instead, closing the group.
+`Toggle` subclass for clickable tabs; reads `PageGroup` and `PageId` from the source (erroring if either is missing) and fires its controller on `Activated`, so mouse, touch and a gamepad A press on the selected tab all work. With a `Toggle` attribute set to true, clicking the already-active tab fires an empty page id instead, closing the group.
 - API: `Tab.new(tab: GuiButton, source: Configuration?) -> Tab` — `source` defaults to the button
 - API: `Tab:Disconnect()` — drops `self.Connections`
 - Requires: internal `Services.ControllerService`, `Classes.Toggle`

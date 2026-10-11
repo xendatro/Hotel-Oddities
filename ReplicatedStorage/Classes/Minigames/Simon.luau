@@ -38,6 +38,10 @@ local KEYS: { [Enum.KeyCode]: number } = {
 	[Enum.KeyCode.Down] = 3,
 	[Enum.KeyCode.A] = 4,
 	[Enum.KeyCode.Left] = 4,
+	[Enum.KeyCode.DPadUp] = 1,
+	[Enum.KeyCode.DPadRight] = 2,
+	[Enum.KeyCode.DPadDown] = 3,
+	[Enum.KeyCode.DPadLeft] = 4,
 }
 
 local Simon = MinigameBase.extend("Simon", "SIMON.EXE", true)

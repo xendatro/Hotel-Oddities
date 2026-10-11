@@ -2,8 +2,9 @@ return {
 	HotbarSlots = 5,
 	BackpackSlots = 25,
 
-	ToggleKeys = {
-		Enum.KeyCode.ButtonY,
+	CycleKeys = {
+		[Enum.KeyCode.ButtonL1] = -1,
+		[Enum.KeyCode.ButtonR1] = 1,
 	},
 	HotbarKeys = {
 		Enum.KeyCode.One,

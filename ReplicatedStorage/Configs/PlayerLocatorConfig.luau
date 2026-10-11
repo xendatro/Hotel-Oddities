@@ -5,6 +5,7 @@ return {
 	},
 
 	Cooldown = 60,
+	GamepadTeleportKey = Enum.KeyCode.ButtonR2,
 	CooldownFormat = "Cooldown %d",
 	MarkerCooldownFormat = "%ds",
 

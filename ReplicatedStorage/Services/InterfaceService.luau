@@ -1,5 +1,6 @@
 local CollectionService = game:GetService("CollectionService")
 local ContextActionService = game:GetService("ContextActionService")
+local GuiService = game:GetService("GuiService")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,6 +12,7 @@ local CameraFovService = require(ReplicatedStorage.Services.CameraFovService)
 local DrawerConfig = require(ReplicatedStorage.Configs.DrawerConfig)
 local IntroCutsceneConfig = require(ReplicatedStorage.Configs.IntroCutsceneConfig)
 local PerkConfig = require(ReplicatedStorage.Configs.PerkConfig)
+local GamepadUIService = require(ReplicatedStorage.Services.GamepadUIService)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local InteractionService = require(ReplicatedStorage.Services.InteractionService)
 local AudioService = require(ReplicatedStorage.Services.AudioService)
@@ -34,6 +36,7 @@ local INTRO_CUTSCENE_ATTRIBUTE = IntroCutsceneConfig.PlayingAttribute
 local UI_OPEN_SOUND = "UIOpen"
 local UI_CLOSE_SOUND = "UIClose"
 local PAGE_ACTION = "InterfacePageToggle"
+local QUICK_UNLOCK_HINT_GUI = "Info"
 
 local player = Players.LocalPlayer
 local playerGui = GuiBuilderService.GetPlayerGui()
@@ -61,6 +64,7 @@ local pageNames = {
 }
 
 local pageGuis: { [string]: ScreenGui } = {}
+local pageRoots: { [string]: GuiObject } = {}
 for pageId, page in pageNames do
 	local screenGui = playerGui:WaitForChild(page.Gui, 10) :: ScreenGui?
 	if not screenGui then
@@ -72,6 +76,7 @@ for pageId, page in pageNames do
 
 	local root = screenGui:WaitForChild(page.Root) :: GuiObject
 	root.Visible = false
+	pageRoots[pageId] = root
 end
 
 type MotionState = {
@@ -161,6 +166,17 @@ local function wireMotion(
 		state.Pressed = false
 		pose(motionPreset.ReleaseTime, motionPreset.ReleaseStyle, motionPreset.ReleaseDirection)
 	end)
+
+	button.SelectionGained:Connect(function()
+		state.Hovered = true
+		pose(motionPreset.HoverTime, motionPreset.HoverStyle, motionPreset.HoverDirection)
+	end)
+
+	button.SelectionLost:Connect(function()
+		state.Hovered = false
+		state.Pressed = false
+		pose(motionPreset.ReleaseTime, motionPreset.ReleaseStyle, motionPreset.ReleaseDirection)
+	end)
 end
 
 function InterfaceService.WireMotion(button: GuiButton, visual: GuiObject?, motionPreset: any?)
@@ -184,7 +200,11 @@ local labelPages: { [TextLabel]: string } = {}
 local function labelText(pageId: string): string
 	local page = SideButtonConfig.Pages[pageId]
 	if not page then return "" end
-	if not UserInputService.KeyboardEnabled then return page.Label end
+	if GamepadUIService:IsGamepad() then
+		if not page.GamepadKey then return page.Label end
+		return string.format(SideButtonConfig.Format, page.Label, GamepadUIService:KeyText(page.GamepadKey))
+	end
+	if UserInputService.PreferredInput == Enum.PreferredInput.Touch then return page.Label end
 	return string.format(SideButtonConfig.Format, page.Label, page.Key.Name)
 end
 
@@ -236,7 +256,23 @@ local function wireSideButton(instance: Instance)
 	end
 end
 
-UserInputService:GetPropertyChangedSignal("KeyboardEnabled"):Connect(refreshLabels)
+local function refreshQuickUnlockHint()
+	local hint = playerGui:FindFirstChild(QUICK_UNLOCK_HINT_GUI)
+	if hint and hint:IsA("ScreenGui") then
+		hint.Enabled = UserInputService.PreferredInput == Enum.PreferredInput.KeyboardAndMouse
+	end
+end
+
+UserInputService:GetPropertyChangedSignal("PreferredInput"):Connect(function()
+	refreshLabels()
+	refreshQuickUnlockHint()
+end)
+playerGui.ChildAdded:Connect(function(child: Instance)
+	if child.Name == QUICK_UNLOCK_HINT_GUI then
+		refreshQuickUnlockHint()
+	end
+end)
+refreshQuickUnlockHint()
 
 local function wireCloseButton(instance: Instance)
 	if not instance:IsA("GuiButton") or not instance:IsDescendantOf(playerGui) then return end
@@ -319,6 +355,20 @@ controller.Fired:Connect(function(data)
 		playInterfaceSound(UI_OPEN_SOUND)
 	elseif inactiveGui then
 		playInterfaceSound(UI_CLOSE_SOUND)
+	end
+
+	local activeRoot = pageRoots[activeId]
+	local inactiveRoot = pageRoots[inactiveId]
+	if activeRoot then
+		GamepadUIService:Focus(activeRoot, {
+			OnBack = function()
+				InterfaceService:Close()
+			end,
+			Replace = true,
+			Select = not SideButtonConfig.FreeNavigationPages[activeId],
+		})
+	elseif inactiveRoot then
+		GamepadUIService:Release(inactiveRoot)
 	end
 	tweenEffects(activeGui ~= nil)
 	InterfaceService:SetMouseUnlocked(activeGui ~= nil)
@@ -422,6 +472,9 @@ end)
 local keyPages: { [Enum.KeyCode]: string } = {}
 for pageId, page in SideButtonConfig.Pages do
 	keyPages[page.Key] = pageId
+	if page.GamepadKey then
+		keyPages[page.GamepadKey] = pageId
+	end
 end
 
 local function claimedByInteraction(keyCode: Enum.KeyCode): boolean
@@ -435,6 +488,9 @@ local function onPageAction(_actionName: string, inputState: Enum.UserInputState
 	if UserInputService:GetFocusedTextBox() or mouseUnlockForced then return Enum.ContextActionResult.Pass end
 	if player:GetAttribute(INTRO_CUTSCENE_ATTRIBUTE) == true then return Enum.ContextActionResult.Pass end
 	if claimedByInteraction(input.KeyCode) then return Enum.ContextActionResult.Pass end
+	if input.KeyCode.Name:find("DPad") and GuiService.SelectedObject ~= nil then
+		return Enum.ContextActionResult.Pass
+	end
 
 	if inputState == Enum.UserInputState.Begin then
 		if controller.Active == pageId then

@@ -452,8 +452,8 @@ Who is on stage in the ending and what they do. Builds a stand-in and a double f
 ## Minigames
 
 ### Minigames\MinigameBase.luau
-Shared base class every terminal minigame extends: it owns the root frame, theme, run state, tracked connections and heartbeat, and supplies GUI builders (board, status bar, D-pad), input helpers and win/fail plumbing. Subclasses are created with `MinigameBase.extend(id, title, supportsReset)` (which stamps `Id`, `Title`, `SupportsReset` on the class) and must pass their class into `MinigameBase.new(root, api, class)`. The host supplies an `Api` of `{ Complete, Fail?, Theme, Sound? }`; the lifecycle contract a subclass fulfils is `:Start(saved)` (build UI and begin), `:Serialize() -> any?` (resume payload or nil), `:Reset()` (only when `SupportsReset`), plus optional `:IdleMessage()` and `:OnDestroy()` hooks — `:Destroy()` is provided and calls them.
-- API: `MinigameBase.extend(id: string, title: string, supportsReset: boolean) -> class` — makes a subclass table with `Id`/`Title`/`SupportsReset`
+Shared base class every terminal minigame extends: it owns the root frame, theme, run state, tracked connections and heartbeat, and supplies GUI builders (board, status bar, D-pad), input helpers and win/fail plumbing. Subclasses are created with `MinigameBase.extend(id, title, supportsReset, pointer?)` (which stamps `Id`, `Title`, `SupportsReset` and `Pointer` on the class; `Pointer` games are played with the virtual cursor on gamepad) and must pass their class into `MinigameBase.new(root, api, class)`. The host supplies an `Api` of `{ Complete, Fail?, Theme, Sound? }`; the lifecycle contract a subclass fulfils is `:Start(saved)` (build UI and begin), `:Serialize() -> any?` (resume payload or nil), `:Reset()` (only when `SupportsReset`), plus optional `:IdleMessage()` and `:OnDestroy()` hooks — `:Destroy()` is provided and calls them.
+- API: `MinigameBase.extend(id: string, title: string, supportsReset: boolean, pointer: boolean?) -> class` — makes a subclass table with `Id`/`Title`/`SupportsReset`/`Pointer`
 - API: `MinigameBase.new(root: Frame, api: Api, class: any?) -> self` — sets `Root`, `Api`, `Theme`, `State`, `Completed`, `MessageUntil`, `MessageTime`, `Connections`
 - API: `MinigameBase.Directions` — data table mapping WASD/arrow/gamepad D-pad `KeyCode`s to `{x, y}` steps
 - API: `MinigameBase:Track(connection: RBXScriptConnection) -> RBXScriptConnection` — store for auto-disconnect on destroy
@@ -468,7 +468,7 @@ Shared base class every terminal minigame extends: it owns the root frame, theme
 - API: `MinigameBase:InputHint() -> string` — `SWIPE`, `D-PAD` or `WASD` for the current `PreferredInput`
 - API: `MinigameBase:ConnectSwipes(callback: (x: number, y: number) -> (), continuous: boolean?)` — touch swipes anywhere on the screen as `{x, y}` steps on the dominant axis, once a finger travels 6% of the viewport's shorter side; `continuous` keeps the same finger firing a new step every further 6% so a drag can steer repeatedly, otherwise each touch gives one step
 - API: `MinigameBase:BuildSwipeHint(text: string) -> TextLabel` — dim label left of the D-pad, shown only while `UserInputService.PreferredInput` is `Touch`
-- API: `MinigameBase:ConnectKeys(map: {[Enum.KeyCode]: any}, callback: (value: any) -> ())` — arbitrary key map
+- API: `MinigameBase:ConnectKeys(map: {[Enum.KeyCode]: any}, callback: (value: any) -> ())` — arbitrary keyboard or gamepad key map
 - API: `MinigameBase:PlaySound(name: string, pitch: number?)` — routed through `Api.Sound` if present
 - API: `MinigameBase:FailRun(reason: string?)` — routed through `Api.Fail` if present
 - API: `MinigameBase:Climb(count: number, total: number) -> number` — 0-1 progress ramp, used for rising pitch
@@ -524,6 +524,7 @@ Simon says with four pads driven by WASD/arrows or clicks: watch the playback, r
 - API: `Simon:Serialize() -> any?` — `{ Length }` (best round reached), or nil at zero
 - API: `Simon:Reset()` — clears mistakes and best, reseeds to length 1
 - API: `Simon:OnDestroy()` — drops pad button references
+- Gamepad: the D-pad presses the pads by direction (up, right, down, left).
 - Requires: `Classes\Minigames\MinigameBase`
 
 ### Minigames\Snake.luau
@@ -552,6 +553,7 @@ Client half of the throwable ball: finds the nearest Eye within 20 studs (`ToolC
 Client half of the camcorder. Activation asks the server to check the gamepass; on `Allowed` it leaves the tool equipped and usable while suppressing its first-person viewmodel before starting video capture, so unequipping it or activating it again stops the take. Unequip always calls Roblox's stop API directly rather than trusting the local recording flag, and an unequip during capture startup is remembered and stops recording as soon as the engine starts it. The Studio-authored `StarterGui.CamcorderRecording` panel blinks its red light and offers a touch STOP button, with X or gamepad B as the stop key; a post-show state check keeps a capture that finishes during startup from leaving this panel stuck onscreen. Recording also ends at the configured duration or Roblox's 30-second cap. Completion reports back to the server, then hands the finished tape to `PhotoDevelopService` for playback and the keep-or-burn prompt; only a successful keep reports the final removal decision, while burn or save failure preserves temporary camcorders. Roblox's video capture parameters are currently non-operational, so the hand and camcorder cannot remain locally visible while being excluded only from the final tape.
 - API: none beyond the `ClientTool` hooks.
 - Remotes: `Tools/Signal` — fires `Record`, `Finished`, `Kept`, `Burned` or `Cancelled`, listens `Allowed` and `Denied`
+- The STOP button reads `STOP  [X]` on keyboard, `STOP  [B]` on gamepad and `STOP` on touch, picked when recording starts; X and B both stop.
 - Requires: `Classes.ClientTool`, `Configs.CaptureConfig`, `CaptureGalleryService`, `NotificationService`, `PhotoDevelopService`, `ViewmodelService`; expects `StarterGui.CamcorderRecording`
 
 ### Tools\Camera.luau

@@ -29,7 +29,7 @@ local COUNT_COLORS = {
 	"Danger",
 }
 
-local Minesweeper = MinigameBase.extend("Minesweeper", "MINESWEEPER.EXE", true)
+local Minesweeper = MinigameBase.extend("Minesweeper", "MINESWEEPER.EXE", true, true)
 
 local function forEachNeighbour(index: number, visit: (number) -> ())
 	local row = math.floor((index - 1) / GRID)

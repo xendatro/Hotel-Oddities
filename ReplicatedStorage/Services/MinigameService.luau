@@ -10,7 +10,10 @@ if not RunService:IsClient() then
 	return MinigameService
 end
 
+local GamepadUIService = require(ReplicatedStorage.Services.GamepadUIService)
+
 local TAG = "HackComputer"
+local CURSOR_KEY = "Minigame"
 
 local ORDER = { "Memory", "AimTrainer", "Frogger", "Snake", "Simon" }
 
@@ -61,6 +64,7 @@ export type Module = {
 	Id: string,
 	Title: string,
 	SupportsReset: boolean,
+	Pointer: boolean?,
 	new: (root: Frame, api: Api) -> Game,
 }
 
@@ -532,6 +536,7 @@ function MinigameService:Close()
 	local session = current
 	if not session then return end
 	current = nil
+	GamepadUIService:SetCursor(CURSOR_KEY, false)
 
 	for _, connection in session.Connections do
 		connection:Disconnect()
@@ -753,7 +758,7 @@ function MinigameService:Open(model: Model, screen: BasePart, callbacks: Callbac
 	}
 	current = session
 
-	exit.MouseButton1Click:Connect(function()
+	exit.Activated:Connect(function()
 		if current ~= session or session.Won then return end
 		playCue("Close")
 		local onExit = session.Callbacks.OnExit
@@ -795,7 +800,7 @@ function MinigameService:Open(model: Model, screen: BasePart, callbacks: Callbac
 		reset.ZIndex = 3
 		reset.Parent = titleBar
 
-		reset.MouseButton1Click:Connect(function()
+		reset.Activated:Connect(function()
 			if current ~= session or session.Won then return end
 			safe(`{id}.Reset`, function()
 				playing:Reset()
@@ -813,6 +818,7 @@ function MinigameService:Open(model: Model, screen: BasePart, callbacks: Callbac
 		return
 	end
 
+	GamepadUIService:SetCursor(CURSOR_KEY, module.Pointer == true)
 	playCue("Open")
 end
 

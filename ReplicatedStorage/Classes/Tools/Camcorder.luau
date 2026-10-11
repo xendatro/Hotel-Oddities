@@ -1,10 +1,12 @@
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
 local ClientTool = require(ReplicatedStorage.Classes.ClientTool)
 local CaptureConfig = require(ReplicatedStorage.Configs.CaptureConfig)
 local CaptureGalleryService = require(ReplicatedStorage.Services.CaptureGalleryService)
+local GamepadUIService = require(ReplicatedStorage.Services.GamepadUIService)
 local NotificationService = require(ReplicatedStorage.Services.NotificationService)
 local PhotoDevelopService = require(ReplicatedStorage.Services.PhotoDevelopService)
 local ViewmodelService = require(ReplicatedStorage.Services.ViewmodelService)
@@ -45,6 +47,15 @@ local function getRecordingGui(): ScreenGui
 	return gui
 end
 
+local function stopText(): string
+	local preferred = UserInputService.PreferredInput
+	if preferred == Enum.PreferredInput.Touch then return HUD.StopTouchText end
+	if preferred == Enum.PreferredInput.Gamepad then
+		return string.format(HUD.StopFormat, GamepadUIService:KeyText(HUD.GamepadStopKey))
+	end
+	return string.format(HUD.StopFormat, HUD.StopKey.Name)
+end
+
 local function showRecording(onStop: () -> ())
 	local gui = getRecordingGui()
 	stopHandler = onStop
@@ -52,7 +63,7 @@ local function showRecording(onStop: () -> ())
 
 	if recordingStop then
 		recordingStop.Interactable = true
-		recordingStop.Text = HUD.StopText
+		recordingStop.Text = stopText()
 	end
 
 	blinkVersion += 1
@@ -87,7 +98,7 @@ ContextActionService:BindAction(STOP_ACTION, function(_, state: Enum.UserInputSt
 	end
 	handler()
 	return Enum.ContextActionResult.Sink
-end, false, HUD.StopKey, Enum.KeyCode.ButtonB)
+end, false, HUD.StopKey, HUD.GamepadStopKey)
 
 function Camcorder.new(tool: Tool)
 	local self = ClientTool.new(tool, Camcorder)

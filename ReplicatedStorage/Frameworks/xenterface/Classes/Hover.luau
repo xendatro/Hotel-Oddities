@@ -12,6 +12,12 @@ local function setUpConnections(self)
 	self.Connections.MouseLeave = self.Hover.MouseLeave:Connect(function()
 		self:Left()
 	end)
+	self.Connections.SelectionGained = self.Hover.SelectionGained:Connect(function()
+		self:Entered()
+	end)
+	self.Connections.SelectionLost = self.Hover.SelectionLost:Connect(function()
+		self:Left()
+	end)
 end
 
 function Hover.new(hover: GuiObject, source: Configuration?)

@@ -375,14 +375,6 @@ local function moveSelected()
 	InventoryUIService:Move(entry.Slot, free)
 end
 
-local function togglePage()
-	if InterfaceService:GetActive() == PAGE.Id then
-		InterfaceService:Close()
-	else
-		InterfaceService:Open(PAGE.Id)
-	end
-end
-
 moveButton.Activated:Connect(moveSelected)
 
 UserInputService.InputChanged:Connect(function(input: InputObject)
@@ -413,12 +405,6 @@ UserInputService.InputEnded:Connect(function(input: InputObject)
 	end
 
 	endDrag(input.Position)
-end)
-
-UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
-	if processed then return end
-	if not table.find(InventoryConfig.ToggleKeys, input.KeyCode) then return end
-	togglePage()
 end)
 
 InventoryUIService.Changed:Connect(rebuild)

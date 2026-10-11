@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
+local GamepadUIConfig = require(ReplicatedStorage.Configs.GamepadUIConfig)
 local KitConfig = require(ReplicatedStorage.Configs.KitConfig)
 local AudioService = require(ReplicatedStorage.Services.AudioService)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
@@ -86,6 +87,7 @@ local function makeReelCard(kit: KitConfig.Kit, index: number): ImageButton
 	card.Visible = true
 	card.Active = false
 	card.Selectable = false
+	card:SetAttribute(GamepadUIConfig.SkipAttribute, true)
 	card.AutoButtonColor = false
 	card.Modal = false
 	card.AnchorPoint = Vector2.new(0.5, 0.5)

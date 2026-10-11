@@ -50,12 +50,13 @@ local PAD_LAYOUT = {
 	{ Text = "D", Column = 2, Row = 1, X = 1, Y = 0 },
 }
 
-function MinigameBase.extend(id: string, title: string, supportsReset: boolean)
+function MinigameBase.extend(id: string, title: string, supportsReset: boolean, pointer: boolean?)
 	local class = setmetatable({}, { __index = MinigameBase })
 	class.__index = class
 	class.Id = id
 	class.Title = title
 	class.SupportsReset = supportsReset
+	class.Pointer = pointer == true
 	return class
 end
 
@@ -293,7 +294,9 @@ end
 
 function MinigameBase:ConnectKeys(map: { [Enum.KeyCode]: any }, callback: (value: any) -> ())
 	self:Track(UserInputService.InputBegan:Connect(function(input: InputObject)
-		if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+		if input.UserInputType ~= Enum.UserInputType.Keyboard and input.UserInputType ~= Enum.UserInputType.Gamepad1 then
+			return
+		end
 		local value = map[input.KeyCode]
 		if value ~= nil then
 			callback(value)

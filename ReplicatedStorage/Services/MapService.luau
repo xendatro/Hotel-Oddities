@@ -373,6 +373,7 @@ xenterface:Controller(Gui.PageGroup).Fired:Connect(function(data)
 	if opened == IsOpen then return end
 
 	IsOpen = opened
+	MapControlService:SetGamepadActive(opened)
 	if not opened then return end
 
 	MapControlService:Reset(true)
@@ -384,7 +385,10 @@ local function bindMapInput()
 	if MapInputConnection or not ownsMap() then return end
 
 	MapInputConnection = UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
-		if processed or input.KeyCode ~= MapConfig.Controls.ToggleKey then return end
+		if processed then return end
+		if input.KeyCode ~= MapConfig.Controls.ToggleKey and input.KeyCode ~= MapConfig.Controls.GamepadToggleKey then
+			return
+		end
 
 		local controller = xenterface:Controller(Gui.PageGroup)
 		controller:Fire(if controller.Active == Gui.PageId then "" else Gui.PageId)

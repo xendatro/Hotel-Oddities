@@ -8,6 +8,7 @@ if not RunService:IsClient() then
 end
 
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local GamepadUIConfig = require(ReplicatedStorage.Configs.GamepadUIConfig)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local Interaction = require(ReplicatedStorage.Services.InteractionService)
 local InterfaceService = require(ReplicatedStorage.Services.InterfaceService)
@@ -79,6 +80,7 @@ end
 
 InterfaceService.WireMotion(yesButton)
 InterfaceService.WireMotion(noButton)
+noButton:SetAttribute(GamepadUIConfig.DefaultAttribute, true)
 
 yesButton.Activated:Connect(function()
 	if not isOpen() then return end

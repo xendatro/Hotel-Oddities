@@ -9,7 +9,7 @@ setmetatable(Tab, Toggle)
 
 local function setUpConnections(self)
 	self.Connections = {}
-	self.Connections.MouseButton1Click = self.Tab.MouseButton1Click:Connect(function()
+	self.Connections.Activated = self.Tab.Activated:Connect(function()
 		local controller = ControllerService:Get(self.PageGroup)
 		
 		if self.Tab:GetAttribute("Toggle") == true then

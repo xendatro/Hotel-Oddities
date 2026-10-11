@@ -5,6 +5,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local Config = require(ReplicatedStorage.Configs.WalkieTalkieConfig)
+local GamepadUIService = require(ReplicatedStorage.Services.GamepadUIService)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local InterfaceService = require(ReplicatedStorage.Services.InterfaceService)
 local SurfaceCursorService = require(ReplicatedStorage.Services.SurfaceCursorService)
@@ -21,6 +22,7 @@ local UI = Config.Ui
 local COLORS = UI.Colors
 local STATUS = UI.Status
 local BIND_NAME = "WalkieScreen"
+local CURSOR_KEY = "Walkie"
 
 local player = Players.LocalPlayer
 local playerGui = GuiBuilderService.GetPlayerGui()
@@ -277,16 +279,22 @@ local function refreshChrome(current: Screen, powered: boolean, raised: boolean)
 
 	local transmitting = WalkieTalkieService:IsTransmitting()
 	current.Footer.Signal.TextColor3 = if transmitting then COLORS.NoVoice else COLORS.Idle
+	local gamepad = GamepadUIService:IsGamepad()
+	local raiseKey = if gamepad
+		then GamepadUIService:KeyText(Config.Keys.GamepadRaise)
+		else Config.Keys.Raise.Name
 	current.Footer.Hint.Text = if raised
-		then string.format(UI.Hints.Raised, Config.Keys.Raise.Name)
+		then string.format(UI.Hints.Raised, raiseKey)
 		elseif transmitting then UI.Hints.Talking
 		elseif math.floor(os.clock() / UI.HintCycle) % 2 == 1
-		then string.format(UI.Hints.Lowered, Config.Keys.Raise.Name)
+		then string.format(UI.Hints.Lowered, raiseKey)
+		elseif gamepad then string.format(UI.Hints.TalkGamepad, GamepadUIService:KeyText(Config.Keys.GamepadTalk))
 		else UI.Hints.Talk
 
 	current.Off.Visible = not powered
-	current.Off.Prompt.Text = if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	current.Off.Prompt.Text = if UserInputService.PreferredInput == Enum.PreferredInput.Touch
 		then UI.OffPromptTouch
+		elseif gamepad then string.format(UI.OffPromptGamepad, raiseKey)
 		else string.format(UI.OffPrompt, Config.Keys.Power.Name)
 end
 
@@ -394,6 +402,7 @@ local function step()
 	local powered = WalkieTalkieService:IsPowered()
 	local raised = WalkieTalkieService:IsRaised()
 	setMouseUnlocked(raised)
+	GamepadUIService:SetCursor(CURSOR_KEY, raised)
 	if wasRaised and not raised then settingsOpen = false end
 	wasRaised = raised
 	if not raised then

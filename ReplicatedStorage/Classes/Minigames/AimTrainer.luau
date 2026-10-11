@@ -26,7 +26,7 @@ local MIN_TRAVEL = 200
 local PLACEMENT_TRIES = 24
 local URGENT = 0.8
 
-local AimTrainer = MinigameBase.extend("AimTrainer", "AIMTRAIN.EXE", true)
+local AimTrainer = MinigameBase.extend("AimTrainer", "AIMTRAIN.EXE", true, true)
 
 function AimTrainer.new(root: Frame, api: Api)
 	local self = MinigameBase.new(root, api, AimTrainer)
