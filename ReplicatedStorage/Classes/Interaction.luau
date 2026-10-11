@@ -212,6 +212,20 @@ function Interaction:_buildPrompt()
 		end
 	end
 
+	local tap = Instance.new("TextButton")
+	tap.Name = "Tap"
+	tap.Size = UDim2.fromScale(1, 1)
+	tap.BackgroundTransparency = 1
+	tap.Text = ""
+	tap.Selectable = false
+	tap.ZIndex = 10
+	tap.Visible = false
+	tap.Parent = pill
+	tap.InputBegan:Connect(function(input: InputObject)
+		if input.UserInputType ~= Enum.UserInputType.Touch then return end
+		self:_pressPrompt(input)
+	end)
+
 	self._prompt = {
 		Container = container,
 		Anchor = container.AnchorPoint,
@@ -222,6 +236,7 @@ function Interaction:_buildPrompt()
 		KeyLabel = keyLabel,
 		Action = action,
 		Fill = fill,
+		Tap = tap,
 	}
 	self:_layout(UI.KeySize, UI.TextWidth)
 end
@@ -485,9 +500,82 @@ function Interaction:_targetAtScreen(position: Vector2): Target?
 	return target
 end
 
+local function screenGap(camera: Camera, model: Model, position: Vector2): number?
+	local cframe, size = model:GetBoundingBox()
+	local half = size / 2
+	local low, high = Vector2.new(math.huge, math.huge), Vector2.new(-math.huge, -math.huge)
+
+	for _, x in { -1, 1 } do
+		for _, y in { -1, 1 } do
+			for _, z in { -1, 1 } do
+				local corner = cframe:PointToWorldSpace(half * Vector3.new(x, y, z))
+				local screen = camera:WorldToScreenPoint(corner)
+				if screen.Z <= 0 then return nil end
+				low = Vector2.new(math.min(low.X, screen.X), math.min(low.Y, screen.Y))
+				high = Vector2.new(math.max(high.X, screen.X), math.max(high.Y, screen.Y))
+			end
+		end
+	end
+
+	local dx = math.max(low.X - position.X, 0, position.X - high.X)
+	local dy = math.max(low.Y - position.Y, 0, position.Y - high.Y)
+	return math.sqrt(dx * dx + dy * dy)
+end
+
+function Interaction:_targetNearScreen(position: Vector2): Target?
+	local camera = workspace.CurrentCamera
+	local character = player.Character
+	local humanoid = self._cachedHumanoid
+	if not camera or not character or character ~= self._cachedCharacter or not humanoid or humanoid.Health <= 0 then
+		return nil
+	end
+	self:_resetIgnored(character)
+
+	local origin = camera.CFrame.Position
+	local viewport = camera.ViewportSize
+	local best: Target? = nil
+	local bestDistance = math.min(viewport.X, viewport.Y) * TARGETING.TouchTapMargin
+
+	for model, target in self._targets do
+		if not model:IsDescendantOf(workspace) then continue end
+
+		local reach = target.Reach or TARGETING.Reach
+		if (model:GetPivot().Position - origin).Magnitude > reach + TARGETING.TouchScanMargin then continue end
+
+		local point, radius = self:_touchPoint(target)
+		local worldDistance = math.max((point - origin).Magnitude - radius, 0)
+		if worldDistance > reach then continue end
+
+		local distance = screenGap(camera, model, position)
+		if not distance or distance >= bestDistance then continue end
+		if not self:_selectable(target, worldDistance) then continue end
+		if not target.IgnoreOcclusion and not self:_inSight(origin, point, target) then continue end
+
+		best = target
+		bestDistance = distance
+	end
+
+	return best
+end
+
+function Interaction:_pressPrompt(input: InputObject)
+	local target = self._selectedTarget
+	if not target or not self:_selectable(target, 0) then return end
+
+	if target.HoldDuration and target.HoldDuration > 0 then
+		self._holdTarget = target
+		self._holdStart = os.clock()
+		self._tapInput = input
+		self._tapOrigin = Vector2.new(input.Position.X, input.Position.Y)
+		return
+	end
+
+	self:_activate(target)
+end
+
 function Interaction:_pressWorld(input: InputObject)
 	local position = Vector2.new(input.Position.X, input.Position.Y)
-	local target = self:_targetAtScreen(position)
+	local target = self:_targetAtScreen(position) or self:_targetNearScreen(position)
 	if not (target and target.HoldDuration and target.HoldDuration > 0) then return end
 
 	self._touchTarget = target
@@ -498,7 +586,7 @@ function Interaction:_pressWorld(input: InputObject)
 end
 
 function Interaction:_tapWorld(position: Vector2)
-	local target = self:_targetAtScreen(position)
+	local target = self:_targetAtScreen(position) or self:_targetNearScreen(position)
 	if not target then return end
 
 	self._touchTarget = target
@@ -706,6 +794,7 @@ function Interaction:_renderPrompt(deltaTime: number, text: string?, target: Tar
 	if self._pressFlash < 1e-3 then self._pressFlash = 0 end
 
 	prompt.Container.Visible = self._promptAlpha > 0
+	prompt.Tap.Visible = self._touching and text ~= nil
 	if self._promptAlpha <= 0 then return end
 
 	local shownText = text or self._shownText

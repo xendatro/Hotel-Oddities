@@ -1,10 +1,10 @@
 local CollectionService = game:GetService("CollectionService")
-local GamepadService = game:GetService("GamepadService")
 local GuiService = game:GetService("GuiService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
+local GamepadCursor = require(ReplicatedStorage.Classes.GamepadCursor)
 local GamepadUIConfig = require(ReplicatedStorage.Configs.GamepadUIConfig)
 
 local GamepadUIService = {}
@@ -25,8 +25,15 @@ type Layer = {
 	Select: boolean,
 }
 
+type CursorClaim = {
+	Key: string,
+	Handler: GamepadCursor.Handler,
+}
+
 local layers: { Layer } = {}
-local cursorKeys: { [string]: true } = {}
+local bars: { GuiObject } = {}
+local cursorClaims: { CursorClaim } = {}
+local cursor = GamepadCursor.new()
 local lastBack = 0
 
 local changed = Instance.new("BindableEvent")
@@ -36,7 +43,13 @@ local function isGamepad(): boolean
 	return UserInputService.PreferredInput == Enum.PreferredInput.Gamepad
 end
 
+local function belongsTo(object: Instance, root: GuiObject): boolean
+	if object:FindFirstAncestorWhichIsA("ViewportFrame") then return false end
+	return object:FindFirstAncestorWhichIsA("LayerCollector") == root:FindFirstAncestorWhichIsA("LayerCollector")
+end
+
 local function shownWithin(object: GuiObject, root: GuiObject): boolean
+	if not belongsTo(object, root) then return false end
 	local current: Instance? = object
 	while current do
 		if current:IsA("GuiObject") and not current.Visible then return false end
@@ -54,9 +67,12 @@ local function prepare(root: GuiObject)
 	root.SelectionBehaviorRight = Enum.SelectionBehavior.Stop
 
 	for _, descendant in root:GetDescendants() do
-		if descendant:IsA("GuiButton") and descendant:GetAttribute(GamepadUIConfig.SkipAttribute) ~= true then
-			descendant.Selectable = true
+		if not descendant:IsA("GuiButton") then continue end
+		if descendant:GetAttribute(GamepadUIConfig.SkipAttribute) == true or not belongsTo(descendant, root) then
+			descendant.Selectable = false
+			continue
 		end
+		descendant.Selectable = true
 	end
 end
 
@@ -92,15 +108,16 @@ local function pickDefault(root: GuiObject): GuiObject?
 end
 
 local function refreshCursor()
-	local wanted = next(cursorKeys) ~= nil and isGamepad()
-	if wanted == GamepadService.GamepadCursorEnabled then return end
-	pcall(function()
-		if wanted then
-			GamepadService:EnableGamepadCursor(nil)
-		else
-			GamepadService:DisableGamepadCursor()
-		end
-	end)
+	local claim = cursorClaims[#cursorClaims]
+	cursor:SetHandler(if claim and isGamepad() then claim.Handler else nil)
+end
+
+local function inBar(object: Instance?): GuiObject?
+	if not object then return nil end
+	for _, bar in bars do
+		if object:IsDescendantOf(bar) then return bar end
+	end
+	return nil
 end
 
 local function topLayer(): Layer?
@@ -169,10 +186,27 @@ function GamepadUIService:Release(root: GuiObject)
 	task.delay(GamepadUIConfig.SelectDelay, selectTop)
 end
 
-function GamepadUIService:SetCursor(key: string, enabled: boolean)
-	if (cursorKeys[key] == true) == enabled then return end
-	cursorKeys[key] = if enabled then true else nil
+function GamepadUIService:SetCursor(key: string, handler: GamepadCursor.Handler?)
+	for index = #cursorClaims, 1, -1 do
+		if cursorClaims[index].Key == key then
+			if cursorClaims[index].Handler == handler then return end
+			table.remove(cursorClaims, index)
+		end
+	end
+	if handler then
+		table.insert(cursorClaims, { Key = key, Handler = handler })
+		GuiService.SelectedObject = nil
+	end
 	refreshCursor()
+end
+
+function GamepadUIService:IsCursorShown(): boolean
+	return cursor.Shown
+end
+
+function GamepadUIService:RegisterBar(root: GuiObject)
+	if table.find(bars, root) then return end
+	table.insert(bars, root)
 end
 
 function GamepadUIService:IsFocused(): boolean
@@ -181,6 +215,7 @@ end
 
 function GamepadUIService:IsCapturing(): boolean
 	return #layers > 0
+		or cursor.Shown
 		or GuiService.SelectedObject ~= nil
 		or os.clock() - lastBack < GamepadUIConfig.BackWindow
 end
@@ -189,7 +224,13 @@ UserInputService.InputBegan:Connect(function(input: InputObject)
 	if not table.find(GamepadUIConfig.BackKeys, input.KeyCode) then return end
 
 	local layer = topLayer()
-	if not layer then return end
+	if not layer then
+		if inBar(GuiService.SelectedObject) then
+			lastBack = os.clock()
+			GuiService.SelectedObject = nil
+		end
+		return
+	end
 
 	local selected = GuiService.SelectedObject
 	if selected and not selected:IsDescendantOf(layer.Root) then return end
@@ -222,11 +263,6 @@ UserInputService:GetPropertyChangedSignal("PreferredInput"):Connect(function()
 	end
 	refreshCursor()
 	changed:Fire(isGamepad())
-end)
-
-GamepadService:GetPropertyChangedSignal("GamepadCursorEnabled"):Connect(function()
-	if GamepadService.GamepadCursorEnabled or next(cursorKeys) == nil then return end
-	task.delay(GamepadUIConfig.CursorRestoreDelay, refreshCursor)
 end)
 
 return GamepadUIService

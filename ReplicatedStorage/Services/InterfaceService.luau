@@ -37,6 +37,7 @@ local UI_OPEN_SOUND = "UIOpen"
 local UI_CLOSE_SOUND = "UIClose"
 local PAGE_ACTION = "InterfacePageToggle"
 local QUICK_UNLOCK_HINT_GUI = "Info"
+local TOPBAR_ICON_ATTRIBUTE = "CorrespondingIconUID"
 
 local player = Players.LocalPlayer
 local playerGui = GuiBuilderService.GetPlayerGui()
@@ -196,6 +197,8 @@ end
 
 local LABEL = SideButtonConfig.Label
 local labelPages: { [TextLabel]: string } = {}
+local sideButtons: { GuiButton } = {}
+local lastTopbarRegion: GuiObject? = nil
 
 local function labelText(pageId: string): string
 	local page = SideButtonConfig.Pages[pageId]
@@ -253,8 +256,44 @@ local function wireSideButton(instance: Instance)
 	local pageId = instance:GetAttribute("PageId")
 	if type(pageId) == "string" and SideButtonConfig.Pages[pageId] then
 		addLabel(instance, pageId)
+		instance.Selectable = true
+		table.insert(sideButtons, instance)
+		if instance.Parent and instance.Parent:IsA("GuiObject") then
+			GamepadUIService:RegisterBar(instance.Parent)
+		end
 	end
 end
+
+local function sideButtonShown(button: GuiButton): boolean
+	local gui = button:FindFirstAncestorWhichIsA("LayerCollector")
+	return button.Parent ~= nil and button.Visible and gui ~= nil and gui.Enabled
+end
+
+local function topSideButton(): GuiButton?
+	local best: GuiButton? = nil
+	for _, button in sideButtons do
+		if not sideButtonShown(button) then continue end
+		if not best or button.AbsolutePosition.Y < best.AbsolutePosition.Y then
+			best = button
+		end
+	end
+	return best
+end
+
+GuiService:GetPropertyChangedSignal("SelectedObject"):Connect(function()
+	local selected = GuiService.SelectedObject
+	if not selected then return end
+
+	if selected:GetAttribute(TOPBAR_ICON_ATTRIBUTE) ~= nil then
+		lastTopbarRegion = selected
+		selected.NextSelectionDown = topSideButton()
+		return
+	end
+
+	if table.find(sideButtons, selected :: GuiButton) and selected == topSideButton() then
+		selected.NextSelectionUp = lastTopbarRegion
+	end
+end)
 
 local function refreshQuickUnlockHint()
 	local hint = playerGui:FindFirstChild(QUICK_UNLOCK_HINT_GUI)

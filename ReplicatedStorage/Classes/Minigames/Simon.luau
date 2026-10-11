@@ -100,9 +100,11 @@ function Simon:_buildBoard()
 		stroke.Parent = button
 
 		self.PadButtons[index] = button
-		self:Track(button.Activated:Connect(function()
+		local function press()
 			self:_press(index)
-		end))
+		end
+		self:Track(button.Activated:Connect(press))
+		self:BindPress(button, press)
 	end
 
 	local centre = self:NewLabel(board, "", 22)

@@ -28,6 +28,7 @@ return {
 		TouchRefresh = 0.1,
 		TouchScanMargin = 8,
 		TouchDragCancel = 0.03,
+		TouchTapMargin = 0.08,
 		AssistAngles = { 4, 8 },
 		AssistRays = 8,
 	},

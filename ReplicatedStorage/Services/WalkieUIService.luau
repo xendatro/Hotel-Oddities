@@ -23,6 +23,7 @@ local COLORS = UI.Colors
 local STATUS = UI.Status
 local BIND_NAME = "WalkieScreen"
 local CURSOR_KEY = "Walkie"
+local cursorHandler: any = nil
 
 local player = Players.LocalPlayer
 local playerGui = GuiBuilderService.GetPlayerGui()
@@ -396,13 +397,60 @@ local function isUsable(): boolean
 	return WalkieTalkieService:IsPowered() and WalkieTalkieService:IsEquipped()
 end
 
+local function beginPointer(viewportPoint: Vector2)
+	local point = project(viewportPoint)
+	if not point then return end
+	if WalkieTalkieService:IsRaised() and press(point) then return end
+	dragging = true
+	dragPoint = point
+end
+
+local function movePointer(viewportPoint: Vector2)
+	if not dragging and not activeSlider then return end
+
+	local point = project(viewportPoint)
+	if not point then return end
+
+	local slider = activeSlider
+	if slider then
+		if slider.Element.Parent then
+			slider.Apply(SurfaceCursorService:GetAlpha(slider.Element, point))
+		else
+			activeSlider = nil
+		end
+		return
+	end
+
+	if not dragging or not dragPoint then return end
+	scroll((dragPoint.Y - point.Y) * UI.DragSpeed)
+	dragPoint = point
+end
+
+local function endPointer()
+	activeSlider = nil
+	dragging = false
+	dragPoint = nil
+end
+
+cursorHandler = {
+	Press = function(point: Vector2)
+		if isUsable() then beginPointer(point) end
+	end,
+	Move = function(point: Vector2)
+		if isUsable() then movePointer(point) end
+	end,
+	Release = function()
+		endPointer()
+	end,
+}
+
 local function step()
 	rebind()
 
 	local powered = WalkieTalkieService:IsPowered()
 	local raised = WalkieTalkieService:IsRaised()
 	setMouseUnlocked(raised)
-	GamepadUIService:SetCursor(CURSOR_KEY, raised)
+	GamepadUIService:SetCursor(CURSOR_KEY, if raised and isUsable() then cursorHandler else nil)
 	if wasRaised and not raised then settingsOpen = false end
 	wasRaised = raised
 	if not raised then
@@ -436,11 +484,7 @@ UserInputService.InputBegan:Connect(function(input: InputObject)
 		return
 	end
 
-	local point = project(viewportPointOf(input))
-	if not point then return end
-	if WalkieTalkieService:IsRaised() and press(point) then return end
-	dragging = true
-	dragPoint = point
+	beginPointer(viewportPointOf(input))
 end)
 
 UserInputService.InputChanged:Connect(function(input: InputObject)
@@ -458,24 +502,7 @@ UserInputService.InputChanged:Connect(function(input: InputObject)
 	then
 		return
 	end
-	if not dragging and not activeSlider then return end
-
-	local point = project(viewportPointOf(input))
-	if not point then return end
-
-	local slider = activeSlider
-	if slider then
-		if slider.Element.Parent then
-			slider.Apply(SurfaceCursorService:GetAlpha(slider.Element, point))
-		else
-			activeSlider = nil
-		end
-		return
-	end
-
-	if not dragging or not dragPoint then return end
-	scroll((dragPoint.Y - point.Y) * UI.DragSpeed)
-	dragPoint = point
+	movePointer(viewportPointOf(input))
 end)
 
 UserInputService.InputEnded:Connect(function(input: InputObject)
@@ -484,9 +511,7 @@ UserInputService.InputEnded:Connect(function(input: InputObject)
 	then
 		return
 	end
-	activeSlider = nil
-	dragging = false
-	dragPoint = nil
+	endPointer()
 end)
 
 RunService:BindToRenderStep(BIND_NAME, Enum.RenderPriority.Last.Value, step)

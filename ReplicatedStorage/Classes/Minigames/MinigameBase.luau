@@ -1,5 +1,8 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+
+local SurfaceCursorService = require(ReplicatedStorage.Services.SurfaceCursorService)
 
 local MinigameBase = {}
 MinigameBase.__index = MinigameBase
@@ -14,6 +17,12 @@ export type Theme = {
 	Danger: Color3,
 	Text: Color3,
 	TextDim: Color3,
+}
+
+type Pressable = {
+	Button: GuiObject,
+	Press: () -> (),
+	Alternate: (() -> ())?,
 }
 
 export type Api = {
@@ -38,9 +47,6 @@ MinigameBase.Directions = {
 	[Enum.KeyCode.DPadRight] = { 1, 0 },
 } :: { [Enum.KeyCode]: { number } }
 
-local STICK_PRESS = 0.6
-local STICK_RELEASE = 0.35
-
 local SWIPE_DISTANCE = 0.06
 
 local PAD_LAYOUT = {
@@ -50,13 +56,12 @@ local PAD_LAYOUT = {
 	{ Text = "D", Column = 2, Row = 1, X = 1, Y = 0 },
 }
 
-function MinigameBase.extend(id: string, title: string, supportsReset: boolean, pointer: boolean?)
+function MinigameBase.extend(id: string, title: string, supportsReset: boolean)
 	local class = setmetatable({}, { __index = MinigameBase })
 	class.__index = class
 	class.Id = id
 	class.Title = title
 	class.SupportsReset = supportsReset
-	class.Pointer = pointer == true
 	return class
 end
 
@@ -75,10 +80,42 @@ function MinigameBase.new(root: Frame, api: Api, class: any?)
 	self.MessageUntil = 0
 	self.MessageTime = 1
 	self.Heartbeat = nil :: RBXScriptConnection?
+	self.Pressables = {} :: { Pressable }
 
 	setUpConnections(self)
 
 	return self
+end
+
+function MinigameBase:BindPress(button: GuiObject, onPress: () -> (), onAlternate: (() -> ())?)
+	table.insert(self.Pressables, { Button = button, Press = onPress, Alternate = onAlternate })
+end
+
+local function pressable(button: GuiObject, root: Instance): boolean
+	if button:IsA("GuiButton") and not button.Interactable then return false end
+	local current: Instance? = button
+	while current and current ~= root do
+		if current:IsA("GuiObject") and not current.Visible then return false end
+		current = current.Parent
+	end
+	return current == root
+end
+
+function MinigameBase:PressAt(point: Vector2, alternate: boolean): boolean
+	for index = #self.Pressables, 1, -1 do
+		local entry = self.Pressables[index]
+		local button = entry.Button
+		if not button.Parent then
+			table.remove(self.Pressables, index)
+			continue
+		end
+		if not pressable(button, self.Root) or not SurfaceCursorService:Contains(button, point) then continue end
+
+		local handler = if alternate then entry.Alternate or entry.Press else entry.Press
+		handler()
+		return true
+	end
+	return false
 end
 
 function MinigameBase:Track(connection: RBXScriptConnection): RBXScriptConnection
@@ -198,9 +235,11 @@ function MinigameBase:BuildDirectionalPad(callback: (x: number, y: number) -> ()
 		local button = self:NewButton(pad, entry.Text)
 		button.Position = UDim2.fromScale(entry.Column / 3 + 0.02, entry.Row / 2 + 0.04)
 		button.Size = UDim2.fromScale(1 / 3 - 0.04, 1 / 2 - 0.08)
-		self:Track(button.Activated:Connect(function()
+		local function press()
 			callback(entry.X, entry.Y)
-		end))
+		end
+		self:Track(button.Activated:Connect(press))
+		self:BindPress(button, press)
 	end
 end
 
@@ -212,24 +251,6 @@ function MinigameBase:ConnectDirectionalKeys(callback: (x: number, y: number) ->
 		local direction = MinigameBase.Directions[input.KeyCode]
 		if direction then
 			callback(direction[1], direction[2])
-		end
-	end))
-
-	local stickHeld = false
-	self:Track(UserInputService.InputChanged:Connect(function(input: InputObject)
-		if input.KeyCode ~= Enum.KeyCode.Thumbstick1 then return end
-		local x, y = input.Position.X, input.Position.Y
-		local magnitude = math.max(math.abs(x), math.abs(y))
-		if magnitude < STICK_RELEASE then
-			stickHeld = false
-			return
-		end
-		if stickHeld or magnitude < STICK_PRESS then return end
-		stickHeld = true
-		if math.abs(x) >= math.abs(y) then
-			callback(if x > 0 then 1 else -1, 0)
-		else
-			callback(0, if y > 0 then -1 else 1)
 		end
 	end))
 end
@@ -370,6 +391,7 @@ function MinigameBase:OnDestroy() end
 function MinigameBase:Destroy()
 	self.State = "dead"
 	self:StopHeartbeat()
+	table.clear(self.Pressables)
 
 	for _, connection in self.Connections do
 		connection:Disconnect()

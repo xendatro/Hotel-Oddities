@@ -4,11 +4,27 @@ return {
 	},
 	BackWindow = 0.25,
 	SelectDelay = 0.05,
-	CursorRestoreDelay = 0.3,
 
 	SkipAttribute = "GamepadSkip",
 	DefaultAttribute = "GamepadDefault",
 	CloseTag = "InterfaceCloseButton",
+
+	Cursor = {
+		GuiName = "GamepadCursor",
+		DisplayOrder = 1000,
+		Image = "rbxasset://textures/Cursors/KeyboardMouse/ArrowFarCursor.png",
+		Size = 64,
+		Speed = 0.9,
+		Deadzone = 0.15,
+		Curve = 1.6,
+		PressKeys = {
+			Enum.KeyCode.ButtonR2,
+		},
+		AlternateKeys = {
+			Enum.KeyCode.ButtonL2,
+		},
+		Priority = Enum.ContextActionPriority.High.Value + 10,
+	},
 
 	KeyText = {
 		[Enum.KeyCode.ButtonA] = "A",

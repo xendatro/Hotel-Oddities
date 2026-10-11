@@ -26,7 +26,7 @@ local MIN_TRAVEL = 200
 local PLACEMENT_TRIES = 24
 local URGENT = 0.8
 
-local AimTrainer = MinigameBase.extend("AimTrainer", "AIMTRAIN.EXE", true, true)
+local AimTrainer = MinigameBase.extend("AimTrainer", "AIMTRAIN.EXE", true)
 
 function AimTrainer.new(root: Frame, api: Api)
 	local self = MinigameBase.new(root, api, AimTrainer)
@@ -213,9 +213,11 @@ function AimTrainer:_build()
 		piece.Parent = target
 	end
 
-	self:Track(target.MouseButton1Down:Connect(function()
+	local function hit()
 		self:_hit()
-	end))
+	end
+	self:Track(target.MouseButton1Down:Connect(hit))
+	self:BindPress(target, hit)
 end
 
 function AimTrainer:Start(saved: any?)
