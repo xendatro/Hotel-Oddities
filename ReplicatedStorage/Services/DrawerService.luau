@@ -29,6 +29,7 @@ local States: { [Model]: State } = {}
 local Moving: { [State]: true } = {}
 local focused: Model? = nil
 local lastToggle = 0
+local contents: { Find: (drawer: Model) -> Model?, Take: (item: Model) -> boolean }? = nil
 
 local function desiredOpen(state: State): boolean
 	if state.Predicted ~= nil then return state.Predicted end
@@ -40,6 +41,12 @@ local function refresh(state: State, immediate: boolean?)
 	if not immediate then
 		Moving[state] = true
 	end
+end
+
+local function takeableItem(state: State): Model?
+	if not contents or not state.Drawer:IsOpen() then return nil end
+	if Interaction:GetInputMode() == "Keyboard" then return nil end
+	return contents.Find(state.Drawer.Model)
 end
 
 local function register(model: Model): State?
@@ -62,11 +69,17 @@ local function register(model: Model): State?
 		Prompt = function(target: Model): string?
 			local current = States[target]
 			if not current then return nil end
+			if takeableItem(current) then return DrawerConfig.UI.TakeText end
 			return if current.Drawer:IsOpen() then DrawerConfig.UI.CloseText else DrawerConfig.UI.OpenText
 		end,
 		TextWidth = DrawerConfig.UI.TextWidth,
 		Reach = DrawerConfig.Targeting.Reach,
 		OnActivated = function(target: Model)
+			local current = States[target]
+			local item = current and takeableItem(current)
+			if item and contents then
+				return contents.Take(item)
+			end
 			return DrawerService:Toggle(target)
 		end,
 	})
@@ -92,6 +105,10 @@ function DrawerService:IsOpen(model: Model?): boolean
 	local target = model or focused
 	local state = target and States[target]
 	return state ~= nil and state.Drawer:IsOpen()
+end
+
+function DrawerService:SetContents(find: (drawer: Model) -> Model?, take: (item: Model) -> boolean)
+	contents = { Find = find, Take = take }
 end
 
 function DrawerService:Sync(model: Model)

@@ -32,7 +32,14 @@ MinigameBase.Directions = {
 	[Enum.KeyCode.Left] = { -1, 0 },
 	[Enum.KeyCode.D] = { 1, 0 },
 	[Enum.KeyCode.Right] = { 1, 0 },
+	[Enum.KeyCode.DPadUp] = { 0, -1 },
+	[Enum.KeyCode.DPadDown] = { 0, 1 },
+	[Enum.KeyCode.DPadLeft] = { -1, 0 },
+	[Enum.KeyCode.DPadRight] = { 1, 0 },
 } :: { [Enum.KeyCode]: { number } }
+
+local STICK_PRESS = 0.6
+local STICK_RELEASE = 0.35
 
 local SWIPE_DISTANCE = 0.06
 
@@ -198,12 +205,39 @@ end
 
 function MinigameBase:ConnectDirectionalKeys(callback: (x: number, y: number) -> ())
 	self:Track(UserInputService.InputBegan:Connect(function(input: InputObject)
-		if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+		if input.UserInputType ~= Enum.UserInputType.Keyboard and input.UserInputType ~= Enum.UserInputType.Gamepad1 then
+			return
+		end
 		local direction = MinigameBase.Directions[input.KeyCode]
 		if direction then
 			callback(direction[1], direction[2])
 		end
 	end))
+
+	local stickHeld = false
+	self:Track(UserInputService.InputChanged:Connect(function(input: InputObject)
+		if input.KeyCode ~= Enum.KeyCode.Thumbstick1 then return end
+		local x, y = input.Position.X, input.Position.Y
+		local magnitude = math.max(math.abs(x), math.abs(y))
+		if magnitude < STICK_RELEASE then
+			stickHeld = false
+			return
+		end
+		if stickHeld or magnitude < STICK_PRESS then return end
+		stickHeld = true
+		if math.abs(x) >= math.abs(y) then
+			callback(if x > 0 then 1 else -1, 0)
+		else
+			callback(0, if y > 0 then -1 else 1)
+		end
+	end))
+end
+
+function MinigameBase:InputHint(): string
+	local preferred = UserInputService.PreferredInput
+	if preferred == Enum.PreferredInput.Touch then return "SWIPE" end
+	if preferred == Enum.PreferredInput.Gamepad then return "D-PAD" end
+	return "WASD"
 end
 
 function MinigameBase:ConnectSwipes(callback: (x: number, y: number) -> (), continuous: boolean?)

@@ -235,7 +235,7 @@ Client renderer for every swinging door part inside a `Doorway`+`RoomDoor` model
 - Requires: `Classes.DoorPart`, `Configs.DoorConfig` (`OpenAttribute`, `OpenFromAttribute`), `CharacterService`, `TagService`
 
 ### DrawerItemService.luau
-Client-only. Registers every `DrawerItem` model, including hallway currency displays, as an interactable pick-up and fires the server when one is activated, with a short cooldown. Successful currency pickups show a `+N Coins` or `+N Gems` notification and play the configured 2D pickup sound when its sound template exists. An item pickup that lands in the bag shows an `Added [item] to your bag` notification; hotbar pickups do not. Newly appearing drawer items also re-sync their parent drawer so the item sits at the drawer's current position. A display whose `OwnerUserId` attribute names another player is destroyed locally and never registered, so only its owner sees it.
+Client-only. Registers every `DrawerItem` model, including hallway currency displays, as an interactable pick-up and fires the server when one is activated, with a short cooldown. Successful currency pickups show a `+N Coins` or `+N Gems` notification and play the configured 2D pickup sound when its sound template exists. An item pickup that lands in the bag shows an `Added [item] to your bag` notification; hotbar pickups do not. Newly appearing drawer items also re-sync their parent drawer so the item sits at the drawer's current position. Registers itself with `DrawerService:SetContents` so an open drawer's `Take` prompt picks up its item; a requested item is skipped by that lookup for one second so a second press closes the drawer while the server removes it. A display whose `OwnerUserId` attribute names another player is destroyed locally and never registered, so only its owner sees it.
 - API: `DrawerItemService:GetFocused() -> Model?` — the item currently under the interaction cursor
 - API: `DrawerItemService:Pickup(model: Model?) -> boolean` — request pickup of the given (or focused) item
 - Remotes: `DrawerItem/Pickup` (fired), `DrawerItem/PickupResult` (listened)
@@ -243,9 +243,10 @@ Client-only. Registers every `DrawerItem` model, including hallway currency disp
 - Requires: `Configs.DrawerItemConfig`, `Configs.ItemShopConfig`, `AudioService`, `DrawerService`, `InteractionService`, `MathService`, `NotificationService`
 
 ### DrawerService.luau
-Client-only. Wraps every `Drawer` model in a `Drawer` class instance, registers it as an interactable with an open/close prompt, and animates it toward the server's open attribute each frame. Toggling predicts the new state locally for up to a second so the drawer moves immediately, then falls back to the replicated attribute.
+Client-only. Wraps every `Drawer` model in a `Drawer` class instance, registers it as an interactable with an open/close prompt, and animates it toward the server's open attribute each frame. Toggling predicts the new state locally for up to a second so the drawer moves immediately, then falls back to the replicated attribute. On touch and gamepad an open drawer that still holds a pickup prompts `Take` instead of `Close`, and activating it picks the item up through the registered contents handler; the next activation closes it. Keyboard keeps the plain open/close toggle.
 - API: `DrawerService:GetFocused() -> Model?` — the drawer currently under the interaction cursor
 - API: `DrawerService:IsOpen(model: Model?) -> boolean` — open state of the given (or focused) drawer
+- API: `DrawerService:SetContents(find: (drawer: Model) -> Model?, take: (item: Model) -> boolean)` — registers how to find and take a drawer's pickup; set by `DrawerItemService`
 - API: `DrawerService:Sync(model: Model)` — reapplies the drawer's current position (used when contents appear)
 - API: `DrawerService:Toggle(model: Model?) -> boolean` — predicts and requests the opposite state
 - Remotes: `Drawer/Toggle` (fired)

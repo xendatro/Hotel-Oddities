@@ -106,6 +106,8 @@ On touch (the last input was a touch) it stops aiming down the screen centre and
 - A target with a `HoldDuration` fires `OnActivated` only once the key (or, on touch, a finger on the object) has been held that many seconds, with a `Hold` bar filling across the prompt pill behind the key and label; releasing the key, looking away, or the target going unselectable cancels the hold and the bar
 - API: `Interaction:Unregister(model: Model)`
 - API: `Interaction:GetSelected() -> Model?`
+- API: `Interaction:GetInputMode() -> string` — `Touch`, `Gamepad` or `Keyboard`, from the last input type
+- Gamepad aim assist: when the centre ray finds nothing, rings of `Targeting.AssistRays` rays at each of `Targeting.AssistAngles` degrees off centre are cast, nearest ring first, so a target only near the crosshair still selects
 - API: `Interaction.Selected` — event fired with the newly selected model or nil
 - API: `Interaction:Destroy()`
 - Requires: `Configs.DrawerConfig` (Targeting/Input/Highlight/UI sections), `PlayerGui.Cursor` UI template
@@ -453,7 +455,7 @@ Who is on stage in the ending and what they do. Builds a stand-in and a double f
 Shared base class every terminal minigame extends: it owns the root frame, theme, run state, tracked connections and heartbeat, and supplies GUI builders (board, status bar, D-pad), input helpers and win/fail plumbing. Subclasses are created with `MinigameBase.extend(id, title, supportsReset)` (which stamps `Id`, `Title`, `SupportsReset` on the class) and must pass their class into `MinigameBase.new(root, api, class)`. The host supplies an `Api` of `{ Complete, Fail?, Theme, Sound? }`; the lifecycle contract a subclass fulfils is `:Start(saved)` (build UI and begin), `:Serialize() -> any?` (resume payload or nil), `:Reset()` (only when `SupportsReset`), plus optional `:IdleMessage()` and `:OnDestroy()` hooks — `:Destroy()` is provided and calls them.
 - API: `MinigameBase.extend(id: string, title: string, supportsReset: boolean) -> class` — makes a subclass table with `Id`/`Title`/`SupportsReset`
 - API: `MinigameBase.new(root: Frame, api: Api, class: any?) -> self` — sets `Root`, `Api`, `Theme`, `State`, `Completed`, `MessageUntil`, `MessageTime`, `Connections`
-- API: `MinigameBase.Directions` — data table mapping WASD/arrow `KeyCode`s to `{x, y}` steps
+- API: `MinigameBase.Directions` — data table mapping WASD/arrow/gamepad D-pad `KeyCode`s to `{x, y}` steps
 - API: `MinigameBase:Track(connection: RBXScriptConnection) -> RBXScriptConnection` — store for auto-disconnect on destroy
 - API: `MinigameBase:NewFrame(parent: Instance, color: Color3, strokeColor: Color3?, thickness: number?) -> Frame`
 - API: `MinigameBase:NewLabel(parent: Instance, text: string, textSize: number) -> TextLabel` — themed font and text color
@@ -462,7 +464,8 @@ Shared base class every terminal minigame extends: it owns the root frame, theme
 - API: `MinigameBase:BuildBoardFrame(aspectRatio: number, options: {Position: UDim2?, Size: UDim2?, Clip: boolean?}?) -> Frame` — centred aspect-locked board, also stored as `self.Board`
 - API: `MinigameBase:BuildStatusBar(leftName: string, initialMessage: string) -> (TextLabel, TextLabel)` — top bar; right label becomes `self.MessageLabel`
 - API: `MinigameBase:BuildDirectionalPad(callback: (x: number, y: number) -> ())` — on-screen WASD pad
-- API: `MinigameBase:ConnectDirectionalKeys(callback: (x: number, y: number) -> ())` — WASD/arrow keyboard input
+- API: `MinigameBase:ConnectDirectionalKeys(callback: (x: number, y: number) -> ())` — WASD/arrow keys, gamepad D-pad, and the left thumbstick (one step per push past 0.6, re-armed below 0.35)
+- API: `MinigameBase:InputHint() -> string` — `SWIPE`, `D-PAD` or `WASD` for the current `PreferredInput`
 - API: `MinigameBase:ConnectSwipes(callback: (x: number, y: number) -> (), continuous: boolean?)` — touch swipes anywhere on the screen as `{x, y}` steps on the dominant axis, once a finger travels 6% of the viewport's shorter side; `continuous` keeps the same finger firing a new step every further 6% so a drag can steer repeatedly, otherwise each touch gives one step
 - API: `MinigameBase:BuildSwipeHint(text: string) -> TextLabel` — dim label left of the D-pad, shown only while `UserInputService.PreferredInput` is `Touch`
 - API: `MinigameBase:ConnectKeys(map: {[Enum.KeyCode]: any}, callback: (value: any) -> ())` — arbitrary key map
@@ -524,9 +527,9 @@ Simon says with four pads driven by WASD/arrows or clicks: watch the playback, r
 - Requires: `Classes\Minigames\MinigameBase`
 
 ### Minigames\Snake.luau
-Snake on a 16x12 grid: eat 12 pellets to win, with the tick interval speeding up from 0.16s toward 0.106s per pellet eaten. Turns are queued (max 2) so fast inputs are not dropped, and reversing into yourself is rejected; hitting a wall or your own body zeroes the score, respawns and reports a failure. Only the best pellet count survives a save.
+Snake on a 16x12 grid: eat 12 pellets to win, with the tick interval speeding up from 0.16s toward 0.106s per pellet eaten, 20% slower while `PreferredInput` is `Touch`. The snake holds still after every spawn (open, crash, reset) until the first direction input, with a `WASD`/`D-PAD`/`SWIPE TO START` hint on the board. Turns are queued (max 2) so fast inputs are not dropped, and reversing into yourself is rejected; hitting a wall or your own body zeroes the score, respawns and reports a failure. Only the best pellet count survives a save.
 - API: `Snake.new(root: Frame, api: Api) -> self`
-- API: `Snake:Start(saved: any?)` — restores `Best`, builds board and chrome, spawns the snake, binds keys, D-pad and continuous touch swipes (with a "SWIPE ANYWHERE TO STEER" hint on touch), starts the tick heartbeat
+- API: `Snake:Start(saved: any?)` — restores `Best`, builds board and chrome, spawns the snake, binds keys, gamepad, D-pad and continuous touch swipes (with a "SWIPE ANYWHERE TO STEER" hint on touch), starts the tick heartbeat
 - API: `Snake:Serialize() -> any?` — `{ Best }`, or nil at zero
 - API: `Snake:Reset()` — banks the score into `Best`, respawns the snake
 - API: `Snake:IdleMessage()` — shows the best score, or the `EAT <PELLETS_TO_WIN>` prompt

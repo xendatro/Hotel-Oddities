@@ -28,6 +28,8 @@ return {
 		TouchRefresh = 0.1,
 		TouchScanMargin = 8,
 		TouchDragCancel = 0.03,
+		AssistAngles = { 4, 8 },
+		AssistRays = 8,
 	},
 
 	Input = {
@@ -91,5 +93,6 @@ return {
 
 		OpenText = "Open",
 		CloseText = "Close",
+		TakeText = "Take",
 	},
 }

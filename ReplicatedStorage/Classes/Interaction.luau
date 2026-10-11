@@ -455,7 +455,20 @@ function Interaction:_findSelection(): (Target?, string?)
 		return self:_findTouchSelection(camera)
 	end
 
-	return self:_castFrom(camera.CFrame.Position, camera.CFrame.LookVector * self._reach)
+	local origin = camera.CFrame.Position
+	local target, text = self:_castFrom(origin, camera.CFrame.LookVector * self._reach)
+	if target or not self._usingGamepad then return target, text end
+
+	for _, angle in TARGETING.AssistAngles do
+		local tilt = CFrame.Angles(math.rad(angle), 0, 0)
+		for step = 0, TARGETING.AssistRays - 1 do
+			local spin = CFrame.Angles(0, 0, step / TARGETING.AssistRays * math.pi * 2)
+			local look = (camera.CFrame.Rotation * spin * tilt).LookVector
+			target, text = self:_castFrom(origin, look * self._reach)
+			if target then return target, text end
+		end
+	end
+	return nil, nil
 end
 
 function Interaction:_targetAtScreen(position: Vector2): Target?
@@ -759,6 +772,12 @@ function Interaction:_reset()
 	if wasSelected then
 		self._selectionChanged:Fire(nil)
 	end
+end
+
+function Interaction:GetInputMode(): string
+	if self._touching then return "Touch" end
+	if self._usingGamepad then return "Gamepad" end
+	return "Keyboard"
 end
 
 function Interaction:GetSelected(): Model?

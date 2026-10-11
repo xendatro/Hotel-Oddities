@@ -134,7 +134,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\DeathSoundService.luau — Replaces Roblox's default death sound with the custom one at the character's position.
 - ReplicatedStorage\Services\DoorService.luau — Renders room doors from the server's replicated player proximity state, local enemy reactions, and server map opening regions.
 - ReplicatedStorage\Services\DrawerItemService.luau — Registers drawer and loose hallway displays as interactable pickups, removes displays owned by other players, requests pickups from the server, and shows currency feedback with sound or bag-item feedback with the shared notification banner.
-- ReplicatedStorage\Services\DrawerService.luau — Animates drawers open and closed with local prediction over the server's attribute.
+- ReplicatedStorage\Services\DrawerService.luau — Animates drawers open and closed with local prediction over the server's attribute; on touch and gamepad an open drawer's first press takes its item and the next closes it.
 - ReplicatedStorage\Services\EffectsHUDService.luau — Right-edge effect tiles stack just above the computer notepad, growing upward with draining timers, `inf` for permanent immunity, and hole-hop immunity countdowns.
 - ReplicatedStorage\Services\ElevatorDoorService.luau — Opens lobby and arrival doors by proximity; the exit panel, barrier and doors follow the local player's server-authorized five-color completion state; an elevator can be held out of the poll and its doors set to any openness.
 - ReplicatedStorage\Services\ElevatorLoadingUIService.luau — Fades the elevator loading overlay in and out around a hallway load.
@@ -263,7 +263,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\EyeGlow.luau — One camera-facing eye halo from a BillboardGui template plus the shared "it sees you" flare curve, used by the intro and live Stalkers.
 - ReplicatedStorage\Classes\GalleryCard.luau — Clones and fills one Studio-authored gallery tile with a photo or tape-frame thumbnail, badge, capture date and unsaved edge.
 - ReplicatedStorage\Classes\Hole.luau — Crawl-hole prompt that requests six seconds of server-checked immunity before teleporting the player to the twin hole with the same ID.
-- ReplicatedStorage\Classes\Interaction.luau — Camera-raycast interaction system with highlight and animated key prompt; touch players tap or hold the object itself, with the nearest visible target highlighted under a hint prompt.
+- ReplicatedStorage\Classes\Interaction.luau — Camera-raycast interaction system with highlight and animated key prompt; touch players tap or hold the object itself, with the nearest visible target highlighted under a hint prompt; gamepad players get a ring of aim-assist rays around the crosshair.
 - ReplicatedStorage\Classes\InventoryCard.luau — One Inventory page tile: item preview, stack badge, card motion and drag hand-off.
 - ReplicatedStorage\Classes\InventorySlot.luau — One hotbar slot with a viewport preview of the tool model.
 - ReplicatedStorage\Classes\KeyPill.luau — Drives one authored key-prompt pill with the interaction prompt's look and motion: key label per input type, hold fill with a key tint, flash, dimming and a tap button.
@@ -304,7 +304,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\Minigames\Memory.luau — 4x4 emoji pair-matching minigame with a 20-move limit.
 - ReplicatedStorage\Classes\Minigames\Minesweeper.luau — 8x8 Minesweeper minigame with flag mode and a safe first click.
 - ReplicatedStorage\Classes\Minigames\Simon.luau — Simon-says minigame; repeat a growing four-pad sequence up to length seven.
-- ReplicatedStorage\Classes\Minigames\Snake.luau — Snake minigame on a 16x12 grid; eat twelve pellets as the tick speeds up; steer with keys, the D-pad or swipes.
+- ReplicatedStorage\Classes\Minigames\Snake.luau — Snake minigame on a 16x12 grid; eat twelve pellets as the tick speeds up; steer with keys, gamepad, the D-pad or swipes, and the snake waits for the first input after every spawn.
 - ReplicatedStorage\Classes\Tools\Ball.luau — Client ball tool; targets the nearest Eye within 20 studs and clear sight from the player's head, throws a ball prop and reports the hit to the server.
 - ReplicatedStorage\Classes\Tools\Camcorder.luau — Client camcorder; suppresses its viewmodel while the Studio-authored REC/STOP HUD runs, calls the engine stop directly on unequip, reports recording completion, then offers keep or burn before reporting the final decision.
 - ReplicatedStorage\Classes\Tools\Camera.luau — Client camera tool; shows a ghost placement preview and asks the server to stand the tripod where you aim.
@@ -342,7 +342,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\DangerConfig.luau — Danger-field noise generation, randomized danger-leaning patrol tuning and Director enemy population settings.
 - ReplicatedStorage\Configs\DeathConfig.luau — Death causes, player hints and the killed-by death screen styling, plus the analytics cause id for hotel deaths, the self-revive source, and the revive card's window, keybinds, prompt text and positions.
 - ReplicatedStorage\Configs\DoorConfig.luau — Swinging door physics, replicated player-proximity attributes, and proximity open/close behaviour.
-- ReplicatedStorage\Configs\DrawerConfig.luau — Openable drawer motion, interaction, sound and prompt UI settings, plus the cavity wall part names used to place items.
+- ReplicatedStorage\Configs\DrawerConfig.luau — Openable drawer motion, interaction (including gamepad aim assist), sound and prompt UI settings, plus the cavity wall part names used to place items.
 - ReplicatedStorage\Configs\DrawerItemConfig.luau — Drawer tool/currency loot rates, hallway placement limits, map-only hallway items and scaled chip weights, rarity and currency weights (coins 60, gems 40, one coin or gem per pickup, currency in 35% of drawers on a 20-second refill, 20 loose hallway pickups on a 15-second refill), pickup feedback sounds, display rotations and item tables; clones DrawerConfig's Input/UI at load.
 - ReplicatedStorage\Configs\EffectsHUDConfig.luau — Layout, colours and icons for the HUD effect tiles.
 - ReplicatedStorage\Configs\ElevatorConfig.luau — Elevator types, door motion, proximity, exit access polling, teleport fade settings and the arrival camera remote name.

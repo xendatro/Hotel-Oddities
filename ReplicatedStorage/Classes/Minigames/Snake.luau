@@ -1,4 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
 local MinigameBase = require(ReplicatedStorage.Classes.Minigames.MinigameBase)
 
@@ -12,6 +13,7 @@ local MIN_TICK = 0.106
 local MAX_QUEUED_TURNS = 2
 local MESSAGE_TIME = 1
 local EAT_PITCH_RISE = 0.7
+local TOUCH_TICK_SCALE = 1.2
 
 export type Theme = MinigameBase.Theme
 export type Api = MinigameBase.Api
@@ -34,6 +36,7 @@ function Snake.new(root: Frame, api: Api)
 	self.Best = 0
 	self.Grow = 0
 	self.Clock = 0
+	self.Waiting = true
 
 	self.SegmentFrames = {} :: { Frame }
 
@@ -67,6 +70,15 @@ function Snake:_buildBoard()
 	pellet.ZIndex = 2
 	pellet.Size = UDim2.fromScale(0.6 / COLUMNS, 0.6 / ROWS)
 	self.PelletFrame = pellet
+
+	local hint = self:NewLabel(board, "", 28)
+	hint.Name = "StartHint"
+	hint.ZIndex = 4
+	hint.AnchorPoint = Vector2.new(0.5, 0.5)
+	hint.Position = UDim2.fromScale(0.5, 0.25)
+	hint.Size = UDim2.fromScale(1, 0.2)
+	hint.TextColor3 = theme.Accent
+	self.StartHint = hint
 end
 
 function Snake:_buildChrome()
@@ -103,6 +115,11 @@ function Snake:_draw()
 
 	self.PelletFrame.Position =
 		UDim2.fromScale((self.Pellet.X + 0.2) / COLUMNS, (self.Pellet.Y + 0.2) / ROWS)
+
+	self.StartHint.Visible = self.Waiting
+	if self.Waiting then
+		self.StartHint.Text = `{self:InputHint()} TO START`
+	end
 end
 
 function Snake:_refreshLabels()
@@ -160,11 +177,18 @@ function Snake:_respawn()
 	table.clear(self.TurnQueue)
 	self.Grow = 0
 	self.Clock = 0
+	self.Waiting = true
 	self:_placePellet()
 end
 
 function Snake:_turn(x: number, y: number)
 	if self.State ~= "playing" then return end
+
+	if self.Waiting then
+		self.Waiting = false
+		self.Clock = 0
+		self.StartHint.Visible = false
+	end
 
 	local queueLength = #self.TurnQueue
 	local replacing = queueLength >= MAX_QUEUED_TURNS
@@ -184,7 +208,11 @@ function Snake:_turn(x: number, y: number)
 end
 
 function Snake:_interval(): number
-	return math.max(MIN_TICK, BASE_TICK - self.Pellets * TICK_PER_PELLET)
+	local interval = math.max(MIN_TICK, BASE_TICK - self.Pellets * TICK_PER_PELLET)
+	if UserInputService.PreferredInput == Enum.PreferredInput.Touch then
+		interval *= TOUCH_TICK_SCALE
+	end
+	return interval
 end
 
 function Snake:_crash()
@@ -253,6 +281,7 @@ function Snake:_step(deltaTime: number)
 	if self.State ~= "playing" then return end
 
 	self:StepMessage()
+	if self.Waiting then return end
 
 	self.Clock += math.min(deltaTime, 0.1)
 

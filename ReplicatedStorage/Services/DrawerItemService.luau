@@ -19,11 +19,13 @@ local NotificationService = require(ReplicatedStorage.Services.NotificationServi
 local TagService = require(ReplicatedStorage.Services.TagService)
 
 local PICKUP_COOLDOWN = 0.15
+local PENDING_TIME = 1
 
 local PickupRemote = CommunicationService.Get(ItemConfig.Remotes.Folder, ItemConfig.Remotes.Pickup)
 local PickupResultRemote = CommunicationService.Get(ItemConfig.Remotes.Folder, ItemConfig.Remotes.Result) :: RemoteEvent
 
 local States: { [Model]: true } = {}
+local Pending: { [Model]: number } = {}
 local focused: Model? = nil
 local lastPickup = 0
 
@@ -54,6 +56,7 @@ end
 
 local function unregister(model: Model)
 	States[model] = nil
+	Pending[model] = nil
 	Interaction:Unregister(model)
 end
 
@@ -68,10 +71,23 @@ function DrawerItemService:Pickup(model: Model?): boolean
 	local now = os.clock()
 	if now - lastPickup < PICKUP_COOLDOWN then return false end
 	lastPickup = now
+	Pending[item] = now + PENDING_TIME
 
 	;(PickupRemote :: RemoteEvent):FireServer(item)
 	return true
 end
+
+DrawerService:SetContents(function(drawer: Model): Model?
+	local now = os.clock()
+	for _, child in drawer:GetChildren() do
+		if child:IsA("Model") and States[child] and (Pending[child] or 0) <= now then
+			return child
+		end
+	end
+	return nil
+end, function(item: Model): boolean
+	return DrawerItemService:Pickup(item)
+end)
 
 Interaction.Selected:Connect(function(model: Model?)
 	focused = if model and States[model] then model else nil
