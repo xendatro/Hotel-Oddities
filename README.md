@@ -156,7 +156,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\GhostMotionService.luau — Ghost drift leg math and the model-attribute protocol the server and clients share.
 - ReplicatedStorage\Services\GhostRenderService.luau — Renders ghosts as translucent friend-avatar rigs driven by replicated motion.
 - ReplicatedStorage\Services\GraphicsFogService.luau — Distance fog and a camera-parented cage on low graphics levels.
-- ReplicatedStorage\Services\GravityWarpService.luau — Client executor for the Gravity Warper; tweens the player onto a ceiling-locked plane with steady direct movement and screen-relative look, then restores them.
+- ReplicatedStorage\Services\GravityWarpService.luau — Client executor for the Gravity Warper; tweens the player onto a ceiling-locked plane with steady direct movement and screen-relative look, then restores them; its shared ceiling search (used by the server too) passes through hanging lanterns and fixtures.
 - ReplicatedStorage\Services\GuiBuilderService.luau — Shared helper for PlayerGui access, ScreenGuis, corners and strokes.
 - ReplicatedStorage\Services\HallwayCrushDamageService.luau — Shared crush-volume helper and client-side kill decision for the closing-walls oddity, requiring configured HRP overlap with the server's lethal intervals.
 - ReplicatedStorage\Services\HallwayCrushVfxService.luau — Client dust curtains that follow the closing Hallway Crush walls under the ceiling, and a burst out of both ends of the run when they seal.
@@ -399,7 +399,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\StatsHUDConfig.luau — Toggle key, layout and thresholds for the debug stats HUD panel.
 - ReplicatedStorage\Configs\StoreConfig.luau — Shop and Gems page text, owned-price layout, gem pack frames and amounts, balance flash and the gem purchase result code.
 - ReplicatedStorage\Configs\StreamingConfig.luau — Corridor streaming prediction, reconciliation and tag settings (currently disabled).
-- ReplicatedStorage\Configs\ToolConfigs.luau — Per-tool tags and behaviour values for every usable tool, including the Ball's 20-stud target range and the Shovel's six-second hole immunity duration.
+- ReplicatedStorage\Configs\ToolConfigs.luau — Per-tool tags and behaviour values for every usable tool, including the Ball's 20-stud target range, the Shovel's six-second hole immunity duration and the Gravity Warper's ceiling-search rules.
 - ReplicatedStorage\Configs\TopHUDConfig.luau — Currency roll animation, danger meter tiers, colours, glow pulse and width-and-height scaling for the top-centre HUD strip.
 - ReplicatedStorage\Configs\TouchButtonConfig.luau — Touch action button size, clamps, colours and the slot positions around the jump button.
 - ReplicatedStorage\Configs\TopbarConfig.luau — Which interface pages get a topbar icon, each icon's image, label, order and alignment, and the compact-width cutoff.
@@ -479,7 +479,7 @@ become Services or Classes.
 - ServerStorage\Services\GemShopService.luau — Deduplicated Robux receipts that grant each gem pack's amount.
 - ServerStorage\Services\GazeService.luau — Server line-of-sight library for cone and raycast visibility checks, with a seen/unseen tracker.
 - ServerStorage\Services\GhostAreaService.luau — Picks area-weighted hover points over hallways for the Ghost, avoiding nearby players.
-- ServerStorage\Services\GravityWarpService.luau — Shared server half of a gravity warp: validates, gates, tags the character and cues the client tween for both the Gravity Warper tool and the Sisters catch.
+- ServerStorage\Services\GravityWarpService.luau — Shared server half of a gravity warp: validates (with the client's ceiling search), gates, tags the character and cues the client tween for both the Gravity Warper tool and the Sisters catch.
 - ServerStorage\Services\HallwayGridService.luau — Finds hallway corner mouths near a viewer for placing things just out of sight, measured onto the real wall edge with raycasts; corners carry depths 2, 3 and 4 studs past the edge.
 - ServerStorage\Services\HallwayRegionService.luau — Straight-hallway span helpers for matching, bounding, occupancy and weighted random picks.
 - ServerStorage\Services\HallwayWallService.luau — Wall-level geometry for a straight hallway: junction mouths per side, the junction-free stretches between them, and the tagged wall strips flanking the span.

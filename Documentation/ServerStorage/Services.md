@@ -314,7 +314,7 @@ The server half of a gravity warp, shared by the Gravity Warper tool and the Sis
 - API: `GravityWarpService:Warp(player: Player, duration: number?, leadTime: number?) -> boolean` — start a warp of `duration` seconds (default the tool's `Duration`), firing the client after `leadTime`
 - API: `GravityWarpService:IsWarping(character: Model?) -> boolean`
 - API: `GravityWarpService:TravelTime(duration: number?) -> number` — ascend + duration + descend
-- API: `GravityWarpService:FindCeiling(character: Model, root: BasePart, maxDistance: number?) -> RaycastResult?`
+- API: `GravityWarpService:FindCeiling(character: Model, root: BasePart, maxDistance: number?) -> RaycastResult?` — the client service's shared `FindCeiling` from the root, so the server and client agree on which ceiling (never a hanging fixture) a warp lands on
 - API: `GravityWarpService.WarpingAttribute` — `"GravityWarping"`
 - Remotes: `GravityWarp/Warp` (ensured and fired), `GravityWarp/Finished` (ensured and listened)
 - Tags: applies/removes `IgnoreExceptEye` on the character

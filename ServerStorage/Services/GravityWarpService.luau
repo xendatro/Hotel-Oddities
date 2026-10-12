@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local SharedGravityWarp = require(ReplicatedStorage.Services.GravityWarpService)
 local ToolConfigs = require(ReplicatedStorage.Configs.ToolConfigs)
 local Vanished = require(ReplicatedStorage.Services.VanishedService)
 
@@ -26,11 +27,7 @@ FinishedRemote.OnServerEvent:Connect(function(player: Player)
 end)
 
 function GravityWarpService:FindCeiling(character: Model, root: BasePart, maxDistance: number?): RaycastResult?
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { character }
-	params.RespectCanCollide = true
-	return workspace:Raycast(root.Position, Vector3.new(0, maxDistance or Config.MaxCeilingDistance, 0), params)
+	return SharedGravityWarp.FindCeiling(character, root.Position, maxDistance)
 end
 
 function GravityWarpService:IsWarping(character: Model?): boolean

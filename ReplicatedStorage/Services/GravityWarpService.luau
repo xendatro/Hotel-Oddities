@@ -3,7 +3,37 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
+local ToolConfigs = require(ReplicatedStorage.Configs.ToolConfigs)
+
+local Config = ToolConfigs["Gravity Warper"]
+
 local GravityWarpService = {}
+
+local function isCeilingFace(hit: RaycastResult): boolean
+	if -hit.Normal.Y < Config.CeilingMinFlatness then return false end
+	local size = (hit.Instance :: BasePart).Size
+	local smallest = math.min(size.X, size.Y, size.Z)
+	local largest = math.max(size.X, size.Y, size.Z)
+	local middle = size.X + size.Y + size.Z - smallest - largest
+	return middle >= Config.CeilingMinWidth
+end
+
+function GravityWarpService.FindCeiling(character: Model, origin: Vector3, maxDistance: number?): RaycastResult?
+	local exclude: { Instance } = { character }
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.RespectCanCollide = true
+
+	local direction = Vector3.new(0, maxDistance or Config.MaxCeilingDistance, 0)
+	for _ = 1, Config.CeilingSearchHits do
+		params.FilterDescendantsInstances = exclude
+		local hit = workspace:Raycast(origin, direction, params)
+		if not hit then return nil end
+		if isCeilingFace(hit) then return hit end
+		table.insert(exclude, hit.Instance)
+	end
+	return nil
+end
 
 if not RunService:IsClient() then
 	return GravityWarpService
@@ -11,11 +41,8 @@ end
 
 local CharacterService = require(ReplicatedStorage.Services.CharacterService)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
-local ToolConfigs = require(ReplicatedStorage.Configs.ToolConfigs)
 local TweenProxyService = require(ReplicatedStorage.Services.TweenProxyService)
 local WallstickService = require(ReplicatedStorage.Services.WallstickService)
-
-local Config = ToolConfigs["Gravity Warper"]
 
 local WarpRemote = CommunicationService.Get("GravityWarp", "Warp")
 local FinishedRemote = CommunicationService.Get("GravityWarp", "Finished")
@@ -102,7 +129,7 @@ local function warp(duration: number)
 	end
 
 	local params = rayParamsFor(character)
-	local ceiling = workspace:Raycast(root.Position, Vector3.new(0, Config.MaxCeilingDistance, 0), params)
+	local ceiling = GravityWarpService.FindCeiling(character, root.Position)
 	if not ceiling then
 		FinishedRemote:FireServer()
 		return
