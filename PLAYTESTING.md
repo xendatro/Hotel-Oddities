@@ -199,6 +199,11 @@ things through this module before sending any key or mouse input.
 - `GamepadProbe.TapNearDrawer(offset, distance?)` frames the nearest drawer and
   taps `offset` pixels right of its centre through `Interaction:_tapWorld`;
   `rayHit` says whether the direct ray already found it
+- `GamepadProbe.DrawerMenu(kind)` forces `Interaction` into touch mode and moves to
+  the nearest `Wardrobe` or `Desk`; `DrawerMenuState()` lists the touch drawer menu's
+  buttons (`Drawer 1=Open@Column1#1`), and `PressDrawer(n)` presses one through
+  `DrawerMenu:Press`. The move does not always face the furniture's front or the
+  camera at it, so set both from the snippet before reading the menu
 
 ### ReplicatedStorage\Playtest\Trailer
 The trailer shoot (see `Trailer/README.md`). `Director` plays one shot from

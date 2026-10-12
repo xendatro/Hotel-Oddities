@@ -241,11 +241,21 @@ Client-only. Registers every `DrawerItem` model, including hallway currency disp
 - API: `DrawerItemService:Pickup(model: Model?) -> boolean` — request pickup of the given (or focused) item
 - Remotes: `DrawerItem/Pickup` (fired), `DrawerItem/PickupResult` (listened)
 - Tags: listens `DrawerItem`
-- Requires: `Configs.DrawerItemConfig`, `Configs.ItemShopConfig`, `AudioService`, `DrawerService`, `InteractionService`, `MathService`, `NotificationService`
+- Items inside a tagged drawer register with `SkipTouch` (the drawer list's `Take` reaches them on touch); loose hallway pickups keep the normal touch prompt
+- Requires: `Configs.DrawerConfig`, `Configs.DrawerItemConfig`, `Configs.ItemShopConfig`, `AudioService`, `DrawerService`, `InteractionService`, `MathService`, `NotificationService`
+
+### DrawerMenuService.luau
+Client-only. On touch, picks the furniture whose nearest drawer is within `DrawerConfig.TouchMenu.Reach` of the character, on screen (only when first picked) and with at least one drawer in clear sight of the camera, and shows a `DrawerMenu` for it; the shown furniture is kept until it leaves reach plus `SwitchMargin` or another is closer by more than that. It rescans every `Refresh` seconds, rebuilding the menu when the furniture's streamed drawers change, and hides it on keyboard or gamepad, while a main page is open, or when the character dies or is removed.
+- API: `DrawerMenuService:GetMenu() -> DrawerMenu?` — the menu currently shown
+- Requires: `CharacterService`, `Configs.DrawerConfig`, `Classes.DrawerMenu`, `DrawerService`, `GuiBuilderService`, `InteractionService`, `InterfaceService`
 
 ### DrawerService.luau
 Client-only. Wraps every `Drawer` model in a `Drawer` class instance, registers it as an interactable with an open/close prompt, and animates it toward the server's open attribute each frame. Toggling predicts the new state locally for up to a second so the drawer moves immediately, then falls back to the replicated attribute. On touch and gamepad an open drawer that still holds a pickup prompts `Take` instead of `Close`, and activating it picks the item up through the registered contents handler; the next activation closes it. Keyboard keeps the plain open/close toggle.
 - API: `DrawerService:GetFocused() -> Model?` — the drawer currently under the interaction cursor
+- API: `DrawerService:GetDrawers() -> { Model }` — every registered drawer model
+- API: `DrawerService:GetPrompt(model: Model) -> string?` — `Take` when an open drawer holds an item (touch and gamepad), otherwise `Close` or `Open`
+- API: `DrawerService:Activate(model: Model) -> boolean` — takes the drawer's item or toggles it, exactly as its prompt would
+- Drawers register with `SkipTouch`, so on touch they are only reached through `DrawerMenuService`
 - API: `DrawerService:IsOpen(model: Model?) -> boolean` — open state of the given (or focused) drawer
 - API: `DrawerService:SetContents(find: (drawer: Model) -> Model?, take: (item: Model) -> boolean)` — registers how to find and take a drawer's pickup; set by `DrawerItemService`
 - API: `DrawerService:Sync(model: Model)` — reapplies the drawer's current position (used when contents appear)

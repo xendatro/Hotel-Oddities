@@ -18,6 +18,7 @@ export type TargetOptions = {
 	Reach: number?,
 	IgnoreOcclusion: boolean?,
 	HoldDuration: number?,
+	SkipTouch: boolean?,
 	OnActivated: ((model: Model) -> boolean)?,
 }
 
@@ -29,6 +30,7 @@ type Target = {
 	Reach: number?,
 	IgnoreOcclusion: boolean?,
 	HoldDuration: number?,
+	SkipTouch: boolean?,
 	OnActivated: ((model: Model) -> boolean)?,
 }
 
@@ -281,6 +283,7 @@ function Interaction:Register(model: Model, options: TargetOptions)
 		Reach = options.Reach,
 		IgnoreOcclusion = options.IgnoreOcclusion,
 		HoldDuration = options.HoldDuration,
+		SkipTouch = options.SkipTouch,
 		OnActivated = options.OnActivated,
 	}
 	self._targetsDirty = true
@@ -388,7 +391,7 @@ function Interaction:_scanTouch(camera: Camera): Target?
 	local candidates: { Candidate } = {}
 
 	for model, target in self._targets do
-		if not model:IsDescendantOf(workspace) then continue end
+		if target.SkipTouch or not model:IsDescendantOf(workspace) then continue end
 
 		local reach = target.Reach or TARGETING.Reach
 		if (model:GetPivot().Position - origin).Magnitude > reach + TARGETING.TouchScanMargin then continue end
@@ -497,6 +500,7 @@ function Interaction:_targetAtScreen(position: Vector2): Target?
 	self:_resetIgnored(character)
 	local ray = camera:ScreenPointToRay(position.X, position.Y)
 	local target = self:_castFrom(ray.Origin, ray.Direction * self._reach)
+	if target and target.SkipTouch then return nil end
 	return target
 end
 
@@ -537,7 +541,7 @@ function Interaction:_targetNearScreen(position: Vector2): Target?
 	local bestDistance = math.min(viewport.X, viewport.Y) * TARGETING.TouchTapMargin
 
 	for model, target in self._targets do
-		if not model:IsDescendantOf(workspace) then continue end
+		if target.SkipTouch or not model:IsDescendantOf(workspace) then continue end
 
 		local reach = target.Reach or TARGETING.Reach
 		if (model:GetPivot().Position - origin).Magnitude > reach + TARGETING.TouchScanMargin then continue end

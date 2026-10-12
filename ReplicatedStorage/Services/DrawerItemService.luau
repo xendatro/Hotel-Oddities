@@ -1,3 +1,4 @@
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -9,6 +10,7 @@ if not RunService:IsClient() then
 end
 
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local DrawerConfig = require(ReplicatedStorage.Configs.DrawerConfig)
 local ItemConfig = require(ReplicatedStorage.Configs.DrawerItemConfig)
 local ItemShopConfig = require(ReplicatedStorage.Configs.ItemShopConfig)
 local AudioService = require(ReplicatedStorage.Services.AudioService)
@@ -37,17 +39,20 @@ local function register(model: Model): Model?
 		return nil
 	end
 
+	local drawer = model.Parent
+	local inDrawer = drawer ~= nil and CollectionService:HasTag(drawer, DrawerConfig.Tag)
+
 	States[model] = true
 	Interaction:Register(model, {
 		Prompt = ItemConfig.UI.PickupText,
 		TextWidth = ItemConfig.UI.TextWidth,
 		Reach = ItemConfig.Targeting.Reach,
+		SkipTouch = inDrawer,
 		OnActivated = function(target: Model)
 			return DrawerItemService:Pickup(target)
 		end,
 	})
 
-	local drawer = model.Parent
 	if drawer and drawer:IsA("Model") then
 		DrawerService:Sync(drawer)
 	end

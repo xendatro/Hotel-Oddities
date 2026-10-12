@@ -21,7 +21,78 @@ local function services()
 		Surface = require(folder.SurfaceCursorService),
 		Interaction = require(folder.InteractionService),
 		Drawer = require(folder.DrawerService),
+		DrawerMenu = require(folder.DrawerMenuService),
 	}
+end
+
+-- Forces Interaction into touch mode (no real touch input needed), stands the
+-- character 4 studs in front of the nearest furniture whose name is `kind`
+-- (Wardrobe, Desk) facing it, and reports the touch drawer menu.
+function GamepadProbe.DrawerMenu(kind: string)
+	local s = services()
+	s.Interaction._touching = true
+	local character = Players.LocalPlayer.Character
+	local camera = workspace.CurrentCamera
+	if not character or not camera then return { error = "no character" } end
+
+	local origin = character:GetPivot().Position
+	local best: Model?, bestDistance = nil, math.huge
+	for _, drawer in CollectionService:GetTagged("Drawer") do
+		local furniture = drawer.Parent
+		if not furniture or furniture.Name ~= kind or not furniture:IsDescendantOf(workspace) then continue end
+		local away = (drawer:GetPivot().Position - origin).Magnitude
+		if away < bestDistance then
+			best, bestDistance = furniture :: Model, away
+		end
+	end
+	if not best then return { error = `no {kind}` } end
+
+	local centre = best:GetBoundingBox().Position
+	local drawer = best:FindFirstChild("Drawer") :: Model
+	local handle: BasePart? = nil
+	for _, part in drawer:GetDescendants() do
+		if part:IsA("BasePart") and part.Name:lower():find("handle") then
+			handle = part
+			break
+		end
+	end
+	local outward = if handle then (handle.Position - drawer:GetBoundingBox().Position) * Vector3.new(1, 0, 1) else Vector3.zAxis
+	outward = if outward.Magnitude > 0.01 then outward.Unit else Vector3.zAxis
+	local stand = Vector3.new(centre.X, origin.Y, centre.Z) + outward * 4
+	character:PivotTo(CFrame.lookAt(stand, Vector3.new(centre.X, stand.Y, centre.Z)))
+	camera.CFrame = CFrame.lookAt(camera.CFrame.Position, centre)
+	task.wait(1)
+	return GamepadProbe.DrawerMenuState()
+end
+
+function GamepadProbe.DrawerMenuState()
+	local gui = Players.LocalPlayer.PlayerGui:FindFirstChild("DrawerMenu") :: BillboardGui?
+	if not gui then return { menu = false } end
+	local buttons = {}
+	for _, button in gui:GetDescendants() do
+		if button:IsA("TextButton") then
+			local action = button:FindFirstChild("Action") :: TextLabel
+			local name = button:FindFirstChild("Name") :: TextLabel
+			table.insert(buttons, `{name.Text}={action.Text}@{button.Parent.Name}#{button.LayoutOrder}`)
+		end
+	end
+	table.sort(buttons)
+	return {
+		menu = true,
+		furniture = if gui.Adornee then gui.Adornee.Parent:GetFullName() else "nil",
+		size = tostring(gui.AbsoluteSize),
+		buttons = buttons,
+	}
+end
+
+function GamepadProbe.PressDrawer(number: number)
+	local menu = services().DrawerMenu:GetMenu()
+	if not menu then return { error = "no menu" } end
+	local pressed = menu:Press(number)
+	task.wait(0.5)
+	local state = GamepadProbe.DrawerMenuState()
+	state.pressed = pressed
+	return state
 end
 
 function GamepadProbe.State()

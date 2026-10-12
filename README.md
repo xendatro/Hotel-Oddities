@@ -135,7 +135,8 @@ become Services or Classes.
 - ReplicatedStorage\Services\DeathSoundService.luau — Replaces Roblox's default death sound with the custom one at the character's position.
 - ReplicatedStorage\Services\DoorService.luau — Renders room doors from the server's replicated player proximity state, local enemy reactions, and server map opening regions.
 - ReplicatedStorage\Services\DrawerItemService.luau — Registers drawer and loose hallway displays as interactable pickups, removes displays owned by other players, requests pickups from the server, and shows currency feedback with sound or bag-item feedback with the shared notification banner.
-- ReplicatedStorage\Services\DrawerService.luau — Animates drawers open and closed with local prediction over the server's attribute; on touch and gamepad an open drawer's first press takes its item and the next closes it.
+- ReplicatedStorage\Services\DrawerMenuService.luau — On touch, shows a tappable Drawer 1, Drawer 2... list beside the nearest dresser or desk in view, each button opening, taking from or closing its drawer.
+- ReplicatedStorage\Services\DrawerService.luau — Animates drawers open and closed with local prediction over the server's attribute; on touch and gamepad an open drawer's first press takes its item and the next closes it; drawers skip the touch prompt in favour of the drawer list.
 - ReplicatedStorage\Services\EffectsHUDService.luau — Right-edge effect tiles stack just above the computer notepad, growing upward with draining timers, `inf` for permanent immunity, and hole-hop immunity countdowns.
 - ReplicatedStorage\Services\ElevatorDoorService.luau — Opens lobby and arrival doors by proximity; the exit panel, barrier and doors follow the local player's server-authorized five-color completion state; an elevator can be held out of the poll and its doors set to any openness.
 - ReplicatedStorage\Services\ElevatorLoadingUIService.luau — Fades the elevator loading overlay in and out around a hallway load.
@@ -261,6 +262,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\Deadline.luau — Runs a function with a timeout and reports which won.
 - ReplicatedStorage\Classes\DebugPanel.luau — Admin-only keyboard-toggled developer overlay with labels, buttons, sliders and time-aligned scrolling graphs, plain or stacked by series.
 - ReplicatedStorage\Classes\DoorPart.luau — Spring and audio-driven swinging door leaf with oddity and forced-shut modes.
+- ReplicatedStorage\Classes\DrawerMenu.luau — One furniture's touch drawer list: a billboard of numbered drawer buttons in the furniture's own columns, sized and slid to stay on screen.
 - ReplicatedStorage\Classes\Drawer.luau — Spring-driven sliding drawer that infers its outward axis from the handle and anchors its placement to a structural part so a streamed-out drawer cannot animate from a stale pivot.
 - ReplicatedStorage\Classes\EyeGlow.luau — One camera-facing eye halo from a BillboardGui template plus the shared "it sees you" flare curve, used by the intro and live Stalkers.
 - ReplicatedStorage\Classes\GamepadCursor.luau — Stick-driven controller cursor drawn on its own ScreenGui; RT/LT press through a handler while the stick (left, or the handler's choice) and triggers are sunk from gameplay.
@@ -345,7 +347,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\DangerConfig.luau — Danger-field noise generation, randomized danger-leaning patrol tuning and Director enemy population settings.
 - ReplicatedStorage\Configs\DeathConfig.luau — Death causes, player hints and the killed-by death screen styling, plus the analytics cause id for hotel deaths, the self-revive source, and the revive card's window, keybinds, prompt text and positions.
 - ReplicatedStorage\Configs\DoorConfig.luau — Swinging door physics, replicated player-proximity attributes, and proximity open/close behaviour.
-- ReplicatedStorage\Configs\DrawerConfig.luau — Openable drawer motion, interaction (including gamepad aim assist), sound and prompt UI settings, plus the cavity wall part names used to place items; touch tap margin around targets.
+- ReplicatedStorage\Configs\DrawerConfig.luau — Openable drawer motion, interaction (including gamepad aim assist), sound and prompt UI settings, plus the cavity wall part names used to place items; touch tap margin around targets and the touch drawer list.
 - ReplicatedStorage\Configs\DrawerItemConfig.luau — Drawer tool/currency loot rates, hallway placement limits, map-only hallway items and scaled chip weights, rarity and currency weights (coins 60, gems 40, one coin or gem per pickup, currency in 35% of drawers on a 20-second refill, 20 loose hallway pickups on a 15-second refill), pickup feedback sounds, display rotations and item tables; clones DrawerConfig's Input/UI at load.
 - ReplicatedStorage\Configs\EffectsHUDConfig.luau — Layout, colours and icons for the HUD effect tiles.
 - ReplicatedStorage\Configs\ElevatorConfig.luau — Elevator types, door motion, proximity, exit access polling, teleport fade settings and the arrival camera remote name.
