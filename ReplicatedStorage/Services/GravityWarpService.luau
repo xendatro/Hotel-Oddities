@@ -165,6 +165,7 @@ local function warp(duration: number)
 		surfaceNormal = -Vector3.yAxis,
 		directMovement = true,
 		lockSurface = true,
+		stepHeight = Config.CeilingStepHeight,
 	})
 	if not wallstick then
 		stopCameraRoll()

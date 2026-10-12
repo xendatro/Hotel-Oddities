@@ -122,6 +122,7 @@ local ToolConfigs = {
 		CeilingSearchHits = 8,
 		CeilingMinFlatness = 0.98,
 		CeilingMinWidth = 1.8,
+		CeilingStepHeight = 1.2,
 	},
 
 	["Player Locator"] = {

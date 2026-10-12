@@ -137,6 +137,13 @@ snippet, so the director keeps spawning and the sweep keeps deleting: expect
 only tagged models still parented under `workspace`, so it reads lower than a
 raw `CollectionService:GetTagged("Enemy")` count.
 
+### ServerStorage\Playtest\WarpServer.luau
+Real items and the real server gravity warp, through `ServerBridge` with `"@player"`.
+- `WarpServer.Give(player, toolName, count?)` adds through `InventoryService:Add`, so the
+  tool lands in the Backpack ready to equip and `Activate()` from a Client snippet
+- `WarpServer.Warp(player, duration?, leadTime?)` is exactly what the Sisters catch calls
+- `WarpServer.State(player)` returns `warping` and `canWarp`
+
 ### ServerStorage\Playtest\Subject.luau
 Turns a player into a stable test subject.
 
