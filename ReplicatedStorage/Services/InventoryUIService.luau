@@ -214,20 +214,27 @@ end
 
 local function cycleEquip(step: number)
 	local equipped = equippedToolName()
-	local current = if step > 0 then 0 else #Slots + 1
-	for index, slot in Slots do
-		if not slot:IsEmpty() and slot.ToolName == equipped then
-			current = index
+	local stops: { any } = { false }
+	local current = 1
+	for _, slot in Slots do
+		if slot:IsEmpty() then continue end
+		table.insert(stops, slot)
+		if slot.ToolName == equipped then
+			current = #stops
 		end
+	end
+	if #stops == 1 then return end
+
+	local target = stops[(current - 1 + step) % #stops + 1]
+	if target then
+		InventoryUIService:Equip(target.ToolName)
+		return
 	end
 
-	for offset = 1, #Slots do
-		local slot = Slots[(current - 1 + step * offset) % #Slots + 1]
-		if slot and not slot:IsEmpty() and slot.ToolName ~= equipped then
-			InventoryUIService:Equip(slot.ToolName)
-			return
-		end
-	end
+	local humanoid = CharacterService.GetAliveHumanoid(player)
+	if not humanoid then return end
+	humanoid:UnequipTools()
+	InventoryUIService:Refresh()
 end
 
 local function slotAt(point: Vector2)

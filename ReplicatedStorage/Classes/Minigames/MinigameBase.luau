@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
+local GamepadUIConfig = require(ReplicatedStorage.Configs.GamepadUIConfig)
 local SurfaceCursorService = require(ReplicatedStorage.Services.SurfaceCursorService)
 
 local MinigameBase = {}
@@ -48,12 +49,21 @@ MinigameBase.Directions = {
 } :: { [Enum.KeyCode]: { number } }
 
 local SWIPE_DISTANCE = 0.06
+local STICK_PRESS = 0.6
+local STICK_RELEASE = 0.35
 
 local PAD_LAYOUT = {
-	{ Text = "W", Column = 1, Row = 0, X = 0, Y = -1 },
-	{ Text = "A", Column = 0, Row = 1, X = -1, Y = 0 },
-	{ Text = "S", Column = 1, Row = 1, X = 0, Y = 1 },
-	{ Text = "D", Column = 2, Row = 1, X = 1, Y = 0 },
+	{ Column = 1, Row = 0, X = 0, Y = -1 },
+	{ Column = 0, Row = 1, X = -1, Y = 0 },
+	{ Column = 1, Row = 1, X = 0, Y = 1 },
+	{ Column = 2, Row = 1, X = 1, Y = 0 },
+}
+
+local DIRECTION_KEYS = {
+	{ X = 0, Y = -1, Key = Enum.KeyCode.W, Pad = Enum.KeyCode.DPadUp },
+	{ X = -1, Y = 0, Key = Enum.KeyCode.A, Pad = Enum.KeyCode.DPadLeft },
+	{ X = 0, Y = 1, Key = Enum.KeyCode.S, Pad = Enum.KeyCode.DPadDown },
+	{ X = 1, Y = 0, Key = Enum.KeyCode.D, Pad = Enum.KeyCode.DPadRight },
 }
 
 function MinigameBase.extend(id: string, title: string, supportsReset: boolean)
@@ -81,6 +91,7 @@ function MinigameBase.new(root: Frame, api: Api, class: any?)
 	self.MessageTime = 1
 	self.Heartbeat = nil :: RBXScriptConnection?
 	self.Pressables = {} :: { Pressable }
+	self.UsesStick = false
 
 	setUpConnections(self)
 
@@ -232,7 +243,8 @@ function MinigameBase:BuildDirectionalPad(callback: (x: number, y: number) -> ()
 	pad.Parent = self.Root
 
 	for _, entry in PAD_LAYOUT do
-		local button = self:NewButton(pad, entry.Text)
+		local button = self:NewButton(pad, "")
+		self:LabelDirection(button, entry.X, entry.Y)
 		button.Position = UDim2.fromScale(entry.Column / 3 + 0.02, entry.Row / 2 + 0.04)
 		button.Size = UDim2.fromScale(1 / 3 - 0.04, 1 / 2 - 0.08)
 		local function press()
@@ -241,6 +253,53 @@ function MinigameBase:BuildDirectionalPad(callback: (x: number, y: number) -> ()
 		self:Track(button.Activated:Connect(press))
 		self:BindPress(button, press)
 	end
+end
+
+function MinigameBase:DirectionText(x: number, y: number): string
+	for _, entry in DIRECTION_KEYS do
+		if entry.X ~= x or entry.Y ~= y then continue end
+		if UserInputService.PreferredInput == Enum.PreferredInput.KeyboardAndMouse then
+			return entry.Key.Name
+		end
+		return GamepadUIConfig.KeyText[entry.Pad] or entry.Key.Name
+	end
+	return ""
+end
+
+function MinigameBase:LabelDirection(label: TextLabel | TextButton, x: number, y: number)
+	local function refresh()
+		label.Text = self:DirectionText(x, y)
+	end
+	self:Track(UserInputService:GetPropertyChangedSignal("PreferredInput"):Connect(refresh))
+	refresh()
+end
+
+function MinigameBase:ConnectStick(callback: (x: number, y: number) -> ())
+	self.UsesStick = true
+	local held: Vector2? = nil
+
+	self:Track(UserInputService.InputChanged:Connect(function(input: InputObject)
+		if input.UserInputType ~= Enum.UserInputType.Gamepad1 or input.KeyCode ~= Enum.KeyCode.Thumbstick1 then
+			return
+		end
+
+		local stick = Vector2.new(input.Position.X, -input.Position.Y)
+		if stick.Magnitude < STICK_RELEASE then
+			held = nil
+			return
+		end
+
+		local horizontal = math.abs(stick.X) >= math.abs(stick.Y)
+		local strength = if horizontal then math.abs(stick.X) else math.abs(stick.Y)
+		if strength < STICK_PRESS then return end
+
+		local direction = if horizontal
+			then Vector2.new(math.sign(stick.X), 0)
+			else Vector2.new(0, math.sign(stick.Y))
+		if held == direction then return end
+		held = direction
+		callback(direction.X, direction.Y)
+	end))
 end
 
 function MinigameBase:ConnectDirectionalKeys(callback: (x: number, y: number) -> ())
@@ -253,6 +312,7 @@ function MinigameBase:ConnectDirectionalKeys(callback: (x: number, y: number) ->
 			callback(direction[1], direction[2])
 		end
 	end))
+	self:ConnectStick(callback)
 end
 
 function MinigameBase:InputHint(): string

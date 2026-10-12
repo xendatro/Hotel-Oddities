@@ -126,7 +126,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\ChaserCameraService.luau — Drives chase FOV pushes and per-enemy camera rumble, plus vent-open and scream reactions and the Mad Guest's chase sting, proximity FOV and footstep thuds, clearing chase FOV state on death.
 - ReplicatedStorage\Services\CommunicationService.luau — Shared accessor for the ReplicatedStorage.Communication remote folders.
 - ReplicatedStorage\Services\ComputerHUDService.luau — Drives the right-side computer notepad: one tinted row per chip colour, ticked and struck through as each computer is hacked.
-- ReplicatedStorage\Services\ComputerService.luau — Runs hackable computers: idle screens, fixed-FOV camera sessions with the hotbar hidden, and the minigame handoff.
+- ReplicatedStorage\Services\ComputerService.luau — Runs hackable computers: idle screens, fixed-FOV camera sessions with the hotbar hidden and every controller button but B sunk so nothing else opens, and the minigame handoff.
 - ReplicatedStorage\Services\CreepRenderService.luau — Renders the Creep as a camera-facing silhouette against a hallway backdrop, with a parting distortion sweep.
 - ReplicatedStorage\Services\CrouchService.luau — Owns crouch input (with a TouchButtonService button on touch), speed, camera drop and crouch animations, can be blocked by key to hold the player standing, and can set the crouch state directly.
 - ReplicatedStorage\Services\DangerDebugService.luau — F4 developer panel for tuning and heatmapping the danger field.
@@ -173,7 +173,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\InterfaceService.luau — Main menu page switching (Index, Rooms, Shop, Gems, Items, Inventory, kits, roll, map, gallery), blur, FOV pull-back and mouse unlocking, including Q toggling through the mouse blocker (blockable by key) and enforced system-cursor hiding after relock; direct page-root close buttons animate themselves instead of rotating the full menu frame; side-button keys use a high-priority context action, while text fields, cutscenes, forced cursor prompts and active drawer interactions retain their inputs; page transitions play `UIOpen`/`UIClose` sound templates; gamepad players get D-pad/Y page keys with matching side-button labels, each page focused for controller navigation and B to close, and the Q hint shown only on keyboard; D-pad down from the top-bar icons reaches the side buttons.
 - ReplicatedStorage\Services\IntroCutsceneService.luau — The first-time intro cutscene played on walking out of the maze arrival elevator: replay pill during the loading screen, admin-queued replays, local take-over of camera, HUD, input, audio and hooks, the staged Stalker and Creep timeline, hold-to-skip and an exact restore; flags the local player `IntroCutscenePlaying` while it runs.
 - ReplicatedStorage\Services\InventoryPageUIService.luau — The Inventory page: bag grid, in-page hotbar row, item info, TO HOTBAR / TO BAG button and drag-and-drop between them, toggled by keybind or side button.
-- ReplicatedStorage\Services\InventoryUIService.luau — Responsive five-slot hotbar HUD with equipping and drag reordering, plus the client's slot-ordered inventory snapshot and move API; LB/RB cycle the equipped hotbar slot on gamepad.
+- ReplicatedStorage\Services\InventoryUIService.luau — Responsive five-slot hotbar HUD with equipping and drag reordering, plus the client's slot-ordered inventory snapshot and move API; LB/RB cycle the equipped hotbar slot on gamepad, including an empty-hands stop.
 - ReplicatedStorage\Services\ItemPreviewService.luau — The one item-viewport renderer: frames a tool model for every shop card, hotbar slot and kit tile, and can re-aim every live viewport of an item at once.
 - ReplicatedStorage\Services\ItemPreviewDebugService.luau — F2 panel that tunes an item's viewport framing live across every viewport showing it, and emits the ItemPreviewConfig entry to paste.
 - ReplicatedStorage\Services\ItemsUIService.luau — Item shop page with tool previews and coin or Robux purchases, using the shop-only catalogue that excludes the required Walkie Talkie.
@@ -197,7 +197,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\MimicMotionService.luau — Converts recorded movement samples into discrete key presses with reaction delay and aim drift.
 - ReplicatedStorage\Services\MimicService.luau — Client driver for the Mimic enemy: mirrors your recorded movement, spins to face you, twitches and head-locks enemy necks, plays the reveal sting.
 - ReplicatedStorage\Services\MirrorRoomService.luau — Shared mirror-room lookup, bounds and mirror-plane maths, plus the client tag listener that binds a MirrorRoom class to every `MirrorRoom` tagged connector.
-- ReplicatedStorage\Services\MinigameService.luau — Client arcade shell for hackable computers: picks the terminal's game, builds the CRT SurfaceGui and hosts one game module at a time; on gamepad the controller cursor clicks any game's buttons with RT (LT alternate) through `PressAt`.
+- ReplicatedStorage\Services\MinigameService.luau — Client arcade shell for hackable computers: picks the terminal's game, builds the CRT SurfaceGui and hosts one game module at a time; on gamepad the controller cursor clicks any game's buttons with RT (LT alternate) through `PressAt`, moving with the right stick in games the left stick steers.
 - ReplicatedStorage\Services\MinimapService.luau — Map gamepass minimap that stays hidden until ownership is available and only shows in the maze while no main page is open.
 - ReplicatedStorage\Services\NotificationService.luau — Client top-center notifications, each a torn paper strip in the game's own hand that drops in, holds and rises away.
 - ReplicatedStorage\Services\ObservedFreezeService.luau — Client weeping-angel renderer that visually pins tagged enemies while they are in view and reconciles them when you look away.
@@ -238,7 +238,7 @@ become Services or Classes.
 - ReplicatedStorage\Services\ToolClientService.luau — Bootstraps tool classes for the local player's tools and routes server tool events to them.
 - ReplicatedStorage\Services\TopHUDService.luau — Width-and-height responsive top-centre HUD strip with scaled coin, gem and danger text, rolling balances, gain flashes and five danger tiers.
 - ReplicatedStorage\Services\TouchButtonService.luau — Shared on-screen touch action buttons (sprint, crouch, walkie-talkie power/radio/talk) in screen-height-scaled slots around the jump button, shown only for touch input.
-- ReplicatedStorage\Services\TopbarIconService.luau — Builds the Index, Rooms, Gems and Gallery TopbarPlus icons, drops their labels on narrow screens, opens the matching page and keeps selection in sync.
+- ReplicatedStorage\Services\TopbarIconService.luau — Builds the Index, Rooms, Gems and Gallery TopbarPlus icons, drops their labels on narrow screens, opens the matching page and keeps selection in sync; the D-pad-up highlight can be blocked by key.
 - ReplicatedStorage\Services\TweenProxyService.luau — Tweens arbitrary values through a throwaway ValueBase and a callback, including model scaling.
 - ReplicatedStorage\Services\VanishedService.luau — Checks shared and source-specific immunity tags (admin, safe zone, Spell Book, hole, ending) or a ForceField, with source syncing and an Eye-specific check that skips the exempt tag.
 - ReplicatedStorage\Services\VfxService.luau — Plays named particle templates from `ReplicatedStorage.Effects`: server calls fire every client, clients build them with distance culling.
@@ -263,7 +263,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\DoorPart.luau — Spring and audio-driven swinging door leaf with oddity and forced-shut modes.
 - ReplicatedStorage\Classes\Drawer.luau — Spring-driven sliding drawer that infers its outward axis from the handle and anchors its placement to a structural part so a streamed-out drawer cannot animate from a stale pivot.
 - ReplicatedStorage\Classes\EyeGlow.luau — One camera-facing eye halo from a BillboardGui template plus the shared "it sees you" flare curve, used by the intro and live Stalkers.
-- ReplicatedStorage\Classes\GamepadCursor.luau — Stick-driven controller cursor drawn on its own ScreenGui; RT/LT press through a handler while the stick and triggers are sunk from gameplay.
+- ReplicatedStorage\Classes\GamepadCursor.luau — Stick-driven controller cursor drawn on its own ScreenGui; RT/LT press through a handler while the stick (left, or the handler's choice) and triggers are sunk from gameplay.
 - ReplicatedStorage\Classes\GalleryCard.luau — Clones and fills one Studio-authored gallery tile with a photo or tape-frame thumbnail, badge, capture date and unsaved edge.
 - ReplicatedStorage\Classes\Hole.luau — Crawl-hole prompt that requests six seconds of server-checked immunity before teleporting the player to the twin hole with the same ID.
 - ReplicatedStorage\Classes\Interaction.luau — Camera-raycast interaction system with highlight and animated key prompt; touch players tap or hold the object itself, with the nearest visible target highlighted under a hint prompt; gamepad players get a ring of aim-assist rays around the crosshair; on touch the prompt pill is tappable and a tap just outside a target still reaches it.
@@ -301,13 +301,13 @@ become Services or Classes.
 - ReplicatedStorage\Classes\EndingCutscene\CabinStage.luau — The ending's stage props pivoted onto the exit elevator (cabin lamp, floor dial, EXIT glow, daylight wall, dust) and the door-space frame every ending position uses.
 - ReplicatedStorage\Classes\EndingCutscene\Cast.luau — The ending's actors: the player's stand-in and double (with the Mimic's spin, head twitches and reveal float) and the Sisters, and what each does on cue.
 - ReplicatedStorage\Classes\IntroCutscene\Isolation.luau — Hides other players, everything under workspace.Enemies, creep backdrops and distortions, ceiling walk-ins, Spell Book effects, placed traps, radio death bursts and the safe-zone walls locally every frame, including anything that appears mid-cutscene, and restores them.
-- ReplicatedStorage\Classes\Minigames\MinigameBase.luau — Base class every terminal minigame extends, providing themed GUI builders, input helpers (keys, D-pad, touch swipes and a touch-only swipe hint), heartbeat and win/fail plumbing; directional input also takes the gamepad D-pad, and `BindPress`/`PressAt` let the controller cursor press any registered button.
+- ReplicatedStorage\Classes\Minigames\MinigameBase.luau — Base class every terminal minigame extends, providing themed GUI builders, input helpers (keys, D-pad, touch swipes and a touch-only swipe hint), heartbeat and win/fail plumbing; directional input also takes the gamepad D-pad and left stick, direction labels follow the input type, and `BindPress`/`PressAt` let the controller cursor press any registered button.
 - ReplicatedStorage\Classes\Minigames\AimTrainer.luau — Click-the-target minigame; 20 hits on shrinking timers, 3 misses wipe the run.
-- ReplicatedStorage\Classes\Minigames\Frogger.luau — Frogger minigame; cross six lanes of traffic three times in a row without being hit; hop with keys, the D-pad or swipes.
+- ReplicatedStorage\Classes\Minigames\Frogger.luau — Frogger minigame; cross six lanes of traffic three times in a row without being hit; hop with keys, the D-pad, the left stick or swipes.
 - ReplicatedStorage\Classes\Minigames\Memory.luau — 4x4 emoji pair-matching minigame with a 20-move limit.
 - ReplicatedStorage\Classes\Minigames\Minesweeper.luau — 8x8 Minesweeper minigame with flag mode and a safe first click.
-- ReplicatedStorage\Classes\Minigames\Simon.luau — Simon-says minigame; repeat a growing four-pad sequence up to length seven; the D-pad presses pads by direction.
-- ReplicatedStorage\Classes\Minigames\Snake.luau — Snake minigame on a 16x12 grid; eat twelve pellets as the tick speeds up; steer with keys, gamepad, the D-pad or swipes, and the snake waits for the first input after every spawn; on gamepad the D-pad steers.
+- ReplicatedStorage\Classes\Minigames\Simon.luau — Simon-says minigame; repeat a growing four-pad sequence up to length seven; the D-pad or left stick presses pads by direction, and the pads read arrows instead of WASD on controller and touch.
+- ReplicatedStorage\Classes\Minigames\Snake.luau — Snake minigame on a 16x12 grid; eat twelve pellets as the tick speeds up; steer with keys, gamepad, the D-pad or swipes, and the snake waits for the first input after every spawn; on gamepad the D-pad or left stick steers.
 - ReplicatedStorage\Classes\Tools\Ball.luau — Client ball tool; targets the nearest Eye within 20 studs and clear sight from the player's head, throws a ball prop and reports the hit to the server.
 - ReplicatedStorage\Classes\Tools\Camcorder.luau — Client camcorder; suppresses its viewmodel while the Studio-authored REC/STOP HUD runs, calls the engine stop directly on unequip, reports recording completion, then offers keep or burn before reporting the final decision; its STOP label follows the input type.
 - ReplicatedStorage\Classes\Tools\Camera.luau — Client camera tool; shows a ghost placement preview and asks the server to stand the tripod where you aim.
@@ -339,7 +339,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\ChaseMusicConfig.luau — Per-enemy chase music templates (single sounds or folders of audio emitters), ranges and fades.
 - ReplicatedStorage\Configs\ChaserCameraConfig.luau — Chase camera FOV changes, per-enemy shake profiles and the Mad Guest's sting, proximity FOV and footstep stomp tuning.
 - ReplicatedStorage\Configs\ComputerAssets.luau — Image asset ids for the hackable-computer UI.
-- ReplicatedStorage\Configs\ComputerConfig.luau — Hackable computer objective: interaction, camera, screen and HUD settings.
+- ReplicatedStorage\Configs\ComputerConfig.luau — Hackable computer objective: interaction, controller input sinking, camera, screen and HUD settings.
 - ReplicatedStorage\Configs\CreepConfig.luau — Creep enemy light-killing, backdrop geometry and eye-pair settings.
 - ReplicatedStorage\Configs\CrouchConfig.luau — Crouch movement, camera drop, stealth and touch-button label settings.
 - ReplicatedStorage\Configs\DangerConfig.luau — Danger-field noise generation, randomized danger-leaning patrol tuning and Director enemy population settings.
@@ -353,18 +353,18 @@ become Services or Classes.
 - ReplicatedStorage\Configs\EyeConfig.luau — Eye enemy tracking, hit reaction and gaze screen-effect settings.
 - ReplicatedStorage\Configs\EndingCutsceneConfig.luau — The ending cutscene's command, gui and asset names, cues, shakes, lamp bands, cast positions, camera and grade keyframes and event timeline, all in door space.
 - ReplicatedStorage\Configs\EndingConfig.luau — Win-screen strings, beat timings, motion numbers, remote names and the /resetprogress command name.
-- ReplicatedStorage\Configs\EscapeConfig.luau — Escape stat name, canonical ordered store name, Studio award-write prefix, and the lobby leaderboard's part, source GUI, templates, refresh timing and layout.
+- ReplicatedStorage\Configs\EscapeConfig.luau — Escape stat name, canonical ordered store name, Studio award-write prefix, and the lobby leaderboard's part, source GUI, templates, top-50 count, scroll bar, refresh timing and layout.
 - ReplicatedStorage\Configs\FLAGS.luau — Global on/off switches for major systems and debug output.
 - ReplicatedStorage\Configs\FlashlightConfig.luau — Stacked spotlight cones, shared beam colour and the local beam's camera offset.
 - ReplicatedStorage\Configs\FlashlightDebugConfig.luau — Toggle key and slider steps for the flashlight beam panel.
-- ReplicatedStorage\Configs\GamepadUIConfig.luau — Back keys and timing, skip/default attributes, the controller cursor (image, speed, deadzone, RT/LT keys) and the short label for every gamepad button used by GamepadUIService.
+- ReplicatedStorage\Configs\GamepadUIConfig.luau — Back keys and timing, skip/default attributes, the controller cursor (image, speed, deadzone, RT/LT keys, left and right stick) and the short label for every gamepad button used by GamepadUIService.
 - ReplicatedStorage\Configs\GhostConfig.luau — Ghost enemy turn, bob and fade timing.
 - ReplicatedStorage\Configs\GraphicsFogConfig.luau — Fog quality levels, fog cage and automatic FPS-driven adjustment.
 - ReplicatedStorage\Configs\HearingConfig.luau — Sound-travel visualisation settings for the Blind enemy's hearing.
 - ReplicatedStorage\Configs\HeartbeatConfig.luau — Proximity heartbeat sound settings for the Blind enemy.
 - ReplicatedStorage\Configs\IndexConfig.luau — Enemy Index UI styling, reveal animation and all bestiary entries.
 - ReplicatedStorage\Configs\IntroCutsceneConfig.luau — The intro cutscene's version, seen and playing attributes, command, remotes, triggers, outcomes, length and streaming points (read by the server too), plus the client's gui names, keys, text, captions, sound cues, staging, light sweep, camera and grade keyframes and event timeline.
-- ReplicatedStorage\Configs\InventoryConfig.luau — Five-slot hotbar and 25-slot bag sizes, hotbar keybinds, slot styling and the Inventory page's strings; item quantities stack by name; LB/RB hotbar cycle keys.
+- ReplicatedStorage\Configs\InventoryConfig.luau — Five-slot hotbar and 25-slot bag sizes, hotbar keybinds, slot styling and the Inventory page's strings; item quantities stack by name; LB/RB hotbar cycle keys, which reach empty hands too.
 - ReplicatedStorage\Configs\ItemPreviewConfig.luau — Shared framing and lighting for every item ViewportFrame, with per-item overrides.
 - ReplicatedStorage\Configs\ItemPreviewDebugConfig.luau — Toggle key and slider steps for the item preview debug panel.
 - ReplicatedStorage\Configs\ItemShopConfig.luau — Item shop catalogue, coin prices from 3 (Ball) to 23 (Spell Book) with 5 starting coins, separate kit point prices, unchanged Robux prices, and a purchase-only catalogue that excludes the required Walkie Talkie.
@@ -384,7 +384,7 @@ become Services or Classes.
 - ReplicatedStorage\Configs\PerfGraphConfig.luau — F8 performance graph panel keybind, size, fixed graph maxima, reference lines, FPS thresholds, colours and the instance-churn category list.
 - ReplicatedStorage\Configs\PerkConfig.luau — Per-perk settings for the gamepass/perk system, including the More Health (+50) and Mega Health (+100) bonuses and the friend-revive analytics source.
 - ReplicatedStorage\Configs\PhotoConfig.luau — Placement, countdown, lens, ShadowFigure, capture, despawn and film animation timing for the tripod camera; film layout lives in StarterGui.
-- ReplicatedStorage\Configs\PlayerLocatorConfig.luau — Marker layout, screen-space focus range, focus animation and palette for the Player Locator tool; gamepad teleport key.
+- ReplicatedStorage\Configs\PlayerLocatorConfig.luau — Marker layout with no distance cap, screen-space focus range, focus animation and palette for the Player Locator tool; gamepad teleport key.
 - ReplicatedStorage\Configs\PlayerOddityConfig.luau — Roll timings and effect weights for whole-character size, head-size, transparency and head-stare player oddities.
 - ReplicatedStorage\Configs\PropOddityConfig.luau — Per-effect tuning for falling lanterns, falling paintings and the painting dweller; both falling fixtures use `ObjectFalling` on impact with a `LanternShatter` or `PaintingThud` effect, and painting-dweller fixture debug highlights are disabled.
 - ReplicatedStorage\Configs\ResetComputersConfig.luau — Lobby reset-computers terminal: tag, remote, confirm page names, prompt and hold seconds, server reach and cooldown, and the notice timings.
@@ -498,7 +498,7 @@ become Services or Classes.
 - ServerStorage\Services\KitShopService.luau — Buying a named kit outright for its rarity's gem price or through the rarity's Robux product, with deduplicated receipts; logs `KitPurchased`.
 - ServerStorage\Services\LanternFallService.luau — Fixture pool that arms lanterns and drops one when a player approaches.
 - ServerStorage\Services\LanternSwingCommandService.luau — /lantern swing command that flags the nearest swayable lantern red for a duration.
-- ServerStorage\Services\LeaderboardService.luau — Builds the lobby escape leaderboard SurfaceGui from the Studio-authored LeaderboardUI and refreshes its top four from the canonical ordered store every 60 seconds.
+- ServerStorage\Services\LeaderboardService.luau — Builds the lobby escape leaderboard SurfaceGui from the Studio-authored LeaderboardUI and refreshes its top 50 from the canonical ordered store every 60 seconds.
 - ServerStorage\Services\LightService.luau — Central control of every tagged light model: reference-counted radius, box and hallway blackout claims plus flicker effects.
 - ServerStorage\Services\LoadoutService.luau — Captures and restores a player's tools, quantities and attributes across inventory wipes.
 - ServerStorage\Services\LookService.luau — Stores clamped client camera pitch/yaw on characters and mirrors it onto mimic enemies.
@@ -548,7 +548,7 @@ become Services or Classes.
 - ServerStorage\Classes\Healer.luau — Server tool that consumes a charge and heals the holder.
 - ServerStorage\Classes\FixtureFall.luau — Prop oddity that unanchors and drops a fixture, plays its configured 3D sound and impact effect once on floor impact, and provides the shared "safe to repair yet" test and exact restore.
 - ServerStorage\Classes\HallwayOddity.luau — Base class for map-scope oddities that occupy a hallway span.
-- ServerStorage\Classes\LeaderboardBoard.luau — Lays the LeaderboardUI design out as a SurfaceGui on any part face and fills its rows with headshots, names and escape counts.
+- ServerStorage\Classes\LeaderboardBoard.luau — Lays the LeaderboardUI design out as a SurfaceGui on any part face with its rows in a scrolling list (about six visible), and fills them with headshots, names and escape counts.
 - ServerStorage\Classes\ServerTool.luau — Server-side tool base class; ToolBase plus inventory consumption.
 - ServerStorage\Classes\Sound.luau — Attaches an ambient AudioEmitter clone to a tagged instance from its Sound attribute.
 - ServerStorage\Classes\SpeedDrink.luau — Server tool that plays a drink sequence and grants a temporary speed boost.

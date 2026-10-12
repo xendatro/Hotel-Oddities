@@ -17,6 +17,8 @@ return {
 		Speed = 0.9,
 		Deadzone = 0.15,
 		Curve = 1.6,
+		Stick = Enum.KeyCode.Thumbstick1,
+		SecondaryStick = Enum.KeyCode.Thumbstick2,
 		PressKeys = {
 			Enum.KeyCode.ButtonR2,
 		},

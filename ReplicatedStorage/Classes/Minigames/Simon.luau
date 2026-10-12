@@ -17,32 +17,27 @@ export type Api = MinigameBase.Api
 local PAD_PITCH = { 1, 1.25, 1.5, 2 }
 
 type PadLayout = {
-	Key: string,
+	DirectionX: number,
+	DirectionY: number,
 	X: number,
 	Y: number,
 }
 
 local PAD_LAYOUT: { PadLayout } = {
-	{ Key = "W", X = 0.5, Y = 0.18 },
-	{ Key = "D", X = 0.82, Y = 0.5 },
-	{ Key = "S", X = 0.5, Y = 0.82 },
-	{ Key = "A", X = 0.18, Y = 0.5 },
+	{ DirectionX = 0, DirectionY = -1, X = 0.5, Y = 0.18 },
+	{ DirectionX = 1, DirectionY = 0, X = 0.82, Y = 0.5 },
+	{ DirectionX = 0, DirectionY = 1, X = 0.5, Y = 0.82 },
+	{ DirectionX = -1, DirectionY = 0, X = 0.18, Y = 0.5 },
 }
 
-local KEYS: { [Enum.KeyCode]: number } = {
-	[Enum.KeyCode.W] = 1,
-	[Enum.KeyCode.Up] = 1,
-	[Enum.KeyCode.D] = 2,
-	[Enum.KeyCode.Right] = 2,
-	[Enum.KeyCode.S] = 3,
-	[Enum.KeyCode.Down] = 3,
-	[Enum.KeyCode.A] = 4,
-	[Enum.KeyCode.Left] = 4,
-	[Enum.KeyCode.DPadUp] = 1,
-	[Enum.KeyCode.DPadRight] = 2,
-	[Enum.KeyCode.DPadDown] = 3,
-	[Enum.KeyCode.DPadLeft] = 4,
-}
+local function padFor(x: number, y: number): number?
+	for index, layout in PAD_LAYOUT do
+		if layout.DirectionX == x and layout.DirectionY == y then
+			return index
+		end
+	end
+	return nil
+end
 
 local Simon = MinigameBase.extend("Simon", "SIMON.EXE", true)
 
@@ -89,7 +84,7 @@ function Simon:_buildBoard()
 		button.BorderSizePixel = 0
 		button.AutoButtonColor = false
 		button.Font = theme.Font
-		button.Text = layout.Key
+		self:LabelDirection(button, layout.DirectionX, layout.DirectionY)
 		button.TextSize = 34
 		button.TextColor3 = theme.Background
 		button.Parent = board
@@ -265,8 +260,11 @@ function Simon:Start(saved: any?)
 	self:_buildBoard()
 	self:_buildChrome()
 	self:_reseed(length)
-	self:ConnectKeys(KEYS, function(pad: number)
-		self:_press(pad)
+	self:ConnectDirectionalKeys(function(x: number, y: number)
+		local pad = padFor(x, y)
+		if pad then
+			self:_press(pad)
+		end
 	end)
 	self:_beginPlayback()
 

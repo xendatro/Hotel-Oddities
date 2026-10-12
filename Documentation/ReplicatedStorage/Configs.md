@@ -47,7 +47,7 @@ Image asset ids for the hackable-computer UI.
 - API: data table — `ComputerIcon`, `LockIcon`, `CheckIcon`, `MonitorIcon` (the white hand-drawn CRT the computer notepad tints per chip colour)
 
 ### ComputerConfig.luau
-Everything for the hackable computer objective: tagging, interaction, camera framing, prompt UI, screen SurfaceGui and the computer notepad (`HUD`: the `ComputersGui` name, title, locked/unlocked footer strings, pending icon transparency, the complete colour and flash speed).
+Everything for the hackable computer objective: tagging, interaction (`Input` also holds the session's `SinkAction`, `SinkPriority` and `SinkKeys`: every controller button but B and the sticks, sunk above the side-button page keys while a computer is open), camera framing, prompt UI, screen SurfaceGui and the computer notepad (`HUD`: the `ComputersGui` name, title, locked/unlocked footer strings, pending icon transparency, the complete colour and flash speed).
 - API: data table — `Tag`, `IdAttribute`, `ModelName`, `ScreenPath`, `Remotes`, `Colors`, `Targeting`, `Input`, `Camera`, `Highlight`, `UI`, `IdleScreen`, `HUD`
 
 ### CreepConfig.luau
@@ -110,7 +110,7 @@ Everything the ending cutscene reads. `Key` (`EndingCutscene`, the key for every
 - Requires: nothing
 
 ### EscapeConfig.luau
-The escape (win) stat and its lobby leaderboard: `StatName` (the `leaderstats` IntValue name, `Escapes`), the canonical `OrderedStore` name and its Studio prefix for environment-scoped award writes, and everything under `Leaderboard`: where the board lives (`Folder`, `Part`, `Face`), the Studio GUI it is built from (`Gui`, `Root`), the `Title` text, the `NameFormat` (`"%s (%s)"`, display name then username), `UnknownName`, the `rbxthumb` `Headshot` URL pattern, `TopCount` rows, `RefreshInterval` and `AwardRefreshDelay` seconds, SurfaceGui `PixelsPerStud`, `LightInfluence` and `Brightness`, the `Templates` (instance names inside the design the board clones: title plate, title text, plank row, headshot, text) and the `Layout` numbers (margins, title width and gap, title text box, row width and vertical stretch, headshot inset and height, name gap, text height, score column edges), all as fractions of the part face or of a row. `EscapeService:GetTop` always reads the canonical unprefixed store.
+The escape (win) stat and its lobby leaderboard: `StatName` (the `leaderstats` IntValue name, `Escapes`), the canonical `OrderedStore` name and its Studio prefix for environment-scoped award writes, and everything under `Leaderboard`: where the board lives (`Folder`, `Part`, `Face`), the Studio GUI it is built from (`Gui`, `Root`), the `Title` text, the `NameFormat` (`"%s (%s)"`, display name then username), `UnknownName`, the `rbxthumb` `Headshot` URL pattern, `TopCount` entries (50, about six visible at once in the scrolling list; `Scroll` sets the scroll bar's thickness, colour and transparency), `RefreshInterval` and `AwardRefreshDelay` seconds, SurfaceGui `PixelsPerStud`, `LightInfluence` and `Brightness`, the `Templates` (instance names inside the design the board clones: title plate, title text, plank row, headshot, text) and the `Layout` numbers (margins, title width and gap, title text box, row width and vertical stretch, headshot inset and height, name gap, text height, score column edges, the `RowGap` between rows), all as fractions of the part face or of a row. `EscapeService:GetTop` always reads the canonical unprefixed store.
 - API: data table - `StatName`, `OrderedStore`, `Leaderboard`
 - Requires: nothing
 
@@ -127,7 +127,7 @@ Toggle key and slider steps for the flashlight beam panel.
 - API: data table — `ToggleKey`, `Step`, `AngleStep`, `WarmColor`
 
 ### GamepadUIConfig.luau
-Settings for `GamepadUIService`: the back keys (B), how long after a back press other B handlers stay suppressed (`BackWindow`), the delay before a focused root is selected (`SelectDelay`, so a page's open animation has made it visible) the controller cursor (`Cursor`: gui name and display order, arrow image and size, speed as a fraction of the screen height per second, stick deadzone and response curve, press keys RT, alternate keys LT, and the ContextActionService priority that sinks the left stick and triggers while it is shown), the `GamepadSkip` and `GamepadDefault` attribute names, the close-button tag, and the short text for each gamepad `KeyCode` (`A`, `LB`, `RT`, `L3`, `◀`, `View`...).
+Settings for `GamepadUIService`: the back keys (B), how long after a back press other B handlers stay suppressed (`BackWindow`), the delay before a focused root is selected (`SelectDelay`, so a page's open animation has made it visible) the controller cursor (`Cursor`: gui name and display order, arrow image and size, speed as a fraction of the screen height per second, stick deadzone and response curve, press keys RT, alternate keys LT, the default `Stick` (left) and the `SecondaryStick` (right) used by minigames that steer with the left stick, and the ContextActionService priority that sinks the left stick and triggers while it is shown), the `GamepadSkip` and `GamepadDefault` attribute names, the close-button tag, and the short text for each gamepad `KeyCode` (`A`, `LB`, `RT`, `L3`, `◀`, `View`...).
 - API: data table — `BackKeys`, `BackWindow`, `SelectDelay`, `SkipAttribute`, `DefaultAttribute`, `CloseTag`, `KeyText`
 
 ### GhostConfig.luau
@@ -156,7 +156,7 @@ Everything the intro cutscene reads, shared by the client orchestrator and the s
 - Requires: nothing
 
 ### InventoryConfig.luau
-The inventory's shape on every device: a 5-slot hotbar (`HotbarSlots`, keys 1-5 in `HotbarKeys`) that scales down against `HUD.ReferenceSize` on small viewports, plus a 25-slot bag (`BackpackSlots`), the `CycleKeys` that step the equipped hotbar slot on gamepad (LB back, RB forward; the Inventory page's keys live in `SideButtonConfig`), drag thresholds and the code-built hotbar slot styling. `Page` carries everything the Inventory page needs that is not authored in the GUI: its page id and ScreenGui name, the name and display order of the ScreenGui the drag ghost rides in, the drag ghost ZIndex, the drop-target and selection strokes, the notice hold time, ink/bad colours for the quantity badge and refusals, and the `Text` table (`ToHotbar`, `ToBag`, `HotbarFull`, `BagFull`, `Empty`, `EmptyDescription`). Item quantities stack by name; the InventoryService separately maintains one required Walkie Talkie.
+The inventory's shape on every device: a 5-slot hotbar (`HotbarSlots`, keys 1-5 in `HotbarKeys`) that scales down against `HUD.ReferenceSize` on small viewports, plus a 25-slot bag (`BackpackSlots`), the `CycleKeys` that step the equipped hotbar slot on gamepad (LB back, RB forward, with an empty-hands stop between the last and first item; the Inventory page's keys live in `SideButtonConfig`), drag thresholds and the code-built hotbar slot styling. `Page` carries everything the Inventory page needs that is not authored in the GUI: its page id and ScreenGui name, the name and display order of the ScreenGui the drag ghost rides in, the drag ghost ZIndex, the drop-target and selection strokes, the notice hold time, ink/bad colours for the quantity badge and refusals, and the `Text` table (`ToHotbar`, `ToBag`, `HotbarFull`, `BagFull`, `Empty`, `EmptyDescription`). Item quantities stack by name; the InventoryService separately maintains one required Walkie Talkie.
 - API: data table — `HotbarSlots`, `BackpackSlots`, `CycleKeys`, `HotbarKeys`, `DragThreshold`, `TouchDragThreshold`, `SlotSize`, `SlotPadding`, `CornerRadius`, `HUD`, `Colors`, `Transparency`, `PlaceholderIcon`, `Page`
 
 ### ItemPreviewConfig.luau
@@ -245,7 +245,7 @@ Every behavior value the tripod Camera photo system uses: the placed-model tag a
 - API: data table — `Tag`, `ModelName`, `Attributes`, `Place`, `Countdown`, `Lens`, `Figure`, `Capture`, `Despawn`, `Timer`, `Develop`
 
 ### PlayerLocatorConfig.luau
-Cooldown, marker layout, focus animation and colour/font palette for the Player Locator tool's on-screen teammate markers, plus `GamepadTeleportKey` (RT), the gamepad equivalent of clicking a focused marker.
+Cooldown, marker layout (`Marker.MaxDistance` is `math.huge`, so a marker shows and can be focused at any range), focus animation and colour/font palette for the Player Locator tool's on-screen teammate markers, plus `GamepadTeleportKey` (RT), the gamepad equivalent of clicking a focused marker.
 - API: data table — `Modes`, `Cooldown`, `GamepadTeleportKey`, `CooldownFormat`, `MarkerCooldownFormat`, `ArriveDistance`, `Highlight`, `Marker`, `Focus`, `Press`, `Colors`, `Fonts`
 
 ### PlayerOddityConfig.luau

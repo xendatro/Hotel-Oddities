@@ -15,6 +15,8 @@ local xenterface = require(ReplicatedStorage.Frameworks.xenterface)
 local controller = xenterface:Controller(TopbarConfig.PageGroup)
 local icons: { [string]: any } = {}
 local compact: boolean? = nil
+local highlightBlocks: { [string]: true } = {}
+local savedHighlightKey: any = nil
 
 local function buildIcon(entry)
 	local icon = Icon.new()
@@ -52,6 +54,20 @@ end
 
 function TopbarIconService:GetIcon(pageId: string)
 	return icons[pageId]
+end
+
+function TopbarIconService:SetHighlightBlocked(key: string, blocked: boolean)
+	local wasBlocked = next(highlightBlocks) ~= nil
+	highlightBlocks[key] = if blocked then true else nil
+	local isBlocked = next(highlightBlocks) ~= nil
+	if isBlocked == wasBlocked then return end
+
+	if isBlocked then
+		savedHighlightKey = Icon.highlightKey
+		Icon.highlightKey = false
+	else
+		Icon.highlightKey = savedHighlightKey
+	end
 end
 
 for _, entry in TopbarConfig.Icons do

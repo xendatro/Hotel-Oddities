@@ -151,9 +151,9 @@ One tile in the Gallery grid. Clones the complete Studio-authored `GalleryGui.De
 - Requires: `Configs.CaptureConfig`, `CaptureGalleryService`; expects the authored gallery card template
 
 ### GamepadCursor.luau
-The controller cursor for screens a gamepad can only use by pointing (minigame terminals, the raised walkie-talkie). Builds its own `GamepadCursor` ScreenGui (inset ignored, so positions are viewport points) holding Roblox's arrow image. While a handler is set it shows at the screen centre, moves with the left stick (deadzone, response curve, speed scaled to the screen height, clamped to the screen) and calls the handler's `Press` on RT (alternate on LT), `Release` when the trigger lifts and `Move` as it travels. The left stick and triggers are bound through ContextActionService at `GamepadUIConfig.Cursor.Priority` and sunk, so the character does not walk and tools and interactions do not fire while it is shown. Owned by `GamepadUIService`.
+The controller cursor for screens a gamepad can only use by pointing (minigame terminals, the raised walkie-talkie). Builds its own `GamepadCursor` ScreenGui (inset ignored, so positions are viewport points) holding Roblox's arrow image. While a handler is set it shows at the screen centre, moves with the left stick (or the handler's `Stick`, which minigames that steer with the left stick set to the right stick) (deadzone, response curve, speed scaled to the screen height, clamped to the screen) and calls the handler's `Press` on RT (alternate on LT), `Release` when the trigger lifts and `Move` as it travels. The left stick and triggers are bound through ContextActionService at `GamepadUIConfig.Cursor.Priority` and sunk, so the character does not walk and tools and interactions do not fire while it is shown. Owned by `GamepadUIService`.
 - API: `GamepadCursor.new() -> GamepadCursor`
-- API: `GamepadCursor:SetHandler(handler: { Press: (point: Vector2, alternate: boolean) -> (), Release: ((point, alternate) -> ())?, Move: ((point) -> ())? }?)` — shows the cursor with a handler, hides it with nil
+- API: `GamepadCursor:SetHandler(handler: { Press: (point: Vector2, alternate: boolean) -> (), Release: ((point, alternate) -> ())?, Move: ((point) -> ())?, Stick: Enum.KeyCode? }?)` — shows the cursor with a handler, hides it with nil, and rebinds when the new handler's stick differs
 - API: `GamepadCursor:GetPosition() -> Vector2`
 - API: `GamepadCursor:Destroy()`
 - Requires: `Configs.GamepadUIConfig`, `GuiBuilderService`
@@ -473,8 +473,11 @@ Shared base class every terminal minigame extends: it owns the root frame, theme
 - API: `MinigameBase:AddStroke(parent: GuiObject, color: Color3, thickness: number) -> UIStroke`
 - API: `MinigameBase:BuildBoardFrame(aspectRatio: number, options: {Position: UDim2?, Size: UDim2?, Clip: boolean?}?) -> Frame` — centred aspect-locked board, also stored as `self.Board`
 - API: `MinigameBase:BuildStatusBar(leftName: string, initialMessage: string) -> (TextLabel, TextLabel)` — top bar; right label becomes `self.MessageLabel`
-- API: `MinigameBase:BuildDirectionalPad(callback: (x: number, y: number) -> ())` — on-screen WASD pad
-- API: `MinigameBase:ConnectDirectionalKeys(callback: (x: number, y: number) -> ())` — WASD/arrow keys and the gamepad D-pad (the left stick moves the controller cursor instead)
+- API: `MinigameBase:BuildDirectionalPad(callback: (x: number, y: number) -> ())` — on-screen four-button pad, labelled through `LabelDirection`
+- API: `MinigameBase:ConnectDirectionalKeys(callback: (x: number, y: number) -> ())` — WASD/arrow keys, the gamepad D-pad and the left stick (through `ConnectStick`)
+- API: `MinigameBase:ConnectStick(callback: (x: number, y: number) -> ())` — the gamepad left stick as one `{x, y}` step each time it is pushed past 0.6 on its dominant axis; it re-arms once the stick falls under 0.35 or is pushed past 0.6 in another direction. Sets `UsesStick`, which moves the controller cursor to the right stick for that game
+- API: `MinigameBase:DirectionText(x: number, y: number) -> string` — `W`/`A`/`S`/`D` on keyboard and mouse, the D-pad arrow glyph from `GamepadUIConfig.KeyText` on gamepad and touch
+- API: `MinigameBase:LabelDirection(label: TextLabel | TextButton, x: number, y: number)` — keeps a label's text on `DirectionText` as `PreferredInput` changes
 - API: `MinigameBase:InputHint() -> string` — `SWIPE`, `D-PAD` or `WASD` for the current `PreferredInput`
 - API: `MinigameBase:ConnectSwipes(callback: (x: number, y: number) -> (), continuous: boolean?)` — touch swipes anywhere on the screen as `{x, y}` steps on the dominant axis, once a finger travels 6% of the viewport's shorter side; `continuous` keeps the same finger firing a new step every further 6% so a drag can steer repeatedly, otherwise each touch gives one step
 - API: `MinigameBase:BuildSwipeHint(text: string) -> TextLabel` — dim label left of the D-pad, shown only while `UserInputService.PreferredInput` is `Touch`
@@ -507,6 +510,7 @@ Frogger on a 13x9 grid: hop from the bottom row to the goal row three times whil
 - API: `Frogger:Serialize() -> any?` — `{ Crossings }`, or nil at zero
 - API: `Frogger:Reset()` — clears crossings, re-phases every lane, returns the frog to start
 - API: `Frogger:IdleMessage()` — restores the "REACH THE TOP" prompt
+- Gamepad: hop with the D-pad or the left stick; the controller cursor moves with the right stick.
 - Requires: `Classes\Minigames\MinigameBase`
 
 ### Minigames\Memory.luau
@@ -528,19 +532,19 @@ Frogger on a 13x9 grid: hop from the bottom row to the goal row three times whil
 - Requires: `Classes\Minigames\MinigameBase`
 
 ### Minigames\Simon.luau
-Simon says with four pads driven by WASD/arrows or clicks: watch the playback, repeat it, and the sequence grows by one each round until 7 is reached. Three mistakes reseed the sequence to length 1, show a LOCKOUT and report a failure; the highest length reached is what gets saved.
+Simon says with four pads driven by WASD/arrows, the D-pad, the left stick or clicks; the pads read W/D/S/A on keyboard and ▲▶▼◀ on controller and touch: watch the playback, repeat it, and the sequence grows by one each round until 7 is reached. Three mistakes reseed the sequence to length 1, show a LOCKOUT and report a failure; the highest length reached is what gets saved.
 - API: `Simon.new(root: Frame, api: Api) -> self`
 - API: `Simon:Start(saved: any?)` — builds pads and status bar, reseeds to the saved length, binds keys, starts the playback heartbeat
 - API: `Simon:Serialize() -> any?` — `{ Length }` (best round reached), or nil at zero
 - API: `Simon:Reset()` — clears mistakes and best, reseeds to length 1
 - API: `Simon:OnDestroy()` — drops pad button references
-- Gamepad: the D-pad presses the pads by direction (up, right, down, left).
+- Gamepad: the D-pad or left stick presses the pads by direction (up, right, down, left); the controller cursor moves with the right stick.
 - Requires: `Classes\Minigames\MinigameBase`
 
 ### Minigames\Snake.luau
 Snake on a 16x12 grid: eat 12 pellets to win, with the tick interval speeding up from 0.16s toward 0.106s per pellet eaten, 20% slower while `PreferredInput` is `Touch`. The snake holds still after every spawn (open, crash, reset) until the first direction input, with a `WASD`/`D-PAD`/`SWIPE TO START` hint on the board. Turns are queued (max 2) so fast inputs are not dropped, and reversing into yourself is rejected; hitting a wall or your own body zeroes the score, respawns and reports a failure. Only the best pellet count survives a save.
 - API: `Snake.new(root: Frame, api: Api) -> self`
-- API: `Snake:Start(saved: any?)` — restores `Best`, builds board and chrome, spawns the snake, binds keys, gamepad, D-pad and continuous touch swipes (with a "SWIPE ANYWHERE TO STEER" hint on touch), starts the tick heartbeat
+- API: `Snake:Start(saved: any?)` — restores `Best`, builds board and chrome, spawns the snake, binds keys, the gamepad D-pad and left stick (the controller cursor moves with the right stick), the on-screen pad and continuous touch swipes (with a "SWIPE ANYWHERE TO STEER" hint on touch), starts the tick heartbeat
 - API: `Snake:Serialize() -> any?` — `{ Best }`, or nil at zero
 - API: `Snake:Reset()` — banks the score into `Best`, respawns the snake
 - API: `Snake:IdleMessage()` — shows the best score, or the `EAT <PELLETS_TO_WIN>` prompt

@@ -20,6 +20,7 @@ local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local InterfaceService = require(ReplicatedStorage.Services.InterfaceService)
 local CameraFovService = require(ReplicatedStorage.Services.CameraFovService)
 local InventoryUIService = require(ReplicatedStorage.Services.InventoryUIService)
+local TopbarIconService = require(ReplicatedStorage.Services.TopbarIconService)
 
 local INPUT = ComputerConfig.Input
 local CAMERA = ComputerConfig.Camera
@@ -449,6 +450,8 @@ function restore()
 
 	RunService:UnbindFromRenderStep(SESSION_JOB)
 	ContextActionService:UnbindAction(INPUT.ExitAction)
+	ContextActionService:UnbindAction(INPUT.SinkAction)
+	TopbarIconService:SetHighlightBlocked(SESSION_JOB, false)
 
 	local camera = current.Camera
 	if camera.Parent then
@@ -573,6 +576,10 @@ function ComputerService:Activate(model: Model?): boolean
 	setControlsEnabled(false)
 	RunService:BindToRenderStep(SESSION_JOB, Enum.RenderPriority.Camera.Value + 4, renderSession)
 	ContextActionService:BindAction(INPUT.ExitAction, onExitAction, false, table.unpack(INPUT.ExitKeys))
+	ContextActionService:BindActionAtPriority(INPUT.SinkAction, function()
+		return Enum.ContextActionResult.Sink
+	end, false, INPUT.SinkPriority, table.unpack(INPUT.SinkKeys))
+	TopbarIconService:SetHighlightBlocked(SESSION_JOB, true)
 
 	if cursor and UI.HideCursorInSession then
 		cursor.Enabled = false

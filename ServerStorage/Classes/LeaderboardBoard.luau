@@ -111,19 +111,35 @@ function LeaderboardBoard.new(part: BasePart, design: Instance)
 
 	local rowHeight = (Layout.RowWidth * width / ratioOf(row)) / height * Layout.RowStretch
 	local top = Layout.TopMargin + plateHeight + Layout.TitleGap
-	local count = Config.TopCount
-	local gap = if count > 1 then (1 - Layout.BottomMargin - top - count * rowHeight) / (count - 1) else 0
 	local headshotWidth = Layout.HeadshotHeight * rowHeight * height / (Layout.RowWidth * width)
 	local nameLeft = Layout.HeadshotLeft + headshotWidth + Layout.NameGap
 	local textSize = Layout.TextHeight * rowHeight * canvasHeight
 
+	local list = Instance.new("ScrollingFrame")
+	list.Name = "Rows"
+	list.Position = UDim2.fromScale(0, top)
+	list.Size = UDim2.fromScale(1, 1 - Layout.BottomMargin - top)
+	list.BackgroundTransparency = 1
+	list.BorderSizePixel = 0
+	list.ScrollingDirection = Enum.ScrollingDirection.Y
+	list.ScrollBarThickness = Config.Scroll.BarThickness
+	list.ScrollBarImageColor3 = Config.Scroll.BarColor
+	list.ScrollBarImageTransparency = Config.Scroll.BarTransparency
+	list.CanvasSize = UDim2.new()
+	list.Parent = gui
+
+	self.List = list
+	self.RowPixels = rowHeight * canvasHeight
+	self.GapPixels = Layout.RowGap * canvasHeight
+
 	self.Rows = {}
-	for index = 1, count do
+	for index = 1, Config.TopCount do
 		local rowClone = cloneImage(row, `Row{index}`)
 		rowClone.AnchorPoint = Vector2.new(0.5, 0)
-		rowClone.Position = UDim2.fromScale(0.5, top + (index - 1) * (rowHeight + gap))
-		rowClone.Size = UDim2.fromScale(Layout.RowWidth, rowHeight)
-		rowClone.Parent = gui
+		rowClone.Position = UDim2.new(0.5, 0, 0, (index - 1) * (self.RowPixels + self.GapPixels))
+		rowClone.Size = UDim2.new(Layout.RowWidth, 0, 0, self.RowPixels)
+		rowClone.Visible = false
+		rowClone.Parent = list
 
 		local headshotClone = cloneImage(headshot, "Headshot")
 		headshotClone.AnchorPoint = Vector2.new(0, 0.5)
@@ -158,8 +174,12 @@ function LeaderboardBoard.new(part: BasePart, design: Instance)
 end
 
 function LeaderboardBoard:SetEntries(entries: { Entry })
+	local shown = math.min(#entries, #self.Rows)
+	self.List.CanvasSize = UDim2.fromOffset(0, math.max(shown * (self.RowPixels + self.GapPixels) - self.GapPixels, 0))
+
 	for index, row in self.Rows do
 		local entry = entries[index]
+		row.Frame.Visible = entry ~= nil
 		if entry then
 			row.Headshot.Image = string.format(Config.Headshot, entry.UserId)
 			row.Name.Text = string.format(Config.NameFormat, entry.DisplayName, entry.Username)

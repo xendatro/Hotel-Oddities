@@ -13,6 +13,7 @@ export type Handler = {
 	Press: (point: Vector2, alternate: boolean) -> (),
 	Release: ((point: Vector2, alternate: boolean) -> ())?,
 	Move: ((point: Vector2) -> ())?,
+	Stick: Enum.KeyCode?,
 }
 
 local GamepadCursor = {}
@@ -44,6 +45,7 @@ function GamepadCursor.new()
 	self.Stick = Vector2.zero
 	self.Handler = nil :: Handler?
 	self.Shown = false
+	self.StickKey = CURSOR.Stick
 
 	return self
 end
@@ -58,6 +60,8 @@ function GamepadCursor:SetHandler(handler: Handler?)
 		self:_show()
 	elseif not handler and self.Shown then
 		self:_hide()
+	elseif handler and (handler.Stick or CURSOR.Stick) ~= self.StickKey then
+		self:_bind()
 	end
 end
 
@@ -69,7 +73,7 @@ function GamepadCursor:_onAction(inputState: Enum.UserInputState, input: InputOb
 	local handler = self.Handler
 	if not handler then return Enum.ContextActionResult.Pass end
 
-	if input.KeyCode == Enum.KeyCode.Thumbstick1 then
+	if input.KeyCode == self.StickKey then
 		if inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel then
 			self.Stick = Vector2.zero
 		else
@@ -114,8 +118,16 @@ function GamepadCursor:_show()
 	RunService:BindToRenderStep(RENDER_JOB, Enum.RenderPriority.Input.Value + 1, function(deltaTime: number)
 		self:_step(deltaTime)
 	end)
+	self:_bind()
+end
 
-	local keys = { Enum.KeyCode.Thumbstick1 }
+function GamepadCursor:_bind()
+	local handler = self.Handler
+	self.StickKey = (handler and handler.Stick) or CURSOR.Stick
+	self.Stick = Vector2.zero
+	ContextActionService:UnbindAction(ACTION_NAME)
+
+	local keys = { self.StickKey }
 	for _, keyCode in CURSOR.PressKeys do
 		table.insert(keys, keyCode)
 	end

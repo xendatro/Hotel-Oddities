@@ -10,6 +10,7 @@ if not RunService:IsClient() then
 	return MinigameService
 end
 
+local GamepadUIConfig = require(ReplicatedStorage.Configs.GamepadUIConfig)
 local GamepadUIService = require(ReplicatedStorage.Services.GamepadUIService)
 local SurfaceCursorService = require(ReplicatedStorage.Services.SurfaceCursorService)
 
@@ -60,6 +61,7 @@ export type Game = {
 	Serialize: (self: any) -> any?,
 	Reset: (self: any) -> (),
 	Destroy: (self: any) -> (),
+	UsesStick: boolean?,
 }
 
 export type Module = {
@@ -851,6 +853,7 @@ function MinigameService:Open(model: Model, screen: BasePart, callbacks: Callbac
 		Press = function(point: Vector2, alternate: boolean)
 			MinigameService:PressAt(point, alternate)
 		end,
+		Stick = if playing.UsesStick then GamepadUIConfig.Cursor.SecondaryStick else nil,
 	})
 	playCue("Open")
 end

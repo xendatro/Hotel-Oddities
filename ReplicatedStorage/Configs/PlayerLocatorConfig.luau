@@ -21,7 +21,7 @@ return {
 	Marker = {
 		Size = Vector2.new(260, 310),
 		Offset = Vector3.new(0, 3, 0),
-		MaxDistance = 1000,
+		MaxDistance = math.huge,
 
 		ReferenceHeight = 1080,
 		MinScale = 0.8,

@@ -38,6 +38,24 @@ return {
 			Enum.KeyCode.Q,
 			Enum.KeyCode.ButtonB,
 		},
+
+		SinkAction = "ComputerSink",
+		SinkPriority = Enum.ContextActionPriority.High.Value + 5,
+		SinkKeys = {
+			Enum.KeyCode.DPadUp,
+			Enum.KeyCode.DPadDown,
+			Enum.KeyCode.DPadLeft,
+			Enum.KeyCode.DPadRight,
+			Enum.KeyCode.ButtonA,
+			Enum.KeyCode.ButtonX,
+			Enum.KeyCode.ButtonY,
+			Enum.KeyCode.ButtonL1,
+			Enum.KeyCode.ButtonR1,
+			Enum.KeyCode.ButtonL2,
+			Enum.KeyCode.ButtonR2,
+			Enum.KeyCode.ButtonL3,
+			Enum.KeyCode.ButtonR3,
+		},
 	},
 
 	Camera = {
