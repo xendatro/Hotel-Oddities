@@ -12,17 +12,23 @@ local LeaderboardService = {}
 
 local Config = EscapeConfig.Leaderboard
 local Names: { [number]: { DisplayName: string, Username: string } } = {}
-local Entries: { LeaderboardBoard.Entry } = {}
-local Board = nil
+local Entries: { [string]: { LeaderboardBoard.Entry } } = {}
+local Boards: { [string]: { any } } = {}
 local Refreshing = false
 
-local function findPart(): BasePart?
+local function findParts(): { BasePart }
 	local folder = workspace:FindFirstChild(Config.Folder)
-	local part = folder and folder:FindFirstChild(Config.Part)
-	if part and part:IsA("BasePart") then
-		return part
+	local parts = {}
+	if folder then
+		for _, part in folder:GetDescendants() do
+			if not part:IsA("BasePart") or part.Name ~= Config.Part then continue end
+			local boardType = part:GetAttribute(Config.TypeAttribute) or "Escapes"
+			if Config.Types[boardType] then
+				table.insert(parts, part)
+			end
+		end
 	end
-	return nil
+	return parts
 end
 
 local function findDesign(): Instance?
@@ -59,11 +65,13 @@ local function lookup(ids: { number })
 	end
 end
 
-local function refresh()
-	if Refreshing then return end
-	Refreshing = true
-
-	local top = EscapeService:GetTop(Config.TopCount)
+local function refreshType(boardType: string, boards: { any })
+	local top
+	if boardType == "Time" then
+		top = EscapeService:GetTopTimes(Config.TopCount)
+	else
+		top = EscapeService:GetTop(Config.TopCount)
+	end
 	if top then
 		local ids = {}
 		for _, entry in top do
@@ -79,29 +87,45 @@ local function refresh()
 				DisplayName = if names then names.DisplayName else Config.UnknownName,
 				Username = if names then names.Username else tostring(entry.UserId),
 				Escapes = entry.Escapes,
+				Time = entry.Time,
 			})
 		end
-		Entries = entries
-		if Board then
-			Board:SetEntries(entries)
+		Entries[boardType] = entries
+		for _, board in boards do
+			board:SetEntries(entries)
 		end
 	end
+end
 
+local function refresh()
+	if Refreshing then return end
+	Refreshing = true
+	for boardType, boards in Boards do
+		refreshType(boardType, boards)
+	end
 	Refreshing = false
 end
 
-function LeaderboardService:GetEntries(): { LeaderboardBoard.Entry }
-	return Entries
+function LeaderboardService:GetEntries(boardType: string?): { LeaderboardBoard.Entry }
+	return Entries[boardType or "Escapes"] or {}
 end
 
 function LeaderboardService:Refresh()
 	refresh()
 end
 
-local part = findPart()
+local parts = findParts()
 local design = findDesign()
-if part and design then
-	Board = LeaderboardBoard.new(part, design)
+if #parts > 0 and design then
+	for _, part in parts do
+		local board = LeaderboardBoard.new(part, design)
+		local boards = Boards[board.Type]
+		if not boards then
+			boards = {}
+			Boards[board.Type] = boards
+		end
+		table.insert(boards, board)
+	end
 else
 	warn(`LeaderboardService: missing {Config.Folder}.{Config.Part} or StarterGui.{Config.Gui}.{Config.Root}, no board built`)
 end

@@ -5,6 +5,11 @@ return {
 		Name = "Escapes",
 		StudioPrefix = "Studio_",
 	},
+	TimeOrderedStore = {
+		Name = "EscapeTimes",
+		StudioPrefix = "Studio_",
+		UnitsPerSecond = 1000,
+	},
 
 	Leaderboard = {
 		Folder = "Lobby",
@@ -12,7 +17,11 @@ return {
 		Face = Enum.NormalId.Back,
 		Gui = "LeaderboardUI",
 		Root = "Design",
-		Title = "MOST ESCAPES",
+		TypeAttribute = "Type",
+		Types = {
+			Escapes = { Title = "MOST ESCAPES" },
+			Time = { Title = "FASTEST ESCAPES" },
+		},
 		NameFormat = "%s (%s)",
 		UnknownName = "Unknown",
 		Headshot = "rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150",

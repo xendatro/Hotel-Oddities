@@ -10,6 +10,7 @@ local CommunicationService = require(ReplicatedStorage.Services.CommunicationSer
 local ResetComputersConfig = require(ReplicatedStorage.Configs.ResetComputersConfig)
 local AnalyticsService = require(ServerStorage.Services.AnalyticsService)
 local DataSaveService = require(ServerStorage.Services.DataSaveService)
+local EscapeService = require(ServerStorage.Services.EscapeService)
 
 local ComputerService = {}
 
@@ -85,6 +86,7 @@ local function readSaved(player: Player, profile: any)
 	end
 	if ResetPending[player] then
 		table.clear(saved)
+		EscapeService:ResetRun(player)
 		ResetPending[player] = nil
 	end
 	profile.Data.HackedComputers = saved
@@ -228,6 +230,7 @@ function ComputerService:SetHacked(player: Player, model: Model, hacked: boolean
 end
 
 function ComputerService:ResetProgress(player: Player)
+	EscapeService:ResetRun(player)
 	Hacked[player] = nil
 	LastComplete[player] = nil
 	local saved = SavedIds[player]

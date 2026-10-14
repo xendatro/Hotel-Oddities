@@ -37,6 +37,9 @@ local PROFILE_TEMPLATE = {
 	DiscoveredPOIs = {},
 	HackedComputers = {},
 	Escapes = 0,
+	BestEscapeTime = 0,
+	EscapeRunTime = 0,
+	EscapeRunActive = false,
 }
 
 local ProfileStore = ProfileService.GetProfileStore(PROFILE_STORE_NAME, PROFILE_TEMPLATE)

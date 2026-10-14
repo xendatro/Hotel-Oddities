@@ -13,7 +13,8 @@ export type Entry = {
 	UserId: number,
 	DisplayName: string,
 	Username: string,
-	Escapes: number,
+	Escapes: number?,
+	Time: number?,
 }
 
 local function faceSize(part: BasePart, face: Enum.NormalId): (number, number)
@@ -74,6 +75,7 @@ end
 
 function LeaderboardBoard.new(part: BasePart, design: Instance)
 	local self = setmetatable({}, LeaderboardBoard)
+	self.Type = part:GetAttribute(Config.TypeAttribute) or "Escapes"
 
 	local templates = Config.Templates
 	local plate = find(design, templates.TitlePlate, "ImageLabel") :: ImageLabel
@@ -106,7 +108,7 @@ function LeaderboardBoard.new(part: BasePart, design: Instance)
 	titleClone.AnchorPoint = Vector2.new(0.5, 0.5)
 	titleClone.Position = UDim2.fromScale(0.5, 0.5)
 	titleClone.Size = UDim2.fromScale(Layout.TitleTextWidth, Layout.TitleTextHeight)
-	titleClone.Text = Config.Title
+	titleClone.Text = Config.Types[self.Type].Title
 	titleClone.Parent = plateClone
 
 	local rowHeight = (Layout.RowWidth * width / ratioOf(row)) / height * Layout.RowStretch
@@ -155,6 +157,9 @@ function LeaderboardBoard.new(part: BasePart, design: Instance)
 		nameClone.Parent = rowClone
 
 		local scoreClone = cloneText(text, "Score", Enum.TextXAlignment.Right, textSize)
+		if self.Type == "Time" then
+			scoreClone.TextScaled = true
+		end
 		scoreClone.AnchorPoint = Vector2.new(0, 0.5)
 		scoreClone.Position = UDim2.fromScale(Layout.ScoreLeft, 0.5)
 		scoreClone.Size = UDim2.fromScale(Layout.ScoreRight - Layout.ScoreLeft, Layout.TextHeight)
@@ -183,7 +188,13 @@ function LeaderboardBoard:SetEntries(entries: { Entry })
 		if entry then
 			row.Headshot.Image = string.format(Config.Headshot, entry.UserId)
 			row.Name.Text = string.format(Config.NameFormat, entry.DisplayName, entry.Username)
-			row.Score.Text = MathService.Comma(entry.Escapes)
+			if self.Type == "Time" then
+				local milliseconds = math.round((entry.Time or 0) * EscapeConfig.TimeOrderedStore.UnitsPerSecond)
+				local seconds = math.floor(milliseconds / EscapeConfig.TimeOrderedStore.UnitsPerSecond)
+				row.Score.Text = string.format("%d:%02d.%03d", math.floor(seconds / 60), seconds % 60, milliseconds % EscapeConfig.TimeOrderedStore.UnitsPerSecond)
+			else
+				row.Score.Text = MathService.Comma(entry.Escapes or 0)
+			end
 		else
 			row.Headshot.Image = ""
 			row.Name.Text = ""
