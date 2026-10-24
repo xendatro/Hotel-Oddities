@@ -1,6 +1,6 @@
 # Hotel Oddities
 
-Promotional artwork: [15 thumbnail scenes and source references](Thumbnails/2026-10-24/README.md), documented in [Thumbnails](Documentation/Thumbnails.md).
+Promotional artwork: [15 cinematic thumbnails and source references](Thumbnails/2026-10-24/README.md), plus [15 muted horror thumbnails](Thumbnails/2026-10-24-muted/README.md), documented in [Thumbnails](Documentation/Thumbnails.md).
 
 Roblox game source. The root folders mirror Roblox service containers:
 `ReplicatedFirst`, `ReplicatedStorage`, `ServerScriptService`, `ServerStorage`,

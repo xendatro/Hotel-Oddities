@@ -1,0 +1,141 @@
+{
+  "tool": "built-in image_gen",
+  "common": "Use case: ads-marketing. Create ONE new finished 1920x1080 16:9 thumbnail for the Roblox horror game Hotel Oddities. Use the supplied screenshots as separate design references and compose a new scene, not a collage. Match the actual hotel wallpaper, dark timber, worn carpet and supplied avatar/enemy identities. Art direction: frightening cinematic survival-horror still, restrained, grounded and uncanny; lifelike physical tension within recognizable Roblox block-character proportions. LOW SATURATION: almost neutral bone, ash gray, faded taupe, charcoal, worn brown, tiny muted olive or slate accents. Desaturate even the survivor's yellow hat to faded mustard, blue sweater to dusty blue-gray and red carpet to dull oxblood. No vivid orange/blue split, colorful neon, magenta, candy colors, glossy cheerful toy advertising, or exaggerated comic scream. Scary through proximity, anticipation, uncomfortable gaze, isolation and composition. CRUCIAL VISIBILITY: medium exposure, readable lifted shadow detail, softly illuminated faces and enemy silhouettes, discernible midtone room surfaces; keep dark objects separated from background. No underexposed black frame. A neutral practical light or diffuse window light provides believable broad fill; pale flashlight highlights may support the story without blacking out everything else. Crisp clean geometry and substantial fully opaque materials. Anatomically plausible action, correctly attached hair/glasses/hat/cat accessories, solid hands/feet, complete continuous furniture and architecture, grounded contact shadows, sensible occlusion. No dissolving bodies, detached limbs, floating hair, reversed elbows, extra hands, melted objects, smeared outlines, broken perspective, impossible reflections, or invented debris. No text, HUD, logos, borders, arrows, watermark, blood or gore. Clear clickable two-subject story at small thumbnail size. ",
+  "briefs": [
+    {
+      "n": "16-someone-at-the-door",
+      "label": "Someone at the door",
+      "hero": "xendatro",
+      "enemy": "Sister",
+      "location": "01-last-corridor",
+      "group": "Suspense",
+      "scene": "View from INSIDE a hotel guest room toward a heavy wooden door cracked open only about 20 cm. The dusty-blue-sweater survivor occupies left foreground in tense side profile, one hand firmly on the interior knob, silently holding the door. At the narrow opening on the RIGHT, just one pale Sister face with long attached dark-brown hair is extremely close, staring directly through the gap; a section of her faded blue dress and one hand on the outside door edge establishes a solid body logically hidden by the door. Her small dull-red eyes are visible without casting neon. Eye-height 50mm shot, severe stillness, unsettling calm masklike smile, survivor visibly trying not to breathe. Chalky overcast window fill in room, weak neutral corridor fixture, gray-beige wallpaper clearly readable. One door leaf, two obvious hinge relationships, no intersecting fingers or duplicated face. Threat within arm's reach."
+    },
+    {
+      "n": "17-dont-make-a-sound",
+      "label": "Don't make a sound",
+      "hero": "hythe55",
+      "enemy": "Blind",
+      "location": "09-banquet-uninvited",
+      "group": "Suspense",
+      "scene": "Camera is almost under the hotel's banquet table, looking THROUGH intact wooden table legs. Faded-yellow-top-hat survivor crouches at left close foreground with his palm over his mouth, eyes hidden by attached sunglasses, tense jaw and cramped natural crouch; the shoulder cats are firmly attached and subdued in value. On the RIGHT the blindfolded man in a faded brown argyle vest kneels beside the opposite table edge, his listening head lowered to nearly the survivor's level, one steady hand touching the table leg. The blindfold covers both eyes fully; no glowing eyes. Only a slim central tabletop strip above, showing proper floor support and credible clearance under the table. Dusty stone-gray daylight from a distant doorway lights both faces and the floor; pale candles add neutral tiny highlights. A silent almost-discovery, all five major shapes clearly readable, no large black void."
+    },
+    {
+      "n": "18-the-passenger",
+      "label": "The passenger",
+      "hero": "hythe55",
+      "enemy": "Mimic",
+      "location": "02-elevator-sisters",
+      "group": "Oddities",
+      "scene": "Inside the hotel elevator, the faded-mustard-top-hat survivor stands in the LEFT foreground, hand resting on the button panel, turning his worried face toward the open landing. Behind his shoulder at RIGHT is an EXACT duplicate of his avatar, made by the game's Mimic: matching hat, sunglasses, scarf, jacket and attached two cat accessories, but unnervingly rigid and staring straight at the viewer with a slight unnatural smile. Exactly TWO bodies, no mirror, no normal plain-white mannequin. Camera close at chest height creates an obvious extra passenger barely a step behind him; survivor has not noticed. Gray brushed metal and faded wallpaper, soft evenly diffused off-white ceiling fluorescent light. The rear copy's entire head and shoulders remain visible and solid, bright enough to read; dead stillness instead of running. No glowing rainbow effects."
+    },
+    {
+      "n": "19-still-water",
+      "label": "Still water",
+      "hero": "bacon",
+      "enemy": "Eye",
+      "location": "05-pool-eye",
+      "group": "Encounters",
+      "scene": "Overhead oblique view of the hotel's white-tiled pool with a narrow walkway around its edge. A brown bacon-hair survivor in charcoal jacket, faded gray-blue shirt and jeans is BACKING carefully along the near walkway, face turned upward in dread, flashlight held low. Above the water, the huge Eye from reference hovers uncomfortably close at RIGHT, blue iris desaturated to milky slate-gray, dark-maroon tendrils fully solid and individually connected; one enormous black pupil locks on the survivor. A coherent single reflection of the Eye in the still pool surface reinforces its physical presence. Mostly chalk-white tiles, dull silver pipes, foggy white clerestory light, pale gray water, legible medium-bright scene. No saturated turquoise or pink, no wild splashing, no opaque fog hiding subjects. The quiet scale imbalance is scary."
+    },
+    {
+      "n": "20-the-last-bookcase",
+      "label": "The last bookcase",
+      "hero": "xendatro",
+      "enemy": "Chaser",
+      "location": "07-library-stalker",
+      "group": "Encounters",
+      "scene": "Tight claustrophobic eye-level shot down an aisle of the real hotel library, shelves tall and continuous. Dusty-blue-sweater survivor is LEFT foreground, pressed sideways against a bookcase, one hand bracing its wooden upright and head turned toward a near threat. The Mad Guest in ragged black clothing is on the RIGHT only two strides away, stepping slowly around the shelf, head tipped slightly with his real narrow red eyes and grin, knife clearly DOWN at his side and not contacting anyone. Keep his black hair attached and the survivor's glasses, hair and small pet hat attached. Both faces roughly comparable large readable size, not a distant chase. One soft ivory desk lamp and gray ambient daylight reveal paper textures and floor grain, palette aged parchment and soot. No orange cinematic bloom, no comic sprint or smeared books."
+    },
+    {
+      "n": "21-keep-your-eyes-open",
+      "label": "Keep your eyes open",
+      "hero": "hythe55",
+      "enemy": "Weeping-Angel",
+      "location": "06-rotunda-angel",
+      "group": "Encounters",
+      "scene": "A stone angel blocks the only hotel doorway off the rotunda bridge. Framed from directly behind the faded-yellow-top-hat survivor, with a sliver of his worried side profile at LEFT. The complete gray-stone angel stands exactly in the opening at center-right, large foreground presence, broad carved wings partly occluded by the straight door jambs; winged stone Roblox body matches reference. Its stone hands are unnaturally calm at its sides and its blank face points at the survivor. Survivor's flashlight is held steady with a believable two-hand grip, pale beam illuminating the statue's cracked stone face and chest. Gray ceiling fixture fill keeps bridge, wallpaper and all visible limbs legible; some rotunda curve visible at edge. Nearly monochrome limestone, faded brown and cold off-white. Suspense of losing eye contact; statue remains statue, solid floor under both characters, no angel teleport smoke."
+    },
+    {
+      "n": "22-behind-the-glass",
+      "label": "Behind the glass",
+      "hero": "xendatro",
+      "enemy": "ShadowFigure",
+      "location": "10-garden-shadow",
+      "group": "Suspense",
+      "scene": "Rain-beaded conservatory glass separates the blue-gray-sweater survivor INSIDE at LEFT from the solid charcoal smiling ShadowFigure on the OUTSIDE at RIGHT. Camera close to a large greenhouse pane, survivor shown in three-quarter profile noticing a broad dark palm pressed to the OTHER SIDE directly beside his own hand. Glass stays intact, correct same plane and parallax, no hands passing through it. Behind the palm the figure's black head and shallow smile are distinctly visible, only an arm's length away, body silhouette coherent through a thin layer of condensation. White overcast skylight, pale gray rain and subdued olive plant leaves; stone fountain a soft coherent background detail. Reflections restrained so the actual two faces and two hands are readable. Quiet predatory stillness, not a chase, no colorful light or heavy fog."
+    },
+    {
+      "n": "23-that-portrait-moved",
+      "label": "That portrait moved",
+      "hero": "bacon",
+      "enemy": "Painting-Dweller",
+      "location": "04-painting-escape",
+      "group": "Oddities",
+      "scene": "View ALONG a row of three properly hung framed landscape paintings in the real hotel corridor. A bacon-hair survivor at RIGHT foreground shines an ordinary pale flashlight toward the nearest painting on the LEFT. From that painting alone, the pale grinning Painting Dweller's head has turned OUT of the picture, its long black hair attached and resting against the lower frame; two solid white fingers curl around the actual frame edge. Its body is completely and logically occluded inside the clearly defined canvas opening. Other two landscape paintings remain ordinary still images, no extra faces. The survivor's small stunned expression is tense and believable, one foot drawn back cautiously. Soft gray practical ceiling illumination exposes whole corridor, faded parchment wallpaper, dingy white portrait face, charcoal hair. No explosive debris, bright blue portal or hazy dissolving torso."
+    },
+    {
+      "n": "24-you-looked-too-late",
+      "label": "You looked too late",
+      "hero": "xendatro",
+      "enemy": "Ceiling-Dweller",
+      "location": "03-above-you",
+      "group": "Encounters",
+      "scene": "The survivor has just stepped under the wrong ceiling. Dusty-blue-sweater survivor on LEFT foreground looks ahead down the corridor with a tight worried mouth, holding a pale flashlight below chest height. DIRECTLY BEHIND AND ABOVE his shoulder at upper RIGHT, a solid matte-black Ceiling Dweller clings sideways along the wall/ceiling junction, its two hands and one foot visibly gripping architectural trim; bent knees and elbows physically natural, opaque torso connected to all limbs. The creature's featureless head tilts toward the survivor, very close, revealed to VIEWER but unseen by the character. Medium-close slightly low camera, no action streaks. Soft off-white light from a ceiling fixture in front and weak broad gray fill make the black creature's edges and face shape readable against light faded wallpaper. No red glowing eyes invented, no black silhouette lost in black ceiling, no smoke."
+    },
+    {
+      "n": "25-take-my-hand",
+      "label": "Take my hand",
+      "hero": "xendatro",
+      "enemy": "Stalker",
+      "location": "14-hole-no-way-back",
+      "group": "Encounters",
+      "scene": "A tense rescue on the hotel floor-hole plank. Camera at the NEAR solid ledge, looking along the continuous narrow plank. A dusty-blue-sweater survivor kneels securely on the near ledge at LEFT foreground, one hand planted on solid floor and the OTHER extended toward a bacon-hair teammate at center. The teammate stands firmly near the plank's near end, bent naturally to reach out; their fingertips are just short of touching and both arms have continuous sensible joints. The charcoal Stalker with two tiny muted-red eyes stands at the FAR supported end of the plank, starting to advance. Three characters total, distinguishable silhouettes, no duplicate arms. Both board ends visibly supported by ledges, no broken or floating beam. Gray practical light evenly reveals both survivor faces and the plank; hole is dark beneath but not the entire image. Desaturated ash wood, faded gray carpet and bone wallpaper."
+    },
+    {
+      "n": "26-table-for-three",
+      "label": "Table for three",
+      "hero": "hythe55",
+      "enemy": "Sister",
+      "location": "09-banquet-uninvited",
+      "group": "Suspense",
+      "scene": "At the hotel banquet table, the faded-yellow-top-hat survivor stands close at the NEAR end and looks directly into the viewer with a tight disbelieving frightened expression. Behind him TWO identical Sisters SIT motionless on opposite sides of the long dining table, shoulders square and hands lying flat on the tabletop, their pale faces and attached long dark hair visible above faded-blue dresses. Heads turned in perfect synchronization to stare at survivor, their quiet smiles unsettling. Camera near table height, front survivor half body large, both seated threats remain clear at middle distance. Exactly three characters, properly supported chairs behind the two seated figures, table a single continuous solid object. A few pale candlesticks provide warm-gray highlights while broad soft ceiling fill keeps all faces legible. Nearly monochrome aged ivory, charcoal and dusty taupe; faded mustard hat is subdued. No festive lavish orange light or comic sprint."
+    },
+    {
+      "n": "27-outside-the-miniature",
+      "label": "Outside the miniature",
+      "hero": "hythe55",
+      "enemy": "Ceiling-Dweller",
+      "location": "13-dollhouse-giant",
+      "group": "Oddities",
+      "scene": "View FROM INSIDE a tiny miniature hotel room in the tabletop dollhouse, looking through its realistic small rectangular doorway. A tiny faded-yellow-top-hat survivor is at LEFT, pressed against miniature faded wallpaper beside that doorway, face half turned toward camera in quiet dread. Outside the tiny doorway a giant matte-black faceless Ceiling Dweller crouches at table level; its complete large rounded-square head fills most of the opening at RIGHT and one immense solid hand grips the outer wall of the miniature hotel, just visible at the jamb. Obvious grounded tabletop miniature perspective and large surrounding actual room in soft background; intact model walls with thickness, no impossible infinity architecture. Neutral soft room lamp and dusty white window fill make tiny survivor and giant black head clearly visible, desaturated ivory and dark gray, no fiery amber or saturated blue. Unsettling eye contact with a faceless entity, not a chase."
+    },
+    {
+      "n": "28-which-one-is-real",
+      "label": "Which one is real",
+      "hero": "xendatro",
+      "enemy": "Mimic",
+      "location": "01-last-corridor",
+      "group": "Oddities",
+      "scene": "In a long hotel corridor, the real dusty-blue-sweater survivor stands at LEFT close foreground in anxious three-quarter profile, hand touching the wall. Two other EXACT copies of the same avatar stand in the corridor at middle RIGHT, matching sweater, attached hair, glasses and small muted pet hat: one faces away stiffly, and the closer one turns its HEAD over its shoulder toward viewer with a small unnatural smile and pale colorless eyes. The Mimic reference supplies the copying behavior, do NOT include a white mannequin. Exactly THREE complete bodies, no mirror and no overlapping clones; each feet planted on same continuous red-brown runner. Medium-eye-level camera makes the turned copy's smile large enough to read, asymmetrical staged spacing. Diffuse sickly ivory ceiling lamps, gently faded gray-green wallpaper, readable depth, tiny dull accents only. The horror is uncanny duplication, no glowing magic or distortion trails."
+    },
+    {
+      "n": "29-stop-looking-at-the-screen",
+      "label": "Stop looking at the screen",
+      "hero": "xendatro",
+      "enemy": "Blind",
+      "location": "15-lobby-breach",
+      "group": "Suspense",
+      "scene": "At the real lobby CRT computer desk, blue-gray-sweater survivor SITS in a wooden chair in LEFT foreground, one hand clearly resting at keyboard and shoulders frozen mid-action, face turned cautiously toward viewer's RIGHT. Immediately behind at RIGHT, the blindfolded argyle-vest enemy bends forward to LISTEN beside the survivor's ear without touching, mouth a simple tight line. The blindfold remains completely across the eyes. Large readable near-profile faces, threatening proximity within 40 cm, shoulders and hands each distinctly attached to correct body. Neutral pale-gray CRT light illuminates face and keyboard, soft off-white ambient light exposes enemy, wall painting, desk feet and elevator in background. CRT screen is blank milky gray, NO readable interface or shop labels. Tense quiet horror, desaturated tobacco brown and cool gray, no cyan neon or orange fireplace blaze."
+    },
+    {
+      "n": "30-the-latch-wont-move",
+      "label": "The latch won't move",
+      "hero": "bacon",
+      "enemy": "Chaser",
+      "location": "01-last-corridor",
+      "group": "Encounters",
+      "scene": "A locked-room nightmare in the hotel's familiar corridor. In a close SIDE VIEW, a bacon-hair survivor in faded charcoal jacket and gray-blue shirt occupies RIGHT foreground, desperately trying a wooden guest-room door knob with one hand while bracing the door with the other, a tense clenched expression rather than a comic scream. On LEFT midground the black-haired torn-black-clothed Mad Guest has stopped only two strides away, head slightly lowered and real narrow dull-red eyes fixed on the survivor, knife hanging down alongside his leg, separated from victim. The closed door stays correctly inside its frame with an attached latch; no hand passes through wood and both arms bend naturally. Eye-height camera, large faces, distinct full opaque bodies. Faded dirty-white overhead light makes the whole encounter visible, pallid faces, dull old-gold wallpaper mostly gray, dark brown timber with clear grain. Uneasy stillness and no clear escape, no gore."
+    }
+  ]
+}

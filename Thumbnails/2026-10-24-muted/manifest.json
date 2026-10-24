@@ -1,0 +1,346 @@
+{
+  "date": "2026-10-24",
+  "game": "Hotel Oddities",
+  "batch": "muted-horror",
+  "generator": "built-in image_gen",
+  "count": 15,
+  "export": {
+    "width": 1920,
+    "height": 1080,
+    "format": "PNG",
+    "filter": "Lanczos"
+  },
+  "items": [
+    {
+      "id": 16,
+      "name": "16-someone-at-the-door",
+      "label": "Someone at the door",
+      "file": "final/16-someone-at-the-door.png",
+      "group": "Suspense",
+      "locationReference": "../2026-10-24/references/locations/01-last-corridor.jpg",
+      "survivor": "xendatro",
+      "survivorReference": "../2026-10-24/references/cast/xendatro.jpg",
+      "enemyReference": "../2026-10-24/references/cast/Sister.jpg",
+      "generationSource": "C:/Users/caden/.codex/generated_images/01a16fa4-b9ad-72f1-9487-a8bf8d52dcc8/exec-579ca724-b531-457c-a0cf-d67f6a74ea49.png",
+      "visualReview": "Door and jamb are continuous; survivor's knob hand and Sister's face remain distinct and visible through the opening. Faded clothing and readable wood grain.",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 2430619,
+      "sha256": "c89d95954a6c7074cdef1a2d4e498e947890e65aafe24874ee983c6d3c4e3118",
+      "imageAnalysis": {
+        "meanHsvSaturation": 0.479206,
+        "meanEncodedGray": 0.173777
+      }
+    },
+    {
+      "id": 17,
+      "name": "17-dont-make-a-sound",
+      "label": "Don't make a sound",
+      "file": "final/17-dont-make-a-sound.png",
+      "group": "Suspense",
+      "locationReference": "../2026-10-24/references/locations/09-banquet-uninvited.jpg",
+      "survivor": "hythe55",
+      "survivorReference": "../2026-10-24/references/cast/hythe55.jpg",
+      "enemyReference": "../2026-10-24/references/cast/Blind.jpg",
+      "generationSource": "C:/Users/caden/.codex/generated_images/01a16fa4-b9ad-72f1-9487-a8bf8d52dcc8/exec-86026397-19bb-4f78-bc41-de59cbe52e85.png",
+      "visualReview": "Low table view keeps solid table legs, kneeling enemy and crouching survivor coherent; blindfold and accessories attached. Broad doorway light preserves faces.",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 2533423,
+      "sha256": "7073cc89090884d0aaf8815131f5dfbdd91634692f2125b39b750af73242d9d7",
+      "imageAnalysis": {
+        "meanHsvSaturation": 0.400633,
+        "meanEncodedGray": 0.179327
+      }
+    },
+    {
+      "id": 18,
+      "name": "18-the-passenger",
+      "label": "The passenger",
+      "file": "final/18-the-passenger.png",
+      "group": "Oddities",
+      "locationReference": "../2026-10-24/references/locations/02-elevator-sisters.jpg",
+      "survivor": "hythe55",
+      "survivorReference": "../2026-10-24/references/cast/hythe55.jpg",
+      "enemyReference": "../2026-10-24/references/cast/Mimic.jpg",
+      "generationSource": "C:/Users/caden/.codex/generated_images/01a16fa4-b9ad-72f1-9487-a8bf8d52dcc8/exec-ee887382-4dbd-4bae-b5a1-9d75a58c6d54.png",
+      "visualReview": "Exactly two matching opaque avatars; button-hand contact coherent, rigid rear passenger clearly separated. Gray elevator surfaces and muted mustard accents.",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 2386686,
+      "sha256": "875b6afaccd47510fbd07ef5e5ef2f39ba5ac5bc9d0580a88ec3fac01ad2b299",
+      "imageAnalysis": {
+        "meanHsvSaturation": 0.332238,
+        "meanEncodedGray": 0.252928
+      }
+    },
+    {
+      "id": 19,
+      "name": "19-still-water",
+      "label": "Still water",
+      "file": "final/19-still-water.png",
+      "group": "Encounters",
+      "locationReference": "../2026-10-24/references/locations/05-pool-eye.jpg",
+      "survivor": "bacon",
+      "survivorReference": null,
+      "enemyReference": "../2026-10-24/references/cast/Eye.jpg",
+      "generationSource": "C:/Users/caden/.codex/generated_images/01a16fa4-b9ad-72f1-9487-a8bf8d52dcc8/exec-720d1d0d-79bd-42cd-85db-b75faf6b12e2.png",
+      "visualReview": "Large single Eye and coherent reflection over readable gray pool tiles; survivor grounded on walkway. Desaturated iris and subdued tendrils.",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 2772464,
+      "sha256": "dc27300d7f20020dee52dddebb68d05f7733d154214996d4ce8de456d120419e",
+      "imageAnalysis": {
+        "meanHsvSaturation": 0.151373,
+        "meanEncodedGray": 0.399128
+      }
+    },
+    {
+      "id": 20,
+      "name": "20-the-last-bookcase",
+      "label": "The last bookcase",
+      "file": "final/20-the-last-bookcase.png",
+      "group": "Encounters",
+      "locationReference": "../2026-10-24/references/locations/07-library-stalker.jpg",
+      "survivor": "xendatro",
+      "survivorReference": "../2026-10-24/references/cast/xendatro.jpg",
+      "enemyReference": "../2026-10-24/references/cast/Chaser.jpg",
+      "generationSource": "C:/Users/caden/.codex/generated_images/01a16fa4-b9ad-72f1-9487-a8bf8d52dcc8/exec-16aa884a-0bf0-4951-9e62-4944b43a600e.png",
+      "visualReview": "Two distinct large readable faces in library aisle; knife remains separate and lowered, books seated in solid shelves. Muted paper and brown palette.",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 2604135,
+      "sha256": "bacbefada6da44a27ffb02543a9c080f250fbdd168ea763e98f7b60b19907d38",
+      "imageAnalysis": {
+        "meanHsvSaturation": 0.317889,
+        "meanEncodedGray": 0.21796
+      }
+    },
+    {
+      "id": 21,
+      "name": "21-keep-your-eyes-open",
+      "label": "Keep your eyes open",
+      "file": "final/21-keep-your-eyes-open.png",
+      "group": "Encounters",
+      "locationReference": "../2026-10-24/references/locations/06-rotunda-angel.jpg",
+      "survivor": "hythe55",
+      "survivorReference": "../2026-10-24/references/cast/hythe55.jpg",
+      "enemyReference": "../2026-10-24/references/cast/Weeping-Angel.jpg",
+      "generationSource": "C:/Users/caden/.codex/generated_images/01a16fa4-b9ad-72f1-9487-a8bf8d52dcc8/exec-e17df982-0d8a-4e14-965b-3908341dc36d.png",
+      "visualReview": "Stone wings and body continuous within doorway; flashlight and soft fill expose stone detail and supported footing. Restrained colors.",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 2706598,
+      "sha256": "f233a9723609291539729597d058ddafa3b97c0b39de29ec7777b9ddcb836d3c",
+      "imageAnalysis": {
+        "meanHsvSaturation": 0.330714,
+        "meanEncodedGray": 0.22331
+      }
+    },
+    {
+      "id": 22,
+      "name": "22-behind-the-glass",
+      "label": "Behind the glass",
+      "file": "final/22-behind-the-glass.png",
+      "group": "Suspense",
+      "locationReference": "../2026-10-24/references/locations/10-garden-shadow.jpg",
+      "survivor": "xendatro",
+      "survivorReference": "../2026-10-24/references/cast/xendatro.jpg",
+      "enemyReference": "../2026-10-24/references/cast/ShadowFigure.jpg",
+      "generationSource": "C:/Users/caden/.codex/generated_images/01a16fa4-b9ad-72f1-9487-a8bf8d52dcc8/exec-bd510d62-1661-4012-839c-8480ae423bce.png",
+      "visualReview": "Glass pane separates survivor from opaque dark figure; visible hand and silhouette, coherent rain layer, subtle plants and neutral daylight.",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 2956091,
+      "sha256": "3dfb1031a6e15d82845e4939a1723e32c4485cba52bc8ff19eac627f639f8983",
+      "imageAnalysis": {
+        "meanHsvSaturation": 0.209988,
+        "meanEncodedGray": 0.279425
+      }
+    },
+    {
+      "id": 23,
+      "name": "23-that-portrait-moved",
+      "label": "That portrait moved",
+      "file": "final/23-that-portrait-moved.png",
+      "group": "Oddities",
+      "locationReference": "../2026-10-24/references/locations/04-painting-escape.jpg",
+      "survivor": "bacon",
+      "survivorReference": null,
+      "enemyReference": "../2026-10-24/references/cast/Painting-Dweller.jpg",
+      "generationSource": "C:/Users/caden/.codex/generated_images/01a16fa4-b9ad-72f1-9487-a8bf8d52dcc8/exec-4aeb8ad2-b38a-4695-a8a7-a05df2aac040.png",
+      "visualReview": "Portrait aperture and frame sharply occlude the hidden body; head, attached hair and gripping hand solid. Flashlight highlights readable without saturating scene.",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 2594812,
+      "sha256": "f22a83629d3f428ab93683b143ffcac45f912cc36aa401fa08e6a1c442fb4c6f",
+      "imageAnalysis": {
+        "meanHsvSaturation": 0.446076,
+        "meanEncodedGray": 0.204539
+      }
+    },
+    {
+      "id": 24,
+      "name": "24-you-looked-too-late",
+      "label": "You looked too late",
+      "file": "final/24-you-looked-too-late.png",
+      "group": "Encounters",
+      "locationReference": "../2026-10-24/references/locations/03-above-you.jpg",
+      "survivor": "xendatro",
+      "survivorReference": "../2026-10-24/references/cast/xendatro.jpg",
+      "enemyReference": "../2026-10-24/references/cast/Ceiling-Dweller.jpg",
+      "generationSource": "C:/Users/caden/.codex/generated_images/01a16fa4-b9ad-72f1-9487-a8bf8d52dcc8/exec-f708aee1-ddf1-467e-9c3c-531f9e660f3e.png",
+      "visualReview": "Dark creature has separated edges against pale wall/ceiling; gripping hand, bent limbs and torso continuous. Survivor accessories and flashlight attached.",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 2665760,
+      "sha256": "423f3c18102f5e65ff19bb6ab8fb06a501be3ea0889c65066495ebcb1f68a9dd",
+      "imageAnalysis": {
+        "meanHsvSaturation": 0.360122,
+        "meanEncodedGray": 0.255789
+      }
+    },
+    {
+      "id": 25,
+      "name": "25-take-my-hand",
+      "label": "Take my hand",
+      "file": "final/25-take-my-hand.png",
+      "group": "Encounters",
+      "locationReference": "../2026-10-24/references/locations/14-hole-no-way-back.jpg",
+      "survivor": "xendatro",
+      "survivorReference": "../2026-10-24/references/cast/xendatro.jpg",
+      "enemyReference": "../2026-10-24/references/cast/Stalker.jpg",
+      "generationSource": "C:/Users/caden/.codex/generated_images/01a16fa4-b9ad-72f1-9487-a8bf8d52dcc8/exec-daad76d0-e3f5-409b-9d2c-19871dde08b0.png",
+      "visualReview": "Three separate characters, visible planted shoes, near and far ledges support plank. Rescue arms distinct; scene visible despite dark hole.",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 2594031,
+      "sha256": "de3f380d12bb6cd6e80c6680fe76acf2f7c0fff5b3ebaf53475c2e0bb39686fc",
+      "imageAnalysis": {
+        "meanHsvSaturation": 0.24968,
+        "meanEncodedGray": 0.228498
+      }
+    },
+    {
+      "id": 26,
+      "name": "26-table-for-three",
+      "label": "Table for three",
+      "file": "final/26-table-for-three.png",
+      "group": "Suspense",
+      "locationReference": "../2026-10-24/references/locations/09-banquet-uninvited.jpg",
+      "survivor": "hythe55",
+      "survivorReference": "../2026-10-24/references/cast/hythe55.jpg",
+      "enemyReference": "../2026-10-24/references/cast/Sister.jpg",
+      "generationSource": "C:/Users/caden/.codex/generated_images/01a16fa4-b9ad-72f1-9487-a8bf8d52dcc8/exec-50c4b8ae-0938-4110-8bc9-e437834260c1.png",
+      "visualReview": "Two Sisters seated in supported chairs behind survivor; continuous tabletop and pale faces. Muted clothing and room palette.",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 2540168,
+      "sha256": "057e65a84d75370923e2d32401c93d1ebfb50d9c549921d6401c65d957a4a78c",
+      "imageAnalysis": {
+        "meanHsvSaturation": 0.393258,
+        "meanEncodedGray": 0.252921
+      }
+    },
+    {
+      "id": 27,
+      "name": "27-outside-the-miniature",
+      "label": "Outside the miniature",
+      "file": "final/27-outside-the-miniature.png",
+      "group": "Oddities",
+      "locationReference": "../2026-10-24/references/locations/13-dollhouse-giant.jpg",
+      "survivor": "hythe55",
+      "survivorReference": "../2026-10-24/references/cast/hythe55.jpg",
+      "enemyReference": "../2026-10-24/references/cast/Ceiling-Dweller.jpg",
+      "generationSource": "C:/Users/caden/.codex/generated_images/01a16fa4-b9ad-72f1-9487-a8bf8d52dcc8/exec-f55b8041-28a3-4f35-bc33-1ccc89ca8f03.png",
+      "visualReview": "Giant opaque head and hand framed by solid miniature doorway; tiny avatar readable beside the opening. Door thickness and scale relationship coherent.",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 2456789,
+      "sha256": "90f9d571909338c3762b53ee1340c97ec44bb6dc0dc48585ef08fdf50aa08d0c",
+      "imageAnalysis": {
+        "meanHsvSaturation": 0.410645,
+        "meanEncodedGray": 0.211164
+      }
+    },
+    {
+      "id": 28,
+      "name": "28-which-one-is-real",
+      "label": "Which one is real",
+      "file": "final/28-which-one-is-real.png",
+      "group": "Oddities",
+      "locationReference": "../2026-10-24/references/locations/01-last-corridor.jpg",
+      "survivor": "xendatro",
+      "survivorReference": "../2026-10-24/references/cast/xendatro.jpg",
+      "enemyReference": "../2026-10-24/references/cast/Mimic.jpg",
+      "generationSource": "C:/Users/caden/.codex/generated_images/01a16fa4-b9ad-72f1-9487-a8bf8d52dcc8/exec-bb9f73f2-0dbe-4b8e-bc6b-f037fda3febb.png",
+      "visualReview": "Exactly three complete avatars with attached matching accessories; turned copy conveys uncanny mismatch. Runner and corridor remain continuous.",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 2397614,
+      "sha256": "50a46af2a711ab9ebec8f8fb67f868bae837455f982bbb9941bc0a141c9be27b",
+      "imageAnalysis": {
+        "meanHsvSaturation": 0.366456,
+        "meanEncodedGray": 0.190292
+      }
+    },
+    {
+      "id": 29,
+      "name": "29-stop-looking-at-the-screen",
+      "label": "Stop looking at the screen",
+      "file": "final/29-stop-looking-at-the-screen.png",
+      "group": "Suspense",
+      "locationReference": "../2026-10-24/references/locations/15-lobby-breach.jpg",
+      "survivor": "xendatro",
+      "survivorReference": "../2026-10-24/references/cast/xendatro.jpg",
+      "enemyReference": "../2026-10-24/references/cast/Blind.jpg",
+      "generationSource": "C:/Users/caden/.codex/generated_images/01a16fa4-b9ad-72f1-9487-a8bf8d52dcc8/exec-de7faa77-258c-4ddd-bf94-422d091e31d1.png",
+      "visualReview": "Separate seated survivor and leaning blindfolded enemy; keyboard hands, chair and desk coherent. Pale monitor and broad fill preserve visibility.",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 2360123,
+      "sha256": "dce3c512fdf95d72242babe33d8bfce4c90182ea2e55daef1f0098ae8d55d692",
+      "imageAnalysis": {
+        "meanHsvSaturation": 0.326412,
+        "meanEncodedGray": 0.236971
+      }
+    },
+    {
+      "id": 30,
+      "name": "30-the-latch-wont-move",
+      "label": "The latch won't move",
+      "file": "final/30-the-latch-wont-move.png",
+      "group": "Encounters",
+      "locationReference": "../2026-10-24/references/locations/01-last-corridor.jpg",
+      "survivor": "bacon",
+      "survivorReference": null,
+      "enemyReference": "../2026-10-24/references/cast/Chaser.jpg",
+      "generationSource": "C:/Users/caden/.codex/generated_images/01a16fa4-b9ad-72f1-9487-a8bf8d52dcc8/exec-6d5144cc-8324-4b9c-8350-2f3d09983d3c.png",
+      "visualReview": "Closed door, knob and bracing hand coherent; clear gap to approaching enemy and lowered knife. Faces and costume detail visible in muted corridor.",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 2306012,
+      "sha256": "ffa712510d28012c8aec525dcd5a37536a14c72dba87329b5d9d5963a6aead4b",
+      "imageAnalysis": {
+        "meanHsvSaturation": 0.380747,
+        "meanEncodedGray": 0.193358
+      }
+    }
+  ],
+  "verification": {
+    "allExactDimensions": true,
+    "uniqueImageHashes": true,
+    "visualReview": "Each full image inspected for muted color, visible subjects, solid geometry and attached accessories.",
+    "studioEdited": false,
+    "galleryDecodedImages": 15,
+    "thumbnailScaleReview": "All fifteen compositions reviewed together at approximately 320px wide; threats, faces and major scene geometry remain visible."
+  },
+  "colorComparison": {
+    "method": "Mean per-pixel saturation from Pillow HSV; mean encoded grayscale on a 0 to 1 scale. Measurements are from the final PNG files.",
+    "firstBatchMeanHsvSaturation": 0.5731110638313968,
+    "mutedBatchMeanHsvSaturation": 0.34369581164770435,
+    "saturationReductionPercent": 40.02980690164865,
+    "firstBatchMeanEncodedGray": 0.24285106322621644,
+    "mutedBatchMeanEncodedGray": 0.2332925751936577
+  }
+}
