@@ -524,7 +524,7 @@ Simon says with four pads driven by WASD/arrows or clicks: watch the playback, r
 - Requires: `Classes\Minigames\MinigameBase`
 
 ### Minigames\Snake.luau
-Snake on a 16x12 grid: eat 12 pellets to win, with the tick interval speeding up from 0.16s toward 0.106s per pellet eaten. Turns are queued (max 2) so fast inputs are not dropped, and reversing into yourself is rejected; hitting a wall or your own body zeroes the score, respawns and reports a failure. Only the best pellet count survives a save.
+Snake on a 16x12 grid: eat 4 pellets to win, with the tick interval shortening by 0.006s per pellet eaten from 0.16s. Turns are queued (max 2) so fast inputs are not dropped, and reversing into yourself is rejected; hitting a wall or your own body zeroes the score, respawns and reports a failure. Only the best pellet count survives a save.
 - API: `Snake.new(root: Frame, api: Api) -> self`
 - API: `Snake:Start(saved: any?)` — restores `Best`, builds board and chrome, spawns the snake, binds keys, D-pad and continuous touch swipes (with a "SWIPE ANYWHERE TO STEER" hint on touch), starts the tick heartbeat
 - API: `Snake:Serialize() -> any?` — `{ Best }`, or nil at zero
