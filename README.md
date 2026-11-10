@@ -311,7 +311,7 @@ become Services or Classes.
 - ReplicatedStorage\Classes\Minigames\Memory.luau — 4x4 emoji pair-matching minigame with a 20-move limit.
 - ReplicatedStorage\Classes\Minigames\Minesweeper.luau — 8x8 Minesweeper minigame with flag mode and a safe first click.
 - ReplicatedStorage\Classes\Minigames\Simon.luau — Simon-says minigame; repeat a growing four-pad sequence up to length seven.
-- ReplicatedStorage\Classes\Minigames\Snake.luau — Snake minigame on a 16x12 grid; eat six pellets as the tick speeds up; steer with keys, the D-pad or swipes.
+- ReplicatedStorage\Classes\Minigames\Snake.luau — Snake minigame on a 16x12 grid; eat seven pellets as the tick speeds up; steer with keys, the D-pad or swipes.
 - ReplicatedStorage\Classes\Tools\Ball.luau — Client ball tool; targets the nearest Eye within 20 studs and clear sight from the player's head, throws a ball prop and reports the hit to the server.
 - ReplicatedStorage\Classes\Tools\Camcorder.luau — Client camcorder; suppresses its viewmodel while the Studio-authored REC/STOP HUD runs, calls the engine stop directly on unequip, reports recording completion, then offers keep or burn before reporting the final decision; its STOP label follows the input type.
 - ReplicatedStorage\Classes\Tools\Camera.luau — Client camera tool; shows a ghost placement preview and asks the server to stand the tripod where you aim.
