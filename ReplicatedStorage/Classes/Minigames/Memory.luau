@@ -316,9 +316,11 @@ function Memory:_build()
 		self.Buttons[index] = card
 		self.Strokes[index] = self:AddStroke(card, theme.Panel, 3)
 
-		self:Track(card.Activated:Connect(function()
+		local function tap()
 			self:_tap(index)
-		end))
+		end
+		self:Track(card.Activated:Connect(tap))
+		self:BindPress(card, tap)
 	end
 end
 

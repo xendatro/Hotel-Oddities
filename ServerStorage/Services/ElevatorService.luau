@@ -12,6 +12,7 @@ local HallwayStreamingService = require(ServerStorage.Services.HallwayStreamingS
 local ComputerService = require(ServerStorage.Services.ComputerService)
 local AnalyticsService = require(ServerStorage.Services.AnalyticsService)
 local EndingService = require(ServerStorage.Services.EndingService)
+local EscapeService = require(ServerStorage.Services.EscapeService)
 
 local ElevatorService = {}
 
@@ -101,6 +102,7 @@ function ElevatorService:SendToMap(player: Player, instant: boolean?): boolean
 		local character = player.Character
 		if character and CharacterService.IsAlive(character) then
 			character:PivotTo(target)
+			EscapeService:StartRun(player)
 			local root = character:FindFirstChild("HumanoidRootPart")
 			if root and root:IsA("BasePart") then root.AssemblyLinearVelocity = Vector3.zero end
 			arrivalRemote:FireClient(player, target)

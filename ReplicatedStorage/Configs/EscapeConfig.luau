@@ -5,6 +5,11 @@ return {
 		Name = "Escapes",
 		StudioPrefix = "Studio_",
 	},
+	TimeOrderedStore = {
+		Name = "EscapeTimes",
+		StudioPrefix = "Studio_",
+		UnitsPerSecond = 1000,
+	},
 
 	Leaderboard = {
 		Folder = "Lobby",
@@ -12,11 +17,15 @@ return {
 		Face = Enum.NormalId.Back,
 		Gui = "LeaderboardUI",
 		Root = "Design",
-		Title = "MOST ESCAPES",
+		TypeAttribute = "Type",
+		Types = {
+			Escapes = { Title = "MOST ESCAPES" },
+			Time = { Title = "FASTEST ESCAPES" },
+		},
 		NameFormat = "%s (%s)",
 		UnknownName = "Unknown",
 		Headshot = "rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150",
-		TopCount = 4,
+		TopCount = 50,
 		RefreshInterval = 60,
 		AwardRefreshDelay = 5,
 		PixelsPerStud = 128,
@@ -31,15 +40,22 @@ return {
 			Text = "Scores",
 		},
 
+		Scroll = {
+			BarThickness = 14,
+			BarColor = Color3.fromRGB(70, 70, 70),
+			BarTransparency = 0.2,
+		},
+
 		Layout = {
-			TopMargin = 0.06,
-			BottomMargin = 0.06,
+			TopMargin = 0.04,
+			BottomMargin = 0.04,
 			TitleWidth = 0.55,
-			TitleGap = 0.05,
+			TitleGap = 0.025,
 			TitleTextWidth = 0.8,
 			TitleTextHeight = 0.42,
 			RowWidth = 0.9,
-			RowStretch = 1.25,
+			RowStretch = 1.05,
+			RowGap = 0.012,
 			HeadshotLeft = 0.045,
 			HeadshotHeight = 0.66,
 			NameGap = 0.025,

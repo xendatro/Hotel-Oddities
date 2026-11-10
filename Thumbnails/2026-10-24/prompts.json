@@ -1,0 +1,96 @@
+{
+  "tool": "built-in image_gen",
+  "common": "Use case: ads-marketing. Create ONE finished 1920x1080 landscape 16:9 Roblox horror-game discovery thumbnail for HOTEL ODDITIES. The input screenshots are separate DESIGN REFERENCES, not a collage or a fixed pose. Compose a new dynamic scene. Preserve recognizable avatar outfits, attached hair/accessories, enemy identity, and hotel architecture/materials. Premium cinematic 3D game key art with lifelike, expressive movement and convincing solid tactile materials while retaining Roblox block avatars. Strong readable story at 320px, large expressive subjects, clear separation, polished cinematic light and controlled contrast, crisp faces, restrained depth of field. Physically coherent poses with elbows/knees bending naturally; hands belong to arms, feet and cast shadows on the same floor, grounded furniture, complete continuous walls/doors/railings. All objects fully opaque with clean silhouettes; no dissolving bodies, missing limbs, duplicate limbs, floating accessories, smears, AI melting or phantom objects. No captions, logos, HUD, arrows, circles, borders, watermark, or gore. Avoid the bland neutral display poses and gray reference backdrop. Recompose and relight creatively from the references. ",
+  "briefs": [
+    {
+      "n": "01-last-corridor",
+      "hero": "xendatro",
+      "enemy": "Chaser",
+      "scene": "Use case: ads-marketing. Create ONE finished 1920x1080 landscape 16:9 Roblox horror-game discovery thumbnail for HOTEL ODDITIES. The input screenshots are separate DESIGN REFERENCES, not a collage or a fixed pose. Compose a new dynamic scene. Preserve recognizable avatar outfits, attached hair/accessories, enemy identity, and hotel architecture/materials. Premium cinematic 3D game key art with lifelike, expressive movement and convincing solid tactile materials while retaining Roblox block avatars. Strong readable story at 320px, large expressive subjects, clear separation, polished cinematic light and controlled contrast, crisp faces, restrained depth of field. Physically coherent poses with elbows/knees bending naturally; hands belong to arms, feet and cast shadows on the same floor, grounded furniture, complete continuous walls/doors/railings. All objects fully opaque with clean silhouettes; no dissolving bodies, missing limbs, duplicate limbs, floating accessories, smears, AI melting or phantom objects. No captions, logos, HUD, arrows, circles, borders, watermark, or gore. Avoid the bland neutral display poses and gray reference backdrop. Recompose and relight creatively from the references. Reference 1: real red-carpet hotel corridor. Reference 2: xendatro, pale-blue argyle sweater, black hair, glasses, tiny red pet hat. Reference 3: Mad Guest/Chaser with black hair, torn black clothing, red eyes, grin, and a short knife held safely away from the victim. Scene: desperate chase toward the viewer. Waist-height wide-angle tracking shot. The terrified blue-sweater avatar dominates the right foreground in a believable sprint, twisting just his head to see the grinning pursuer closing from left midground. Hair attached, sweater and trouser forms intact. Red emergency light behind the pursuer, cool moon-blue light on the survivor's worried face, warm brass lantern pools along the deep corridor. Rich dark wood and ornate gold wallpaper remain clear. Real imminent danger; fast energetic diagonal composition. Keep both faces prominent, no contact or injury. Output a single finished thumbnail at 1920x1080."
+    },
+    {
+      "n": "02-elevator-sisters",
+      "hero": "hythe55",
+      "enemy": "Sister",
+      "scene": "A last-second elevator escape, viewed from INSIDE the warmly lit elevator looking out through half-closing brushed-metal doors into the hotel's wallpapered landing. The yellow-top-hat survivor lunges into the cabin, one palm reaching for the button; his hat, sunglasses, scarf, jacket, and two shoulder cat accessories remain firmly attached. TWO identical blue-dressed Sisters with long brown hair and red eyes are still OUTSIDE, approaching through the narrowing doorway, their hands physically outside the track. Strong foreground door jambs create a frame around the clean threatening faces. Lavender corridor gloom and warm white cabin light, restrained red elevator button, sharp expressions. The door panels slide in parallel on a single sensible track, no hands or bodies intersect metal. Tight claustrophobic composition."
+    },
+    {
+      "n": "03-above-you",
+      "hero": "xendatro",
+      "enemy": "Ceiling-Dweller",
+      "scene": "A ceiling ambush: low three-quarter side camera, the blue-sweater survivor fills left lower foreground and looks UP in sudden alarm, his glasses, black hair and little red pet hat attached. The game's solid matte-black faceless Ceiling Dweller crawls out of a hinged ceiling vent at upper right, two hands gripping the vent rim and both knees bent naturally against ceiling framing; its body is opaque and fully connected, no smoke. A single vent lid hangs clearly from its hinge. Hero lifts a small metal flashlight, creating an ivory cone up the brass-and-gold hotel corridor. Dramatic warm ivory light against near-black violet shadows; both character silhouettes easy to read. Frame both faces/head shapes cleanly, no crushed limbs. A frozen instant before the drop, no contact."
+    },
+    {
+      "n": "04-painting-escape",
+      "hero": "hythe55",
+      "enemy": "Painting-Dweller",
+      "scene": "The painting comes alive. Build a close diagonal composition along the reference wallpapered corridor: the white-faced long-black-haired grinning Painting Dweller leans its head, upper torso and two arms OUT of a visibly torn framed winter painting on the RIGHT. Its lower body is logically occluded behind the canvas aperture, with a sharp torn edge, never fading out. One hand grips the wooden frame; other reaches toward the survivor. The yellow-top-hat survivor recoils LEFT with a frightened mouth and forearm raised protectively, all clothing/hat/cat accessories attached. Splintered canvas pieces are a few crisp physical fragments, not a cloud. Sepia hotel lamplight and ghostly desaturated cyan painting light, clean readable near-contact story. The wooden frame stays bolted squarely to the wall."
+    },
+    {
+      "n": "05-pool-eye",
+      "hero": "xendatro",
+      "enemy": "Eye",
+      "scene": "The forbidden hotel pool. Wide dramatic camera at water level, looking up at the enormous floating Eye from the reference, a clearly spherical glossy white eyeball with a BLUE iris, black pupil and distinct dark-red tendrils. It hovers over the pool's CENTER; preserve the enemy design, no mouth or extra eyes. On the LEFT edge, the terrified blue-sweater avatar scrambles up the intact pool ladder, both hands gripping separate rungs, one foot planted on a rung, his lower legs visibly in water with coherent reflections. Build from the real white-tile pool chamber, dark arches and wall pipes. Turquoise caustics illuminate the face and tiles, magenta dusk spills from far arches, mild steam at water surface only. The Eye is the large primary hook, survivor face secondary; crisp reflective water, no transparent limbs. Lifelike climbing effort."
+    },
+    {
+      "n": "06-rotunda-angel",
+      "hero": "hythe55",
+      "enemy": "Weeping-Angel",
+      "scene": "DON'T LOOK AWAY, communicated entirely visually with no text. In the huge circular hotel portrait rotunda from reference, a WINGED GRAY STONE Roblox angel stands very close at the right foreground, dominating half the image, with solid carved feather wings and intact stone body. It must remain a statue; no human skin or living feathers. Across the narrow red-carpet bridge, yellow-top-hat survivor backs carefully toward camera while keeping his head and flashlight fixed on the statue, wide worried mouth under attached sunglasses. Camera is slightly elevated behind the survivor's shoulder, showing his profile and the angel together with the open shaft and stacked circular wallpaper rings. Pale silver moonbeam from above, honey lantern accents, charcoal depth. Bridge connects physically to central hub; feet have supported footing and cast shadows. Monumental cinematic scale, clean minimal storytelling."
+    },
+    {
+      "n": "07-library-stalker",
+      "hero": "xendatro",
+      "enemy": "Stalker",
+      "scene": "Quiet suspense in the hotel's actual library. Close portrait composition of blue-sweater survivor crouching beside a dark wooden bookcase at LEFT, index finger held in a simple believable hush gesture near lips, black hair/glasses/red pet hat attached; scared eyes glance to RIGHT. At right midground the opaque black STALKER peers around the end of a bookcase, just its head, shoulder and one hand visible, with two clearly separated glowing red eyes. Its hidden parts are occluded by the solid bookshelf, not dissolved. Keep shelves straight and books individually solid and seated, one brass-shaded desk lamp on a fully supported table. Amber lamp islands, deep emerald-green shadow, tiny focused red eyes, no general red/blue wash. Clean restrained high-end horror key art, expressive close face and an obvious watcher."
+    },
+    {
+      "n": "08-hide-and-seek",
+      "hero": "hythe55",
+      "enemy": "Blind",
+      "scene": "Hide and seek inside the hotel guest lounge in the environment reference. Side-on camera close to the floor. Yellow-top-hat survivor crouches completely behind a substantial cream upholstered SOFA at LEFT foreground, pressing one hand over his own mouth and staring toward the approaching enemy, crouched knees anatomically logical, hat and cats attached. At RIGHT, the BLINDFOLDED enemy in brown argyle vest, striped white sleeves, beige trousers walks past only a few feet away, head angled to LISTEN, one hand lightly trailing the back of the sofa. Blindfold remains across eyes and enemy has no exposed glowing eyes. Natural strong depth separation; warm lamp on glass side table, cool rainy-window light, desaturated slate and cream palette with yellow hat focal accent. Every sofa leg stands on carpet; no body clips through furniture. Full humanlike physical tension but Roblox block bodies."
+    },
+    {
+      "n": "09-banquet-uninvited",
+      "hero": "bacon",
+      "enemy": "Sister",
+      "scene": "A grand banquet trap in the reference hotel's tall candlelit dining room. High-angle diagonal shot down the long wooden table, with intact rows of matching chairs, plates and candelabra. A BACON-HAIR Roblox survivor with brown swept bacon hair, black jacket over cobalt-blue shirt, jeans is at the near end in three-quarter front view, twisting in surprise. Two matching long-brown-haired blue-dressed red-eyed Sisters stand at opposite sides of the far end, one begins pulling a chair back with a hand clearly wrapped over its backrest, the other watches the survivor. Clean symmetrical menace, not a sprint toward camera. Rich ruby carpet, antique gold candlelight, deep indigo upper balcony, clear faces and solid shadows. Do not copy the neutral gray display background. Table is a continuous supported object, chairs have sensible legs, no stretched furniture."
+    },
+    {
+      "n": "10-garden-shadow",
+      "hero": "hythe55",
+      "enemy": "ShadowFigure",
+      "scene": "Rainy conservatory chase around the hotel's central octagonal stone FOUNTAIN, using reference glass-roof garden architecture. The yellow-top-hat survivor skids around the near fountain rim, profile toward left, glancing OVER his shoulder to the right, scarf flowing only from its neck attachment. Behind the far rim emerges the opaque charcoal ShadowFigure from reference, its simple unsettling smile barely catching light. Water jets and glass roof stay physically coherent; four large wet potted plants frame the view and never block the important faces. Lush bottle-green palette, cool cyan rain light through glass, a focused warm gold glow on the yellow hat and survivor face. Slight camera tilt and believable banking run, one planted foot with contact shadow, far hand traces fountain rim. No floating pots, no smoke-body, no sprawling tentacles."
+    },
+    {
+      "n": "11-wrong-turn",
+      "hero": "bacon",
+      "enemy": "Chaser",
+      "scene": "The wrong turn: elevated oblique 35mm view of a hotel T-JUNCTION. A frightened brown bacon-hair Roblox survivor in black jacket/cobalt shirt/jeans has stopped in the central foreground, body turned one way but face staring the other. At left opening the grinning black-haired red-eyed Mad Guest in torn black clothes steps into view, short knife at his side; at right opening a second Mad Guest silhouette blocks the other route. Keep knife away from the survivor and no injuries. Strong graphic fork of red runners on gold wallpaper and dark timber paneling, exactly two branches and solid walls joining logically. Sickly pale-green overhead lighting, warm amber side lanterns, dark silhouettes, bright face. Composition shows a clear dilemma at thumbnail size, not another front-facing chase. Floorplan coherent; characters grounded and complete."
+    },
+    {
+      "n": "12-mirror-impostor",
+      "hero": "xendatro",
+      "enemy": "Mimic",
+      "scene": "The mirror impostor. In the grand hotel lounge from the environment reference, use one full-height brass-framed WALL MIRROR secured to a wall. Blue-sweater survivor stands at LEFT foreground in three-quarter BACK view, turning just enough that we see his worried profile; attached black hair, glasses and red pet hat. The mirror at RIGHT shows his recognizably matching avatar, same outfit/hat, but the REFLECTION faces forward with an unnatural broad smile and subtle white glowing eyes, even though the real avatar looks away. This is the game's Mimic copying a player; use the plain pale Mimic reference only as identity mechanism, not an extra white person. Exactly one real avatar and one mirror copy, no extra characters. Maintain plausible reflection perspective, a single continuous mirror surface, feet at appropriate mirrored floor line. Pearl-silver and violet lighting, sharply readable face in glass, warm brass rim. Dread and curiosity."
+    },
+    {
+      "n": "13-dollhouse-giant",
+      "hero": "hythe55",
+      "enemy": "Ceiling-Dweller",
+      "scene": "A miniature nightmare in the real dollhouse hotel lounge. Forced-perspective wide shot showing the large TABLETOP MINIATURE HOTEL with its tiny wallpapered rooms and red-carpet halls. A tiny yellow-top-hat survivor, the same recognizable avatar at miniature scale, runs across a fully supported miniature hallway bridge at the tabletop's near edge, clear terrified profile. Behind and above the model, a giant-by-comparison opaque black faceless Ceiling Dweller leans over the miniature hotel, one big hand gripping the actual table edge and other reaching down but not touching the survivor. Its arms remain connected to its torso. The tiny survivor's feet touch the miniature floor; table corners/legs and model walls have uninterrupted geometry. Cozy dusty-rose/gold room light with a theatrical deep teal shadow behind the looming head, strong clear size comparison, miniature doors and furnishings orderly, no rubble or fading."
+    },
+    {
+      "n": "14-hole-no-way-back",
+      "hero": "xendatro",
+      "enemy": "Stalker",
+      "scene": "No way back. Dramatic steep high three-quarter shot over the actual hotel's narrow wooden plank spanning a very deep rectangular corridor floor hole from the reference. The blue-sweater survivor balances near the middle of the intact SINGLE plank, seen front/side with frightened expressive face, one foot in front of the other and arms extended naturally for balance; hair and red pet hat attached. The black Stalker with red eyes steps onto the FAR END, one hand gripping a firmly attached wooden door frame, closing off retreat. Both ends of the plank rest visibly on solid floor ledges; no physically disconnected bridge or phantom extra boards. The gold-wallpaper corridor drops to blue-black darkness below; pale cold light rises from hole while only distant orange lanterns light the pursuer. Keep character faces and the supported plank extremely clear, no fog hiding structural errors, no fall or injury."
+    },
+    {
+      "n": "15-lobby-breach",
+      "hero": "hythe55",
+      "enemy": "Chaser",
+      "scene": "The safe-looking lobby isn't safe. A cinematic side-on action shot in the real lobby, keeping the ornate wallpaper, fireplace with framed screaming-face painting, old CRT computer on a solid wooden desk, leather seating, and elevator as coherent set dressing. Yellow-top-hat survivor VAULTS over the back of a substantial brown sofa toward the viewer's left, one palm planted visibly on the sofa's upper rail, knees tucked naturally, hat and shoulder cats attached. The grinning Mad Guest rounds the far end of that sofa at RIGHT, knife pointing down away from everyone. Camera low at sofa height, large surprised survivor face and clear pursuing red-eyed enemy. Hot fireplace amber and cold CRT cyan, strong warm/cool split with realistic cast shadows, polished motion frozen crisply, no smear trails. Remove all shop labels, HUD and interface text from reference. Sofa and desk fully supported, no objects melting into one another."
+    }
+  ]
+}

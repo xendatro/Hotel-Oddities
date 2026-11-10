@@ -38,6 +38,7 @@ export type Options = {
 
 	retainWorldVelocity: boolean,
 	directMovement: boolean?,
+	stepHeight: number?,
 
 	camera: {
 		tilt: boolean,
@@ -204,8 +205,29 @@ function WallstickClass._getCalculatedRealRootCFrame(self: Wallstick)
 	return self.part.CFrame * offset
 end
 
+local STEP_FLOOR_TOLERANCE = 0.1
+
+local function topOf(cframe: CFrame, size: Vector3): number
+	local extent = math.abs(cframe.RightVector.Y) * size.X
+		+ math.abs(cframe.UpVector.Y) * size.Y
+		+ math.abs(cframe.LookVector.Y) * size.Z
+	return cframe.Position.Y + extent / 2
+end
+
+function WallstickClass._stepBand(self: Wallstick): (number?, number?)
+	local stepHeight = self.options.stepHeight
+	local directHeight = self.directHeight
+	if not self.options.directMovement or not stepHeight or not directHeight then return nil, nil end
+
+	local humanoid = self.real.humanoid
+	local hipHeight = if humanoid.RigType == Enum.HumanoidRigType.R6 then 2 else humanoid.HipHeight
+	local floor = directHeight - hipHeight - self.fake.rootPart.Size.Y / 2 + STEP_FLOOR_TOLERANCE
+	return floor, floor + stepHeight
+end
+
 function WallstickClass._updateCollisionGeometry(self: Wallstick)
 	local newCachedCollisionGeometry = {}
+	local stepFloor, stepTop = self:_stepBand()
 
 	local originCF = self:_getOriginCFrame()
 	local realRootCF = self.real.rootPart.CFrame
@@ -258,7 +280,9 @@ function WallstickClass._updateCollisionGeometry(self: Wallstick)
 		collisionPart.AssemblyAngularVelocity = Vector3.zero
 		collisionPart.CFrame = originCF * (stickCFInv * realPart.CFrame)
 		collisionPart.Size = realPart.Size
-		collisionPart.CanCollide = realPart.CanCollide
+		local top = if stepFloor and stepTop then topOf(collisionPart.CFrame, realPart.Size) else nil
+		local isLip = top ~= nil and top > (stepFloor :: number) and top <= (stepTop :: number)
+		collisionPart.CanCollide = realPart.CanCollide and not isLip
 		collisionPart.Transparency = 1
 
 		self.cachedCollisionGeometry[realPart] = collisionPart

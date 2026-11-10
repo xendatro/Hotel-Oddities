@@ -4,6 +4,7 @@ local RunService = game:GetService("RunService")
 
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
 local CrouchConfig = require(ReplicatedStorage.Configs.CrouchConfig)
+local GamepadUIService = require(ReplicatedStorage.Services.GamepadUIService)
 local MathService = require(ReplicatedStorage.Services.MathService)
 local SprintService = require(ReplicatedStorage.Services.SprintService)
 local TouchButtonService = require(ReplicatedStorage.Services.TouchButtonService)
@@ -257,6 +258,7 @@ local function buildInput()
 	end
 
 	action.Pressed:Connect(function()
+		if GamepadUIService:IsGamepad() and GamepadUIService:IsCapturing() then return end
 		setCrouched(not crouched)
 	end)
 

@@ -1,3 +1,4 @@
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -9,6 +10,7 @@ if not RunService:IsClient() then
 end
 
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local DrawerConfig = require(ReplicatedStorage.Configs.DrawerConfig)
 local ItemConfig = require(ReplicatedStorage.Configs.DrawerItemConfig)
 local ItemShopConfig = require(ReplicatedStorage.Configs.ItemShopConfig)
 local AudioService = require(ReplicatedStorage.Services.AudioService)
@@ -19,11 +21,13 @@ local NotificationService = require(ReplicatedStorage.Services.NotificationServi
 local TagService = require(ReplicatedStorage.Services.TagService)
 
 local PICKUP_COOLDOWN = 0.15
+local PENDING_TIME = 1
 
 local PickupRemote = CommunicationService.Get(ItemConfig.Remotes.Folder, ItemConfig.Remotes.Pickup)
 local PickupResultRemote = CommunicationService.Get(ItemConfig.Remotes.Folder, ItemConfig.Remotes.Result) :: RemoteEvent
 
 local States: { [Model]: true } = {}
+local Pending: { [Model]: number } = {}
 local focused: Model? = nil
 local lastPickup = 0
 
@@ -35,17 +39,20 @@ local function register(model: Model): Model?
 		return nil
 	end
 
+	local drawer = model.Parent
+	local inDrawer = drawer ~= nil and CollectionService:HasTag(drawer, DrawerConfig.Tag)
+
 	States[model] = true
 	Interaction:Register(model, {
 		Prompt = ItemConfig.UI.PickupText,
 		TextWidth = ItemConfig.UI.TextWidth,
 		Reach = ItemConfig.Targeting.Reach,
+		SkipTouch = inDrawer,
 		OnActivated = function(target: Model)
 			return DrawerItemService:Pickup(target)
 		end,
 	})
 
-	local drawer = model.Parent
 	if drawer and drawer:IsA("Model") then
 		DrawerService:Sync(drawer)
 	end
@@ -54,6 +61,7 @@ end
 
 local function unregister(model: Model)
 	States[model] = nil
+	Pending[model] = nil
 	Interaction:Unregister(model)
 end
 
@@ -68,10 +76,23 @@ function DrawerItemService:Pickup(model: Model?): boolean
 	local now = os.clock()
 	if now - lastPickup < PICKUP_COOLDOWN then return false end
 	lastPickup = now
+	Pending[item] = now + PENDING_TIME
 
 	;(PickupRemote :: RemoteEvent):FireServer(item)
 	return true
 end
+
+DrawerService:SetContents(function(drawer: Model): Model?
+	local now = os.clock()
+	for _, child in drawer:GetChildren() do
+		if child:IsA("Model") and States[child] and (Pending[child] or 0) <= now then
+			return child
+		end
+	end
+	return nil
+end, function(item: Model): boolean
+	return DrawerItemService:Pickup(item)
+end)
 
 Interaction.Selected:Connect(function(model: Model?)
 	focused = if model and States[model] then model else nil

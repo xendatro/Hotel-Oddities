@@ -119,6 +119,10 @@ local ToolConfigs = {
 		AscendTime = 1.2,
 		DescendTime = 1,
 		MaxCeilingDistance = 60,
+		CeilingSearchHits = 8,
+		CeilingMinFlatness = 0.98,
+		CeilingMinWidth = 1.8,
+		CeilingStepHeight = 1.2,
 	},
 
 	["Player Locator"] = {

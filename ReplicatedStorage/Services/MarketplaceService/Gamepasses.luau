@@ -8,6 +8,6 @@ return {
 	Camcorder = 1975562815,
 	DoubleCoins = 1976750787,
 	DoubleGems = 1979348547,
-	MoreHealth = 0,
-	MegaHealth = 0,
+	MoreHealth = 2005857346,
+	MegaHealth = 2005491347,
 }

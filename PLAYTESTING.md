@@ -137,6 +137,13 @@ snippet, so the director keeps spawning and the sweep keeps deleting: expect
 only tagged models still parented under `workspace`, so it reads lower than a
 raw `CollectionService:GetTagged("Enemy")` count.
 
+### ServerStorage\Playtest\WarpServer.luau
+Real items and the real server gravity warp, through `ServerBridge` with `"@player"`.
+- `WarpServer.Give(player, toolName, count?)` adds through `InventoryService:Add`, so the
+  tool lands in the Backpack ready to equip and `Activate()` from a Client snippet
+- `WarpServer.Warp(player, duration?, leadTime?)` is exactly what the Sisters catch calls
+- `WarpServer.State(player)` returns `warping` and `canWarp`
+
 ### ServerStorage\Playtest\Subject.luau
 Turns a player into a stable test subject.
 
@@ -173,6 +180,30 @@ in `ServerStorage.Playtest` first). `"@player"` in server args becomes the first
 player. Calls run inside the real game VM, so the modules they touch are the
 game's own copies: `Quiet.on()` through `ServerBridge` takes a spawn block that
 actually works.
+
+### ReplicatedStorage\Playtest\GamepadProbe.luau
+Controller and touch checks without real pad input (call through `Bridge`). A
+fresh play session in Studio starts with `PreferredInput = Gamepad`, so open
+things through this module before sending any key or mouse input.
+- `GamepadProbe.State()` for `PreferredInput`, the selected GUI object, whether
+  a `GamepadUIService` layer is focused, whether the controller cursor is shown,
+  the open page and whether a minigame is open
+- `GamepadProbe.Open(pageId)` / `Close()` through `InterfaceService`
+- `GamepadProbe.Computer(gameId)` teleports to an unhacked terminal running that
+  game (`Memory`, `AimTrainer`, `Frogger`, `Snake`, `Simon`) and opens it
+- `GamepadProbe.Press(name, alternate?, index?)` presses the `index`th shown
+  element with that name in the open minigame at its real screen position
+  through `MinigameService:PressAt`, the controller cursor's own path (`Exit`,
+  `Target`, `Card1`, `Pad1`; the on-screen D-pad buttons are all `TextButton`)
+- `GamepadProbe.Texts()` for every shown label in the open minigame
+- `GamepadProbe.TapNearDrawer(offset, distance?)` frames the nearest drawer and
+  taps `offset` pixels right of its centre through `Interaction:_tapWorld`;
+  `rayHit` says whether the direct ray already found it
+- `GamepadProbe.DrawerMenu(kind)` forces `Interaction` into touch mode and moves to
+  the nearest `Wardrobe` or `Desk`; `DrawerMenuState()` lists the touch drawer menu's
+  buttons (`Drawer 1=Open@Column1#1`), and `PressDrawer(n)` presses one through
+  `DrawerMenu:Press`. The move does not always face the furniture's front or the
+  camera at it, so set both from the snippet before reading the menu
 
 ### ReplicatedStorage\Playtest\Trailer
 The trailer shoot (see `Trailer/README.md`). `Director` plays one shot from
@@ -391,6 +422,14 @@ with the file's byte count. Mirror every later edit the same way.
 Later on 2026-10-02 a new `Shots\Mimic.luau` did appear in Studio on its own
 after the folder had been committed, so check `#Source` before creating a
 script by hand; `multi_edit` reports not-found edits when sync got there first.
+
+**`Measured`** — **simulated gamepad keys arrive as keyboard input.** On
+2026-10-11 `user_keyboard_input` with `ButtonY` or `DPadDown` reached the game
+as `UserInputType.Keyboard`: `PreferredInput` flipped from `Gamepad` to
+`KeyboardAndMouse`, and with a top-bar icon selected `DPadDown` did not move the
+selection. Engine gamepad navigation cannot be driven from the MCP. Test
+controller paths from a fresh session through `GamepadProbe`, and check
+`NextSelection*` links by reading the properties.
 
 **`Measured`** — **Roblox's own top-bar buttons stay on screen in a playtest even
 with `TopbarEnabled` false.** A desktop capture on 2026-10-01 showed the Roblox

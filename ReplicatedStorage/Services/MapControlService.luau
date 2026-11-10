@@ -19,6 +19,9 @@ local Offset, TargetOffset = Vector2.zero, Vector2.zero
 local Touches: { [InputObject]: Vector2 } = {}
 local DragLast: Vector2? = nil
 local PinchDistance = 0
+local GamepadActive = false
+local Stick = Vector2.zero
+local ZoomIn, ZoomOut = 0, 0
 
 local function touchList(): { InputObject }
 	local list = {}
@@ -85,7 +88,35 @@ local function endInput(input: InputObject)
 	end
 end
 
+local function stepGamepad(deltaTime: number)
+	local viewport = Viewport
+	if not GamepadActive or not viewport then return end
+
+	if Stick.Magnitude > Controls.GamepadDeadzone then
+		TargetOffset = clampOffset(TargetOffset - Stick * Controls.GamepadPanSpeed * deltaTime, TargetZoom)
+	end
+
+	local zoom = ZoomIn - ZoomOut
+	if math.abs(zoom) > Controls.GamepadDeadzone then
+		zoomAbout(
+			TargetZoom * (1 + zoom * Controls.GamepadZoomSpeed * deltaTime),
+			viewport.AbsolutePosition + viewport.AbsoluteSize / 2
+		)
+	end
+end
+
 local function changedInput(input: InputObject)
+	if input.KeyCode == Enum.KeyCode.Thumbstick2 then
+		Stick = Vector2.new(input.Position.X, -input.Position.Y)
+		return
+	elseif input.KeyCode == Enum.KeyCode.ButtonR2 then
+		ZoomIn = input.Position.Z
+		return
+	elseif input.KeyCode == Enum.KeyCode.ButtonL2 then
+		ZoomOut = input.Position.Z
+		return
+	end
+
 	if input.UserInputType == Enum.UserInputType.MouseWheel then
 		local position = UserInputService:GetMouseLocation()
 		if not isOverViewport(position) then return end
@@ -145,6 +176,7 @@ function MapControlService:Attach(viewport: GuiObject, content: Frame)
 		UserInputService.InputChanged:Connect(changedInput),
 		UserInputService.InputEnded:Connect(endInput),
 		RunService.RenderStepped:Connect(function(deltaTime)
+			stepGamepad(deltaTime)
 			Zoom += (TargetZoom - Zoom) * MathService.ExpAlpha(Controls.ZoomLerp, deltaTime)
 			Offset = Offset:Lerp(TargetOffset, MathService.ExpAlpha(Controls.PanLerp, deltaTime))
 
@@ -185,6 +217,12 @@ function MapControlService:Reset(snap: boolean?)
 	if ContentScale then
 		ContentScale.Scale = 1
 	end
+end
+
+function MapControlService:SetGamepadActive(active: boolean)
+	GamepadActive = active
+	Stick = Vector2.zero
+	ZoomIn, ZoomOut = 0, 0
 end
 
 function MapControlService:GetZoom(): number

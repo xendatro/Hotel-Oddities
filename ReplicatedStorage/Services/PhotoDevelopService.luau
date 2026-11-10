@@ -13,6 +13,7 @@ local CaptureConfig = require(ReplicatedStorage.Configs.CaptureConfig)
 local PhotoConfig = require(ReplicatedStorage.Configs.PhotoConfig)
 local CaptureGalleryService = require(ReplicatedStorage.Services.CaptureGalleryService)
 local CaptureOverlayService = require(ReplicatedStorage.Services.CaptureOverlayService)
+local GamepadUIService = require(ReplicatedStorage.Services.GamepadUIService)
 local InterfaceService = require(ReplicatedStorage.Services.InterfaceService)
 local NotificationService = require(ReplicatedStorage.Services.NotificationService)
 
@@ -96,9 +97,11 @@ local function setDecisionOpen(open: boolean)
 			mouseWasUnlocked = InterfaceService:IsMouseUnlocked()
 		end
 		InterfaceService:SetMouseUnlocked(true, true)
+		GamepadUIService:Focus(actions, { OnBack = function() end })
 		return
 	end
 
+	GamepadUIService:Release(actions)
 	if mouseWasUnlocked == nil then return end
 	local activePage = InterfaceService:GetActive()
 	local restore = mouseWasUnlocked == true or (activePage ~= nil and activePage ~= "")

@@ -5,6 +5,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local Config = require(ReplicatedStorage.Configs.WalkieTalkieConfig)
+local GamepadUIService = require(ReplicatedStorage.Services.GamepadUIService)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local InterfaceService = require(ReplicatedStorage.Services.InterfaceService)
 local SurfaceCursorService = require(ReplicatedStorage.Services.SurfaceCursorService)
@@ -21,6 +22,8 @@ local UI = Config.Ui
 local COLORS = UI.Colors
 local STATUS = UI.Status
 local BIND_NAME = "WalkieScreen"
+local CURSOR_KEY = "Walkie"
+local cursorHandler: any = nil
 
 local player = Players.LocalPlayer
 local playerGui = GuiBuilderService.GetPlayerGui()
@@ -277,16 +280,22 @@ local function refreshChrome(current: Screen, powered: boolean, raised: boolean)
 
 	local transmitting = WalkieTalkieService:IsTransmitting()
 	current.Footer.Signal.TextColor3 = if transmitting then COLORS.NoVoice else COLORS.Idle
+	local gamepad = GamepadUIService:IsGamepad()
+	local raiseKey = if gamepad
+		then GamepadUIService:KeyText(Config.Keys.GamepadRaise)
+		else Config.Keys.Raise.Name
 	current.Footer.Hint.Text = if raised
-		then string.format(UI.Hints.Raised, Config.Keys.Raise.Name)
+		then string.format(UI.Hints.Raised, raiseKey)
 		elseif transmitting then UI.Hints.Talking
 		elseif math.floor(os.clock() / UI.HintCycle) % 2 == 1
-		then string.format(UI.Hints.Lowered, Config.Keys.Raise.Name)
+		then string.format(UI.Hints.Lowered, raiseKey)
+		elseif gamepad then string.format(UI.Hints.TalkGamepad, GamepadUIService:KeyText(Config.Keys.GamepadTalk))
 		else UI.Hints.Talk
 
 	current.Off.Visible = not powered
-	current.Off.Prompt.Text = if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	current.Off.Prompt.Text = if UserInputService.PreferredInput == Enum.PreferredInput.Touch
 		then UI.OffPromptTouch
+		elseif gamepad then string.format(UI.OffPromptGamepad, raiseKey)
 		else string.format(UI.OffPrompt, Config.Keys.Power.Name)
 end
 
@@ -388,12 +397,60 @@ local function isUsable(): boolean
 	return WalkieTalkieService:IsPowered() and WalkieTalkieService:IsEquipped()
 end
 
+local function beginPointer(viewportPoint: Vector2)
+	local point = project(viewportPoint)
+	if not point then return end
+	if WalkieTalkieService:IsRaised() and press(point) then return end
+	dragging = true
+	dragPoint = point
+end
+
+local function movePointer(viewportPoint: Vector2)
+	if not dragging and not activeSlider then return end
+
+	local point = project(viewportPoint)
+	if not point then return end
+
+	local slider = activeSlider
+	if slider then
+		if slider.Element.Parent then
+			slider.Apply(SurfaceCursorService:GetAlpha(slider.Element, point))
+		else
+			activeSlider = nil
+		end
+		return
+	end
+
+	if not dragging or not dragPoint then return end
+	scroll((dragPoint.Y - point.Y) * UI.DragSpeed)
+	dragPoint = point
+end
+
+local function endPointer()
+	activeSlider = nil
+	dragging = false
+	dragPoint = nil
+end
+
+cursorHandler = {
+	Press = function(point: Vector2)
+		if isUsable() then beginPointer(point) end
+	end,
+	Move = function(point: Vector2)
+		if isUsable() then movePointer(point) end
+	end,
+	Release = function()
+		endPointer()
+	end,
+}
+
 local function step()
 	rebind()
 
 	local powered = WalkieTalkieService:IsPowered()
 	local raised = WalkieTalkieService:IsRaised()
 	setMouseUnlocked(raised)
+	GamepadUIService:SetCursor(CURSOR_KEY, if raised and isUsable() then cursorHandler else nil)
 	if wasRaised and not raised then settingsOpen = false end
 	wasRaised = raised
 	if not raised then
@@ -427,11 +484,7 @@ UserInputService.InputBegan:Connect(function(input: InputObject)
 		return
 	end
 
-	local point = project(viewportPointOf(input))
-	if not point then return end
-	if WalkieTalkieService:IsRaised() and press(point) then return end
-	dragging = true
-	dragPoint = point
+	beginPointer(viewportPointOf(input))
 end)
 
 UserInputService.InputChanged:Connect(function(input: InputObject)
@@ -449,24 +502,7 @@ UserInputService.InputChanged:Connect(function(input: InputObject)
 	then
 		return
 	end
-	if not dragging and not activeSlider then return end
-
-	local point = project(viewportPointOf(input))
-	if not point then return end
-
-	local slider = activeSlider
-	if slider then
-		if slider.Element.Parent then
-			slider.Apply(SurfaceCursorService:GetAlpha(slider.Element, point))
-		else
-			activeSlider = nil
-		end
-		return
-	end
-
-	if not dragging or not dragPoint then return end
-	scroll((dragPoint.Y - point.Y) * UI.DragSpeed)
-	dragPoint = point
+	movePointer(viewportPointOf(input))
 end)
 
 UserInputService.InputEnded:Connect(function(input: InputObject)
@@ -475,9 +511,7 @@ UserInputService.InputEnded:Connect(function(input: InputObject)
 	then
 		return
 	end
-	activeSlider = nil
-	dragging = false
-	dragPoint = nil
+	endPointer()
 end)
 
 RunService:BindToRenderStep(BIND_NAME, Enum.RenderPriority.Last.Value, step)

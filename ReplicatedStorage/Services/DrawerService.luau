@@ -29,6 +29,7 @@ local States: { [Model]: State } = {}
 local Moving: { [State]: true } = {}
 local focused: Model? = nil
 local lastToggle = 0
+local contents: { Find: (drawer: Model) -> Model?, Take: (item: Model) -> boolean }? = nil
 
 local function desiredOpen(state: State): boolean
 	if state.Predicted ~= nil then return state.Predicted end
@@ -40,6 +41,12 @@ local function refresh(state: State, immediate: boolean?)
 	if not immediate then
 		Moving[state] = true
 	end
+end
+
+local function takeableItem(state: State): Model?
+	if not contents or not state.Drawer:IsOpen() then return nil end
+	if Interaction:GetInputMode() == "Keyboard" then return nil end
+	return contents.Find(state.Drawer.Model)
 end
 
 local function register(model: Model): State?
@@ -60,14 +67,13 @@ local function register(model: Model): State?
 	States[model] = state
 	Interaction:Register(model, {
 		Prompt = function(target: Model): string?
-			local current = States[target]
-			if not current then return nil end
-			return if current.Drawer:IsOpen() then DrawerConfig.UI.CloseText else DrawerConfig.UI.OpenText
+			return DrawerService:GetPrompt(target)
 		end,
 		TextWidth = DrawerConfig.UI.TextWidth,
 		Reach = DrawerConfig.Targeting.Reach,
+		SkipTouch = true,
 		OnActivated = function(target: Model)
-			return DrawerService:Toggle(target)
+			return DrawerService:Activate(target)
 		end,
 	})
 	refresh(state, true)
@@ -88,10 +94,38 @@ function DrawerService:GetFocused(): Model?
 	return focused
 end
 
+function DrawerService:GetDrawers(): { Model }
+	local drawers = {}
+	for model in States do
+		table.insert(drawers, model)
+	end
+	return drawers
+end
+
+function DrawerService:GetPrompt(model: Model): string?
+	local state = States[model]
+	if not state then return nil end
+	if takeableItem(state) then return DrawerConfig.UI.TakeText end
+	return if state.Drawer:IsOpen() then DrawerConfig.UI.CloseText else DrawerConfig.UI.OpenText
+end
+
+function DrawerService:Activate(model: Model): boolean
+	local state = States[model]
+	local item = state and takeableItem(state)
+	if item and contents then
+		return contents.Take(item)
+	end
+	return DrawerService:Toggle(model)
+end
+
 function DrawerService:IsOpen(model: Model?): boolean
 	local target = model or focused
 	local state = target and States[target]
 	return state ~= nil and state.Drawer:IsOpen()
+end
+
+function DrawerService:SetContents(find: (drawer: Model) -> Model?, take: (item: Model) -> boolean)
+	contents = { Find = find, Take = take }
 end
 
 function DrawerService:Sync(model: Model)

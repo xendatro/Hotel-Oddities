@@ -1,9 +1,13 @@
 return {
 	Pages = {
-		Items = { Label = "Items", Key = Enum.KeyCode.J },
-		Kits = { Label = "Kits", Key = Enum.KeyCode.K },
-		Shop = { Label = "Shop", Key = Enum.KeyCode.B },
-		Inventory = { Label = "Inventory", Key = Enum.KeyCode.I },
+		Items = { Label = "Items", Key = Enum.KeyCode.J, GamepadKey = Enum.KeyCode.DPadLeft },
+		Kits = { Label = "Kits", Key = Enum.KeyCode.K, GamepadKey = Enum.KeyCode.DPadRight },
+		Shop = { Label = "Shop", Key = Enum.KeyCode.B, GamepadKey = Enum.KeyCode.DPadDown },
+		Inventory = { Label = "Inventory", Key = Enum.KeyCode.I, GamepadKey = Enum.KeyCode.ButtonY },
+	},
+
+	FreeNavigationPages = {
+		Map = true,
 	},
 
 	Format = "%s [%s]",

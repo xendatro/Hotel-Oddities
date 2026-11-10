@@ -12,6 +12,7 @@ local GalleryCard = require(ReplicatedStorage.Classes.GalleryCard)
 local CaptureConfig = require(ReplicatedStorage.Configs.CaptureConfig)
 local CaptureGalleryService = require(ReplicatedStorage.Services.CaptureGalleryService)
 local CaptureOverlayService = require(ReplicatedStorage.Services.CaptureOverlayService)
+local GamepadUIService = require(ReplicatedStorage.Services.GamepadUIService)
 local InterfaceService = require(ReplicatedStorage.Services.InterfaceService)
 local NotificationService = require(ReplicatedStorage.Services.NotificationService)
 
@@ -100,6 +101,7 @@ end
 local function closeFullscreen()
 	fullscreen.Visible = false
 	clearMedia(fullWindow, fullStill, fullTape)
+	GamepadUIService:Release(fullscreen)
 end
 
 local function paintActions(media: any?)
@@ -151,6 +153,7 @@ local function openFullscreen()
 	if not media then return end
 	if not paintMedia(fullWindow, fullStill, fullTape, media) then return end
 	fullscreen.Visible = true
+	GamepadUIService:Focus(fullscreen, { OnBack = closeFullscreen })
 end
 
 local function select(media: any)

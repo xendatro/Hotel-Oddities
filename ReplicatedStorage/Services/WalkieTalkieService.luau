@@ -6,6 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local Config = require(ReplicatedStorage.Configs.WalkieTalkieConfig)
 local VoiceChatConfig = require(ReplicatedStorage.Configs.VoiceChatConfig)
 local CommunicationService = require(ReplicatedStorage.Services.CommunicationService)
+local InteractionService = require(ReplicatedStorage.Services.InteractionService)
 local MathService = require(ReplicatedStorage.Services.MathService)
 local ViewmodelService = require(ReplicatedStorage.Services.ViewmodelService)
 local VoiceActivityService = require(ReplicatedStorage.Services.VoiceActivityService)
@@ -664,15 +665,35 @@ Players.PlayerRemoving:Connect(function(target)
 	playerVolumes[target.UserId] = nil
 end)
 
+local gamepadRaiseStart: number? = nil
+
 UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
 	if processed then return end
 	if input.KeyCode == Config.Keys.Power then
 		if equipped or powered then WalkieTalkieService:TogglePower() end
 	elseif input.KeyCode == Config.Keys.Raise then
 		WalkieTalkieService:ToggleRaised()
+	elseif input.KeyCode == Config.Keys.GamepadRaise then
+		if not equipped then return end
+		local started = os.clock()
+		gamepadRaiseStart = started
+		task.delay(Config.GamepadPowerHold, function()
+			if gamepadRaiseStart ~= started then return end
+			gamepadRaiseStart = nil
+			WalkieTalkieService:TogglePower()
+		end)
+	elseif input.KeyCode == Config.Keys.GamepadTalk and equipped and not raised then
+		if InteractionService:GetSelected() then return end
+		WalkieTalkieService:ToggleTransmitting()
 	elseif input.UserInputType == Enum.UserInputType.MouseButton1 and not raised then
 		WalkieTalkieService:ToggleTransmitting()
 	end
+end)
+
+UserInputService.InputEnded:Connect(function(input: InputObject)
+	if input.KeyCode ~= Config.Keys.GamepadRaise or not gamepadRaiseStart then return end
+	gamepadRaiseStart = nil
+	WalkieTalkieService:ToggleRaised()
 end)
 
 RunService.Heartbeat:Connect(refreshRoutes)

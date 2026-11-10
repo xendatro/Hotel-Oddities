@@ -35,6 +35,7 @@ local SHAKE_EPSILON = 0.01
 local MAD_GUEST = ChaserCameraConfig.MadGuest
 
 local localPlayer = Players.LocalPlayer
+local lastCharacter = localPlayer.Character
 local ceilingFovIntensity = 0
 local fovChaseAssumedUntil = 0
 local Shakes: { [string]: { Rumble: any, Intensity: number } } = {}
@@ -50,23 +51,39 @@ local function getProximityIntensity(distance: number, range: number, fullIntens
 	return MathService.Smoothstep((range - distance) / math.max(range - fullIntensityDistance, 1e-3))
 end
 
+local EnemyModels: { [Instance]: { Character: Model?, Connection: RBXScriptConnection? } } = {}
+
 local function isChasingLocalPlayer(instance: Instance): boolean
-	return instance:IsA("Model")
+	local entry = EnemyModels[instance]
+	return entry ~= nil
+		and entry.Character ~= nil
+		and entry.Character == localPlayer.Character
 		and instance:GetAttribute(CHASE_TARGET_ATTRIBUTE) == localPlayer.UserId
 end
 
-local EnemyModels: { [Instance]: boolean } = {}
+local function trackEnemy(instance: Instance)
+	if not instance:IsA("Model") or EnemyModels[instance] then return end
+	local entry = { Character = nil :: Model?, Connection = nil :: RBXScriptConnection? }
+	EnemyModels[instance] = entry
+	local function updateTarget()
+		entry.Character = if instance:GetAttribute(CHASE_TARGET_ATTRIBUTE) == localPlayer.UserId
+			and CharacterService.GetAliveHumanoid(localPlayer) ~= nil
+			then localPlayer.Character else nil
+	end
+	entry.Connection = instance:GetAttributeChangedSignal(CHASE_TARGET_ATTRIBUTE):Connect(updateTarget)
+	updateTarget()
+end
 
-CollectionService:GetInstanceAddedSignal(ENEMY_TAG):Connect(function(instance)
-	EnemyModels[instance] = true
-end)
+CollectionService:GetInstanceAddedSignal(ENEMY_TAG):Connect(trackEnemy)
 
 CollectionService:GetInstanceRemovedSignal(ENEMY_TAG):Connect(function(instance)
+	local entry = EnemyModels[instance]
+	if entry and entry.Connection then entry.Connection:Disconnect() end
 	EnemyModels[instance] = nil
 end)
 
 for _, instance in CollectionService:GetTagged(ENEMY_TAG) do
-	EnemyModels[instance] = true
+	trackEnemy(instance)
 end
 
 local function isCameraEffectModel(instance: Instance): boolean
@@ -116,16 +133,29 @@ local function isCeilingDweller(instance: Instance): boolean
 end
 
 local function render(deltaTime: number)
-	local camera = workspace.CurrentCamera
-	if not camera then return end
-
+	local character = localPlayer.Character
 	local alive = CharacterService.GetAliveHumanoid(localPlayer) ~= nil
-	if not alive then
+	if not alive or character ~= lastCharacter then
 		ceilingFovIntensity = 0
 		fovChaseAssumedUntil = 0
 		table.clear(mimicChaseSince)
+		madGuestFov = 0
 		madGuestPunch = 0
+		table.clear(madGuestChasing)
+		for enemyId, shake in Shakes do
+			shake.Rumble:Stop()
+			Shakes[enemyId] = nil
+		end
+		if not alive then
+			for _, entry in EnemyModels do entry.Character = nil end
+		end
+		CameraFovService:SetOffset(FOV_OFFSET_NAME, 0)
+		CameraFovService:SetOffset(MAD_GUEST_FOV_NAME, 0)
 	end
+	lastCharacter = character
+
+	local camera = workspace.CurrentCamera
+	if not camera then return end
 
 	local targetCeilingChase = 0
 	table.clear(shakeTargets)
@@ -224,6 +254,7 @@ local function render(deltaTime: number)
 end
 
 cameraEvent.OnClientEvent:Connect(function(phase: string)
+	if not CharacterService.GetAliveHumanoid(localPlayer) then return end
 	if phase == "Open" then
 		ShakeService:Create({ ID = "VentOpen", ShakeType = "Once", Preset = "Jolt" })
 	elseif phase == "Scream" then

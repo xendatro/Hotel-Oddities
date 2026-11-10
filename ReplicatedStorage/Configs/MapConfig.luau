@@ -49,6 +49,10 @@ return {
 
 	Controls = {
 		ToggleKey = Enum.KeyCode.M,
+		GamepadToggleKey = Enum.KeyCode.ButtonR3,
+		GamepadDeadzone = 0.2,
+		GamepadPanSpeed = 900,
+		GamepadZoomSpeed = 2.5,
 		-- Fraction of the paper kept clear of the torn edges.
 		Inset = 0.055,
 		MinZoom = 1,

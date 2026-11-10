@@ -28,6 +28,9 @@ return {
 		TouchRefresh = 0.1,
 		TouchScanMargin = 8,
 		TouchDragCancel = 0.03,
+		TouchTapMargin = 0.08,
+		AssistAngles = { 4, 8 },
+		AssistRays = 8,
 	},
 
 	Input = {
@@ -91,5 +94,32 @@ return {
 
 		OpenText = "Open",
 		CloseText = "Close",
+		TakeText = "Take",
+	},
+
+	TouchMenu = {
+		GuiName = "DrawerMenu",
+		Reach = 9,
+		ScanSkip = 6,
+		SwitchMargin = 1.5,
+		Refresh = 0.15,
+		SideGap = 0.3,
+		PixelsPerStud = 80,
+		MinScale = 0.8,
+		MaxHeightFraction = 0.42,
+		MaxWidthFraction = 0.38,
+		ColumnGap = 2,
+		NameFormat = "Drawer %d",
+		ButtonSize = Vector2.new(128, 38),
+		ActionWidth = 50,
+		Gap = 6,
+		Padding = 6,
+		CornerRadius = 8,
+		NameFont = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold),
+		ActionFont = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium),
+		NameTextSize = 15,
+		ActionTextSize = 13,
+		PanelTransparency = 0.15,
+		PressTime = 0.2,
 	},
 }

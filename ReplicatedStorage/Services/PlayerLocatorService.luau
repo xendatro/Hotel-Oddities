@@ -255,7 +255,9 @@ end
 
 UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
 	if processed or not enabled or not focused then return end
-	if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+	if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.KeyCode ~= PlayerLocatorConfig.GamepadTeleportKey then
+		return
+	end
 	if not aimsAtCentre() then return end
 
 	requestTeleport(focused.Player)

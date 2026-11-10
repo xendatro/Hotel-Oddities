@@ -212,6 +212,31 @@ local function toggleEquip(slot)
 	InventoryUIService:Equip(slot.ToolName)
 end
 
+local function cycleEquip(step: number)
+	local equipped = equippedToolName()
+	local stops: { any } = { false }
+	local current = 1
+	for _, slot in Slots do
+		if slot:IsEmpty() then continue end
+		table.insert(stops, slot)
+		if slot.ToolName == equipped then
+			current = #stops
+		end
+	end
+	if #stops == 1 then return end
+
+	local target = stops[(current - 1 + step) % #stops + 1]
+	if target then
+		InventoryUIService:Equip(target.ToolName)
+		return
+	end
+
+	local humanoid = CharacterService.GetAliveHumanoid(player)
+	if not humanoid then return end
+	humanoid:UnequipTools()
+	InventoryUIService:Refresh()
+end
+
 local function slotAt(point: Vector2)
 	for _, slot in Slots do
 		local frame = slot.Frame
@@ -352,8 +377,14 @@ local function setUpConnections()
 	end)
 
 	UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
-		if processed or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
-		if next(hiddenBy) ~= nil then return end
+		if processed or next(hiddenBy) ~= nil then return end
+
+		local step = InventoryConfig.CycleKeys[input.KeyCode]
+		if step then
+			cycleEquip(step)
+			return
+		end
+		if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
 
 		for index, keyCode in InventoryConfig.HotbarKeys do
 			if input.KeyCode == keyCode and Slots[index] then

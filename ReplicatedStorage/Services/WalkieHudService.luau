@@ -4,6 +4,7 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local Config = require(ReplicatedStorage.Configs.WalkieTalkieConfig)
+local GamepadUIService = require(ReplicatedStorage.Services.GamepadUIService)
 local GuiBuilderService = require(ReplicatedStorage.Services.GuiBuilderService)
 local TouchButtonService = require(ReplicatedStorage.Services.TouchButtonService)
 local WalkieTalkieService = require(ReplicatedStorage.Services.WalkieTalkieService)
@@ -80,6 +81,8 @@ local function step()
 
 	prompt.Text = if isTouch
 		then PROMPT.TouchText
+		elseif GamepadUIService:IsGamepad()
+		then string.format(PROMPT.GamepadText, GamepadUIService:KeyText(Config.Keys.GamepadRaise))
 		else string.format(PROMPT.Text, Config.Keys.Power.Name)
 	setPromptVisible(equipped and not powered)
 

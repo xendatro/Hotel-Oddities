@@ -285,10 +285,12 @@ function Minesweeper:_build()
 	self.FlagButton = flagButton
 	self.FlagStroke = self:AddStroke(flagButton, theme.TextDim, 2)
 
-	self:Track(flagButton.MouseButton1Click:Connect(function()
+	local function toggleFlagging()
 		self.Flagging = not self.Flagging
 		self:_updateHeader()
-	end))
+	end
+	self:Track(flagButton.MouseButton1Click:Connect(toggleFlagging))
+	self:BindPress(flagButton, toggleFlagging)
 
 	local board = Instance.new("Frame")
 	board.Name = "Board"
@@ -319,12 +321,15 @@ function Minesweeper:_build()
 		self.Buttons[index] = cell
 		self.Strokes[index] = self:AddStroke(cell, theme.Panel, 2)
 
-		self:Track(cell.MouseButton1Click:Connect(function()
+		local function open()
 			self:_click(index, self.Flagging)
-		end))
-		self:Track(cell.MouseButton2Click:Connect(function()
+		end
+		local function flag()
 			self:_click(index, true)
-		end))
+		end
+		self:Track(cell.MouseButton1Click:Connect(open))
+		self:Track(cell.MouseButton2Click:Connect(flag))
+		self:BindPress(cell, open, flag)
 	end
 end
 

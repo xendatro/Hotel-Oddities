@@ -213,9 +213,11 @@ function AimTrainer:_build()
 		piece.Parent = target
 	end
 
-	self:Track(target.MouseButton1Down:Connect(function()
+	local function hit()
 		self:_hit()
-	end))
+	end
+	self:Track(target.MouseButton1Down:Connect(hit))
+	self:BindPress(target, hit)
 end
 
 function AimTrainer:Start(saved: any?)

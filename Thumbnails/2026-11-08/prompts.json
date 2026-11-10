@@ -1,0 +1,689 @@
+{
+  "tool": "built-in image_gen",
+  "referencePlaceId": 107541011814957,
+  "entries": [
+    {
+      "id": "01-door-gap",
+      "hero": "bacon",
+      "enemy": "Stalker",
+      "location": "01-last-corridor",
+      "style": "cinematic macro",
+      "caption": "",
+      "refs": [
+        "locations/01-last-corridor.jpg",
+        "cast/Stalker.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished landscape 16:9 1920x1080 discovery thumbnail for the Roblox hotel horror game Hotel Oddities. Reference 1 is the hotel's gold damask red-carpet corridor design; reference 2 is Stalker, solid black block Roblox humanoid with two red eyes. New composition: extreme close-up of a frightened BACON HAIR Roblox guest (brown swept segmented hair, black jacket, cobalt shirt), hiding beside a cracked guest-room door. Seen through the door's narrow gap is the black Stalker looking straight at us. The guest's face fills left 40%, a large crisp red-eye silhouette fills right 35%, door separates them. Premium cinematic 3D key art, ivory flashlight bounce on guest, deep burgundy and brass practical light. Psychological suspense, clear at 320px, readable shadow detail. Full-bleed landscape, no text, logo, watermark, HUD, borders or gore. Attached hair and coherent hands, no extra limbs. Do not reproduce the gray reference stage."
+    },
+    {
+      "id": "02-glass-roof-witness",
+      "hero": "xendatro",
+      "enemy": "ShadowFigure",
+      "location": "10-garden-shadow",
+      "style": "rainy neo-noir 3D",
+      "caption": "",
+      "refs": [
+        "locations/10-garden-shadow.jpg",
+        "cast/xendatro.jpg",
+        "cast/ShadowFigure.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero xendatro matches reference: black swept hair, glasses, pale blue argyle sweater, gray trousers, small red pet hat firmly attached. Style/medium: rainy neo-noir 3D. Scene: Low shot from the hotel conservatory fountain looking toward xendatro crouched by the water. In the glass ceiling directly above, a large smiling charcoal ShadowFigure looks down. Green rain reflections, silver rim light, ominous clear roof geometry. One ominous overhead figure, one guest. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "03-the-pool-is-watching",
+      "hero": "bacon",
+      "enemy": "Eye",
+      "location": "05-pool-eye",
+      "style": "1960s hand-painted creature-feature poster",
+      "caption": "THE POOL IS WATCHING",
+      "refs": [
+        "locations/05-pool-eye.jpg",
+        "cast/Eye.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero is a classic BACON HAIR Roblox guest: attached brown swept segmented bacon hair, pale block head, black jacket over cobalt-blue shirt and jeans, unless brief specifies a different friend's clothes. Style/medium: 1960s hand-painted creature-feature poster. Scene: Giant blue-iris Eye with dark-red tendrils hovering over white-tile hotel pool, seen from a bold high diagonal. Small bacon-hair guest clings to pool edge lower right. Huge eye fills upper left. Painterly gouache, turquoise water, cream tile, black and vermilion shadows; bold broad brush shapes. Text (verbatim): \"THE POOL IS WATCHING\". Make this short headline beautifully typeset, bold legible at thumbnail size, integrated into reserved space without covering faces. No other text."
+    },
+    {
+      "id": "04-room-service",
+      "hero": "hythe55",
+      "enemy": "Sister",
+      "location": "08-guest-room-hide",
+      "style": "clean cel-shaded horror comedy",
+      "caption": "ROOM SERVICE?",
+      "refs": [
+        "locations/08-guest-room-hide.jpg",
+        "cast/hythe55.jpg",
+        "cast/Sister.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. CRITICAL avatar correction: hythe55 wears black jacket, yellow shirt, gray-and-yellow striped scarf, jeans, sunglasses and yellow smile top hat. REMOVE ALL CATS and ALL CROWNS from his reference. Both shoulders must be bare of animals. Make hat perfectly UPRIGHT, brim LEVEL, centered on head, scale down to a sensible wearable top hat roughly 1.25 times head height and brim only slightly wider than head. No head tilt baked into hat. Apply this to every copy/reflection of him. Style/medium: clean cel-shaded horror comedy. Scene: Hythe sits rigidly on a cream sofa, nervous open mouth, while two identical blue-dressed Sisters stand immediately behind its backrest smiling. A pale table lamp makes a perfect circle of light. Straight-on waist-up medium shot, three striking heads, lavender-gray wallpaper, lemon-yellow accent. Comic suspense. Text (verbatim): \"ROOM SERVICE?\". Make this short headline beautifully typeset, bold legible at thumbnail size, integrated into reserved space without covering faces. No other text."
+    },
+    {
+      "id": "05-dont-blink",
+      "hero": "xendatro",
+      "enemy": "Weeping-Angel",
+      "location": "06-rotunda-angel",
+      "style": "black white red graphic screenprint",
+      "caption": "DON'T BLINK",
+      "refs": [
+        "locations/06-rotunda-angel.jpg",
+        "cast/xendatro.jpg",
+        "cast/Weeping-Angel.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero xendatro matches reference: black swept hair, glasses, pale blue argyle sweater, gray trousers, small red pet hat firmly attached. Style/medium: black white red graphic screenprint. Scene: Huge faceless stone winged block angel at right almost fills height; xendatro lower left keeps flashlight on it while backing along the circular rotunda bridge. Strong angular graphic shapes, textured black ink, bone-white paper, single scarlet accent behind angel. A bold carved wing crosses upper third. Text (verbatim): \"DON'T BLINK\". Make this short headline beautifully typeset, bold legible at thumbnail size, integrated into reserved space without covering faces. No other text."
+    },
+    {
+      "id": "06-under-the-table",
+      "hero": "bacon",
+      "enemy": "Blind",
+      "location": "09-banquet-uninvited",
+      "style": "stop-motion clay horror",
+      "caption": "",
+      "refs": [
+        "locations/09-banquet-uninvited.jpg",
+        "cast/Blind.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero is a classic BACON HAIR Roblox guest: attached brown swept segmented bacon hair, pale block head, black jacket over cobalt-blue shirt and jeans, unless brief specifies a different friend's clothes. Style/medium: stop-motion clay horror. Scene: Camera at floor height under banquet table: frightened bacon-hair crouches large in foreground, palms over mouth; behind chair legs the blindfolded brown-argyle enemy stoops to listen. Tactile handmade clay Roblox block bodies, tiny fingerprints, candle gold, chocolate shadows, optical miniature depth. Faces readable; table physically supports on legs. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "07-last-terminal",
+      "hero": "hythe55",
+      "enemy": "Chaser",
+      "location": "15-lobby-breach",
+      "style": "high-energy cinematic 3D",
+      "caption": "ONE MORE HACK",
+      "refs": [
+        "locations/15-lobby-breach.jpg",
+        "cast/hythe55.jpg",
+        "cast/Chaser.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. CRITICAL avatar correction: hythe55 wears black jacket, yellow shirt, gray-and-yellow striped scarf, jeans, sunglasses and yellow smile top hat. REMOVE ALL CATS and ALL CROWNS from his reference. Both shoulders must be bare of animals. Make hat perfectly UPRIGHT, brim LEVEL, centered on head, scale down to a sensible wearable top hat roughly 1.25 times head height and brim only slightly wider than head. No head tilt baked into hat. Apply this to every copy/reflection of him. Style/medium: high-energy cinematic 3D. Scene: Hythe desperately types at the hotel's chunky CRT terminal at right foreground, face lit acid green; red-eyed black-haired Mad Guest in torn black outfit slams open the door at left rear, short knife lowered away from anyone. Dynamic oblique side composition, fluorescent green versus crimson, dust and strong silhouettes. No injury. Text (verbatim): \"ONE MORE HACK\". Make this short headline beautifully typeset, bold legible at thumbnail size, integrated into reserved space without covering faces. No other text."
+    },
+    {
+      "id": "08-vent-pov",
+      "hero": "xendatro",
+      "enemy": "Ceiling-Dweller",
+      "location": "01-last-corridor",
+      "style": "found-footage VHS",
+      "caption": "",
+      "refs": [
+        "locations/01-last-corridor.jpg",
+        "cast/xendatro.jpg",
+        "cast/Ceiling-Dweller.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero xendatro matches reference: black swept hair, glasses, pale blue argyle sweater, gray trousers, small red pet hat firmly attached. Style/medium: found-footage VHS. Scene: Point of view from inside a dark ceiling vent: faceless solid-black block Ceiling Dweller's arm frames upper left; below, xendatro looks up terrified with a flashlight toward camera. Wide-angle cramped vertical depth within a landscape frame, dim ochre hotel corridor, visible flashlight detail, subtle VHS scanlines and tape grain. No fake HUD. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "09-the-other-guest",
+      "hero": "bacon",
+      "enemy": "Mimic",
+      "location": "02-elevator-sisters",
+      "style": "stylized anime thriller",
+      "caption": "WHICH ONE?",
+      "refs": [
+        "locations/02-elevator-sisters.jpg",
+        "cast/Mimic.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero is a classic BACON HAIR Roblox guest: attached brown swept segmented bacon hair, pale block head, black jacket over cobalt-blue shirt and jeans, unless brief specifies a different friend's clothes. Style/medium: stylized anime thriller. Scene: Inside elevator, two nearly identical bacon-hair Roblox guests stand shoulder to shoulder. Left real guest glances sideways sweating; right Mimic copies clothes and hair but holds an uncanny too-wide smile and rigid pose. Frontal tight two-shot; elevator seam divides them. Crisp anime ink and cel shading, lilac metal, yellow overhead light. Text (verbatim): \"WHICH ONE?\". Make this short headline beautifully typeset, bold legible at thumbnail size, integrated into reserved space without covering faces. No other text."
+    },
+    {
+      "id": "10-canvas-break",
+      "hero": "hythe55",
+      "enemy": "Painting-Dweller",
+      "location": "01-last-corridor",
+      "style": "expressive oil painting",
+      "caption": "",
+      "refs": [
+        "locations/01-last-corridor.jpg",
+        "cast/hythe55.jpg",
+        "cast/Painting-Dweller.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. CRITICAL avatar correction: hythe55 wears black jacket, yellow shirt, gray-and-yellow striped scarf, jeans, sunglasses and yellow smile top hat. REMOVE ALL CATS and ALL CROWNS from his reference. Both shoulders must be bare of animals. Make hat perfectly UPRIGHT, brim LEVEL, centered on head, scale down to a sensible wearable top hat roughly 1.25 times head height and brim only slightly wider than head. No head tilt baked into hat. Apply this to every copy/reflection of him. Style/medium: expressive oil painting. Scene: A heavy gold-framed landscape painting tilts toward viewer; black-haired white-faced grinning Painting Lurker reaches out through torn canvas. Hythe visible in profile at left recoils holding flashlight down. Heavy impasto, amber oil varnish, dusty blue-white skin, baroque darkness with readable faces. Dramatic close diagonal. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "11-the-hotel-folds",
+      "hero": "xendatro",
+      "enemy": "Stalker",
+      "location": "01-last-corridor",
+      "style": "surreal architectural cutaway",
+      "caption": "",
+      "refs": [
+        "locations/01-last-corridor.jpg",
+        "cast/xendatro.jpg",
+        "cast/Stalker.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero xendatro matches reference: black swept hair, glasses, pale blue argyle sweater, gray trousers, small red pet hat firmly attached. Style/medium: surreal architectural cutaway. Scene: Hotel corridor bends around itself in an impossible rectangular loop. Tiny but readable xendatro stands on one lower plane; huge Stalker head peers around a perpendicular upper corner. Isometric architectural dollhouse render, precise damask and red carpet, cool cream studio illumination with ominous red eyes. One continuous surreal building, no diagram labels. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "12-picture-day",
+      "hero": "bacon",
+      "enemy": "ShadowFigure",
+      "location": "12-mirror-impostor",
+      "style": "flash photography horror",
+      "caption": "",
+      "refs": [
+        "locations/12-mirror-impostor.jpg",
+        "cast/ShadowFigure.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero is a classic BACON HAIR Roblox guest: attached brown swept segmented bacon hair, pale block head, black jacket over cobalt-blue shirt and jeans, unless brief specifies a different friend's clothes. Style/medium: flash photography horror. Scene: Hard on-camera flash photograph in hotel lounge. Two different bacon-hair friends in casual black-blue and gray-green outfits grin for a tripod camera; a smiling black ShadowFigure stands between them unnoticed. Slightly off-balance candid framing, blown ivory flash, deep flat black recesses, grainy early digital-camera character; faces remain crisp. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "13-no-floor",
+      "hero": "hythe55",
+      "enemy": "Sister",
+      "location": "14-hole-no-way-back",
+      "style": "bold comic-book splash",
+      "caption": "NO WAY BACK",
+      "refs": [
+        "locations/14-hole-no-way-back.jpg",
+        "cast/hythe55.jpg",
+        "cast/Sister.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. CRITICAL avatar correction: hythe55 wears black jacket, yellow shirt, gray-and-yellow striped scarf, jeans, sunglasses and yellow smile top hat. REMOVE ALL CATS and ALL CROWNS from his reference. Both shoulders must be bare of animals. Make hat perfectly UPRIGHT, brim LEVEL, centered on head, scale down to a sensible wearable top hat roughly 1.25 times head height and brim only slightly wider than head. No head tilt baked into hat. Apply this to every copy/reflection of him. Style/medium: bold comic-book splash. Scene: Hythe stretched in a desperate but coherent leap across a broken hotel floor, feet attached and natural pose; a Sister waits calmly on the opposite ledge. Extreme perspective abyss in center, splintered red carpet, orange lanterns, purple depths. Heavy ink outlines, speed hatching, explosive diagonal shapes, no speech bubbles. Text (verbatim): \"NO WAY BACK\". Make this short headline beautifully typeset, bold legible at thumbnail size, integrated into reserved space without covering faces. No other text."
+    },
+    {
+      "id": "14-silent-section",
+      "hero": "xendatro",
+      "enemy": "Blind",
+      "location": "07-library-stalker",
+      "style": "monochrome charcoal drawing",
+      "caption": "SILENCE",
+      "refs": [
+        "locations/07-library-stalker.jpg",
+        "cast/xendatro.jpg",
+        "cast/Blind.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero xendatro matches reference: black swept hair, glasses, pale blue argyle sweater, gray trousers, small red pet hat firmly attached. Style/medium: monochrome charcoal drawing. Scene: A giant close silhouette of blindfolded enemy listening at left, one finger near his ear; xendatro at right crouches beneath a library table, holding a dropped book just above floor. Rich charcoal rubbed paper, ivory faces, dark graphite wood, slight amber lamplight accent. Intimate side-on composition, no glow eyes on Blind. Text (verbatim): \"SILENCE\". Make this short headline beautifully typeset, bold legible at thumbnail size, integrated into reserved space without covering faces. No other text."
+    },
+    {
+      "id": "15-sisters-in-the-water",
+      "hero": "bacon",
+      "enemy": "Sister",
+      "location": "05-pool-eye",
+      "style": "underwater cinematic horror",
+      "caption": "",
+      "refs": [
+        "locations/05-pool-eye.jpg",
+        "cast/Sister.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero is a classic BACON HAIR Roblox guest: attached brown swept segmented bacon hair, pale block head, black jacket over cobalt-blue shirt and jeans, unless brief specifies a different friend's clothes. Style/medium: underwater cinematic horror. Scene: Half-submerged camera at hotel pool waterline: above water bacon-hair guest at near ladder looks backward; below water reflection shows TWO Sisters in pale blue standing impossibly on the pool bottom, looking up. Clear split waterline, ominous aquamarine, milky white tile, believable refraction, elegantly eerie single frame. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "16-angel-shadow",
+      "hero": "hythe55",
+      "enemy": "Weeping-Angel",
+      "location": "10-garden-shadow",
+      "style": "minimalist atmospheric poster",
+      "caption": "HOTEL ODDITIES",
+      "refs": [
+        "locations/10-garden-shadow.jpg",
+        "cast/hythe55.jpg",
+        "cast/Weeping-Angel.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. CRITICAL avatar correction: hythe55 wears black jacket, yellow shirt, gray-and-yellow striped scarf, jeans, sunglasses and yellow smile top hat. REMOVE ALL CATS and ALL CROWNS from his reference. Both shoulders must be bare of animals. Make hat perfectly UPRIGHT, brim LEVEL, centered on head, scale down to a sensible wearable top hat roughly 1.25 times head height and brim only slightly wider than head. No head tilt baked into hat. Apply this to every copy/reflection of him. Style/medium: minimalist atmospheric poster. Scene: Stone angel statue just behind hythe in glass conservatory. The statue's enormous winged shadow spans the entire misted glass roof while actual statue remains solid and small enough to frame hythe's frightened face. Fine geometric art-deco-inspired design, charcoal, muted sage, yellow hat; huge negative space resolved by wing shadow. Text (verbatim): \"HOTEL ODDITIES\". Make this short headline beautifully typeset, bold legible at thumbnail size, integrated into reserved space without covering faces. No other text."
+    },
+    {
+      "id": "17-mirror-lag",
+      "hero": "xendatro",
+      "enemy": "Mimic",
+      "location": "12-mirror-impostor",
+      "style": "psychological cinematic 3D",
+      "caption": "",
+      "refs": [
+        "locations/12-mirror-impostor.jpg",
+        "cast/xendatro.jpg",
+        "cast/Mimic.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero xendatro matches reference: black swept hair, glasses, pale blue argyle sweater, gray trousers, small red pet hat firmly attached. Style/medium: psychological cinematic 3D. Scene: Xendatro foreground seen in profile with both hands held at chest, staring at a wall mirror. His Mimic reflection keeps one hand raised against glass and grins, visibly inconsistent pose. One real person and one reflection only, clear mirror frame; tobacco brown leather lounge, cold mirror light, razor-sharp eyes behind glasses. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "18-keyhole",
+      "hero": "bacon",
+      "enemy": "Stalker",
+      "location": "01-last-corridor",
+      "style": "paper-cut shadow theatre",
+      "caption": "",
+      "refs": [
+        "locations/01-last-corridor.jpg",
+        "cast/Stalker.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero is a classic BACON HAIR Roblox guest: attached brown swept segmented bacon hair, pale block head, black jacket over cobalt-blue shirt and jeans, unless brief specifies a different friend's clothes. Style/medium: paper-cut shadow theatre. Scene: A giant antique keyhole silhouette forms central opening to red-carpet hallway. Black Stalker with two scarlet eyes visible inside, bacon guest's worried face peeks around outer right door edge. Layered cut paper, thick tactile shadows, ochre brass, cream, black and crimson, spare memorable shapes. Full-bleed art, no outer border. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "19-ceiling-company",
+      "hero": "hythe55",
+      "enemy": "Ceiling-Dweller",
+      "location": "08-guest-room-hide",
+      "style": "playful polished blocky 3D",
+      "caption": "LOOK UP",
+      "refs": [
+        "locations/08-guest-room-hide.jpg",
+        "cast/hythe55.jpg",
+        "cast/Ceiling-Dweller.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. CRITICAL avatar correction: hythe55 wears black jacket, yellow shirt, gray-and-yellow striped scarf, jeans, sunglasses and yellow smile top hat. REMOVE ALL CATS and ALL CROWNS from his reference. Both shoulders must be bare of animals. Make hat perfectly UPRIGHT, brim LEVEL, centered on head, scale down to a sensible wearable top hat roughly 1.25 times head height and brim only slightly wider than head. No head tilt baked into hat. Apply this to every copy/reflection of him. Style/medium: playful polished blocky 3D. Scene: Hythe sits on hotel room sofa looking relieved, his upright modest yellow hat obvious. Directly above, solid faceless black Ceiling Dweller clings upside down to ceiling, head near the top of hythe's hat. Straight-on broad composition, warm cream room, plum overhead shadows; alarming visual irony with comically anxious mouth. Text (verbatim): \"LOOK UP\". Make this short headline beautifully typeset, bold legible at thumbnail size, integrated into reserved space without covering faces. No other text."
+    },
+    {
+      "id": "20-the-long-dinner",
+      "hero": "xendatro",
+      "enemy": "Sister",
+      "location": "09-banquet-uninvited",
+      "style": "gothic watercolor",
+      "caption": "",
+      "refs": [
+        "locations/09-banquet-uninvited.jpg",
+        "cast/xendatro.jpg",
+        "cast/Sister.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero xendatro matches reference: black swept hair, glasses, pale blue argyle sweater, gray trousers, small red pet hat firmly attached. Style/medium: gothic watercolor. Scene: Xendatro seated alone large at near end of a long banquet table; two identical Sisters at the far end stare while every candle leans toward him. Pale-blue sweater versus desaturated wine and umber, watery pigment edges, sharply inked faces, exaggerated converging table perspective. Menacing empty chairs, no attack. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "21-seen-through-the-eye",
+      "hero": "bacon",
+      "enemy": "Eye",
+      "location": "06-rotunda-angel",
+      "style": "macro photoreal materials on Roblox",
+      "caption": "",
+      "refs": [
+        "locations/06-rotunda-angel.jpg",
+        "cast/Eye.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero is a classic BACON HAIR Roblox guest: attached brown swept segmented bacon hair, pale block head, black jacket over cobalt-blue shirt and jeans, unless brief specifies a different friend's clothes. Style/medium: macro photoreal materials on Roblox. Scene: The blue iris of the giant Eye fills right two-thirds, glossy curved surface reflects a scared bacon-hair guest and hotel's circular portrait rotunda. The actual guest in foreground left faces the eye. White sclera, dark red tendrils at edges, warm gold reflection against icy blue iris. Dramatic subject scale, clear reflected scene. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "22-falling-lantern",
+      "hero": "hythe55",
+      "enemy": "Stalker",
+      "location": "01-last-corridor",
+      "style": "dynamic manga screentone",
+      "caption": "",
+      "refs": [
+        "locations/01-last-corridor.jpg",
+        "cast/hythe55.jpg",
+        "cast/Stalker.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. CRITICAL avatar correction: hythe55 wears black jacket, yellow shirt, gray-and-yellow striped scarf, jeans, sunglasses and yellow smile top hat. REMOVE ALL CATS and ALL CROWNS from his reference. Both shoulders must be bare of animals. Make hat perfectly UPRIGHT, brim LEVEL, centered on head, scale down to a sensible wearable top hat roughly 1.25 times head height and brim only slightly wider than head. No head tilt baked into hat. Apply this to every copy/reflection of him. Style/medium: dynamic manga screentone. Scene: Hythe ducks beneath a falling brass lantern, intact hat firmly fitted to head; Stalker watches from distant corner. Wide low-angle action composition, black and white manga screentone, explosive diagonal gold lantern accent, thick expressive contours. Lamps and splinters clearly separate, shadow eyes red, readable foreground face. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "23-your-room-is-ready",
+      "hero": "xendatro",
+      "enemy": "ShadowFigure",
+      "location": "02-elevator-sisters",
+      "style": "luxury vintage travel advertisement corrupted by horror",
+      "caption": "YOUR ROOM IS READY",
+      "refs": [
+        "locations/02-elevator-sisters.jpg",
+        "cast/xendatro.jpg",
+        "cast/ShadowFigure.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero xendatro matches reference: black swept hair, glasses, pale blue argyle sweater, gray trousers, small red pet hat firmly attached. Style/medium: luxury vintage travel advertisement corrupted by horror. Scene: A polite smiling charcoal ShadowFigure holds an open elevator door as xendatro hesitates on red carpet. Flat airbrushed vintage travel-poster art, geometrically precise brass and gold damask, ivory light inside becomes uncanny black at ceiling. Sophisticated simple silhouettes, friendly invitation with unsettling threat. Text (verbatim): \"YOUR ROOM IS READY\". Make this short headline beautifully typeset, bold legible at thumbnail size, integrated into reserved space without covering faces. No other text."
+    },
+    {
+      "id": "24-between-the-shelves",
+      "hero": "bacon",
+      "enemy": "Painting-Dweller",
+      "location": "07-library-stalker",
+      "style": "woodcut horror",
+      "caption": "",
+      "refs": [
+        "locations/07-library-stalker.jpg",
+        "cast/Painting-Dweller.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero is a classic BACON HAIR Roblox guest: attached brown swept segmented bacon hair, pale block head, black jacket over cobalt-blue shirt and jeans, unless brief specifies a different friend's clothes. Style/medium: woodcut horror. Scene: Bacon-hair guest turns with lantern between dense library shelves while the Painting Lurker's white grin emerges from a framed portrait at shelf end. Chunky carved black lines, cream paper, deep indigo ink, one rust-red rectangle of carpet, close waist-up action. Grain runs through the shapes; no tiny unreadable details. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "25-hat-in-the-dark",
+      "hero": "hythe55",
+      "enemy": "Stalker",
+      "location": "14-hole-no-way-back",
+      "style": "low-key dramatic studio-quality 3D",
+      "caption": "",
+      "refs": [
+        "locations/14-hole-no-way-back.jpg",
+        "cast/hythe55.jpg",
+        "cast/Stalker.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. CRITICAL avatar correction: hythe55 wears black jacket, yellow shirt, gray-and-yellow striped scarf, jeans, sunglasses and yellow smile top hat. REMOVE ALL CATS and ALL CROWNS from his reference. Both shoulders must be bare of animals. Make hat perfectly UPRIGHT, brim LEVEL, centered on head, scale down to a sensible wearable top hat roughly 1.25 times head height and brim only slightly wider than head. No head tilt baked into hat. Apply this to every copy/reflection of him. Style/medium: low-key dramatic studio-quality 3D. Scene: Hythe balances on narrow wooden plank above corridor pit, side profile fills center, flashlight aimed down, upright yellow smile top hat sized only modestly taller than head. Stalker stands on far ledge close at left with eyes at his shoulder height. Wide side composition, cream flashlight, near-black abyss, distressed gold wallpaper. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "26-do-not-answer",
+      "hero": "xendatro",
+      "enemy": "Chaser",
+      "location": "08-guest-room-hide",
+      "style": "retro 1980s horror video-cover airbrush",
+      "caption": "DO NOT ANSWER",
+      "refs": [
+        "locations/08-guest-room-hide.jpg",
+        "cast/xendatro.jpg",
+        "cast/Chaser.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero xendatro matches reference: black swept hair, glasses, pale blue argyle sweater, gray trousers, small red pet hat firmly attached. Style/medium: retro 1980s horror video-cover airbrush. Scene: Inside guest lounge, xendatro holds hand above a ringing old telephone on table, frozen in terror. Through door's little glass pane behind him the red-eyed grinning Mad Guest presses close. Large telephone foreground, face and pane equally legible, electric violet and muted amber airbrush, dramatic rim lighting. Text (verbatim): \"DO NOT ANSWER\". Make this short headline beautifully typeset, bold legible at thumbnail size, integrated into reserved space without covering faces. No other text."
+    },
+    {
+      "id": "27-giant-outside",
+      "hero": "bacon",
+      "enemy": "Sister",
+      "location": "13-dollhouse-giant",
+      "style": "tilt-shift miniature horror",
+      "caption": "",
+      "refs": [
+        "locations/13-dollhouse-giant.jpg",
+        "cast/Sister.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero is a classic BACON HAIR Roblox guest: attached brown swept segmented bacon hair, pale block head, black jacket over cobalt-blue shirt and jeans, unless brief specifies a different friend's clothes. Style/medium: tilt-shift miniature horror. Scene: View from INSIDE the hotel's tabletop miniature lounge: tiny bacon-hair guest looks up from foreground, outside the open miniature wall a gigantic Sister's face and two hands loom over dollhouse, identical recognizable pale blue dress. Real miniature wood grain, coherent scale, warm interior versus cold giant face, tabletop context visible. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "28-echoes",
+      "hero": "hythe55",
+      "enemy": "Blind",
+      "location": "06-rotunda-angel",
+      "style": "luminous ink wash",
+      "caption": "",
+      "refs": [
+        "locations/06-rotunda-angel.jpg",
+        "cast/hythe55.jpg",
+        "cast/Blind.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. CRITICAL avatar correction: hythe55 wears black jacket, yellow shirt, gray-and-yellow striped scarf, jeans, sunglasses and yellow smile top hat. REMOVE ALL CATS and ALL CROWNS from his reference. Both shoulders must be bare of animals. Make hat perfectly UPRIGHT, brim LEVEL, centered on head, scale down to a sensible wearable top hat roughly 1.25 times head height and brim only slightly wider than head. No head tilt baked into hat. Apply this to every copy/reflection of him. Style/medium: luminous ink wash. Scene: Hythe freezes on circular rotunda bridge after dropping a metal key. Blindfolded enemy at far right turns toward the falling key, broad ear-facing pose. Concentric delicate white sound rings expand across red carpet as illustrated metaphor. Elegant black ink wash, antique ochre, hat yellow and one pale sound source, readable figures. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "29-the-last-light",
+      "hero": "xendatro",
+      "enemy": "Stalker",
+      "location": "01-last-corridor",
+      "style": "cinematic single-point-light suspense",
+      "caption": "",
+      "refs": [
+        "locations/01-last-corridor.jpg",
+        "cast/xendatro.jpg",
+        "cast/Stalker.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero xendatro matches reference: black swept hair, glasses, pale blue argyle sweater, gray trousers, small red pet hat firmly attached. Style/medium: cinematic single-point-light suspense. Scene: Xendatro's flashlight lies on red carpet in extreme foreground, its beam illuminates his frightened face at floor level; Stalker's solid black boots and lower torso stand immediately between him and the exit, head with two red eyes visible upper left. Strong triangular beam, dusty cream, dark walnut, no generalized neon glow. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "30-the-room-turned",
+      "hero": "bacon",
+      "enemy": "Ceiling-Dweller",
+      "location": "12-mirror-impostor",
+      "style": "Escher-like surreal illustration",
+      "caption": "WRONG WAY UP",
+      "refs": [
+        "locations/12-mirror-impostor.jpg",
+        "cast/Ceiling-Dweller.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero is a classic BACON HAIR Roblox guest: attached brown swept segmented bacon hair, pale block head, black jacket over cobalt-blue shirt and jeans, unless brief specifies a different friend's clothes. Style/medium: Escher-like surreal illustration. Scene: Side-on gravity-inverted hotel lounge. Bacon-hair guest stands upside down on ceiling with hair still attached, terrified face toward viewer; faceless black Ceiling Dweller walks normally on floor below looking up. Both full figures clear. Upside-down lamps and brown sofas establish inversion. Crisp hand-painted surrealism, sage, ivory, burgundy. Text (verbatim): \"WRONG WAY UP\". Make this short headline beautifully typeset, bold legible at thumbnail size, integrated into reserved space without covering faces. No other text."
+    },
+    {
+      "id": "31-not-your-friend",
+      "hero": "hythe55",
+      "enemy": "Mimic",
+      "location": "02-elevator-sisters",
+      "style": "two-color risograph poster",
+      "caption": "NOT YOUR FRIEND",
+      "refs": [
+        "locations/02-elevator-sisters.jpg",
+        "cast/hythe55.jpg",
+        "cast/Mimic.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. CRITICAL avatar correction: hythe55 wears black jacket, yellow shirt, gray-and-yellow striped scarf, jeans, sunglasses and yellow smile top hat. REMOVE ALL CATS and ALL CROWNS from his reference. Both shoulders must be bare of animals. Make hat perfectly UPRIGHT, brim LEVEL, centered on head, scale down to a sensible wearable top hat roughly 1.25 times head height and brim only slightly wider than head. No head tilt baked into hat. Apply this to every copy/reflection of him. Style/medium: two-color risograph poster. Scene: Hythe and his exact Mimic double face each other inside elevator, real hythe recoils left, copy leans forward right with unnatural grin; both have same corrected upright modest yellow hat, scarf, sunglasses and jacket, no shoulder cats. Flat duotone mustard and deep purple with misregistered ink grain, mirrored graphic composition. Text (verbatim): \"NOT YOUR FRIEND\". Make this short headline beautifully typeset, bold legible at thumbnail size, integrated into reserved space without covering faces. No other text."
+    },
+    {
+      "id": "32-banquet-chase",
+      "hero": "xendatro",
+      "enemy": "Chaser",
+      "location": "09-banquet-uninvited",
+      "style": "bright readable cinematic action",
+      "caption": "",
+      "refs": [
+        "locations/09-banquet-uninvited.jpg",
+        "cast/xendatro.jpg",
+        "cast/Chaser.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero xendatro matches reference: black swept hair, glasses, pale blue argyle sweater, gray trousers, small red pet hat firmly attached. Style/medium: bright readable cinematic action. Scene: Xendatro slides over banquet table toward near left corner while Mad Guest races along opposite side with lowered short knife. Low table-height camera, plates jump in a small coherent arc, clean diagonal candlelit motion, ivory tableware, ruby carpet and warm wood. Guest face large; dangerous but no contact, cuts or gore. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "33-the-portrait-blinks",
+      "hero": "bacon",
+      "enemy": "Painting-Dweller",
+      "location": "01-last-corridor",
+      "style": "uncanny painted portrait poster",
+      "caption": "THAT MOVED",
+      "refs": [
+        "locations/01-last-corridor.jpg",
+        "cast/Painting-Dweller.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero is a classic BACON HAIR Roblox guest: attached brown swept segmented bacon hair, pale block head, black jacket over cobalt-blue shirt and jeans, unless brief specifies a different friend's clothes. Style/medium: uncanny painted portrait poster. Scene: A large gilded portrait fills frame: Painting Lurker's white grinning face and long black hair painted in old oil, one solid white block hand has slipped OVER lower edge of frame. Bacon guest in small near foreground stares upward. Symmetrical museum composition, cracked umber varnish, ivory face, tiny cyan edge light. Text (verbatim): \"THAT MOVED\". Make this short headline beautifully typeset, bold legible at thumbnail size, integrated into reserved space without covering faces. No other text."
+    },
+    {
+      "id": "34-red-hall",
+      "hero": "hythe55",
+      "enemy": "Stalker",
+      "location": "01-last-corridor",
+      "style": "PS1 low-poly horror",
+      "caption": "",
+      "refs": [
+        "locations/01-last-corridor.jpg",
+        "cast/hythe55.jpg",
+        "cast/Stalker.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. CRITICAL avatar correction: hythe55 wears black jacket, yellow shirt, gray-and-yellow striped scarf, jeans, sunglasses and yellow smile top hat. REMOVE ALL CATS and ALL CROWNS from his reference. Both shoulders must be bare of animals. Make hat perfectly UPRIGHT, brim LEVEL, centered on head, scale down to a sensible wearable top hat roughly 1.25 times head height and brim only slightly wider than head. No head tilt baked into hat. Apply this to every copy/reflection of him. Style/medium: PS1 low-poly horror. Scene: Angular low-poly hythe looks back at the camera while half-opening a guest door; Stalker is close behind at hallway corner. Intentionally crunchy retro 3D textures and vertex lighting but silhouettes and face remain strong; block avatars, yellow hat, crimson carpet, greenish tungsten wallpaper, short render fog, landscape game-cover composition. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "35-a-seat-for-you",
+      "hero": "xendatro",
+      "enemy": "Sister",
+      "location": "09-banquet-uninvited",
+      "style": "elegant editorial collage",
+      "caption": "A SEAT FOR YOU",
+      "refs": [
+        "locations/09-banquet-uninvited.jpg",
+        "cast/xendatro.jpg",
+        "cast/Sister.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero xendatro matches reference: black swept hair, glasses, pale blue argyle sweater, gray trousers, small red pet hat firmly attached. Style/medium: elegant editorial collage. Scene: Two Sisters frame a conspicuously empty banquet chair at center, one grips its back. Xendatro in large anxious profile bottom left. Cut photographic paper mixed with drawn shadow shapes, carefully layered blue dresses, wine-red carpet and ivory tableware. High-end collage that feels handmade, sharp readable faces, no random scraps or extra people. Text (verbatim): \"A SEAT FOR YOU\". Make this short headline beautifully typeset, bold legible at thumbnail size, integrated into reserved space without covering faces. No other text."
+    },
+    {
+      "id": "36-wet-footprints",
+      "hero": "bacon",
+      "enemy": "ShadowFigure",
+      "location": "10-garden-shadow",
+      "style": "atmospheric pastel painting",
+      "caption": "",
+      "refs": [
+        "locations/10-garden-shadow.jpg",
+        "cast/ShadowFigure.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero is a classic BACON HAIR Roblox guest: attached brown swept segmented bacon hair, pale block head, black jacket over cobalt-blue shirt and jeans, unless brief specifies a different friend's clothes. Style/medium: atmospheric pastel painting. Scene: Bacon guest examines a trail of wet footprints by hotel conservatory fountain, unaware that smiling charcoal ShadowFigure stands behind the frosted glass pane at right. Close floor-leading perspective, impressionist soft pastel surface with crisp character silhouettes, silver rain, bottle green plants, peach lamplight on worried face. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "37-eyes-in-the-lift",
+      "hero": "hythe55",
+      "enemy": "Eye",
+      "location": "02-elevator-sisters",
+      "style": "claustrophobic wide-angle 3D",
+      "caption": "TOO CLOSE",
+      "refs": [
+        "locations/02-elevator-sisters.jpg",
+        "cast/hythe55.jpg",
+        "cast/Eye.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. CRITICAL avatar correction: hythe55 wears black jacket, yellow shirt, gray-and-yellow striped scarf, jeans, sunglasses and yellow smile top hat. REMOVE ALL CATS and ALL CROWNS from his reference. Both shoulders must be bare of animals. Make hat perfectly UPRIGHT, brim LEVEL, centered on head, scale down to a sensible wearable top hat roughly 1.25 times head height and brim only slightly wider than head. No head tilt baked into hat. Apply this to every copy/reflection of him. Style/medium: claustrophobic wide-angle 3D. Scene: Inside a small elevator, giant spherical Eye almost fills the door opening facing inward; hythe flattens himself against side wall at left and presses button, hat and sunglasses intact corrected. Eye blue iris and red tendrils huge, elevator brushed metal lines believable. Fisheye tension, dirty white overhead light, tiny amber button. Text (verbatim): \"TOO CLOSE\". Make this short headline beautifully typeset, bold legible at thumbnail size, integrated into reserved space without covering faces. No other text."
+    },
+    {
+      "id": "38-missing-reflection",
+      "hero": "xendatro",
+      "enemy": "ShadowFigure",
+      "location": "12-mirror-impostor",
+      "style": "high-contrast cinematic noir",
+      "caption": "",
+      "refs": [
+        "locations/12-mirror-impostor.jpg",
+        "cast/xendatro.jpg",
+        "cast/ShadowFigure.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero xendatro matches reference: black swept hair, glasses, pale blue argyle sweater, gray trousers, small red pet hat firmly attached. Style/medium: high-contrast cinematic noir. Scene: Xendatro holds lantern in hotel mirrored lounge, real body visible left. In huge mirror at right his reflection is entirely absent; only a smiling charcoal ShadowFigure appears in his place. One clear mirror plane with consistent reflected furniture. Almost monochrome, brass lantern highlight, quiet uncanny framing, clean large silhouettes. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "39-six-wings",
+      "hero": "bacon",
+      "enemy": "Weeping-Angel",
+      "location": "06-rotunda-angel",
+      "style": "epic dark-fantasy matte painting",
+      "caption": "",
+      "refs": [
+        "locations/06-rotunda-angel.jpg",
+        "cast/Weeping-Angel.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero is a classic BACON HAIR Roblox guest: attached brown swept segmented bacon hair, pale block head, black jacket over cobalt-blue shirt and jeans, unless brief specifies a different friend's clothes. Style/medium: epic dark-fantasy matte painting. Scene: Gray stone Roblox angel spreads carved feather wings wide over rotunda bridge, filling top two-thirds. Bacon guest lower foreground in defiant fearful stance holds tiny flashlight aimed at statue. Vast circular wallpaper shaft frames wings, strong silver overhead shaft, ochre lantern points, painterly depth with clear block silhouettes. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "40-the-hotel-listens",
+      "hero": "hythe55",
+      "enemy": "Blind",
+      "location": "07-library-stalker",
+      "style": "flat geometric modern horror poster",
+      "caption": "THE HOTEL LISTENS",
+      "refs": [
+        "locations/07-library-stalker.jpg",
+        "cast/hythe55.jpg",
+        "cast/Blind.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. CRITICAL avatar correction: hythe55 wears black jacket, yellow shirt, gray-and-yellow striped scarf, jeans, sunglasses and yellow smile top hat. REMOVE ALL CATS and ALL CROWNS from his reference. Both shoulders must be bare of animals. Make hat perfectly UPRIGHT, brim LEVEL, centered on head, scale down to a sensible wearable top hat roughly 1.25 times head height and brim only slightly wider than head. No head tilt baked into hat. Apply this to every copy/reflection of him. Style/medium: flat geometric modern horror poster. Scene: Blind's black blindfold and brown argyle vest form huge central graphic bust. In foreground a small corrected hythe tries to tiptoe past library lamp. Angular shelves radiate like sound funnel toward listener, bone-white ivory, espresso brown and mustard yellow, elegant simplified block shapes, one clear narrative. Text (verbatim): \"THE HOTEL LISTENS\". Make this short headline beautifully typeset, bold legible at thumbnail size, integrated into reserved space without covering faces. No other text."
+    },
+    {
+      "id": "41-peekaboo",
+      "hero": "xendatro",
+      "enemy": "Stalker",
+      "location": "13-dollhouse-giant",
+      "style": "polished toy diorama render",
+      "caption": "",
+      "refs": [
+        "locations/13-dollhouse-giant.jpg",
+        "cast/xendatro.jpg",
+        "cast/Stalker.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero xendatro matches reference: black swept hair, glasses, pale blue argyle sweater, gray trousers, small red pet hat firmly attached. Style/medium: polished toy diorama render. Scene: Xendatro kneels beside hotel's miniature model, looking close into its tiny window. From inside that little window a tiny black Stalker stares directly back with red eyes, their faces across the scale divide. Macro lens, honey wood and miniature wallpaper, creamy bokeh, striking large anxious face versus tiny menacing window. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "42-stay-with-us",
+      "hero": "bacon",
+      "enemy": "Sister",
+      "location": "02-elevator-sisters",
+      "style": "dreamlike chalk pastel horror",
+      "caption": "STAY WITH US",
+      "refs": [
+        "locations/02-elevator-sisters.jpg",
+        "cast/Sister.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero is a classic BACON HAIR Roblox guest: attached brown swept segmented bacon hair, pale block head, black jacket over cobalt-blue shirt and jeans, unless brief specifies a different friend's clothes. Style/medium: dreamlike chalk pastel horror. Scene: A frightened bacon-hair guest stands inside open elevator; TWO blue-dressed Sisters wait just outside and calmly lean inward from opposite door jambs, very close to his face. Frontal wide close-up, chalky dusty rose walls, desaturated sky-blue dresses, charcoal shadows, red eyes, refined handmade pastel grain. Text (verbatim): \"STAY WITH US\". Make this short headline beautifully typeset, bold legible at thumbnail size, integrated into reserved space without covering faces. No other text."
+    },
+    {
+      "id": "43-flash-reveal",
+      "hero": "hythe55",
+      "enemy": "ShadowFigure",
+      "location": "12-mirror-impostor",
+      "style": "high-impact photographic 3D",
+      "caption": "",
+      "refs": [
+        "locations/12-mirror-impostor.jpg",
+        "cast/hythe55.jpg",
+        "cast/ShadowFigure.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. CRITICAL avatar correction: hythe55 wears black jacket, yellow shirt, gray-and-yellow striped scarf, jeans, sunglasses and yellow smile top hat. REMOVE ALL CATS and ALL CROWNS from his reference. Both shoulders must be bare of animals. Make hat perfectly UPRIGHT, brim LEVEL, centered on head, scale down to a sensible wearable top hat roughly 1.25 times head height and brim only slightly wider than head. No head tilt baked into hat. Apply this to every copy/reflection of him. Style/medium: high-impact photographic 3D. Scene: Hythe points handheld camera toward us, just fired; white flash star at center, startled face prominent beneath corrected yellow hat. Immediately behind him in hotel lounge, an enormous solid smiling ShadowFigure is revealed by flash, shoulders and head loom clearly. Black ivory mustard triad, sharp flash-lit textures and dark room. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "44-the-walls-close",
+      "hero": "xendatro",
+      "enemy": "Stalker",
+      "location": "01-last-corridor",
+      "style": "comic action painted over 3D",
+      "caption": "",
+      "refs": [
+        "locations/01-last-corridor.jpg",
+        "cast/xendatro.jpg",
+        "cast/Stalker.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero xendatro matches reference: black swept hair, glasses, pale blue argyle sweater, gray trousers, small red pet hat firmly attached. Style/medium: comic action painted over 3D. Scene: Gold-damask corridor walls squeeze inward around xendatro, who squeezes side-on toward foreground gripping flashlight; a small Stalker watches beyond narrowing opening. Tilted strong converging composition, expressive fear, dust at ceiling edges only, magenta emergency accents and warm ivory light, thick painterly contour lines. No crushing injury. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "45-deep-end",
+      "hero": "bacon",
+      "enemy": "Eye",
+      "location": "05-pool-eye",
+      "style": "pixel-art game cover",
+      "caption": "DEEP END",
+      "refs": [
+        "locations/05-pool-eye.jpg",
+        "cast/Eye.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero is a classic BACON HAIR Roblox guest: attached brown swept segmented bacon hair, pale block head, black jacket over cobalt-blue shirt and jeans, unless brief specifies a different friend's clothes. Style/medium: pixel-art game cover. Scene: Elaborate hand-pixelled horror artwork, 16:9 composition, consistent crisp pixel grid scaled cleanly. Bacon-hair guest stands at diving edge of hotel pool, huge floating Eye fills left background above water, tendrils reflected. Cyan and navy water, warm white tiles, red tendrils. Large 64px-style face, dramatic pool perspective, no text UI. Text (verbatim): \"DEEP END\". Make this short headline beautifully typeset, bold legible at thumbnail size, integrated into reserved space without covering faces. No other text."
+    },
+    {
+      "id": "46-the-sleeping-guest",
+      "hero": "hythe55",
+      "enemy": "Chaser",
+      "location": "01-last-corridor",
+      "style": "restrained suspenseful cinematic 3D",
+      "caption": "",
+      "refs": [
+        "locations/01-last-corridor.jpg",
+        "cast/hythe55.jpg",
+        "cast/Chaser.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. CRITICAL avatar correction: hythe55 wears black jacket, yellow shirt, gray-and-yellow striped scarf, jeans, sunglasses and yellow smile top hat. REMOVE ALL CATS and ALL CROWNS from his reference. Both shoulders must be bare of animals. Make hat perfectly UPRIGHT, brim LEVEL, centered on head, scale down to a sensible wearable top hat roughly 1.25 times head height and brim only slightly wider than head. No head tilt baked into hat. Apply this to every copy/reflection of him. Style/medium: restrained suspenseful cinematic 3D. Scene: Mad Guest slumps asleep against hallway wall in near foreground right, red eyes shut, knife resting lowered at his own side; hythe cautiously steps over a creaky floorboard at left, lips tense and hands balancing. Eye-level side shot, huge sleeping enemy head, corrected hythe hat, quiet taupe and warm lantern gold. Threat of waking. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "47-the-page-turns",
+      "hero": "xendatro",
+      "enemy": "Painting-Dweller",
+      "location": "07-library-stalker",
+      "style": "scratchboard horror illustration",
+      "caption": "",
+      "refs": [
+        "locations/07-library-stalker.jpg",
+        "cast/xendatro.jpg",
+        "cast/Painting-Dweller.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero xendatro matches reference: black swept hair, glasses, pale blue argyle sweater, gray trousers, small red pet hat firmly attached. Style/medium: scratchboard horror illustration. Scene: Open book on library reading table dominates foreground, pages form tunnel framing xendatro's alarmed face across the table; Painting Lurker emerges from actual wall portrait immediately behind him. Dense white-on-black scratchboard etching, crisp block characters, sparse copper ink highlights, tactile woodcut line rhythm, readable two faces. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "48-trust-no-one",
+      "hero": "bacon",
+      "enemy": "Mimic",
+      "location": "10-garden-shadow",
+      "style": "cinematic ensemble key art",
+      "caption": "TRUST NO ONE",
+      "refs": [
+        "locations/10-garden-shadow.jpg",
+        "cast/Mimic.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero is a classic BACON HAIR Roblox guest: attached brown swept segmented bacon hair, pale block head, black jacket over cobalt-blue shirt and jeans, unless brief specifies a different friend's clothes. Style/medium: cinematic ensemble key art. Scene: Three bacon-hair friends around conservatory fountain, distinctly dressed blue-black, green-gray and red-brown. Two look at each other frightened, third perfectly copies one friend's face with subtly wrong grin and rigid neck; Mimic threat visible to viewer. Tight triangular waist-up composition, wet emerald garden, silver rain, restrained gold rim. Text (verbatim): \"TRUST NO ONE\". Make this short headline beautifully typeset, bold legible at thumbnail size, integrated into reserved space without covering faces. No other text."
+    },
+    {
+      "id": "49-ceiling-drop",
+      "hero": "hythe55",
+      "enemy": "Ceiling-Dweller",
+      "location": "06-rotunda-angel",
+      "style": "graphic anime action key art",
+      "caption": "",
+      "refs": [
+        "locations/06-rotunda-angel.jpg",
+        "cast/hythe55.jpg",
+        "cast/Ceiling-Dweller.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. CRITICAL avatar correction: hythe55 wears black jacket, yellow shirt, gray-and-yellow striped scarf, jeans, sunglasses and yellow smile top hat. REMOVE ALL CATS and ALL CROWNS from his reference. Both shoulders must be bare of animals. Make hat perfectly UPRIGHT, brim LEVEL, centered on head, scale down to a sensible wearable top hat roughly 1.25 times head height and brim only slightly wider than head. No head tilt baked into hat. Apply this to every copy/reflection of him. Style/medium: graphic anime action key art. Scene: Solid-black faceless Ceiling Dweller drops from ceiling toward circular bridge, arms reaching but no contact; hythe dives sideways onto supported bridge, upright corrected yellow hat still attached. Dramatic worm's-eye perspective through giant rotunda, lavender shadows and harsh ivory lantern flare, bold cel shading and angular speed shapes. No captions, titles, logos or any other text."
+    },
+    {
+      "id": "50-five-computers-one-way-out",
+      "hero": "xendatro",
+      "enemy": "Stalker",
+      "location": "15-lobby-breach",
+      "style": "premium illustrated campaign finale",
+      "caption": "FIVE COMPUTERS. ONE WAY OUT.",
+      "refs": [
+        "locations/15-lobby-breach.jpg",
+        "cast/xendatro.jpg",
+        "cast/Stalker.jpg"
+      ],
+      "prompt": "Use case: ads-marketing. Create ONE finished full-bleed landscape 16:9 1920x1080 promotional thumbnail for Roblox horror game HOTEL ODDITIES. The input images are independent DESIGN REFERENCES for environment, avatar and entity, not a collage or fixed pose; create the described NEW scene in the requested distinct medium. Keep recognizably Roblox block characters, cylindrical heads, attached hair, coherent poses and solid continuous props. One instantly readable scary visual hook at 320px, large clear faces and silhouettes, bright enough shadow detail, polished intentional composition. Preserve the enemy's reference design when translated to the requested style. Never copy gray reference stage. No watermark, UI, arrows, circles, borders, gore, injuries, melted objects, extra limbs, dangling accessories or unreadable filler typography. Hero xendatro matches reference: black swept hair, glasses, pale blue argyle sweater, gray trousers, small red pet hat firmly attached. Style/medium: premium illustrated campaign finale. Scene: Xendatro holds five colored computer chips fanned in a single block hand, terrified determined face in close foreground. Exit elevator glows warm behind right shoulder, Stalker's red-eyed black silhouette peeks at left doorway. Five chip colors BLUE RED GREEN YELLOW PURPLE clearly distinct. Deep navy, antique gold and ivory, elegant painterly 3D hybrid. Text (verbatim): \"FIVE COMPUTERS. ONE WAY OUT.\". Make this short headline beautifully typeset, bold legible at thumbnail size, integrated into reserved space without covering faces. No other text."
+    }
+  ]
+}

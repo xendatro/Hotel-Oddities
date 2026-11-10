@@ -75,6 +75,15 @@ Spring-driven swinging door leaf: picks a hinge side from who opened it, swings 
 - API: `DoorPart:Destroy()` — restores collision and the closed pivot
 - Requires: `Classes.Spring`, `Configs.DoorConfig`, `Services.AudioService` (uses `GetPlaybackBounds`), `Services.MathService`
 
+### DrawerMenu.luau
+The touch drawer list for one piece of furniture: a `BillboardGui` (in PlayerGui, adorned to the furniture's largest part) holding one button per drawer, `Drawer 1`, `Drawer 2`... with the action a tap does (`Open`, `Take`, `Close`) on the right. Drawers are split into columns along the furniture's horizontal axis with the most drawer spread (so a desk's two pedestals are two columns whatever the camera angle; a single stack uses the axis that faces the camera), each column numbered top to bottom, left column first. The panel sits beside the furniture at mid-height on the camera's right, flips to the left when only that side has room, and every frame is sized like a world sign (`PixelsPerStud`) but clamped between `MinScale` and a fraction of the screen (`MaxHeightFraction`, `MaxWidthFraction`), then slid inward over the furniture if it would still leave the screen.
+- API: `DrawerMenu.new(furniture: Model, drawers: { Model }, handlers: { Prompt: (drawer) -> string?, Activate: (drawer) -> () }, parent: Instance) -> DrawerMenu`
+- API: `DrawerMenu:Refresh()` — re-reads each drawer's action text (a drawer with no action is not tappable) and re-checks which side fits
+- API: `DrawerMenu:Matches(drawers: { Model }) -> boolean` — whether the menu was built for exactly these drawers
+- API: `DrawerMenu:Press(number: number) -> boolean` — what tapping `Drawer <number>` does
+- API: `DrawerMenu:Destroy()`
+- Requires: `Configs.DrawerConfig` (`TouchMenu`, `UI.Colors`), `GuiBuilderService`
+
 ### Drawer.luau
 Spring-driven sliding drawer model. Infers its outward axis from a part whose name contains `DrawerConfig.HandleKeyword`, ignoring parts belonging to tagged drawer items. Every drawer model in the workspace also carries `Left Side` and `Right Side` Parts (attribute `DrawerSide`) fitted inside the mesh footprint so the whole box travels when it opens.
 
@@ -100,12 +109,14 @@ Client crawl-hole: attaches a `CrawlPrompt`, and on trigger asks the server for 
 
 ### Interaction.luau
 Client look-at interaction system: raycasts from the camera each render step over registered models, highlights the hit target, and draws/animates a key-prompt pill cloned from the `Cursor` gui. Handles keyboard and gamepad input through ContextActionService, and supports targets that ignore occlusion.
-On touch (the last input was a touch) it stops aiming down the screen centre and works like a proximity prompt instead: every `Targeting.TouchRefresh` seconds it picks the nearest registered target that is within reach, on screen and in clear sight of the camera (nearer and more centred wins), highlights it, and pins the prompt pill over the middle of that model's bounding box as a hint only — the pill and everything in it are `Active = false`, so touches pass straight through it. The interaction itself is a touch on the object: tapping a target in the world (`UserInputService.TouchTapInWorld`, raycast through the tapped point within reach) selects and activates it, and pressing down on a `HoldDuration` target (`TouchStarted`) starts its hold, which lifting the finger or dragging it more than `Targeting.TouchDragCancel` of the screen's shorter side (a camera drag) cancels; while a hold runs the selection stays on that target. The key cap reads `Input.TouchLabel` (TAP) or `Input.TouchHoldLabel` (HOLD). No ContextActionService touch button is made. A fresh `Highlight` is parented directly inside each newly selected model, with no `Adornee`, fades in, and is destroyed once its fade-out reaches zero. It is never placed in `workspace` itself or given an `Adornee`, because either costs a synchronous engine pass proportional to the workspace instance count (about 5ms at 33k instances).
+On touch (the last input was a touch) it stops aiming down the screen centre and works like a proximity prompt instead: every `Targeting.TouchRefresh` seconds it picks the nearest registered target that is within reach, on screen and in clear sight of the camera (nearer and more centred wins), highlights it, and pins the prompt pill over the middle of that model's bounding box — its own frames are `Active = false`, so only its `Tap` button takes touches. The interaction itself is a touch on the object: tapping a target in the world (`UserInputService.TouchTapInWorld`, raycast through the tapped point within reach) selects and activates it, and pressing down on a `HoldDuration` target (`TouchStarted`) starts its hold, which lifting the finger or dragging it more than `Targeting.TouchDragCancel` of the screen's shorter side (a camera drag) cancels; while a hold runs the selection stays on that target. The key cap reads `Input.TouchLabel` (TAP) or `Input.TouchHoldLabel` (HOLD). No ContextActionService touch button is made. A tap that misses every target still lands on the nearest selectable, in-sight target whose on-screen outline is within `Targeting.TouchTapMargin` of the finger. The prompt pill itself is also tappable on touch through a transparent `Tap` button: it activates (or starts holding) the target the pill sits over. A fresh `Highlight` is parented directly inside each newly selected model, with no `Adornee`, fades in, and is destroyed once its fade-out reaches zero. It is never placed in `workspace` itself or given an `Adornee`, because either costs a synchronous engine pass proportional to the workspace instance count (about 5ms at 33k instances).
 - API: `Interaction.new() -> Interaction` — binds the render step and builds the prompt UI
-- API: `Interaction:Register(model: Model, options: TargetOptions)` — `Prompt` (string or function), `TextWidth`, `CanSelect`, `Reach`, `IgnoreOcclusion`, `HoldDuration`, `OnActivated`
+- API: `Interaction:Register(model: Model, options: TargetOptions)` — `Prompt` (string or function), `TextWidth`, `CanSelect`, `Reach`, `IgnoreOcclusion`, `HoldDuration`, `SkipTouch`, `OnActivated`; a `SkipTouch` target is left out of the touch scan and world taps (drawers and the items inside them, which `DrawerMenuService` handles on touch) but still aims normally on keyboard and gamepad
 - A target with a `HoldDuration` fires `OnActivated` only once the key (or, on touch, a finger on the object) has been held that many seconds, with a `Hold` bar filling across the prompt pill behind the key and label; releasing the key, looking away, or the target going unselectable cancels the hold and the bar
 - API: `Interaction:Unregister(model: Model)`
 - API: `Interaction:GetSelected() -> Model?`
+- API: `Interaction:GetInputMode() -> string` — `Touch`, `Gamepad` or `Keyboard`, from the last input type
+- Gamepad aim assist: when the centre ray finds nothing, rings of `Targeting.AssistRays` rays at each of `Targeting.AssistAngles` degrees off centre are cast, nearest ring first, so a target only near the crosshair still selects
 - API: `Interaction.Selected` — event fired with the newly selected model or nil
 - API: `Interaction:Destroy()`
 - Requires: `Configs.DrawerConfig` (Targeting/Input/Highlight/UI sections), `PlayerGui.Cursor` UI template
@@ -147,6 +158,14 @@ One tile in the Gallery grid. Clones the complete Studio-authored `GalleryGui.De
 - API: `GalleryCard:Deal(delay: number)` — staggered entrance
 - API: `GalleryCard:Destroy()`
 - Requires: `Configs.CaptureConfig`, `CaptureGalleryService`; expects the authored gallery card template
+
+### GamepadCursor.luau
+The controller cursor for screens a gamepad can only use by pointing (minigame terminals, the raised walkie-talkie). Builds its own `GamepadCursor` ScreenGui (inset ignored, so positions are viewport points) holding Roblox's arrow image. While a handler is set it shows at the screen centre, moves with the left stick (or the handler's `Stick`, which minigames that steer with the left stick set to the right stick) (deadzone, response curve, speed scaled to the screen height, clamped to the screen) and calls the handler's `Press` on RT (alternate on LT), `Release` when the trigger lifts and `Move` as it travels. The left stick and triggers are bound through ContextActionService at `GamepadUIConfig.Cursor.Priority` and sunk, so the character does not walk and tools and interactions do not fire while it is shown. Owned by `GamepadUIService`.
+- API: `GamepadCursor.new() -> GamepadCursor`
+- API: `GamepadCursor:SetHandler(handler: { Press: (point: Vector2, alternate: boolean) -> (), Release: ((point, alternate) -> ())?, Move: ((point) -> ())?, Stick: Enum.KeyCode? }?)` — shows the cursor with a handler, hides it with nil, and rebinds when the new handler's stick differs
+- API: `GamepadCursor:GetPosition() -> Vector2`
+- API: `GamepadCursor:Destroy()`
+- Requires: `Configs.GamepadUIConfig`, `GuiBuilderService`
 
 ### KeyPill.luau
 Drives one Studio-authored key-prompt pill (a `CanvasGroup` shaped like `StarterGui.Cursor.Interact`: `Scale`, `Pill` with `Key.Scale`/`Key.Label`, `Action` and a `Hold` fill, plus a `Hit` button) with the same look and motion as the interaction prompt in `Interaction.luau`, using the `DrawerConfig.UI` constants: fade in 0.1 s and out 0.16 s, scale 0.92 to 1, an 8 px rise, a key-press flash, a hold fill whose width is the hold alpha, and a key cap sized to its label (measured with TextService). While the pill is held, the key cap also tints toward `DrawerConfig.UI.Colors.KeyPressed` by up to 45 % of the hold, in every input mode including gamepad, so the key itself reads as pressed. A dimmed pill fades to 42 % opacity. The key label follows `UserInputService.LastInputTypeChanged` between keyboard and gamepad; on touch-only devices the key cap is hidden and the touch action text shown. A fully hidden pill is set `Visible = false` so its `Hit` button cannot catch taps. Used for the intro cutscene's Skip and Replay pills.
@@ -355,7 +374,7 @@ RigMotion subclass that turns an NPC's neck and waist to look at the local playe
 
 ### Wallstick\ (init.luau, CharacterHelper.luau, GravityCamera.luau, GravityCameraModifier.luau, Replication.luau, RotationSpring.luau, CharacterAnimate\, CharacterSounds\, Signal.luau, Trove.luau, RaycastHelper.luau)
 Vendored EgoMoose Rbx-Wallstick (June 2026 upstream): sticks the local player's character to any surface -- walls, ceilings, moving parts -- by simulating a hidden "fake" character in a de-rotated geometry world under `workspace.Wallstick` and CFraming the real character to match every physics step. Uses modern `AlignPosition`/`AlignOrientation` constraints; the upstream's one deprecated call (`FindPartsInRegion3WithIgnoreList`) was replaced with `GetPartBoundsInBox`, `Replication.luau` was adapted to `CommunicationService` remotes instead of TypedRemote, and `Trove`/`RaycastHelper`/`Signal` (stravant goodsignal) are vendored as children. Nothing in StarterPlayer is replaced or installed — everything applies at runtime, client-side, only when wallstick is first enabled: `GravityCamera` monkey-patches the live stock `PlayerModule` with `GravityCameraModifier` (adds gravity up-vector, spin-part, rotation-type and screen-relative look-input control to the camera; guards its camera-plane projection at steep view angles; falls back to a tilt-less camera if patching fails; the patch forces `UserGameSettings.RotationType` to `MovementRelative` only while a Wallstick instance exists — the constructor calls `GravityCamera.setRotationTypeForced(true)` and teardown restores the real rotation type, so first-person/shift-lock character facing on the ground is untouched when not wallsticking), and `CharacterHelper.setMyPerformer` temporarily disables the character's stock `Animate` and the player's stock `RbxCharacterSounds` LocalScripts, driving the real character's animations and sounds from the fake humanoid via the vendored `CharacterAnimate`/`CharacterSounds` packages, then restores the stock scripts when wallstick is disabled. The fake humanoid mirrors the real humanoid's `WalkSpeed` so movement modifiers such as sprint continue to apply while stuck. Its optional `directMovement` mode turns off the hidden Humanoid's competing state solver, pins the rig to its current surface plane before and after physics, and drives planar velocity from held input each step, preventing the Gravity Warper from falling off, bobbing with gravity or catching on cloned ceiling seams while collision still blocks walls. Destroying the controller removes its real-character alignment constraints and restores the original `PlatformStand` and `EvaluateStateMachine` values before returning the humanoid to `GettingUp`. Client-only; other players' stuck characters render through the replication channel: senders stream `part + offset` frames every 0.2s, receiving clients anchor and CFrame the sender's root to follow them, and destroying the controller sends `Replication.sendClear()` so the server drops the sender's frame and every receiving client unanchors the root and hands it back to normal replication (without this, other clients would keep the character pinned at its last stuck position — even across respawns). Drive it through `Services.WallstickService` rather than constructing directly.
-- API: `Wallstick.new(options: { parent: Instance, origin: CFrame, retainWorldVelocity: boolean, directMovement: boolean?, camera: { tilt: boolean, spin: boolean } }) -> Wallstick`
+- API: `Wallstick.new(options: { parent: Instance, origin: CFrame, retainWorldVelocity: boolean, directMovement: boolean?, stepHeight: number?, camera: { tilt: boolean, spin: boolean } }) -> Wallstick` -- with `directMovement` the fake character's height is locked, so it cannot climb anything; `stepHeight` makes every collision copy whose top sits between the walking surface (plus 0.1) and `stepHeight` above it non-colliding, so low lips such as ceiling beams are walked across instead of acting as walls
 - API: `Wallstick:set(part: BasePart, normal: Vector3, teleportCF: CFrame?)` / `:setAndPivot(part, normal, position)` / `:setAndTeleport(part, normal, position)` -- stick to a surface
 - API: `Wallstick:getPart() -> BasePart`, `:getNormal(worldSpace: boolean) -> Vector3`, `:getFallDistance() -> number`, `:getMoveDirection() -> Vector3`, `:Destroy()`
 - Remotes: `Wallstick/Replicator`, `Wallstick/Sync` (via `Replication.luau`)
@@ -452,8 +471,10 @@ Who is on stage in the ending and what they do. Builds a stand-in and a double f
 ### Minigames\MinigameBase.luau
 Shared base class every terminal minigame extends: it owns the root frame, theme, run state, tracked connections and heartbeat, and supplies GUI builders (board, status bar, D-pad), input helpers and win/fail plumbing. Subclasses are created with `MinigameBase.extend(id, title, supportsReset)` (which stamps `Id`, `Title`, `SupportsReset` on the class) and must pass their class into `MinigameBase.new(root, api, class)`. The host supplies an `Api` of `{ Complete, Fail?, Theme, Sound? }`; the lifecycle contract a subclass fulfils is `:Start(saved)` (build UI and begin), `:Serialize() -> any?` (resume payload or nil), `:Reset()` (only when `SupportsReset`), plus optional `:IdleMessage()` and `:OnDestroy()` hooks — `:Destroy()` is provided and calls them.
 - API: `MinigameBase.extend(id: string, title: string, supportsReset: boolean) -> class` — makes a subclass table with `Id`/`Title`/`SupportsReset`
+- API: `MinigameBase:BindPress(button: GuiObject, onPress: () -> (), onAlternate: (() -> ())?)` — registers a button for the controller cursor; every game binds each clickable element it builds (cards, pads, cells, the flag toggle, the aim target, the on-screen D-pad) alongside its mouse/touch event
+- API: `MinigameBase:PressAt(point: Vector2, alternate: boolean) -> boolean` — presses the most recently bound shown, interactable button containing a canvas point (`onAlternate` for LT, falling back to `onPress`); bindings whose button left the tree are pruned
 - API: `MinigameBase.new(root: Frame, api: Api, class: any?) -> self` — sets `Root`, `Api`, `Theme`, `State`, `Completed`, `MessageUntil`, `MessageTime`, `Connections`
-- API: `MinigameBase.Directions` — data table mapping WASD/arrow `KeyCode`s to `{x, y}` steps
+- API: `MinigameBase.Directions` — data table mapping WASD/arrow/gamepad D-pad `KeyCode`s to `{x, y}` steps
 - API: `MinigameBase:Track(connection: RBXScriptConnection) -> RBXScriptConnection` — store for auto-disconnect on destroy
 - API: `MinigameBase:NewFrame(parent: Instance, color: Color3, strokeColor: Color3?, thickness: number?) -> Frame`
 - API: `MinigameBase:NewLabel(parent: Instance, text: string, textSize: number) -> TextLabel` — themed font and text color
@@ -461,11 +482,15 @@ Shared base class every terminal minigame extends: it owns the root frame, theme
 - API: `MinigameBase:AddStroke(parent: GuiObject, color: Color3, thickness: number) -> UIStroke`
 - API: `MinigameBase:BuildBoardFrame(aspectRatio: number, options: {Position: UDim2?, Size: UDim2?, Clip: boolean?}?) -> Frame` — centred aspect-locked board, also stored as `self.Board`
 - API: `MinigameBase:BuildStatusBar(leftName: string, initialMessage: string) -> (TextLabel, TextLabel)` — top bar; right label becomes `self.MessageLabel`
-- API: `MinigameBase:BuildDirectionalPad(callback: (x: number, y: number) -> ())` — on-screen WASD pad
-- API: `MinigameBase:ConnectDirectionalKeys(callback: (x: number, y: number) -> ())` — WASD/arrow keyboard input
+- API: `MinigameBase:BuildDirectionalPad(callback: (x: number, y: number) -> ())` — on-screen four-button pad, labelled through `LabelDirection`
+- API: `MinigameBase:ConnectDirectionalKeys(callback: (x: number, y: number) -> ())` — WASD/arrow keys, the gamepad D-pad and the left stick (through `ConnectStick`)
+- API: `MinigameBase:ConnectStick(callback: (x: number, y: number) -> ())` — the gamepad left stick as one `{x, y}` step each time it is pushed past 0.6 on its dominant axis; it re-arms once the stick falls under 0.35 or is pushed past 0.6 in another direction. Sets `UsesStick`, which moves the controller cursor to the right stick for that game
+- API: `MinigameBase:DirectionText(x: number, y: number) -> string` — `W`/`A`/`S`/`D` on keyboard and mouse, the D-pad arrow glyph from `GamepadUIConfig.KeyText` on gamepad and touch
+- API: `MinigameBase:LabelDirection(label: TextLabel | TextButton, x: number, y: number)` — keeps a label's text on `DirectionText` as `PreferredInput` changes
+- API: `MinigameBase:InputHint() -> string` — `SWIPE`, `D-PAD` or `WASD` for the current `PreferredInput`
 - API: `MinigameBase:ConnectSwipes(callback: (x: number, y: number) -> (), continuous: boolean?)` — touch swipes anywhere on the screen as `{x, y}` steps on the dominant axis, once a finger travels 6% of the viewport's shorter side; `continuous` keeps the same finger firing a new step every further 6% so a drag can steer repeatedly, otherwise each touch gives one step
 - API: `MinigameBase:BuildSwipeHint(text: string) -> TextLabel` — dim label left of the D-pad, shown only while `UserInputService.PreferredInput` is `Touch`
-- API: `MinigameBase:ConnectKeys(map: {[Enum.KeyCode]: any}, callback: (value: any) -> ())` — arbitrary key map
+- API: `MinigameBase:ConnectKeys(map: {[Enum.KeyCode]: any}, callback: (value: any) -> ())` — arbitrary keyboard or gamepad key map
 - API: `MinigameBase:PlaySound(name: string, pitch: number?)` — routed through `Api.Sound` if present
 - API: `MinigameBase:FailRun(reason: string?)` — routed through `Api.Fail` if present
 - API: `MinigameBase:Climb(count: number, total: number) -> number` — 0-1 progress ramp, used for rising pitch
@@ -494,6 +519,7 @@ Frogger on a 13x9 grid: hop from the bottom row to the goal row three times whil
 - API: `Frogger:Serialize() -> any?` — `{ Crossings }`, or nil at zero
 - API: `Frogger:Reset()` — clears crossings, re-phases every lane, returns the frog to start
 - API: `Frogger:IdleMessage()` — restores the "REACH THE TOP" prompt
+- Gamepad: hop with the D-pad or the left stick; the controller cursor moves with the right stick.
 - Requires: `Classes\Minigames\MinigameBase`
 
 ### Minigames\Memory.luau
@@ -515,18 +541,19 @@ Frogger on a 13x9 grid: hop from the bottom row to the goal row three times whil
 - Requires: `Classes\Minigames\MinigameBase`
 
 ### Minigames\Simon.luau
-Simon says with four pads driven by WASD/arrows or clicks: watch the playback, repeat it, and the sequence grows by one each round until 7 is reached. Three mistakes reseed the sequence to length 1, show a LOCKOUT and report a failure; the highest length reached is what gets saved.
+Simon says with four pads driven by WASD/arrows, the D-pad, the left stick or clicks; the pads read W/D/S/A on keyboard and ▲▶▼◀ on controller and touch: watch the playback, repeat it, and the sequence grows by one each round until 7 is reached. Three mistakes reseed the sequence to length 1, show a LOCKOUT and report a failure; the highest length reached is what gets saved.
 - API: `Simon.new(root: Frame, api: Api) -> self`
 - API: `Simon:Start(saved: any?)` — builds pads and status bar, reseeds to the saved length, binds keys, starts the playback heartbeat
 - API: `Simon:Serialize() -> any?` — `{ Length }` (best round reached), or nil at zero
 - API: `Simon:Reset()` — clears mistakes and best, reseeds to length 1
 - API: `Simon:OnDestroy()` — drops pad button references
+- Gamepad: the D-pad or left stick presses the pads by direction (up, right, down, left); the controller cursor moves with the right stick.
 - Requires: `Classes\Minigames\MinigameBase`
 
 ### Minigames\Snake.luau
 Snake on a 16x12 grid: eat 4 pellets to win, with the tick interval shortening by 0.006s per pellet eaten from 0.16s. Turns are queued (max 2) so fast inputs are not dropped, and reversing into yourself is rejected; hitting a wall or your own body zeroes the score, respawns and reports a failure. Only the best pellet count survives a save.
 - API: `Snake.new(root: Frame, api: Api) -> self`
-- API: `Snake:Start(saved: any?)` — restores `Best`, builds board and chrome, spawns the snake, binds keys, D-pad and continuous touch swipes (with a "SWIPE ANYWHERE TO STEER" hint on touch), starts the tick heartbeat
+- API: `Snake:Start(saved: any?)` — restores `Best`, builds board and chrome, spawns the snake, binds keys, the gamepad D-pad and left stick (the controller cursor moves with the right stick), the on-screen pad and continuous touch swipes (with a "SWIPE ANYWHERE TO STEER" hint on touch), starts the tick heartbeat
 - API: `Snake:Serialize() -> any?` — `{ Best }`, or nil at zero
 - API: `Snake:Reset()` — banks the score into `Best`, respawns the snake
 - API: `Snake:IdleMessage()` — shows the best score, or the `EAT <PELLETS_TO_WIN>` prompt
@@ -549,6 +576,7 @@ Client half of the throwable ball: finds the nearest Eye within 20 studs (`ToolC
 Client half of the camcorder. Activation asks the server to check the gamepass; on `Allowed` it leaves the tool equipped and usable while suppressing its first-person viewmodel before starting video capture, so unequipping it or activating it again stops the take. Unequip always calls Roblox's stop API directly rather than trusting the local recording flag, and an unequip during capture startup is remembered and stops recording as soon as the engine starts it. The Studio-authored `StarterGui.CamcorderRecording` panel blinks its red light and offers a touch STOP button, with X or gamepad B as the stop key; a post-show state check keeps a capture that finishes during startup from leaving this panel stuck onscreen. Recording also ends at the configured duration or Roblox's 30-second cap. Completion reports back to the server, then hands the finished tape to `PhotoDevelopService` for playback and the keep-or-burn prompt; only a successful keep reports the final removal decision, while burn or save failure preserves temporary camcorders. Roblox's video capture parameters are currently non-operational, so the hand and camcorder cannot remain locally visible while being excluded only from the final tape.
 - API: none beyond the `ClientTool` hooks.
 - Remotes: `Tools/Signal` — fires `Record`, `Finished`, `Kept`, `Burned` or `Cancelled`, listens `Allowed` and `Denied`
+- The STOP button reads `STOP  [X]` on keyboard, `STOP  [B]` on gamepad and `STOP` on touch, picked when recording starts; X and B both stop.
 - Requires: `Classes.ClientTool`, `Configs.CaptureConfig`, `CaptureGalleryService`, `NotificationService`, `PhotoDevelopService`, `ViewmodelService`; expects `StarterGui.CamcorderRecording`
 
 ### Tools\Camera.luau

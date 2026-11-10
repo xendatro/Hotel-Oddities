@@ -24,6 +24,7 @@ type EnableOptions = {
 	surfaceNormal: Vector3?,
 	directMovement: boolean?,
 	lockSurface: boolean?,
+	stepHeight: number?,
 }
 
 local ActiveSession: Session? = nil
@@ -92,6 +93,7 @@ function WallstickService.Enable(options: EnableOptions?): any
 		origin = wallstickOrigin.CFrame,
 		retainWorldVelocity = true,
 		directMovement = options and options.directMovement,
+		stepHeight = options and options.stepHeight,
 		camera = {
 			tilt = if options and options.tilt ~= nil then options.tilt else true,
 			spin = if options and options.spin ~= nil then options.spin else true,

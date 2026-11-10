@@ -10,7 +10,12 @@ if not RunService:IsClient() then
 	return MinigameService
 end
 
+local GamepadUIConfig = require(ReplicatedStorage.Configs.GamepadUIConfig)
+local GamepadUIService = require(ReplicatedStorage.Services.GamepadUIService)
+local SurfaceCursorService = require(ReplicatedStorage.Services.SurfaceCursorService)
+
 local TAG = "HackComputer"
+local CURSOR_KEY = "Minigame"
 
 local ORDER = { "Memory", "AimTrainer", "Frogger", "Snake", "Simon" }
 
@@ -52,9 +57,11 @@ export type Api = {
 
 export type Game = {
 	Start: (self: any, saved: any?) -> (),
+	PressAt: (self: any, point: Vector2, alternate: boolean) -> boolean,
 	Serialize: (self: any) -> any?,
 	Reset: (self: any) -> (),
 	Destroy: (self: any) -> (),
+	UsesStick: boolean?,
 }
 
 export type Module = {
@@ -467,6 +474,7 @@ type Session = {
 	NoticeReason: TextLabel,
 	NoticeGeneration: number,
 	Won: boolean,
+	Press: ((viewportPoint: Vector2, alternate: boolean) -> ())?,
 }
 
 local current: Session? = nil
@@ -524,6 +532,13 @@ local function beginFanfare(session: Session)
 	end)
 end
 
+function MinigameService:PressAt(viewportPoint: Vector2, alternate: boolean?)
+	local session = current
+	if session and session.Press then
+		session.Press(viewportPoint, alternate == true)
+	end
+end
+
 function MinigameService:IsOpen(): boolean
 	return current ~= nil
 end
@@ -532,6 +547,7 @@ function MinigameService:Close()
 	local session = current
 	if not session then return end
 	current = nil
+	GamepadUIService:SetCursor(CURSOR_KEY, nil)
 
 	for _, connection in session.Connections do
 		connection:Disconnect()
@@ -753,13 +769,15 @@ function MinigameService:Open(model: Model, screen: BasePart, callbacks: Callbac
 	}
 	current = session
 
-	exit.MouseButton1Click:Connect(function()
+	local function exitSession()
 		if current ~= session or session.Won then return end
 		playCue("Close")
 		local onExit = session.Callbacks.OnExit
 		self:Close()
 		onExit()
-	end)
+	end
+	exit.Activated:Connect(exitSession)
+	local chrome: { { Button: GuiObject, Press: () -> () } } = { { Button = exit, Press = exitSession } }
 
 	local api: Api = {
 		Theme = Theme,
@@ -795,13 +813,15 @@ function MinigameService:Open(model: Model, screen: BasePart, callbacks: Callbac
 		reset.ZIndex = 3
 		reset.Parent = titleBar
 
-		reset.MouseButton1Click:Connect(function()
+		local function resetGame()
 			if current ~= session or session.Won then return end
 			safe(`{id}.Reset`, function()
 				playing:Reset()
 			end)
 			showNotice(session, "SYSTEM RESET", "PROGRESS CLEARED")
-		end)
+		end
+		reset.Activated:Connect(resetGame)
+		table.insert(chrome, { Button = reset, Press = resetGame })
 	end
 
 	local started = safe(`{id}.Start`, function()
@@ -813,6 +833,28 @@ function MinigameService:Open(model: Model, screen: BasePart, callbacks: Callbac
 		return
 	end
 
+	session.Press = function(point: Vector2, alternate: boolean)
+		if current ~= session or session.Won then return end
+		local canvasPoint = SurfaceCursorService:Project(screen, gui.Face, point, CANVAS)
+		if not canvasPoint then return end
+
+		for _, entry in chrome do
+			if SurfaceCursorService:Contains(entry.Button, canvasPoint) then
+				entry.Press()
+				return
+			end
+		end
+		safe(`{id}.PressAt`, function()
+			playing:PressAt(canvasPoint, alternate)
+		end)
+	end
+
+	GamepadUIService:SetCursor(CURSOR_KEY, {
+		Press = function(point: Vector2, alternate: boolean)
+			MinigameService:PressAt(point, alternate)
+		end,
+		Stick = if playing.UsesStick then GamepadUIConfig.Cursor.SecondaryStick else nil,
+	})
 	playCue("Open")
 end
 

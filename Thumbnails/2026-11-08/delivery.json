@@ -1,0 +1,16 @@
+{
+  "archive": "C:/Users/caden/Downloads/Hotel-Oddities-50-Thumbnails-2026-11-08.zip",
+  "bytes": 168600900,
+  "sha256": "f5bc2c8dcd4fab8a7cd3dc48ae6a819dbfb270dd892b1bb966e64b968a19119c",
+  "finalPngCount": 50,
+  "dimensions": [1920, 1080],
+  "uniqueFinalHashes": 50,
+  "zipIntegrity": "passed",
+  "taildrop": {
+    "target": "D",
+    "address": "100.98.51.60",
+    "sentAtLocal": "2026-11-08 00:36:14 America/New_York",
+    "exitCode": 0,
+    "status": "sent"
+  }
+}

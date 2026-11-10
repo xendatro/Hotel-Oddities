@@ -12,7 +12,9 @@ return {
 		Hud = {
 			GuiName = "CamcorderRecording",
 			StopKey = Enum.KeyCode.X,
-			StopText = "STOP  [X]",
+			GamepadStopKey = Enum.KeyCode.ButtonB,
+			StopFormat = "STOP  [%s]",
+			StopTouchText = "STOP",
 			StoppingText = "STOPPING...",
 		},
 	},
